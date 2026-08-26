@@ -4909,12 +4909,22 @@ function updateCardSizes(){
   HW=Math.round(_vw*.14);HH=Math.round(HW*1.43);
 }
 updateCardSizes();
-let _resizeTid=null;
+let _resizeTid=null,_lastVw=window.innerWidth;
+// Card sizing only ever depends on width (see updateCardSizes above), but on iOS the on-screen
+// keyboard showing/hiding fires a plain 'resize' event too — it only changes viewport HEIGHT. A
+// naive re-render on every resize would nuke and rebuild the entire #app tree the instant someone
+// focuses a text input (e.g. the room-code field), destroying that very input mid-focus and
+// dismissing the keyboard before it's even shown. Ignoring height-only resizes fixes that without
+// losing the real case (rotating the device, resizing a desktop window) this listener exists for.
 window.addEventListener('resize',()=>{
   clearTimeout(_resizeTid);
-  _resizeTid=setTimeout(()=>{updateCardSizes();render();},150);
+  _resizeTid=setTimeout(()=>{
+    if(window.innerWidth===_lastVw)return;
+    _lastVw=window.innerWidth;
+    updateCardSizes();render();
+  },150);
 });
-window.addEventListener('orientationchange',()=>{updateCardSizes();render();});
+window.addEventListener('orientationchange',()=>{_lastVw=window.innerWidth;updateCardSizes();render();});
 
 function matchMoment(sorted){
   const winner=sorted[0];
@@ -5246,6 +5256,20 @@ function fxSeatGlow(seatIdx,color){
 window.v14StartGame=v14Intro;
 
 function render(){
+  // render() always fully rebuilds #app's innerHTML from scratch, which destroys whatever DOM node
+  // is currently focused — including a text input mid-keystroke. That's not just a hypothetical:
+  // any background render (the family-history fetch resolving, an online-sync tick, a resize
+  // debounce) landing while someone's typing a name or room code wipes their focus and in-progress
+  // text, which on mobile also dismisses the on-screen keyboard entirely. Capture the focused
+  // field's id/value/cursor position beforehand and restore them onto its same-id replacement
+  // afterward, so typing survives a re-render it has no reason to know or care about.
+  const appEl=document.getElementById('app');
+  const active=document.activeElement;
+  const isTypingField=active&&active.id&&(active.tagName==='INPUT'||active.tagName==='TEXTAREA')&&appEl&&appEl.contains(active);
+  const savedId=isTypingField?active.id:null;
+  const savedVal=isTypingField?active.value:null;
+  const savedSel=isTypingField&&typeof active.selectionStart==='number'?[active.selectionStart,active.selectionEnd]:null;
+
   const s=G.scr;let html='';
   if(G.ambientOn&&hasActiveTable())startAmbient();else stopAmbient();
   if(s==='home')html=rHome();
@@ -5260,8 +5284,17 @@ function render(){
   else if(s==='yahtzeeend')html=rYahtzeeEnd();
   else if(s==='moments')html=rMoments();
   else if(s==='family')html=rFamily();
-  document.getElementById('app').innerHTML=html;
+  appEl.innerHTML=html;
   document.getElementById('app-sidebar-root').innerHTML=rSidebar();
+
+  if(savedId){
+    const restored=document.getElementById(savedId);
+    if(restored&&(restored.tagName==='INPUT'||restored.tagName==='TEXTAREA')){
+      restored.value=savedVal;
+      restored.focus();
+      if(savedSel){try{restored.setSelectionRange(savedSel[0],savedSel[1]);}catch(e){}}
+    }
+  }
 
   // Overlays at body level
   let ov='';
