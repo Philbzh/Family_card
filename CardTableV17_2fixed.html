@@ -2424,7 +2424,7 @@ function lDealRoulette(){
 }
 function roulPlaceBet(key){
   const p=G.lp[G.lcur];
-  if(G.roulSpinning)return;
+  if(G.roulSpinning){toast('Wheel is spinning — wait for it to land');SFX.illegal();return;}
   if(p.chips<G.roulChip){toast('Not enough chips');SFX.illegal();return;}
   p.chips-=G.roulChip;
   p.roulBets[key]=(p.roulBets[key]||0)+G.roulChip;
@@ -2434,7 +2434,7 @@ function roulPlaceBet(key){
 }
 function roulUndo(){
   const p=G.lp[G.lcur];
-  if(G.roulSpinning)return;
+  if(G.roulSpinning){toast('Wheel is spinning — wait for it to land');SFX.illegal();return;}
   const last=p.roulBetLog.pop();
   if(!last)return;
   p.roulBets[last.key]-=last.amt;
@@ -2445,7 +2445,7 @@ function roulUndo(){
 }
 function roulClearBets(){
   const p=G.lp[G.lcur];
-  if(G.roulSpinning)return;
+  if(G.roulSpinning){toast('Wheel is spinning — wait for it to land');SFX.illegal();return;}
   Object.values(p.roulBets).forEach(amt=>{p.chips+=amt;});
   p.roulBets={};p.roulBetLog=[];
   render();
@@ -2519,7 +2519,8 @@ function roulResolve(num){
 // mutation against the now-current state, rather than overwriting their change.
 async function oRoulMutate(mutate){
   for(let i=0;i<5;i++){
-    const state=await dbRead(G.roomId);if(!state||state.roulSpinning)return;
+    const state=await dbRead(G.roomId);if(!state)return;
+    if(state.roulSpinning){if(i===0){toast('Wheel is spinning — wait for it to land');SFX.illegal();}return;}
     const expectedTs=state._ts;
     if(!mutate(state))return;
     onSrv(state); // optimistic local render; corrected by the next real sync if this write loses the race
@@ -4430,7 +4431,7 @@ function rTable(){
   // Hand
   const isDraw=isPokerGame&&pokerPhase==='draw'&&mine;
   const dealIn=!!G.lDealIn;
-  const beginnerHint=G.beginnerMode&&gameId==='maumau'&&mine&&!G.lspick;
+  const beginnerHint=G.beginnerMode&&(gameId==='maumau'||isUno)&&mine&&!G.lspick;
   const handHTML=myHand.map((c,i)=>{
     const selected=isDraw&&G.drawSelections.has(i);
     const shaking=(!online&&G.lshake===c.id);
@@ -4469,7 +4470,7 @@ function rTable(){
     <div class="game-bar">
       <div class="gb-game">${currentGame().icon} ${currentGame().name.split(' ').slice(-1)[0]}</div>
       <div class="gb-turn${mine?' mine':''}">${turnLabel}</div>
-      <div class="gb-right">${gameId==='maumau'?beginnerBtn():''}${rulesBtn()}${quitBtn()}${sndBtn()}</div>
+      <div class="gb-right">${(gameId==='maumau'||isUno)?beginnerBtn():''}${rulesBtn()}${quitBtn()}${sndBtn()}</div>
     </div>
     <div class="opp-strip">${pills}</div>
     <div class="game-status">
