@@ -2601,17 +2601,27 @@ async function oRoulSpin(){
   try{
     const state=await dbRead(G.roomId);if(!state||state.roulSpinning)return;
     if(!state.players.some(p=>Object.keys(p.roulBets||{}).length>0)){toast('Place at least one bet first');return;}
-    state.roulSpinning=true;state.roulHighlight=null;state.roulSpinStartedAt=Date.now();
+    // Only the winning number and a start timestamp go to the database — the chase-light sequence
+    // itself is fully deterministic from winNum (same algorithm as the local game), so every
+    // connected client (including this one, via its own onSrv call right below) can replay the
+    // identical animation purely locally. Earlier this wrote a highlight update to Supabase on every
+    // single animation frame, which meant the animation's pacing was really the pacing of a network
+    // round-trip, not a smooth timer — exactly the "stops, continues, stops again" stutter this
+    // was rebuilt to fix.
+    state.roulSpinning=true;state.roulHighlight=null;state.roulSpinStartedAt=Date.now();state.roulSpinWinNum=rnd(0,36);
     SFX.shuffle();
     state._ts=Date.now();onSrv(state);
     await dbWrite(G.roomId,state);
   } finally { _onlineBusy=false; }
-  oRoulChaseAnimate(rnd(0,36));
 }
-// Only the client that started the spin drives this chained-timeout sequence (same pattern as
-// oBjDealerPlay/oBjDealerStep) — everyone else just receives each state.roulHighlight update over
-// realtime sync and renders it, so the chase-light plays in sync for the whole table.
-async function oRoulChaseAnimate(winNum){
+// Runs entirely client-side — no dbRead/dbWrite per frame — triggered on every connected client by
+// onSrv() the moment it sees a new roulSpinStartedAt. Once the sequence finishes, this client
+// attempts to resolve the spin; if another client's copy of this same animation gets there first,
+// oRoulResolve's own roulSpinning guard makes the loser's attempt a harmless no-op.
+let _roulAnimatingSpinAt=null;
+function oRoulChaseAnimate(winNum,startedAt){
+  if(_roulAnimatingSpinAt===startedAt)return;
+  _roulAnimatingSpinAt=startedAt;
   const order=ROUL_WHEEL_ORDER;
   const winIdx=order.indexOf(winNum);
   const totalSteps=26;
@@ -2619,12 +2629,13 @@ async function oRoulChaseAnimate(winNum){
   let idx=mod(winIdx-totalSteps,order.length);
   for(let i=0;i<=totalSteps;i++){seq.push(order[idx]);idx=mod(idx+1,order.length);}
   let i=0;
-  const step=async()=>{
-    const state=await dbRead(G.roomId);if(!state||!state.roulSpinning)return;
-    state.roulHighlight=seq[i];
+  const step=()=>{
+    // Bail if this exact spin isn't the current one anymore (already resolved, or a fresher spin
+    // started) — stale timers from a backgrounded/slow tab shouldn't clobber a newer highlight.
+    if(!(G.isOnline&&G.srv?.gameId==='roulette'&&G.srv?.roulSpinning&&G.srv?.roulSpinStartedAt===startedAt))return;
+    G.roulHighlight=seq[i];
     SFX.chip();
-    state._ts=Date.now();onSrv(state);
-    await dbWrite(G.roomId,state);
+    render();
     i++;
     if(i>=seq.length){setTimeout(()=>oRoulResolve(winNum),1100);return;}
     const progress=i/seq.length;
@@ -3853,6 +3864,7 @@ function onSrv(state){
   const prevBjPlayers=state.gameId==='blackjack'?G.srv?.players:null;
   const prevBattleLast=state.gameId==='battle'?G.srv?.battleLast:null;
   const prevCommunityLen=state.gameId==='texas'?(G.srv?.community?.length||0):0;
+  const prevRoulSpinStartedAt=state.gameId==='roulette'?G.srv?.roulSpinStartedAt:null;
   G.srv=state;_lts=state._ts||0;
   if(state.mauPend&&state.mauPend.pid===G.myPid){
     const sig=state.mauPend.pid+'|'+state.mauPend.deadline;
@@ -3894,6 +3906,19 @@ function onSrv(state){
   if(state.gameId==='battle'&&state.battleLast&&JSON.stringify(state.battleLast)!==JSON.stringify(prevBattleLast)){
     G.matchStats.cardsPlayed+=2;
     if(state.battleLast.warRounds>0)fxPulse('blue');else fxRipple();
+  }
+  if(state.gameId==='roulette'){
+    // The chase-light animation runs entirely locally on every client (see oRoulChaseAnimate) —
+    // this just detects when a genuinely NEW spin has started (by comparing roulSpinStartedAt, not
+    // just roulSpinning, so an unrelated state write arriving mid-spin — e.g. someone reacting with
+    // an emoji — can't re-trigger it) and kicks off this client's own copy of the animation. When
+    // no spin is in progress, sync the idle/settled highlight directly so a fresh join or refresh
+    // shows the last result immediately without needing to replay anything.
+    if(state.roulSpinning&&state.roulSpinStartedAt&&state.roulSpinStartedAt!==prevRoulSpinStartedAt){
+      oRoulChaseAnimate(state.roulSpinWinNum,state.roulSpinStartedAt);
+    } else if(!state.roulSpinning){
+      G.roulHighlight=state.roulHighlight??null;
+    }
   }
   if(state.phase==='lobby'){G.scr='lobby';render();return;}
   if(state.phase==='game'){
@@ -4788,7 +4813,10 @@ function rRouletteTable(){
   const online=G.isOnline,state=online?G.srv:null;
   const players=online?(state?.players||[]):G.lp;
   const spinning=online?!!state?.roulSpinning:G.roulSpinning;
-  const highlight=online?(state?.roulHighlight??null):G.roulHighlight;
+  // Always the client-local value now, even online — the chase-light animation runs purely
+  // client-side (see oRoulChaseAnimate) and onSrv() keeps this synced to the settled server value
+  // whenever no spin is in progress, so this works identically for local and online play.
+  const highlight=G.roulHighlight;
   const history=online?(state?.roulHistory||[]):(G.roulHistory||[]);
   const me=online?players.find(pl=>pl.id===G.myPid):players[G.lcur];
   if(!me)return`<div class="scr on"><p style="padding:2rem;text-align:center;">Loading…</p></div>`;
