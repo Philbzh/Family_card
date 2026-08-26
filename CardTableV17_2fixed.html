@@ -223,6 +223,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100v
 .v10-gc--yahtzee:hover{border-color:rgba(242,201,76,.42);}
 .v10-gc--roulette{background:linear-gradient(160deg,rgba(224,99,122,.32),rgba(30,8,14,.3));border-top-color:#e0637a;box-shadow:0 10px 28px -12px rgba(224,99,122,.35);}
 .v10-gc--roulette:hover{border-color:rgba(224,99,122,.42);}
+.v10-gc--uno{background:linear-gradient(160deg,rgba(229,71,58,.32),rgba(30,8,10,.3));border-top-color:#e5473a;box-shadow:0 10px 28px -12px rgba(229,71,58,.35);}
+.v10-gc--uno:hover{border-color:rgba(229,71,58,.42);}
 .v10-card-icon{width:2.75rem;height:2.75rem;display:grid;place-items:center;font-size:1.5rem;line-height:1;background:rgba(0,0,0,.28);border-radius:12px;border:1px solid rgba(255,255,255,.16);box-shadow:0 4px 14px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.1);position:relative;}
 .v10-card-name{font-family:var(--serif);font-size:1rem;color:var(--paper);margin-top:.55rem;position:relative;}
 .v10-card-meta{font-size:.62rem;color:var(--paper3);margin-top:.16rem;position:relative;}
@@ -356,6 +358,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100v
   .v10-main .v10-gc--battle{background:linear-gradient(180deg,rgba(26,54,76,.85),rgba(8,16,22,.93));border-top-color:rgba(126,194,242,.6);--tile-glow:rgba(126,194,242,.6);}
   .v10-main .v10-gc--yahtzee{background:linear-gradient(180deg,rgba(78,64,20,.85),rgba(20,15,6,.93));border-top-color:rgba(242,201,76,.6);--tile-glow:rgba(242,201,76,.6);}
   .v10-main .v10-gc--roulette{background:linear-gradient(180deg,rgba(74,26,36,.85),rgba(20,8,12,.93));border-top-color:rgba(224,99,122,.6);--tile-glow:rgba(224,99,122,.6);}
+  .v10-main .v10-gc--uno{background:linear-gradient(180deg,rgba(74,24,20,.85),rgba(20,8,7,.93));border-top-color:rgba(229,71,58,.6);--tile-glow:rgba(229,71,58,.6);}
 
   /* ── actions → pills ── */
   .v10-main .v10-actions{margin:2px 0 0;gap:.7rem;}
@@ -740,6 +743,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100v
 .roul-player-pill .av-img{width:1.1rem;height:1.1rem;border-radius:50%;object-fit:cover;}
 .roul-player-pill.active{background:rgba(212,168,67,.18);border-color:rgba(212,168,67,.5);color:var(--gold2);box-shadow:0 0 0 1px rgba(212,168,67,.15);}
 .roul-pill-dot{width:.5rem;height:.5rem;border-radius:50%;background:var(--pc);box-shadow:0 0 0 2px rgba(0,0,0,.35);flex:0 0 auto;}
+.roul-pill-away{opacity:.75;animation:roul-away-fade 1.6s ease-in-out infinite;}
+@keyframes roul-away-fade{0%,100%{opacity:.4;}50%{opacity:.9;}}
 .roul-pill-chips{opacity:.7;}
 .roul-pill-bet{color:var(--gold2);}
 
@@ -1543,7 +1548,37 @@ function dbSub(id,cb){
   if(_awayTick)clearInterval(_awayTick);
   _awayTick=setInterval(()=>{if(Object.keys(_absentSince).length)render();},4000);
 }
-function stopSync(){if(_ch)SB().removeChannel(_ch);if(_poll)clearInterval(_poll);if(_awayTick)clearInterval(_awayTick);_ch=_poll=_awayTick=null;_presentPids=new Set();_absentSince={};}
+function stopSync(){if(_ch)SB().removeChannel(_ch);if(_poll)clearInterval(_poll);if(_awayTick)clearInterval(_awayTick);_ch=_poll=_awayTick=null;_presentPids=new Set();_absentSince={};localStorage.removeItem('ct_online_session');}
+// Remembers just enough to silently rejoin the same seat after a refresh, tab close, or the app
+// being reopened from the home screen — without this, a dropped connection mid-game meant losing
+// your spot and having to rejoin as a brand-new player. Cleared automatically by stopSync() whenever
+// the player deliberately leaves (home, quit, new game), so it never outlives the session it's for.
+function saveOnlineSession(){
+  if(!G.roomId||!G.myPid)return;
+  localStorage.setItem('ct_online_session',JSON.stringify({roomId:G.roomId,myPid:G.myPid,myName:G.myName,myAvatar:G.myAvatar,isHost:G.isHost}));
+}
+function resumeOnlineSession(){
+  const raw=localStorage.getItem('ct_online_session');
+  if(!raw)return Promise.resolve(false);
+  let sess=null;try{sess=JSON.parse(raw);}catch(e){}
+  if(!sess?.roomId||!sess?.myPid){localStorage.removeItem('ct_online_session');return Promise.resolve(false);}
+  const ready=typeof supabase==='undefined'?new Promise(res=>loadSupabase(res)):Promise.resolve();
+  return ready.then(()=>dbRead(sess.roomId)).then(state=>{
+    if(!state||!(state.players||[]).some(p=>p.id===sess.myPid)){
+      localStorage.removeItem('ct_online_session');
+      return false;
+    }
+    G.roomId=sess.roomId;G.myPid=sess.myPid;G.myName=sess.myName||G.myName;G.myAvatar=sess.myAvatar||G.myAvatar;G.isHost=!!sess.isHost;G.isOnline=true;G.selGame=state.gameId||G.selGame;
+    // Seed G.srv with a clone of the incoming state itself (not left null) so onSrv's own before/after
+    // diffing sees "nothing changed" on this first call and skips replaying win fanfare, confetti,
+    // history entries, or "your turn" notifications that already happened before the refresh.
+    G.srv={...state};
+    dbSub(sess.roomId,onSrv);
+    onSrv(state);
+    render();
+    return true;
+  }).catch(()=>false);
+}
 // Two stages: a quiet "may be away" hint once someone's been gone a little while, then an actual
 // skip button once it's been long enough that waiting on them is genuinely blocking the table.
 const AWAY_HINT_MS=12000,AWAY_SKIP_MS=20000;
@@ -1641,8 +1676,8 @@ const GAMES=[
    rules:['A European wheel — <b>0–36</b>, single zero. Everyone bets on the same shared table before each spin.','<b>Inside bet</b>: a straight number pays <b>35:1</b>.','<b>Outside bets</b>: Red/Black, Odd/Even, 1–18/19–36 all pay <b>1:1</b>. A dozen or a column pays <b>2:1</b>.','Pick a chip value, tap the table to place it, tap again to add more. Tap a bet to remove one chip.','Once everyone\'s happy with their bets, spin the wheel — every matching bet pays out at once.','0 loses every outside bet, but a straight-up 0 still pays 35:1.']},
   {id:'romme',icon:'♦️',name:'Rommé',players:'2–6',dur:'20–45 min',diff:'medium',deal:13,locked:true,cover:'assets/games/romme.png',
    rules:['Draw one card per turn, discard one.','Form <b>sets</b> (3+ same rank) or <b>runs</b> (3+ consecutive same suit).','Lay melds face-up, add to existing melds.','Empty your hand to win.','Coming soon — not yet playable.']},
-  {id:'uno',icon:'🔴',name:'Uno',players:'2–10',dur:'10–20 min',diff:'easy',deal:7,locked:true,cover:'assets/games/uno.png',
-   rules:['Match the <b>color</b> or <b>number/symbol</b> of the top card.','Special cards: <b>Skip</b>, <b>Reverse</b>, <b>Draw Two</b>, <b>Wild</b>, <b>Wild Draw Four</b>.','1 card left: say <b>Uno!</b> or draw 2 as a penalty.','First empty hand wins the round.','Coming soon — not yet playable.']},
+  {id:'uno',icon:'🔴',name:'Uno',players:'2–8',dur:'10–20 min',diff:'easy',deal:7,maxP:8,cover:'assets/games/uno.png',
+   rules:['Match the <b>color</b> or <b>number/symbol</b> of the top card.','<b>Skip</b> — next player loses their turn.','<b>Reverse</b> — play switches direction (acts as a Skip in a 2-player game).','<b>Draw Two</b> — next player draws 2 and is skipped.','<b>Wild</b> — choose the next color.','<b>Wild Draw Four</b> — choose the next color; next player also draws 4 and is skipped.','1 card left: say <b>Uno!</b> within 5 s or draw 2 as a penalty.','First empty hand wins the round — winner scores everyone else\'s hand value (numbers = face value, action cards = 20, wilds = 50).']},
   {id:'hearts',icon:'♥️',name:'Hearts',players:'4',dur:'20–40 min',diff:'medium',deal:13,locked:true,
    rules:['Highest card of led suit wins the trick.','Avoid <b>hearts</b> (1 pt each) and <b>Q♠</b> (13 pts).','Lowest score after someone hits 100 pts wins.','<b>Shoot the Moon</b>: take ALL hearts + Q♠ = 0 pts for you, +26 for everyone else.','Coming soon — not yet playable.']},
   {id:'bridge',icon:'♣️',name:'Bridge',players:'4',dur:'45–90 min',diff:'hard',deal:13,locked:true,rules:['Coming in Phase 3.']},
@@ -1717,6 +1752,35 @@ function cardVal(c){
   if(['A','K','Q'].includes(c.rank))return 10;
   return+c.rank;
 }
+// Standard 108-card Uno deck: 4 colors × (one 0, two each of 1–9, two each of Skip/Reverse/Draw
+// Two) = 100 colored cards, plus 4 Wild + 4 Wild Draw Four = 108. Cards are {color,value} rather
+// than {suit,rank} — a deliberately different shape from the playing-card deck above so the two
+// games' card logic never accidentally cross-reads the wrong field.
+const UNO_COLORS=['red','yellow','green','blue'];
+function buildUnoDeck(){
+  const d=[];
+  const mk=(color,value)=>d.push({id:color+value+Math.random().toString(36).slice(2,6),color,value});
+  UNO_COLORS.forEach(c=>{
+    mk(c,'0');
+    for(let n=1;n<=9;n++){mk(c,String(n));mk(c,String(n));}
+    ['skip','reverse','draw2'].forEach(v=>{mk(c,v);mk(c,v);});
+  });
+  for(let i=0;i<4;i++){mk('black','wild');mk('black','wild4');}
+  return d;
+}
+function unoCardVal(c){
+  // Official Uno scoring, used for round-end tallies: number cards = face value, action cards = 20,
+  // wilds = 50.
+  if(c.color==='black')return 50;
+  if(['skip','reverse','draw2'].includes(c.value))return 20;
+  return+c.value;
+}
+function unoIsAction(c){return['skip','reverse','draw2','wild','wild4'].includes(c.value);}
+function unoCardLabel(c){
+  const names={skip:'Skip',reverse:'Reverse',draw2:'Draw Two',wild:'Wild',wild4:'Wild Draw Four'};
+  const label=names[c.value]||c.value;
+  return c.color==='black'?label:`${c.color[0].toUpperCase()+c.color.slice(1)} ${label}`;
+}
 
 /* ═══════ POKER HAND EVALUATOR ═══════ */
 function evalHand(cards){
@@ -1768,7 +1832,30 @@ function handName(score){
 /* ═══════ HISTORY ═══════ */
 const DEVICE_ID=(()=>{try{let id=localStorage.getItem('ct_device_id');if(!id){id=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():'d'+Date.now().toString(36)+Math.random().toString(36).slice(2);localStorage.setItem('ct_device_id',id);}return id;}catch{return'anon';}})();
 function getHistory(){try{return JSON.parse(localStorage.getItem('ct_history')||'[]');}catch{return[];}}
-function addHistory(e){const h=getHistory();h.unshift(e);if(h.length>50)h.pop();localStorage.setItem('ct_history',JSON.stringify(h));syncHistory(e);checkAchievements();}
+function addHistory(e){const h=getHistory();h.unshift(e);if(h.length>50)h.pop();localStorage.setItem('ct_history',JSON.stringify(h));syncHistory(e);checkAchievements();setTimeout(loadFamilyHistory,1200);}
+// Family-wide leaderboard data — every device that plays writes into the shared Supabase
+// game_history table via syncHistory() above, so this reflects every family member's games across
+// every phone/tablet, not just whichever device is being looked at. Falls back to this device's own
+// localStorage history (getHistory()) until the remote fetch lands, or forever if offline/unreachable,
+// so the Family screen is never empty — it just narrows to "what this device has seen" until synced.
+let _familyHistoryCache=null,_familyHistoryLoading=false;
+async function fetchFamilyHistory(){
+  const sb=SB();if(!sb)return null;
+  try{
+    const{data,error}=await sb.from('game_history').select('game_id,mode,winner_name,players,played_at').order('played_at',{ascending:false}).limit(500);
+    if(error||!data)return null;
+    return data.map(r=>({game:r.game_id,mode:r.mode,winner:r.winner_name,players:r.players||[],date:r.played_at}));
+  }catch(e){return null;}
+}
+function loadFamilyHistory(){
+  if(_familyHistoryLoading)return;
+  _familyHistoryLoading=true;
+  (typeof supabase==='undefined'?new Promise(res=>loadSupabase(res)):Promise.resolve()).then(fetchFamilyHistory).then(data=>{
+    _familyHistoryLoading=false;
+    if(data){_familyHistoryCache=data;render();}
+  });
+}
+function familyHistory(){return _familyHistoryCache||getHistory();}
 // Achievement Unlocks — a shared trophy case for the table (device-level, like the existing
 // G.gp/G.tw stats already shown on Home), not tied to a specific player's account. Checked once
 // after every recorded game; each id can only fire once, ever, persisted in localStorage.
@@ -1857,7 +1944,7 @@ function digestData(){
 function getFamily(){try{return JSON.parse(localStorage.getItem('ct_family')||'[]');}catch{return[];}}
 function saveFamily(list){localStorage.setItem('ct_family',JSON.stringify(list));}
 function familyStats(name){
-  const history=getHistory();
+  const history=familyHistory();
   let games=0,wins=0;
   history.forEach(h=>{
     if((h.players||[]).some(p=>p===name))games++;
@@ -1880,7 +1967,7 @@ function applyFeltTheme(theme){
 function familySuggestions(){
   const known=new Set(getFamily().map(m=>m.name));
   const seen=new Set();
-  getHistory().forEach(h=>(h.players||[]).forEach(p=>{if(p&&!known.has(p))seen.add(p);}));
+  familyHistory().forEach(h=>(h.players||[]).forEach(p=>{if(p&&!known.has(p))seen.add(p);}));
   return Array.from(seen).slice(0,6);
 }
 // House Legends — a small hall-of-fame, computed only from what's actually recorded (games played,
@@ -1888,7 +1975,7 @@ function familySuggestions(){
 // genuinely qualifies, so a fresh table with little history just shows nothing rather than a hollow
 // "House Champion: Phil (1 win)" the very first time anyone plays.
 function houseLegends(){
-  const history=getHistory();
+  const history=familyHistory();
   const family=getFamily();
   if(history.length<3||!family.length)return null;
   const nameAvatar={};
@@ -1990,6 +2077,12 @@ function isPoker(){return G.selGame==='texas'||G.selGame==='fivecard';}
 
 /* ═══════ LOCAL GAME LOGIC — MAU MAU ═══════ */
 function lCanPlay(c){
+  if(G.selGame==='uno'){
+    const top=G.ldisc[G.ldisc.length-1];
+    if(!top)return true;
+    if(c.color==='black')return true; // Wild / Wild Draw Four always playable
+    return c.color===G.lsuit||c.value===top.value;
+  }
   if(G.selGame!=='maumau')return true;
   const top=G.ldisc[G.ldisc.length-1];
   if(G.lpend>0)return c.rank==='7'&&G.hr.draw2stack!==false;
@@ -2004,6 +2097,10 @@ function lCanPlay(c){
 }
 
 function lIllegal(c){
+  if(G.selGame==='uno'){
+    const top=G.ldisc[G.ldisc.length-1];
+    return top?`Doesn't match ${sLbl(G.lsuit)} or ${unoCardLabel(top)}.`:'';
+  }
   if(G.selGame!=='maumau')return'';
   if(G.lpend>0)return G.hr.draw2stack!==false?'Play a 7 or draw '+G.lpend+' cards.':'Draw '+G.lpend+' cards.';
   if(G.lskip8)return G.hr.eightReverse!==false?'Play an 8 to pass the skip on, or continue.':'You are skipped.';
@@ -2015,10 +2112,31 @@ function lDrawN(p,n){for(let i=0;i<n;i++){lEnsureDeck();if(G.ldeck.length)p.hand
 
 function mauDealCount(n){return 6;}
 
+function lDealUno(){
+  const deck=shuffle(buildUnoDeck());
+  G.lp.forEach(p=>{p.hand=[];});
+  for(let r=0;r<7;r++)G.lp.forEach(p=>{if(deck.length)p.hand.push(deck.pop());});
+  // Reveal the starting card — reshuffle back in and re-flip on any Skip/Reverse/Draw/Wild card so
+  // the very first turn never has to resolve an effect before anyone's actually played anything.
+  let first=null;
+  for(let i=0;i<500;i++){
+    first=deck.pop();
+    if(!first)break;
+    if(unoIsAction(first)){deck.unshift(first);continue;}
+    break;
+  }
+  if(deck.length)shuffle(deck);
+  G.ldeck=deck;G.ldisc=first?[first]:[];G.lsuit=first?first.color:UNO_COLORS[0];
+  G.ldir=1;G.lcur=G.lstart;G.lmau=null;G.ldrawnCount=0;G.lspick=false;G.lpcard=null;G.llast='';G.lres=null;G.lpend=0;G.lskip8=false;
+  SFX.deal();
+  const cp=G.lp[G.lcur];
+  G.lpass1=cp.avatar+' '+esc(cp.name);G.lpass2='';G.scr='pass';
+}
 function lDeal(){
   const game=currentGame();
   if(game.id==='yahtzee'){lDealYahtzee();return;}
   if(game.id==='roulette'){lDealRoulette();return;}
+  if(game.id==='uno'){lDealUno();return;}
   const deck=shuffle(buildDeck(1,game.id));
   G.lp.forEach(p=>{p.hand=[];p.folded=false;p.bet=0;p.allIn=false;});
 
@@ -3236,20 +3354,48 @@ function lPassTurn(){
   lAdvance(null);
 }
 
-function lAdvance(played){
+function lAdvance(played,steps){
+  steps=steps||1;
   const n=G.lp.length;G.ldrawnCount=0;
-  G.lcur=mod(G.lcur+G.ldir,n);
+  G.lcur=mod(G.lcur+G.ldir*steps,n);
   const cur=G.lp[G.lcur];
   var msg=cur.avatar+' '+esc(cur.name);
   if(G.lpend>0)msg+=' ('+G.lpend+' cards to draw or play a 7)';
   else if(G.lskip8)msg+=' (must play an 8 or pass)';
   G.lpass1=msg;G.lpass2=G.llast;G.llast='';G.scr='pass';render();
 }
+// Uno's turn-advance is a variable number of steps (Skip/Draw Two/Wild Draw Four skip the next
+// player entirely — 2 steps instead of 1) and, for Draw Two/Wild Draw Four, applies the forced
+// draw to that skipped player immediately, rather than deferring it to their own turn the way Mau
+// Mau's stackable 7s do — official Uno has no stacking, so there's nothing to defer.
+function uAdvance(card){
+  const n=G.lp.length;
+  let steps=1;
+  if(card.value==='reverse'){
+    G.ldir*=-1;
+    if(n===2)steps=2; // in a 2-player game, Reverse acts exactly like Skip
+  } else if(card.value==='skip'){
+    steps=2;
+  } else if(card.value==='draw2'||card.value==='wild4'){
+    const victim=G.lp[mod(G.lcur+G.ldir,n)];
+    lDrawN(victim,card.value==='draw2'?2:4);
+    G.llast=(G.llast?G.llast+' ':'')+esc(victim.name)+' draws '+(card.value==='draw2'?2:4)+' and is skipped.';
+    steps=2;
+  }
+  lAdvance(card,steps);
+}
+function lColor(c){
+  G.lsuit=c;G.lspick=false;
+  const card=G.lpcard;G.lpcard=null;
+  G.llast=`${esc(G.lp[G.lcur].name)} chooses ${sLbl(c)}!`;
+  render();lResolve(card);
+}
 
 function lEndRound(winner){
   SFX.win();v14WinnerBurst();celebrateWin(winner.name,winner.avatar);fxPulse('gold');G.tw++;localStorage.setItem('ct_tw',G.tw);
   const wIdx=G.lp.findIndex(p=>p.id===winner.id);if(wIdx>=0)fxSeatGlow(wIdx,'gold');
-  const bd=G.lp.map(p=>{let delta;if(p.id===winner.id){delta=100;p.roundsWon++;}else{delta=-p.hand.reduce((s,c)=>s+cardVal(c),0);}p.totalScore+=delta;return{id:p.id,name:p.name,avatar:p.avatar,delta,total:p.totalScore,isWinner:p.id===winner.id};}).sort((a,b)=>b.total-a.total);
+  const valFn=G.selGame==='uno'?unoCardVal:cardVal;
+  const bd=G.lp.map(p=>{let delta;if(p.id===winner.id){delta=100;p.roundsWon++;}else{delta=-p.hand.reduce((s,c)=>s+valFn(c),0);}p.totalScore+=delta;return{id:p.id,name:p.name,avatar:p.avatar,delta,total:p.totalScore,isWinner:p.id===winner.id};}).sort((a,b)=>b.total-a.total);
   if(isComeback(bd))G.matchStats.comebacks++;
   const mmMoment=isComeback(bd)?`${winner.name} came back to win the round.`:(bd.length>=2&&Math.abs(bd[0].total-bd[1].total)<=5?`A nail-biter — ${winner.name} edges it out.`:`${winner.name} takes the round.`);
   addHistory({game:G.selGame,winner:winner.name,winnerAvatar:winner.avatar,date:new Date().toISOString(),players:G.lp.map(p=>p.name),rules:G.hr,moment:mmMoment,stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
@@ -3262,7 +3408,8 @@ function lMauTimer(player,card,callWord='Mau!',label='Mau'){
     if(!G.lmau||G.lmau.pid!==player.id)return;
     lDrawN(player,2);
     G.llast=esc(player.name)+' forgot to call '+label+'! +2 cards.';
-    const c=G.lmau.card;G.lmau=null;lAdvance(c);
+    const c=G.lmau.card;G.lmau=null;
+    if(G.selGame==='uno')uAdvance(c);else lAdvance(c);
   },DUR);
 }
 function lResolve(card){
@@ -3272,6 +3419,8 @@ function lResolve(card){
     lEndRound(p);return;
   }
   if(G.selGame==='maumau'&&G.hr.mauAnn&&p.hand.length===1){lMauTimer(p,card,'Mau!','Mau');return;}
+  if(G.selGame==='uno'&&p.hand.length===1){lMauTimer(p,card,'Uno!','Uno');return;}
+  if(G.selGame==='uno'){uAdvance(card);return;}
   lAdvance(card);
 }
 
@@ -3296,6 +3445,12 @@ function lPlay(cid){
       G.lspick=true;G.lpcard=card;render();return;
     }
     G.lsuit=card.suit;
+  } else if(G.selGame==='uno'){
+    if(card.color==='black'){ // Wild / Wild Draw Four: choose the next color before resolving
+      G.lspick=true;G.lpcard=card;render();return;
+    }
+    G.lsuit=card.color;
+    if(unoIsAction(card))fxPulse(card.value==='draw2'?'red':'amber');
   }
   // Show the card landing on the discard pile before advancing/switching screens
   G.lthrowing=true;render();
@@ -3322,7 +3477,7 @@ function lMauBtn(){
   const p=G.lp[G.lcur];
   G.llast=esc(p.name)+' calls '+G.lmau.callWord+'!';
   const c=G.lmau.card;G.lmau=null;
-  if(p.hand.length===0){lEndRound(p);}else{lAdvance(c);}
+  if(p.hand.length===0){lEndRound(p);}else if(G.selGame==='uno'){uAdvance(c);}else{lAdvance(c);}
 }
 
 function oCanPlay(card,state){
@@ -3699,6 +3854,33 @@ function makeBack(w,h,extraClass){
     +'</g><rect x="1" y="1" width="'+(w-2)+'" height="'+(h-2)+'" rx="'+cr+'" fill="none" stroke="rgba(212,168,67,.9)" stroke-width="1.5"/>'
     +'</svg></span>';
 }
+function makeUnoCard(card,w,h,extraClass){
+  extraClass=extraClass||'';
+  const bg=UNO_COLOR_HEX[card.color]||'#1c1c1c';
+  const SYMS={skip:'⊘',reverse:'⇄',draw2:'+2',wild:'★',wild4:'+4'};
+  const label=SYMS[card.value]||card.value;
+  const cr=Math.round(w*.09), fs=Math.round(h*.32), cFs=Math.round(h*.13);
+  const uid='uno'+String(card.id||card.color+card.value)+w+h;
+  const isWild=card.color==='black';
+  const wildSlices=isWild?['red','blue','yellow','green'].map((c,i)=>{
+    const x=i%2===0?0:w/2, y=i<2?0:h/2;
+    return `<rect x="${x}" y="${y}" width="${w/2}" height="${h/2}" fill="${UNO_COLOR_HEX[c]}"/>`;
+  }).join(''):'';
+  return `<span class="${extraClass}" style="display:inline-block;flex-shrink:0;line-height:0;">
+    <svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;border-radius:${cr}px;">
+      <defs><clipPath id="${uid}c"><rect width="${w}" height="${h}" rx="${cr}" ry="${cr}"/></clipPath></defs>
+      <g clip-path="url(#${uid}c)">
+        <rect width="${w}" height="${h}" fill="${bg}"/>
+        ${wildSlices}
+        <ellipse cx="${w/2}" cy="${h/2}" rx="${w*.4}" ry="${h*.6}" fill="#fff" transform="rotate(-18 ${w/2} ${h/2})"/>
+        <text x="${w/2}" y="${h/2}" text-anchor="middle" dominant-baseline="central" font-family="Arial,sans-serif" font-weight="900" font-size="${fs}" fill="${isWild?'#222':bg}">${label}</text>
+        <text x="${Math.round(w*.12)}" y="${Math.round(h*.2)}" font-family="Arial,sans-serif" font-weight="800" font-size="${cFs}" fill="#fff">${label}</text>
+        <text x="${Math.round(w*.88)}" y="${Math.round(h*.93)}" text-anchor="end" font-family="Arial,sans-serif" font-weight="800" font-size="${cFs}" fill="#fff">${label}</text>
+      </g>
+      <rect x="1" y="1" width="${w-2}" height="${h-2}" rx="${cr}" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.5"/>
+    </svg>
+  </span>`;
+}
 
 
 function homeGreeting(){
@@ -3757,9 +3939,10 @@ function rMoments(){
   </div>`;
 }
 function rFamily(){
+  if(_familyHistoryCache===null)loadFamilyHistory();
   const family=getFamily();
   const enriched=family.map(m=>({...m,...familyStats(m.name)})).sort((a,b)=>b.wins-a.wins);
-  const totalGames=getHistory().length;
+  const totalGames=familyHistory().length;
   const rows=enriched.map(m=>`<div class="family-card">
     <div class="family-av">${avHTML(m.avatar)}</div>
     <div class="family-body">
@@ -4042,6 +4225,8 @@ function rTable(){
   const currentBet=online?(state?.currentBet||0):G.currentBet;
   const bigBlind=online?(state?.bigBlind||20):G.bigBlind;
   const communityRevealAnim=online?(state?.communityRevealAnim||null):G.communityRevealAnim;
+  const isUno=gameId==='uno';
+  const cardFn=isUno?makeUnoCard:makeCard;
 
   // Hand strength for poker
   let handStr='';
@@ -4110,13 +4295,15 @@ function rTable(){
   } else {
     // Discard pile: wrap cards with explicit positioning inline
     const discPrev = discard.length>=2
-      ? `<div style="position:absolute;top:0;left:0;transform:rotate(-6deg);transform-origin:center center;opacity:.7;z-index:0;">${makeCard(discard[discard.length-2],TW,TH)}</div>`
+      ? `<div style="position:absolute;top:0;left:0;transform:rotate(-6deg);transform-origin:center center;opacity:.7;z-index:0;">${cardFn(discard[discard.length-2],TW,TH)}</div>`
       : '';
     const jackSuitBadge = (gameId==='maumau'&&top&&top.rank==='J'&&curSuit)
       ? `<div class="jack-suit-badge" style="color:${isRed(curSuit)?'#ff5670':'#f2f2f2'}">${SYM[curSuit]}</div>`
+      : (isUno&&top&&top.color==='black'&&curSuit)
+      ? `<div class="jack-suit-badge" style="background:${UNO_COLOR_HEX[curSuit]};width:1.5rem;height:1.5rem;"></div>`
       : '';
     const discTop = top
-      ? `<div style="position:relative;z-index:1;transform:rotate(1.5deg);transform-origin:center center;"><div class="${G.lshowThrow===top.id?'card-throw':''}">${makeCard(top,TW,TH)}</div>${jackSuitBadge}</div>`
+      ? `<div style="position:relative;z-index:1;transform:rotate(1.5deg);transform-origin:center center;"><div class="${G.lshowThrow===top.id?'card-throw':''}">${cardFn(top,TW,TH)}</div>${jackSuitBadge}</div>`
       : `<div style="width:${TW}px;height:${TH}px;border-radius:10px;border:2px dashed rgba(255,255,255,.15);opacity:.4;"></div>`;
     const discHTML = discPrev + discTop;
     tableArea=`<div class="pile-row">
@@ -4143,7 +4330,8 @@ function rTable(){
     const shaking=(!online&&G.lshake===c.id);
     const dealStyle=dealIn?` style="animation-delay:${Math.min(i,12)*60}ms"`:'';
     const playable=beginnerHint&&(online?oCanPlay(c,state||{}):lCanPlay(c));
-    return`<button class="hc${shaking?' shake':''}${selected?' selected':''}${dealIn?' deal-in':''}${playable?' playable':''}" data-a="play" data-cid="${c.id}" aria-label="${c.rank} of ${c.suit}${playable?', playable':''}"${dealStyle}>${makeCard(c,HW,HH)}</button>`;
+    const cardLabel=isUno?unoCardLabel(c):`${c.rank} of ${c.suit}`;
+    return`<button class="hc${shaking?' shake':''}${selected?' selected':''}${dealIn?' deal-in':''}${playable?' playable':''}" data-a="play" data-cid="${c.id}" aria-label="${cardLabel}${playable?', playable':''}"${dealStyle}>${cardFn(c,HW,HH)}</button>`;
   }).join('');
 
   // Poker action buttons
@@ -4181,6 +4369,7 @@ function rTable(){
     <div class="game-status">
       <span>${dir===1?'↻':'↺'}</span>
       ${top&&curSuit&&gameId==='maumau'?`<span class="suit-badge" style="color:${isRed(curSuit)?'#ff5670':'#f2f2f2'};">${SYM[curSuit]} ${sLbl(curSuit)}</span>`:''}
+      ${top&&curSuit&&isUno?`<span class="suit-badge" style="color:${UNO_COLOR_HEX[curSuit]};">● ${sLbl(curSuit)}</span>`:''}
       ${drawPend>0?`<span class="pend-badge">+${drawPend}</span>`:''}
       ${isPokerGame?`<span class="pot-badge">🪙 ${pot} pot</span>`:''}
     </div>
@@ -4394,8 +4583,10 @@ function rRouletteTable(){
   const playerPills=players.map((pl,i)=>{
     const betTotal=Object.values(pl.roulBets||{}).reduce((s,a)=>s+a,0);
     const isMe=online?pl.id===G.myPid:i===G.lcur;
-    return`<button class="roul-player-pill${isMe?' active':''}" style="--pc:${roulPlayerColor(i)}" data-a="${online?'':'roul-select'}" data-idx="${i}" aria-label="${online?esc(pl.name):'Bet as '+esc(pl.name)}" aria-pressed="${isMe}">
+    const isAway=online&&isPlayerAbsent(pl.id,AWAY_HINT_MS);
+    return`<button class="roul-player-pill${isMe?' active':''}" style="--pc:${roulPlayerColor(i)}" data-a="${online?'':'roul-select'}" data-idx="${i}" aria-label="${online?esc(pl.name)+(isAway?' — may be away':''):'Bet as '+esc(pl.name)}" aria-pressed="${isMe}">
       <span class="roul-pill-dot"></span>${avHTML(pl.avatar)}<span>${esc(pl.name)}</span>
+      ${isAway?'<span class="roul-pill-away" title="May be away">💤</span>':''}
       <span class="roul-pill-chips">🪙${pl.chips}</span>
       ${betTotal?`<span class="roul-pill-bet">${betTotal} down</span>`:''}
     </button>`;
@@ -4489,6 +4680,19 @@ function rSuitOv(){
     </div>
   </div></div>`;
 }
+const UNO_COLOR_HEX={red:'#e5473a',yellow:'#f2c230',green:'#3aa856',blue:'#3a7fe5'};
+function rColorOv(){
+  return`<div class="ov"><div class="ov-box" role="dialog" aria-modal="true" aria-label="Wild played — pick a color">
+    <div class="ov-title">Wild played — pick a color</div>
+    <p class="ov-sub" style="margin-top:-.3rem;">Choose the new color. Announce it out loud!</p>
+    <div class="suit-grid">${UNO_COLORS.map(c=>`
+      <div class="suit-cho" style="background:${UNO_COLOR_HEX[c]}22;border:1.5px solid ${UNO_COLOR_HEX[c]};" data-a="color" data-c="${c}" role="button" tabindex="0" aria-label="Choose ${sLbl(c)}">
+        <span style="display:inline-block;width:2rem;height:2rem;border-radius:50%;background:${UNO_COLOR_HEX[c]};"></span>
+        <div class="suit-lbl" style="font-size:.82rem;font-weight:600;">${sLbl(c)}</div>
+      </div>`).join('')}
+    </div>
+  </div></div>`;
+}
 function rMauOv(mp){
   const word=mp.callWord||'Mau!';
   const isLast=word==='Mau Mau!';
@@ -4497,7 +4701,7 @@ function rMauOv(mp){
   return`<div class="ov"><div class="ov-box" role="alertdialog" aria-live="assertive" style="align-items:center;text-align:center;gap:1.1rem;">
     <div class="mau-icon">${isLast?'🏆':'🃏'}</div>
     <div class="mau-ttl">${isLast?'Last card!':'Second-to-last card!'}</div>
-    <p class="ov-sub">${canCall?(isLast?'Call <b>Mau-Mau!</b> — or draw 2 penalty cards.':'Call <b>Mau!</b> — or draw 2 penalty cards.'):`Waiting for ${esc(mp.name||'them')} to call <b>${word}</b>…`}</p>
+    <p class="ov-sub">${canCall?`Call <b>${word}</b> — or draw 2 penalty cards.`:`Waiting for ${esc(mp.name||'them')} to call <b>${word}</b>…`}</p>
     <div class="timer-track"><div class="timer-fill" style="animation-duration:${dur/1000}s"></div></div>
     ${canCall?`<button class="btn btn-gold" data-a="mau" style="min-width:11rem;">${word}</button>`:''}
   </div></div>`;
@@ -4951,7 +5155,7 @@ function render(){
   if(G.rulesOpen)ov=rRulesOv();
   else if(G.quitOpen)ov=rQuitOv();
   else if(G.digestOpen)ov=rDigestOv();
-  else if(G.lspick)ov=rSuitOv();
+  else if(G.lspick)ov=G.selGame==='uno'?rColorOv():rSuitOv();
   else if(G.lmau)ov=rMauOv(G.lmau);
   else if(G.isOnline&&G.srv?.mauPend)ov=rMauOv({...G.srv.mauPend,dur:Math.max(0,G.srv.mauPend.deadline-Date.now()),mine:G.srv.mauPend.pid===G.myPid});
   else if(G.isOnline&&G.srv?.needsSuit&&isMyTurn())ov=rSuitOv();
@@ -5096,7 +5300,7 @@ document.addEventListener('click',e=>{
     if(typeof supabase==='undefined'){window._sbFailed=false;toast('Loading online module...');loadSupabase(()=>render());return;}const rid=Math.random().toString(36).slice(2,6).toUpperCase();
     G.roomId=rid;G.myPid='h'+Math.random().toString(36).slice(2,8);G.isHost=true;G.isOnline=true;
     const rs={phase:'lobby',gameId:G.selGame,host:G.myPid,hr:G.hr,bjBetAmount:G.bjBet,bigBlind:G.bigBlind,smallBlind:G.smallBlind,players:[{id:G.myPid,name,avatar:G.myAvatar,hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS}],_ts:Date.now()};
-    G.srv=rs;dbWrite(rid,rs).then(ok=>{if(!ok){toast('Failed to create room');return;}(rs.talk||[]).forEach(en=>_seenTalk.add(en.id));dbSub(rid,onSrv);const url=new URL(location.href);url.searchParams.set('room',rid);history.replaceState({},'',url);G.scr='lobby';render();toast('Room created!');});
+    G.srv=rs;dbWrite(rid,rs).then(ok=>{if(!ok){toast('Failed to create room');return;}(rs.talk||[]).forEach(en=>_seenTalk.add(en.id));dbSub(rid,onSrv);saveOnlineSession();const url=new URL(location.href);url.searchParams.set('room',rid);history.replaceState({},'',url);G.scr='lobby';render();toast('Room created!');});
   }
   else if(a==='join'){
     if(typeof supabase==='undefined'){window._sbFailed=false;toast('Loading online module...');loadSupabase(()=>render());return;}
@@ -5104,11 +5308,12 @@ document.addEventListener('click',e=>{
     const code=(document.getElementById('ol-code')?.value||'').trim().toUpperCase();
     if(!code||code.length<3){toast('Enter the room code');return;}
     G.myName=name;G.myPid='p'+Math.random().toString(36).slice(2,8);G.roomId=code;G.isHost=false;G.isOnline=true;
-    dbRead(code).then(rs=>{if(!rs){toast('Room not found');return;}if(rs.phase==='game'){toast('Game already started');return;}rs.players.push({id:G.myPid,name,avatar:G.myAvatar,hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS});rs._ts=Date.now();G.selGame=rs.gameId||G.selGame;G.srv=rs;dbWrite(code,rs).then(ok=>{if(!ok){toast('Failed to join');return;}(rs.talk||[]).forEach(en=>_seenTalk.add(en.id));dbSub(code,onSrv);SFX.join();G.scr='lobby';render();});});
+    dbRead(code).then(rs=>{if(!rs){toast('Room not found');return;}if(rs.phase==='game'){toast('Game already started');return;}rs.players.push({id:G.myPid,name,avatar:G.myAvatar,hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS});rs._ts=Date.now();G.selGame=rs.gameId||G.selGame;G.srv=rs;dbWrite(code,rs).then(ok=>{if(!ok){toast('Failed to join');return;}(rs.talk||[]).forEach(en=>_seenTalk.add(en.id));dbSub(code,onSrv);saveOnlineSession();SFX.join();G.scr='lobby';render();});});
   }
   else if(a==='start'){
     dbRead(G.roomId).then(rs=>{
       if(!rs||rs.players.length<2){toast('Need at least 2 players');return;}
+      if(rs.gameId==='uno'){toast('Uno is local-only for now — play it pass-and-play on one device.');return;}
       if(rs.gameId==='blackjack'){
         const players=rs.players.map(p=>({...p,chips:p.chips||DEFAULT_CHIPS,roundsWon:p.roundsWon||0}));
         const d=oBjBuildDeal(rs,players);
@@ -5189,6 +5394,7 @@ document.addEventListener('click',e=>{
     G.ldrawnCount=0;if(G.lskip8){G.lskip8=false;G.llast=esc(G.lp[G.lcur].name)+' is skipped.';SFX.draw();}lAdvance(null);
   }
   else if(a==='suit'){G.isOnline?oSuit(t.getAttribute('data-s')):lSuit(t.getAttribute('data-s'));}
+  else if(a==='color'){G.isOnline?oColor(t.getAttribute('data-c')):lColor(t.getAttribute('data-c'));}
   else if(a==='mau'){G.isOnline?oMauBtn():lMauBtn();}
   else if(a==='snapshot'){document.getElementById('snap-input')?.click();}
   else if(a==='digest'){
@@ -5399,9 +5605,13 @@ function talkStripHTML(){
 window.addEventListener('load',()=>{
   applyFeltTheme(localStorage.getItem('ct_felt_theme')||'emerald');
   const room=new URLSearchParams(location.search).get('room');
-  if(room){G.scr='online';render();setTimeout(()=>{const el=document.getElementById('ol-code');if(el){el.value=room;toast(`Room ${room} — enter your name and tap Join`);}},80);}
-  else render();
+  resumeOnlineSession().then(resumed=>{
+    if(resumed)return;
+    if(room){G.scr='online';render();setTimeout(()=>{const el=document.getElementById('ol-code');if(el){el.value=room;toast(`Room ${room} — enter your name and tap Join`);}},80);}
+    else render();
+  });
   loadSupabase(); // background preload so local-game history can sync too, without blocking the UI
+  loadFamilyHistory(); // warm the family-wide leaderboard cache so it's ready before anyone opens Family
   // PWA: makes the app installable to a phone/desktop home screen. Requires http(s) — silently
   // no-ops if this file is opened directly (file://) instead of served, which is fine, it just
   // means "install" won't be offered there.
