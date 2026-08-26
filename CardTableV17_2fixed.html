@@ -2415,6 +2415,9 @@ function roulColor(n){return n===0?'green':(ROUL_RED.has(n)?'red':'black');}
 // resting spot for the spin animation, not for any game logic (that's pure RNG via rnd(0,36)).
 const ROUL_WHEEL_ORDER=[0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
 const ROUL_CHIPS=[1,5,25,100];
+// How long the "last call" betting window stays open online after someone taps Spin, before the
+// wheel actually starts — long enough to get one more chip down, short enough not to feel sluggish.
+const ROUL_COUNTDOWN_MS=6000;
 const ROUL_PLAYER_COLORS=['#e8593e','#3d8bfd','#3ecf8e','#f2a93b','#b06de0','#e0c93e','#3ecfd0','#e874ab'];
 function roulPlayerColor(idx){return ROUL_PLAYER_COLORS[idx%ROUL_PLAYER_COLORS.length];}
 function roulPayoutMultiplier(key){
@@ -2595,12 +2598,44 @@ async function oRoulClearBets(){
     });
   } finally { _onlineBusy=false; }
 }
-async function oRoulSpin(){
+// Tapping "SPIN" no longer spins immediately — it opens a brief shared "last call" betting window
+// (see oRoulCountdownTick) so a player who's mid-bet on their own device doesn't get cut off just
+// because someone else tapped Spin first. This only starts the countdown; oRoulSpin below is what
+// actually starts the wheel once it elapses.
+async function oRoulStartCountdown(){
   if(_onlineBusy)return;
   _onlineBusy=true;
   try{
-    const state=await dbRead(G.roomId);if(!state||state.roulSpinning)return;
+    const state=await dbRead(G.roomId);if(!state||state.roulSpinning||state.roulCountdownStartedAt)return;
     if(!state.players.some(p=>Object.keys(p.roulBets||{}).length>0)){toast('Place at least one bet first');return;}
+    const expectedTs=state._ts;
+    state.roulCountdownStartedAt=Date.now();
+    if(await dbWriteIfUnchanged(G.roomId,expectedTs,state))onSrv(state);
+    // If this lost the race, someone else's bet or countdown-start landed first — the incoming sync
+    // will show whatever's actually true now, so there's nothing to retry here.
+  } finally { _onlineBusy=false; }
+}
+// Deliberately uses its own guard rather than _onlineBusy: this can fire automatically (from every
+// connected client's own countdown timer, or from the stuck-countdown recovery check below) rather
+// than only from a direct user tap, so it must never be blocked by an unrelated bet action that
+// happens to be mid-flight on this same client at that instant.
+let _roulSpinFinalizing=false;
+async function oRoulSpin(expectCountdownAt){
+  if(_roulSpinFinalizing)return;
+  _roulSpinFinalizing=true;
+  try{
+    const state=await dbRead(G.roomId);if(!state||state.roulSpinning)return;
+    // Stale trigger guard: if the countdown this call was scheduled for has since been superseded
+    // (already resolved, or a fresh one started), don't act on it.
+    if(expectCountdownAt!=null&&state.roulCountdownStartedAt!==expectCountdownAt)return;
+    const expectedTs=state._ts;
+    if(!state.players.some(p=>Object.keys(p.roulBets||{}).length>0)){
+      // Every bet got pulled back during the countdown (e.g. everyone tapped Clear) — cancel it and
+      // return to a normal betting table instead of leaving the countdown frozen at 0 forever.
+      state.roulCountdownStartedAt=null;
+      if(await dbWriteIfUnchanged(G.roomId,expectedTs,state))onSrv(state);
+      return;
+    }
     // Only the winning number and a start timestamp go to the database — the chase-light sequence
     // itself is fully deterministic from winNum (same algorithm as the local game), so every
     // connected client (including this one, via its own onSrv call right below) can replay the
@@ -2608,11 +2643,29 @@ async function oRoulSpin(){
     // single animation frame, which meant the animation's pacing was really the pacing of a network
     // round-trip, not a smooth timer — exactly the "stops, continues, stops again" stutter this
     // was rebuilt to fix.
-    state.roulSpinning=true;state.roulHighlight=null;state.roulSpinStartedAt=Date.now();state.roulSpinWinNum=rnd(0,36);
+    state.roulSpinning=true;state.roulHighlight=null;state.roulSpinStartedAt=Date.now();state.roulSpinWinNum=rnd(0,36);state.roulCountdownStartedAt=null;
     SFX.shuffle();
-    state._ts=Date.now();onSrv(state);
-    await dbWrite(G.roomId,state);
-  } finally { _onlineBusy=false; }
+    // Conditional write: if two clients' timers fire within the same instant, only one write lands,
+    // so only one winning number ever gets generated for this spin. The loser does nothing here and
+    // picks up the real result through its normal realtime/poll sync instead.
+    if(await dbWriteIfUnchanged(G.roomId,expectedTs,state))onSrv(state);
+  } finally { _roulSpinFinalizing=false; }
+}
+// Runs on every connected client once it sees a new roulCountdownStartedAt — re-renders every
+// ~250ms so the "Bets close in Ns" readout counts down live and in sync everywhere (all clients are
+// counting down from the same shared timestamp), then hands off to oRoulSpin once time's up. Mirrors
+// oRoulChaseAnimate's approach of a shared timestamp replayed independently by every client.
+let _roulCountdownTickingAt=null;
+function oRoulCountdownTick(startedAt){
+  if(_roulCountdownTickingAt===startedAt)return;
+  _roulCountdownTickingAt=startedAt;
+  const tick=()=>{
+    if(!(G.isOnline&&G.srv?.gameId==='roulette'&&G.srv?.roulCountdownStartedAt===startedAt&&!G.srv?.roulSpinning))return;
+    if(Date.now()-startedAt>=ROUL_COUNTDOWN_MS){oRoulSpin(startedAt);return;}
+    render();
+    setTimeout(tick,250);
+  };
+  tick();
 }
 // Runs entirely client-side — no dbRead/dbWrite per frame — triggered on every connected client by
 // onSrv() the moment it sees a new roulSpinStartedAt. Once the sequence finishes, this client
@@ -2655,15 +2708,31 @@ function oRoulChaseAnimate(winNum,startedAt){
 let _roulRecoverChecking=false;
 function oRoulCheckStuckSpin(){
   if(_roulRecoverChecking)return;
-  if(!(G.isOnline&&G.srv?.gameId==='roulette'&&G.srv?.roulSpinning))return;
-  if(Date.now()-(G.srv.roulSpinStartedAt||0)<15000)return;
-  _roulRecoverChecking=true;
-  dbRead(G.roomId).then(state=>{
-    _roulRecoverChecking=false;
-    if(!state||!state.roulSpinning)return;
-    if(Date.now()-(state.roulSpinStartedAt||0)<15000)return;
-    oRoulResolve(rnd(0,36));
-  }).catch(()=>{_roulRecoverChecking=false;});
+  if(!(G.isOnline&&G.srv?.gameId==='roulette'))return;
+  if(G.srv?.roulSpinning){
+    if(Date.now()-(G.srv.roulSpinStartedAt||0)<15000)return;
+    _roulRecoverChecking=true;
+    dbRead(G.roomId).then(state=>{
+      _roulRecoverChecking=false;
+      if(!state||!state.roulSpinning)return;
+      if(Date.now()-(state.roulSpinStartedAt||0)<15000)return;
+      oRoulResolve(rnd(0,36));
+    }).catch(()=>{_roulRecoverChecking=false;});
+    return;
+  }
+  // Same idea for a "last call" countdown that never got finalized — e.g. every connected client
+  // happened to be busy/backgrounded at the exact instant their own timer would have fired. Gives
+  // the normal per-client timers a generous head start (ROUL_COUNTDOWN_MS+4s) before stepping in.
+  if(G.srv?.roulCountdownStartedAt){
+    if(Date.now()-G.srv.roulCountdownStartedAt<ROUL_COUNTDOWN_MS+4000)return;
+    _roulRecoverChecking=true;
+    dbRead(G.roomId).then(state=>{
+      _roulRecoverChecking=false;
+      if(!state||state.roulSpinning||!state.roulCountdownStartedAt)return;
+      if(Date.now()-state.roulCountdownStartedAt<ROUL_COUNTDOWN_MS+4000)return;
+      oRoulSpin(state.roulCountdownStartedAt);
+    }).catch(()=>{_roulRecoverChecking=false;});
+  }
 }
 async function oRoulResolve(num){
   const state=await dbRead(G.roomId);if(!state)return;
@@ -3865,6 +3934,7 @@ function onSrv(state){
   const prevBattleLast=state.gameId==='battle'?G.srv?.battleLast:null;
   const prevCommunityLen=state.gameId==='texas'?(G.srv?.community?.length||0):0;
   const prevRoulSpinStartedAt=state.gameId==='roulette'?G.srv?.roulSpinStartedAt:null;
+  const prevRoulCountdownStartedAt=state.gameId==='roulette'?G.srv?.roulCountdownStartedAt:null;
   G.srv=state;_lts=state._ts||0;
   if(state.mauPend&&state.mauPend.pid===G.myPid){
     const sig=state.mauPend.pid+'|'+state.mauPend.deadline;
@@ -3918,6 +3988,12 @@ function onSrv(state){
       oRoulChaseAnimate(state.roulSpinWinNum,state.roulSpinStartedAt);
     } else if(!state.roulSpinning){
       G.roulHighlight=state.roulHighlight??null;
+      // Same "detect a genuinely new one, replay it locally" approach as the spin animation above —
+      // every connected client starts its own synced countdown the moment it sees a fresh
+      // roulCountdownStartedAt, so "Bets close in Ns" ticks down identically everywhere.
+      if(state.roulCountdownStartedAt&&state.roulCountdownStartedAt!==prevRoulCountdownStartedAt){
+        oRoulCountdownTick(state.roulCountdownStartedAt);
+      }
     }
   }
   if(state.phase==='lobby'){G.scr='lobby';render();return;}
@@ -4819,6 +4895,8 @@ function rRouletteTable(){
   const online=G.isOnline,state=online?G.srv:null;
   const players=online?(state?.players||[]):G.lp;
   const spinning=online?!!state?.roulSpinning:G.roulSpinning;
+  const countingDown=online&&!spinning&&!!state?.roulCountdownStartedAt;
+  const countdownSecs=countingDown?Math.max(0,Math.ceil((ROUL_COUNTDOWN_MS-(Date.now()-state.roulCountdownStartedAt))/1000)):0;
   // Always the client-local value now, even online — the chase-light animation runs purely
   // client-side (see oRoulChaseAnimate) and onSrv() keeps this synced to the settled server value
   // whenever no spin is in progress, so this works identically for local and online play.
@@ -4878,8 +4956,9 @@ function rRouletteTable(){
   }).join('');
   const zeroT=betAmt('straight:0');
   const zeroHl=highlight===0?' roul-highlight':'';
-  const spinStatus=spinning?(highlight!=null?`<div class="roul-spin-status"><span class="roul-spin-dot"></span>${highlight}${roulColor(highlight)!=='green'?' · '+roulColor(highlight):''}</div>`:`<div class="roul-spin-status"><span class="roul-spin-dot"></span>Spinning…</div>`):'';
-  const turnLbl=online?'🎡 Place your bets':`${me.avatar} ${esc(me.name)} is betting`;
+  const spinStatus=spinning?(highlight!=null?`<div class="roul-spin-status"><span class="roul-spin-dot"></span>${highlight}${roulColor(highlight)!=='green'?' · '+roulColor(highlight):''}</div>`:`<div class="roul-spin-status"><span class="roul-spin-dot"></span>Spinning…</div>`)
+    :countingDown?`<div class="roul-spin-status"><span class="roul-spin-dot"></span>Bets close in ${countdownSecs}s…</div>`:'';
+  const turnLbl=online?(countingDown?'⏳ Last call — bets close soon!':'🎡 Place your bets'):`${me.avatar} ${esc(me.name)} is betting`;
 
   return`<div id="s-table" class="scr on game-roulette">
     <div class="game-bar">
@@ -4907,7 +4986,7 @@ function rRouletteTable(){
       <div class="roul-action-row">
         <button class="btn btn-ghost btn-sm" data-a="roul-undo" ${spinning?'disabled':''}>↩ Undo</button>
         <button class="btn btn-ghost btn-sm" data-a="roul-clear" ${spinning?'disabled':''}>Clear</button>
-        <button class="btn btn-gold btn-full" data-a="roul-spin" ${spinning?'disabled':''}>${spinning?'🎡 Spinning…':'🎡 SPIN'}</button>
+        <button class="btn btn-gold btn-full" data-a="roul-spin" ${spinning||countingDown?'disabled':''}>${spinning?'🎡 Spinning…':countingDown?`🎡 Spinning in ${countdownSecs}s…`:'🎡 SPIN'}</button>
       </div>
     </div>
     ${talkStripHTML()}
@@ -5578,7 +5657,7 @@ document.addEventListener('click',e=>{
   else if(a==='roul-chip'){G.roulChip=+t.getAttribute('data-val');render();}
   else if(a==='roul-undo'){G.isOnline?oRoulUndo():roulUndo();}
   else if(a==='roul-clear'){G.isOnline?oRoulClearBets():roulClearBets();}
-  else if(a==='roul-spin'){G.isOnline?oRoulSpin():roulSpin();}
+  else if(a==='roul-spin'){G.isOnline?oRoulStartCountdown():roulSpin();}
   // Online create/join
   else if(a==='create'){
     const name=(document.getElementById('ol-name')?.value||'').trim();if(!name){toast('Enter your name');return;}
