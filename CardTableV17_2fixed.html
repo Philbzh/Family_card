@@ -953,10 +953,13 @@ body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100v
   transition:transform .14s,opacity .14s,background .14s,border-color .14s;}
 .rb:hover{opacity:1;background:rgba(212,168,67,.18);border-color:rgba(212,168,67,.42);transform:translateY(-2px);}
 .rb:active{transform:scale(.88);}
-.float-r{position:absolute;font-size:2rem;animation:float-up 2.4s ease forwards;pointer-events:none;z-index:20;}
-.float-r.storm{font-size:2.9rem;filter:drop-shadow(0 0 14px rgba(240,204,96,.85));animation:float-up-storm 2.4s ease forwards;}
-@keyframes float-up-storm{0%{opacity:1;transform:translateY(0) scale(.8) rotate(0deg);}30%{opacity:1;transform:translateY(-28px) scale(1.4) rotate(-6deg);}100%{opacity:0;transform:translateY(-130px) scale(1.1) rotate(6deg);}}
-@keyframes float-up{0%{opacity:1;transform:translateY(0) scale(.8);}30%{opacity:1;transform:translateY(-28px) scale(1.2);}100%{opacity:0;transform:translateY(-110px);}}
+.float-r{position:absolute;font-size:2.4rem;animation:float-up 3.2s ease forwards;pointer-events:none;z-index:20;}
+.float-r.storm{font-size:3.2rem;filter:drop-shadow(0 0 14px rgba(240,204,96,.85));animation:float-up-storm 3.2s ease forwards;}
+/* Hold full opacity/size through most of the animation rather than fading almost immediately — a
+   reaction on the other player's device already has sync latency eating into how long they have to
+   notice it, so the visible window needs to be generous, not just the total duration. */
+@keyframes float-up-storm{0%{opacity:1;transform:translateY(0) scale(.8) rotate(0deg);}10%{opacity:1;transform:translateY(-12px) scale(1.4) rotate(-6deg);}65%{opacity:1;transform:translateY(-85px) scale(1.25) rotate(-2deg);}100%{opacity:0;transform:translateY(-135px) scale(1.1) rotate(6deg);}}
+@keyframes float-up{0%{opacity:1;transform:translateY(0) scale(.8);}10%{opacity:1;transform:translateY(-10px) scale(1.2);}65%{opacity:1;transform:translateY(-70px) scale(1.05);}100%{opacity:0;transform:translateY(-115px);}}
 
 /* ─── TABLE TALK: emoji reactions + short messages, visible to everyone at the table ─── */
 .rb.talk-toggle{opacity:.85;}
@@ -5952,7 +5955,7 @@ function spawnFloatEmoji(emoji){
   const isStorm=_reactStormTimes.length>=3;
   const el=document.createElement('div');el.className='float-r'+(isStorm?' storm':'');el.textContent=emoji;
   el.style.cssText=`left:${15+Math.random()*70}%;bottom:20%;`;
-  felt.appendChild(el);setTimeout(()=>el.remove(),2500);
+  felt.appendChild(el);setTimeout(()=>el.remove(),3300);
   if(isStorm)fxPulse('gold');
 }
 function spawnTalkBubble(entry){
