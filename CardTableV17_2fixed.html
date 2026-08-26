@@ -207,6 +207,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100v
 .v10-games{display:grid;grid-template-columns:1fr 1fr;gap:.65rem;padding:0 1.2rem;}
 .v10-game-card{min-height:9.2rem;border-radius:18px;padding:.9rem;background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.025));border:1px solid rgba(255,255,255,.09);cursor:pointer;position:relative;transition:transform .18s,border-color .18s,background .18s;display:flex;flex-direction:column;justify-content:space-between;}
 .v10-game-card:hover{transform:translateY(-2px);border-color:rgba(234,208,138,.38);}
+.v10-game-card:focus-visible{outline:2px solid #eac98a;outline-offset:2px;border-color:rgba(234,208,138,.6);}
 .v10-game-card.locked{opacity:.42;cursor:default;}
 .v10-game-card.locked:hover{transform:none;}
 .v10-card-watermark{position:absolute;right:-.6rem;bottom:-1.3rem;font-size:6rem;line-height:1;opacity:.22;pointer-events:none;transform:rotate(-8deg);filter:saturate(1.4);}
@@ -774,6 +775,21 @@ body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100v
 .roul-cell.roul-highlight,.roul-zero.roul-highlight{z-index:3;box-shadow:0 0 0 3px #ffd678,0 0 18px 4px rgba(255,214,120,.75),inset 0 1px 2px rgba(255,255,255,.35);animation:roul-highlight-pulse .5s ease-out;transform:scale(1.08);}
 @keyframes roul-highlight-pulse{0%{transform:scale(1);}55%{transform:scale(1.16);}100%{transform:scale(1.08);}}
 .roul-spin-text{font-family:var(--serif);color:var(--gold2);font-size:.85rem;letter-spacing:.08em;text-transform:uppercase;}
+@media(max-width:480px){
+  .roul-grid{grid-template-columns:22px repeat(12,18px) 26px;grid-template-rows:repeat(3,32px) 28px 28px;gap:2px;padding:5px;}
+  .roul-zero{font-size:.72rem;}
+  .roul-cell{font-size:.62rem;}
+  .roul-colbet{font-size:.46rem;}
+  .roul-dozen,.roul-outside{font-size:.5rem;}
+  .roul-chip-badge-p{font-size:.42rem;padding:0 3px;min-width:9px;}
+}
+@media(max-width:340px){
+  .roul-grid{grid-template-columns:18px repeat(12,15px) 22px;grid-template-rows:repeat(3,28px) 24px 24px;gap:1px;padding:4px;}
+  .roul-zero{font-size:.6rem;}
+  .roul-cell{font-size:.52rem;}
+  .roul-colbet{font-size:.4rem;}
+  .roul-dozen,.roul-outside{font-size:.42rem;}
+}
 
 .roul-controls{display:flex;flex-direction:column;gap:.5rem;padding:.5rem .85rem .3rem;flex-shrink:0;}
 .roul-chip-row{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;justify-content:center;}
@@ -1546,7 +1562,7 @@ function dbSub(id,cb){
   // otherwise a player who's merely gone quiet (no new state to trigger a render) would stay stuck
   // showing "may be away" long past the point the skip button should have appeared.
   if(_awayTick)clearInterval(_awayTick);
-  _awayTick=setInterval(()=>{if(Object.keys(_absentSince).length)render();},4000);
+  _awayTick=setInterval(()=>{if(Object.keys(_absentSince).length)render();oRoulCheckStuckSpin();},4000);
 }
 function stopSync(){if(_ch)SB().removeChannel(_ch);if(_poll)clearInterval(_poll);if(_awayTick)clearInterval(_awayTick);_ch=_poll=_awayTick=null;_presentPids=new Set();_absentSince={};localStorage.removeItem('ct_online_session');}
 // Remembers just enough to silently rejoin the same seat after a refresh, tab close, or the app
@@ -1625,10 +1641,27 @@ async function oForceSkipCurrentPlayer(){
       }
       oYAdvanceTurn(state);
     } else if(state.gameId==='maumau'){
-      if(state.drawPend>0){oDrawN(state,p,state.drawPend);state.drawPend=0;}
-      else if(state.skip8Pend){state.skip8Pend=false;}
-      else{oDrawN(state,p,1);}
-      oAdvance(state,null);
+      // mauPend/needsSuit are set on the pending player mid-turn (after they've already played a
+      // card) and don't advance curIdx themselves, so the normal drawPend/skip8Pend/draw-a-card
+      // fallback below would silently make the absent player draw an EXTRA card on top of
+      // whichever pending state they left dangling, without ever actually clearing it — the next
+      // player would then see a stale "call Mau!" banner or suit-pick prompt meant for someone
+      // else. Handle those two cases first, mirroring the same-player penalty each already applies
+      // when it times out on its own (oMauTimeoutCheck / oResolveMau), just triggered by someone
+      // else once they've been away long enough to force-skip.
+      if(state.mauPend&&state.mauPend.pid===p.id){
+        const label=state.mauPend.label;
+        state.mauPend=null;
+        oDrawN(state,p,2);
+        state.lastAct=p.avatar+' '+esc(p.name)+' forgot to call '+label+'! +2 cards.';
+        oAdvance(state,null);
+      } else if(state.needsSuit){
+        state.curSuit=(state.discard[state.discard.length-1]||{}).suit||state.curSuit||SUITS[0];
+        state.needsSuit=false;
+        oResolveMau(state,p,true);
+      } else if(state.drawPend>0){oDrawN(state,p,state.drawPend);state.drawPend=0;oAdvance(state,null);}
+      else if(state.skip8Pend){state.skip8Pend=false;oAdvance(state,null);}
+      else{oDrawN(state,p,1);oAdvance(state,null);}
     } else {
       return; // no per-turn action to force (e.g. Battle — both players can act whenever)
     }
@@ -2509,7 +2542,7 @@ async function oRoulSpin(){
   try{
     const state=await dbRead(G.roomId);if(!state||state.roulSpinning)return;
     if(!state.players.some(p=>Object.keys(p.roulBets||{}).length>0)){toast('Place at least one bet first');return;}
-    state.roulSpinning=true;state.roulHighlight=null;
+    state.roulSpinning=true;state.roulHighlight=null;state.roulSpinStartedAt=Date.now();
     SFX.shuffle();
     state._ts=Date.now();onSrv(state);
     await dbWrite(G.roomId,state);
@@ -2540,8 +2573,37 @@ async function oRoulChaseAnimate(winNum){
   };
   step();
 }
+// Only the client that started a spin drives its chase-animate chain — if that client's tab dies,
+// loses network, or gets backgrounded (mobile browsers routinely throttle setTimeout in background
+// tabs) partway through, nothing else ever calls oRoulResolve and roulSpinning is stuck true
+// forever: the Spin button stays disabled for the whole table with no recovery path. This runs on
+// every OTHER connected client's away-tick (every 4s) and, once a spin has been "in progress" for
+// implausibly long, has that client finish the round itself with a freshly-rolled number — better
+// an unblocked table with one un-animated resolve than a permanently dead room. oRoulResolve's own
+// roulSpinning guard keeps this from double-paying if the original chain actually does complete
+// around the same moment.
+let _roulRecoverChecking=false;
+function oRoulCheckStuckSpin(){
+  if(_roulRecoverChecking)return;
+  if(!(G.isOnline&&G.srv?.gameId==='roulette'&&G.srv?.roulSpinning))return;
+  if(Date.now()-(G.srv.roulSpinStartedAt||0)<15000)return;
+  _roulRecoverChecking=true;
+  dbRead(G.roomId).then(state=>{
+    _roulRecoverChecking=false;
+    if(!state||!state.roulSpinning)return;
+    if(Date.now()-(state.roulSpinStartedAt||0)<15000)return;
+    oRoulResolve(rnd(0,36));
+  }).catch(()=>{_roulRecoverChecking=false;});
+}
 async function oRoulResolve(num){
   const state=await dbRead(G.roomId);if(!state)return;
+  // Guards against a resolve running twice for the same spin — e.g. two players' clients both
+  // started a chase-animate chain because of the create/read race in oRoulSpin, or the stuck-spin
+  // recovery below firing right as the original chain was already finishing on its own. Once a
+  // spin resolves, roulSpinning flips to false and bets are cleared; a second resolve attempt
+  // reading that already-settled state would otherwise re-pay winning bets a second time (free
+  // chips) or overwrite a correct result with a bogus all-zero one.
+  if(!state.roulSpinning)return;
   const color=roulColor(num);
   const bd=state.players.map(p=>{
     let winnings=0;
@@ -3468,7 +3530,7 @@ function lDrawCard(){
 function lSuit(s){
   G.lsuit=s;G.lspick=false;
   const c=G.lpcard;G.lpcard=null;
-  G.llast=`${G.lp[G.lcur].name} chooses ${SYM[s]} ${sLbl(s)}!`;
+  G.llast=`${esc(G.lp[G.lcur].name)} chooses ${SYM[s]} ${sLbl(s)}!`;
   render();lResolve(c);
 }
 function lMauBtn(){
@@ -3993,9 +4055,11 @@ function rSidebar(){
 }
 // Shared game-card markup for both the Home dashboard's featured strip and the full Games library.
 function gameCardHTML(g){
-  return g.cover?`<div class="v10-game-card has-cover v10-gc--${g.id}${g.locked?' locked':''}" data-a="${g.locked?'':'pick'}" data-gid="${g.id}" style="background-image:url('${g.cover}')">
+  const label=`${g.name}, ${g.players} players, ${g.dur}${g.locked?', coming soon':''}`;
+  const a11y=g.locked?'':`role="button" tabindex="0" aria-label="${esc(label)}"`;
+  return g.cover?`<div class="v10-game-card has-cover v10-gc--${g.id}${g.locked?' locked':''}" data-a="${g.locked?'':'pick'}" data-gid="${g.id}" style="background-image:url('${g.cover}')" ${a11y}>
       ${g.locked?'<div class="v10-card-tag cover-tag">Coming soon</div>':''}
-    </div>`:`<div class="v10-game-card v10-gc--${g.id}${g.locked?' locked':''}" data-a="${g.locked?'':'pick'}" data-gid="${g.id}">
+    </div>`:`<div class="v10-game-card v10-gc--${g.id}${g.locked?' locked':''}" data-a="${g.locked?'':'pick'}" data-gid="${g.id}" ${a11y}>
       <div class="v10-card-watermark">${g.icon}</div>
       <div><div class="v10-card-icon">${g.icon}</div><div class="v10-card-name">${g.name}</div><div class="v10-card-meta">${g.players} · ${g.dur}</div></div>
       <div class="v10-card-tag">${g.locked?'Coming soon':(g.diff==='easy'?'Easy to learn':g.diff==='medium'?'A little strategy':'For seasoned players')}</div>
@@ -5255,7 +5319,7 @@ document.addEventListener('click',e=>{
   }
   else if(a==='local'){G.isOnline=false;G.scr='setup';render();}
   else if(a==='online'){
-    if(!['maumau','blackjack','battle','yahtzee','texas','fivecard'].includes(G.selGame)){toast('⚠️ Online play is not available for this game yet.');return;}
+    if(!['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette'].includes(G.selGame)){toast('⚠️ Online play is not available for this game yet.');return;}
     G.scr='online';render();
   }
   else if(a==='pick'){const gid=t.getAttribute('data-gid');if(!GAMES.find(g=>g.id===gid&&g.locked))G.selGame=gid;render();}
