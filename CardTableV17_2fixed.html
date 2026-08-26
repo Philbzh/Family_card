@@ -1677,6 +1677,26 @@ async function oForceSkipCurrentPlayer(){
       } else if(state.drawPend>0){oDrawN(state,p,state.drawPend);state.drawPend=0;oAdvance(state,null);}
       else if(state.skip8Pend){state.skip8Pend=false;oAdvance(state,null);}
       else{oDrawN(state,p,1);oAdvance(state,null);}
+    } else if(state.gameId==='uno'){
+      // Same shape as the maumau branch above: a pending "call Uno!" or unpicked wild color must be
+      // resolved before falling back to a plain forced draw, or it'd leave a stale prompt for the
+      // next player.
+      if(state.mauPend&&state.mauPend.pid===p.id){
+        const label=state.mauPend.label;
+        const pendCard=state.mauPend.card;
+        state.mauPend=null;
+        oDrawN(state,p,2);
+        state.lastAct=p.avatar+' '+esc(p.name)+' forgot to call '+label+'! +2 cards.';
+        if(pendCard)oUnoAdvance(state,pendCard);else oAdvance(state,null);
+      } else if(state.needsSuit){
+        const top=state.discard[state.discard.length-1];
+        state.curSuit=state.curSuit||UNO_COLORS[0];
+        state.needsSuit=false;
+        if(top)oUnoResolve(state,p,top);
+      } else {
+        oDrawN(state,p,1);
+        oAdvance(state,null);
+      }
     } else {
       return; // no per-turn action to force (e.g. Battle — both players can act whenever)
     }
@@ -1732,7 +1752,7 @@ const GAMES=[
 ];
 // Single source of truth for which unlocked games have online-multiplayer support, so the "online"
 // gate and the local-only badge on a game's card can never drift out of sync with each other.
-const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette'];
+const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno'];
 
 function isRed(s){return s==='hearts'||s==='diamonds';}
 function mod(n,m){return((n%m)+m)%m;}
@@ -3577,6 +3597,12 @@ function lMauBtn(){
 }
 
 function oCanPlay(card,state){
+  if(state.gameId==='uno'){
+    const top=state.discard[state.discard.length-1];
+    if(!top)return true;
+    if(card.color==='black')return true;
+    return card.color===state.curSuit||card.value===top.value;
+  }
   if(state.gameId&&state.gameId!=='maumau')return true;
   const top=state.discard[state.discard.length-1];
   if(state.drawPend>0)return card.rank==='7'&&state.hr?.draw2stack!==false;
@@ -3612,10 +3638,10 @@ async function oPlay(cid){
     const state=await dbRead(G.roomId);if(!state)return;
     const player=state.players.find(p=>p.id===G.myPid);if(!player)return;
     const idx=player.hand.findIndex(c=>c.id===cid);if(idx<0)return;const card=player.hand[idx];
-    if(!oCanPlay(card,state)){toast('Doesn\'t match top card');SFX.illegal();return;}
+    if(!oCanPlay(card,state)){toast(state.gameId==='uno'?'Doesn\'t match color or value':'Doesn\'t match top card');SFX.illegal();return;}
     SFX.play();player.hand.splice(idx,1);state.discard.push(card);
     G.lshowThrow=card.id;setTimeout(()=>{if(G.lshowThrow===card.id){G.lshowThrow=null;render();}},450);
-    state.lastAct=player.avatar+' '+esc(player.name)+' played '+card.rank+SYM[card.suit];
+    state.lastAct=player.avatar+' '+esc(player.name)+' played '+(state.gameId==='uno'?unoCardLabel(card):card.rank+SYM[card.suit]);
     if(state.gameId==='maumau'){
       if(card.rank==='7')state.drawPend=(state.drawPend||0)+2;
       if(card.rank==='8')state.skip8Pend=true;
@@ -3629,6 +3655,19 @@ async function oPlay(cid){
         return;
       }
       state.curSuit=card.suit;
+    } else if(state.gameId==='uno'){
+      if(card.color==='black'){ // Wild / Wild Draw Four: wait for the color pick before resolving
+        state.needsSuit=true;
+        state._ts=Date.now();onSrv(state);
+        await dbWrite(G.roomId,state);
+        return;
+      }
+      state.curSuit=card.color;
+      state.needsSuit=false;
+      oUnoResolve(state,player,card);
+      state._ts=Date.now();onSrv(state);
+      await dbWrite(G.roomId,state);
+      return;
     }
     state.needsSuit=false;
     oResolveMau(state,player,false);
@@ -3677,9 +3716,17 @@ async function oSuit(suit){
     const state=await dbRead(G.roomId);if(!state)return;
     state.curSuit=suit;state.needsSuit=false;
     const player=state.players.find(p=>p.id===G.myPid);
-    // Reaching a suit pick always means a Jack was just played, so an empty hand here is the
-    // "last card was a Jack" case and requires the Mau-Mau! call.
-    if(player)oResolveMau(state,player,true);
+    if(state.gameId==='uno'){
+      // Reaching a color pick always means the just-played card (still on top of the discard) was
+      // a Wild or Wild Draw Four — need that card to know whether to also apply Wild Draw Four's
+      // forced-draw-and-skip once the color choice is in.
+      const card=state.discard[state.discard.length-1];
+      if(player)oUnoResolve(state,player,card);
+    } else if(player){
+      // Reaching a suit pick always means a Jack was just played, so an empty hand here is the
+      // "last card was a Jack" case and requires the Mau-Mau! call.
+      oResolveMau(state,player,true);
+    }
     state._ts=Date.now();onSrv(state);
     await dbWrite(G.roomId,state);
   } finally { _onlineBusy=false; }
@@ -3708,6 +3755,48 @@ function oDrawN(state,player,n){
     if(state.deck.length)player.hand.push(state.deck.pop());
   }
 }
+function unoApplyScore(state){
+  state.players.forEach(p=>{
+    const delta=p.id===state.winner?100:-p.hand.reduce((s,c)=>s+unoCardVal(c),0);
+    p.totalScore=(p.totalScore||0)+delta;
+    if(p.id===state.winner)p.roundsWon=(p.roundsWon||0)+1;
+  });
+}
+// Mirrors the local game's uAdvance: Skip/Draw Two/Wild Draw Four skip the next player (2 steps),
+// Reverse flips direction (and acts as a Skip in a 2-player game), Draw Two/Wild Draw Four also
+// apply their forced draw to the skipped player immediately rather than deferring it.
+function oUnoAdvance(state,card){
+  const n=state.players.length;
+  let steps=1;
+  if(card.value==='reverse'){
+    state.dir=(state.dir||1)*-1;
+    if(n===2)steps=2;
+  } else if(card.value==='skip'){
+    steps=2;
+  } else if(card.value==='draw2'||card.value==='wild4'){
+    const victim=state.players[mod((state.curIdx||0)+(state.dir||1),n)];
+    oDrawN(state,victim,card.value==='draw2'?2:4);
+    state.lastAct=(state.lastAct?state.lastAct+' ':'')+esc(victim.name)+' draws '+(card.value==='draw2'?2:4)+' and is skipped.';
+    steps=2;
+  }
+  state.curIdx=mod((state.curIdx||0)+(state.dir||1)*steps,n);
+  state.oDrawnCount=0;
+}
+// Shared win/Uno-call resolution for online Uno — mirrors lResolve: empty hand wins outright (no
+// extra call needed the way a Jack-won Mau Mau round needs "Mau-Mau!"), exactly one card left
+// needs "Uno!". card is kept on mauPend so oMauBtn/oMauTimeoutCheck can still apply Skip/Reverse/
+// Draw Two/Wild Draw Four's effect once the call is resolved, the same edge case the local game's
+// lMauTimer/lMauBtn needed fixing for.
+function oUnoResolve(state,player,card){
+  if(player.hand.length===0){
+    state.winner=player.id;state.winnerName=player.name;state.winnerAv=player.avatar;unoApplyScore(state);
+  } else if(player.hand.length===1){
+    state.mauPend={pid:player.id,name:player.name,avatar:player.avatar,callWord:'Uno!',label:'Uno',card};
+    state.mauPend.deadline=Date.now()+5000;
+  } else {
+    oUnoAdvance(state,card);
+  }
+}
 // Tapping "Mau!"/"Mau-Mau!" in time — only the pending player's own tap can resolve it.
 async function oMauBtn(){
   if(_onlineBusy)return;
@@ -3716,9 +3805,11 @@ async function oMauBtn(){
     const state=await dbRead(G.roomId);if(!state||!state.mauPend||state.mauPend.pid!==G.myPid)return;
     const player=state.players.find(p=>p.id===G.myPid);
     const label=state.mauPend.label;
+    const pendCard=state.mauPend.card;
     state.mauPend=null;SFX.mau();
     state.lastAct=(player?player.avatar+' ':'')+esc(player?.name||'')+' calls '+label+'!';
     if(player&&player.hand.length===0){state.winner=player.id;state.winnerName=player.name;state.winnerAv=player.avatar;mauMauApplyScore(state);}
+    else if(state.gameId==='uno'&&pendCard)oUnoAdvance(state,pendCard);
     else oAdvance(state,null);
     state._ts=Date.now();onSrv(state);
     await dbWrite(G.roomId,state);
@@ -3736,9 +3827,11 @@ function oMauTimeoutCheck(sig){
     if(state.mauPend.deadline>Date.now())return;
     const player=state.players.find(p=>p.id===G.myPid);
     const label=state.mauPend.label;
+    const pendCard=state.mauPend.card;
     state.mauPend=null;
     if(player){oDrawN(state,player,2);state.lastAct=player.avatar+' '+esc(player.name)+' forgot to call '+label+'! +2 cards.';}
-    oAdvance(state,null);
+    if(state.gameId==='uno'&&pendCard)oUnoAdvance(state,pendCard);
+    else oAdvance(state,null);
     state._ts=Date.now();onSrv(state);
     await dbWrite(G.roomId,state);
   })();
@@ -3838,6 +3931,10 @@ function onSrv(state){
         bd=(state.players||[]).slice().sort((a,b)=>b.chips-a.chips).map(p=>({id:p.id,name:p.name,avatar:p.avatar,delta:p.bjNet||0,total:p.chips,isWinner:p.bjResult==='win'||p.bjResult==='blackjack',resultLabel:p.bjResult}));
       } else if(state.gameId==='battle'){
         bd=(state.players||[]).slice().sort((a,b)=>(b.hand?.length||0)-(a.hand?.length||0)).map(p=>({id:p.id,name:p.name,avatar:p.avatar,delta:p.hand?.length||0,total:p.hand?.length||0,isWinner:p.id===state.winner}));
+      } else if(state.gameId==='uno'){
+        // Uno cards are {color,value}, not {suit,rank} — cardVal() would silently NaN on them, so
+        // this needs its own branch rather than falling into the generic cardVal-based one below.
+        bd=(state.players||[]).map(p=>({id:p.id,name:p.name,avatar:p.avatar,delta:p.id===state.winner?100:-p.hand.reduce((s,c)=>s+unoCardVal(c),0),total:p.totalScore||0,isWinner:p.id===state.winner})).sort((a,b)=>b.total-a.total);
       } else {
         bd=(state.players||[]).map(p=>({id:p.id,name:p.name,avatar:p.avatar,delta:p.id===state.winner?100:-p.hand.reduce((s,c)=>s+cardVal(c),0),total:p.totalScore||0,isWinner:p.id===state.winner})).sort((a,b)=>b.total-a.total);
       }
@@ -5304,7 +5401,7 @@ function render(){
   else if(G.lspick)ov=G.selGame==='uno'?rColorOv():rSuitOv();
   else if(G.lmau)ov=rMauOv(G.lmau);
   else if(G.isOnline&&G.srv?.mauPend)ov=rMauOv({...G.srv.mauPend,dur:Math.max(0,G.srv.mauPend.deadline-Date.now()),mine:G.srv.mauPend.pid===G.myPid});
-  else if(G.isOnline&&G.srv?.needsSuit&&isMyTurn())ov=rSuitOv();
+  else if(G.isOnline&&G.srv?.needsSuit&&isMyTurn())ov=G.srv?.gameId==='uno'?rColorOv():rSuitOv();
   document.getElementById('overlay-root').innerHTML=ov;
 }
 
@@ -5459,7 +5556,17 @@ document.addEventListener('click',e=>{
   else if(a==='start'){
     dbRead(G.roomId).then(rs=>{
       if(!rs||rs.players.length<2){toast('Need at least 2 players');return;}
-      if(rs.gameId==='uno'){toast('Uno is local-only for now — play it pass-and-play on one device.');return;}
+      if(rs.gameId==='uno'){
+        const players=rs.players.map(p=>({...p,hand:[],totalScore:p.totalScore||0,roundsWon:p.roundsWon||0}));
+        const deck=shuffle(buildUnoDeck());
+        for(let r=0;r<7;r++)players.forEach(p=>{if(deck.length)p.hand.push(deck.pop());});
+        let first=null;
+        for(let i=0;i<500;i++){first=deck.pop();if(!first)break;if(unoIsAction(first)){deck.unshift(first);continue;}break;}
+        if(deck.length)shuffle(deck);
+        const gs={phase:'game',gameId:'uno',host:rs.host,hr:rs.hr||G.hr,players,deck,discard:first?[first]:[],curSuit:first?first.color:UNO_COLORS[0],curIdx:rnd(0,players.length-1),dir:1,drawPend:0,skip8Pend:false,round:1,winner:null,needsSuit:false,lastAct:'',_ts:Date.now()};
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
       if(rs.gameId==='blackjack'){
         const players=rs.players.map(p=>({...p,chips:p.chips||DEFAULT_CHIPS,roundsWon:p.roundsWon||0}));
         const d=oBjBuildDeal(rs,players);
@@ -5540,7 +5647,7 @@ document.addEventListener('click',e=>{
     G.ldrawnCount=0;if(G.lskip8){G.lskip8=false;G.llast=esc(G.lp[G.lcur].name)+' is skipped.';SFX.draw();}lAdvance(null);
   }
   else if(a==='suit'){G.isOnline?oSuit(t.getAttribute('data-s')):lSuit(t.getAttribute('data-s'));}
-  else if(a==='color'){G.isOnline?oColor(t.getAttribute('data-c')):lColor(t.getAttribute('data-c'));}
+  else if(a==='color'){G.isOnline?oSuit(t.getAttribute('data-c')):lColor(t.getAttribute('data-c'));}
   else if(a==='mau'){G.isOnline?oMauBtn():lMauBtn();}
   else if(a==='snapshot'){document.getElementById('snap-input')?.click();}
   else if(a==='digest'){
@@ -5632,6 +5739,17 @@ document.addEventListener('click',e=>{
       if(rs.gameId==='roulette'){
         const players=(rs.players||[]).map(p=>({...p,roulBets:{},roulBetLog:[]}));
         const gs={...rs,players,roulSpinning:false,roulHighlight:null,winner:null,winnerName:null,winnerAv:null,roundResult:null,lastAct:'',round:(rs.round||1)+1,_ts:Date.now()};
+        G.srv=gs;dbWrite(G.roomId,gs);
+        return;
+      }
+      if(rs.gameId==='uno'){
+        const players=(rs.players||[]).map(p=>({...p,hand:[],totalScore:p.totalScore||0,roundsWon:p.roundsWon||0}));
+        const deck=shuffle(buildUnoDeck());
+        for(let r=0;r<7;r++)players.forEach(p=>{if(deck.length)p.hand.push(deck.pop());});
+        let first=null;
+        for(let i=0;i<500;i++){first=deck.pop();if(!first)break;if(unoIsAction(first)){deck.unshift(first);continue;}break;}
+        if(deck.length)shuffle(deck);
+        const gs={...rs,players,deck,discard:first?[first]:[],curSuit:first?first.color:UNO_COLORS[0],curIdx:rnd(0,players.length-1),dir:1,drawPend:0,skip8Pend:false,winner:null,winnerName:null,winnerAv:null,needsSuit:false,mauPend:null,lastAct:'',round:(rs.round||1)+1,_ts:Date.now()};
         G.srv=gs;dbWrite(G.roomId,gs);
         return;
       }
