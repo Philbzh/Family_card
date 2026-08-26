@@ -5966,19 +5966,30 @@ function spawnTalkBubble(entry){
 }
 // Sends an emoji reaction or a short text message. Local pass-and-play shows it immediately since
 // everyone shares one screen; online play round-trips it through the room row so every device sees it.
-function sendTalk(entry){
+async function sendTalk(entry){
   const online=G.isOnline;
   const me=online?(G.srv?.players||[]).find(p=>p.id===G.myPid):G.lp[G.lcur];
   const full={id:Date.now()+'_'+Math.random().toString(36).slice(2,7),kind:entry.kind,text:(entry.text||'').slice(0,60),emoji:entry.emoji||'',name:me?.name||G.myName||'Player',avatar:me?.avatar||G.myAvatar||AVATARS[0],ts:Date.now()};
   G.matchStats.reactions++;
   SFX.react();
-  if(online&&G.srv){
-    _seenTalk.add(full.id);
-    const talk=[...(G.srv.talk||[]),full].slice(-8);
-    const gs={...G.srv,talk,_ts:Date.now()};
-    G.srv=gs;dbWrite(G.roomId,gs);
-  }
+  // Show it locally right away, independent of the network write below — the sender shouldn't wait
+  // on a round trip to see their own reaction.
   if(full.kind==='emoji')spawnFloatEmoji(full.emoji);else spawnTalkBubble(full);
+  if(online&&G.roomId){
+    _seenTalk.add(full.id);
+    // A reaction can be sent by anyone at any moment, independent of whose turn it is — unlike a
+    // game move, which only the current player ever writes, so a plain write from a possibly-stale
+    // cached G.srv here could silently clobber another action (a bet, a card play, another reaction)
+    // that landed a moment earlier, dropping it before it ever reaches the other player. Re-read
+    // fresh and retry on collision instead, the same pattern already used for Roulette's
+    // any-player-any-time betting.
+    for(let i=0;i<5;i++){
+      const state=await dbRead(G.roomId);if(!state)return;
+      const expectedTs=state._ts;
+      state.talk=[...(state.talk||[]),full].slice(-8);
+      if(await dbWriteIfUnchanged(G.roomId,expectedTs,state)){G.srv=state;return;}
+    }
+  }
 }
 function talkStripHTML(){
   const reacts=['😂','😱','👏','🔥','❤️','🤔','💫','🎉','🙈','🃏'].map(r=>`<button class="rb" data-a="react" data-r="${r}" aria-label="React with ${r}">${r}</button>`).join('');
