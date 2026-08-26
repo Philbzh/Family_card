@@ -3958,7 +3958,13 @@ function onSrv(state){
           addHistory({game:'roulette',winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),players:(state.players||[]).map(p=>p.name),mode:'online',moment:roundMoment(G.lres),stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
           if(state.winner===G.myPid){G.tw++;localStorage.setItem('ct_tw',G.tw);}
         }
-        G.scr=state.matchOver?'matchend':'roundend';render();return;
+        // Recompute independently of the stored matchOver flag rather than trusting it outright —
+        // a room written by an older client (from before this flag existed) or any other state
+        // where someone's already at 0 chips would otherwise leave a bankrupt player stuck on a
+        // "Spin again" screen they have no chips left to use.
+        const roulStillIn=state.players.filter(p=>p.chips>0);
+        const roulMatchOver=state.matchOver||(state.players.length>1&&roulStillIn.length<=1);
+        G.scr=roulMatchOver?'matchend':'roundend';render();return;
       }
       let bd;
       if(state.gameId==='blackjack'){
@@ -5774,6 +5780,8 @@ document.addEventListener('click',e=>{
         return;
       }
       if(rs.gameId==='roulette'){
+        const roulStillIn=rs.players.filter(p=>p.chips>0);
+        if(rs.players.length>1&&roulStillIn.length<=1){onSrv(rs);return;}
         const players=(rs.players||[]).map(p=>({...p,roulBets:{},roulBetLog:[]}));
         const gs={...rs,players,roulSpinning:false,roulHighlight:null,winner:null,winnerName:null,winnerAv:null,roundResult:null,lastAct:'',round:(rs.round||1)+1,_ts:Date.now()};
         G.srv=gs;dbWrite(G.roomId,gs);
