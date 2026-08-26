@@ -1520,6 +1520,21 @@ const dbWrite=async(id,s)=>{
   try{const{error}=await sb.from('card_rooms').upsert({id,state:s,updated_at:new Date().toISOString()});if(error){toast('⚠️ Sync error');return false;}return true;}
   catch(e){toast('⚠️ Network error');return false;}
 };
+// Optimistic-concurrency write: only lands if the row's state._ts still matches what this client
+// read before mutating. Every other online game is turn-gated (only the current player ever
+// writes), so a plain read-mutate-write is safe there — Roulette is the one exception, where any
+// seated player can bet at any moment with no serialization at all, so two players betting within
+// the same round-trip window would otherwise silently clobber each other's chip deduction/bet.
+// Returns true if the write landed, false if someone else wrote first (caller should re-read and retry).
+const dbWriteIfUnchanged=async(id,expectedTs,s)=>{
+  const sb=SB();if(!sb){toast('⚠️ Online mode unavailable');return false;}
+  s._ts=Date.now();
+  try{
+    const{data,error}=await sb.from('card_rooms').update({state:s,updated_at:new Date().toISOString()}).eq('id',id).eq('state->>_ts',String(expectedTs)).select('id');
+    if(error){toast('⚠️ Sync error');return false;}
+    return!!(data&&data.length);
+  }catch(e){return false;}
+};
 // ═══ PRESENCE — who's actually still at the table ═══
 // Supabase's presence channel is ephemeral (never written to the persisted room row): each client
 // announces itself once subscribed, the server drops a client from the presence set automatically
@@ -1715,6 +1730,9 @@ const GAMES=[
    rules:['Highest card of led suit wins the trick.','Avoid <b>hearts</b> (1 pt each) and <b>Q♠</b> (13 pts).','Lowest score after someone hits 100 pts wins.','<b>Shoot the Moon</b>: take ALL hearts + Q♠ = 0 pts for you, +26 for everyone else.','Coming soon — not yet playable.']},
   {id:'bridge',icon:'♣️',name:'Bridge',players:'4',dur:'45–90 min',diff:'hard',deal:13,locked:true,rules:['Coming in Phase 3.']},
 ];
+// Single source of truth for which unlocked games have online-multiplayer support, so the "online"
+// gate and the local-only badge on a game's card can never drift out of sync with each other.
+const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette'];
 
 function isRed(s){return s==='hearts'||s==='diamonds';}
 function mod(n,m){return((n%m)+m)%m;}
@@ -2494,46 +2512,61 @@ function roulResolve(num){
 // Roulette has no turn order — every seated player can bet on their own device any time before the
 // spin, and any player can pull the trigger once bets are down. So unlike the turn-based online
 // games above, there's no isMyTurn() gate here at all, only "not while the wheel is spinning."
+// Shared retry loop for the three bet-mutating actions below. `mutate(state)` mutates state in
+// place for the local player and returns true to proceed with the write, or false to abort
+// silently (e.g. "not enough chips", already spinning). If another player's bet lands in between
+// our read and write, the conditional write fails and we simply re-read and re-apply the same
+// mutation against the now-current state, rather than overwriting their change.
+async function oRoulMutate(mutate){
+  for(let i=0;i<5;i++){
+    const state=await dbRead(G.roomId);if(!state||state.roulSpinning)return;
+    const expectedTs=state._ts;
+    if(!mutate(state))return;
+    onSrv(state); // optimistic local render; corrected by the next real sync if this write loses the race
+    if(await dbWriteIfUnchanged(G.roomId,expectedTs,state))return;
+  }
+  toast('⚠️ Too many players betting at once — try again');
+}
 async function oRoulPlaceBet(key){
   if(_onlineBusy)return;
   _onlineBusy=true;
   try{
-    const state=await dbRead(G.roomId);if(!state||state.roulSpinning)return;
-    const p=state.players.find(pl=>pl.id===G.myPid);if(!p)return;
-    if(p.chips<G.roulChip){toast('Not enough chips');SFX.illegal();return;}
-    p.chips-=G.roulChip;
-    p.roulBets=p.roulBets||{};p.roulBets[key]=(p.roulBets[key]||0)+G.roulChip;
-    p.roulBetLog=p.roulBetLog||[];p.roulBetLog.push({key,amt:G.roulChip});
-    SFX.chip();
-    state._ts=Date.now();onSrv(state);
-    await dbWrite(G.roomId,state);
+    await oRoulMutate(state=>{
+      const p=state.players.find(pl=>pl.id===G.myPid);if(!p)return false;
+      if(p.chips<G.roulChip){toast('Not enough chips');SFX.illegal();return false;}
+      p.chips-=G.roulChip;
+      p.roulBets=p.roulBets||{};p.roulBets[key]=(p.roulBets[key]||0)+G.roulChip;
+      p.roulBetLog=p.roulBetLog||[];p.roulBetLog.push({key,amt:G.roulChip});
+      SFX.chip();
+      return true;
+    });
   } finally { _onlineBusy=false; }
 }
 async function oRoulUndo(){
   if(_onlineBusy)return;
   _onlineBusy=true;
   try{
-    const state=await dbRead(G.roomId);if(!state||state.roulSpinning)return;
-    const p=state.players.find(pl=>pl.id===G.myPid);if(!p)return;
-    const last=(p.roulBetLog||[]).pop();if(!last)return;
-    p.roulBets[last.key]-=last.amt;
-    if(p.roulBets[last.key]<=0)delete p.roulBets[last.key];
-    p.chips+=last.amt;
-    SFX.draw();
-    state._ts=Date.now();onSrv(state);
-    await dbWrite(G.roomId,state);
+    await oRoulMutate(state=>{
+      const p=state.players.find(pl=>pl.id===G.myPid);if(!p)return false;
+      const last=(p.roulBetLog||[]).pop();if(!last)return false;
+      p.roulBets[last.key]-=last.amt;
+      if(p.roulBets[last.key]<=0)delete p.roulBets[last.key];
+      p.chips+=last.amt;
+      SFX.draw();
+      return true;
+    });
   } finally { _onlineBusy=false; }
 }
 async function oRoulClearBets(){
   if(_onlineBusy)return;
   _onlineBusy=true;
   try{
-    const state=await dbRead(G.roomId);if(!state||state.roulSpinning)return;
-    const p=state.players.find(pl=>pl.id===G.myPid);if(!p)return;
-    Object.values(p.roulBets||{}).forEach(amt=>{p.chips+=amt;});
-    p.roulBets={};p.roulBetLog=[];
-    state._ts=Date.now();onSrv(state);
-    await dbWrite(G.roomId,state);
+    await oRoulMutate(state=>{
+      const p=state.players.find(pl=>pl.id===G.myPid);if(!p)return false;
+      Object.values(p.roulBets||{}).forEach(amt=>{p.chips+=amt;});
+      p.roulBets={};p.roulBetLog=[];
+      return true;
+    });
   } finally { _onlineBusy=false; }
 }
 async function oRoulSpin(){
@@ -3924,6 +3957,14 @@ function makeUnoCard(card,w,h,extraClass){
   const cr=Math.round(w*.09), fs=Math.round(h*.32), cFs=Math.round(h*.13);
   const uid='uno'+String(card.id||card.color+card.value)+w+h;
   const isWild=card.color==='black';
+  // Yellow is the one color where the usual treatment (card's own hue for the center pip on white,
+  // plain white for the corner numerals on the card's own background) fails contrast badly — yellow
+  // on white and white on yellow both land around ~1.7:1, well under WCAG's 3:1 minimum for large
+  // text. Every other color is dark enough that white/self-color both read fine, so only yellow
+  // needs an override.
+  const isYellow=card.color==='yellow';
+  const centerFill=isWild?'#222':(isYellow?'#4a3600':bg);
+  const cornerFill=isYellow?'#332600':'#fff';
   const wildSlices=isWild?['red','blue','yellow','green'].map((c,i)=>{
     const x=i%2===0?0:w/2, y=i<2?0:h/2;
     return `<rect x="${x}" y="${y}" width="${w/2}" height="${h/2}" fill="${UNO_COLOR_HEX[c]}"/>`;
@@ -3935,9 +3976,9 @@ function makeUnoCard(card,w,h,extraClass){
         <rect width="${w}" height="${h}" fill="${bg}"/>
         ${wildSlices}
         <ellipse cx="${w/2}" cy="${h/2}" rx="${w*.4}" ry="${h*.6}" fill="#fff" transform="rotate(-18 ${w/2} ${h/2})"/>
-        <text x="${w/2}" y="${h/2}" text-anchor="middle" dominant-baseline="central" font-family="Arial,sans-serif" font-weight="900" font-size="${fs}" fill="${isWild?'#222':bg}">${label}</text>
-        <text x="${Math.round(w*.12)}" y="${Math.round(h*.2)}" font-family="Arial,sans-serif" font-weight="800" font-size="${cFs}" fill="#fff">${label}</text>
-        <text x="${Math.round(w*.88)}" y="${Math.round(h*.93)}" text-anchor="end" font-family="Arial,sans-serif" font-weight="800" font-size="${cFs}" fill="#fff">${label}</text>
+        <text x="${w/2}" y="${h/2}" text-anchor="middle" dominant-baseline="central" font-family="Arial,sans-serif" font-weight="900" font-size="${fs}" fill="${centerFill}">${label}</text>
+        <text x="${Math.round(w*.12)}" y="${Math.round(h*.2)}" font-family="Arial,sans-serif" font-weight="800" font-size="${cFs}" fill="${cornerFill}">${label}</text>
+        <text x="${Math.round(w*.88)}" y="${Math.round(h*.93)}" text-anchor="end" font-family="Arial,sans-serif" font-weight="800" font-size="${cFs}" fill="${cornerFill}">${label}</text>
       </g>
       <rect x="1" y="1" width="${w-2}" height="${h-2}" rx="${cr}" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.5"/>
     </svg>
@@ -4055,14 +4096,15 @@ function rSidebar(){
 }
 // Shared game-card markup for both the Home dashboard's featured strip and the full Games library.
 function gameCardHTML(g){
-  const label=`${g.name}, ${g.players} players, ${g.dur}${g.locked?', coming soon':''}`;
+  const localOnly=!g.locked&&!ONLINE_GAMES.includes(g.id);
+  const label=`${g.name}, ${g.players} players, ${g.dur}${g.locked?', coming soon':localOnly?', pass-and-play only':''}`;
   const a11y=g.locked?'':`role="button" tabindex="0" aria-label="${esc(label)}"`;
   return g.cover?`<div class="v10-game-card has-cover v10-gc--${g.id}${g.locked?' locked':''}" data-a="${g.locked?'':'pick'}" data-gid="${g.id}" style="background-image:url('${g.cover}')" ${a11y}>
-      ${g.locked?'<div class="v10-card-tag cover-tag">Coming soon</div>':''}
+      ${g.locked?'<div class="v10-card-tag cover-tag">Coming soon</div>':localOnly?'<div class="v10-card-tag cover-tag">📱 Pass &amp; play only</div>':''}
     </div>`:`<div class="v10-game-card v10-gc--${g.id}${g.locked?' locked':''}" data-a="${g.locked?'':'pick'}" data-gid="${g.id}" ${a11y}>
       <div class="v10-card-watermark">${g.icon}</div>
       <div><div class="v10-card-icon">${g.icon}</div><div class="v10-card-name">${g.name}</div><div class="v10-card-meta">${g.players} · ${g.dur}</div></div>
-      <div class="v10-card-tag">${g.locked?'Coming soon':(g.diff==='easy'?'Easy to learn':g.diff==='medium'?'A little strategy':'For seasoned players')}</div>
+      <div class="v10-card-tag">${g.locked?'Coming soon':localOnly?'📱 Pass & play only':(g.diff==='easy'?'Easy to learn':g.diff==='medium'?'A little strategy':'For seasoned players')}</div>
     </div>`;
 }
 function rGames(){
@@ -4830,10 +4872,16 @@ function rRoundEnd(){
   const rGid=G.isOnline?G.srv?.gameId:G.selGame;
   const rows=r.bd.map((b,i)=>`<div class="sr${b.isWinner?' win':''}"><span class="sr-rank">${['🥇','🥈','🥉','④','⑤','⑥','⑦','⑧'][i]||i+1}</span><span class="sr-av">${avHTML(b.avatar)}</span><span class="sr-name">${esc(b.name)}</span><span class="sr-delta" style="color:${b.delta>=0?'#86efac':'#fca5a5'}">${b.delta>=0?'+':''}${b.delta}</span><span class="sr-pts">${b.total}</span></div>`).join('');
   const isRoulette=rGid==='roulette';
+  // Roulette's "winner" (bd[0]) is just whoever has the most chips after this spin, not necessarily
+  // someone who actually won IT — if nobody's bet matched, the house takes the spin and crediting
+  // the chip leader with "wins!" directly contradicts the correct "house takes this spin" text
+  // already shown just below in the table-moment panel.
+  const roulNoWinner=isRoulette&&!r.bd.some(b=>b.isWinner);
+  const winTitle=roulNoWinner?'The house takes this spin':`${r.wAv} ${esc(r.wName)} wins!`;
   const roulBadge=isRoulette?`<div class="roul-hist-num roul-hist-${r.roulColor}" style="width:2.6rem;height:2.6rem;font-size:1.2rem;margin:.3rem auto 0;">${r.roulNumber}</div>`:'';
   return`<div id="s-roundend" class="scr on">
     <div class="topbar"><span class="top-title" style="font-family:var(--serif);">${isRoulette?'The Wheel Stops':'Round Result'}</span><div class="top-right">${sndBtn()}</div></div>
-    <div class="res-body"><div class="winner-banner" style="--acc:${MOMENT_ACCENT[rGid]||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${r.wAv} ${esc(r.wName)} wins!</div><div class="wb-sub">A great game at the table · ${new Date().toLocaleDateString(undefined,{day:'numeric',month:'long',year:'numeric'})}</div>${roulBadge}<button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div><div class="panel" style="text-align:center;margin-bottom:.8rem;"><div class="panel-lbl">TABLE MOMENT</div><div style="font-family:var(--serif);font-size:1.1rem;color:var(--paper);margin:.2rem 0;">${roundMoment(r)}</div><div style="font-size:.72rem;color:var(--paper3);">Save the score. Deal again. Keep the memory.</div></div><div class="standings">${rows}</div><div class="res-btns"><button class="btn btn-gold" data-a="next">${isRoulette?'🎡 Spin again':'🃏 Deal again'}</button><button class="btn btn-ghost" data-a="endgame">End table</button></div></div>
+    <div class="res-body"><div class="winner-banner" style="--acc:${MOMENT_ACCENT[rGid]||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${winTitle}</div><div class="wb-sub">A great game at the table · ${new Date().toLocaleDateString(undefined,{day:'numeric',month:'long',year:'numeric'})}</div>${roulBadge}<button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div><div class="panel" style="text-align:center;margin-bottom:.8rem;"><div class="panel-lbl">TABLE MOMENT</div><div style="font-family:var(--serif);font-size:1.1rem;color:var(--paper);margin:.2rem 0;">${roundMoment(r)}</div><div style="font-size:.72rem;color:var(--paper3);">Save the score. Deal again. Keep the memory.</div></div><div class="standings">${rows}</div><div class="res-btns"><button class="btn btn-gold" data-a="next">${isRoulette?'🎡 Spin again':'🃏 Deal again'}</button><button class="btn btn-ghost" data-a="endgame">End table</button></div></div>
   </div>`;
 }
 
@@ -5319,7 +5367,7 @@ document.addEventListener('click',e=>{
   }
   else if(a==='local'){G.isOnline=false;G.scr='setup';render();}
   else if(a==='online'){
-    if(!['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette'].includes(G.selGame)){toast('⚠️ Online play is not available for this game yet.');return;}
+    if(!ONLINE_GAMES.includes(G.selGame)){toast('⚠️ Online play is not available for this game yet.');return;}
     G.scr='online';render();
   }
   else if(a==='pick'){const gid=t.getAttribute('data-gid');if(!GAMES.find(g=>g.id===gid&&g.locked))G.selGame=gid;render();}
