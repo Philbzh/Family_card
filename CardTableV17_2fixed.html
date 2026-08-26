@@ -2524,7 +2524,12 @@ function roulResolve(num){
   addHistory({game:'roulette',winner:bd[0].name,winnerAvatar:bd[0].avatar,date:new Date().toISOString(),players:G.lp.map(p=>p.name),moment:roulMoment,stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats.reactions}});
   G.lp.forEach(p=>{p.roulBets={};p.roulBetLog=[];});
   G.lres={wName:bd[0].name,wAv:bd[0].avatar,bd,roulNumber:num,roulColor:color};
-  G.scr='roundend';
+  // If this spin left at most one player still holding chips, the match is over — nobody else can
+  // place another bet, so there's no more game to play, not just a round to replay. Skip straight
+  // to the match-end screen (which already ranks players by chips and declares the leader the
+  // winner) instead of the normal "Spin again" round-end.
+  const stillIn=G.lp.filter(p=>p.chips>0);
+  G.scr=(G.lp.length>1&&stillIn.length<=1)?'matchend':'roundend';
   render();
 }
 
@@ -2674,6 +2679,10 @@ async function oRoulResolve(num){
   state.players.forEach(p=>{p.roulBets={};p.roulBetLog=[];});
   state.roundResult={wName:bd[0].name,wAv:bd[0].avatar,bd,roulNumber:num,roulColor:color};
   state.winner=bd[0].id;state.winnerName=bd[0].name;state.winnerAv=bd[0].avatar;
+  // Same bust-out check as the local game: if at most one player still has chips, nobody left in
+  // the room can place another bet, so this is the last spin of the match, not just the round.
+  const stillIn=state.players.filter(p=>p.chips>0);
+  state.matchOver=state.players.length>1&&stillIn.length<=1;
   state._ts=Date.now();onSrv(state);
   await dbWrite(G.roomId,state);
 }
@@ -3924,7 +3933,7 @@ function onSrv(state){
           addHistory({game:'roulette',winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),players:(state.players||[]).map(p=>p.name),mode:'online',moment:roundMoment(G.lres),stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
           if(state.winner===G.myPid){G.tw++;localStorage.setItem('ct_tw',G.tw);}
         }
-        G.scr='roundend';render();return;
+        G.scr=state.matchOver?'matchend':'roundend';render();return;
       }
       let bd;
       if(state.gameId==='blackjack'){
