@@ -1106,6 +1106,17 @@ body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100v
 .legend-title{font-size:.56rem;text-transform:uppercase;letter-spacing:.1em;color:var(--gold2);opacity:.9;}
 .legend-name{font-family:var(--serif);font-size:1rem;color:var(--paper);margin-top:.25rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .legend-sub{font-size:.66rem;color:var(--paper3);margin-top:.2rem;}
+.rivalry-card{padding:.9rem 1.1rem 1rem;margin-bottom:1.6rem;border-radius:16px;border:1px solid rgba(234,208,138,.22);
+  background:radial-gradient(120% 160% at 50% -10%,rgba(212,168,67,.14),transparent 65%),linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.015));
+  box-shadow:0 10px 22px rgba(0,0,0,.32),inset 0 1px 0 rgba(255,255,255,.06);}
+.rivalry-label{font-size:.56rem;text-transform:uppercase;letter-spacing:.1em;color:var(--gold2);opacity:.9;text-align:center;margin-bottom:.5rem;}
+.rivalry-row{display:flex;align-items:center;gap:.6rem;}
+.rivalry-side{flex:1;text-align:center;min-width:0;}
+.rivalry-av{width:2.8rem;height:2.8rem;margin:0 auto .35rem;border-radius:50%;overflow:hidden;border:1.5px solid var(--gold3);}
+.rivalry-name{font-family:var(--serif);font-size:.9rem;color:var(--paper);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rivalry-score{font-size:1.5rem;font-weight:700;color:var(--paper);margin-top:.1rem;}
+.rivalry-vs{font-size:.68rem;color:var(--paper3);flex-shrink:0;font-family:var(--serif);}
+.rivalry-sub{text-align:center;font-size:.68rem;color:var(--gold2);margin-top:.65rem;}
 .family-list{display:flex;flex-direction:column;gap:.65rem;max-width:520px;margin-bottom:1.4rem;}
 .family-card{display:flex;align-items:center;gap:.85rem;padding:.85rem 1rem;border-radius:15px;border:1px solid rgba(234,208,138,.16);background:linear-gradient(150deg,rgba(212,168,67,.1),rgba(255,255,255,.02));}
 .family-av{width:2.6rem;height:2.6rem;flex-shrink:0;display:grid;place-items:center;font-size:1.3rem;background:radial-gradient(circle at 35% 30%,#3a5c48,#16281d);border-radius:50%;border:1.5px solid #caa057;}
@@ -1991,6 +2002,12 @@ function digestData(){
   });
   const standings=Object.entries(winCounts).sort((a,b)=>b[1]-a[1]).map(([name,wins])=>({name,wins,avatar:nameAvatar[name]||'🃏'}));
   const gamesList=[...new Set(todays.map(h=>h.game))].map(id=>GAMES.find(g=>g.id===id)?.name||id);
+  // Game of the Night — only worth calling out once more than one game was actually played tonight;
+  // with just one game, it'd just repeat what gamesList already says.
+  const gameCounts={};
+  todays.forEach(h=>{gameCounts[h.game]=(gameCounts[h.game]||0)+1;});
+  const topGame=Object.entries(gameCounts).sort((a,b)=>b[1]-a[1])[0];
+  const gameOfNight=(topGame&&Object.keys(gameCounts).length>=2)?{name:GAMES.find(g=>g.id===topGame[0])?.name||topGame[0],icon:GAMES.find(g=>g.id===topGame[0])?.icon||'🃏',count:topGame[1]}:null;
   // Longest current streak among tonight's games — same rule as House Legends: skip games a player
   // didn't take part in, stop counting at the first game they took part in and lost.
   let bestStreak={name:null,len:0};
@@ -2008,6 +2025,7 @@ function digestData(){
     games:todays.length,
     standings,
     gamesList,
+    gameOfNight,
     streak:bestStreak.len>=2?bestStreak:null,
     moments,
     tableName:G.tableName||'',
@@ -2097,6 +2115,34 @@ function houseLegends(){
   if(regular&&regular[1]>=4)legends.push({icon:'📅',title:'The Regular',name:regular[0],sub:regular[1]+' games played'});
 
   return legends.length?{legends,nameAvatar}:null;
+}
+// The head-to-head record between the two family members who've played together the most —
+// computed purely from existing history entries, same "only show it once it means something" rule
+// as House Legends (needs at least 3 shared games before a rivalry is worth calling out).
+function rivalries(){
+  const history=familyHistory();
+  const family=getFamily();
+  if(family.length<2)return null;
+  const nameAvatar={};
+  family.forEach(m=>nameAvatar[m.name]=m.avatar);
+  history.forEach(h=>{if(h.winner&&h.winnerAvatar&&!nameAvatar[h.winner])nameAvatar[h.winner]=h.winnerAvatar;});
+
+  const names=new Set(family.map(m=>m.name));
+  const pairs={};
+  history.forEach(h=>{
+    const ps=(h.players||[]).filter(p=>names.has(p));
+    for(let i=0;i<ps.length;i++)for(let j=i+1;j<ps.length;j++){
+      const a=ps[i]<ps[j]?ps[i]:ps[j],b=ps[i]<ps[j]?ps[j]:ps[i];
+      const key=a+'|'+b;
+      const entry=pairs[key]=pairs[key]||{a,b,games:0,aWins:0,bWins:0};
+      entry.games++;
+      if(h.winner===a)entry.aWins++;else if(h.winner===b)entry.bWins++;
+    }
+  });
+  const best=Object.values(pairs).filter(p=>p.games>=3).sort((x,y)=>y.games-x.games)[0];
+  if(!best)return null;
+  const leader=best.aWins===best.bWins?null:(best.aWins>best.bWins?best.a:best.b);
+  return{...best,leader,margin:Math.abs(best.aWins-best.bWins),nameAvatar};
 }
 
 /* ═══ SESSION MOMENTS ═══ */
@@ -4282,10 +4328,22 @@ function rFamily(){
       <div class="legend-name">${esc(l.name)}</div>
       <div class="legend-sub">${esc(l.sub)}</div>
     </div>`).join('')}</div>`:'';
+  const riv=rivalries();
+  const rivalrySub=riv?(riv.leader?`${esc(riv.leader)} leads by ${riv.margin}`:`Dead even after ${riv.games} game${riv.games!==1?'s':''}`):'';
+  const rivalryPanel=riv?`<div class="rivalry-card">
+      <div class="rivalry-label">🥊 Rivalry</div>
+      <div class="rivalry-row">
+        <div class="rivalry-side"><div class="rivalry-av">${avHTML(riv.nameAvatar[riv.a]||AVATARS[0])}</div><div class="rivalry-name">${esc(riv.a)}</div><div class="rivalry-score">${riv.aWins}</div></div>
+        <div class="rivalry-vs">VS</div>
+        <div class="rivalry-side"><div class="rivalry-av">${avHTML(riv.nameAvatar[riv.b]||AVATARS[0])}</div><div class="rivalry-name">${esc(riv.b)}</div><div class="rivalry-score">${riv.bWins}</div></div>
+      </div>
+      <div class="rivalry-sub">${rivalrySub}</div>
+    </div>`:'';
   return`<div id="s-family" class="scr on" style="padding:1.8rem 2.2rem;overflow-y:auto;">
     <div style="font-family:var(--serif);font-size:1.9rem;color:var(--paper);margin-bottom:.2rem;">Family</div>
     <div style="font-size:.82rem;color:var(--paper3);margin-bottom:1.5rem;">The people at your table${totalGames?` · ${totalGames} game${totalGames!==1?'s':''} recorded`:''}.</div>
     ${legendsPanel}
+    ${rivalryPanel}
     ${family.length?`<div class="family-list">${rows}</div>`:emptyState}
     ${suggestRow}
     <div class="family-add-row">
@@ -5268,9 +5326,10 @@ function composeTableDigest(data){
   const W=900;
   const rowH=86,momentLineH=32;
   const standingsH=data.standings.length?60+data.standings.length*rowH:0;
+  const gameOfNightH=data.gameOfNight?76:0;
   const streakH=data.streak?100:0;
   const momentsH=data.moments.length?70+data.moments.length*momentLineH*2:0;
-  const H=Math.max(900,420+standingsH+streakH+momentsH+140);
+  const H=Math.max(900,420+standingsH+gameOfNightH+streakH+momentsH+140);
   const canvas=document.createElement('canvas');
   canvas.width=W;canvas.height=H;
   const ctx=canvas.getContext('2d');
@@ -5322,6 +5381,18 @@ function composeTableDigest(data){
     ctx.fillStyle='rgba(251,247,237,.55)';
     ctx.font='400 20px Jost, sans-serif';
     ctx.fillText(data.gamesList.join(' · '),W/2,y);
+  }
+
+  if(data.gameOfNight){
+    y+=54;
+    ctx.fillStyle='rgba(212,168,67,.14)';
+    ctx.strokeStyle='rgba(212,168,67,.5)';ctx.lineWidth=1.5;
+    roundRectPath(ctx,W/2-320,y-38,640,64,16);
+    ctx.fill();ctx.stroke();
+    ctx.fillStyle='#ead08a';
+    ctx.font='600 26px Jost, sans-serif';
+    ctx.fillText(`⭐ Game of the Night: ${data.gameOfNight.icon} ${data.gameOfNight.name}`,W/2,y);
+    y+=48;
   }
 
   if(data.standings.length){
