@@ -1953,6 +1953,11 @@ const ACHIEVEMENTS=[
   {id:'variety',icon:'🎲',name:'Jack of All Games',desc:'Won at 3 different games',check:()=>new Set(getHistory().filter(h=>h.winner).map(h=>h.game)).size>=3},
   {id:'ten-games',icon:'📅',name:'Regular',desc:'10 games played',check:()=>G.gp>=10},
   {id:'twentyfive-games',icon:'👑',name:'Legend of the Table',desc:'25 games played',check:()=>G.gp>=25},
+  // Secret achievements — not listed anywhere before they unlock (there's no achievements gallery
+  // screen, only this toast), so the surprise is free: no hiding logic needed, just don't check()
+  // true until it's genuinely earned.
+  {id:'midnight-roller',icon:'🌙',secret:true,name:'The Midnight Roller',desc:'Won a game after 11pm',check:()=>getHistory().some(h=>h.winner===G.myName&&new Date(h.date).getHours()>=23)},
+  {id:'chaos-master',icon:'🎲',secret:true,name:'Chaos Master',desc:'Won 3 different games in one day',check:()=>{const today=new Date().toDateString();return new Set(getHistory().filter(h=>h.winner===G.myName&&new Date(h.date).toDateString()===today).map(h=>h.game)).size>=3;}},
 ];
 function checkAchievements(){
   let unlocked;
@@ -5234,7 +5239,7 @@ function rMatchEnd(){
       ${statChips}
       <div class="panel" style="text-align:center;margin-bottom:.8rem;"><div class="panel-lbl">TABLE MOMENT</div><div style="font-family:var(--serif);font-size:1.1rem;color:var(--paper);margin:.2rem 0;">${matchMoment(sorted)}</div></div>
       <div class="standings">${rows}</div>
-      <div class="res-btns"><button class="btn btn-gold btn-full" data-a="newgame">New Game</button></div>
+      <div class="res-btns">${G.isOnline?'':'<button class="btn btn-gold btn-full" data-a="rematch">🔥 Rematch</button>'}<button class="btn ${G.isOnline?'btn-gold':'btn-ghost'} btn-full" data-a="newgame">New Game</button></div>
     </div>
   </div>`;
 }
@@ -5248,7 +5253,7 @@ function rYahtzeeEnd(){
     <div class="res-body">
       <div class="winner-banner" style="--acc:${MOMENT_ACCENT.yahtzee||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${winner.avatar} ${esc(winner.name)} wins with ${winner.score}!</div><button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div>
       <div class="standings">${rows}</div>
-      <div class="res-btns"><button class="btn btn-gold btn-full" data-a="newgame">New Game</button></div>
+      <div class="res-btns">${G.isOnline?'':'<button class="btn btn-gold btn-full" data-a="rematch">🔥 Rematch</button>'}<button class="btn ${G.isOnline?'btn-gold':'btn-ghost'} btn-full" data-a="newgame">New Game</button></div>
     </div>
   </div>`;
 }
@@ -5964,6 +5969,11 @@ document.addEventListener('click',e=>{
     else{G.lround++;G.lstart=mod(G.lstart+1,G.lp.length);lDeal();render();}
   }
   else if(a==='endgame'){G.scr='matchend';render();}
+  // Same players, same game, straight back into a fresh match — reuses the exact same lStartMatch()
+  // pipeline a normal "Deal the Cards" tap from setup uses, just skipping setup since G.lp is
+  // already populated from the match that just ended. Local pass-and-play only: online would need
+  // to reset the shared room state for every seated player, which is a bigger, separate change.
+  else if(a==='rematch'){lStartMatch();render();}
   else if(a==='newgame'){
     const keep={snd:G.snd,gp:G.gp,tw:G.tw,selGame:G.selGame,myName:G.myName,myAvatar:G.myAvatar,beginnerMode:G.beginnerMode,hr:G.hr};
     stopSync();
