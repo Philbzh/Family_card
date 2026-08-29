@@ -2,12 +2,23 @@
 // app shell itself. Multiplayer still needs a live connection (Supabase requests are always
 // passed straight through to the network, never cached), so this is about the shell — the HTML,
 // icons, and manifest — not about playing an online game with no signal.
-const CACHE_NAME = 'our-table-v3';
+const CACHE_NAME = 'our-table-v4';
 const APP_SHELL = [
   './CardTableV17_2fixed.html',
   './manifest.json',
   './assets/icons/icon-192.png',
   './assets/icons/icon-512.png',
+];
+// Game cover art -- deliberately NOT part of APP_SHELL's install-time cache.addAll() below.
+// addAll() is atomic: if even one of these fetches fails (a flaky connection on exactly the kind
+// of network this app is trying to be resilient to), the whole install rejects and no service
+// worker gets registered at all -- breaking offline support entirely to chase a smaller polish
+// win. Warmed individually and best-effort after activate instead, so a slow/failed image can
+// never take down the shell that actually matters.
+const GAME_COVERS = [
+  './assets/games/maumau.png','./assets/games/texas.png','./assets/games/fivecard.png',
+  './assets/games/blackjack.png','./assets/games/battle.png','./assets/games/yahtzee.png',
+  './assets/games/roulette.png','./assets/games/uno.png','./assets/games/romme.png',
 ];
 
 self.addEventListener('install', e => {
@@ -18,11 +29,20 @@ self.addEventListener('install', e => {
   );
 });
 
+function warmGameCovers(){
+  return caches.open(CACHE_NAME).then(cache =>
+    Promise.allSettled(GAME_COVERS.map(url =>
+      fetch(url, { cache: 'no-store' }).then(res => { if (res && res.ok) return cache.put(url, res); })
+    ))
+  );
+}
+
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
       .then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
+      .then(() => warmGameCovers())
   );
 });
 
