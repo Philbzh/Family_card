@@ -4061,7 +4061,10 @@ function onSrv(state){
   // non-Yahtzee combos — lighter than the Yahtzee banner so it stays a distinct, lesser reward.
   if(state.gameId==='yahtzee'&&prevYScores){
     state.players.forEach((pl,i)=>{
-      const prev=prevYScores[i];if(!prev)return;
+      // pl.scorecard doesn't exist yet during lobby (before the match deals scorecards), or for a
+      // seat still shown as "Waiting..." -- bail before touching it rather than assuming every
+      // player object is already mid-game shaped.
+      const prev=prevYScores[i];if(!prev||!pl.scorecard)return;
       if(pl.scorecard.fullHouse!==null&&prev.fullHouse===null&&pl.scorecard.fullHouse>0)celebrateGoodCategory('Full House',pl.name);
       if(pl.scorecard.largeStraight!==null&&prev.largeStraight===null&&pl.scorecard.largeStraight>0)celebrateGoodCategory('Large Straight',pl.name);
     });
