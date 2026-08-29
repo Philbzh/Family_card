@@ -2196,7 +2196,7 @@ let G={
   hr:(()=>{try{return{draw2stack:true,jackWild:true,sevenSkip:true,eightReverse:true,mauAnn:true,...JSON.parse(localStorage.getItem('ct_hr')||'{}')};}catch{return{draw2stack:true,jackWild:true,sevenSkip:true,eightReverse:true,mauAnn:true};}})(),
   rulesOpen:false,quitOpen:false,
   isOnline:false,roomId:null,myPid:null,isHost:false,
-  myName:'',myAvatar:AVATARS[0],srv:null,
+  myName:localStorage.getItem('ct_myname')||'',myAvatar:localStorage.getItem('ct_myavatar')||AVATARS[0],profileEditing:false,srv:null,
   gp:+(localStorage.getItem('ct_gp')||0),
   tw:+(localStorage.getItem('ct_tw')||0),
   beginnerMode:localStorage.getItem('ct_beginner')!=='0',
@@ -4414,7 +4414,7 @@ function rSidebar(){
   const rows=items.map(it=>`<div class="app-sb-item${nav===it.id?' active':''}${it.enabled?'':' disabled'}" ${it.enabled?`data-a="nav-${it.id}"`:''}><span class="ico">${it.ico}</span>${esc(it.label)}${it.soon?' <span style="font-size:.56rem;opacity:.7;margin-left:auto;">SOON</span>':''}</div>`).join('');
   return`<div class="app-sb-brand"><div class="app-sb-suit">&spades;</div><div class="app-sb-word">OUR <em>TABLE</em></div><div class="app-sb-ver">2.0</div></div>
     <div class="app-sb-nav">${rows}</div>
-    <div class="app-sb-foot"><div class="av">${avHTML(G.myAvatar||AVATARS[0])}</div><div><div class="app-sb-foot-name">${esc(G.myName||'Player')}</div><div class="app-sb-foot-sub">${G.gp} games · ${G.tw} wins</div></div></div>`;
+    <div class="app-sb-foot" data-a="profile-edit" role="button" tabindex="0" aria-label="Edit your name and avatar"><div class="av">${avHTML(G.myAvatar||AVATARS[0])}</div><div><div class="app-sb-foot-name">${esc(G.myName||'Player')}</div><div class="app-sb-foot-sub">${G.gp} games · ${G.tw} wins</div></div></div>`;
 }
 // Shared game-card markup for both the Home dashboard's featured strip and the full Games library.
 function gameCardHTML(g){
@@ -4504,7 +4504,11 @@ function rHome(){
           <div class="v10-kicker">${homeGreeting()}${playerName!=='Player'?', '+esc(playerName):''}</div>
           <h1 class="v10-title">Our <em>Table</em></h1>
           <p class="v10-sub">${homeTagline(history)}</p>
-          <div class="v10-profile"><div class="v10-avatar">${avHTML(G.myAvatar||AVATARS[0])}</div><div><div class="v10-profile-name">${esc(playerName)}</div><div class="v10-profile-note">${G.gp} games · ${G.tw} wins · ${history.length} saved results</div></div></div>
+          ${G.profileEditing?`<div class="v10-profile editing">
+              <button class="family-add-av" data-a="profile-av-cycle" aria-label="Change your avatar">${avHTML(G.myAvatar||AVATARS[0])}</button>
+              <input id="profile-name-input" class="plaque-input" style="text-transform:none;" maxlength="20" placeholder="Your name" value="${esc(G.myName)}" autocomplete="off" aria-label="Your name">
+              <button class="btn btn-gold btn-sm" data-a="profile-save">Save</button>
+            </div>`:`<div class="v10-profile" data-a="profile-edit" role="button" tabindex="0" aria-label="Edit your name and avatar"><div class="v10-avatar">${avHTML(G.myAvatar||AVATARS[0])}</div><div><div class="v10-profile-name">${esc(playerName)}</div><div class="v10-profile-note">${G.gp} games · ${G.tw} wins · ${history.length} saved results</div></div></div>`}
           ${tableMotif}
         </div>
         ${plaqueHTML}
@@ -5965,6 +5969,22 @@ document.addEventListener('click',e=>{
     else localStorage.removeItem('ct_tablename');
     G.plaqueEditing=false;render();
   }
+  else if(a==='profile-edit'){G.scr='home';G.profileEditing=true;render();setTimeout(()=>document.getElementById('profile-name-input')?.focus(),30);}
+  else if(a==='profile-av-cycle'){G.myAvatar=AVATARS[(AVATARS.indexOf(G.myAvatar)+1)%AVATARS.length];render();}
+  else if(a==='profile-save'){
+    const inp=document.getElementById('profile-name-input');
+    const val=(inp?.value||'').trim().slice(0,20);
+    G.myName=val;
+    localStorage.setItem('ct_myavatar',G.myAvatar);
+    if(val){
+      localStorage.setItem('ct_myname',val);
+      // Connects your own stats to House Legends/Rivalries automatically -- same name you already
+      // play under, no separate "add yourself" step needed.
+      const family=getFamily();
+      if(!family.some(m=>m.name===val)){family.push({name:val,avatar:G.myAvatar});saveFamily(family);}
+    } else localStorage.removeItem('ct_myname');
+    G.profileEditing=false;render();
+  }
   else if(a==='felt-theme'){const th=t.getAttribute('data-theme');applyFeltTheme(th);render();toast('🎨 Felt set to '+(FELT_NAMES[th]||th));}
   else if(a==='ambient-toggle'){
     G.ambientOn=!G.ambientOn;localStorage.setItem('ct_ambient',G.ambientOn?'1':'0');
@@ -6054,7 +6074,7 @@ document.addEventListener('click',e=>{
     const keep={snd:G.snd,gp:G.gp,tw:G.tw,selGame:G.selGame,myName:G.myName,myAvatar:G.myAvatar,beginnerMode:G.beginnerMode,hr:G.hr};
     stopSync();
     G={scr:'home',selGame:keep.selGame,snd:keep.snd,joinCode:'',lp:[{id:1,name:'',avatar:AVATARS[0],hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false},{id:2,name:'',avatar:AVATARS[1],hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false}],nid:3,ldeck:[],ldisc:[],lcur:0,lstart:0,ldir:1,lsuit:null,lpend:0,lround:1,lpass1:'',lpass2:'',llast:'',lmau:null,ldrawnCount:0,lspick:false,lpcard:null,lshake:null,lshowThrow:null,lthrowing:false,lDealIn:false,lres:null,pot:0,community:[],communityRevealAnim:null,dealerHand:[],dealerHoleHidden:true,dealerRevealAnim:false,bjBet:50,battleLast:null,battleAnimating:false,pokerPhase:'preflop',bigBlind:20,smallBlind:10,dealer:0,currentBet:0,betInput:'',drawSelections:new Set(),pokerShowdown:false,hr:keep.hr,rulesOpen:false,quitOpen:false,isOnline:false,roomId:null,myPid:null,isHost:false,myName:keep.myName,myAvatar:keep.myAvatar,srv:null,gp:keep.gp,tw:keep.tw,beginnerMode:keep.beginnerMode,matchStats:freshMatchStats(),familyNewAvatar:AVATARS[0],
-      talkOpen:false,tableName:localStorage.getItem('ct_tablename')||'',plaqueEditing:false,ambientOn:localStorage.getItem('ct_ambient')==='1',
+      talkOpen:false,tableName:localStorage.getItem('ct_tablename')||'',plaqueEditing:false,profileEditing:false,ambientOn:localStorage.getItem('ct_ambient')==='1',
       notifyOn:localStorage.getItem('ct_notify')==='1',digestOpen:false,digestImg:null,
       ydice:[1,1,1,1,1],yheld:[false,false,false,false,false],yrolls:0,yres:null,yLastRolled:[],
       roulChip:5,roulSpinning:false,roulResult:null,roulHistory:[],roulHighlight:null};
@@ -6066,6 +6086,7 @@ document.addEventListener('click',e=>{
 document.addEventListener('keydown',e=>{
   if(e.target?.id==='talk-input'&&e.key==='Enter'){e.preventDefault();document.querySelector('[data-a="talk-send"]')?.click();return;}
   if(e.target?.id==='plaque-input'&&e.key==='Enter'){e.preventDefault();document.querySelector('[data-a="plaque-save"]')?.click();return;}
+  if(e.target?.id==='profile-name-input'&&e.key==='Enter'){e.preventDefault();document.querySelector('[data-a="profile-save"]')?.click();return;}
   if(e.key!=='Enter'&&e.key!==' ')return;
   const t=e.target.closest('[role="button"][data-a]');if(!t)return;
   e.preventDefault();t.click();
