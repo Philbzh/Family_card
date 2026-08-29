@@ -172,6 +172,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100v
   border:1px solid rgba(234,208,138,.35);border-left:3px solid var(--gold);box-shadow:0 14px 35px rgba(0,0,0,.3),0 0 40px -18px rgba(234,208,138,.5);position:relative;
   transition:background .3s ease;}
 .v10-continue::after{content:"";position:absolute;width:11rem;height:11rem;border-radius:50%;right:-5rem;top:-5rem;background:rgba(234,208,138,.14);z-index:0;pointer-events:none;}
+.v10-continue.resume{border-left-color:#f0cc60;box-shadow:0 14px 35px rgba(0,0,0,.3),0 0 40px -14px rgba(240,204,96,.75);}
+.v10-continue.resume .v10-eyebrow{color:#f0cc60;}
 .v10-continue-top{display:flex;align-items:center;gap:.7rem;position:relative;z-index:1;}
 .v10-game-mark{width:2.9rem;height:2.9rem;border-radius:13px;background:rgba(0,0,0,.25);display:grid;place-items:center;font-size:1.5rem;border:1px solid rgba(234,208,138,.3);box-shadow:0 4px 14px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.1);}
 .v10-continue-copy{flex:1;min-width:0;}
@@ -656,6 +658,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100v
   animation:table-glow 2.5s ease-in-out infinite;
   pointer-events:none;z-index:0;
 }
+/* A well-worn table gains a slight warm patina rather than looking identical on game 1 and game
+   200 -- a filter() so it layers over every felt color and every game uniformly, not per-theme
+   color literals that would need hand-tuning 4 themes × 3 tiers. */
+body[data-table-age="1"] .felt-table{filter:sepia(.06) saturate(1.08) contrast(1.02);}
+body[data-table-age="2"] .felt-table{filter:sepia(.12) saturate(1.14) contrast(1.04) brightness(.98);}
+body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.06) brightness(.96);}
 @keyframes table-glow{0%,100%{box-shadow:inset 0 0 40px rgba(var(--rim-rgb),.08);}50%{box-shadow:inset 0 0 80px rgba(var(--rim-rgb),.18);}}
 @keyframes felt-drift{0%,100%{background-position:20% 25%,0 0;}50%{background-position:78% 68%,0 0;}}
 
@@ -2089,6 +2097,51 @@ function applyFeltTheme(theme){
   if(theme==='emerald')document.body.removeAttribute('data-felt');
   else document.body.setAttribute('data-felt',theme);
   localStorage.setItem('ct_felt_theme',theme);
+}
+// The felt gains a subtle patina the more a table's actually been played on -- a small nod to a
+// well-worn physical table rather than a screen that looks identical on game 1 and game 200.
+// Applied as a filter() on .felt-table itself (not per-theme color literals) so it layers
+// consistently over every felt color and every game without needing 4 themes × N tiers hand-tuned.
+// Recomputed idempotently on every render() rather than at each of the many G.gp++ call sites, so
+// there's exactly one place this logic can ever get out of sync.
+function applyTableAge(){
+  const tier=G.gp>=80?3:G.gp>=40?2:G.gp>=15?1:0;
+  if(tier===0)document.body.removeAttribute('data-table-age');
+  else document.body.setAttribute('data-table-age',tier);
+}
+// Local pass-and-play state only ever lived in memory -- closing the tab mid-hand lost it outright,
+// unlike an online room (persisted in Supabase). Checkpoints the whole local game snapshot to
+// localStorage on every render() while a local match is actually on the table screen (same
+// single-hook-point approach as applyTableAge, rather than touching every mutation site), and
+// clears it once the match genuinely ends so a stale "Continue" offer can't linger.
+// drawSelections is the one non-JSON-safe field on G (a Set, used transiently during poker's draw
+// phase) -- serialized as a plain array and rebuilt as a Set on resume.
+function checkpointLocalMatch(){
+  if(G.isOnline)return;
+  if(G.scr==='table'){
+    try{
+      const snap={...G,drawSelections:Array.from(G.drawSelections||[])};
+      localStorage.setItem('ct_resume',JSON.stringify({ts:Date.now(),snap}));
+    }catch(e){}
+  } else if(G.scr==='matchend'||G.scr==='yahtzeeend'){
+    // Natural match completion -- 'home' is deliberately NOT included here: it's also G.scr's
+    // default value on a fresh boot, before the very first render even runs, so treating it as
+    // "match over" here would wipe a checkpoint the instant it's written. Explicitly quitting or
+    // starting a new game (which do mean "abandon this") clear it directly at those actions instead.
+    localStorage.removeItem('ct_resume');
+  }
+}
+function getResumableMatch(){
+  try{return JSON.parse(localStorage.getItem('ct_resume')||'null');}catch{return null;}
+}
+function resumeLocalMatch(){
+  const saved=getResumableMatch();if(!saved)return false;
+  const drawArr=saved.snap.drawSelections||[];
+  Object.assign(G,saved.snap);
+  G.drawSelections=new Set(drawArr);
+  G.isOnline=false;
+  render();
+  return true;
 }
 function familySuggestions(){
   const known=new Set(getFamily().map(m=>m.name));
@@ -4473,7 +4526,11 @@ function rHome(){
     ${Object.keys(FELT_PREVIEW).map(t=>`<button class="felt-swatch${(G.feltTheme||'emerald')===t?' active':''}" style="background:${FELT_PREVIEW[t]};" data-a="felt-theme" data-theme="${t}" aria-label="${FELT_NAMES[t]} felt" title="${FELT_NAMES[t]}"></button>`).join('')}
     <button class="ambient-toggle${G.ambientOn?' on':''}" data-a="ambient-toggle" aria-pressed="${G.ambientOn}">🎵 Ambient lounge</button>
   </div>`;
-  const continueCard=last&&lastGame?`<div class="v10-continue" data-a="local" data-gid="${last.game}">
+  const resumable=getResumableMatch();
+  const resumeGame=resumable?GAMES.find(g=>g.id===resumable.snap.selGame):null;
+  const continueCard=resumable&&resumeGame?`<div class="v10-continue resume" data-a="resume-match">
+      <div class="v10-continue-top"><div class="v10-game-mark">${resumeGame.icon}</div><div class="v10-continue-copy"><div class="v10-eyebrow">⏸ Game in progress</div><div class="v10-game-name">${resumeGame.name}</div><div class="v10-game-meta">Pick up right where you left off</div></div><div class="v10-arrow">›</div></div>
+    </div>`:last&&lastGame?`<div class="v10-continue" data-a="local" data-gid="${last.game}">
       <div class="v10-continue-top"><div class="v10-game-mark">${lastGame.icon}</div><div class="v10-continue-copy"><div class="v10-eyebrow">Last time at the table</div><div class="v10-game-name">${lastGame.name}</div><div class="v10-game-meta">${esc(last.winner)} won · ${days===0?'Today':days===1?'Yesterday':days+' days ago'}</div></div><div class="v10-arrow">›</div></div>
     </div>`:`<div class="v10-continue" data-a="local"><div class="v10-continue-top"><div class="v10-game-mark">🃏</div><div class="v10-continue-copy"><div class="v10-eyebrow">Your family table</div><div class="v10-game-name">Start your first game</div><div class="v10-game-meta">Choose a game, invite everyone and deal.</div></div><div class="v10-arrow">›</div></div></div>`;
   // Purely ornamental table photo for the wide hero. display:none below 1100px, so the
@@ -5647,6 +5704,8 @@ function fxSeatGlow(seatIdx,color){
 window.v14StartGame=v14Intro;
 
 function render(){
+  applyTableAge();
+  checkpointLocalMatch();
   // render() always fully rebuilds #app's innerHTML from scratch, which destroys whatever DOM node
   // is currently focused — including a text input mid-keystroke. That's not just a hypothetical:
   // any background render (the family-history fetch resolving, an online-sync tick, a resize
@@ -5791,6 +5850,7 @@ document.addEventListener('click',e=>{
     render();
   }
   else if(a==='local'){G.isOnline=false;G.scr='setup';render();}
+  else if(a==='resume-match'){if(!resumeLocalMatch())toast('That game is no longer available to resume.');}
   else if(a==='online'){
     if(!ONLINE_GAMES.includes(G.selGame)){toast('⚠️ Online play is not available for this game yet.');return;}
     G.scr='online';render();
@@ -5802,7 +5862,7 @@ document.addEventListener('click',e=>{
   else if(a==='close-rules'){G.rulesOpen=false;render();}
   else if(a==='quit-ask'){G.quitOpen=true;render();}
   else if(a==='close-quit'){G.quitOpen=false;render();}
-  else if(a==='quit-confirm'){stopSync();G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;if(G.lmau)clearTimeout(G.lmau.tid);G.lmau=null;_oMauSig=null;G.scr='home';render();}
+  else if(a==='quit-confirm'){stopSync();G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;if(G.lmau)clearTimeout(G.lmau.tid);G.lmau=null;_oMauSig=null;localStorage.removeItem('ct_resume');G.scr='home';render();}
   else if(a==='addpl'){const cap=currentGame().maxP||(isPoker()?8:6);if(G.lp.length>=cap)return;G.lp.push({id:G.nid++,name:'',avatar:AVATARS[G.lp.length%AVATARS.length],hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false});render();}
   else if(a==='rm'){G.lp=G.lp.filter(p=>p.id!==+t.getAttribute('data-id'));render();}
   else if(a==='av'){const id=+t.getAttribute('data-id'),pl=G.lp.find(p=>p.id===id);if(pl){pl.avatar=AVATARS[(AVATARS.indexOf(pl.avatar)+1)%AVATARS.length];render();}}
@@ -6085,6 +6145,7 @@ document.addEventListener('click',e=>{
   else if(a==='newgame'){
     const keep={snd:G.snd,gp:G.gp,tw:G.tw,selGame:G.selGame,myName:G.myName,myAvatar:G.myAvatar,beginnerMode:G.beginnerMode,hr:G.hr};
     stopSync();
+    localStorage.removeItem('ct_resume');
     G={scr:'home',selGame:keep.selGame,snd:keep.snd,joinCode:'',lp:[{id:1,name:'',avatar:AVATARS[0],hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false},{id:2,name:'',avatar:AVATARS[1],hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false}],nid:3,ldeck:[],ldisc:[],lcur:0,lstart:0,ldir:1,lsuit:null,lpend:0,lround:1,lpass1:'',lpass2:'',llast:'',lmau:null,ldrawnCount:0,lspick:false,lpcard:null,lshake:null,lshowThrow:null,lthrowing:false,lDealIn:false,lres:null,pot:0,community:[],communityRevealAnim:null,dealerHand:[],dealerHoleHidden:true,dealerRevealAnim:false,bjBet:50,battleLast:null,battleAnimating:false,pokerPhase:'preflop',bigBlind:20,smallBlind:10,dealer:0,currentBet:0,betInput:'',drawSelections:new Set(),pokerShowdown:false,hr:keep.hr,rulesOpen:false,quitOpen:false,isOnline:false,roomId:null,myPid:null,isHost:false,myName:keep.myName,myAvatar:keep.myAvatar,srv:null,gp:keep.gp,tw:keep.tw,beginnerMode:keep.beginnerMode,matchStats:freshMatchStats(),familyNewAvatar:AVATARS[0],
       talkOpen:false,tableName:localStorage.getItem('ct_tablename')||'',plaqueEditing:false,profileEditing:false,ambientOn:localStorage.getItem('ct_ambient')==='1',
       notifyOn:localStorage.getItem('ct_notify')==='1',digestOpen:false,digestImg:null,
@@ -6196,6 +6257,7 @@ function talkStripHTML(){
 
 window.addEventListener('load',()=>{
   applyFeltTheme(localStorage.getItem('ct_felt_theme')||'emerald');
+  applyTableAge();
   syncMyFamilyEntry();
   const room=new URLSearchParams(location.search).get('room');
   resumeOnlineSession().then(resumed=>{
