@@ -211,6 +211,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100v
 .v10-game-card{min-height:9.2rem;border-radius:18px;padding:.9rem;background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.025));border:1px solid rgba(255,255,255,.09);cursor:pointer;position:relative;transition:transform .18s,border-color .18s,background .18s;display:flex;flex-direction:column;justify-content:space-between;}
 .v10-game-card:hover{transform:translateY(-2px);border-color:rgba(234,208,138,.38);}
 .v10-game-card:focus-visible{outline:2px solid #eac98a;outline-offset:2px;border-color:rgba(234,208,138,.6);}
+/* Zero-specificity fallback (via :where()) so any role="button" element without its own dedicated
+   focus style below still gets a visible ring for keyboard users, without ever fighting a more
+   specific rule (die, roulette cell, hand card, etc.) that wants its own custom treatment. */
+:where([role="button"]):focus-visible{outline:2px solid var(--gold2);outline-offset:2px;border-radius:8px;}
 .v10-game-card.locked{opacity:.42;cursor:default;}
 .v10-game-card.locked:hover{transform:none;}
 .v10-card-watermark{position:absolute;right:-.6rem;bottom:-1.3rem;font-size:6rem;line-height:1;opacity:.22;pointer-events:none;transform:rotate(-8deg);filter:saturate(1.4);}
@@ -4547,11 +4551,11 @@ function rHome(){
   </div>`;
   const resumable=getResumableMatch();
   const resumeGame=resumable?GAMES.find(g=>g.id===resumable.snap.selGame):null;
-  const continueCard=resumable&&resumeGame?`<div class="v10-continue resume" data-a="resume-match">
+  const continueCard=resumable&&resumeGame?`<div class="v10-continue resume" data-a="resume-match" role="button" tabindex="0" aria-label="Resume your in-progress ${esc(resumeGame.name)} game">
       <div class="v10-continue-top"><div class="v10-game-mark">${resumeGame.icon}</div><div class="v10-continue-copy"><div class="v10-eyebrow">⏸ Game in progress</div><div class="v10-game-name">${resumeGame.name}</div><div class="v10-game-meta">Pick up right where you left off</div></div><div class="v10-arrow">›</div></div>
-    </div>`:last&&lastGame?`<div class="v10-continue" data-a="local" data-gid="${last.game}">
+    </div>`:last&&lastGame?`<div class="v10-continue" data-a="local" data-gid="${last.game}" role="button" tabindex="0" aria-label="Start a new local game — last time you played ${esc(lastGame.name)}">
       <div class="v10-continue-top"><div class="v10-game-mark">${lastGame.icon}</div><div class="v10-continue-copy"><div class="v10-eyebrow">Last time at the table</div><div class="v10-game-name">${lastGame.name}</div><div class="v10-game-meta">${esc(last.winner)} won · ${days===0?'Today':days===1?'Yesterday':days+' days ago'}</div></div><div class="v10-arrow">›</div></div>
-    </div>`:`<div class="v10-continue" data-a="local"><div class="v10-continue-top"><div class="v10-game-mark">🃏</div><div class="v10-continue-copy"><div class="v10-eyebrow">Your family table</div><div class="v10-game-name">Start your first game</div><div class="v10-game-meta">Choose a game, invite everyone and deal.</div></div><div class="v10-arrow">›</div></div></div>`;
+    </div>`:`<div class="v10-continue" data-a="local" role="button" tabindex="0" aria-label="Start your first game"><div class="v10-continue-top"><div class="v10-game-mark">🃏</div><div class="v10-continue-copy"><div class="v10-eyebrow">Your family table</div><div class="v10-game-name">Start your first game</div><div class="v10-game-meta">Choose a game, invite everyone and deal.</div></div><div class="v10-arrow">›</div></div></div>`;
   // Purely ornamental table photo for the wide hero. display:none below 1100px, so the
   // mobile flow never sees it. No data is implied by it — it is a card motif, not a live table.
   const tableMotif=`<div class="v10-table-motif" aria-hidden="true"></div>`;
@@ -4584,7 +4588,7 @@ function rHome(){
       const when=d===0?'Today':d===1?'Yesterday':d+'d ago';
       return`<div class="v10-moment-row"><span class="v10-moment-ico">${g?.icon||'🃏'}</span><div class="v10-moment-body"><div class="v10-moment-txt">${esc(h.moment||(h.winner+' won.'))}</div><div class="v10-moment-meta">${esc(g?.name||h.game)} · ${when}</div></div></div>`;
     }).join(''):`<div class="v10-moment-empty">Your first highlight will show up here.</div>`}
-    <div class="v10-side-link" data-a="nav-moments">View all moments →</div>
+    <div class="v10-side-link" data-a="nav-moments" role="button" tabindex="0">View all moments →</div>
   </div>`;
   return`<div id="s-home" class="scr on home-v10">
     <div class="v10-grid">
@@ -4603,7 +4607,7 @@ function rHome(){
         ${plaqueHTML}
         ${feltPickerHTML}
         ${continueCard}
-        <div class="v10-section"><div class="v10-section-title">Choose a game</div><div class="v10-section-note v10-section-link" data-a="nav-games">See all ${GAMES.length} →</div></div>
+        <div class="v10-section"><div class="v10-section-title">Choose a game</div><div class="v10-section-note v10-section-link" data-a="nav-games" role="button" tabindex="0">See all ${GAMES.length} →</div></div>
         <div class="v10-games">${cards}</div>
         <div class="v10-section v10-section--journey"><div class="v10-section-title">Your table</div><div class="v10-section-note">Your journey</div></div>
         <div class="v10-bottom-grid">
@@ -4677,7 +4681,7 @@ function rLobby(){
   return`<div id="s-lobby" class="scr on">
     <div class="topbar"><button class="back-btn" data-a="home">← Leave</button><span class="top-title">${game.icon} ${game.name}</span><div class="top-right">${sndBtn()}</div></div>
     <div class="lobby-body">
-      <div class="room-code-card" data-a="copy"><div class="rcc-eye">Tap to copy invite link</div><div class="rcc-code">${G.roomId||'----'}</div><div class="rcc-hint">Share via WhatsApp · iMessage · Any messaging app</div></div>
+      <div class="room-code-card" data-a="copy" role="button" tabindex="0" aria-label="Copy invite link, room code ${G.roomId||''}"><div class="rcc-eye">Tap to copy invite link</div><div class="rcc-code">${G.roomId||'----'}</div><div class="rcc-hint">Share via WhatsApp · iMessage · Any messaging app</div></div>
       <div class="panel"><div class="panel-lbl">Players (${players.length} joined)</div><div class="seat-grid">${seats}</div></div>
       <div style="display:flex;justify-content:center;margin:-.3rem 0 .3rem;">
         <button class="ambient-toggle${G.notifyOn?' on':''}" data-a="toggle-notify" aria-pressed="${G.notifyOn}">🔔 Notify me when it's my turn</button>
