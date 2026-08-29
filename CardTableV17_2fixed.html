@@ -2057,6 +2057,18 @@ function digestData(){
 /* ═══ FAMILY ROSTER (local device, name-matched against history) ═══ */
 function getFamily(){try{return JSON.parse(localStorage.getItem('ct_family')||'[]');}catch{return[];}}
 function saveFamily(list){localStorage.setItem('ct_family',JSON.stringify(list));}
+// Keeps your own Family roster entry (matched by name) in sync with whatever avatar your personal
+// profile currently uses -- adds it if you're not there yet. Called both right after saving the
+// profile editor and once on every boot, so a stale avatar from before this existed (or from
+// picking a new one) self-heals without needing you to manually re-save.
+function syncMyFamilyEntry(){
+  if(!G.myName)return;
+  const family=getFamily();
+  const existing=family.find(m=>m.name===G.myName);
+  if(existing){if(existing.avatar===G.myAvatar)return;existing.avatar=G.myAvatar;}
+  else family.push({name:G.myName,avatar:G.myAvatar});
+  saveFamily(family);
+}
 function familyStats(name){
   const history=familyHistory();
   let games=0,wins=0;
@@ -5980,12 +5992,8 @@ document.addEventListener('click',e=>{
     if(val){
       localStorage.setItem('ct_myname',val);
       // Connects your own stats to House Legends/Rivalries automatically -- same name you already
-      // play under, no separate "add yourself" step needed. Also keeps an existing entry's avatar
-      // in sync with whatever you just picked, rather than leaving it stuck on an older choice.
-      const family=getFamily();
-      const existing=family.find(m=>m.name===val);
-      if(existing)existing.avatar=G.myAvatar;else family.push({name:val,avatar:G.myAvatar});
-      saveFamily(family);
+      // play under, no separate "add yourself" step needed.
+      syncMyFamilyEntry();
     } else localStorage.removeItem('ct_myname');
     G.profileEditing=false;render();
   }
@@ -6188,6 +6196,7 @@ function talkStripHTML(){
 
 window.addEventListener('load',()=>{
   applyFeltTheme(localStorage.getItem('ct_felt_theme')||'emerald');
+  syncMyFamilyEntry();
   const room=new URLSearchParams(location.search).get('room');
   resumeOnlineSession().then(resumed=>{
     if(resumed)return;
