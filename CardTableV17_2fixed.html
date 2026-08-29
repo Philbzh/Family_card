@@ -2083,6 +2083,38 @@ function digestData(){
     tableName:G.tableName||'',
   };
 }
+// The Almanac — a shareable, all-time chronicle of the table (Tonight's Digest only covers
+// today). Reuses houseLegends()/rivalries() rather than re-deriving the same stats a second way,
+// so it can never drift out of sync with what the Family screen itself shows.
+function almanacData(){
+  const history=familyHistory();
+  if(history.length<3)return null; // same "don't show it hollow" threshold houseLegends() uses
+  const winCounts={},nameAvatar={};
+  history.forEach(h=>{
+    if(h.winner){winCounts[h.winner]=(winCounts[h.winner]||0)+1;}
+    if(h.winner&&h.winnerAvatar)nameAvatar[h.winner]=h.winnerAvatar;
+  });
+  const standings=Object.entries(winCounts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([name,wins])=>({name,wins,avatar:nameAvatar[name]||'🃏'}));
+  const gamesList=[...new Set(history.map(h=>h.game))].map(id=>GAMES.find(g=>g.id===id)?.name||id);
+  const legendData=houseLegends();
+  const riv=rivalries();
+  // Moments deliberately come from getHistory() (this device only), not the family-wide history
+  // above -- the synced game_history rows never carry the moment text at all (only winner/players/
+  // game sync), so filtering the family-wide list for h.moment would always come back empty.
+  const moments=getHistory().filter(h=>h.moment).slice(0,3).map(h=>h.moment);
+  const earliest=history[history.length-1]; // history is newest-first, so the last entry is oldest
+  return{
+    date:new Date(),
+    tableName:G.tableName||'',
+    totalGames:history.length,
+    since:earliest?new Date(earliest.date):null,
+    standings,
+    gamesList,
+    legends:legendData?.legends||[],
+    rivalry:riv,
+    moments,
+  };
+}
 
 /* ═══ FAMILY ROSTER (local device, name-matched against history) ═══ */
 function getFamily(){try{return JSON.parse(localStorage.getItem('ct_family')||'[]');}catch{return[];}}
@@ -2294,7 +2326,7 @@ let G={
   tableName:localStorage.getItem('ct_tablename')||'',plaqueEditing:false,
   ambientOn:localStorage.getItem('ct_ambient')==='1',
   notifyOn:localStorage.getItem('ct_notify')==='1',
-  digestOpen:false,digestImg:null,
+  digestOpen:false,digestImg:null,almanacOpen:false,almanacImg:null,
   ydice:[1,1,1,1,1],yheld:[false,false,false,false,false],yrolls:0,yres:null,yLastRolled:[],
   roulChip:5,roulSpinning:false,roulResult:null,roulHistory:[],roulHighlight:null,
 };
@@ -4475,8 +4507,13 @@ function rFamily(){
       <div class="rivalry-sub">${rivalrySub}</div>
     </div>`:'';
   return`<div id="s-family" class="scr on" style="padding:1.8rem 2.2rem;overflow-y:auto;">
-    <div style="font-family:var(--serif);font-size:1.9rem;color:var(--paper);margin-bottom:.2rem;">Family</div>
-    <div style="font-size:.82rem;color:var(--paper3);margin-bottom:1.5rem;">The people at your table${totalGames?` · ${totalGames} game${totalGames!==1?'s':''} recorded`:''}.</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+      <div>
+        <div style="font-family:var(--serif);font-size:1.9rem;color:var(--paper);margin-bottom:.2rem;">Family</div>
+        <div style="font-size:.82rem;color:var(--paper3);margin-bottom:1.5rem;">The people at your table${totalGames?` · ${totalGames} game${totalGames!==1?'s':''} recorded`:''}.</div>
+      </div>
+      <button class="ambient-toggle" data-a="open-almanac">📖 The Almanac</button>
+    </div>
     ${legendsPanel}
     ${rivalryPanel}
     ${family.length?`<div class="family-list">${rows}</div>`:emptyState}
@@ -5323,6 +5360,20 @@ function rDigestOv(){
     <button class="btn btn-ghost btn-full" data-a="close-digest">Close</button>
   </div></div>`;
 }
+function rAlmanacOv(){
+  return`<div class="ov"><div class="ov-box" role="dialog" aria-modal="true" aria-label="The Almanac" style="max-width:26rem;">
+    <div class="ov-title">📖 The Almanac</div>
+    <p class="ov-sub" style="margin-top:-.4rem;">Your table's whole story so far — save it or send it to the family chat.</p>
+    <div style="border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.1);max-height:52vh;overflow-y:auto;">
+      <img src="${G.almanacImg}" style="width:100%;display:block;" alt="The Almanac — a summary card of the table's all-time standings, House Legends, and rivalry">
+    </div>
+    <div style="display:flex;gap:.6rem;">
+      <button class="btn btn-gold btn-full" data-a="almanac-save">💾 Save Image</button>
+      ${typeof navigator.share==='function'?`<button class="btn btn-ghost btn-full" data-a="almanac-share">📤 Share</button>`:''}
+    </div>
+    <button class="btn btn-ghost btn-full" data-a="close-almanac">Close</button>
+  </div></div>`;
+}
 
 /* ════════ ROUND END ════════ */
 function roundMoment(r){
@@ -5688,6 +5739,173 @@ function composeTableDigest(data){
 
   return canvas.toDataURL('image/png');
 }
+// Same visual language as composeTableDigest (felt gradient, gold rim, Cinzel/Jost pairing) but
+// for the whole table's history rather than one night -- Hall of Fame standings, House Legends,
+// the closest Rivalry, and a few standout moments.
+function composeAlmanac(data){
+  const W=900;
+  const rowH=86,momentLineH=32;
+  const standingsH=data.standings.length?60+data.standings.length*rowH:0;
+  const legendsH=data.legends.length?200:0;
+  const rivalryH=data.rivalry?150:0;
+  const momentsH=data.moments.length?70+data.moments.length*momentLineH*2:0;
+  const H=Math.max(900,460+standingsH+legendsH+rivalryH+momentsH+140);
+  const canvas=document.createElement('canvas');
+  canvas.width=W;canvas.height=H;
+  const ctx=canvas.getContext('2d');
+
+  const grad=ctx.createRadialGradient(W*0.4,H*0.3,40,W*0.5,H*0.5,H*0.75);
+  grad.addColorStop(0,'#1a6840');grad.addColorStop(1,'#062018');
+  ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
+  const vgrad=ctx.createRadialGradient(W/2,H/2,H*0.3,W/2,H/2,H*0.7);
+  vgrad.addColorStop(0,'rgba(0,0,0,0)');vgrad.addColorStop(1,'rgba(0,0,0,.45)');
+  ctx.fillStyle=vgrad;ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(212,168,67,.7)';ctx.lineWidth=3;
+  ctx.strokeRect(18,18,W-36,H-36);
+  ctx.strokeStyle='rgba(240,204,96,.28)';ctx.lineWidth=1;
+  ctx.strokeRect(26,26,W-52,H-52);
+
+  let y=100;
+  ctx.textAlign='center';
+  ctx.fillStyle='#ead08a';
+  ctx.font='600 22px Jost, sans-serif';
+  ctx.save();ctx.letterSpacing='6px';
+  ctx.fillText('♠  THE ALMANAC  ♠',W/2,y);
+  ctx.restore();
+
+  y+=70;
+  ctx.fillStyle='#fbf7ed';
+  ctx.font='700 52px Cinzel, Georgia, serif';
+  ctx.fillText((data.tableName||'Our Table').toUpperCase(),W/2,y);
+
+  y+=44;
+  ctx.fillStyle='rgba(251,247,237,.6)';
+  ctx.font='400 22px Jost, sans-serif';
+  const sinceStr=data.since?data.since.toLocaleDateString(undefined,{month:'long',year:'numeric'}):'';
+  ctx.fillText(sinceStr?`Since ${sinceStr} · ${data.totalGames} games played`:`${data.totalGames} games played`,W/2,y);
+
+  y+=46;
+  ctx.strokeStyle='rgba(212,168,67,.5)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(W/2-140,y);ctx.lineTo(W/2+140,y);ctx.stroke();
+
+  if(data.standings.length){
+    y+=64;
+    ctx.fillStyle='rgba(251,247,237,.4)';
+    ctx.font='600 18px Jost, sans-serif';
+    ctx.save();ctx.letterSpacing='4px';
+    ctx.fillText('HALL OF FAME',W/2,y);
+    ctx.restore();
+    y+=30;
+    const medals=['🥇','🥈','🥉'];
+    data.standings.forEach((s,i)=>{
+      const rowY=y+i*rowH;
+      const cardX=W/2-320,cardW=640;
+      ctx.fillStyle=i===0?'rgba(212,168,67,.14)':'rgba(255,255,255,.04)';
+      ctx.strokeStyle=i===0?'rgba(212,168,67,.5)':'rgba(255,255,255,.08)';
+      ctx.lineWidth=1.5;
+      roundRectPath(ctx,cardX,rowY,cardW,rowH-16,16);
+      ctx.fill();ctx.stroke();
+      ctx.textAlign='left';
+      ctx.font='40px sans-serif';
+      ctx.fillStyle='#fbf7ed';
+      ctx.fillText(medals[i]||('#'+(i+1)),cardX+22,rowY+52);
+      ctx.font='44px sans-serif';
+      ctx.fillText(s.avatar,cardX+100,rowY+54);
+      ctx.font='600 30px Jost, sans-serif';
+      ctx.fillStyle='#fbf7ed';
+      ctx.fillText(s.name,cardX+170,rowY+46);
+      ctx.textAlign='right';
+      ctx.fillStyle='#ead08a';
+      ctx.font='700 26px Jost, sans-serif';
+      ctx.fillText(`${s.wins} win${s.wins!==1?'s':''}`,cardX+cardW-24,rowY+46);
+      ctx.textAlign='center';
+    });
+    y+=data.standings.length*rowH;
+  }
+
+  if(data.legends.length){
+    y+=54;
+    ctx.fillStyle='rgba(251,247,237,.4)';
+    ctx.font='600 18px Jost, sans-serif';
+    ctx.save();ctx.letterSpacing='4px';
+    ctx.fillText('HOUSE LEGENDS',W/2,y);
+    ctx.restore();
+    y+=30;
+    const n=data.legends.length;
+    const gap=20,totalW=640,cardW=(totalW-gap*(n-1))/n,cardH=150;
+    const startX=W/2-totalW/2;
+    data.legends.forEach((l,i)=>{
+      const cx=startX+i*(cardW+gap);
+      ctx.fillStyle='rgba(255,255,255,.04)';
+      ctx.strokeStyle='rgba(212,168,67,.35)';ctx.lineWidth=1.5;
+      roundRectPath(ctx,cx,y,cardW,cardH,14);
+      ctx.fill();ctx.stroke();
+      ctx.font='32px sans-serif';
+      ctx.fillStyle='#fbf7ed';
+      ctx.fillText(l.icon,cx+cardW/2,y+42);
+      ctx.font='600 12px Jost, sans-serif';
+      ctx.fillStyle='rgba(212,168,67,.85)';
+      ctx.save();ctx.letterSpacing='1.5px';
+      ctx.fillText(l.title.toUpperCase(),cx+cardW/2,y+68);
+      ctx.restore();
+      ctx.font='700 22px Cinzel, Georgia, serif';
+      ctx.fillStyle='#fbf7ed';
+      ctx.fillText(l.name,cx+cardW/2,y+98);
+      ctx.font='400 14px Jost, sans-serif';
+      ctx.fillStyle='rgba(251,247,237,.55)';
+      ctx.fillText(l.sub,cx+cardW/2,y+122);
+    });
+    y+=cardH;
+  }
+
+  if(data.rivalry){
+    y+=64;
+    const r=data.rivalry;
+    ctx.fillStyle='rgba(255,255,255,.04)';
+    ctx.strokeStyle='rgba(212,168,67,.35)';ctx.lineWidth=1.5;
+    roundRectPath(ctx,W/2-320,y-56,640,110,16);
+    ctx.fill();ctx.stroke();
+    ctx.font='600 16px Jost, sans-serif';
+    ctx.fillStyle='rgba(212,168,67,.7)';
+    ctx.save();ctx.letterSpacing='3px';
+    ctx.fillText('RIVALRY',W/2,y-28);
+    ctx.restore();
+    ctx.font='700 30px Cinzel, Georgia, serif';
+    ctx.fillStyle='#fbf7ed';
+    ctx.fillText(`${r.a}  ${r.aWins} – ${r.bWins}  ${r.b}`,W/2,y+8);
+    ctx.font='400 18px Jost, sans-serif';
+    ctx.fillStyle='rgba(251,247,237,.6)';
+    ctx.fillText(r.leader?`${r.leader} leads by ${r.margin}`:'Dead even',W/2,y+34);
+    y+=70;
+  }
+
+  if(data.moments.length){
+    y+=50;
+    ctx.fillStyle='rgba(251,247,237,.4)';
+    ctx.font='600 18px Jost, sans-serif';
+    ctx.save();ctx.letterSpacing='4px';
+    ctx.fillText('LEGENDARY MOMENTS',W/2,y);
+    ctx.restore();
+    y+=40;
+    ctx.font='italic 24px Jost, sans-serif';
+    ctx.fillStyle='rgba(251,247,237,.85)';
+    data.moments.forEach(m=>{
+      const lines=wrapCanvasText(ctx,'"'+m+'"',W-200);
+      lines.forEach(line=>{ctx.fillText(line,W/2,y);y+=momentLineH;});
+      y+=momentLineH*0.4;
+    });
+  }
+
+  ctx.strokeStyle='rgba(212,168,67,.35)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(W/2-100,H-70);ctx.lineTo(W/2+100,H-70);ctx.stroke();
+  ctx.fillStyle='rgba(251,247,237,.4)';
+  ctx.font='500 18px Jost, sans-serif';
+  ctx.save();ctx.letterSpacing='3px';
+  ctx.fillText('OUR TABLE',W/2,H-40);
+  ctx.restore();
+
+  return canvas.toDataURL('image/png');
+}
 function roundRectPath(ctx,x,y,w,h,r){
   ctx.beginPath();
   ctx.moveTo(x+r,y);
@@ -5854,6 +6072,7 @@ function render(){
   else if(G.dataClearAsk)ov=rDataClearOv();
   else if(G.dataOpen)ov=rDataOv();
   else if(G.digestOpen)ov=rDigestOv();
+  else if(G.almanacOpen)ov=rAlmanacOv();
   else if(G.lspick)ov=G.selGame==='uno'?rColorOv():rSuitOv();
   else if(G.lmau)ov=rMauOv(G.lmau);
   else if(G.isOnline&&G.srv?.mauPend)ov=rMauOv({...G.srv.mauPend,dur:Math.max(0,G.srv.mauPend.deadline-Date.now()),mine:G.srv.mauPend.pid===G.myPid});
@@ -6131,6 +6350,29 @@ document.addEventListener('click',e=>{
       const file=new File([blob],'our-table-digest.png',{type:'image/png'});
       if(navigator.canShare&&navigator.canShare({files:[file]})){
         navigator.share({files:[file],title:"Our Table — Tonight's Digest"}).catch(()=>{});
+      } else {
+        toast('Sharing not supported here — try Save Image instead');
+      }
+    });
+  }
+  else if(a==='open-almanac'){
+    const data=almanacData();
+    if(!data){toast('Play a few more games first — the Almanac needs at least 3 to say anything.');return;}
+    G.almanacImg=composeAlmanac(data);
+    G.almanacOpen=true;render();
+  }
+  else if(a==='close-almanac'){G.almanacOpen=false;render();}
+  else if(a==='almanac-save'){
+    const link=document.createElement('a');
+    link.href=G.almanacImg;
+    link.download=`our-table-almanac-${new Date().toISOString().slice(0,10)}.png`;
+    document.body.appendChild(link);link.click();link.remove();
+  }
+  else if(a==='almanac-share'){
+    fetch(G.almanacImg).then(r=>r.blob()).then(blob=>{
+      const file=new File([blob],'our-table-almanac.png',{type:'image/png'});
+      if(navigator.canShare&&navigator.canShare({files:[file]})){
+        navigator.share({files:[file],title:'Our Table — The Almanac'}).catch(()=>{});
       } else {
         toast('Sharing not supported here — try Save Image instead');
       }
