@@ -1837,6 +1837,9 @@ const SFX={
   bust(){tone(420,.1,'triangle');setTimeout(()=>tone(310,.1,'triangle'),90);setTimeout(()=>tone(190,.18,'triangle'),190);haptic([40,30,40]);},
   shuffle(){for(let i=0;i<6;i++)setTimeout(()=>tone(700+Math.random()*500,.02,'square'),i*28);},
   react(){tone(660,.06,'sine');setTimeout(()=>tone(880,.08,'sine'),55);haptic(10);},
+  // Distinct from shuffle() — lower-pitched and mixing waveforms for a woodier "dice tumbling"
+  // texture rather than cards' higher, uniform shuffle-square-wave.
+  diceRoll(){for(let i=0;i<6;i++)setTimeout(()=>tone(260+Math.random()*260,.035,i%2?'square':'triangle'),i*30+Math.random()*12);},
 };
 
 /* ═══════ DECK ENGINE ═══════ */
@@ -1969,6 +1972,7 @@ const ACHIEVEMENTS=[
   // true until it's genuinely earned.
   {id:'midnight-roller',icon:'🌙',secret:true,name:'The Midnight Roller',desc:'Won a game after 11pm',check:()=>getHistory().some(h=>h.winner===G.myName&&new Date(h.date).getHours()>=23)},
   {id:'chaos-master',icon:'🎲',secret:true,name:'Chaos Master',desc:'Won 3 different games in one day',check:()=>{const today=new Date().toDateString();return new Set(getHistory().filter(h=>h.winner===G.myName&&new Date(h.date).toDateString()===today).map(h=>h.game)).size>=3;}},
+  {id:'yahtzee-first-try',icon:'🎯',secret:true,name:'First Try',desc:'Rolled a Yahtzee on the very first roll of a turn',check:()=>getHistory().some(h=>h.stats?.firstTryYahtzee)},
 ];
 function checkAchievements(){
   let unlocked;
@@ -2169,7 +2173,7 @@ function isComeback(bd){
   const winnerPre=pre(winner);
   return bd.every(b=>pre(b)>=winnerPre)&&bd.some(b=>b!==winner&&pre(b)>winnerPre);
 }
-function freshMatchStats(){return{cardsPlayed:0,reactions:0,comebacks:0,startedAt:Date.now()};}
+function freshMatchStats(){return{cardsPlayed:0,reactions:0,comebacks:0,firstTryYahtzee:false,startedAt:Date.now()};}
 function fmtPlayTime(ms){
   const mins=Math.max(1,Math.round(ms/60000));
   if(mins<60)return mins+'m';
@@ -2374,9 +2378,12 @@ function yRoll(){
   const rolled=[];
   for(let i=0;i<5;i++){if(G.yrolls===0||!G.yheld[i]){G.ydice[i]=rnd(1,6);rolled.push(i);}}
   G.yLastRolled=rolled;
-  G.yrolls++;SFX.shuffle();haptic([10,20,10]);
+  G.yrolls++;SFX.diceRoll();haptic([10,20,10]);
   render();
-  if(yIsFiveOfKind(G.ydice))celebrateYahtzeeRoll();
+  if(yIsFiveOfKind(G.ydice)){
+    celebrateYahtzeeRoll();
+    if(G.yrolls===1)G.matchStats.firstTryYahtzee=true;
+  }
 }
 function yToggleHold(i){
   if(G.yrolls===0||G.yrolls>=3)return;
@@ -2406,7 +2413,7 @@ function yEndGame(){
   G.tw++;localStorage.setItem('ct_tw',G.tw);
   SFX.win();v14WinnerBurst();celebrateWin(winner.name,winner.avatar);fxPulse('gold');
   const wIdx=G.lp.findIndex(p=>p===winner);if(wIdx>=0)fxSeatGlow(wIdx,'gold');
-  addHistory({game:'yahtzee',winner:winner.name,winnerAvatar:winner.avatar,date:new Date().toISOString(),players:G.lp.map(p=>p.name),moment:`${winner.name} wins with ${yTotalScore(winner.scorecard)} points!`,stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
+  addHistory({game:'yahtzee',winner:winner.name,winnerAvatar:winner.avatar,date:new Date().toISOString(),players:G.lp.map(p=>p.name),moment:`${winner.name} wins with ${yTotalScore(winner.scorecard)} points!`,stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions,firstTryYahtzee:G.matchStats.firstTryYahtzee}});
   G.yres={sorted:sorted.map(p=>({name:p.name,avatar:p.avatar,score:yTotalScore(p.scorecard)}))};
   G.scr='yahtzeeend';
   render();
@@ -2441,7 +2448,7 @@ async function oYRoll(){
     for(let i=0;i<5;i++){if(!state.yrolls||!state.yheld[i]){state.ydice[i]=rnd(1,6);rolled.push(i);}}
     state.yLastRolled=rolled;
     state.yrolls=(state.yrolls||0)+1;
-    SFX.shuffle();haptic([10,20,10]);
+    SFX.diceRoll();haptic([10,20,10]);
     state._ts=Date.now();onSrv(state);
     await dbWrite(G.roomId,state);
   } finally { _onlineBusy=false; }
@@ -4047,6 +4054,7 @@ function onSrv(state){
   // rolled it — so the moment lands for everyone watching, the same way a win celebration does.
   if(state.gameId==='yahtzee'&&state.ydice&&(state.yrolls||0)>prevYRolls&&yIsFiveOfKind(state.ydice)){
     celebrateYahtzeeRoll(state.players?.[state.curIdx||0]?.name);
+    if(state.yrolls===1)G.matchStats.firstTryYahtzee=true;
   }
   // Same "detect the transition, fire for everyone watching" approach for the two hardest
   // non-Yahtzee combos — lighter than the Yahtzee banner so it stays a distinct, lesser reward.
@@ -4090,7 +4098,7 @@ function onSrv(state){
           const winnerP=state.players.find(p=>p.id===state.winner);
           SFX.win();v14WinnerBurst();celebrateWin(state.winnerName,state.winnerAv);fxPulse('gold');
           const wIdx=(state.players||[]).findIndex(p=>p.id===state.winner);if(wIdx>=0)fxSeatGlow(wIdx,'gold');
-          addHistory({game:'yahtzee',winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),players:(state.players||[]).map(p=>p.name),mode:'online',moment:`${state.winnerName} wins with ${yTotalScore(winnerP.scorecard)} points!`,stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
+          addHistory({game:'yahtzee',winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),players:(state.players||[]).map(p=>p.name),mode:'online',moment:`${state.winnerName} wins with ${yTotalScore(winnerP.scorecard)} points!`,stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions,firstTryYahtzee:G.matchStats.firstTryYahtzee}});
           if(state.winner===G.myPid){G.tw++;localStorage.setItem('ct_tw',G.tw);}
         }
         G.scr='yahtzeeend';render();return;
@@ -5290,10 +5298,14 @@ function rYahtzeeEnd(){
   if(!r)return`<div class="scr on"><p style="padding:2rem;text-align:center;">Loading…</p></div>`;
   const winner=r.sorted[0];
   const rows=r.sorted.map((p,i)=>`<div class="sr${i===0?' win':''}"><span class="sr-rank">${['🥇','🥈','🥉','④','⑤','⑥','⑦','⑧'][i]||i+1}</span><span class="sr-av">${avHTML(p.avatar)}</span><span class="sr-name">${esc(p.name)}</span><span class="sr-pts">${p.score} pts</span></div>`).join('');
+  // Same "compute it from data already there" approach as the in-game leading-by-N callout.
+  const second=r.sorted[1];
+  const margin=second?winner.score-second.score:null;
+  const marginSub=margin==null?'':(margin<=5?'A nail-biter!':`Won by ${margin} point${margin!==1?'s':''}!`);
   return`<div id="s-matchend" class="scr on">
     <div class="topbar"><span class="top-title" style="font-family:var(--serif);">Final Scores</span><div class="top-right">${sndBtn()}</div></div>
     <div class="res-body">
-      <div class="winner-banner" style="--acc:${MOMENT_ACCENT.yahtzee||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${winner.avatar} ${esc(winner.name)} wins with ${winner.score}!</div><button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div>
+      <div class="winner-banner" style="--acc:${MOMENT_ACCENT.yahtzee||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${winner.avatar} ${esc(winner.name)} wins with ${winner.score}!</div>${marginSub?`<div class="wb-sub">${marginSub}</div>`:''}<button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div>
       <div class="standings">${rows}</div>
       <div class="res-btns">${G.isOnline?'':'<button class="btn btn-gold btn-full" data-a="rematch">🔥 Rematch</button>'}<button class="btn ${G.isOnline?'btn-gold':'btn-ghost'} btn-full" data-a="newgame">New Game</button></div>
     </div>
