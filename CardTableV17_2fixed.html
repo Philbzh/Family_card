@@ -726,8 +726,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100v
 .ysc-row.filled{background:rgba(255,255,255,.05);}
 .ysc-row.filled .ysc-name{color:var(--paper3);}
 .ysc-row.filled .ysc-val{color:var(--paper1);}
-.ysc-row.bonus-row{background:transparent;border:none;padding:.3rem .7rem;}
+.ysc-row.bonus-row{background:transparent;border:none;padding:.3rem .7rem;flex-direction:column;align-items:stretch;gap:.35rem;}
 .ysc-row.bonus-row .ysc-name,.ysc-row.bonus-row .ysc-val{font-size:.7rem;color:rgba(251,247,237,.5);}
+.ysc-bonus-toprow{display:flex;align-items:center;justify-content:space-between;}
+.ysc-bonus-bar{height:.35rem;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;}
+.ysc-bonus-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#a87828,#f0cc60);transition:width .3s ease;}
+.ysc-bonus-fill.full{background:linear-gradient(90deg,#3ecf8e,#8bf0c0);}
 .ysc-row.total-row{margin-top:.3rem;background:rgba(242,201,76,.14);border-color:rgba(242,201,76,.4);}
 .ysc-row.total-row .ysc-name{font-family:var(--serif);font-weight:700;color:var(--gold2);}
 .ysc-row.total-row .ysc-val{font-size:1.1rem;color:var(--gold2);}
@@ -984,6 +988,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100v
 .your-turn-banner.hide{animation:your-turn-out .4s ease both;}
 @keyframes your-turn-in{from{opacity:0;transform:translateX(-50%) translateY(-14px) scale(.9);}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}}
 @keyframes your-turn-out{to{opacity:0;transform:translateX(-50%) translateY(-10px) scale(.94);}}
+
+.yahtzee-banner{position:fixed;top:16%;left:50%;transform:translateX(-50%);z-index:95;padding:1rem 2.2rem;border-radius:20px;text-align:center;background:linear-gradient(160deg,#f0cc60,#d4a843,#a87828);color:#1a1000;box-shadow:0 16px 40px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.35);animation:your-turn-in .4s var(--ease-spring) both;pointer-events:none;}
+.yahtzee-banner.hide{animation:your-turn-out .4s ease both;}
+.yb-text{font-family:var(--serif);font-weight:800;font-size:1.7rem;letter-spacing:.05em;white-space:nowrap;}
+.yb-sub{font-size:.74rem;font-weight:600;letter-spacing:.03em;margin-top:.2rem;opacity:.8;white-space:nowrap;}
 
 /* ─── ACHIEVEMENT UNLOCKS — a proper "unlocked!" moment, distinct from the plain toast ─── */
 .achievement-toast{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:9500;
@@ -2324,6 +2333,7 @@ function lDealYahtzee(){
   G.scr='table';
 }
 function yCounts(dice){const c=[0,0,0,0,0,0,0];dice.forEach(d=>c[d]++);return c;}
+function yIsFiveOfKind(dice){return Math.max(...yCounts(dice).slice(1))===5;}
 // Raw score a set of dice would earn in a category — ignores the Joker rule (handled separately in
 // yScoreForCategory, which needs to know whether this is a bonus Yahtzee).
 function yScoreCategory(cat,dice){
@@ -2364,6 +2374,7 @@ function yRoll(){
   G.yLastRolled=rolled;
   G.yrolls++;SFX.shuffle();haptic([10,20,10]);
   render();
+  if(yIsFiveOfKind(G.ydice))celebrateYahtzeeRoll();
 }
 function yToggleHold(i){
   if(G.yrolls===0||G.yrolls>=3)return;
@@ -3989,6 +4000,7 @@ function onSrv(state){
   const prevCommunityLen=state.gameId==='texas'?(G.srv?.community?.length||0):0;
   const prevRoulSpinStartedAt=state.gameId==='roulette'?G.srv?.roulSpinStartedAt:null;
   const prevRoulCountdownStartedAt=state.gameId==='roulette'?G.srv?.roulCountdownStartedAt:null;
+  const prevYRolls=state.gameId==='yahtzee'?(G.srv?.yrolls||0):0;
   G.srv=state;_lts=state._ts||0;
   if(state.mauPend&&state.mauPend.pid===G.myPid){
     const sig=state.mauPend.pid+'|'+state.mauPend.deadline;
@@ -4026,6 +4038,11 @@ function onSrv(state){
   }
   if(state.gameId==='texas'&&state.community&&state.community.length>prevCommunityLen){
     SFX.flip();fxRipple();
+  }
+  // Fires on every connected client the instant a roll lands five-of-a-kind — not just whoever
+  // rolled it — so the moment lands for everyone watching, the same way a win celebration does.
+  if(state.gameId==='yahtzee'&&state.ydice&&(state.yrolls||0)>prevYRolls&&yIsFiveOfKind(state.ydice)){
+    celebrateYahtzeeRoll(state.players?.[state.curIdx||0]?.name);
   }
   if(state.gameId==='battle'&&state.battleLast&&JSON.stringify(state.battleLast)!==JSON.stringify(prevBattleLast)){
     G.matchStats.cardsPlayed+=2;
@@ -4948,7 +4965,10 @@ function rYahtzeeTable(){
     <div class="y-scorecard">
       <div class="ysc-section-lbl">Upper Section</div>
       ${Y_UPPER.map(cat=>yScoreRowHTML(cat,p,dice,rolls,mine)).join('')}
-      <div class="ysc-row bonus-row"><span class="ysc-name">Bonus (63+ → +35)</span><span class="ysc-val">${upperNow>=63?'✓ +35':upperNow+' / 63'}</span></div>
+      <div class="ysc-row bonus-row">
+        <div class="ysc-bonus-toprow"><span class="ysc-name">Bonus (63+ → +35)</span><span class="ysc-val">${upperNow>=63?'✓ +35':upperNow+' / 63'}</span></div>
+        <div class="ysc-bonus-bar"><div class="ysc-bonus-fill${upperNow>=63?' full':''}" style="width:${Math.min(100,Math.round(upperNow/63*100))}%"></div></div>
+      </div>
       <div class="ysc-section-lbl">Lower Section</div>
       ${Y_LOWER.map(cat=>yScoreRowHTML(cat,p,dice,rolls,mine)).join('')}
       ${p.scorecard.yahtzeeBonus>0?`<div class="ysc-row bonus-row"><span class="ysc-name">Yahtzee Bonus</span><span class="ysc-val">+${p.scorecard.yahtzeeBonus}</span></div>`:''}
@@ -5502,6 +5522,18 @@ function celebrateWin(name,avatar){
   setTimeout(()=>el.remove(),3200);
 }
 function v14YourTurn(){const old=document.querySelector('.your-turn-banner');if(old)old.remove();const el=document.createElement('div');el.className='your-turn-banner';el.setAttribute('role','status');el.setAttribute('aria-live','assertive');el.textContent='YOUR TURN';document.body.appendChild(el);haptic([15,60,15]);SFX.chip();setTimeout(()=>el.classList.add('hide'),1100);setTimeout(()=>el.remove(),1500);}
+// The moment five dice land the same — fires the instant it's rolled, not just when the Yahtzee
+// category eventually gets scored, and for every connected client watching (not just whoever
+// rolled), so the drama lands for everyone at the table.
+function celebrateYahtzeeRoll(name){
+  const old=document.querySelector('.yahtzee-banner');if(old)old.remove();
+  const el=document.createElement('div');el.className='yahtzee-banner';el.setAttribute('role','status');el.setAttribute('aria-live','assertive');
+  el.innerHTML=`<div class="yb-text">🎲 YAHTZEE! 🎲</div>${name?`<div class="yb-sub">${esc(name)} rolled five of a kind!</div>`:''}`;
+  document.body.appendChild(el);
+  v14WinnerBurst();fxPulse('gold');SFX.win();haptic([20,60,20,60,40]);
+  setTimeout(()=>el.classList.add('hide'),2200);
+  setTimeout(()=>el.remove(),2700);
+}
 // Opt-in "your turn" push notification — only fires while the tab is actually hidden/unfocused, so
 // it never duplicates the in-app v14YourTurn() banner someone's already looking at.
 async function toggleNotify(){
