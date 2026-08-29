@@ -163,6 +163,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100v
 @media(prefers-reduced-motion:reduce){.v10-title em{animation:none;-webkit-text-fill-color:var(--gold2);}}
 .v10-sub{font-size:.8rem;color:var(--paper3);margin-top:.7rem;max-width:23rem;line-height:1.5;}
 .v10-profile{display:flex;align-items:center;gap:.8rem;margin-top:1.1rem;margin-bottom:.3rem;}
+.v10-profile.editing{max-width:20rem;flex-wrap:wrap;row-gap:.5rem;background:rgba(6,14,10,.92);padding:.6rem .8rem;margin-left:-.8rem;border-radius:14px;position:relative;z-index:2;box-shadow:0 8px 24px rgba(0,0,0,.4);}
 .v10-avatar{width:2.75rem;height:2.75rem;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#3a5c48,#16281d);border:1.5px solid #caa057;font-size:1.35rem;box-shadow:0 8px 24px rgba(0,0,0,.25);}
 .v10-profile-name{font-weight:600;color:var(--paper);font-size:.9rem;}
 .v10-profile-note{font-size:.68rem;color:var(--paper3);margin-top:.12rem;}
@@ -5979,9 +5980,12 @@ document.addEventListener('click',e=>{
     if(val){
       localStorage.setItem('ct_myname',val);
       // Connects your own stats to House Legends/Rivalries automatically -- same name you already
-      // play under, no separate "add yourself" step needed.
+      // play under, no separate "add yourself" step needed. Also keeps an existing entry's avatar
+      // in sync with whatever you just picked, rather than leaving it stuck on an older choice.
       const family=getFamily();
-      if(!family.some(m=>m.name===val)){family.push({name:val,avatar:G.myAvatar});saveFamily(family);}
+      const existing=family.find(m=>m.name===val);
+      if(existing)existing.avatar=G.myAvatar;else family.push({name:val,avatar:G.myAvatar});
+      saveFamily(family);
     } else localStorage.removeItem('ct_myname');
     G.profileEditing=false;render();
   }
