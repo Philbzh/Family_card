@@ -1306,6 +1306,22 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes fadeOut{to{opacity:0;visibility:hidden}}@keyframes cardDeal{from{transform:translateX(-24px) rotate(-9deg)}to{transform:translateX(24px) rotate(9deg)}}@keyframes eventPop{from{opacity:0;transform:translate(-50%,-30%) scale(.9)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}@keyframes burst{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}15%{opacity:1}100%{opacity:0;transform:translate(calc(-50% + var(--x)),calc(-50% + var(--y))) rotate(var(--r,220deg)) scale(1.3)}}@keyframes winCard{0%{transform:translateY(0)}35%{transform:translateY(-18px) rotate(-2deg)}70%{transform:translateY(-8px) rotate(1deg)}100%{transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){.game-intro,.game-intro-card,.game-intro-deal,.table-event,.winner-burst i,.table-card.premium-win{animation:none!important}}
 
+/* ─── FIRST-RUN WELCOME — a one-time, skippable "the table awakens" moment before the very first
+   Home screen anyone ever sees, not something recurring visitors are made to sit through again. ─── */
+.first-run-welcome{position:fixed;inset:0;z-index:200;display:grid;place-items:center;background:radial-gradient(circle at 50% 45%,#0e2018,#040a08 70%);cursor:pointer;animation:frw-in .6s ease both;}
+.first-run-welcome.hide{animation:frw-out .6s ease forwards;pointer-events:none;}
+.frw-glow{position:absolute;width:min(70vw,520px);height:min(70vw,520px);border-radius:50%;background:radial-gradient(circle,rgba(240,204,96,.16),transparent 70%);animation:frw-glow-pulse 3s ease-in-out infinite;}
+.frw-title{position:relative;font-family:var(--serif);font-weight:700;font-size:clamp(2.6rem,9vw,4.4rem);color:#f5efe3;opacity:0;animation:frw-title-in 1.3s cubic-bezier(.16,.84,.44,1) .3s forwards;text-align:center;}
+.frw-title em{color:var(--gold2);font-style:normal;}
+.frw-sub{position:relative;font-size:.9rem;color:rgba(245,239,227,.65);letter-spacing:.08em;text-transform:uppercase;opacity:0;margin-top:.8rem;animation:frw-fade-in .8s ease 1.4s forwards;text-align:center;}
+.frw-tap{position:relative;margin-top:2.4rem;font-size:.72rem;color:rgba(245,239,227,.4);letter-spacing:.1em;text-transform:uppercase;opacity:0;animation:frw-fade-in .8s ease 2.2s forwards;text-align:center;}
+@keyframes frw-in{from{opacity:0}to{opacity:1}}
+@keyframes frw-out{to{opacity:0}}
+@keyframes frw-glow-pulse{0%,100%{opacity:.6;transform:scale(1);}50%{opacity:1;transform:scale(1.08);}}
+@keyframes frw-title-in{from{opacity:0;letter-spacing:.5em;transform:scale(.92);}to{opacity:1;letter-spacing:.02em;transform:none;}}
+@keyframes frw-fade-in{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+@media(prefers-reduced-motion:reduce){.first-run-welcome,.frw-glow,.frw-title,.frw-sub,.frw-tap{animation:none!important;opacity:1!important;}}
+
 /* ─── THE CUT — a beat of ceremony before a fresh match, landing on who deals first ─── */
 .game-intro-dealer{display:flex;align-items:center;justify-content:center;gap:.65rem;margin-top:20px;opacity:0;animation:dealerReveal .5s cubic-bezier(.2,.8,.2,1) .85s forwards;}
 .gid-av{width:2.6rem;height:2.6rem;border-radius:50%;overflow:hidden;border:1.5px solid #d9b86b;box-shadow:0 6px 16px rgba(0,0,0,.5);flex-shrink:0;}
@@ -5763,6 +5779,26 @@ function fxSeatGlow(seatIdx,color){
   document.body.appendChild(el);setTimeout(()=>el.remove(),950);
 }
 window.v14StartGame=v14Intro;
+// One-time only: never shown again once dismissed (tap or auto-timeout), and never shown at all
+// mid-session (e.g. after resuming an online room or a local match) -- boot calls this only on
+// the plain cold-start path, not after resumeOnlineSession() or a ?room= link resolves.
+function maybeShowFirstRunWelcome(){
+  if(localStorage.getItem('ct_seen_welcome'))return;
+  const el=document.createElement('div');
+  el.className='first-run-welcome';
+  el.setAttribute('role','dialog');el.setAttribute('aria-label','Welcome to Our Table');
+  el.innerHTML=`<div class="frw-glow"></div><div style="position:relative;"><div class="frw-title">Our <em>Table</em></div><div class="frw-sub">Your family's table, always set</div><div class="frw-tap">Tap to begin</div></div>`;
+  let dismissed=false;
+  const dismiss=()=>{
+    if(dismissed)return;dismissed=true;
+    el.classList.add('hide');
+    localStorage.setItem('ct_seen_welcome','1');
+    setTimeout(()=>el.remove(),650);
+  };
+  el.addEventListener('click',dismiss);
+  document.body.appendChild(el);
+  setTimeout(dismiss,4200);
+}
 
 function render(){
   applyTableAge();
@@ -6339,7 +6375,7 @@ window.addEventListener('load',()=>{
       G.joinCode=room.toUpperCase();G.scr='online';render();
       toast(`Room ${room} — enter your name and tap Join`);
     }
-    else render();
+    else{render();maybeShowFirstRunWelcome();}
   });
   loadSupabase(); // background preload so local-game history can sync too, without blocking the UI
   loadFamilyHistory(); // warm the family-wide leaderboard cache so it's ready before anyone opens Family
