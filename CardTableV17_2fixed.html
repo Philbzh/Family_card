@@ -685,6 +685,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100v
 .y-standing-pill{display:inline-flex;align-items:center;gap:.35rem;background:rgba(4,12,8,.5);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:.22rem .7rem;font-size:.72rem;font-weight:600;color:var(--paper3);transition:all .25s;}
 .y-standing-pill .av-img{width:1.1rem;height:1.1rem;border-radius:50%;object-fit:cover;}
 .y-standing-pill.active{background:rgba(212,168,67,.18);border-color:rgba(212,168,67,.5);color:var(--gold2);box-shadow:0 0 0 1px rgba(212,168,67,.15),0 2px 10px rgba(212,168,67,.15);}
+.y-margin{text-align:center;font-size:.7rem;font-weight:600;color:var(--gold2);opacity:.85;padding:.2rem 0 0;flex-shrink:0;}
 
 .dice-tray{display:flex;gap:.7rem;flex-wrap:wrap;justify-content:center;z-index:1;transition:opacity .25s;}
 .dice-tray.locked{opacity:.45;pointer-events:none;}
@@ -708,6 +709,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100v
 .die.held .pip{background:radial-gradient(circle at 35% 30%,#5c3d08,#2b1c02 75%);}
 .die.held:hover:not(:disabled){transform:translateY(-9px);}
 .die.just-rolled{animation:die-roll .45s cubic-bezier(.36,.2,.4,1.4);}
+.die-lock{position:absolute;top:-.45rem;right:-.45rem;width:1.25rem;height:1.25rem;border-radius:50%;background:#1a1000;font-size:.68rem;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.45),0 0 0 1.5px var(--gold2);}
 @keyframes die-roll{0%{transform:rotate(0) scale(1);}30%{transform:rotate(-18deg) scale(1.08);}60%{transform:rotate(14deg) scale(1.05);}100%{transform:rotate(0) scale(1);}}
 .y-hint{font-size:.74rem;color:var(--paper3);text-align:center;z-index:1;min-height:1.1em;}
 
@@ -2386,6 +2388,7 @@ function yCommitCategory(cat){
   if(yIsBonusYahtzee(G.ydice,p.scorecard))p.scorecard.yahtzeeBonus=(p.scorecard.yahtzeeBonus||0)+100;
   p.scorecard[cat]=yScoreForCategory(cat,G.ydice,p.scorecard);
   G.llast=esc(p.name)+' scores '+Y_LABELS[cat]+' — '+p.scorecard[cat]+' pts.';
+  if((cat==='fullHouse'||cat==='largeStraight')&&p.scorecard[cat]>0)celebrateGoodCategory(Y_LABELS[cat]);
   yAdvanceTurn();
 }
 function yAdvanceTurn(){
@@ -2411,7 +2414,7 @@ function yEndGame(){
 function dieFaceHTML(value,held,idx,justRolled){
   const pos={1:[[2,2]],2:[[1,1],[3,3]],3:[[1,1],[2,2],[3,3]],4:[[1,1],[1,3],[3,1],[3,3]],5:[[1,1],[1,3],[2,2],[3,1],[3,3]],6:[[1,1],[1,3],[2,1],[2,3],[3,1],[3,3]]}[value]||[];
   const pips=pos.map(([r,c])=>`<span class="pip" style="grid-row:${r};grid-column:${c};"></span>`).join('');
-  return`<button class="die${held?' held':''}${justRolled?' just-rolled':''}" data-a="yhold" data-i="${idx}" aria-label="Die ${idx+1}: ${value}${held?', held':''}" aria-pressed="${held}">${pips}</button>`;
+  return`<button class="die${held?' held':''}${justRolled?' just-rolled':''}" data-a="yhold" data-i="${idx}" aria-label="Die ${idx+1}: ${value}${held?', held':''}" aria-pressed="${held}">${pips}${held?'<span class="die-lock" aria-hidden="true">🔒</span>':''}</button>`;
 }
 
 /* ═══════ ONLINE YAHTZEE ═══════ */
@@ -4001,6 +4004,7 @@ function onSrv(state){
   const prevRoulSpinStartedAt=state.gameId==='roulette'?G.srv?.roulSpinStartedAt:null;
   const prevRoulCountdownStartedAt=state.gameId==='roulette'?G.srv?.roulCountdownStartedAt:null;
   const prevYRolls=state.gameId==='yahtzee'?(G.srv?.yrolls||0):0;
+  const prevYScores=state.gameId==='yahtzee'?(G.srv?.players||[]).map(p=>({fullHouse:p.scorecard?.fullHouse,largeStraight:p.scorecard?.largeStraight})):null;
   G.srv=state;_lts=state._ts||0;
   if(state.mauPend&&state.mauPend.pid===G.myPid){
     const sig=state.mauPend.pid+'|'+state.mauPend.deadline;
@@ -4043,6 +4047,15 @@ function onSrv(state){
   // rolled it — so the moment lands for everyone watching, the same way a win celebration does.
   if(state.gameId==='yahtzee'&&state.ydice&&(state.yrolls||0)>prevYRolls&&yIsFiveOfKind(state.ydice)){
     celebrateYahtzeeRoll(state.players?.[state.curIdx||0]?.name);
+  }
+  // Same "detect the transition, fire for everyone watching" approach for the two hardest
+  // non-Yahtzee combos — lighter than the Yahtzee banner so it stays a distinct, lesser reward.
+  if(state.gameId==='yahtzee'&&prevYScores){
+    state.players.forEach((pl,i)=>{
+      const prev=prevYScores[i];if(!prev)return;
+      if(pl.scorecard.fullHouse!==null&&prev.fullHouse===null&&pl.scorecard.fullHouse>0)celebrateGoodCategory('Full House',pl.name);
+      if(pl.scorecard.largeStraight!==null&&prev.largeStraight===null&&pl.scorecard.largeStraight>0)celebrateGoodCategory('Large Straight',pl.name);
+    });
   }
   if(state.gameId==='battle'&&state.battleLast&&JSON.stringify(state.battleLast)!==JSON.stringify(prevBattleLast)){
     G.matchStats.cardsPlayed+=2;
@@ -4949,6 +4962,14 @@ function rYahtzeeTable(){
   const canRoll=rolls<3&&mine;
   const upperNow=yUpperSum(p.scorecard);
   const standings=players.map(pl=>`<span class="y-standing-pill${pl===p?' active':''}">${avHTML(pl.avatar)}${esc(pl.name)}: ${yTotalScore(pl.scorecard)}</span>`).join('');
+  // "Leading by N" only once someone's actually ahead -- at 0-0 it'd just be noise, same "don't show
+  // a hollow stat" rule the House Legends / Rivalry panels already follow.
+  let marginHTML='';
+  if(players.length>=2){
+    const byScore=[...players].sort((a,b)=>yTotalScore(b.scorecard)-yTotalScore(a.scorecard));
+    const lead=yTotalScore(byScore[0].scorecard)-yTotalScore(byScore[1].scorecard);
+    if(lead>0)marginHTML=`<div class="y-margin">${avHTML(byScore[0].avatar)} ${esc(byScore[0].name)} leads by ${lead}</div>`;
+  }
   return`<div id="s-table" class="scr on game-yahtzee">
     <div class="game-bar">
       <div class="gb-game">🎲 Yahtzee</div>
@@ -4956,6 +4977,7 @@ function rYahtzeeTable(){
       <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
     </div>
     <div class="y-standings-strip">${standings}</div>
+    ${marginHTML}
     <div class="felt-table${mine?' my-turn':''}" style="flex:0 0 auto;min-height:0;max-height:none;padding:1.1rem .8rem;gap:.7rem;">
       <div class="dice-tray${online&&!mine?' locked':''}">${diceHTML}</div>
       <button class="btn btn-gold" data-a="yroll" ${canRoll?'':'disabled'} style="min-width:12rem;">🎲 ${rolls===0?'Roll':'Roll again'} (${rollsLeft} left)</button>
@@ -5533,6 +5555,12 @@ function celebrateYahtzeeRoll(name){
   v14WinnerBurst();fxPulse('gold');SFX.win();haptic([20,60,20,60,40]);
   setTimeout(()=>el.classList.add('hide'),2200);
   setTimeout(()=>el.remove(),2700);
+}
+// A lighter reward moment for the two hardest non-Yahtzee combos — a toast and a gold pulse rather
+// than the full banner/confetti, so it doesn't compete with (or cheapen) the Yahtzee celebration.
+function celebrateGoodCategory(label,name){
+  fxPulse('gold');SFX.chip();haptic([15,40,15]);
+  toast(`✨ ${name?name+' — ':''}${label}!`); // toast() sets textContent, not innerHTML -- no esc() needed
 }
 // Opt-in "your turn" push notification — only fires while the tab is actually hidden/unfocused, so
 // it never duplicates the in-app v14YourTurn() banner someone's already looking at.
