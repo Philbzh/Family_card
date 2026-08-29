@@ -1853,6 +1853,22 @@ function stopAmbient(){
     setTimeout(()=>{try{nodes.src.stop();nodes.src.disconnect();nodes.filter.disconnect();nodes.gain.disconnect();}catch(e){}},900);
   }catch(e){}
 }
+// Ambient tension — the lounge bed swells brighter/louder for a few seconds at genuinely high-stakes
+// moments (a final Yahtzee roll, an all-in, the dealer's reveal, a Battle war) then eases back to the
+// quiet baseline. Purely a filter-cutoff + gain ramp on the SAME noise bed already playing, so it can
+// never introduce a wrong note the way a synthesized swell could — it only ever gets brighter or dimmer.
+// A no-op whenever ambient isn't already running, so it stays strictly opt-in via the lounge toggle.
+function pulseTension(){
+  if(!_ambNodes)return;
+  try{
+    const{filter,gain}=_ambNodes;
+    const now=_ac.currentTime;
+    filter.frequency.cancelScheduledValues(now);gain.gain.cancelScheduledValues(now);
+    filter.frequency.setValueAtTime(filter.frequency.value,now);gain.gain.setValueAtTime(gain.gain.value,now);
+    filter.frequency.linearRampToValueAtTime(980,now+.35);gain.gain.linearRampToValueAtTime(.062,now+.35);
+    filter.frequency.linearRampToValueAtTime(360,now+3.4);gain.gain.linearRampToValueAtTime(.032,now+3.4);
+  }catch(e){}
+}
 function haptic(pattern){try{navigator.vibrate&&navigator.vibrate(pattern);}catch(e){}}
 const SFX={
   play:()=>{tone(490,.08);setTimeout(()=>tone(560,.06),70);haptic(15);},
@@ -2500,6 +2516,7 @@ function yRoll(){
   for(let i=0;i<5;i++){if(G.yrolls===0||!G.yheld[i]){G.ydice[i]=rnd(1,6);rolled.push(i);}}
   G.yLastRolled=rolled;
   G.yrolls++;SFX.diceRoll();haptic([10,20,10]);
+  if(G.yrolls===3)pulseTension();
   render();
   if(yIsFiveOfKind(G.ydice)){
     celebrateYahtzeeRoll();
@@ -3029,7 +3046,7 @@ function pokerCall(){
   const p=G.lp[G.lcur];
   const toCall=Math.min(G.currentBet-p.bet,p.chips);
   p.chips-=toCall;p.bet+=toCall;G.pot+=toCall;SFX.chip();
-  if(p.chips===0)p.allIn=true;
+  if(p.chips===0){p.allIn=true;pulseTension();}
   G.llast=toCall===0?esc(p.name)+' checks.':(p.allIn?esc(p.name)+' calls all-in for '+toCall+'.':esc(p.name)+' calls '+toCall+'.');
   pokerNextPlayer();
 }
@@ -3040,7 +3057,7 @@ function pokerRaise(amt){
   const toAdd=amt-p.bet;
   if(toAdd<=0){toast('Raise must be higher than current bet');return;}
   p.chips-=toAdd;p.bet=amt;G.pot+=toAdd;G.currentBet=amt;SFX.chip();
-  if(p.chips===0)p.allIn=true;
+  if(p.chips===0){p.allIn=true;pulseTension();}
   G.llast=p.allIn?esc(p.name)+' is all in for '+amt+'!':esc(p.name)+' raises to '+amt+'.';
   // The raiser becomes the new "closes the action" reference — the round can't complete via the
   // backToStart check in pokerNextPlayer() until action has gone all the way back around to them,
@@ -3384,7 +3401,7 @@ async function oPokerCall(){
     const p=state.players[state.curIdx];if(!p)return;
     const toCall=Math.min(state.currentBet-p.bet,p.chips);
     p.chips-=toCall;p.bet+=toCall;state.pot+=toCall;SFX.chip();
-    if(p.chips===0)p.allIn=true;
+    if(p.chips===0){p.allIn=true;pulseTension();}
     state.lastAct=toCall===0?esc(p.name)+' checks.':(p.allIn?esc(p.name)+' calls all-in for '+toCall+'.':esc(p.name)+' calls '+toCall+'.');
     const runout=oPokerAdvanceAfterAction(state);
     state._ts=Date.now();onSrv(state);await dbWrite(G.roomId,state);
@@ -3402,7 +3419,7 @@ async function oPokerRaise(amt){
     const toAdd=amt-p.bet;
     if(toAdd<=0){toast('Raise must be higher than current bet');return;}
     p.chips-=toAdd;p.bet=amt;state.pot+=toAdd;state.currentBet=amt;SFX.chip();
-    if(p.chips===0)p.allIn=true;
+    if(p.chips===0){p.allIn=true;pulseTension();}
     state.lastAct=p.allIn?esc(p.name)+' is all in for '+amt+'!':esc(p.name)+' raises to '+amt+'.';
     state.lstart=state.curIdx;
     const runout=oPokerAdvanceAfterAction(state);
@@ -3505,7 +3522,7 @@ function bjAdvance(){
   else{G.lcur=next;render();}
 }
 function bjDealerPlay(){
-  G.dealerHoleHidden=false;G.dealerRevealAnim=true;SFX.flip();render();
+  G.dealerHoleHidden=false;G.dealerRevealAnim=true;SFX.flip();pulseTension();render();
   setTimeout(()=>{G.dealerRevealAnim=false;render();},700);
   setTimeout(bjDealerStep,900);
 }
@@ -3630,7 +3647,7 @@ async function oBjDouble(){
 }
 async function oBjDealerPlay(){
   const state=await dbRead(G.roomId);if(!state||state.winner)return;
-  state.dealerHoleHidden=false;SFX.flip();
+  state.dealerHoleHidden=false;SFX.flip();pulseTension();
   state._ts=Date.now();onSrv(state);
   await dbWrite(G.roomId,state);
   setTimeout(()=>oBjDealerStep(),900);
@@ -3697,7 +3714,7 @@ function battleFlip(){
   G.battleLast={warRounds,winnerIdx,lastC0,lastC1,cardsWon:table.length};
   G.llast=(warRounds>0?'⚔️ War! ':'')+esc(winner.name)+' wins '+table.length+' card'+(table.length!==1?'s':'')+'.';
   G.matchStats.cardsPlayed+=2;
-  if(warRounds>0){SFX.clash();fxPulse('blue');}else{SFX.play();haptic(15);fxRipple();}
+  if(warRounds>0){SFX.clash();fxPulse('blue');pulseTension();}else{SFX.play();haptic(15);fxRipple();}
   if(!p0.hand.length||!p1.hand.length){
     const finalWinner=p0.hand.length?p0:p1;
     G.tw++;localStorage.setItem('ct_tw',G.tw);
@@ -3737,7 +3754,7 @@ async function oBattleFlip(){
     winner.hand.push(...table);
     state.battleLast={warRounds,winnerIdx,lastC0,lastC1,cardsWon:table.length};
     state.lastAct=(warRounds>0?'⚔️ War! ':'')+esc(winner.name)+' wins '+table.length+' card'+(table.length!==1?'s':'')+'.';
-    if(warRounds>0){SFX.clash();}else{SFX.play();haptic(15);}
+    if(warRounds>0){SFX.clash();pulseTension();}else{SFX.play();haptic(15);}
     if(!p0.hand.length||!p1.hand.length){
       const finalWinner=p0.hand.length?p0:p1;
       finalWinner.roundsWon=(finalWinner.roundsWon||0)+1;
@@ -4177,6 +4194,7 @@ function onSrv(state){
     celebrateYahtzeeRoll(state.players?.[state.curIdx||0]?.name);
     if(state.yrolls===1)G.matchStats.firstTryYahtzee=true;
   }
+  if(state.gameId==='yahtzee'&&(state.yrolls||0)===3&&prevYRolls<3)pulseTension();
   // Same "detect the transition, fire for everyone watching" approach for the two hardest
   // non-Yahtzee combos — lighter than the Yahtzee banner so it stays a distinct, lesser reward.
   if(state.gameId==='yahtzee'&&prevYScores){
@@ -4191,7 +4209,7 @@ function onSrv(state){
   }
   if(state.gameId==='battle'&&state.battleLast&&JSON.stringify(state.battleLast)!==JSON.stringify(prevBattleLast)){
     G.matchStats.cardsPlayed+=2;
-    if(state.battleLast.warRounds>0)fxPulse('blue');else fxRipple();
+    if(state.battleLast.warRounds>0){fxPulse('blue');pulseTension();}else fxRipple();
   }
   if(state.gameId==='roulette'){
     // The chase-light animation runs entirely locally on every client (see oRoulChaseAnimate) —
