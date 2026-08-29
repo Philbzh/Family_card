@@ -2262,7 +2262,7 @@ let G={
   pot:0,community:[],communityRevealAnim:null,dealerHand:[],dealerHoleHidden:true,dealerRevealAnim:false,bjBet:50,battleLast:null,battleAnimating:false,pokerPhase:'preflop',bigBlind:20,smallBlind:10,dealer:0,
   currentBet:0,betInput:'',drawSelections:new Set(),pokerShowdown:false,
   hr:(()=>{try{return{draw2stack:true,jackWild:true,sevenSkip:true,eightReverse:true,mauAnn:true,...JSON.parse(localStorage.getItem('ct_hr')||'{}')};}catch{return{draw2stack:true,jackWild:true,sevenSkip:true,eightReverse:true,mauAnn:true};}})(),
-  rulesOpen:false,quitOpen:false,
+  rulesOpen:false,quitOpen:false,dataOpen:false,dataClearAsk:false,
   isOnline:false,roomId:null,myPid:null,isHost:false,
   myName:localStorage.getItem('ct_myname')||'',myAvatar:localStorage.getItem('ct_myavatar')||AVATARS[0],profileEditing:false,srv:null,
   gp:+(localStorage.getItem('ct_gp')||0),
@@ -4527,6 +4527,7 @@ function rHome(){
     <span class="felt-picker-lbl">Felt</span>
     ${Object.keys(FELT_PREVIEW).map(t=>`<button class="felt-swatch${(G.feltTheme||'emerald')===t?' active':''}" style="background:${FELT_PREVIEW[t]};" data-a="felt-theme" data-theme="${t}" aria-label="${FELT_NAMES[t]} felt" title="${FELT_NAMES[t]}"></button>`).join('')}
     <button class="ambient-toggle${G.ambientOn?' on':''}" data-a="ambient-toggle" aria-pressed="${G.ambientOn}">🎵 Ambient lounge</button>
+    <button class="ambient-toggle" data-a="open-data" style="margin-left:auto;">🔒 Your data</button>
   </div>`;
   const resumable=getResumableMatch();
   const resumeGame=resumable?GAMES.find(g=>g.id===resumable.snap.selGame):null;
@@ -5230,6 +5231,64 @@ function rMauOv(mp){
 }
 function rRulesOv(){const game=currentGame();return`<div class="ov" data-a="close-rules"><div class="ov-box" role="dialog" aria-modal="true" aria-label="${esc(game.name)} rules"><div class="ov-title">${game.icon} ${game.name}</div><div class="rules-list">${(game.rules||[]).map(r=>`<div>${r}</div>`).join('')}</div><button class="btn btn-ghost" data-a="close-rules" style="margin-top:.4rem;">Got it ✓</button></div></div>`;}
 function rQuitOv(){return`<div class="ov" data-a="close-quit"><div class="ov-box" role="dialog" aria-modal="true" aria-label="End the game?"><div class="ov-title">End the game?</div><p class="ov-sub">Current scores and chips will be lost.</p><div class="quit-btns"><button class="btn btn-danger" data-a="quit-confirm">Yes, end game</button><button class="btn btn-ghost" data-a="close-quit">Keep playing</button></div></div></div>`;}
+// An honest accounting of what this app actually stores and where, plus the two actions that
+// matter: take a copy of it, or wipe the local copy. Synced results deliberately can't be
+// "deleted" from here -- the RLS policy on game_history blocks anon DELETE entirely (a earlier
+// security fix), so offering a delete button that silently fails would be worse than not offering
+// one; the honest answer is in the copy instead.
+function rDataOv(){
+  const hist=getHistory();
+  let ach=[];try{ach=JSON.parse(localStorage.getItem('ct_achievements')||'[]');}catch{}
+  const family=getFamily();
+  return`<div class="ov" data-a="close-data"><div class="ov-box" role="dialog" aria-modal="true" aria-label="Your data" style="max-width:26rem;">
+    <div class="ov-title">🔒 Your data</div>
+    <p class="ov-sub" style="margin-top:-.3rem;">What Our Table keeps, and where.</p>
+    <div class="panel" style="text-align:left;">
+      <div class="panel-lbl">On this device</div>
+      <div style="font-size:.82rem;color:var(--paper2);line-height:1.7;">
+        🃏 ${hist.length} game result${hist.length!==1?'s':''}<br>
+        🏆 ${ach.length} achievement${ach.length!==1?'s':''} unlocked<br>
+        ♥ ${family.length} family member${family.length!==1?'s':''} tracked<br>
+        👤 Your name, avatar, table name, and felt choice
+      </div>
+    </div>
+    <div class="panel" style="text-align:left;">
+      <div class="panel-lbl">Synced online</div>
+      <div style="font-size:.76rem;color:var(--paper3);line-height:1.6;">
+        Finished games sync anonymously — just the game, the winner, and the players' names — so House Legends and Rivalries work across everyone's devices. No accounts, emails, or passwords. Synced results are a shared, append-only ledger and can't be individually deleted from within the app, but nothing beyond a name and a result is ever stored there.
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:.6rem;">
+      <button class="btn btn-gold btn-full" data-a="data-export">💾 Download my data</button>
+      <button class="btn btn-ghost btn-full" data-a="data-clear-ask">🗑 Clear my local data</button>
+    </div>
+    <button class="btn btn-ghost btn-full" data-a="close-data">Close</button>
+  </div></div>`;
+}
+function rDataClearOv(){return`<div class="ov" data-a="close-data-clear"><div class="ov-box" role="dialog" aria-modal="true" aria-label="Clear your local data?"><div class="ov-title">Clear your local data?</div><p class="ov-sub">Your history, achievements, family list, and profile on this device will be erased. This can't be undone — download a copy first if you want to keep it.</p><div class="quit-btns"><button class="btn btn-danger" data-a="data-clear-confirm">Yes, clear it</button><button class="btn btn-ghost" data-a="close-data-clear">Cancel</button></div></div></div>`;}
+function exportMyData(){
+  const data={
+    exportedAt:new Date().toISOString(),
+    profile:{name:G.myName,avatar:G.myAvatar},
+    tableName:G.tableName,
+    gamesPlayed:G.gp,
+    victories:G.tw,
+    history:getHistory(),
+    achievements:(()=>{try{return JSON.parse(localStorage.getItem('ct_achievements')||'[]');}catch{return[];}})(),
+    family:getFamily(),
+  };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='our-table-data-'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function clearMyLocalData(){
+  ['ct_history','ct_achievements','ct_family','ct_myname','ct_myavatar','ct_tablename','ct_tablename_year','ct_gp','ct_tw','ct_resume','ct_device_id'].forEach(k=>localStorage.removeItem(k));
+  G.myName='';G.myAvatar=AVATARS[0];G.tableName='';G.gp=0;G.tw=0;
+  toast('Your local data has been cleared.');
+}
 function rDigestOv(){
   return`<div class="ov"><div class="ov-box" role="dialog" aria-modal="true" aria-label="Tonight's Table Digest" style="max-width:26rem;">
     <div class="ov-title">📋 Tonight's Digest</div>
@@ -5752,6 +5811,8 @@ function render(){
   let ov='';
   if(G.rulesOpen)ov=rRulesOv();
   else if(G.quitOpen)ov=rQuitOv();
+  else if(G.dataClearAsk)ov=rDataClearOv();
+  else if(G.dataOpen)ov=rDataOv();
   else if(G.digestOpen)ov=rDigestOv();
   else if(G.lspick)ov=G.selGame==='uno'?rColorOv():rSuitOv();
   else if(G.lmau)ov=rMauOv(G.lmau);
@@ -5864,6 +5925,12 @@ document.addEventListener('click',e=>{
   else if(a==='close-rules'){G.rulesOpen=false;render();}
   else if(a==='quit-ask'){G.quitOpen=true;render();}
   else if(a==='close-quit'){G.quitOpen=false;render();}
+  else if(a==='open-data'){G.dataOpen=true;render();}
+  else if(a==='close-data'){G.dataOpen=false;render();}
+  else if(a==='data-export'){exportMyData();}
+  else if(a==='data-clear-ask'){G.dataClearAsk=true;render();}
+  else if(a==='close-data-clear'){G.dataClearAsk=false;render();}
+  else if(a==='data-clear-confirm'){clearMyLocalData();G.dataClearAsk=false;G.dataOpen=false;render();}
   else if(a==='quit-confirm'){stopSync();G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;if(G.lmau)clearTimeout(G.lmau.tid);G.lmau=null;_oMauSig=null;localStorage.removeItem('ct_resume');G.scr='home';render();}
   else if(a==='addpl'){const cap=currentGame().maxP||(isPoker()?8:6);if(G.lp.length>=cap)return;G.lp.push({id:G.nid++,name:'',avatar:AVATARS[G.lp.length%AVATARS.length],hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false});render();}
   else if(a==='rm'){G.lp=G.lp.filter(p=>p.id!==+t.getAttribute('data-id'));render();}
