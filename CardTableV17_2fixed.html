@@ -4126,6 +4126,97 @@ async function oBattleFlip(){
   } finally { _onlineBusy=false; }
 }
 
+/* ═══════ CARD FLIGHT ═══════
+   Playing a card is the single most-repeated action in this app, and it had no follow-through: the
+   CSS hop (card-throw) ran on the card ALREADY sitting on the pile and returned it to translateY(0),
+   so the card bounced in place while the one you actually released simply vanished from your hand.
+   Nothing ever travelled.
+
+   This is a FLIP. Measure where the card is before the move (First), let render() put it on the pile
+   (Last), transform it back to where it came from (Invert), then animate to identity (Play) — so the
+   card you let go of is visibly the same card that lands. */
+let _cardFlight=null;
+function captureCardFlight(cid){
+  try{
+    let el=null;
+    if(cid){
+      const sel='.hc[data-cid="'+((window.CSS&&CSS.escape)?CSS.escape(cid):cid)+'"]';
+      el=document.querySelector(sel);
+    }
+    // A bot or a remote player has no card in THIS device's hand. Fly from the seat whose turn it
+    // is instead, so you can still see which side of the table the card came from.
+    if(!el)el=document.querySelector('.v13-seat.active');
+    if(!el)return;
+    const r=el.getBoundingClientRect();
+    if(!r.width||!r.height)return;
+    _cardFlight={x:r.left,y:r.top,w:r.width};
+  }catch(e){_cardFlight=null;}
+}
+function playCardFlight(){
+  const flight=_cardFlight;_cardFlight=null;
+  if(!flight)return;
+  // Someone who asked their OS to reduce motion gets the card placed, not flown.
+  try{if(window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches)return;}catch(e){}
+  const target=document.querySelector('.card-throw');
+  if(!target||typeof target.animate!=='function')return;
+  const r=target.getBoundingClientRect();
+  if(!r.width)return;
+  // Replace the in-place hop with the real journey.
+  target.classList.remove('card-throw');
+  const dx=flight.x-r.left,dy=flight.y-r.top;
+  const scale=Math.max(.4,Math.min(1.6,flight.w/r.width));
+  target.animate([
+    {transform:`translate(${dx}px,${dy}px) scale(${scale}) rotate(-7deg)`,opacity:.9,offset:0},
+    // Lifts off the straight line mid-flight so it arcs across the felt rather than sliding.
+    {transform:`translate(${dx*.32}px,${dy*.32-30}px) scale(${(scale+1.06)/2}) rotate(4deg)`,opacity:1,offset:.55},
+    {transform:'none',opacity:1,offset:1},
+  ],{duration:430,easing:'cubic-bezier(.22,.68,0,1.12)',fill:'both'});
+}
+
+/* ═══════ NUMBER COUNT-UP ═══════
+   No number in this app animated -- scores, chips and totals all snapped into place, including on
+   the results screen, which is the one moment a score is meant to feel earned rather than merely
+   reported. Any element carrying data-count is tallied up to its value, with each row starting a
+   beat after the one above so a table of standings counts down the podium instead of flashing.
+   Marked elements are matched by a signature of what they show, so re-rendering the same result
+   (an online sync tick, a resize) doesn't replay the tally. */
+let _lastCountSig=null;
+function runCountUps(){
+  const els=[...document.querySelectorAll('[data-count]')];
+  if(!els.length){_lastCountSig=null;return;}
+  const finalise=el=>{
+    const to=Number(el.getAttribute('data-count'));
+    const suffix=el.getAttribute('data-count-suffix')||'';
+    const signed=el.hasAttribute('data-count-signed');
+    el.textContent=(signed&&to>=0?'+':'')+to+suffix;
+  };
+  const sig=G.scr+'|'+els.map(e=>e.getAttribute('data-count')).join(',');
+  let reduce=false;
+  try{reduce=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches);}catch(e){}
+  if(sig===_lastCountSig||reduce){els.forEach(finalise);_lastCountSig=sig;return;}
+  _lastCountSig=sig;
+  els.forEach((el,i)=>{
+    const to=Number(el.getAttribute('data-count'));
+    if(!isFinite(to)){return;}
+    const from=Number(el.getAttribute('data-count-from')||0);
+    const suffix=el.getAttribute('data-count-suffix')||'';
+    const signed=el.hasAttribute('data-count-signed');
+    const fmt=v=>{const n=Math.round(v);return(signed&&n>=0?'+':'')+n+suffix;};
+    if(from===to){el.textContent=fmt(to);return;}
+    const dur=560,startAt=performance.now()+i*90;
+    el.textContent=fmt(from);
+    const step=now=>{
+      if(!el.isConnected)return; // a re-render replaced it; stop rather than writing to a dead node
+      const t=(now-startAt)/dur;
+      if(t<0){requestAnimationFrame(step);return;}
+      if(t>=1){el.textContent=fmt(to);return;}
+      el.textContent=fmt(from+(to-from)*(1-Math.pow(1-t,3))); // ease-out cubic: quick, then settling
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+}
+
 /* ═══════ BOT TURN DRIVER ═══════
    The pure decision layer (mauMauBotMove) says WHAT to play; this decides WHEN, and drives it
    through the very same lPlay/lDrawCard/lSuit/lMauBtn a tapping human goes through. Nothing here
@@ -4262,6 +4353,8 @@ function lPlay(cid){
     setTimeout(()=>{G.lshake=null;render();},500);
     return;
   }
+  // Measured while the card is still in hand — this is the "First" half of the FLIP below.
+  captureCardFlight(cid);
   SFX.play();p.hand.splice(idx,1);G.ldisc.push(card);G.llast='';G.matchStats.cardsPlayed++;
   G.lshowThrow=card.id;
   if(G.selGame==='maumau'){
@@ -4331,6 +4424,7 @@ async function oPlay(cid){
     const player=state.players.find(p=>p.id===G.myPid);if(!player)return;
     const idx=player.hand.findIndex(c=>c.id===cid);if(idx<0)return;const card=player.hand[idx];
     if(!oCanPlay(card,state)){toast(state.gameId==='uno'?'Doesn\'t match color or value':'Doesn\'t match top card');SFX.illegal();return;}
+    captureCardFlight(cid); // measured before the card leaves my hand — see playCardFlight()
     SFX.play();player.hand.splice(idx,1);state.discard.push(card);
     G.lshowThrow=card.id;setTimeout(()=>{if(G.lshowThrow===card.id){G.lshowThrow=null;render();}},450);
     state.lastAct=player.avatar+' '+esc(player.name)+' played '+(state.gameId==='uno'?unoCardLabel(card):card.rank+SYM[card.suit]);
@@ -6027,7 +6121,7 @@ function rRoundEnd(){
   const r=G.isOnline?(G.srv?.roundResult):G.lres;
   if(!r)return`<div class="scr on"><p style="padding:2rem;text-align:center;">Loading…</p></div>`;
   const rGid=G.isOnline?G.srv?.gameId:G.selGame;
-  const rows=r.bd.map((b,i)=>`<div class="sr${b.isWinner?' win':''}"><span class="sr-rank">${['🥇','🥈','🥉','④','⑤','⑥','⑦','⑧'][i]||i+1}</span><span class="sr-av">${avHTML(b.avatar)}</span><span class="sr-name">${esc(b.name)}</span><span class="sr-delta" style="color:${b.delta>=0?'#86efac':'#fca5a5'}">${b.delta>=0?'+':''}${b.delta}</span><span class="sr-pts">${b.total}</span></div>`).join('');
+  const rows=r.bd.map((b,i)=>`<div class="sr${b.isWinner?' win':''}"><span class="sr-rank">${['🥇','🥈','🥉','④','⑤','⑥','⑦','⑧'][i]||i+1}</span><span class="sr-av">${avHTML(b.avatar)}</span><span class="sr-name">${esc(b.name)}</span><span class="sr-delta" style="color:${b.delta>=0?'#86efac':'#fca5a5'}" data-count="${b.delta}" data-count-signed>${b.delta>=0?'+':''}${b.delta}</span><span class="sr-pts" data-count="${b.total}" data-count-from="${(b.total||0)-(b.delta||0)}">${b.total}</span></div>`).join('');
   const isRoulette=rGid==='roulette';
   // Roulette's "winner" (bd[0]) is just whoever has the most chips after this spin, not necessarily
   // someone who actually won IT — if nobody's bet matched, the house takes the spin and crediting
@@ -6094,7 +6188,7 @@ function rMatchEnd(){
   const isBattle=G.selGame==='battle';
   const sorted=[...players].sort((a,b)=>isBattle?((b.hand?.length||0)-(a.hand?.length||0)):((b.totalScore||b.chips||0)-(a.totalScore||a.chips||0)));
   const chipGame=isPoker()||G.selGame==='blackjack'||G.selGame==='roulette';
-  const rows=sorted.map((p,i)=>`<div class="sr${i===0?' win':''}"><span class="sr-rank">${['🥇','🥈','🥉','④','⑤','⑥','⑦','⑧'][i]||i+1}</span><span class="sr-av">${avHTML(p.avatar)}</span><span class="sr-name">${esc(p.name)}</span><span class="sr-delta" style="color:var(--paper3);">${p.roundsWon||0} win${(p.roundsWon||0)!==1?'s':''}</span><span class="sr-pts">${isBattle?(p.hand?.length||0)+' cards':chipGame?p.chips+'c':p.totalScore||0}</span></div>`).join('');
+  const rows=sorted.map((p,i)=>`<div class="sr${i===0?' win':''}"><span class="sr-rank">${['🥇','🥈','🥉','④','⑤','⑥','⑦','⑧'][i]||i+1}</span><span class="sr-av">${avHTML(p.avatar)}</span><span class="sr-name">${esc(p.name)}</span><span class="sr-delta" style="color:var(--paper3);">${p.roundsWon||0} win${(p.roundsWon||0)!==1?'s':''}</span><span class="sr-pts" data-count="${isBattle?(p.hand?.length||0):chipGame?p.chips:(p.totalScore||0)}" data-count-suffix="${isBattle?' cards':chipGame?'c':''}">${isBattle?(p.hand?.length||0)+' cards':chipGame?p.chips+'c':p.totalScore||0}</span></div>`).join('');
   const ms=G.matchStats;
   const statChips=`<div class="tonight-stats">
     <div class="tonight-stat"><div class="ts-val">${sorted[0]?.roundsWon||0}</div><div class="ts-lbl">🏆 Rounds Won</div></div>
@@ -6118,7 +6212,7 @@ function rYahtzeeEnd(){
   const r=G.yres;
   if(!r)return`<div class="scr on"><p style="padding:2rem;text-align:center;">Loading…</p></div>`;
   const winner=r.sorted[0];
-  const rows=r.sorted.map((p,i)=>`<div class="sr${i===0?' win':''}"><span class="sr-rank">${['🥇','🥈','🥉','④','⑤','⑥','⑦','⑧'][i]||i+1}</span><span class="sr-av">${avHTML(p.avatar)}</span><span class="sr-name">${esc(p.name)}</span><span class="sr-pts">${p.score} pts</span></div>`).join('');
+  const rows=r.sorted.map((p,i)=>`<div class="sr${i===0?' win':''}"><span class="sr-rank">${['🥇','🥈','🥉','④','⑤','⑥','⑦','⑧'][i]||i+1}</span><span class="sr-av">${avHTML(p.avatar)}</span><span class="sr-name">${esc(p.name)}</span><span class="sr-pts" data-count="${p.score}" data-count-suffix=" pts">${p.score} pts</span></div>`).join('');
   // Same "compute it from data already there" approach as the in-game leading-by-N callout.
   const second=r.sorted[1];
   const margin=second?winner.score-second.score:null;
@@ -6713,6 +6807,10 @@ function render(){
   else if(G.isOnline&&G.srv?.mauPend)ov=rMauOv({...G.srv.mauPend,dur:Math.max(0,G.srv.mauPend.deadline-Date.now()),mine:G.srv.mauPend.pid===G.myPid});
   else if(G.isOnline&&G.srv?.needsSuit&&isMyTurn())ov=G.srv?.gameId==='uno'?rColorOv():rSuitOv();
   document.getElementById('overlay-root').innerHTML=ov;
+  // "Last/Invert/Play" of the FLIP: the pile card now exists at its final position, so send it back
+  // to where it was released and let it fly in. No-ops unless a play just captured an origin.
+  playCardFlight();
+  runCountUps();
 }
 
 /* ════════ CARD DRAG PHYSICS ════════ */
