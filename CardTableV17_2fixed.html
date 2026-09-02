@@ -2063,8 +2063,11 @@ function unoCardLabel(c){
 
 /* ═══════ POKER HAND EVALUATOR ═══════ */
 function evalHand(cards){
-  // Takes 5-7 cards, returns best 5-card hand strength
-  if(cards.length<5)return{rank:0,name:'High Card',best:cards};
+  // Takes 5-7 cards, returns best 5-card hand strength.
+  // The short-hand guard must still carry a numeric `score`: pot settlement picks winners with
+  // Math.max(...eligible.map(p=>p.handEval.score)) and an equality test against it, so a single
+  // undefined here would make the max NaN, match nobody, and quietly leave a pot unawarded.
+  if(cards.length<5)return{rank:0,score:0,name:'High Card',best:cards};
   const combos=cards.length===5?[cards]:getCombos(cards,5);
   let best=null,bestScore=0;
   for(const c of combos){const s=score5(c);if(s>bestScore){bestScore=s;best=c;}}
@@ -2596,24 +2599,86 @@ function currentGame(){return GAMES.find(g=>g.id===G.selGame)||GAMES[0];}
 function isPoker(){return G.selGame==='texas'||G.selGame==='fivecard';}
 
 /* ═══════ LOCAL GAME LOGIC — MAU MAU ═══════ */
-function lCanPlay(c){
-  if(G.selGame==='uno'){
-    const top=G.ldisc[G.ldisc.length-1];
+/* ═══════ RULES CORE (pure) ═══════
+   The legality rules used to exist twice — once reading G directly for the local game (lCanPlay),
+   once taking an explicit room state for the online game (oCanPlay). Two copies of the same rules
+   is two places for them to drift, and neither could be tested or reused because one was welded to
+   globals. Both now delegate here, and so do the bots: the exact function that decides whether YOUR
+   tap is legal is the one that decides what a bot may do, which is the only way those can't disagree.
+   ctx: {gameId, top, curSuit, drawPend, skip8Pend, hr} — no globals, no DOM. */
+function rulesCanPlay(card,ctx){
+  if(!card)return false;
+  ctx=ctx||{};
+  const hr=ctx.hr||{},top=ctx.top||null;
+  if(ctx.gameId==='uno'){
     if(!top)return true;
-    if(c.color==='black')return true; // Wild / Wild Draw Four always playable
-    return c.color===G.lsuit||c.value===top.value;
+    if(card.color==='black')return true; // Wild / Wild Draw Four always playable
+    return card.color===ctx.curSuit||card.value===top.value;
   }
-  if(G.selGame!=='maumau')return true;
-  const top=G.ldisc[G.ldisc.length-1];
-  if(G.lpend>0)return c.rank==='7'&&G.hr.draw2stack!==false;
-  if(G.lskip8)return c.rank==='8'&&G.hr.eightReverse!==false;
-  if(c.rank==='J'){
-    if(G.hr.jackWild===false)return!top||c.suit===G.lsuit||c.rank===top.rank;
+  if(ctx.gameId!=='maumau')return true;
+  if((ctx.drawPend||0)>0)return card.rank==='7'&&hr.draw2stack!==false;
+  if(ctx.skip8Pend)return card.rank==='8'&&hr.eightReverse!==false;
+  if(card.rank==='J'){
+    if(hr.jackWild===false)return!top||card.suit===ctx.curSuit||card.rank===top.rank;
     if(top&&top.rank==='J')return false;
     return true;
   }
   if(!top)return true;
-  return c.suit===G.lsuit||c.rank===top.rank;
+  return card.suit===ctx.curSuit||card.rank===top.rank;
+}
+/* ═══════ BOT OPPONENTS (pure decision layer) ═══════
+   Until now every game except Blackjack needed a second human in the room, which meant the table —
+   and everything that grows from it: streaks, trophies, the Almanac — only moved when the family
+   was assembled. A bot is just a decision function: hand + the same ctx the rules take, a move out.
+   No globals, no DOM, no timers, so it can be reasoned about and tested directly; the animation and
+   turn-taking live entirely in the caller.
+
+   Two levels, because this is a family table: 'gentle' plays a random legal card (a fair, beatable
+   opponent for a child learning the game), 'sharp' plays the heuristic below. */
+const BOT_NAMES=['Robo','Ace','Domino','Pip','Bandit','Sly'];
+function botHandValue(hand){return hand.reduce((s,c)=>s+cardVal(c),0);}
+function mauMauBotMove(hand,ctx,level){
+  hand=hand||[];
+  const legal=hand.filter(c=>rulesCanPlay(c,ctx));
+  if(!legal.length)return{action:'draw'};
+  // Going out ends the round and scores +100 — never pass that up to play something "better".
+  if(hand.length===1)return{action:'play',card:legal[0]};
+  if(level==='gentle')return{action:'play',card:legal[Math.floor(Math.random()*legal.length)]};
+  // How many cards back up each suit, so we can prefer a suit we can follow up on next turn.
+  const suitCount={};
+  hand.forEach(c=>{if(c.suit)suitCount[c.suit]=(suitCount[c.suit]||0)+1;});
+  const rank=c=>{
+    let s=cardVal(c); // shedding face value matters: whoever doesn't go out eats what's left in hand
+    // A Jack is the only card that always has an answer. Spending one early throws away the escape
+    // hatch you'll want on the turn you'd otherwise have to draw, so hold it unless it's all we have.
+    if(c.rank==='J')s-=70;
+    // Attack cards are worth cashing in while they still cost somebody something.
+    if(c.rank==='7')s+=30;
+    if(c.rank==='8')s+=22;
+    // Slight nudge toward the suit we're deepest in, to keep a follow-up available.
+    s+=(suitCount[c.suit]||0)*4;
+    return s;
+  };
+  const best=legal.slice().sort((a,b)=>rank(b)-rank(a))[0];
+  return{action:'play',card:best};
+}
+// After a wild Jack, pick the suit the bot actually holds most of — the whole point of the wild.
+function mauMauBotSuit(hand,playedCard){
+  const rest=(hand||[]).filter(c=>c!==playedCard);
+  const count={};
+  rest.forEach(c=>{if(c.suit&&c.rank!=='J')count[c.suit]=(count[c.suit]||0)+1;});
+  let bestSuit=null,bestN=-1;
+  SUITS.forEach(s=>{const n=count[s]||0;if(n>bestN){bestN=n;bestSuit=s;}});
+  return bestSuit||SUITS[0];
+}
+// Adapters — the two call shapes the app already had, now both funnelling into the one rule set.
+function lCanPlay(c){
+  return rulesCanPlay(c,{gameId:G.selGame,top:G.ldisc[G.ldisc.length-1],curSuit:G.lsuit,drawPend:G.lpend,skip8Pend:G.lskip8,hr:G.hr});
+}
+function ruleCtxFromState(state){
+  state=state||{};
+  const d=state.discard||[];
+  return{gameId:state.gameId,top:d[d.length-1],curSuit:state.curSuit,drawPend:state.drawPend,skip8Pend:state.skip8Pend,hr:state.hr};
 }
 
 function lIllegal(c){
@@ -4141,25 +4206,7 @@ function lMauBtn(){
   if(p.hand.length===0){lEndRound(p);}else if(G.selGame==='uno'){uAdvance(c);}else{lAdvance(c);}
 }
 
-function oCanPlay(card,state){
-  if(state.gameId==='uno'){
-    const top=state.discard[state.discard.length-1];
-    if(!top)return true;
-    if(card.color==='black')return true;
-    return card.color===state.curSuit||card.value===top.value;
-  }
-  if(state.gameId&&state.gameId!=='maumau')return true;
-  const top=state.discard[state.discard.length-1];
-  if(state.drawPend>0)return card.rank==='7'&&state.hr?.draw2stack!==false;
-  if(state.skip8Pend)return card.rank==='8'&&state.hr?.eightReverse!==false;
-  if(card.rank==='J'){
-    if(state.hr?.jackWild===false)return!top||card.suit===state.curSuit||card.rank===top.rank;
-    if(top&&top.rank==='J')return false;
-    return true;
-  }
-  if(!top)return true;
-  return card.suit===state.curSuit||card.rank===top.rank;
-}
+function oCanPlay(card,state){return rulesCanPlay(card,ruleCtxFromState(state));}
 function oAdvance(state,played){
   const n=state.players.length;
   state.curIdx=mod((state.curIdx||0)+(state.dir||1),n);
@@ -7106,7 +7153,9 @@ window.addEventListener('load',()=>{
   // PWA: makes the app installable to a phone/desktop home screen. Requires http(s) — silently
   // no-ops if this file is opened directly (file://) instead of served, which is fine, it just
   // means "install" won't be offered there.
-  if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+  // Skipped when embedded (the test runner loads this file in an iframe): a service worker there
+  // would serve the suite a cached build, so tests could pass against code that isn't on disk.
+  if('serviceWorker' in navigator&&window.top===window.self){navigator.serviceWorker.register('sw.js').catch(()=>{});}
 });
 let _deferredInstallPrompt=null;
 window.addEventListener('beforeinstallprompt',e=>{

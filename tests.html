@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Our Table — Test Suite</title>
+<style>
+  :root{--ok:#5fd39a;--bad:#ff6b7f;--gold:#ead08a;--ink:#e8e6e1;--dim:#8e887d;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#08110e;color:var(--ink);font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;padding:1.5rem;}
+  h1{font:600 1.5rem/1.2 Georgia,serif;color:var(--gold);margin-bottom:.2rem;}
+  .sub{color:var(--dim);margin-bottom:1.2rem;font-size:.82rem;}
+  #summary{padding:.85rem 1.1rem;border-radius:12px;border:1px solid #2a3b33;background:#0d1a15;margin-bottom:1.2rem;font-size:1rem;}
+  #summary.pass{border-color:var(--ok);}
+  #summary.fail{border-color:var(--bad);}
+  .suite{margin-bottom:1.1rem;}
+  .suite-name{color:var(--gold);font-weight:600;margin-bottom:.35rem;letter-spacing:.04em;}
+  .case{padding:.12rem 0 .12rem .9rem;font-size:.82rem;}
+  .case.ok{color:var(--ok);}
+  .case.bad{color:var(--bad);}
+  .case .why{color:var(--dim);padding-left:1.3rem;font-size:.78rem;white-space:pre-wrap;}
+  iframe{position:absolute;width:900px;height:700px;left:-99999px;top:0;border:0;}
+</style>
+</head>
+<body>
+<h1>Our Table — Test Suite</h1>
+<div class="sub">Pure-logic tests. Loads the real app in a hidden iframe and exercises its own functions — no mocks, no copies of the code under test.</div>
+<div id="summary">Loading app…</div>
+<div id="out"></div>
+<iframe id="app-frame" src="CardTableV17_2fixed.html"></iframe>
+
+<script>
+/* ────────────────────────────────────────────────────────────────────────
+   Tiny runner. Deliberately dependency-free: this project has no build step
+   and no package.json, and adding a toolchain just to assert on pure
+   functions would cost more than it returns.
+   ──────────────────────────────────────────────────────────────────────── */
+const results=[];let currentSuite=null;
+function suite(name,fn){currentSuite={name,cases:[]};results.push(currentSuite);fn();}
+function check(name,cond,why){currentSuite.cases.push({name,ok:!!cond,why:cond?'':(why||'')});}
+function eq(name,actual,expected){
+  const a=JSON.stringify(actual),e=JSON.stringify(expected);
+  check(name,a===e,`expected ${e}\n     got ${a}`);
+}
+
+/* Reference implementations: the ORIGINAL lCanPlay/oCanPlay rule bodies, copied verbatim from
+   before the refactor. These exist so the extraction into rulesCanPlay() can be proven equivalent
+   rather than assumed — the app now has one copy of the rules, and this is the oracle that says
+   the copy it kept behaves like the two it replaced. */
+function refLocalCanPlay(c,g){
+  if(g.selGame==='uno'){
+    const top=g.ldisc[g.ldisc.length-1];
+    if(!top)return true;
+    if(c.color==='black')return true;
+    return c.color===g.lsuit||c.value===top.value;
+  }
+  if(g.selGame!=='maumau')return true;
+  const top=g.ldisc[g.ldisc.length-1];
+  if(g.lpend>0)return c.rank==='7'&&g.hr.draw2stack!==false;
+  if(g.lskip8)return c.rank==='8'&&g.hr.eightReverse!==false;
+  if(c.rank==='J'){
+    if(g.hr.jackWild===false)return!top||c.suit===g.lsuit||c.rank===top.rank;
+    if(top&&top.rank==='J')return false;
+    return true;
+  }
+  if(!top)return true;
+  return c.suit===g.lsuit||c.rank===top.rank;
+}
+function refOnlineCanPlay(card,state){
+  if(state.gameId==='uno'){
+    const top=state.discard[state.discard.length-1];
+    if(!top)return true;
+    if(card.color==='black')return true;
+    return card.color===state.curSuit||card.value===top.value;
+  }
+  if(state.gameId&&state.gameId!=='maumau')return true;
+  const top=state.discard[state.discard.length-1];
+  if(state.drawPend>0)return card.rank==='7'&&state.hr?.draw2stack!==false;
+  if(state.skip8Pend)return card.rank==='8'&&state.hr?.eightReverse!==false;
+  if(card.rank==='J'){
+    if(state.hr?.jackWild===false)return!top||card.suit===state.curSuit||card.rank===top.rank;
+    if(top&&top.rank==='J')return false;
+    return true;
+  }
+  if(!top)return true;
+  return card.suit===state.curSuit||card.rank===top.rank;
+}
+
+function render(){
+  let pass=0,fail=0;
+  const out=document.getElementById('out');
+  out.innerHTML=results.map(s=>{
+    const rows=s.cases.map(c=>{
+      c.ok?pass++:fail++;
+      return `<div class="case ${c.ok?'ok':'bad'}">${c.ok?'✓':'✗'} ${c.name}</div>`+
+             (c.ok?'':`<div class="why">${c.why.replace(/</g,'&lt;')}</div>`);
+    }).join('');
+    return `<div class="suite"><div class="suite-name">${s.name}</div>${rows}</div>`;
+  }).join('');
+  const sum=document.getElementById('summary');
+  sum.className=fail?'fail':'pass';
+  sum.textContent=fail?`${fail} FAILING · ${pass} passing`:`All ${pass} tests passing`;
+  window.__testResults={pass,fail,
+    failures:results.flatMap(s=>s.cases.filter(c=>!c.ok).map(c=>`${s.name}: ${c.name} — ${c.why}`))};
+}
+
+function run(A){
+  const card=(rank,suit)=>({rank,suit,id:rank+suit});
+  const uno=(color,value)=>({color,value,id:color+value});
+  const SUITS=A.SUITS, RANKS=A.RANKS;
+
+  /* ── 1. The refactor is safe ─────────────────────────────────────────── */
+  suite('Rules extraction — equivalence with the pre-refactor code',()=>{
+    // Exhaustive sweep: every rank × suit against every top card, across each house-rule combo
+    // and each pending state. If the extraction changed ANY answer, this finds it.
+    let compared=0,mismatches=[];
+    const hrs=[{},{draw2stack:false},{eightReverse:false},{jackWild:false}];
+    const pends=[{lpend:0,lskip8:false},{lpend:2,lskip8:false},{lpend:0,lskip8:true}];
+    for(const hr of hrs)for(const pend of pends)
+      for(const tr of RANKS)for(const ts of SUITS)
+        for(const cr of RANKS)for(const cs of SUITS){
+          const top=card(tr,ts), c=card(cr,cs);
+          const g={selGame:'maumau',ldisc:[top],lsuit:ts,hr,lpend:pend.lpend,lskip8:pend.lskip8};
+          const st={gameId:'maumau',discard:[top],curSuit:ts,hr,drawPend:pend.lpend,skip8Pend:pend.lskip8};
+          const expLocal=refLocalCanPlay(c,g), expOnline=refOnlineCanPlay(c,st);
+          const got=A.rulesCanPlay(c,{gameId:'maumau',top,curSuit:ts,hr,drawPend:pend.lpend,skip8Pend:pend.lskip8});
+          compared++;
+          if(got!==expLocal||got!==expOnline)
+            mismatches.push(`${cr}${cs} on ${tr}${ts} hr=${JSON.stringify(hr)} pend=${JSON.stringify(pend)}: ref(${expLocal}/${expOnline}) vs new(${got})`);
+        }
+    check(`Mau Mau: ${compared} rank×suit×rule combinations match the original exactly`,
+      mismatches.length===0, mismatches.slice(0,5).join('\n'));
+
+    // Same sweep for Uno.
+    let uCompared=0,uMis=[];
+    const colors=['red','green','blue','yellow'];
+    const values=['0','5','9','skip','reverse','draw2'];
+    for(const tc of colors)for(const tv of values)
+      for(const cc of colors.concat(['black']))for(const cv of values.concat(['wild','wild4'])){
+        const top=uno(tc,tv), c=uno(cc,cv);
+        const g={selGame:'uno',ldisc:[top],lsuit:tc,hr:{}};
+        const st={gameId:'uno',discard:[top],curSuit:tc,hr:{}};
+        const got=A.rulesCanPlay(c,{gameId:'uno',top,curSuit:tc,hr:{}});
+        uCompared++;
+        if(got!==refLocalCanPlay(c,g)||got!==refOnlineCanPlay(c,st))
+          uMis.push(`${cc}/${cv} on ${tc}/${tv}`);
+      }
+    check(`Uno: ${uCompared} colour×value combinations match the original exactly`,
+      uMis.length===0, uMis.slice(0,5).join('\n'));
+
+    // The empty-state edge the two originals disagreed on shape-wise but not in outcome.
+    check('empty state is permissive (both originals agreed here)',
+      A.rulesCanPlay(card('5','hearts'),{})===true);
+    check('a non-Mau-Mau, non-Uno game never restricts',
+      A.rulesCanPlay(card('2','clubs'),{gameId:'texas',top:card('K','spades'),curSuit:'spades'})===true);
+    check('a null card is never playable',A.rulesCanPlay(null,{gameId:'maumau'})===false);
+  });
+
+  /* ── 2. The rules themselves ─────────────────────────────────────────── */
+  suite('Mau Mau rules',()=>{
+    const base={gameId:'maumau',top:card('9','hearts'),curSuit:'hearts',hr:{}};
+    check('matching suit is playable',A.rulesCanPlay(card('3','hearts'),base));
+    check('matching rank is playable',A.rulesCanPlay(card('9','clubs'),base));
+    check('unrelated card is not playable',!A.rulesCanPlay(card('3','clubs'),base));
+    check('Jack is wild by default',A.rulesCanPlay(card('J','clubs'),base));
+    check('Jack cannot be stacked on a Jack',
+      !A.rulesCanPlay(card('J','clubs'),{...base,top:card('J','hearts')}));
+    check('with jackWild off, a Jack must match like any other card',
+      !A.rulesCanPlay(card('J','clubs'),{...base,hr:{jackWild:false}}));
+    check('while a draw is pending, only a 7 answers',
+      A.rulesCanPlay(card('7','clubs'),{...base,drawPend:2})&&
+      !A.rulesCanPlay(card('9','clubs'),{...base,drawPend:2}));
+    check('with draw2stack off, even a 7 cannot answer a pending draw',
+      !A.rulesCanPlay(card('7','clubs'),{...base,drawPend:2,hr:{draw2stack:false}}));
+    check('while skipped, only an 8 passes it on',
+      A.rulesCanPlay(card('8','clubs'),{...base,skip8Pend:true})&&
+      !A.rulesCanPlay(card('9','clubs'),{...base,skip8Pend:true}));
+    check('curSuit (not the top card\'s suit) is what matters after a wild',
+      A.rulesCanPlay(card('2','spades'),{gameId:'maumau',top:card('J','hearts'),curSuit:'spades',hr:{}}));
+  });
+
+  suite('Uno rules',()=>{
+    const base={gameId:'uno',top:uno('red','5'),curSuit:'red',hr:{}};
+    check('matching colour is playable',A.rulesCanPlay(uno('red','9'),base));
+    check('matching value is playable',A.rulesCanPlay(uno('blue','5'),base));
+    check('mismatched colour and value is not',!A.rulesCanPlay(uno('blue','9'),base));
+    check('a black wild is always playable',A.rulesCanPlay(uno('black','wild'),base));
+    check('colour chosen after a wild governs the next play',
+      A.rulesCanPlay(uno('green','1'),{...base,top:uno('black','wild'),curSuit:'green'}));
+  });
+
+  /* ── 3. The bots ─────────────────────────────────────────────────────── */
+  suite('Bot opponents',()=>{
+    const ctx={gameId:'maumau',top:card('9','hearts'),curSuit:'hearts',hr:{}};
+    // The property that matters most: a bot must never be able to make a move a human couldn't.
+    let illegal=0,drewWithLegal=0,rounds=0;
+    for(let i=0;i<400;i++){
+      const hand=[];
+      const n=1+Math.floor(Math.random()*7);
+      for(let k=0;k<n;k++)hand.push(card(RANKS[Math.floor(Math.random()*RANKS.length)],SUITS[Math.floor(Math.random()*SUITS.length)]));
+      const c={...ctx,top:card(RANKS[Math.floor(Math.random()*RANKS.length)],SUITS[Math.floor(Math.random()*SUITS.length)])};
+      c.curSuit=c.top.suit;
+      for(const level of ['gentle','sharp']){
+        const mv=A.mauMauBotMove(hand,c,level);
+        rounds++;
+        if(mv.action==='play'){
+          if(!A.rulesCanPlay(mv.card,c))illegal++;
+          if(!hand.includes(mv.card))illegal++;
+        }else if(hand.some(x=>A.rulesCanPlay(x,c)))drewWithLegal++;
+      }
+    }
+    check(`never plays an illegal card (${rounds} randomised hands, both levels)`,illegal===0,`${illegal} illegal moves`);
+    check('never draws while holding a legal card',drewWithLegal===0,`${drewWithLegal} needless draws`);
+
+    check('draws when nothing is legal',
+      A.mauMauBotMove([card('2','clubs'),card('3','clubs')],ctx,'sharp').action==='draw');
+    eq('plays its last card to win rather than hoarding',
+      A.mauMauBotMove([card('3','hearts')],ctx,'sharp').card.rank,'3');
+    check('holds a Jack when an ordinary card also matches',
+      A.mauMauBotMove([card('J','clubs'),card('3','hearts')],ctx,'sharp').card.rank==='3');
+    check('spends the Jack when it is the only legal card',
+      A.mauMauBotMove([card('J','clubs'),card('2','clubs')],ctx,'sharp').card.rank==='J');
+    check('prefers an attacking 7 over a plain match',
+      A.mauMauBotMove([card('7','hearts'),card('3','hearts')],ctx,'sharp').card.rank==='7');
+    check('answers a pending draw with a 7',
+      A.mauMauBotMove([card('7','clubs'),card('3','hearts')],{...ctx,drawPend:2},'sharp').card.rank==='7');
+    check('an empty hand yields a draw, not a crash',
+      A.mauMauBotMove([],ctx,'sharp').action==='draw');
+
+    eq('after a wild, picks the suit it holds most of',
+      A.mauMauBotSuit([card('2','clubs'),card('5','clubs'),card('9','spades')],null),'clubs');
+    check('suit pick ignores other Jacks (they are wild, not a suit to chase)',
+      A.mauMauBotSuit([card('J','clubs'),card('J','clubs'),card('4','spades')],null)==='spades');
+    check('suit pick always returns a real suit even from an empty hand',
+      SUITS.includes(A.mauMauBotSuit([],null)));
+  });
+
+  /* ── 4. Scoring and evaluation the whole app depends on ──────────────── */
+  suite('Card values & scoring',()=>{
+    eq('Mau Mau: Jack = 20',A.cardVal(card('J','hearts')),20);
+    eq('Mau Mau: Ace = 10',A.cardVal(card('A','hearts')),10);
+    eq('Mau Mau: King = 10',A.cardVal(card('K','hearts')),10);
+    eq('Mau Mau: number cards score face value',A.cardVal(card('7','hearts')),7);
+    eq('Uno: number card = face value',A.unoCardVal(uno('red','7')),7);
+    eq('Uno: action card = 20',A.unoCardVal(uno('red','skip')),20);
+    eq('Uno: wild = 50',A.unoCardVal(uno('black','wild')),50);
+  });
+
+  suite('Poker hand evaluation',()=>{
+    const h=(...cs)=>cs.map(s=>card(s.slice(0,-1),{S:'spades',H:'hearts',D:'diamonds',C:'clubs'}[s.slice(-1)]));
+    const rank=cs=>A.evalHand(cs).score;
+    const rf=h('10S','JS','QS','KS','AS'), sf=h('5S','6S','7S','8S','9S');
+    const quads=h('9S','9H','9D','9C','2S'), boat=h('9S','9H','9D','2C','2S');
+    const flush=h('2S','5S','9S','JS','KS'), straight=h('5S','6H','7D','8C','9S');
+    const trips=h('9S','9H','9D','4C','2S'), twoPair=h('9S','9H','4D','4C','2S');
+    const pair=h('9S','9H','4D','7C','2S'), high=h('9S','7H','4D','3C','2S');
+    check('royal flush outranks straight flush',rank(rf)>rank(sf));
+    check('straight flush outranks four of a kind',rank(sf)>rank(quads));
+    check('four of a kind outranks a full house',rank(quads)>rank(boat));
+    check('full house outranks a flush',rank(boat)>rank(flush));
+    check('flush outranks a straight',rank(flush)>rank(straight));
+    check('straight outranks three of a kind',rank(straight)>rank(trips));
+    check('three of a kind outranks two pair',rank(trips)>rank(twoPair));
+    check('two pair outranks one pair',rank(twoPair)>rank(pair));
+    check('one pair outranks high card',rank(pair)>rank(high));
+    eq('the wheel (A-2-3-4-5) is a straight, with the Ace playing low',
+      A.evalHand(h('AS','2H','3D','4C','5S')).name,'Straight');
+    eq('the steel wheel (A-5 suited) is a straight flush',
+      A.evalHand(h('AS','2S','3S','4S','5S')).name,'Straight Flush');
+    // Compared by NAME, not score: the seven-card hand keeps a better kicker (4♦ over 2♠), so an
+    // identical score would actually be wrong here.
+    eq('picks the best five from seven cards',
+      A.evalHand(h('9S','9H','9D','9C','2S','3H','4D')).name,'Four of a Kind');
+    check('and the better kicker makes that seven-card hand score higher',
+      A.evalHand(h('9S','9H','9D','9C','2S','3H','4D')).score>rank(quads));
+    // Guards the pot-settlement trap: settleSidePots takes Math.max of handEval.score and compares
+    // for equality, so a non-numeric score here would match nobody and strand the pot.
+    check('a short hand still reports a numeric score, so pot settlement can compare it',
+      typeof A.evalHand(h('9S','7H')).score==='number');
+  });
+
+  suite('Yahtzee scoring',()=>{
+    const s=(dice,cat)=>A.yScoreCategory(cat,dice);
+    eq('Ones sums only the ones',s([1,1,3,4,5],'ones'),2);
+    eq('Sixes sums only the sixes',s([6,6,6,2,3],'sixes'),18);
+    eq('Full house scores 25',s([3,3,3,5,5],'fullHouse'),25);
+    eq('a non-full-house scores 0',s([3,3,4,5,5],'fullHouse'),0);
+    eq('small straight scores 30',s([1,2,3,4,6],'smallStraight'),30);
+    eq('large straight scores 40',s([2,3,4,5,6],'largeStraight'),40);
+    eq('a broken run is not a large straight',s([1,2,3,4,6],'largeStraight'),0);
+    eq('Yahtzee scores 50',s([4,4,4,4,4],'yahtzee'),50);
+    eq('four of a kind sums all five dice',s([4,4,4,4,2],'fourKind'),18);
+    eq('Chance sums everything',s([1,2,3,4,5],'chance'),15);
+    check('five of a kind also satisfies four of a kind',s([5,5,5,5,5],'fourKind')===25);
+  });
+
+  suite('Deck integrity',()=>{
+    const full=A.buildDeck(1,'texas');
+    eq('a standard deck has 52 cards',full.length,52);
+    eq('all 52 are distinct rank+suit',new Set(full.map(c=>c.rank+c.suit)).size,52);
+    const mm=A.buildDeck(1,'maumau');
+    eq('Mau Mau uses a 32-card deck',mm.length,32);
+    check('Mau Mau deck excludes 2 through 6',!mm.some(c=>['2','3','4','5','6'].includes(c.rank)));
+    eq('Uno deck is 108 cards',A.buildUnoDeck().length,108);
+    // Shuffling must preserve the multiset, not just the length.
+    const before=A.buildDeck(1,'texas'),key=d=>d.map(c=>c.rank+c.suit).sort().join(',');
+    const after=A.shuffle(before.slice());
+    eq('shuffle preserves every card',key(after),key(A.buildDeck(1,'texas')));
+  });
+
+  suite('Achievements',()=>{
+    eq('every achievement id is unique',
+      new Set(A.ACHIEVEMENTS.map(a=>a.id)).size,A.ACHIEVEMENTS.length);
+    check('every achievement has an icon, name and description',
+      A.ACHIEVEMENTS.every(a=>a.icon&&a.name&&a.desc));
+    check('every check() is callable and returns a boolean-ish value without throwing',
+      A.ACHIEVEMENTS.every(a=>{try{a.check();return true;}catch(e){return false;}}));
+    check('no secret achievement exposes a progress bar (it would leak the hidden goal)',
+      A.ACHIEVEMENTS.filter(a=>a.secret).every(a=>!a.progress));
+    check('every non-secret achievement exposing progress reports a positive maximum',
+      A.ACHIEVEMENTS.filter(a=>a.progress).every(a=>{
+        try{const p=a.progress();return p&&typeof p.cur==='number'&&p.max>0;}catch(e){return false;}
+      }));
+  });
+
+  suite('Wall of Fame portraits',()=>{
+    const av=A.AVATARS[0];
+    check('a genuine data URL is used as the photo',
+      A.momentPortraitSrc({photo:'data:image/jpeg;base64,abc',winnerAvatar:av})==='data:image/jpeg;base64,abc');
+    check('a stale blob: URL falls back to the avatar',
+      A.momentPortraitSrc({photo:'blob:http://x/1',winnerAvatar:av})===A.avImgSrc(av));
+    check('the string "undefined" falls back to the avatar',
+      A.momentPortraitSrc({photo:'undefined',winnerAvatar:av})===A.avImgSrc(av));
+    check('a missing photo falls back to the avatar',
+      A.momentPortraitSrc({winnerAvatar:av})===A.avImgSrc(av));
+    check('an unknown avatar still resolves to a real image',
+      /^assets\/avatars\//.test(A.momentPortraitSrc({winnerAvatar:'💩'})));
+  });
+
+  render();
+}
+
+/* The app declares its constants with `const` at script top level, which creates script-scope
+   bindings rather than properties on `window` — so frame.contentWindow.RANKS is undefined even
+   though RANKS exists. Global eval inside the frame does see those bindings, so everything under
+   test is pulled through that, functions and constants alike. Nothing in the app is modified or
+   re-exported just to make it testable. */
+function grab(W,names){
+  const o={},missing=[];
+  names.forEach(n=>{
+    try{
+      const v=W.eval(n);
+      if(v===undefined)missing.push(n); else o[n]=v;
+    }catch(e){missing.push(n);}
+  });
+  if(missing.length)throw new Error('not found in the app: '+missing.join(', '));
+  return o;
+}
+const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoCardVal','evalHand',
+  'yScoreCategory','buildDeck','buildUnoDeck','shuffle','momentPortraitSrc','avImgSrc',
+  'SUITS','RANKS','AVATARS','ACHIEVEMENTS'];
+
+const frame=document.getElementById('app-frame');
+frame.addEventListener('load',()=>{
+  // Give the app's own load handler a tick to finish defining/initialising everything.
+  setTimeout(()=>{
+    try{ run(grab(frame.contentWindow,UNDER_TEST)); }
+    catch(e){
+      document.getElementById('summary').className='fail';
+      document.getElementById('summary').textContent='Test runner crashed: '+e.message;
+      window.__testResults={pass:0,fail:1,failures:['runner crashed: '+e.stack]};
+    }
+  },300);
+});
+</script>
+</body>
+</html>
