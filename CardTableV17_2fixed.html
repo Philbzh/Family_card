@@ -1319,7 +1319,16 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 #toast{position:fixed;bottom:105px;left:50%;transform:translateX(-50%) translateY(10px);background:rgba(8,12,18,.97);color:var(--paper);padding:.62rem 1.35rem;border-radius:30px;font-size:.82rem;opacity:0;transition:all .28s;z-index:300;pointer-events:none;white-space:nowrap;border:1px solid rgba(255,255,255,.12);box-shadow:0 10px 36px rgba(0,0,0,.75);max-width:92vw;text-align:center;}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001s!important;transition-duration:.001s!important;}}
+/* Global reduced-motion backstop: flattens every animation and transition in the app, so motion
+   never depends on someone having remembered to add a per-animation guard.
+   .timer-fill is the one deliberate exemption. That bar IS the countdown for calling Mau — it's
+   information, not decoration, and its duration is set inline from the actual deadline. Collapsing
+   it to 1ms leaves someone who asked for less motion staring at an empty track with no idea how
+   long they have, which is a worse outcome than the motion it was avoiding. */
+@media(prefers-reduced-motion:reduce){
+  *:not(.timer-fill),*:not(.timer-fill)::before,*:not(.timer-fill)::after{
+    animation-duration:.001s!important;transition-duration:.001s!important;}
+}
 /* ═══ V11 SIGNATURE TABLE EXPERIENCE ═══ */
 .game-bar{padding:.7rem 1rem;background:linear-gradient(180deg,rgba(6,12,10,.98),rgba(6,12,10,.88));border-bottom:1px solid rgba(240,204,96,.14);}
 .gb-game{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;}
@@ -5528,7 +5537,11 @@ function rTable(){
     hint=hasEight?'<div class="hint-txt">Play an 8 to pass the skip on, or tap the pile to pass.</div>':'<div class="hint-txt">No 8 to play — tap the pile to pass the skip.</div>';
   }
   else if(online&&!mine)hint=`<div class="hint-txt">${cur?.avatar||''} ${esc(cur?.name||'')}'s turn…</div>`;
-  else if(lastAct&&!lastAct.includes('❌'))hint=`<div class="hint-txt">${lastAct}</div>`;
+  // The last action deliberately does NOT appear here. It's already rendered unconditionally as
+  // .table-event above the felt, so echoing it in the hint strip printed the same sentence twice on
+  // screen at once. Worse, this branch sat ahead of the draw-pending one below and swallowed it —
+  // so whenever someone owed cards, they were shown "Mama played 9♥" instead of being told what
+  // they actually had to do about it.
   else if(drawPend>0&&(mine||!online))hint=`<div class="hint-txt">Draw ${drawPend} cards or play a 7.</div>`;
 
   // Poker-specific hints
