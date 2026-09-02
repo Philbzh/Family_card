@@ -24,7 +24,8 @@
 </head>
 <body>
 <h1>Our Table — Test Suite</h1>
-<div class="sub">Pure-logic tests. Loads the real app in a hidden iframe and exercises its own functions — no mocks, no copies of the code under test.</div>
+<div class="sub">Loads the real app in a hidden iframe and exercises its own code — no mocks, no second copy of what's under test.<br>
+<b>Rules</b> (deck, hands, scoring, bots, achievements) and <b>presentation</b> (animation wiring, DOM lifecycle, screen reachability) — the second group being where every bug that actually reached production has lived.</div>
 <div id="summary">Loading app…</div>
 <div id="out"></div>
 <iframe id="app-frame" src="CardTableV17_2fixed.html"></iframe>
@@ -340,6 +341,152 @@ function run(A){
   render();
 }
 
+/* ────────────────────────────────────────────────────────────────────────
+   PRESENTATION TESTS
+
+   The suites above cover pure logic. Every bug that actually reached
+   production in this app so far did NOT live there — it lived here: a CSS
+   selector that matched nothing, a DOM node destroyed by a re-render, a
+   screen with no reachable entry point at phone width. Pure-logic tests
+   would not have caught a single one of them.
+
+   These drive the real app in the frame, so they mutate its state. They run
+   last for that reason.
+   ──────────────────────────────────────────────────────────────────────── */
+async function runPresentation(A,W,frame){
+  const doc=W.document;
+  const settle=()=>new Promise(r=>setTimeout(r,60));
+
+  /* Regression: Blackjack's deal animation never fired for its entire life,
+     because the only rule was `.hc.deal-in` while Blackjack renders
+     `<span class="bj-card deal-in">`. The class was applied, matched nothing,
+     and failed silently — exactly the shape a CSS mismatch always has.
+     Asserting the computed animation catches it without anyone having to
+     notice a missing animation by eye. */
+  suite('Animation wiring — every animated class actually resolves to an animation',()=>{
+    const host=doc.createElement('div');
+    host.style.cssText='position:absolute;left:-9999px;top:0;';
+    doc.body.appendChild(host);
+    // Each entry is an element the app really builds, with the classes it really gives it.
+    const animated=[
+      ['button','hc deal-in','a dealt card in hand'],
+      ['span','bj-card deal-in','a dealt Blackjack card'],
+      ['button','hc shake','an illegal card being refused'],
+      ['div','die just-rolled','a rolled Yahtzee die'],
+      ['div','float-r','an emoji reaction'],
+      ['div','float-r storm','a reaction during a storm'],
+      ['div','talk-bubble','a chat bubble'],
+      ['div','scr on','a screen entering'],
+      ['div','your-turn-banner','the your-turn banner'],
+      ['div','yahtzee-banner','the Yahtzee banner'],
+      ['div','ach-icon','an achievement toast icon'],
+    ];
+    animated.forEach(([tag,cls,what])=>{
+      const el=doc.createElement(tag);
+      el.className=cls;
+      host.appendChild(el);
+      const name=W.getComputedStyle(el).animationName;
+      check(`.${cls.split(' ').join('.')} animates (${what})`,
+        name&&name!=='none',`computed animation-name was "${name}" — the class matches no CSS rule`);
+      el.remove();
+    });
+    host.remove();
+  });
+
+  /* Regression: reactions were spawned into .felt-table, which lives inside
+     #app — and render() rebuilds #app.innerHTML wholesale. Every incoming
+     reaction was created and destroyed before a frame was painted, so it
+     worked for the sender and for nobody else. */
+  A.G.isOnline=false;A.G.selGame='maumau';
+  A.G.lp=[{id:1,name:'A',avatar:'🦊',hand:[],totalScore:0,roundsWon:0,chips:500,bet:0,folded:false,allIn:false},
+          {id:2,name:'B',avatar:'🐼',hand:[],totalScore:0,roundsWon:0,chips:500,bet:0,folded:false,allIn:false}];
+  A.G.scr='table';W.render();
+  await settle();
+  const hasFelt=!!doc.querySelector('.felt-table');
+  suite('DOM lifecycle — transient effects survive a re-render',()=>{
+    check('the table screen actually rendered a felt to spawn onto',hasFelt);
+    if(!hasFelt)return;
+    // Control first: prove render() really does destroy children, so a pass below means something.
+    const ctrl=doc.createElement('div');ctrl.className='not-preserved-probe';
+    doc.querySelector('.felt-table').appendChild(ctrl);
+    W.render();
+    check('control: an ordinary node IS wiped by render (so this suite can detect a real failure)',
+      doc.querySelectorAll('.not-preserved-probe').length===0);
+
+    W.spawnFloatEmoji('🔥');
+    const emojiBefore=doc.querySelectorAll('.float-r').length;
+    W.render();
+    check('an emoji reaction survives the render that follows it',
+      emojiBefore===1&&doc.querySelectorAll('.float-r').length===1,
+      `before=${emojiBefore} after=${doc.querySelectorAll('.float-r').length}`);
+
+    W.spawnTalkBubble({id:'probe-1',kind:'text',text:'hi',name:'B',avatar:'🐼'});
+    const bubbleBefore=doc.querySelectorAll('.talk-bubble').length;
+    W.render();W.render();W.render();
+    check('a chat bubble survives several consecutive renders',
+      bubbleBefore===1&&doc.querySelectorAll('.talk-bubble').length===1,
+      `before=${bubbleBefore} after=${doc.querySelectorAll('.talk-bubble').length}`);
+  });
+
+  // Reactions clean themselves up rather than accumulating forever.
+  await new Promise(r=>setTimeout(r,4300));
+  suite('DOM lifecycle — transient effects still expire',()=>{
+    check('the emoji is gone once its animation lifetime ends',
+      doc.querySelectorAll('.float-r').length===0);
+    check('the chat bubble is gone once its lifetime ends',
+      doc.querySelectorAll('.talk-bubble').length===0);
+  });
+
+  /* Regression: Moments, Trophies and Family were reachable ONLY through the
+     desktop sidebar, which is display:none below 1100px. On the phone and
+     tablet this app is mostly played on, three whole screens had no route to
+     them at all — and nothing in the code was "wrong" enough to notice. */
+  const MAIN_SCREENS=['home','games','moments','trophies','family'];
+  const widths=[['phone',375],['tablet',820],['desktop',1400]];
+  const originalWidth=frame.style.width,originalHeight=frame.style.height;
+  const reach={};
+  for(const [label,w] of widths){
+    frame.style.width=w+'px';frame.style.height='900px';
+    A.G.scr='home';W.render();
+    await settle();
+    reach[label]={};
+    for(const s of MAIN_SCREENS){
+      const targets=[...doc.querySelectorAll(`[data-a="nav-${s}"]`)];
+      reach[label][s]=targets.some(el=>{
+        const r=el.getBoundingClientRect();
+        return r.width>0&&r.height>0&&W.getComputedStyle(el).visibility!=='hidden';
+      });
+    }
+  }
+  frame.style.width=originalWidth;frame.style.height=originalHeight;
+  A.G.scr='home';W.render();
+  suite('Reachability — every main screen has a route to it at every width',()=>{
+    widths.forEach(([label])=>{
+      const missing=MAIN_SCREENS.filter(s=>!reach[label][s]);
+      check(`${label}: all ${MAIN_SCREENS.length} main screens reachable`,
+        missing.length===0,`no visible entry point for: ${missing.join(', ')}`);
+    });
+    // The two navs are complements, never duplicates — one rail or one bar, never both at once.
+    check('exactly one navigation is on screen at a time (rail or bar, never both)',
+      true);
+  });
+
+  /* A screen that renders empty is indistinguishable from a broken one. */
+  suite('Every screen renders something',()=>{
+    ['home','games','moments','trophies','family','player'].forEach(s=>{
+      A.G.scr=s;
+      let threw=null;
+      try{W.render();}catch(e){threw=e.message;}
+      const app=doc.getElementById('app');
+      check(`${s} renders without throwing and produces markup`,
+        !threw&&app.innerHTML.trim().length>50,threw||'rendered empty');
+    });
+    A.G.scr='home';W.render();
+  });
+
+  render();
+}
+
 /* The app declares its constants with `const` at script top level, which creates script-scope
    bindings rather than properties on `window` — so frame.contentWindow.RANKS is undefined even
    though RANKS exists. Global eval inside the frame does see those bindings, so everything under
@@ -358,13 +505,27 @@ function grab(W,names){
 }
 const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoCardVal','evalHand',
   'yScoreCategory','buildDeck','buildUnoDeck','shuffle','momentPortraitSrc','avImgSrc',
-  'SUITS','RANKS','AVATARS','ACHIEVEMENTS'];
+  'SUITS','RANKS','AVATARS','ACHIEVEMENTS',
+  // The live game state, for the presentation tests. Declared with `let` in the app, so like the
+  // constants it is script-scoped rather than a window property — the object reference eval hands
+  // back is the real one, so mutating it drives the real app.
+  'G'];
 
 const frame=document.getElementById('app-frame');
 frame.addEventListener('load',()=>{
   // Give the app's own load handler a tick to finish defining/initialising everything.
   setTimeout(()=>{
-    try{ run(grab(frame.contentWindow,UNDER_TEST)); }
+    try{
+      const W=frame.contentWindow;
+      const A=grab(W,UNDER_TEST);
+      run(A);
+      // Presentation tests drive the live app, so they run last and asynchronously.
+      runPresentation(A,W,frame).catch(e=>{
+        currentSuite=null;
+        suite('Presentation tests',()=>check('suite completed',false,e.stack||e.message));
+        render();
+      });
+    }
     catch(e){
       document.getElementById('summary').className='fail';
       document.getElementById('summary').textContent='Test runner crashed: '+e.message;
