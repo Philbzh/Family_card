@@ -2126,7 +2126,16 @@ function handName(score){
 
 /* ═══════ HISTORY ═══════ */
 const DEVICE_ID=(()=>{try{let id=localStorage.getItem('ct_device_id');if(!id){id=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():'d'+Date.now().toString(36)+Math.random().toString(36).slice(2);localStorage.setItem('ct_device_id',id);}return id;}catch{return'anon';}})();
-function getHistory(){try{return JSON.parse(localStorage.getItem('ct_history')||'[]');}catch{return[];}}
+// The try/catch only ever covered a PARSE failure. Valid JSON of the wrong shape — an object, a
+// bare string, even a stored "null" — sailed through and was handed to callers as if it were a
+// list, so tonightStats() and every achievement check threw and took the Home screen with them.
+// Guard the shape, not just the syntax, and drop any entry that isn't a usable record.
+function getHistory(){
+  try{
+    const raw=JSON.parse(localStorage.getItem('ct_history')||'[]');
+    return Array.isArray(raw)?raw.filter(h=>h&&typeof h==='object'):[];
+  }catch{return[];}
+}
 // Captured photos are stored inline as base64 JPEG data URLs, so a well-photographed season can
 // genuinely push ct_history past localStorage's ~5MB quota. This write used to be bare: once the
 // quota was hit, setItem threw, and because addHistory is called at the moment somebody WINS, that
@@ -2353,7 +2362,14 @@ function almanacData(){
 }
 
 /* ═══ FAMILY ROSTER (local device, name-matched against history) ═══ */
-function getFamily(){try{return JSON.parse(localStorage.getItem('ct_family')||'[]');}catch{return[];}}
+// Same shape guard as getHistory: a roster entry without a name is not a person and would render
+// as a nameless row that can never be matched to any game.
+function getFamily(){
+  try{
+    const raw=JSON.parse(localStorage.getItem('ct_family')||'[]');
+    return Array.isArray(raw)?raw.filter(m=>m&&typeof m==='object'&&m.name):[];
+  }catch{return[];}
+}
 function saveFamily(list){localStorage.setItem('ct_family',JSON.stringify(list));}
 // Keeps your own Family roster entry (matched by name) in sync with whatever avatar your personal
 // profile currently uses -- adds it if you're not there yet. Called both right after saving the
@@ -2421,8 +2437,15 @@ function checkpointLocalMatch(){
     localStorage.removeItem('ct_resume');
   }
 }
+// Shape-guarded like getHistory/getFamily: resumeLocalMatch() reaches straight into saved.snap, so
+// a stored value that parses but isn't a checkpoint (a number, a bare string, an object with no
+// snap) would throw on "Continue" — the one button someone presses expecting their game back.
 function getResumableMatch(){
-  try{return JSON.parse(localStorage.getItem('ct_resume')||'null');}catch{return null;}
+  try{
+    const raw=JSON.parse(localStorage.getItem('ct_resume')||'null');
+    if(!raw||typeof raw!=='object'||!raw.snap||typeof raw.snap!=='object')return null;
+    return raw;
+  }catch{return null;}
 }
 function resumeLocalMatch(){
   const saved=getResumableMatch();if(!saved)return false;
@@ -3477,16 +3500,32 @@ function pokerNextPhase(){
 // players still count toward every layer their money reached (that's real money in the pot) but are
 // never eligible to WIN a pot. Amounts are read from chipsAtHandStart-vs-current-chips rather than
 // a running total, so this works regardless of how many streets/raises built the pot.
+// A layer whose contributors have ALL folded produces a pot nobody is eligible to win, and
+// settleSidePots skips those — which quietly destroyed the chips in it. Found by a conservation
+// fuzz test: stake 273 then fold against a live 122 and 151 chips simply stopped existing.
+// Such money is dead money, so it's carried onto the next pot that does have a live player (and
+// folded into the last real pot if the orphaned layer sits above every live contribution). That
+// keeps the invariant that matters: every chip staked reaches exactly one winner.
 function computeSidePots(players){
   const contributed=p=>Math.max(0,(p.chipsAtHandStart??p.chips)-p.chips);
   const levels=[...new Set(players.map(contributed).filter(c=>c>0))].sort((a,b)=>a-b);
-  let prev=0;const pots=[];
+  let prev=0,orphaned=0;const pots=[];
   levels.forEach(level=>{
     const layer=players.filter(p=>contributed(p)>prev);
     const amount=(level-prev)*layer.length;
-    if(amount>0)pots.push({amount,eligible:layer.filter(p=>!p.folded)});
     prev=level;
+    if(amount<=0)return;
+    const eligible=layer.filter(p=>!p.folded);
+    if(!eligible.length){orphaned+=amount;return;}
+    pots.push({amount:amount+orphaned,eligible});
+    orphaned=0;
   });
+  if(orphaned>0){
+    if(pots.length)pots[pots.length-1].amount+=orphaned;
+    // Nobody live contributed anything — the hand ended by everyone folding, which is resolved on a
+    // different path, but return the money rather than vanishing it if we ever land here.
+    else pots.push({amount:orphaned,eligible:players.filter(p=>!p.folded)});
+  }
   return pots;
 }
 // Awards each pot to the best hand(s) among its eligible players, splitting ties evenly (with any
@@ -5336,7 +5375,14 @@ function rTable(){
   const deck=online?(state?.deck||[]):G.ldeck;
   const dir=online?(state?.dir||1):G.ldir;
   const round=online?(state?.round||1):G.lround;
-  const lastAct=online?(state?.lastAct||''):G.llast;
+  // This line is interpolated straight into innerHTML at both render sites below, and in an online
+  // game its value arrives from another device's write to the shared room row — so a client that
+  // wrote markup into lastAct would have it executed on everyone else's screen. Every one of the 34
+  // places that builds this string produces plain text (names already passed through esc(), so they
+  // arrive as &lt;-style entities), which means a literal '<' or '>' here is never legitimate
+  // content and can only be injected. Stripping them closes the sink without touching those 34
+  // call sites or double-escaping the names they already escaped.
+  const lastAct=String((online?(state?.lastAct||''):G.llast)||'').replace(/[<>]/g,'');
   const top=discard[discard.length-1];
   const players=online?(state?.players||[]):G.lp;
   const gameId=online?(state?.gameId||'maumau'):G.selGame;
@@ -5855,7 +5901,10 @@ function rQuitOv(){return`<div class="ov" data-a="close-quit"><div class="ov-box
 // one; the honest answer is in the copy instead.
 function rDataOv(){
   const hist=getHistory();
-  let ach=[];try{ach=JSON.parse(localStorage.getItem('ct_achievements')||'[]');}catch{}
+  // Read through getAchievements() rather than re-parsing the key here. This panel used to parse it
+  // as a bare array and print ach.length; when unlocks moved to {id: date} for the Trophy Room, an
+  // object has no .length and this quietly rendered "undefined achievements unlocked".
+  const achCount=Object.keys(getAchievements()).length;
   const family=getFamily();
   return`<div class="ov" data-a="close-data"><div class="ov-box" role="dialog" aria-modal="true" aria-label="Your data" style="max-width:26rem;">
     <div class="ov-title">🔒 Your data</div>
@@ -5864,7 +5913,7 @@ function rDataOv(){
       <div class="panel-lbl">On this device</div>
       <div style="font-size:.82rem;color:var(--paper2);line-height:1.7;">
         🃏 ${hist.length} game result${hist.length!==1?'s':''}<br>
-        🏆 ${ach.length} achievement${ach.length!==1?'s':''} unlocked<br>
+        🏆 ${achCount} achievement${achCount!==1?'s':''} unlocked<br>
         ♥ ${family.length} family member${family.length!==1?'s':''} tracked<br>
         👤 Your name, avatar, table name, and felt choice
       </div>
@@ -5891,7 +5940,9 @@ function exportMyData(){
     gamesPlayed:G.gp,
     victories:G.tw,
     history:getHistory(),
-    achievements:(()=>{try{return JSON.parse(localStorage.getItem('ct_achievements')||'[]');}catch{return[];}})(),
+    // Also via getAchievements(), so an export made from an older install (bare id array) and one
+    // made today (id -> date earned) both come out in the same shape.
+    achievements:getAchievements(),
     family:getFamily(),
   };
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});

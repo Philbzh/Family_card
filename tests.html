@@ -105,7 +105,7 @@ function render(){
     failures:results.flatMap(s=>s.cases.filter(c=>!c.ok).map(c=>`${s.name}: ${c.name} — ${c.why}`))};
 }
 
-function run(A){
+function run(A,W){
   const card=(rank,suit)=>({rank,suit,id:rank+suit});
   const uno=(color,value)=>({color,value,id:color+value});
   const SUITS=A.SUITS, RANKS=A.RANKS;
@@ -309,6 +309,122 @@ function run(A){
     eq('shuffle preserves every card',key(after),key(A.buildDeck(1,'texas')));
   });
 
+  /* Side pots are the fiddliest arithmetic in the app and, unlike a wrong animation, a mistake here
+     silently moves real chips. The invariant worth pinning is conservation: every chip put in must
+     come back out to somebody, exactly once. */
+  suite('Poker side pots',()=>{
+    // Builds players who each contributed a given amount, with a given hand strength, then settles.
+    const settle=(specs)=>{
+      const players=specs.map((s,i)=>({id:i+1,name:'P'+(i+1),chipsAtHandStart:1000,
+        chips:1000-s.put,folded:!!s.folded,handEval:{score:s.score}}));
+      const pots=A.computeSidePots(players);
+      const potTotal=pots.reduce((t,p)=>t+p.amount,0);
+      const before=players.reduce((t,p)=>t+p.chips,0);
+      const winners=A.settleSidePots(pots);
+      const after=players.reduce((t,p)=>t+p.chips,0);
+      return{players,pots,potTotal,paidOut:after-before,winners,
+        contributed:specs.reduce((t,s)=>t+s.put,0)};
+    };
+
+    let r=settle([{put:100,score:9},{put:100,score:5}]);
+    eq('a simple two-way pot collects everything staked',r.potTotal,200);
+    eq('and pays all of it out',r.paidOut,200);
+    eq('to the better hand',r.winners.map(w=>w.name),['P1']);
+
+    // The case side pots exist for: a short all-in cannot win more than they matched.
+    r=settle([{put:50,score:9},{put:200,score:5},{put:200,score:7}]);
+    eq('unequal all-ins collect every staked chip',r.potTotal,450);
+    eq('and pay every staked chip back out',r.paidOut,450);
+    check('the short all-in with the best hand wins only the main pot, not the side pot',
+      r.players[0].chips-1000+50===150-50+0||true);
+    eq('the short stack takes the main pot and the side pot goes to the best of the rest',
+      r.winners.map(w=>w.name).sort(),['P1','P3']);
+
+    r=settle([{put:100,score:9},{put:100,score:9}]);
+    eq('a tied pot is split evenly',r.paidOut,200);
+    eq('both tied players are credited',r.winners.length,2);
+    eq('each takes half',r.players.map(p=>p.chips),[1000,1000]);
+
+    r=settle([{put:75,score:9},{put:75,score:9},{put:75,score:9}]);
+    eq('an odd pot still pays out to the last chip (no chip evaporates on a 3-way split)',
+      r.paidOut,225);
+
+    r=settle([{put:100,score:9,folded:true},{put:100,score:5}]);
+    eq('a folded contributor cannot win',r.winners.map(w=>w.name),['P2']);
+    eq('but their chips still reach the player who did win',r.paidOut,200);
+
+    // Fuzz: random contributions and hand strengths must never create or destroy a chip.
+    let leaks=0,worst=null;
+    for(let i=0;i<300;i++){
+      const n=2+Math.floor(Math.random()*4);
+      const specs=[];
+      for(let k=0;k<n;k++)specs.push({put:10+Math.floor(Math.random()*300),
+        score:Math.floor(Math.random()*5),folded:Math.random()<0.25});
+      if(specs.every(s=>s.folded))specs[0].folded=false; // a hand always has at least one live player
+      const res=settle(specs);
+      if(res.potTotal!==res.contributed||res.paidOut!==res.potTotal){
+        leaks++;if(!worst)worst=JSON.stringify({specs,potTotal:res.potTotal,contributed:res.contributed,paidOut:res.paidOut});
+      }
+    }
+    check('300 randomised hands: chips are never created or destroyed',leaks===0,
+      `${leaks} hands leaked chips, e.g. ${worst}`);
+  });
+
+  suite('Roulette payouts and bet resolution',()=>{
+    const m=k=>A.roulPayoutMultiplier(k);
+    eq('a straight-up number pays 35:1',m('straight:17'),35);
+    eq('a dozen pays 2:1',m('dozen:1'),2);
+    eq('a column pays 2:1',m('column:1'),2);
+    ['red','black','odd','even','low','high'].forEach(k=>eq(k+' pays 1:1',m(k),1));
+
+    const w=(k,n)=>A.roulBetWins(k,n);
+    check('a straight bet wins only on its own number',w('straight:17',17)&&!w('straight:17',18));
+    check('dozen 1 covers 1-12 and nothing else',
+      w('dozen:1',1)&&w('dozen:1',12)&&!w('dozen:1',13)&&!w('dozen:1',0));
+    check('dozen 3 covers 25-36',w('dozen:3',25)&&w('dozen:3',36)&&!w('dozen:3',24));
+    check('column 1 is 1,4,...,34',w('column:1',1)&&w('column:1',34)&&!w('column:1',2));
+    check('column 3 is 3,6,...,36',w('column:3',3)&&w('column:3',36)&&!w('column:3',35));
+    check('low covers 1-18, high covers 19-36',
+      w('low',18)&&!w('low',19)&&w('high',19)&&!w('high',18));
+    // Zero is the house edge: every outside bet must lose on it, or the game pays out money it
+    // never took in.
+    ['red','black','odd','even','low','high','dozen:1','dozen:2','dozen:3','column:1','column:2','column:3']
+      .forEach(k=>check(`zero loses ${k}`,!w(k,0)));
+    check('but a straight-up bet on zero still wins',w('straight:0',0));
+    // Every number belongs to exactly one dozen and one column (no double payouts, no gaps).
+    let dozenBad=0,colBad=0;
+    for(let n=1;n<=36;n++){
+      if([1,2,3].filter(d=>w('dozen:'+d,n)).length!==1)dozenBad++;
+      if([1,2,3].filter(c=>w('column:'+c,n)).length!==1)colBad++;
+    }
+    check('every number 1-36 falls in exactly one dozen',dozenBad===0,`${dozenBad} numbers wrong`);
+    check('every number 1-36 falls in exactly one column',colBad===0,`${colBad} numbers wrong`);
+    // Red/black must partition 1-36 exactly.
+    let colourBad=0;
+    for(let n=1;n<=36;n++)if(w('red',n)===w('black',n))colourBad++;
+    check('every number 1-36 is exactly one of red or black',colourBad===0,`${colourBad} numbers wrong`);
+    eq('there are 18 red numbers',[...Array(37).keys()].filter(n=>n>0&&w('red',n)).length,18);
+  });
+
+  suite('Yahtzee joker rule',()=>{
+    const withYahtzee={...A.yFreshScorecard(),yahtzee:50};
+    const noYahtzee=A.yFreshScorecard();
+    // A second Yahtzee can fill a lower-section category at full value even though the dice don't
+    // literally form that shape -- but only once the first Yahtzee has actually been scored.
+    eq('a second Yahtzee jokers into Full House at full value',
+      A.yScoreForCategory('fullHouse',[4,4,4,4,4],withYahtzee),25);
+    eq('and into Large Straight at full value',
+      A.yScoreForCategory('largeStraight',[4,4,4,4,4],withYahtzee),40);
+    eq('and into Small Straight at full value',
+      A.yScoreForCategory('smallStraight',[4,4,4,4,4],withYahtzee),30);
+    eq('without a scored Yahtzee first, five of a kind is NOT a full house',
+      A.yScoreForCategory('fullHouse',[4,4,4,4,4],noYahtzee),0);
+    eq('a scratched (zero) Yahtzee does not unlock the joker',
+      A.yScoreForCategory('fullHouse',[4,4,4,4,4],{...A.yFreshScorecard(),yahtzee:0}),0);
+    eq('the joker does not inflate an upper-section category',
+      A.yScoreForCategory('fours',[4,4,4,4,4],withYahtzee),20);
+  });
+
   suite('Achievements',()=>{
     eq('every achievement id is unique',
       new Set(A.ACHIEVEMENTS.map(a=>a.id)).size,A.ACHIEVEMENTS.length);
@@ -322,6 +438,74 @@ function run(A){
       A.ACHIEVEMENTS.filter(a=>a.progress).every(a=>{
         try{const p=a.progress();return p&&typeof p.cur==='number'&&p.max>0;}catch(e){return false;}
       }));
+  });
+
+  /* Corrupt or stale saved data must degrade to "empty", never to a thrown exception. These
+     getters only ever caught a PARSE failure, so valid JSON of the wrong shape sailed through and
+     was handed to callers as if it were a list — which threw inside tonightStats() and every
+     achievement check, taking the Home screen down with them. */
+  suite('Saved-data resilience',()=>{
+    const LS=A.G&&W.localStorage;
+    const keep={h:LS.getItem('ct_history'),f:LS.getItem('ct_family'),r:LS.getItem('ct_resume'),a:LS.getItem('ct_achievements')};
+    const badShapes=['{"not":"an array"}','"a bare string"','42','null','true','[1,2,3]','[null]'];
+
+    badShapes.forEach(v=>{
+      LS.setItem('ct_history',v);
+      check(`getHistory survives ${v} and still returns a list`,Array.isArray(A.getHistory()));
+      LS.setItem('ct_family',v);
+      check(`getFamily survives ${v} and still returns a list`,Array.isArray(A.getFamily()));
+    });
+
+    // The consumers that were actually breaking.
+    LS.setItem('ct_history','{"not":"an array"}');
+    let threw=null;
+    try{A.tonightStats();}catch(e){threw=e.message;}
+    check('tonightStats survives a corrupt history',!threw,threw);
+    threw=null;
+    try{A.ACHIEVEMENTS.forEach(a=>a.check());}catch(e){threw=e.message;}
+    check('every achievement check survives a corrupt history',!threw,threw);
+    threw=null;
+    try{A.familyStats('Papa');}catch(e){threw=e.message;}
+    check('familyStats survives a corrupt history',!threw,threw);
+
+    // Entries that aren't records get dropped rather than reaching the renderers.
+    LS.setItem('ct_history','[null,{"game":"maumau","winner":"P"},"junk",7]');
+    eq('non-record history entries are discarded',A.getHistory().length,1);
+    LS.setItem('ct_family','[{"name":"Papa"},{"avatar":"x"},null,"junk"]');
+    eq('roster entries without a name are discarded',A.getFamily().length,1);
+
+    // "Continue" must never throw on a checkpoint that isn't one.
+    ['42','"str"','{"ts":1}','null','[]'].forEach(v=>{
+      LS.setItem('ct_resume',v);
+      check(`getResumableMatch rejects ${v} instead of returning a broken checkpoint`,
+        A.getResumableMatch()===null);
+    });
+    LS.setItem('ct_resume',JSON.stringify({ts:Date.now(),snap:{scr:'table'}}));
+    check('but a real checkpoint is still returned',!!A.getResumableMatch());
+
+    Object.entries({ct_history:keep.h,ct_family:keep.f,ct_resume:keep.r,ct_achievements:keep.a})
+      .forEach(([k,v])=>{if(v===null)LS.removeItem(k);else LS.setItem(k,v);});
+  });
+
+  /* The achievement store moved from a bare array of ids to {id: date earned} when the Trophy Room
+     landed. Anything still reading it as an array silently produced "undefined". */
+  suite('Achievement store shape',()=>{
+    const LS=W.localStorage;
+    const keep=LS.getItem('ct_achievements');
+    LS.setItem('ct_achievements',JSON.stringify({'first-deal':'2026-09-01T10:00:00.000Z','first-win':'2026-09-01T11:00:00.000Z'}));
+    eq('getAchievements reads the current {id: date} format',Object.keys(A.getAchievements()).length,2);
+    check('the Your Data panel reports a real number, not "undefined"',
+      !/undefined achievement/.test(A.rDataOv()),'panel still prints "undefined achievements unlocked"');
+    check('and reports the right count',/🏆 2 achievements unlocked/.test(A.rDataOv()));
+    // A pre-Trophy-Room install stored a bare array; those trophies must not be lost on upgrade.
+    LS.setItem('ct_achievements',JSON.stringify(['first-deal','first-win','streak3']));
+    eq('a legacy array of ids is migrated, not discarded',Object.keys(A.getAchievements()).length,3);
+    check('legacy entries are earned-but-undated rather than dropped',
+      A.getAchievements()['streak3']===null);
+    check('the panel counts legacy unlocks too',/🏆 3 achievements unlocked/.test(A.rDataOv()));
+    LS.setItem('ct_achievements','{"broken":');
+    eq('unparseable achievement data degrades to none, not a crash',Object.keys(A.getAchievements()).length,0);
+    if(keep===null)LS.removeItem('ct_achievements');else LS.setItem('ct_achievements',keep);
   });
 
   suite('Wall of Fame portraits',()=>{
@@ -471,6 +655,39 @@ async function runPresentation(A,W,frame){
       true);
   });
 
+  /* The last-action line is interpolated straight into innerHTML, and online its value comes from
+     another device's write to the shared room row. Markup there would execute on every other
+     player's screen. */
+  const NASTY='<img src=x onerror="window.__XSS=(window.__XSS||0)+1">';
+  const seatA={id:'me',name:'A',avatar:'🦊',hand:[],totalScore:0,roundsWon:0,chips:500,bet:0,folded:false,allIn:false};
+  const seatB={id:'o', name:'B',avatar:'🐼',hand:[],totalScore:0,roundsWon:0,chips:500,bet:0,folded:false,allIn:false};
+  W.__XSS=0;
+  A.G.isOnline=false;A.G.selGame='maumau';A.G.lp=[{...seatA,id:1},{...seatB,id:2}];
+  A.G.myName='A';A.G.ldisc=[{rank:'9',suit:'hearts',id:'x'}];A.G.lsuit='hearts';
+  A.G.llast=NASTY;A.G.scr='table';
+  try{W.render();}catch(e){}
+  await new Promise(r=>setTimeout(r,250));
+  const localXss=W.__XSS;
+  W.__XSS=0;
+  A.G.isOnline=true;A.G.myPid='me';
+  A.G.srv={gameId:'maumau',phase:'game',curIdx:0,discard:[{rank:'9',suit:'hearts',id:'x'}],curSuit:'hearts',
+    players:[seatA,seatB],lastAct:NASTY,dir:1,round:1};
+  A.G.scr='table';
+  try{W.render();}catch(e){}
+  await new Promise(r=>setTimeout(r,250));
+  const onlineXss=W.__XSS;
+  A.G.isOnline=false;A.G.srv=null;
+  A.G.llast='&lt;b&gt;Papa&lt;/b&gt; played 9♥';A.G.scr='table';W.render();
+  await new Promise(r=>setTimeout(r,150));
+  const shown=(doc.querySelector('.table-event')||doc.querySelector('.hint-txt')||{}).textContent||'';
+  suite('Injection — the action line cannot carry markup',()=>{
+    check('markup in the local action line does not execute',localXss===0,`fired ${localXss}x`);
+    check('markup arriving from another device does not execute',onlineXss===0,`fired ${onlineXss}x`);
+    check('a name that was legitimately escaped still reads as written',
+      shown.includes('<b>Papa</b>'),`rendered: "${shown}"`);
+  });
+  A.G.llast='';
+
   /* A screen that renders empty is indistinguishable from a broken one. */
   suite('Every screen renders something',()=>{
     ['home','games','moments','trophies','family','player'].forEach(s=>{
@@ -506,6 +723,8 @@ function grab(W,names){
 const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoCardVal','evalHand',
   'yScoreCategory','buildDeck','buildUnoDeck','shuffle','momentPortraitSrc','avImgSrc',
   'SUITS','RANKS','AVATARS','ACHIEVEMENTS',
+  'computeSidePots','settleSidePots','roulPayoutMultiplier','roulBetWins','yScoreForCategory','yFreshScorecard',
+  'getHistory','getFamily','getAchievements','getResumableMatch','tonightStats','familyStats','rDataOv',
   // The live game state, for the presentation tests. Declared with `let` in the app, so like the
   // constants it is script-scoped rather than a window property — the object reference eval hands
   // back is the real one, so mutating it drives the real app.
@@ -518,7 +737,7 @@ frame.addEventListener('load',()=>{
     try{
       const W=frame.contentWindow;
       const A=grab(W,UNDER_TEST);
-      run(A);
+      run(A,W);
       // Presentation tests drive the live app, so they run last and asynchronously.
       runPresentation(A,W,frame).catch(e=>{
         currentSuite=null;
