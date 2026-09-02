@@ -67,6 +67,36 @@ body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100v
     box-shadow:inset -1px 0 0 rgba(255,235,190,.03),8px 0 40px rgba(0,0,0,.45);}
   #app{max-width:none;margin:0;flex:1;min-width:0;}
 }
+/* ═══ MOBILE BOTTOM NAV (the counterpart to the desktop rail above) ═══
+   Below 1100px the sidebar is gone, so this carries the same navModel(). Above 1100px it hides and
+   the rail takes over — the two are never on screen at once. */
+.app-mnav{position:fixed;left:0;right:0;bottom:0;z-index:900;display:flex;align-items:stretch;
+  padding:.3rem .25rem calc(.3rem + env(safe-area-inset-bottom,0px));
+  background:linear-gradient(180deg,rgba(12,24,18,.93),rgba(5,10,8,.985));
+  border-top:1px solid rgba(201,155,78,.2);
+  box-shadow:0 -8px 26px rgba(0,0,0,.5);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);}
+.app-mnav-item{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.18rem;
+  padding:.45rem .1rem .4rem;border:none;background:none;cursor:pointer;color:#849686;
+  font-family:var(--sans);border-radius:12px;transition:color .18s,background .18s;position:relative;}
+.app-mnav-item .app-mnav-ico{font-size:1.05rem;line-height:1;display:grid;place-items:center;height:1.15rem;}
+.app-mnav-item .app-mnav-ico svg{width:1.05rem;height:1.05rem;}
+.app-mnav-lbl{font-size:.55rem;letter-spacing:.07em;text-transform:uppercase;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.app-mnav-item.active{color:var(--gold2);background:rgba(201,155,78,.13);}
+/* The active pip echoes the desktop rail's own active treatment so the two navs read as one system. */
+.app-mnav-item.active::before{content:'';position:absolute;top:2px;left:50%;transform:translateX(-50%);
+  width:16px;height:2px;border-radius:99px;background:linear-gradient(90deg,var(--gold3),var(--gold2));}
+.app-mnav-item:focus-visible{outline:2px solid var(--gold2);outline-offset:-2px;}
+/* Scrolling screens own their scroll, so page-level padding can't clear a fixed bar — give the
+   screens themselves the inset only while the bar is actually up. !important is load-bearing here:
+   these screens set `padding` as an inline shorthand, which would otherwise always win. */
+body.has-mnav #s-home,body.has-mnav #s-games,body.has-mnav #s-moments,
+body.has-mnav #s-trophies,body.has-mnav #s-family{padding-bottom:5rem!important;}
+@media(min-width:1100px){
+  .app-mnav{display:none;}
+  body.has-mnav #s-home,body.has-mnav #s-games,body.has-mnav #s-moments,
+  body.has-mnav #s-trophies,body.has-mnav #s-family{padding-bottom:1.8rem!important;}
+}
 /* sidebar only ever renders above 1100px (#app-sidebar-root is display:none otherwise) */
 .app-sb-brand{text-align:center;margin-bottom:26px;}
 .app-sb-suit{font-family:'Cinzel Decorative',var(--serif);font-weight:900;font-size:18px;color:#e0b463;line-height:1;margin-bottom:5px;text-shadow:0 0 20px rgba(232,201,135,.75);}
@@ -412,6 +442,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100v
   .v10-side-link::after{content:"→";width:30px;height:30px;border-radius:50%;color:#1a120a;display:grid;place-items:center;font-size:.92rem;
     background:linear-gradient(180deg,#f6e2b0,#c99b4e);box-shadow:0 4px 12px rgba(201,155,78,.4),inset 0 1px 0 rgba(255,255,255,.5);}
   .v10-side-link:hover{background:rgba(201,155,78,.13);box-shadow:0 0 24px -6px rgba(232,201,135,.45);}
+  .v10-trophy-strip{display:flex;justify-content:center;gap:.5rem;margin-bottom:.7rem;}
+  .v10-trophy-chip{width:2.4rem;height:2.4rem;border-radius:50%;display:grid;place-items:center;font-size:1.1rem;
+    border:1px solid rgba(234,208,138,.34);background:radial-gradient(120% 140% at 50% -10%,rgba(212,168,67,.24),transparent 66%),rgba(255,255,255,.03);
+    box-shadow:0 4px 12px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.08);}
+  .v10-trophy-count{text-align:center;font-size:.66rem;color:var(--paper3);margin-bottom:.5rem;letter-spacing:.04em;}
   /* ── "your table" lifetime stats (desktop copy lives in the side column) ── */
   .v10-yt-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   .v10-side .v10-mini{border-radius:14px;padding:16px 12px 14px;text-align:center;position:relative;overflow:hidden;
@@ -1026,6 +1061,7 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 .ach-eyebrow{font-size:.58rem;text-transform:uppercase;letter-spacing:.16em;color:var(--gold2);opacity:.9;}
 .ach-name{font-family:var(--serif);font-size:1.05rem;font-weight:700;color:var(--paper);margin-top:.1rem;line-height:1.15;}
 .ach-desc{font-size:.72rem;color:var(--paper3);margin-top:.1rem;}
+.ach-cta{font-size:.6rem;letter-spacing:.09em;text-transform:uppercase;color:var(--gold2);opacity:.8;margin-top:.35rem;}
 @keyframes ach-in{0%{opacity:0;transform:translateX(-50%) translateY(-30px) scale(.85);}60%{transform:translateX(-50%) translateY(4px) scale(1.03);}100%{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}}
 @keyframes ach-out{to{opacity:0;transform:translateX(-50%) translateY(-18px) scale(.92);}}
 @keyframes ach-icon-spin{from{transform:rotate(-25deg) scale(.6);}to{transform:rotate(0) scale(1);}}
@@ -1144,6 +1180,44 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 .rivalry-score{font-size:1.5rem;font-weight:700;color:var(--paper);margin-top:.1rem;}
 .rivalry-vs{font-size:.68rem;color:var(--paper3);flex-shrink:0;font-family:var(--serif);}
 .rivalry-sub{text-align:center;font-size:.68rem;color:var(--gold2);margin-top:.65rem;}
+/* ═══ TROPHY ROOM ═══ */
+.trophy-summary{display:flex;align-items:center;gap:1.1rem;padding:1rem 1.2rem;margin-bottom:1.7rem;max-width:620px;
+  border-radius:18px;border:1px solid rgba(234,208,138,.22);
+  background:radial-gradient(120% 180% at 50% -20%,rgba(212,168,67,.16),transparent 65%),linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.015));
+  box-shadow:0 10px 24px rgba(0,0,0,.32),inset 0 1px 0 rgba(255,255,255,.06);}
+.trophy-ring{position:relative;width:4.4rem;height:4.4rem;flex-shrink:0;display:grid;place-items:center;}
+.trophy-ring svg{position:absolute;inset:0;transform:rotate(-90deg);}
+.trophy-ring-track{fill:none;stroke:rgba(255,255,255,.09);stroke-width:5;}
+.trophy-ring-fill{fill:none;stroke:url(#trophyGrad);stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset .9s cubic-bezier(.2,.8,.2,1);}
+.trophy-ring-pct{font-family:var(--serif);font-size:1rem;font-weight:700;color:var(--gold2);}
+.trophy-summary-body{min-width:0;}
+.trophy-summary-title{font-family:var(--serif);font-size:1.05rem;color:var(--paper);font-weight:600;}
+.trophy-summary-sub{font-size:.74rem;color:var(--paper3);margin-top:.2rem;}
+.trophy-summary-next{font-size:.72rem;color:var(--gold2);margin-top:.45rem;}
+.trophy-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:.85rem;max-width:960px;padding-bottom:1.5rem;}
+.trophy-card{position:relative;overflow:hidden;padding:1rem .9rem .9rem;border-radius:16px;text-align:center;
+  border:1px solid rgba(255,255,255,.07);background:linear-gradient(160deg,rgba(255,255,255,.035),rgba(255,255,255,.01));
+  transition:transform .18s var(--ease-spring,cubic-bezier(.2,.8,.2,1)),border-color .18s;}
+.trophy-card.earned{border-color:rgba(234,208,138,.34);
+  background:radial-gradient(130% 150% at 50% -15%,rgba(212,168,67,.2),transparent 62%),linear-gradient(160deg,rgba(255,255,255,.055),rgba(255,255,255,.015));
+  box-shadow:0 10px 22px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.07);}
+.trophy-card.earned:hover{transform:translateY(-3px);border-color:rgba(234,208,138,.55);}
+/* A slow shine sweep across earned trophies only — the reward for having got one, and the thing
+   that makes a full shelf feel alive rather than static. */
+.trophy-card.earned::after{content:'';position:absolute;top:0;bottom:0;width:45%;left:-60%;pointer-events:none;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.13),transparent);animation:trophyShine 5.5s ease-in-out infinite;}
+@keyframes trophyShine{0%,72%{left:-60%;}92%,100%{left:130%;}}
+@media(prefers-reduced-motion:reduce){.trophy-card.earned::after{animation:none;opacity:0;}}
+.trophy-ico{font-size:1.75rem;line-height:1;margin-bottom:.5rem;filter:drop-shadow(0 3px 7px rgba(0,0,0,.45));}
+.trophy-card.locked .trophy-ico{filter:grayscale(1) brightness(.6);opacity:.5;}
+.trophy-name{font-family:var(--serif);font-size:.9rem;color:var(--paper);font-weight:600;letter-spacing:.02em;}
+.trophy-card.locked .trophy-name{color:var(--paper3);}
+.trophy-desc{font-size:.68rem;color:var(--paper3);margin-top:.25rem;line-height:1.4;}
+.trophy-earned-on{font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;color:var(--gold2);opacity:.85;margin-top:.55rem;}
+.trophy-secret .trophy-name{letter-spacing:.22em;}
+.trophy-bar{height:4px;border-radius:99px;background:rgba(255,255,255,.08);margin-top:.6rem;overflow:hidden;}
+.trophy-bar-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--gold3),var(--gold2));transition:width .8s cubic-bezier(.2,.8,.2,1);}
+.trophy-bar-lbl{font-size:.6rem;color:var(--paper3);margin-top:.3rem;letter-spacing:.04em;}
 .family-list{display:flex;flex-direction:column;gap:.65rem;max-width:520px;margin-bottom:1.4rem;}
 .family-card{display:flex;align-items:center;gap:.85rem;padding:.85rem 1rem;border-radius:15px;border:1px solid rgba(234,208,138,.16);background:linear-gradient(150deg,rgba(212,168,67,.1),rgba(255,255,255,.02));}
 .family-av{width:2.6rem;height:2.6rem;flex-shrink:0;display:grid;place-items:center;font-size:1.3rem;background:radial-gradient(circle at 35% 30%,#3a5c48,#16281d);border-radius:50%;border:1.5px solid #caa057;}
@@ -1530,6 +1604,7 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 </svg>
 <div id="app-sidebar-root"></div>
 <div id="app"></div>
+<div id="app-mobile-nav-root"></div>
 <div id="overlay-root"></div>
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 <input type="file" accept="image/*" capture="environment" id="snap-input" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;" aria-hidden="true">
@@ -2006,27 +2081,70 @@ function familyHistory(){return _familyHistoryCache||getHistory();}
 // Achievement Unlocks — a shared trophy case for the table (device-level, like the existing
 // G.gp/G.tw stats already shown on Home), not tied to a specific player's account. Checked once
 // after every recorded game; each id can only fire once, ever, persisted in localStorage.
+// Every non-secret achievement carries progress():{cur,max} so the Trophy Room can show how close
+// you are instead of just "locked" — the difference between a wall of grey boxes and a list of
+// things you actually want to chase. Secrets deliberately omit it: a "2 / 3" bar under a hidden
+// trophy would leak what the hidden goal is, which is the whole thing you're protecting.
 const ACHIEVEMENTS=[
-  {id:'first-deal',icon:'🎉',name:'First Deal',desc:'Played your first game',check:()=>G.gp>=1},
-  {id:'first-win',icon:'🏆',name:'First Blood',desc:'Won your first game',check:()=>G.tw>=1},
-  {id:'five-wins',icon:'⭐',name:'Rising Star',desc:'5 wins at the table',check:()=>G.tw>=5},
-  {id:'streak3',icon:'🔥',name:'Hat Trick',desc:'3 wins in a row',check:()=>{const h=getHistory();return h.length>=3&&h[0].winner&&h[0].winner===h[1].winner&&h[1].winner===h[2].winner;}},
+  // — Turning up —
+  {id:'first-deal',icon:'🎉',name:'First Deal',desc:'Played your first game',check:()=>G.gp>=1,progress:()=>({cur:G.gp,max:1})},
+  {id:'ten-games',icon:'📅',name:'Regular',desc:'10 games played',check:()=>G.gp>=10,progress:()=>({cur:G.gp,max:10})},
+  {id:'twentyfive-games',icon:'👑',name:'Legend of the Table',desc:'25 games played',check:()=>G.gp>=25,progress:()=>({cur:G.gp,max:25})},
+  {id:'fifty-games',icon:'🏛️',name:'House Fixture',desc:'50 games played',check:()=>G.gp>=50,progress:()=>({cur:G.gp,max:50})},
+  {id:'hundred-games',icon:'💎',name:'The Century',desc:'100 games played',check:()=>G.gp>=100,progress:()=>({cur:G.gp,max:100})},
+  // — Winning —
+  {id:'first-win',icon:'🏆',name:'First Blood',desc:'Won your first game',check:()=>G.tw>=1,progress:()=>({cur:G.tw,max:1})},
+  {id:'five-wins',icon:'⭐',name:'Rising Star',desc:'5 wins at the table',check:()=>G.tw>=5,progress:()=>({cur:G.tw,max:5})},
+  {id:'fifteen-wins',icon:'🎖️',name:'Table Sharp',desc:'15 wins at the table',check:()=>G.tw>=15,progress:()=>({cur:G.tw,max:15})},
+  {id:'forty-wins',icon:'🥇',name:'Champion of the House',desc:'40 wins at the table',check:()=>G.tw>=40,progress:()=>({cur:G.tw,max:40})},
+  // — Style —
+  {id:'streak3',icon:'🔥',name:'Hat Trick',desc:'3 wins in a row',check:()=>winStreak()>=3,progress:()=>({cur:winStreak(),max:3})},
+  {id:'streak5',icon:'☄️',name:'On Fire',desc:'5 wins in a row',check:()=>winStreak()>=5,progress:()=>({cur:winStreak(),max:5})},
   {id:'comeback',icon:'💪',name:'The Comeback',desc:'Won after falling behind',check:()=>getHistory().some(h=>/came back/i.test(h.moment||''))},
-  {id:'variety',icon:'🎲',name:'Jack of All Games',desc:'Won at 3 different games',check:()=>new Set(getHistory().filter(h=>h.winner).map(h=>h.game)).size>=3},
-  {id:'ten-games',icon:'📅',name:'Regular',desc:'10 games played',check:()=>G.gp>=10},
-  {id:'twentyfive-games',icon:'👑',name:'Legend of the Table',desc:'25 games played',check:()=>G.gp>=25},
-  // Secret achievements — not listed anywhere before they unlock (there's no achievements gallery
-  // screen, only this toast), so the surprise is free: no hiding logic needed, just don't check()
-  // true until it's genuinely earned.
+  {id:'variety',icon:'🎲',name:'Jack of All Games',desc:'Won at 3 different games',check:()=>gamesWonCount()>=3,progress:()=>({cur:gamesWonCount(),max:3})},
+  {id:'variety5',icon:'🃏',name:'Master of the Deck',desc:'Won at 5 different games',check:()=>gamesWonCount()>=5,progress:()=>({cur:gamesWonCount(),max:5})},
+  {id:'war-veteran',icon:'⚔️',name:'War Veteran',desc:'Won a Battle that went to war',check:()=>getHistory().some(h=>/battled through a war/i.test(h.moment||''))},
+  {id:'natural-21',icon:'🂡',name:'Natural',desc:'Won a hand with a natural Blackjack',check:()=>getHistory().some(h=>/hit Blackjack/i.test(h.moment||''))},
+  // — The table —
+  {id:'social5',icon:'🫂',name:'Full Table',desc:'Played with 5 different people',check:()=>peopleMetCount()>=5,progress:()=>({cur:peopleMetCount(),max:5})},
+  {id:'big-table',icon:'🎪',name:'Packed House',desc:'Played a game with 6 or more at the table',check:()=>getHistory().some(h=>(h.players||[]).length>=6)},
+  {id:'online-debut',icon:'🌐',name:'Long Distance',desc:'Played a game online with the family',check:()=>getHistory().some(h=>h.mode==='online')},
+  // Secret achievements — never listed before they unlock (the Trophy Room shows them as locked
+  // "???" cards), so the surprise survives having a gallery at all.
   {id:'midnight-roller',icon:'🌙',secret:true,name:'The Midnight Roller',desc:'Won a game after 11pm',check:()=>getHistory().some(h=>h.winner===G.myName&&new Date(h.date).getHours()>=23)},
-  {id:'chaos-master',icon:'🎲',secret:true,name:'Chaos Master',desc:'Won 3 different games in one day',check:()=>{const today=new Date().toDateString();return new Set(getHistory().filter(h=>h.winner===G.myName&&new Date(h.date).toDateString()===today).map(h=>h.game)).size>=3;}},
+  {id:'early-bird',icon:'🌅',secret:true,name:'Dawn Patrol',desc:'Won a game before 9am',check:()=>getHistory().some(h=>h.winner===G.myName&&new Date(h.date).getHours()<9)},
+  {id:'chaos-master',icon:'🎠',secret:true,name:'Chaos Master',desc:'Won 3 different games in one day',check:()=>{const today=new Date().toDateString();return new Set(getHistory().filter(h=>h.winner===G.myName&&new Date(h.date).toDateString()===today).map(h=>h.game)).size>=3;}},
+  {id:'marathon',icon:'🕯️',secret:true,name:'The Long Night',desc:'Played 5 games in a single day',check:()=>{const today=new Date().toDateString();return getHistory().filter(h=>new Date(h.date).toDateString()===today).length>=5;}},
+  {id:'photo-finish',icon:'📷',secret:true,name:'Photo Finish',desc:'Won a game by the narrowest of margins',check:()=>getHistory().some(h=>/nail-biter/i.test(h.moment||''))},
   {id:'yahtzee-first-try',icon:'🎯',secret:true,name:'First Try',desc:'Rolled a Yahtzee on the very first roll of a turn',check:()=>getHistory().some(h=>h.stats?.firstTryYahtzee)},
 ];
+// Shared by both the check() and the progress() of the streak achievements, so the bar can never
+// disagree with the unlock condition it's counting toward.
+function winStreak(){
+  const h=getHistory();let n=0;
+  for(const g of h){if(g.winner&&g.winner===h[0].winner)n++;else break;}
+  return n;
+}
+function gamesWonCount(){return new Set(getHistory().filter(h=>h.winner).map(h=>h.game)).size;}
+function peopleMetCount(){return new Set(getHistory().flatMap(h=>h.players||[]).filter(Boolean)).size;}
+// Unlocks moved from a bare array of ids to {id:ISO date} so the Trophy Room can say WHEN each was
+// earned. Old installs stored the plain array — read both shapes and normalise, treating a legacy
+// entry as earned-but-undated rather than throwing away someone's hard-won trophies on upgrade.
+function getAchievements(){
+  let raw;
+  try{raw=JSON.parse(localStorage.getItem('ct_achievements')||'{}');}catch{return{};}
+  if(Array.isArray(raw)){const o={};raw.forEach(id=>{if(typeof id==='string')o[id]=null;});return o;}
+  return raw&&typeof raw==='object'?raw:{};
+}
 function checkAchievements(){
-  let unlocked;
-  try{unlocked=JSON.parse(localStorage.getItem('ct_achievements')||'[]');}catch{unlocked=[];}
+  const unlocked=getAchievements();
   const newly=[];
-  ACHIEVEMENTS.forEach(a=>{if(!unlocked.includes(a.id)&&a.check()){unlocked.push(a.id);newly.push(a);}});
+  ACHIEVEMENTS.forEach(a=>{
+    if(a.id in unlocked)return;
+    // A single malformed history row shouldn't be able to break every later achievement's check.
+    let earned=false;try{earned=!!a.check();}catch(e){}
+    if(earned){unlocked[a.id]=new Date().toISOString();newly.push(a);}
+  });
   if(newly.length){
     localStorage.setItem('ct_achievements',JSON.stringify(unlocked));
     newly.forEach((a,i)=>setTimeout(()=>showAchievementToast(a),i*2200));
@@ -2034,9 +2152,20 @@ function checkAchievements(){
 }
 function showAchievementToast(a){
   const el=document.createElement('div');el.className='achievement-toast';el.setAttribute('role','status');el.setAttribute('aria-live','polite');
-  el.innerHTML=`<div class="ach-icon">${a.icon}</div><div class="ach-body"><div class="ach-eyebrow">Achievement Unlocked</div><div class="ach-name">${esc(a.name)}</div><div class="ach-desc">${esc(a.desc)}</div></div>`;
+  el.innerHTML=`<div class="ach-icon">${a.icon}</div><div class="ach-body"><div class="ach-eyebrow">Achievement Unlocked</div><div class="ach-name">${esc(a.name)}</div><div class="ach-desc">${esc(a.desc)}</div><div class="ach-cta">Tap to see the trophy room</div></div>`;
   document.body.appendChild(el);
   SFX.mau();haptic([15,40,15,40,30]);
+  // The toast is the one moment you're actually thinking about trophies — make it the doorway.
+  // Deliberately never interrupts a live hand: mid-game it just dismisses, since yanking someone
+  // out of their turn to admire a badge is the opposite of a reward.
+  el.style.cursor='pointer';el.setAttribute('role','button');el.setAttribute('tabindex','0');
+  const open=()=>{
+    el.remove();
+    if(hasActiveTable())return;
+    G.scr='trophies';render();
+  };
+  el.addEventListener('click',open);
+  el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}});
   setTimeout(()=>el.classList.add('hide'),3200);
   setTimeout(()=>el.remove(),3700);
 }
@@ -4489,6 +4618,72 @@ function rMoments(){
     ${history.length?`<div class="wall-grid">${frames}</div>`:empty}
   </div>`;
 }
+function rTrophies(){
+  const unlocked=getAchievements();
+  const earnedCount=ACHIEVEMENTS.filter(a=>a.id in unlocked).length;
+  const total=ACHIEVEMENTS.length;
+  const pct=total?Math.round(earnedCount/total*100):0;
+  // Progress is read once per achievement here and reused for both the card and the "closest to
+  // earning" nudge below, so the two can't disagree about how far along you are.
+  const withProg=ACHIEVEMENTS.map(a=>{
+    const earned=a.id in unlocked;
+    let prog=null;
+    if(!earned&&a.progress&&!a.secret){
+      try{const p=a.progress();if(p&&p.max>0)prog={cur:Math.max(0,Math.min(p.cur,p.max)),max:p.max};}catch(e){}
+    }
+    return{a,earned,prog,when:unlocked[a.id]||null};
+  });
+  // Surface the single nearest unearned trophy as a nudge — a gallery that just lists everything
+  // is a reference; one that tells you what's within reach is a reason to deal another hand.
+  const next=withProg.filter(t=>!t.earned&&t.prog&&t.prog.cur>0)
+    .sort((x,y)=>(y.prog.cur/y.prog.max)-(x.prog.cur/x.prog.max))[0];
+  const nextLine=next?`Closest: <b>${esc(next.a.name)}</b> — ${next.prog.cur} of ${next.prog.max}`
+    :(earnedCount===total?'Every trophy on the shelf. Remarkable.':'Play a hand and the shelf starts filling in.');
+  const R=20,CIRC=2*Math.PI*R;
+  const ring=`<div class="trophy-ring">
+      <svg viewBox="0 0 48 48" aria-hidden="true">
+        <defs><linearGradient id="trophyGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#765d2d"/><stop offset="1" stop-color="#ead08a"/></linearGradient></defs>
+        <circle class="trophy-ring-track" cx="24" cy="24" r="${R}"></circle>
+        <circle class="trophy-ring-fill" cx="24" cy="24" r="${R}" stroke-dasharray="${CIRC.toFixed(1)}" stroke-dashoffset="${(CIRC*(1-earnedCount/total)).toFixed(1)}"></circle>
+      </svg>
+      <span class="trophy-ring-pct">${pct}%</span>
+    </div>`;
+  const cards=withProg.map(({a,earned,prog,when})=>{
+    // A locked secret shows its shape but never its goal — that's the whole point of it being secret.
+    const hidden=a.secret&&!earned;
+    const ico=hidden?'🔒':a.icon;
+    const name=hidden?'???':a.name;
+    const desc=hidden?'A hidden trophy — you\'ll know it when you earn it.':a.desc;
+    let foot='';
+    if(earned){
+      const d=when?new Date(when):null;
+      const valid=d&&!isNaN(d.getTime());
+      foot=`<div class="trophy-earned-on">${valid?'Earned '+d.toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'}):'Earned'}</div>`;
+    } else if(prog){
+      foot=`<div class="trophy-bar"><div class="trophy-bar-fill" style="width:${(prog.cur/prog.max*100).toFixed(1)}%;"></div></div>
+        <div class="trophy-bar-lbl">${prog.cur} / ${prog.max}</div>`;
+    }
+    return`<div class="trophy-card ${earned?'earned':'locked'}${hidden?' trophy-secret':''}">
+      <div class="trophy-ico">${ico}</div>
+      <div class="trophy-name">${esc(name)}</div>
+      <div class="trophy-desc">${esc(desc)}</div>
+      ${foot}
+    </div>`;
+  }).join('');
+  return`<div id="s-trophies" class="scr on" style="padding:1.8rem 2.2rem;overflow-y:auto;">
+    <div style="font-family:var(--serif);font-size:1.9rem;color:var(--paper);margin-bottom:.2rem;">The Trophy Room</div>
+    <div style="font-size:.82rem;color:var(--paper3);margin-bottom:1.5rem;">Everything this table has earned — and everything still out there.</div>
+    <div class="trophy-summary">
+      ${ring}
+      <div class="trophy-summary-body">
+        <div class="trophy-summary-title">${earnedCount} of ${total} earned</div>
+        <div class="trophy-summary-sub">Earned by this table — pass-and-play means you win these together.</div>
+        <div class="trophy-summary-next">${nextLine}</div>
+      </div>
+    </div>
+    <div class="trophy-grid">${cards}</div>
+  </div>`;
+}
 function rFamily(){
   if(_familyHistoryCache===null)loadFamilyHistory();
   const family=getFamily();
@@ -4543,8 +4738,12 @@ function rFamily(){
     </div>
   </div>`;
 }
-function rSidebar(){
-  const nav=G.scr==='home'?'home':G.scr==='moments'?'moments':G.scr==='family'?'family':hasActiveTable()?'table':(G.scr==='games'||G.scr==='setup'||G.scr==='online')?'games':G.scr==='matchend'?'table':'';
+// Single source of truth for the app's main navigation, shared by the desktop sidebar rail and the
+// mobile bottom bar. Kept in one place deliberately: these two used to be one rail that simply
+// vanished below 1100px, which quietly made Moments, Trophies and Family unreachable on exactly the
+// phones and tablets this app is mostly played on.
+function navModel(){
+  const active=G.scr==='home'?'home':G.scr==='moments'?'moments':G.scr==='trophies'?'trophies':G.scr==='family'?'family':hasActiveTable()?'table':(G.scr==='games'||G.scr==='setup'||G.scr==='online')?'games':G.scr==='matchend'?'table':'';
   const items=[
     {id:'home',ico:iconHome(),label:'Home',enabled:true,soon:false},
     {id:'games',ico:'♠',label:'Games',enabled:true,soon:false},
@@ -4552,8 +4751,24 @@ function rSidebar(){
     // permanently-greyed nav item just reads as broken, whether or not it technically "works".
     {id:'table',ico:iconCards(),label:'Table',enabled:hasActiveTable()||G.scr==='matchend',soon:false},
     {id:'moments',ico:'✦',label:'Moments',enabled:true,soon:false},
+    // A monochrome glyph, not a 🏆 emoji — the nav rail is ♠ ✦ ♥ and one full-colour emoji in the
+    // middle of that reads as a foreign object rather than a menu item.
+    {id:'trophies',ico:'♛',label:'Trophies',enabled:true,soon:false},
     {id:'family',ico:'♥',label:'Family',enabled:true,soon:false},
   ].filter(it=>it.id!=='table'||it.enabled);
+  return{active,items};
+}
+// Bottom tab bar for phones/tablets. Only rendered on the "browsing" screens — during an actual
+// hand the bottom of the screen belongs to the cards, and a nav bar sitting on top of someone's
+// hand would be worse than no nav bar at all. Those screens all carry their own back button.
+const MOBILE_NAV_SCREENS=['home','games','moments','trophies','family'];
+function rMobileNav(){
+  if(!MOBILE_NAV_SCREENS.includes(G.scr))return'';
+  const{active,items}=navModel();
+  return`<nav class="app-mnav" aria-label="Main">${items.map(it=>`<button class="app-mnav-item${active===it.id?' active':''}" data-a="nav-${it.id}" ${active===it.id?'aria-current="page"':''} aria-label="${esc(it.label)}"><span class="app-mnav-ico">${it.ico}</span><span class="app-mnav-lbl">${esc(it.label)}</span></button>`).join('')}</nav>`;
+}
+function rSidebar(){
+  const{active:nav,items}=navModel();
   const rows=items.map(it=>`<div class="app-sb-item${nav===it.id?' active':''}${it.enabled?'':' disabled'}" ${it.enabled?`data-a="nav-${it.id}"`:''}><span class="ico">${it.ico}</span>${esc(it.label)}${it.soon?' <span style="font-size:.56rem;opacity:.7;margin-left:auto;">SOON</span>':''}</div>`).join('');
   return`<div class="app-sb-brand"><div class="app-sb-suit">&spades;</div><div class="app-sb-word">OUR <em>TABLE</em></div><div class="app-sb-ver">2.0</div></div>
     <div class="app-sb-nav">${rows}</div>
@@ -4645,6 +4860,18 @@ function rHome(){
     }).join(''):`<div class="v10-moment-empty">Your first highlight will show up here.</div>`}
     <div class="v10-side-link" data-a="nav-moments" role="button" tabindex="0">View all moments →</div>
   </div>`;
+  // Shows the most RECENTLY earned trophies rather than the first few in the list, so the panel
+  // reflects what you just did tonight instead of freezing on whatever you unlocked months ago.
+  const trophyUnlocked=getAchievements();
+  const trophyEarned=ACHIEVEMENTS.filter(a=>a.id in trophyUnlocked)
+    .sort((x,y)=>new Date(trophyUnlocked[y.id]||0)-new Date(trophyUnlocked[x.id]||0));
+  const trophiesPanel=`<div class="v10-side-card">
+    <div class="v10-side-card-title">Trophy Room</div>
+    ${trophyEarned.length?`<div class="v10-trophy-strip">${trophyEarned.slice(0,4).map(a=>`<div class="v10-trophy-chip" title="${esc(a.name)} — ${esc(a.desc)}"><span>${a.icon}</span></div>`).join('')}</div>
+      <div class="v10-trophy-count">${trophyEarned.length} of ${ACHIEVEMENTS.length} earned</div>`
+    :`<div class="v10-moment-empty">No trophies yet — your first is one game away.</div>`}
+    <div class="v10-side-link" data-a="nav-trophies" role="button" tabindex="0">Open the trophy room →</div>
+  </div>`;
   return`<div id="s-home" class="scr on home-v10">
     <div class="v10-grid">
       <div class="v10-main">
@@ -4679,6 +4906,7 @@ function rHome(){
       <div class="v10-side">
         ${tonightPanel}
         ${momentsPanel}
+        ${trophiesPanel}
         ${yourTablePanel}
       </div>
     </div>
@@ -6070,9 +6298,16 @@ function render(){
   else if(s==='matchend')html=rMatchEnd();
   else if(s==='yahtzeeend')html=rYahtzeeEnd();
   else if(s==='moments')html=rMoments();
+  else if(s==='trophies')html=rTrophies();
   else if(s==='family')html=rFamily();
   appEl.innerHTML=html;
   document.getElementById('app-sidebar-root').innerHTML=rSidebar();
+  const mnavRoot=document.getElementById('app-mobile-nav-root');
+  const mnav=rMobileNav();
+  mnavRoot.innerHTML=mnav;
+  // Screens are their own scroll containers, so the bar can't be cleared by page padding — flag it
+  // on <body> and let each scrolling screen add its own bottom inset via CSS instead.
+  document.body.classList.toggle('has-mnav',!!mnav);
 
   if(savedId){
     const restored=document.getElementById(savedId);
@@ -6162,6 +6397,7 @@ document.addEventListener('click',e=>{
     render();
   }
   else if(a==='nav-moments'){G.scr='moments';render();}
+  else if(a==='nav-trophies'){G.scr='trophies';render();}
   else if(a==='nav-family'){G.scr='family';render();}
   else if(a==='family-avatar-cycle'){G.familyNewAvatar=AVATARS[(AVATARS.indexOf(G.familyNewAvatar)+1)%AVATARS.length];render();}
   else if(a==='family-add'){
