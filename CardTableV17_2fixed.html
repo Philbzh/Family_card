@@ -520,6 +520,19 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .add-pl-btn{display:flex;align-items:center;justify-content:center;gap:.4rem;background:none;border:1px dashed rgba(255,255,255,.16);border-radius:12px;color:var(--paper3);padding:.62rem;width:100%;cursor:pointer;font-size:.88rem;font-family:var(--sans);transition:all .15s;}
 .add-pl-btn:hover{border-color:var(--gold2);color:var(--gold2);}
 .add-pl-btn:disabled{opacity:.3;pointer-events:none;}
+/* Bot seats: same row rhythm as a human seat, but the name is fixed text rather than an input,
+   with the difficulty as a tappable chip beside it. */
+.add-bot-btn{margin-top:.5rem;border-style:dashed;border-color:rgba(201,155,78,.3);color:var(--gold2);}
+.add-bot-btn:hover{border-color:var(--gold2);background:rgba(212,168,67,.08);}
+.bot-id{flex:1;min-width:0;display:flex;align-items:center;gap:.45rem;}
+.bot-name{color:var(--paper);font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bot-tag{flex-shrink:0;font-size:.52rem;letter-spacing:.12em;font-weight:700;color:var(--gold2);
+  border:1px solid rgba(234,208,138,.35);border-radius:99px;padding:.12rem .38rem;background:rgba(212,168,67,.12);}
+.bot-level{flex-shrink:0;cursor:pointer;font-family:var(--sans);font-size:.7rem;padding:.4rem .6rem;border-radius:999px;
+  border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:var(--paper2);transition:all .15s;}
+.bot-level:hover{border-color:var(--gold2);color:var(--gold2);}
+/* A bot's seat at the table reads as clearly not-a-person, so nobody waits for it to "pass". */
+.bot-seat-tag{font-size:.5rem;letter-spacing:.1em;font-weight:700;color:var(--gold2);opacity:.85;}
 .hr-grid{display:grid;grid-template-columns:1fr 1fr;gap:.45rem;}
 .hr-tog{display:flex;flex-direction:column;gap:.18rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:12px;padding:.65rem .8rem;cursor:pointer;transition:all .15s;}
 .hr-tog.on{background:radial-gradient(120% 160% at 15% -10%,rgba(212,168,67,.18),transparent 60%),rgba(212,168,67,.08);border-color:rgba(212,168,67,.4);box-shadow:inset 0 1px 0 rgba(255,235,190,.08);}
@@ -2754,6 +2767,7 @@ function lDeal(){
   SFX.deal();
   if(G.lskip8)G.llast='8 revealed — '+esc(G.lp[G.lcur].name)+' must play an 8 or pass!';
   const cp=G.lp[G.lcur];
+  if(isBotPlayer(cp)){G.scr='table';return;} // see lAdvance: bots never get a hand-over screen
   G.lpass1=cp.avatar+' '+esc(cp.name);G.lpass2=G.llast;G.llast='';G.scr='pass';
 }
 
@@ -4073,6 +4087,49 @@ async function oBattleFlip(){
   } finally { _onlineBusy=false; }
 }
 
+/* ═══════ BOT TURN DRIVER ═══════
+   The pure decision layer (mauMauBotMove) says WHAT to play; this decides WHEN, and drives it
+   through the very same lPlay/lDrawCard/lSuit/lMauBtn a tapping human goes through. Nothing here
+   reaches past the normal move path, so a bot cannot make a move a person couldn't — including the
+   legality check inside lPlay, which stays in force for bots as a backstop. */
+let _botTimer=null,_botSig=null;
+function isBotPlayer(p){return!!(p&&p.bot);}
+function clearBotTurn(){clearTimeout(_botTimer);_botTimer=null;_botSig=null;}
+// Called once per render(), the same single-hook-point pattern as applyTableAge/checkpointLocalMatch.
+// A turn produces many renders, so the move is keyed to a signature of the exact turn state: the
+// same situation schedules one move, not one per render.
+function maybeBotTurn(){
+  if(G.scr!=='table'||G.isOnline||G.selGame!=='maumau'){clearBotTurn();return;}
+  const p=G.lp[G.lcur];
+  if(!isBotPlayer(p)){clearBotTurn();return;}
+  if(G.lthrowing)return; // mid throw-animation; the render after it re-arms this
+  const sig=[G.lcur,p.hand.length,G.ldisc.length,G.lspick?1:0,G.lmau?1:0,G.ldrawnCount,G.lpend,G.lskip8?1:0].join('|');
+  if(sig===_botSig)return;
+  _botSig=sig;
+  clearTimeout(_botTimer);
+  // A beat of "thinking" so a bot reads as a player rather than an instant state change, but kept
+  // short: the throw animation adds ~380ms on top, and with two or three bots between your turns
+  // anything longer starts to feel like waiting rather than watching.
+  _botTimer=setTimeout(()=>{_botTimer=null;botAct();},500+Math.floor(Math.random()*400));
+}
+function botAct(){
+  if(G.scr!=='table'||G.isOnline||G.selGame!=='maumau')return;
+  const p=G.lp[G.lcur];
+  if(!isBotPlayer(p)||G.lthrowing)return;
+  if(G.lspick){lSuit(mauMauBotSuit(p.hand,G.lpcard));return;}
+  // Bots always call. Letting a "gentle" bot forget was tempting — it's the slip a person makes,
+  // and a way for a child to catch it out — but the only way to forget is to let lMauTimer's full
+  // 5s elapse, and five seconds of nothing happening reads as the app having hung, not as charm.
+  if(G.lmau){lMauBtn();return;}
+  const mv=mauMauBotMove(p.hand,{gameId:'maumau',top:G.ldisc[G.ldisc.length-1],curSuit:G.lsuit,
+    drawPend:G.lpend,skip8Pend:G.lskip8,hr:G.hr},p.bot);
+  if(mv.action==='play'){lPlay(mv.card.id);return;}
+  // Nothing playable. One draw per turn — if we've already taken it, the turn passes. (lDrawCard
+  // resolves a pending draw or a skip on its own, so this stays a plain "draw then reconsider".)
+  if(G.ldrawnCount>0){lPassTurn();return;}
+  lDrawCard();
+}
+
 /* ═══════ LOCAL MAU MAU LOGIC ═══════ */
 function lPassTurn(){
   G.ldrawnCount=0;
@@ -4085,6 +4142,10 @@ function lAdvance(played,steps){
   const n=G.lp.length;G.ldrawnCount=0;
   G.lcur=mod(G.lcur+G.ldir*steps,n);
   const cur=G.lp[G.lcur];
+  // A bot has no device to hand over, so routing its turn through "Pass the device" would be
+  // nonsense. Stay on the table — keeping G.llast intact so the human can still read what just
+  // happened — and let the bot driver play from there.
+  if(isBotPlayer(cur)){G.scr='table';render();return;}
   var msg=cur.avatar+' '+esc(cur.name);
   if(G.lpend>0)msg+=' ('+G.lpend+' cards to draw or play a 7)';
   else if(G.lskip8)msg+=' (must play an 8 or pass)';
@@ -5162,7 +5223,13 @@ function rHome(){
 /* ════════ SETUP ════════ */
 function rSetup(){
   const game=currentGame();
-  const pRows=G.lp.map((p,i)=>`<div class="player-row"><button class="av-btn" data-a="av" data-id="${p.id}" aria-label="Change avatar">${avHTML(p.avatar)}</button><input class="nm-inp" type="text" maxlength="16" placeholder="Player ${i+1}" value="${esc(p.name)}" data-role="nm" data-id="${p.id}" autocomplete="off" aria-label="Player ${i+1} name">${G.lp.length>2?`<button class="rm-btn" data-a="rm" data-id="${p.id}" aria-label="Remove player">×</button>`:''}</div>`).join('');
+  const pRows=G.lp.map((p,i)=>{
+    const rm=G.lp.length>2?`<button class="rm-btn" data-a="rm" data-id="${p.id}" aria-label="Remove ${esc(p.name||('Player '+(i+1)))}">×</button>`:'';
+    if(p.bot)return`<div class="player-row"><button class="av-btn" data-a="av" data-id="${p.id}" aria-label="Change avatar">${avHTML(p.avatar)}</button>
+      <div class="bot-id"><span class="bot-name">${esc(p.name)}</span><span class="bot-tag">BOT</span></div>
+      <button class="bot-level" data-a="botlevel" data-id="${p.id}" aria-label="${esc(p.name)} difficulty: ${p.bot==='sharp'?'Sharp':'Gentle'}. Tap to change.">${p.bot==='sharp'?'⚡ Sharp':'🌱 Gentle'}</button>${rm}</div>`;
+    return`<div class="player-row"><button class="av-btn" data-a="av" data-id="${p.id}" aria-label="Change avatar">${avHTML(p.avatar)}</button><input class="nm-inp" type="text" maxlength="16" placeholder="Player ${i+1}" value="${esc(p.name)}" data-role="nm" data-id="${p.id}" autocomplete="off" aria-label="Player ${i+1} name">${rm}</div>`;
+  }).join('');
   const hrD=[{k:'draw2stack',n:'7s stack',d:'Stack a 7 on a 7'},{k:'jackWild',n:'Jack is wild',d:'Jack matches anything'},{k:'eightReverse',n:'8s stack',d:'8 skips, unless they counter with their own 8'},{k:'mauAnn',n:'Call Mau',d:'Mau / Mau-Mau required'}];
   const isPokerGame=isPoker();
   return`<div id="s-setup" class="scr on">
@@ -5170,6 +5237,7 @@ function rSetup(){
     <div class="setup-body">
       <div class="panel"><div class="panel-lbl">Players</div>${pRows}</div>
       <button class="add-pl-btn" data-a="addpl" ${G.lp.length>=(game.maxP||(isPokerGame?8:6))?'disabled':''}>+ Add player (${G.lp.length}/${game.maxP||(isPokerGame?8:6)})</button>
+      ${game.id==='maumau'?`<button class="add-pl-btn add-bot-btn" data-a="addbot" ${G.lp.length>=(game.maxP||6)?'disabled':''}>🤖 Add a bot — play without waiting for anyone</button>`:''}
       ${isPokerGame?`<div class="panel"><div class="panel-lbl">Poker Settings</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-top:.2rem;">
           <div><div style="font-size:.68rem;color:var(--paper3);margin-bottom:.3rem;">Small Blind</div><input class="inp" type="number" min="5" max="500" value="${G.smallBlind}" data-role="sb" style="text-align:center;font-family:var(--serif);font-size:1.1rem;"></div>
@@ -6517,6 +6585,7 @@ function maybeShowFirstRunWelcome(){
 function render(){
   applyTableAge();
   checkpointLocalMatch();
+  maybeBotTurn();
   // render() always fully rebuilds #app's innerHTML from scratch, which destroys whatever DOM node
   // is currently focused — including a text input mid-keystroke. That's not just a hypothetical:
   // any background render (the family-history fetch resolving, an online-sync tick, a resize
@@ -6709,6 +6778,15 @@ document.addEventListener('click',e=>{
   else if(a==='data-clear-confirm'){clearMyLocalData();G.dataClearAsk=false;G.dataOpen=false;render();}
   else if(a==='quit-confirm'){stopSync();G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;if(G.lmau)clearTimeout(G.lmau.tid);G.lmau=null;_oMauSig=null;localStorage.removeItem('ct_resume');G.scr='home';render();}
   else if(a==='addpl'){const cap=currentGame().maxP||(isPoker()?8:6);if(G.lp.length>=cap)return;G.lp.push({id:G.nid++,name:'',avatar:AVATARS[G.lp.length%AVATARS.length],hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false});render();}
+  else if(a==='addbot'){
+    const cap=currentGame().maxP||6;if(G.lp.length>=cap)return;
+    // Pick a name nobody at the table is already using, so two bots are never both "Robo".
+    const taken=new Set(G.lp.map(p=>p.name));
+    const name=BOT_NAMES.find(n=>!taken.has(n))||('Bot '+G.nid);
+    G.lp.push({id:G.nid++,name,bot:'sharp',avatar:AVATARS[G.lp.length%AVATARS.length],hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false});
+    render();
+  }
+  else if(a==='botlevel'){const p=G.lp.find(x=>x.id===+t.getAttribute('data-id'));if(p&&p.bot){p.bot=p.bot==='sharp'?'gentle':'sharp';render();}}
   else if(a==='rm'){G.lp=G.lp.filter(p=>p.id!==+t.getAttribute('data-id'));render();}
   else if(a==='av'){const id=+t.getAttribute('data-id'),pl=G.lp.find(p=>p.id===id);if(pl){pl.avatar=AVATARS[(AVATARS.indexOf(pl.avatar)+1)%AVATARS.length];render();}}
   else if(a==='ol-av'){G.myAvatar=AVATARS[(AVATARS.indexOf(G.myAvatar)+1)%AVATARS.length];render();}
