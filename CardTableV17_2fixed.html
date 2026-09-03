@@ -533,6 +533,7 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .bot-level:hover{border-color:var(--gold2);color:var(--gold2);}
 /* A bot's seat at the table reads as clearly not-a-person, so nobody waits for it to "pass". */
 .bot-seat-tag{font-size:.5rem;letter-spacing:.1em;font-weight:700;color:var(--gold2);opacity:.85;}
+.roul-player-pill.bot-seat{opacity:.62;cursor:default;}
 .hr-grid{display:grid;grid-template-columns:1fr 1fr;gap:.45rem;}
 .hr-tog{display:flex;flex-direction:column;gap:.18rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:12px;padding:.65rem .8rem;cursor:pointer;transition:all .15s;}
 .hr-tog.on{background:radial-gradient(120% 160% at 15% -10%,rgba(212,168,67,.18),transparent 60%),rgba(212,168,67,.08);border-color:rgba(212,168,67,.4);box-shadow:inset 0 1px 0 rgba(255,235,190,.08);}
@@ -2716,6 +2717,231 @@ function mauMauBotSuit(hand,playedCard){
   SUITS.forEach(s=>{const n=count[s]||0;if(n>bestN){bestN=n;bestSuit=s;}});
   return bestSuit||SUITS[0];
 }
+/* ── Uno ──
+   Structurally the same shedding problem as Mau Mau, so the same shape of answer: play if you can,
+   otherwise draw. The pieces that differ are the ones the two games disagree about — Uno's wilds
+   are the always-playable escape hatch (Mau Mau's Jack), and its action cards cost the next player
+   something, so they're worth cashing while somebody's still there to pay. */
+function unoBotMove(hand,ctx,level){
+  hand=hand||[];
+  const legal=hand.filter(c=>rulesCanPlay(c,{gameId:'uno',top:ctx.top,curSuit:ctx.curSuit}));
+  if(!legal.length)return{action:'draw'};
+  if(hand.length===1)return{action:'play',card:legal[0]};
+  if(level==='gentle')return{action:'play',card:legal[Math.floor(Math.random()*legal.length)]};
+  const colorCount={};
+  hand.forEach(c=>{if(c.color&&c.color!=='black')colorCount[c.color]=(colorCount[c.color]||0)+1;});
+  const rank=c=>{
+    let s=unoCardVal(c); // shedding face value matters: what's left in hand is what you lose by
+    if(c.color==='black')s-=70;   // hold the wild for the turn you'd otherwise have to draw
+    if(c.value==='draw2')s+=30;
+    if(c.value==='skip')s+=22;
+    if(c.value==='reverse')s+=12;
+    s+=(colorCount[c.color]||0)*4; // stay in the colour you can follow up in
+    return s;
+  };
+  return{action:'play',card:legal.slice().sort((a,b)=>rank(b)-rank(a))[0]};
+}
+function unoBotColor(hand,playedCard){
+  const rest=(hand||[]).filter(c=>c!==playedCard);
+  const count={};
+  rest.forEach(c=>{if(c.color&&c.color!=='black')count[c.color]=(count[c.color]||0)+1;});
+  let best=null,bestN=-1;
+  UNO_COLORS.forEach(c=>{const n=count[c]||0;if(n>bestN){bestN=n;best=c;}});
+  return best||UNO_COLORS[0];
+}
+
+/* ── Poker (Texas Hold'em + Five-Card Draw) ──
+   Betting needs one number the rest can hang off: how good is this hand, 0..1. Post-flop that's
+   the very same evalHand() the showdown settles pots with, mapped off its rank tier, so a bot can
+   never value a hand differently from the way the table will actually score it. Pre-flop Texas has
+   no board to evaluate at all, so that case falls back to the standard hole-card shape. */
+function pokerBotStrength(hand,community,gameId){
+  hand=hand||[];community=community||[];
+  const cards=gameId==='texas'?[...hand,...community]:hand;
+  if(cards.length<5){
+    const v=hand.map(c=>RANK_VAL[c.rank]).sort((a,b)=>b-a);
+    if(v.length<2)return 0.2;
+    const hi=v[0],lo=v[1];
+    if(hi===lo)return Math.min(1,0.5+(hi-2)/12*0.5); // any pair is already half the scale; AA is all of it
+    let s=(hi-2)/12*0.34+(lo-2)/12*0.16;
+    if(hand[0].suit===hand[1].suit)s+=0.08;
+    const gap=hi-lo;
+    if(gap===1)s+=0.07;else if(gap===2)s+=0.04;else if(gap>4)s-=0.05;
+    return Math.max(0,Math.min(1,s));
+  }
+  const tier=Math.floor(evalHand(cards).score/10000000); // 0 high card … 9 royal flush
+  let s=Math.min(1,tier/6);                              // a full house or better is already the top
+  // High card and one pair are most of all hands ever dealt, so the card that tops them off is
+  // what actually separates them — ace-high and deuce-high shouldn't score identically.
+  if(tier<=1)s+=((Math.max.apply(null,cards.map(c=>RANK_VAL[c.rank]))-2)/12)*0.12;
+  return Math.max(0,Math.min(1,s));
+}
+function pokerBotMove(ctx,level){
+  const toCall=Math.max(0,Math.min(ctx.currentBet-ctx.bet,ctx.chips));
+  const bb=ctx.bigBlind||20;
+  // Every extra opponent is another hand that has to be beaten, so the same cards are worth less.
+  const adj=pokerBotStrength(ctx.hand,ctx.community,ctx.gameId)*Math.pow(0.94,Math.max(0,(ctx.rivals||1)-1));
+  // A pinch of noise, so a bot isn't a lookup table anyone can read off after two hands.
+  const v=adj+(Math.random()-0.5)*0.08;
+  const potOdds=toCall>0?toCall/((ctx.pot||0)+toCall):0;
+  if(level==='gentle'){
+    // Gentle plays like a cautious beginner — it calls what it can afford, folds only when the
+    // price is plainly bad for a weak hand, and bets only holding something real.
+    if(toCall===0)return(v>0.72&&ctx.chips>bb)?{action:'raise',amount:ctx.currentBet+bb}:{action:'check'};
+    if(toCall>=ctx.chips)return v>0.5?{action:'call'}:{action:'fold'};
+    if(potOdds>0.45&&v<0.35)return{action:'fold'};
+    return{action:'call'};
+  }
+  if(toCall===0){
+    if(v>0.78&&ctx.chips>bb)return{action:'raise',amount:ctx.currentBet+bb*(v>0.9?3:2)};
+    if(v>0.6&&ctx.chips>bb&&Math.random()<0.45)return{action:'raise',amount:ctx.currentBet+bb};
+    return{action:'check'};
+  }
+  if(v<potOdds*0.9&&v<0.55)return{action:'fold'};
+  if(v>0.85&&ctx.chips>toCall+bb*2&&Math.random()<0.6)
+    return{action:'raise',amount:ctx.currentBet+bb*(v>0.95?3:2)};
+  if(toCall>=ctx.chips)return v>0.62?{action:'call'}:{action:'fold'};
+  return{action:'call'};
+}
+// Five-Card Draw: which hand positions to throw away. Made hands stand pat; otherwise keep whatever
+// is already paired or four-to-a-flush, and take fresh cards for the rest.
+function pokerBotDraw(hand,level){
+  hand=hand||[];
+  if(hand.length<5)return[];
+  if(Math.floor(evalHand(hand).score/10000000)>=4)return[]; // straight or better — stand pat
+  const counts={};hand.forEach(c=>{const v=RANK_VAL[c.rank];counts[v]=(counts[v]||0)+1;});
+  const paired=Object.keys(counts).filter(v=>counts[v]>=2).map(Number);
+  const suits={};hand.forEach(c=>{suits[c.suit]=(suits[c.suit]||0)+1;});
+  const flushSuit=Object.keys(suits).find(k=>suits[k]>=4);
+  let keep;
+  if(paired.length)keep=hand.map((c,i)=>paired.indexOf(RANK_VAL[c.rank])>=0?i:-1).filter(i=>i>=0);
+  else if(flushSuit)keep=hand.map((c,i)=>c.suit===flushSuit?i:-1).filter(i=>i>=0);
+  // Nothing to build on. Sharp keeps two high cards and draws three; gentle keeps three and draws
+  // two, which is the tighter, more timid draw a new player makes.
+  else keep=hand.map((c,i)=>({i,v:RANK_VAL[c.rank]})).sort((a,b)=>b.v-a.v).slice(0,level==='gentle'?3:2).map(o=>o.i);
+  return hand.map((c,i)=>i).filter(i=>keep.indexOf(i)<0);
+}
+
+/* ── Yahtzee ──
+   Not a full expected-value search over every keep-set — that's a lot of machinery for a family
+   game, and it would produce an opponent nobody enjoys losing to. It's the same shape of decision a
+   person actually makes: chase the biggest thing already on the table, otherwise collect whichever
+   number you have most of. */
+function yahtzeeBotHolds(dice,scorecard,level){
+  const holds=[false,false,false,false,false];
+  const counts=yCounts(dice);
+  if(level==='gentle'){
+    // Gentle keeps the most common number and rerolls the rest — it never reads the scorecard and
+    // never chases a straight, which is exactly how a child plays it.
+    let bestV=0,bestN=1;
+    for(let v=1;v<=6;v++)if(counts[v]>bestN){bestN=counts[v];bestV=v;}
+    if(bestV)dice.forEach((d,i)=>{if(d===bestV)holds[i]=true;});
+    return holds;
+  }
+  const open=cat=>!!scorecard&&scorecard[cat]===null;
+  const uniq=[...new Set(dice)].sort((a,b)=>a-b);
+  let runVals=[],cur=[uniq[0]];
+  for(let i=1;i<uniq.length;i++){
+    if(uniq[i]===uniq[i-1]+1)cur.push(uniq[i]);
+    else{if(cur.length>runVals.length)runVals=cur;cur=[uniq[i]];}
+  }
+  if(cur.length>runVals.length)runVals=cur;
+  // Four to a straight beats holding a pair: it's one die away from 30 or 40 points.
+  if(runVals.length>=4&&(open('largeStraight')||open('smallStraight'))){
+    const used={};
+    dice.forEach((d,i)=>{if(runVals.indexOf(d)>=0&&!used[d]){used[d]=1;holds[i]=true;}});
+    return holds;
+  }
+  let bestV=0,bestScore=0;
+  for(let v=1;v<=6;v++){
+    const score=counts[v]*10+v; // weight by pip value, so three sixes beat three twos
+    if(counts[v]>=2&&score>bestScore){bestScore=score;bestV=v;}
+  }
+  if(bestV){
+    dice.forEach((d,i)=>{if(d===bestV)holds[i]=true;});
+    // A full house already in hand is worth keeping whole rather than breaking for a fourth of a kind.
+    if(counts[bestV]===3&&open('fullHouse'))
+      for(let v=1;v<=6;v++)if(v!==bestV&&counts[v]===2)dice.forEach((d,i)=>{if(d===v)holds[i]=true;});
+    return holds;
+  }
+  // Nothing paired at all: keep the dice worth the most wherever they end up.
+  dice.forEach((d,i)=>{if(d>=5&&open(d===5?'fives':'sixes'))holds[i]=true;});
+  return holds;
+}
+// What a box is worth isn't only what it scores — it's that, minus what writing a zero into it
+// throws away. Burning a 0 into Yahtzee costs far more future value than zeroing Ones does.
+const Y_SACRIFICE={yahtzee:52,largeStraight:34,smallStraight:26,chance:20,fourKind:20,fullHouse:18,threeKind:12,
+  sixes:14,fives:12,fours:9,threes:7,twos:5,ones:3};
+function yahtzeeBotCategory(dice,scorecard,level){
+  const open=Y_CATS.filter(c=>scorecard[c]===null);
+  if(!open.length)return null;
+  const scored=open.map(c=>({cat:c,pts:yScoreForCategory(c,dice,scorecard)}));
+  if(level==='gentle'){
+    // Gentle takes the best-scoring box it can see and doesn't plan — it will happily burn Yahtzee
+    // on a zero when nothing else scores, which is precisely the mistake a new player makes.
+    const positive=scored.filter(s=>s.pts>0);
+    return(positive.length?positive:scored).sort((a,b)=>b.pts-a.pts)[0].cat;
+  }
+  return scored.map(s=>{
+    let net=s.pts;
+    if(s.pts===0)net-=Y_SACRIFICE[s.cat]||10;
+    // The upper bonus is 35 points for averaging three of each number, so an upper box taken below
+    // that pace quietly costs the bonus as well as the points it didn't score.
+    else if(Y_UPPER.indexOf(s.cat)>=0&&s.pts<(Y_UPPER.indexOf(s.cat)+1)*3)net-=6;
+    return{cat:s.cat,net};
+  }).sort((a,b)=>b.net-a.net)[0].cat;
+}
+
+/* ── Blackjack ── */
+function blackjackBotMove(hand,dealerUp,canDouble,level){
+  const v=bjValue(hand);
+  if(level==='gentle'){
+    // "Mimic the dealer" — the one rule a child can hold in their head, and a genuinely beatable
+    // one: it never doubles and never stands on a soft hand.
+    return v.total<17?'hit':'stand';
+  }
+  const up=dealerUp?(dealerUp.rank==='A'?11:(['K','Q','J'].indexOf(dealerUp.rank)>=0?10:+dealerUp.rank)):10;
+  // Textbook basic strategy, minus splitting — this table never deals split hands.
+  if(v.soft&&v.total<=21){
+    if(canDouble&&v.total>=13&&v.total<=18&&up>=(v.total>=17?3:5)&&up<=6)return'double';
+    if(v.total<=17)return'hit';
+    if(v.total===18)return up>=9?'hit':'stand';
+    return'stand';
+  }
+  if(canDouble){
+    if(v.total===11)return'double';
+    if(v.total===10&&up<=9)return'double';
+    if(v.total===9&&up>=3&&up<=6)return'double';
+  }
+  if(v.total<=11)return'hit';
+  if(v.total===12)return(up>=4&&up<=6)?'stand':'hit';
+  if(v.total<=16)return up<=6?'stand':'hit';
+  return'stand';
+}
+
+/* ── Roulette ──
+   There's no opponent to outplay here — the wheel doesn't care — so a bot's job is to make the
+   table feel occupied, betting the way people at a family table actually do: mostly the even-money
+   outside boxes, with a number picked for luck. Returns {key,amt} entries to place. */
+function rouletteBotBets(chips,level){
+  const outside=['red','black','odd','even','low','high'];
+  const pick=a=>a[Math.floor(Math.random()*a.length)];
+  const unit=Math.max(1,Math.min(25,Math.floor((chips||0)/20)||1));
+  const bets=[];
+  if(level==='gentle'){
+    bets.push({key:pick(outside),amt:unit});
+    if(Math.random()<0.4)bets.push({key:'straight:'+rnd(0,36),amt:Math.max(1,Math.floor(unit/2))});
+  }else{
+    bets.push({key:pick(outside),amt:unit*2});
+    bets.push({key:'dozen:'+rnd(1,3),amt:unit});
+    if(Math.random()<0.6)bets.push({key:'straight:'+rnd(0,36),amt:unit});
+  }
+  // Spend down a budget rather than assuming the unit always fits: a nearly-broke seat has to bet
+  // almost nothing, not three boxes it cannot cover.
+  let left=Math.max(0,chips|0);
+  return bets.map(b=>{const amt=Math.min(b.amt,left);left-=amt;return{key:b.key,amt};}).filter(b=>b.amt>0);
+}
+
 // Adapters — the two call shapes the app already had, now both funnelling into the one rule set.
 function lCanPlay(c){
   return rulesCanPlay(c,{gameId:G.selGame,top:G.ldisc[G.ldisc.length-1],curSuit:G.lsuit,drawPend:G.lpend,skip8Pend:G.lskip8,hr:G.hr});
@@ -2760,6 +2986,7 @@ function lDealUno(){
   G.ldir=1;G.lcur=G.lstart;G.lmau=null;G.ldrawnCount=0;G.lspick=false;G.lpcard=null;G.llast='';G.lres=null;G.lpend=0;G.lskip8=false;
   SFX.deal();
   const cp=G.lp[G.lcur];
+  if(isBotPlayer(cp)){G.scr='table';return;} // see lAdvance: bots never get a hand-over screen
   G.lpass1=cp.avatar+' '+esc(cp.name);G.lpass2='';G.scr='pass';
 }
 function lDeal(){
@@ -3005,8 +3232,11 @@ function roulBetWins(key,num){
   return false;
 }
 function lDealRoulette(){
-  G.lp.forEach(p=>{p.roulBets={};p.roulBetLog=[];});
-  G.lcur=0;
+  G.lp.forEach(p=>{p.roulBets={};p.roulBetLog=[];p.roulBotDone=false;});
+  // The bet grid always acts as whoever G.lcur is, so it has to start on a person — landing on a
+  // bot seat would hand its chips to the human tapping the table.
+  const firstHuman=G.lp.findIndex(p=>!isBotPlayer(p));
+  G.lcur=firstHuman>=0?firstHuman:0;
   G.roulSpinning=false;G.roulResult=null;G.roulActive=true;G.roulHighlight=null;
   G.roulHistory=G.roulHistory||[];
   SFX.deal();
@@ -3407,7 +3637,12 @@ function pokerCall(){
 
 function pokerRaise(amt){
   const p=G.lp[G.lcur];
-  amt=Math.max(G.currentBet+G.bigBlind,Math.min(amt,p.chips+p.bet));
+  const maxTo=p.chips+p.bet; // everything this player could possibly have committed by the end of it
+  // The minimum-raise floor used to win over the stack cap, so a short stack asked to raise
+  // committed chips it did not have and went negative. A raise can never exceed the stack; and a
+  // stack too short to even match the current bet cannot raise at all — that is a call all-in.
+  amt=Math.min(Math.max(G.currentBet+G.bigBlind,Math.min(amt,maxTo)),maxTo);
+  if(amt<=G.currentBet){pokerCall();return;}
   const toAdd=amt-p.bet;
   if(toAdd<=0){toast('Raise must be higher than current bet');return;}
   p.chips-=toAdd;p.bet=amt;G.pot+=toAdd;G.currentBet=amt;SFX.chip();
@@ -3441,8 +3676,17 @@ function pokerNextPlayer(){
   // turn. The other closing case is fewer than two players having any chips left to act with (e.g.
   // heads-up with one player all-in) — the skip-loop above then has nowhere else to send `next` but
   // back to whoever just acted, which would otherwise ask them to act on their own action forever.
+  // "Action has come back around" was tested as next===lstart, which only holds while the seat that
+  // opened the action is still in the hand. The most ordinary case in the game breaks it: the first
+  // player to act pre-flop folds to the big blind, so the skip-loop above can never land on their
+  // seat again — the round never closes and the table checks in circles forever. Test instead
+  // whether the pointer has PASSED that seat: is lstart on the arc we just moved across?
+  const crossedStart=(()=>{
+    for(let k=1;k<=n;k++){const idx=mod(G.lcur+k,n);if(idx===G.lstart)return true;if(idx===next)return false;}
+    return true;
+  })();
   const canAct=G.lp.filter(p=>!p.folded&&!p.allIn).length;
-  const backToStart=next===G.lstart||tries>=n||canAct<2;
+  const backToStart=crossedStart||tries>=n||canAct<2;
 
   if(backToStart){
     pokerNextPhase();
@@ -3660,8 +3904,17 @@ function oPokerAdvanceAfterAction(state){
   let next=mod((state.curIdx||0)+1,n);
   let tries=0;
   while((state.players[next].folded||state.players[next].allIn)&&tries<n){next=mod(next+1,n);tries++;}
+  // "Action has come back around" was tested as next===lstart, which only holds while the seat that
+  // opened the action is still in the hand. The most ordinary case in the game breaks it: the first
+  // player to act pre-flop folds to the big blind, so the skip-loop above can never land on their
+  // seat again — the round never closes and the table checks in circles forever. Test instead
+  // whether the pointer has PASSED that seat: is lstart on the arc we just moved across?
+  const crossedStart=(()=>{
+    for(let k=1;k<=n;k++){const idx=mod((state.curIdx||0)+k,n);if(idx===state.lstart)return true;if(idx===next)return false;}
+    return true;
+  })();
   const canAct=state.players.filter(p=>!p.folded&&!p.allIn).length;
-  const backToStart=next===state.lstart||tries>=n||canAct<2;
+  const backToStart=crossedStart||tries>=n||canAct<2;
   if(backToStart)return oPokerNextPhase(state);
   state.curIdx=next;
   return false;
@@ -4227,46 +4480,166 @@ function runCountUps(){
 }
 
 /* ═══════ BOT TURN DRIVER ═══════
-   The pure decision layer (mauMauBotMove) says WHAT to play; this decides WHEN, and drives it
-   through the very same lPlay/lDrawCard/lSuit/lMauBtn a tapping human goes through. Nothing here
-   reaches past the normal move path, so a bot cannot make a move a person couldn't — including the
-   legality check inside lPlay, which stays in force for bots as a backstop. */
+   The pure decision layers above say WHAT to do; this decides WHEN, and drives it through the very
+   same lPlay/lDrawCard/pokerCall/yRoll/bjHit a tapping human goes through. Nothing here reaches
+   past the normal move path, so a bot cannot make a move a person couldn't — including the legality
+   check inside lPlay and the guards inside every poker/blackjack action, which stay in force for
+   bots as a backstop. One driver serves every game: botPendingSig() answers "is a bot owed a move,
+   and against what state", and botAct() dispatches to the one per-game function that makes it. */
+// Every game listed here can seat a bot. Anything not here (there is nothing, currently) simply
+// never offers the button, and the driver below stays dormant for it.
+const BOT_GAMES=new Set(['maumau','uno','texas','fivecard','blackjack','yahtzee','battle','roulette']);
 let _botTimer=null,_botSig=null;
 function isBotPlayer(p){return!!(p&&p.bot);}
+// A full table can still gain a bot by converting an empty seat — Battle seats exactly two, so
+// without this the button would be permanently greyed out in the game most in need of it. Seat 1 is
+// never eligible: that is the person actually holding the phone.
+function blankSeat(){return G.lp.slice(1).reverse().find(p=>!p.bot&&!p.name.trim())||null;}
+function canAddBot(game){
+  if(!BOT_GAMES.has(game.id))return false;
+  return G.lp.length<(game.maxP||(isPoker()?8:6))||!!blankSeat();
+}
 function clearBotTurn(){clearTimeout(_botTimer);_botTimer=null;_botSig=null;}
-// Called once per render(), the same single-hook-point pattern as applyTableAge/checkpointLocalMatch.
-// A turn produces many renders, so the move is keyed to a signature of the exact turn state: the
-// same situation schedules one move, not one per render.
-function maybeBotTurn(){
-  if(G.scr!=='table'||G.isOnline||G.selGame!=='maumau'){clearBotTurn();return;}
+// Every game answers the same two questions: is a bot owed a move right now, and what state is that
+// move a function of? This returns the second answer as a string, or null for "nothing owed". A
+// turn produces many renders, so keying the scheduled move to a signature of the exact situation
+// means one move gets scheduled per situation, not one per render.
+function botPendingSig(){
+  const g=G.selGame;
+  if(g==='roulette'){
+    // No turn order at a roulette table — bots put their chips down once per spin, then wait for
+    // whoever's actually holding the phone to pull the trigger.
+    if(!G.roulActive||G.roulSpinning)return null;
+    const waiting=G.lp.filter(p=>isBotPlayer(p)&&!p.roulBotDone).length;
+    return waiting?'roul|'+waiting:null;
+  }
+  if(g==='battle'){
+    // Battle has no turns either: one Flip resolves both sides at once, so the human at the table
+    // sets the pace. A bot only needs to drive it when there's nobody left to tap the button.
+    if(G.battleAnimating||!G.lp.length||!G.lp.every(isBotPlayer))return null;
+    const p0=G.lp[0],p1=G.lp[1];
+    if(!p0||!p1||!p0.hand.length||!p1.hand.length)return null;
+    return'battle|'+p0.hand.length+'|'+p1.hand.length;
+  }
   const p=G.lp[G.lcur];
-  if(!isBotPlayer(p)){clearBotTurn();return;}
-  if(G.lthrowing)return; // mid throw-animation; the render after it re-arms this
-  const sig=[G.lcur,p.hand.length,G.ldisc.length,G.lspick?1:0,G.lmau?1:0,G.ldrawnCount,G.lpend,G.lskip8?1:0].join('|');
+  if(!isBotPlayer(p))return null;
+  if(g==='maumau'||g==='uno'){
+    if(G.lthrowing)return null; // mid throw-animation; the render after it re-arms this
+    return[g,G.lcur,p.hand.length,G.ldisc.length,G.lspick?1:0,G.lmau?1:0,G.ldrawnCount,G.lpend,G.lskip8?1:0].join('|');
+  }
+  if(g==='texas'||g==='fivecard'){
+    if(p.folded||p.allIn||G.pokerPhase==='showdown')return null;
+    return['pk',G.lcur,G.pokerPhase,G.currentBet,G.pot,G.community.length,p.hand.length,p.bet,G.lround].join('|');
+  }
+  if(g==='blackjack'){
+    // Once the hole card is face-up the dealer is playing itself out — nobody at the table acts.
+    if(p.bjDone||G.lthrowing||!G.dealerHoleHidden)return null;
+    return['bj',G.lcur,p.bjHand.length,G.lround].join('|');
+  }
+  if(g==='yahtzee')return['y',G.lcur,G.yrolls,G.ydice.join(''),G.yheld.join('')].join('|');
+  return null;
+}
+// Called once per render(), the same single-hook-point pattern as applyTableAge/checkpointLocalMatch.
+function maybeBotTurn(){
+  if(G.scr!=='table'||G.isOnline||!BOT_GAMES.has(G.selGame)||!G.lp.some(isBotPlayer)){clearBotTurn();return;}
+  const sig=botPendingSig();
+  if(sig===null){clearBotTurn();return;}
   if(sig===_botSig)return;
   _botSig=sig;
   clearTimeout(_botTimer);
-  // A beat of "thinking" so a bot reads as a player rather than an instant state change, but kept
-  // short: the throw animation adds ~380ms on top, and with two or three bots between your turns
-  // anything longer starts to feel like waiting rather than watching.
-  _botTimer=setTimeout(()=>{_botTimer=null;botAct();},500+Math.floor(Math.random()*400));
+  _botTimer=setTimeout(()=>{_botTimer=null;botAct();},botThinkMs());
+}
+// A beat of "thinking" so a bot reads as a player rather than an instant state change, but kept
+// short: the throw and deal animations add their own delay on top, and with two or three bots
+// between your turns anything longer starts to feel like waiting rather than watching. Poker gets a
+// little longer — a fold that lands the instant the turn arrives reads as a glitch, not a decision.
+function botThinkMs(){
+  const g=G.selGame;
+  const base=(g==='texas'||g==='fivecard')?620:(g==='blackjack'?420:500);
+  return base+Math.floor(Math.random()*400);
 }
 function botAct(){
-  if(G.scr!=='table'||G.isOnline||G.selGame!=='maumau')return;
+  if(G.scr!=='table'||G.isOnline||!BOT_GAMES.has(G.selGame))return;
+  // The table may have moved on while we were "thinking" (an animation finishing, a round ending),
+  // so re-ask rather than trusting the state we were scheduled against.
+  if(botPendingSig()===null)return;
+  const g=G.selGame;
+  if(g==='roulette')return botRouletteAct();
+  if(g==='battle')return battleFlip();
   const p=G.lp[G.lcur];
-  if(!isBotPlayer(p)||G.lthrowing)return;
-  if(G.lspick){lSuit(mauMauBotSuit(p.hand,G.lpcard));return;}
+  if(g==='maumau'||g==='uno')return botShedAct(p);
+  if(g==='texas'||g==='fivecard')return botPokerAct(p);
+  if(g==='blackjack')return botBlackjackAct(p);
+  if(g==='yahtzee')return botYahtzeeAct(p);
+}
+function botShedAct(p){
+  const uno=G.selGame==='uno';
+  if(G.lspick){uno?lColor(unoBotColor(p.hand,G.lpcard)):lSuit(mauMauBotSuit(p.hand,G.lpcard));return;}
   // Bots always call. Letting a "gentle" bot forget was tempting — it's the slip a person makes,
   // and a way for a child to catch it out — but the only way to forget is to let lMauTimer's full
   // 5s elapse, and five seconds of nothing happening reads as the app having hung, not as charm.
   if(G.lmau){lMauBtn();return;}
-  const mv=mauMauBotMove(p.hand,{gameId:'maumau',top:G.ldisc[G.ldisc.length-1],curSuit:G.lsuit,
-    drawPend:G.lpend,skip8Pend:G.lskip8,hr:G.hr},p.bot);
+  const ctx={gameId:G.selGame,top:G.ldisc[G.ldisc.length-1],curSuit:G.lsuit,
+    drawPend:G.lpend,skip8Pend:G.lskip8,hr:G.hr};
+  const mv=uno?unoBotMove(p.hand,ctx,p.bot):mauMauBotMove(p.hand,ctx,p.bot);
   if(mv.action==='play'){lPlay(mv.card.id);return;}
   // Nothing playable. One draw per turn — if we've already taken it, the turn passes. (lDrawCard
   // resolves a pending draw or a skip on its own, so this stays a plain "draw then reconsider".)
   if(G.ldrawnCount>0){lPassTurn();return;}
   lDrawCard();
+}
+function botPokerAct(p){
+  if(G.pokerPhase==='draw'){
+    // The draw phase reuses G.drawSelections — the very same tap-to-discard set a person fills in —
+    // so the bot goes through the identical pokerDraw() their Draw button triggers.
+    G.drawSelections=new Set(pokerBotDraw(p.hand,p.bot));
+    pokerDraw();return;
+  }
+  const rivals=G.lp.filter(x=>x!==p&&!x.folded).length;
+  const mv=pokerBotMove({hand:p.hand,community:G.community,gameId:G.selGame,chips:p.chips,bet:p.bet,
+    currentBet:G.currentBet,bigBlind:G.bigBlind,pot:G.pot,rivals},p.bot);
+  if(mv.action==='fold')pokerFold();
+  else if(mv.action==='check')p.bet<G.currentBet?pokerCall():pokerCheck();
+  else if(mv.action==='raise')pokerRaise(mv.amount);
+  else pokerCall();
+  render();
+}
+function botBlackjackAct(p){
+  const canDouble=p.bjHand.length===2&&p.chips>=p.bjBet;
+  const mv=blackjackBotMove(p.bjHand,G.dealerHand[0],canDouble,p.bot);
+  if(mv==='double')bjDouble();
+  else if(mv==='hit')bjHit();
+  else bjStand();
+}
+function botYahtzeeAct(p){
+  if(G.yrolls===0){yRoll();return;}
+  if(G.yrolls<3){
+    const holds=yahtzeeBotHolds(G.ydice,p.scorecard,p.bot);
+    if(!holds.every(Boolean)){
+      // Set the hold flags straight onto the state rather than tapping each die: yToggleHold is a
+      // UI toggle that re-renders per tap, and five renders to express one decision would re-arm
+      // this same driver four extra times for no gain.
+      G.yheld=holds;G.yLastRolled=[];
+      yRoll();return;
+    }
+    // Every die held — there's nothing left to reroll, so take the box now.
+  }
+  const cat=yahtzeeBotCategory(G.ydice,p.scorecard,p.bot);
+  if(cat)yCommitCategory(cat);
+}
+function botRouletteAct(){
+  const p=G.lp.find(x=>isBotPlayer(x)&&!x.roulBotDone);
+  if(!p)return;
+  p.roulBotDone=true; // one round of betting per bot per spin, however many renders go by
+  rouletteBotBets(p.chips,p.bot).forEach(b=>{
+    const amt=Math.min(b.amt,p.chips);
+    if(amt<=0)return;
+    p.chips-=amt;
+    p.roulBets[b.key]=(p.roulBets[b.key]||0)+amt;
+    p.roulBetLog.push({key:b.key,amt});
+  });
+  SFX.chip();
+  render();
 }
 
 /* ═══════ LOCAL MAU MAU LOGIC ═══════ */
@@ -5379,7 +5752,7 @@ function rSetup(){
     <div class="setup-body">
       <div class="panel"><div class="panel-lbl">Players</div>${pRows}</div>
       <button class="add-pl-btn" data-a="addpl" ${G.lp.length>=(game.maxP||(isPokerGame?8:6))?'disabled':''}>+ Add player (${G.lp.length}/${game.maxP||(isPokerGame?8:6)})</button>
-      ${game.id==='maumau'?`<button class="add-pl-btn add-bot-btn" data-a="addbot" ${G.lp.length>=(game.maxP||6)?'disabled':''}>🤖 Add a bot — play without waiting for anyone</button>`:''}
+      ${BOT_GAMES.has(game.id)?`<button class="add-pl-btn add-bot-btn" data-a="addbot" ${canAddBot(game)?'':'disabled'}>🤖 Add a bot — play without waiting for anyone</button>`:''}
       ${isPokerGame?`<div class="panel"><div class="panel-lbl">Poker Settings</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-top:.2rem;">
           <div><div style="font-size:.68rem;color:var(--paper3);margin-bottom:.3rem;">Small Blind</div><input class="inp" type="number" min="5" max="500" value="${G.smallBlind}" data-role="sb" style="text-align:center;font-family:var(--serif);font-size:1.1rem;"></div>
@@ -5472,6 +5845,10 @@ function rTable(){
   const cur=curPlayer(),mine=isMyTurn();
   const myPl=online?myPlayer():G.lp[G.lcur];
   const myHand=myPl?.hand||[];
+  // Locally the hand region is simply "the current player's hand", which on a bot's turn would lay
+  // its cards — in poker, its hole cards — face-up in front of the person it is playing against.
+  // Show backs instead, and switch off every read-out and control that would leak or act on them.
+  const botHand=!online&&isBotPlayer(myPl);
   const discard=online?(state?.discard||[]):G.ldisc;
   const curSuit=online?(state?.curSuit):G.lsuit;
   const drawPend=online?(state?.drawPend||0):G.lpend;
@@ -5501,7 +5878,7 @@ function rTable(){
 
   // Hand strength for poker
   let handStr='';
-  if(isPokerGame&&myHand.length>=2){
+  if(isPokerGame&&myHand.length>=2&&!botHand){
     const cards=gameId==='texas'&&community.length?[...myHand,...community]:myHand;
     if(cards.length>=5){const ev=evalHand(cards);handStr=ev.name;}
     else if(cards.length>=2){
@@ -5523,9 +5900,9 @@ function rTable(){
   const turnLabel=online?(mine?'⭐ Your turn!':`${cur?.avatar||''} ${esc(cur?.name||'')}`):`${myPl?.avatar||''} ${esc(myPl?.name||'')}`;
   const legalExists=!online?myHand.some(c=>lCanPlay(c)):mine&&myHand.some(c=>oCanPlay(c,state||{}));
 
-  const ldrawn=mine&&(online?(state?.oDrawnCount>0):G.ldrawnCount>0);
+  const ldrawn=mine&&!botHand&&(online?(state?.oDrawnCount>0):G.ldrawnCount>0);
   let hint='';
-  if(!online&&mine&&G.lskip8){
+  if(!online&&mine&&!botHand&&G.lskip8){
     const hasEight=myHand.some(c=>c.rank==='8');
     hint=hasEight
       ?'<div class="hint-txt">Play an 8 to pass the skip on, or <button class="btn-pass" data-a="pass-turn">Continue ▶</button></div>'
@@ -5583,7 +5960,7 @@ function rTable(){
     const discHTML = discPrev + discTop;
     tableArea=`<div class="pile-row">
       <div class="table-pile">
-        <div class="draw-wrap" data-a="draw" role="button" tabindex="0" aria-label="Draw a card" ${online&&!mine?'style="pointer-events:none;opacity:.45;"':''}>
+        <div class="draw-wrap" data-a="draw" role="button" tabindex="0" aria-label="Draw a card" ${(online&&!mine)||botHand?'style="pointer-events:none;opacity:.45;"':''}>
           ${makeBack(TW,TH)}
           <div class="draw-badge${drawPend>0?' hot':''}">${drawPend>0?'+'+drawPend:deck.length}</div>
         </div>
@@ -5599,8 +5976,11 @@ function rTable(){
   // Hand
   const isDraw=isPokerGame&&pokerPhase==='draw'&&mine;
   const dealIn=!!G.lDealIn;
-  const beginnerHint=G.beginnerMode&&(gameId==='maumau'||isUno)&&mine&&!G.lspick;
-  const handHTML=myHand.map((c,i)=>{
+  const beginnerHint=G.beginnerMode&&(gameId==='maumau'||isUno)&&mine&&!G.lspick&&!botHand;
+  const handHTML=botHand?myHand.map((c,i)=>{
+    const dealStyle=dealIn?` style="animation-delay:${Math.min(i,12)*60}ms"`:'';
+    return`<span class="hc${dealIn?' deal-in':''}" aria-hidden="true"${dealStyle}>${makeBack(HW,HH)}</span>`;
+  }).join(''):myHand.map((c,i)=>{
     const selected=isDraw&&G.drawSelections.has(i);
     const shaking=(!online&&G.lshake===c.id);
     const dealStyle=dealIn?` style="animation-delay:${Math.min(i,12)*60}ms"`:'';
@@ -5611,7 +5991,7 @@ function rTable(){
 
   // Poker action buttons
   let actionBar='';
-  if(isPokerGame&&mine&&pokerPhase!=='draw'&&pokerPhase!=='showdown'){
+  if(isPokerGame&&mine&&!botHand&&pokerPhase!=='draw'&&pokerPhase!=='showdown'){
     const p=myPl;const canCheck=p.bet>=currentBet;
     const minRaise=currentBet+bigBlind;
     actionBar=`<div class="poker-actions">
@@ -5626,7 +6006,7 @@ function rTable(){
         <button class="btn btn-ghost btn-sm" data-a="poker-raise-set">↑ Raise to</button>
       </div>
     </div>`;
-  } else if(isPokerGame&&mine&&pokerPhase==='draw'){
+  } else if(isPokerGame&&mine&&!botHand&&pokerPhase==='draw'){
     actionBar=`<div class="poker-actions">
       <div class="poker-action-row">
         <button class="btn btn-gold" data-a="draw">🃏 Draw ${G.drawSelections.size} card${G.drawSelections.size!==1?'s':''}</button>
@@ -5653,7 +6033,7 @@ function rTable(){
     <div class="felt-table${mine?' my-turn':''}">
       <div class="v13-table-caption">${online?'LIVE TABLE':'LOCAL TABLE'} · ${players.length} PLAYERS</div>
       <div class="v13-seats-compact">${players.slice(0,4).map((p,i)=>{const active=online?(i===(state?.curIdx||0)):(i===G.lcur);return `<div class="v13-seat s${i+1}${active?' active':''}">
-        <span class="v13-av">${avHTML(p.avatar)}</span><div><div class="v13-name">${esc(p.name)} ${active?'•':''}</div><div class="v13-sub">${p.hand.length} cards${isPokerGame?' · '+p.chips+' chips':''}</div></div>
+        <span class="v13-av">${avHTML(p.avatar)}</span><div><div class="v13-name">${esc(p.name)} ${active?'•':''}</div><div class="v13-sub">${!online&&isBotPlayer(p)?'<span class="bot-seat-tag">BOT</span> · ':''}${p.hand.length} cards${isPokerGame?' · '+p.chips+' chips':''}</div></div>
       </div>`;}).join('')}</div>
       <div class="v13-seats-oval">${(()=>{
         const meIdx=online?Math.max(0,players.findIndex(p=>p.id===G.myPid)):G.lcur;
@@ -5665,7 +6045,7 @@ function rTable(){
           const isMe=i===rotated.length-1;
           const pos=positions[i]||{left:50,top:50};
           return `<div class="v13-seat oval${active?' active':''}${isMe?' me':''}" style="left:${pos.left}%;top:${pos.top}%;">
-            <span class="v13-av">${avHTML(p.avatar)}</span><div><div class="v13-name">${esc(p.name)}${isMe?' (You)':''} ${active?'•':''}</div><div class="v13-sub">${p.hand.length} cards${isPokerGame?' · '+p.chips+' chips':''}</div></div>
+            <span class="v13-av">${avHTML(p.avatar)}</span><div><div class="v13-name">${esc(p.name)}${isMe&&!(!online&&isBotPlayer(p))?' (You)':''} ${active?'•':''}</div><div class="v13-sub">${!online&&isBotPlayer(p)?'<span class="bot-seat-tag">BOT</span> · ':''}${p.hand.length} cards${isPokerGame?' · '+p.chips+' chips':''}</div></div>
           </div>`;
         }).join('');
       })()}</div>
@@ -5680,7 +6060,7 @@ function rTable(){
 
     <div class="hand-region">
       <div class="hand-meta">
-        <div class="hand-who">${myPl?.avatar||''} ${esc(myPl?.name||'Your hand')}${isPokerGame?` · ${myPl?.chips||0}c`:''}</div>
+        <div class="hand-who">${myPl?.avatar||''} ${esc(myPl?.name||'Your hand')}${botHand?' is thinking…':''}${isPokerGame?` · ${myPl?.chips||0}c`:''}</div>
         <div class="hand-cnt">${myHand.length} card${myHand.length!==1?'s':''}</div>
       </div>
       <div class="hand-scroll">${handHTML}</div>
@@ -5699,7 +6079,7 @@ function rBlackjackTable(){
   const allDone=players.length>0&&players.every(p=>p.bjDone);
   const curP=players[curIdx];
   const mine=online?(curP?.id===G.myPid):true;
-  const showActions=!allDone&&curP&&!curP.bjDone&&mine;
+  const showActions=!allDone&&curP&&!curP.bjDone&&mine&&!(!online&&isBotPlayer(curP));
   const dealIn=!!G.lDealIn;
   const betAmount=online?(state?.bjBetAmount||50):G.bjBet;
 
@@ -5818,7 +6198,11 @@ function rYahtzeeTable(){
   const lastRolled=online?(state?.yLastRolled||[]):(G.yLastRolled||[]);
   const diceHTML=dice.map((v,i)=>dieFaceHTML(v,held[i],i,lastRolled.includes(i))).join('');
   const rollsLeft=3-rolls;
-  const canRoll=rolls<3&&mine;
+  // Locally isMyTurn() is always true (there is only one device), so a bot's turn would otherwise
+  // hand its dice and its scorecard straight to whoever is sitting there.
+  const botTurn=!online&&isBotPlayer(p);
+  const acts=mine&&!botTurn;
+  const canRoll=rolls<3&&acts;
   const upperNow=yUpperSum(p.scorecard);
   const standings=players.map(pl=>`<span class="y-standing-pill${pl===p?' active':''}">${avHTML(pl.avatar)}${esc(pl.name)}: ${yTotalScore(pl.scorecard)}</span>`).join('');
   // "Leading by N" only once someone's actually ahead -- at 0-0 it'd just be noise, same "don't show
@@ -5838,20 +6222,20 @@ function rYahtzeeTable(){
     <div class="y-standings-strip">${standings}</div>
     ${marginHTML}
     <div class="felt-table${mine?' my-turn':''}" style="flex:0 0 auto;min-height:0;max-height:none;padding:1.1rem .8rem;gap:.7rem;">
-      <div class="dice-tray${online&&!mine?' locked':''}">${diceHTML}</div>
+      <div class="dice-tray${(online&&!mine)||botTurn?' locked':''}">${diceHTML}</div>
       <button class="btn btn-gold" data-a="yroll" ${canRoll?'':'disabled'} style="min-width:12rem;">🎲 ${rolls===0?'Roll':'Roll again'} (${rollsLeft} left)</button>
-      <div class="y-hint">${mine?(rolls===0?'Tap Roll to begin your turn.':rolls<3?'Tap dice to hold them, then reroll — or pick a category below.':'Final roll — pick a category below to end your turn.'):(online?'Waiting for '+esc(p.name)+'…':'')}</div>
+      <div class="y-hint">${botTurn?esc(p.name)+' is thinking…':mine?(rolls===0?'Tap Roll to begin your turn.':rolls<3?'Tap dice to hold them, then reroll — or pick a category below.':'Final roll — pick a category below to end your turn.'):(online?'Waiting for '+esc(p.name)+'…':'')}</div>
       ${!mine?awayIndicatorHTML(p.id,p.name):''}
     </div>
     <div class="y-scorecard">
       <div class="ysc-section-lbl">Upper Section</div>
-      ${Y_UPPER.map(cat=>yScoreRowHTML(cat,p,dice,rolls,mine)).join('')}
+      ${Y_UPPER.map(cat=>yScoreRowHTML(cat,p,dice,rolls,acts)).join('')}
       <div class="ysc-row bonus-row">
         <div class="ysc-bonus-toprow"><span class="ysc-name">Bonus (63+ → +35)</span><span class="ysc-val">${upperNow>=63?'✓ +35':upperNow+' / 63'}</span></div>
         <div class="ysc-bonus-bar"><div class="ysc-bonus-fill${upperNow>=63?' full':''}" style="width:${Math.min(100,Math.round(upperNow/63*100))}%"></div></div>
       </div>
       <div class="ysc-section-lbl">Lower Section</div>
-      ${Y_LOWER.map(cat=>yScoreRowHTML(cat,p,dice,rolls,mine)).join('')}
+      ${Y_LOWER.map(cat=>yScoreRowHTML(cat,p,dice,rolls,acts)).join('')}
       ${p.scorecard.yahtzeeBonus>0?`<div class="ysc-row bonus-row"><span class="ysc-name">Yahtzee Bonus</span><span class="ysc-val">+${p.scorecard.yahtzeeBonus}</span></div>`:''}
       <div class="ysc-row total-row"><span class="ysc-name">Total</span><span class="ysc-val">${yTotalScore(p.scorecard)}</span></div>
     </div>
@@ -5876,7 +6260,8 @@ function rRouletteTable(){
     const betTotal=Object.values(pl.roulBets||{}).reduce((s,a)=>s+a,0);
     const isMe=online?pl.id===G.myPid:i===G.lcur;
     const isAway=online&&isPlayerAbsent(pl.id,AWAY_HINT_MS);
-    return`<button class="roul-player-pill${isMe?' active':''}" style="--pc:${roulPlayerColor(i)}" data-a="${online?'':'roul-select'}" data-idx="${i}" aria-label="${online?esc(pl.name)+(isAway?' — may be away':''):'Bet as '+esc(pl.name)}" aria-pressed="${isMe}">
+    const botSeat=!online&&isBotPlayer(pl);
+    return`<button class="roul-player-pill${isMe?' active':''}${botSeat?' bot-seat':''}" style="--pc:${roulPlayerColor(i)}" data-a="${online||botSeat?'':'roul-select'}" data-idx="${i}" aria-label="${online?esc(pl.name)+(isAway?' — may be away':''):(botSeat?esc(pl.name)+' (bot) — bets for itself':'Bet as '+esc(pl.name))}" aria-pressed="${isMe}"${botSeat?' disabled':''}>
       <span class="roul-pill-dot"></span>${avHTML(pl.avatar)}<span>${esc(pl.name)}</span>
       ${isAway?'<span class="roul-pill-away" title="May be away">💤</span>':''}
       <span class="roul-pill-chips">🪙${pl.chips}</span>
@@ -6941,10 +7326,17 @@ document.addEventListener('click',e=>{
   else if(a==='quit-confirm'){stopSync();G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;if(G.lmau)clearTimeout(G.lmau.tid);G.lmau=null;_oMauSig=null;localStorage.removeItem('ct_resume');G.scr='home';render();}
   else if(a==='addpl'){const cap=currentGame().maxP||(isPoker()?8:6);if(G.lp.length>=cap)return;G.lp.push({id:G.nid++,name:'',avatar:AVATARS[G.lp.length%AVATARS.length],hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false});render();}
   else if(a==='addbot'){
-    const cap=currentGame().maxP||6;if(G.lp.length>=cap)return;
+    if(!canAddBot(currentGame())){toast('Table is full — remove a seat to add a bot');return;}
+    const cap=currentGame().maxP||(isPoker()?8:6);
     // Pick a name nobody at the table is already using, so two bots are never both "Robo".
     const taken=new Set(G.lp.map(p=>p.name));
     const name=BOT_NAMES.find(n=>!taken.has(n))||('Bot '+G.nid);
+    if(G.lp.length>=cap){
+      // A full table can still gain a bot if one of its seats is empty — Battle seats exactly two,
+      // so refusing here would mean the button never did anything in the game most in need of it.
+      const blank=blankSeat();
+      blank.name=name;blank.bot='sharp';render();return;
+    }
     G.lp.push({id:G.nid++,name,bot:'sharp',avatar:AVATARS[G.lp.length%AVATARS.length],hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false});
     render();
   }

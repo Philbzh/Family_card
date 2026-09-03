@@ -236,6 +236,224 @@ function run(A,W){
       SUITS.includes(A.mauMauBotSuit([],null)));
   });
 
+
+  /* ── 3b. The bots for every other game ───────────────────────────────── */
+  suite('Bot opponents — Uno',()=>{
+    const COLORS=['red','yellow','green','blue'];
+    const VALUES=['0','1','5','9','skip','reverse','draw2'];
+    const rndCard=()=>Math.random()<0.12
+      ? uno('black',Math.random()<0.5?'wild':'wild4')
+      : uno(COLORS[0|Math.random()*4],VALUES[0|Math.random()*VALUES.length]);
+    let illegal=0,drewWithLegal=0,rounds=0;
+    for(let i=0;i<400;i++){
+      const hand=[];
+      const n=1+(0|Math.random()*7);
+      for(let k=0;k<n;k++)hand.push(rndCard());
+      const top=uno(COLORS[0|Math.random()*4],VALUES[0|Math.random()*VALUES.length]);
+      const c={gameId:'uno',top,curSuit:top.color};
+      for(const level of ['gentle','sharp']){
+        const mv=A.unoBotMove(hand,c,level);
+        rounds++;
+        if(mv.action==='play'){
+          if(!A.rulesCanPlay(mv.card,c))illegal++;
+          if(!hand.includes(mv.card))illegal++;
+        }else if(hand.some(x=>A.rulesCanPlay(x,c)))drewWithLegal++;
+      }
+    }
+    check(`never plays an illegal card (${rounds} randomised hands, both levels)`,illegal===0,`${illegal} illegal moves`);
+    check('never draws while holding a legal card',drewWithLegal===0,`${drewWithLegal} needless draws`);
+
+    const ctx={gameId:'uno',top:uno('red','5'),curSuit:'red'};
+    check('draws when nothing is legal',
+      A.unoBotMove([uno('blue','3'),uno('green','7')],ctx,'sharp').action==='draw');
+    eq('plays its last card to go out rather than hoarding',
+      A.unoBotMove([uno('red','3')],ctx,'sharp').card.value,'3');
+    check('holds the wild while an ordinary card still matches',
+      A.unoBotMove([uno('black','wild'),uno('red','3')],ctx,'sharp').card.color==='red');
+    check('spends the wild when it is the only legal card',
+      A.unoBotMove([uno('black','wild'),uno('blue','3')],ctx,'sharp').card.color==='black');
+    check('prefers an attacking Draw Two over a plain match',
+      A.unoBotMove([uno('red','draw2'),uno('red','3')],ctx,'sharp').card.value==='draw2');
+    check('an empty hand yields a draw, not a crash',
+      A.unoBotMove([],ctx,'sharp').action==='draw');
+    eq('after a wild, picks the colour it holds most of',
+      A.unoBotColor([uno('blue','1'),uno('blue','4'),uno('green','9')],null),'blue');
+    check('colour pick ignores other wilds (they are not a colour to chase)',
+      A.unoBotColor([uno('black','wild'),uno('black','wild4'),uno('green','9')],null)==='green');
+    check('colour pick always returns a real colour even from an empty hand',
+      COLORS.includes(A.unoBotColor([],null)));
+  });
+
+  suite('Bot opponents — Poker',()=>{
+    const S=(h,com,g)=>A.pokerBotStrength(h,com||[],g||'texas');
+    check('rates a pair of aces above seven-deuce off-suit',
+      S([card('A','spades'),card('A','hearts')])>S([card('7','spades'),card('2','hearts')]));
+    check('rates any pair above ace-high',
+      S([card('5','spades'),card('5','hearts')])>S([card('A','spades'),card('9','hearts')]));
+    check('rates a made flush above a bare pair',
+      S([card('2','spades'),card('4','spades')],[card('6','spades'),card('9','spades'),card('K','spades')])
+      >S([card('2','clubs'),card('2','hearts')],[card('6','spades'),card('9','diamonds'),card('K','spades')]));
+    check('strength always lands inside 0..1',(()=>{
+      for(let i=0;i<200;i++){
+        const pick=()=>card(RANKS[0|Math.random()*RANKS.length],SUITS[0|Math.random()*4]);
+        const v=S([pick(),pick()],[pick(),pick(),pick(),pick(),pick()]);
+        if(!(v>=0&&v<=1))return false;
+      }
+      return true;
+    })());
+
+    // The property that matters: whatever the bot decides, the table's own action guards must
+    // accept it — a "check" facing a live bet, or a raise past the stack, stalls the whole hand.
+    let bad=0,moves=0;
+    for(let i=0;i<400;i++){
+      const pick=()=>card(RANKS[0|Math.random()*RANKS.length],SUITS[0|Math.random()*4]);
+      const chips=1+(0|Math.random()*800);
+      const bet=0|Math.random()*60;
+      const currentBet=bet+(0|Math.random()*300);
+      const ctx={hand:[pick(),pick()],community:[pick(),pick(),pick()],gameId:'texas',
+        chips,bet,currentBet,bigBlind:20,pot:1+(0|Math.random()*500),rivals:1+(0|Math.random()*4)};
+      for(const level of ['gentle','sharp']){
+        const mv=A.pokerBotMove(ctx,level);moves++;
+        if(!['fold','check','call','raise'].includes(mv.action)){bad++;continue;}
+        if(mv.action==='check'&&bet<currentBet)bad++;              // pokerCheck() would refuse this
+        if(mv.action==='raise'&&mv.amount<=currentBet)bad++;        // not actually a raise
+        if(mv.action==='raise'&&mv.amount-bet>chips)bad++;          // more chips than it holds
+      }
+    }
+    check(`never proposes a move the table would refuse (${moves} randomised spots)`,bad===0,`${bad} bad moves`);
+
+    check('checks rather than betting into nothing with junk',
+      A.pokerBotMove({hand:[card('7','spades'),card('2','hearts')],community:[card('K','clubs'),card('9','diamonds'),card('4','hearts')],
+        gameId:'texas',chips:900,bet:0,currentBet:0,bigBlind:20,pot:40,rivals:2},'sharp').action==='check');
+    check('folds junk to a bet that dwarfs the pot',(()=>{
+      let folds=0;
+      for(let i=0;i<40;i++){
+        const mv=A.pokerBotMove({hand:[card('7','spades'),card('2','hearts')],community:[card('K','clubs'),card('9','diamonds'),card('4','hearts')],
+          gameId:'texas',chips:900,bet:0,currentBet:400,bigBlind:20,pot:60,rivals:2},'sharp');
+        if(mv.action==='fold')folds++;
+      }
+      return folds===40;
+    })(),'a hopeless hand still called a pot-swamping bet');
+    check('does not fold the nuts',(()=>{
+      for(let i=0;i<40;i++){
+        const mv=A.pokerBotMove({hand:[card('A','spades'),card('A','hearts')],community:[card('A','clubs'),card('A','diamonds'),card('K','hearts')],
+          gameId:'texas',chips:900,bet:0,currentBet:100,bigBlind:20,pot:200,rivals:2},'sharp');
+        if(mv.action==='fold')return false;
+      }
+      return true;
+    })());
+
+    // Five-Card Draw discards are hand POSITIONS handed straight to pokerDraw(), which splices by
+    // index — an out-of-range or duplicated one would delete the wrong card or none at all.
+    let drawBad=0;
+    for(let i=0;i<300;i++){
+      const hand=[];
+      for(let k=0;k<5;k++)hand.push(card(RANKS[0|Math.random()*RANKS.length],SUITS[0|Math.random()*4]));
+      for(const level of ['gentle','sharp']){
+        const d=A.pokerBotDraw(hand,level);
+        if(!Array.isArray(d))drawBad++;
+        else if(d.some(i2=>!Number.isInteger(i2)||i2<0||i2>4))drawBad++;
+        else if(new Set(d).size!==d.length)drawBad++;
+      }
+    }
+    check(`discards only real, unique hand positions (${300*2} hands)`,drawBad===0,`${drawBad} bad discard sets`);
+    eq('stands pat on a made straight',
+      A.pokerBotDraw([card('5','spades'),card('6','hearts'),card('7','clubs'),card('8','diamonds'),card('9','spades')],'sharp').length,0);
+    eq('keeps a pair and draws three',
+      A.pokerBotDraw([card('K','spades'),card('K','hearts'),card('3','clubs'),card('7','diamonds'),card('9','spades')],'sharp').length,3);
+    eq('keeps four to a flush and draws one',
+      A.pokerBotDraw([card('2','spades'),card('6','spades'),card('9','spades'),card('K','spades'),card('7','hearts')],'sharp').length,1);
+  });
+
+  suite('Bot opponents — Yahtzee',()=>{
+    const fresh=()=>A.yFreshScorecard();
+    check('holds are always five booleans',(()=>{
+      for(let i=0;i<200;i++){
+        const dice=[0,0,0,0,0].map(()=>1+(0|Math.random()*6));
+        for(const level of ['gentle','sharp']){
+          const h=A.yahtzeeBotHolds(dice,fresh(),level);
+          if(!Array.isArray(h)||h.length!==5||h.some(x=>typeof x!=='boolean'))return false;
+        }
+      }
+      return true;
+    })());
+    check('keeps all five of a Yahtzee rather than breaking it up',
+      A.yahtzeeBotHolds([4,4,4,4,4],fresh(),'sharp').every(Boolean));
+    check('keeps a four-card straight draw over the odd pair',(()=>{
+      const h=A.yahtzeeBotHolds([2,3,4,5,5],fresh(),'sharp');
+      // the run 2-3-4-5 is four dice; only one of the two fives belongs to it
+      return h.filter(Boolean).length===4;
+    })());
+    check('keeps the higher-value trips when two sets are on the table',(()=>{
+      const h=A.yahtzeeBotHolds([6,6,2,2,2],fresh(),'sharp');
+      return h[0]&&h[1]; // full house — both the sixes and the twos stay
+    })());
+
+    check('always names a category that is still open',(()=>{
+      for(let i=0;i<300;i++){
+        const sc=fresh();
+        // fill a random subset, always leaving at least one box open
+        const cats=Object.keys(sc).filter(k=>k!=='yahtzeeBonus');
+        const fill=0|Math.random()*(cats.length-1);
+        for(let k=0;k<fill;k++)sc[cats[k]]=0;
+        const dice=[0,0,0,0,0].map(()=>1+(0|Math.random()*6));
+        for(const level of ['gentle','sharp']){
+          const cat=A.yahtzeeBotCategory(dice,sc,level);
+          if(!cat||sc[cat]!==null)return false;
+        }
+      }
+      return true;
+    })());
+    eq('takes the Yahtzee box when it has rolled one',
+      A.yahtzeeBotCategory([5,5,5,5,5],fresh(),'sharp'),'yahtzee');
+    check('will not burn the Yahtzee box on a zero while cheap boxes are open',
+      A.yahtzeeBotCategory([1,2,3,6,6],fresh(),'sharp')!=='yahtzee');
+  });
+
+  suite('Bot opponents — Blackjack',()=>{
+    const up=r=>card(r,'spades');
+    const hand=(...rs)=>rs.map(r=>card(r,'hearts'));
+    eq('gentle mimics the dealer and hits 16',A.blackjackBotMove(hand('10','6'),up('7'),false,'gentle'),'hit');
+    eq('gentle stands on 17',A.blackjackBotMove(hand('10','7'),up('7'),false,'gentle'),'stand');
+    eq('gentle never doubles',A.blackjackBotMove(hand('6','5'),up('6'),true,'gentle'),'hit');
+    eq('sharp stands on a hard 20',A.blackjackBotMove(hand('10','10'),up('9'),false,'sharp'),'stand');
+    eq('sharp hits hard 16 against a ten',A.blackjackBotMove(hand('10','6'),up('K'),false,'sharp'),'hit');
+    eq('sharp stands hard 16 against a six',A.blackjackBotMove(hand('10','6'),up('6'),false,'sharp'),'stand');
+    eq('sharp doubles eleven',A.blackjackBotMove(hand('6','5'),up('6'),true,'sharp'),'double');
+    eq('sharp hits soft 17',A.blackjackBotMove(hand('A','6'),up('10'),false,'sharp'),'hit');
+    eq('sharp stands soft 19',A.blackjackBotMove(hand('A','8'),up('10'),false,'sharp'),'stand');
+    check('never busts itself on a hard 20 or 21',(()=>{
+      for(const total of [['10','10'],['A','K']])
+        for(const u of ['2','7','A'])
+          if(A.blackjackBotMove(hand(...total),up(u),false,'sharp')!=='stand')return false;
+      return true;
+    })());
+  });
+
+  suite('Bot opponents — Roulette',()=>{
+    let bad=0,total=0;
+    for(let i=0;i<200;i++){
+      const chips=1+(0|Math.random()*2000);
+      for(const level of ['gentle','sharp']){
+        const bets=A.rouletteBotBets(chips,level);
+        total++;
+        if(!bets.length)bad++;
+        let sum=0;
+        for(const b of bets){
+          sum+=b.amt;
+          if(!(b.amt>0))bad++;
+          // Every key has to be one roulBetWins() actually understands, or the chips vanish.
+          const known=/^(straight:(3[0-6]|[12]?\d)|dozen:[123]|column:[123]|red|black|odd|even|low|high)$/.test(b.key);
+          if(!known)bad++;
+        }
+        if(sum>chips)bad++; // never stakes more than it holds
+      }
+    }
+    check(`only ever stakes understood bets it can afford (${total} budgets)`,bad===0,`${bad} bad bet sets`);
+    check('a broke bot still produces a legal, tiny bet',
+      A.rouletteBotBets(1,'sharp').every(b=>b.amt>0));
+  });
+
   /* ── 4. Scoring and evaluation the whole app depends on ──────────────── */
   suite('Card values & scoring',()=>{
     eq('Mau Mau: Jack = 20',A.cardVal(card('J','hearts')),20);
@@ -721,6 +939,8 @@ function grab(W,names){
   return o;
 }
 const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoCardVal','evalHand',
+  'unoBotMove','unoBotColor','pokerBotStrength','pokerBotMove','pokerBotDraw',
+  'yahtzeeBotHolds','yahtzeeBotCategory','blackjackBotMove','rouletteBotBets','isBotPlayer','BOT_GAMES',
   'yScoreCategory','buildDeck','buildUnoDeck','shuffle','momentPortraitSrc','avImgSrc',
   'SUITS','RANKS','AVATARS','ACHIEVEMENTS',
   'computeSidePots','settleSidePots','roulPayoutMultiplier','roulBetWins','yScoreForCategory','yFreshScorecard',
