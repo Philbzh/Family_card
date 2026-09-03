@@ -2665,8 +2665,13 @@ function rulesCanPlay(card,ctx){
   if((ctx.drawPend||0)>0)return card.rank==='7'&&hr.draw2stack!==false;
   if(ctx.skip8Pend)return card.rank==='8'&&hr.eightReverse!==false;
   if(card.rank==='J'){
-    if(hr.jackWild===false)return!top||card.suit===ctx.curSuit||card.rank===top.rank;
+    // Bube auf Bube: never, wild or not. This has to come before the house-rule branch below --
+    // asking about jackWild first let a non-wild Jack match the top Jack BY RANK, which is exactly
+    // the move the rules card forbids.
     if(top&&top.rank==='J')return false;
+    // With the wild rule off a Jack is just an ordinary card, so it needs a matching suit. (Rank
+    // matching is what the line above already ruled out, so there is nothing else left to match.)
+    if(hr.jackWild===false)return!top||card.suit===ctx.curSuit;
     return true;
   }
   if(!top)return true;
@@ -2695,9 +2700,11 @@ function mauMauBotMove(hand,ctx,level){
   hand.forEach(c=>{if(c.suit)suitCount[c.suit]=(suitCount[c.suit]||0)+1;});
   const rank=c=>{
     let s=cardVal(c); // shedding face value matters: whoever doesn't go out eats what's left in hand
-    // A Jack is the only card that always has an answer. Spending one early throws away the escape
-    // hatch you'll want on the turn you'd otherwise have to draw, so hold it unless it's all we have.
-    if(c.rank==='J')s-=70;
+    // A Jack is the only card that always has an answer — but only while the wild house rule is on.
+    // Spending one early throws away the escape hatch you'll want on the turn you'd otherwise have
+    // to draw, so hold it unless it's all we have. With the wild rule off it is not an escape hatch
+    // at all, just the most expensive card in the hand, and holding it only costs points.
+    if(c.rank==='J'&&(ctx.hr||{}).jackWild!==false)s-=70;
     // Attack cards are worth cashing in while they still cost somebody something.
     if(c.rank==='7')s+=30;
     if(c.rank==='8')s+=22;
@@ -2961,6 +2968,7 @@ function lIllegal(c){
   if(G.lpend>0)return G.hr.draw2stack!==false?'Play a 7 or draw '+G.lpend+' cards.':'Draw '+G.lpend+' cards.';
   if(G.lskip8)return G.hr.eightReverse!==false?'Play an 8 to pass the skip on, or continue.':'You are skipped.';
   const top=G.ldisc[G.ldisc.length-1];
+  if(c.rank==='J'&&top&&top.rank==='J')return'A Jack cannot be played on another Jack.';
   return top?`Doesn't match ${SYM[G.lsuit]} or ${top.rank}.`:'';
 }
 function lEnsureDeck(){if(G.ldeck.length)return;if(G.ldisc.length<=1)return;const top=G.ldisc.pop();G.ldeck=shuffle(G.ldisc);G.ldisc=[top];}

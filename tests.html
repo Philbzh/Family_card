@@ -48,6 +48,11 @@ function eq(name,actual,expected){
    before the refactor. These exist so the extraction into rulesCanPlay() can be proven equivalent
    rather than assumed — the app now has one copy of the rules, and this is the oracle that says
    the copy it kept behaves like the two it replaced. */
+  // Deliberately NOT a verbatim copy of the pre-refactor code any more: the original let a Jack be
+  // played on a Jack whenever the jackWild house rule was off (it fell through to rank matching,
+  // and J === J). That is the one move the game's own rules card forbids outright, so it was a bug
+  // rather than behaviour worth preserving. This reference carries the corrected answer; every
+  // other answer is still the original's.
 function refLocalCanPlay(c,g){
   if(g.selGame==='uno'){
     const top=g.ldisc[g.ldisc.length-1];
@@ -60,8 +65,8 @@ function refLocalCanPlay(c,g){
   if(g.lpend>0)return c.rank==='7'&&g.hr.draw2stack!==false;
   if(g.lskip8)return c.rank==='8'&&g.hr.eightReverse!==false;
   if(c.rank==='J'){
-    if(g.hr.jackWild===false)return!top||c.suit===g.lsuit||c.rank===top.rank;
     if(top&&top.rank==='J')return false;
+    if(g.hr.jackWild===false)return!top||c.suit===g.lsuit;
     return true;
   }
   if(!top)return true;
@@ -79,8 +84,8 @@ function refOnlineCanPlay(card,state){
   if(state.drawPend>0)return card.rank==='7'&&state.hr?.draw2stack!==false;
   if(state.skip8Pend)return card.rank==='8'&&state.hr?.eightReverse!==false;
   if(card.rank==='J'){
-    if(state.hr?.jackWild===false)return!top||card.suit===state.curSuit||card.rank===top.rank;
     if(top&&top.rank==='J')return false;
+    if(state.hr?.jackWild===false)return!top||card.suit===state.curSuit;
     return true;
   }
   if(!top)return true;
@@ -168,6 +173,16 @@ function run(A,W){
       !A.rulesCanPlay(card('J','clubs'),{...base,top:card('J','hearts')}));
     check('with jackWild off, a Jack must match like any other card',
       !A.rulesCanPlay(card('J','clubs'),{...base,hr:{jackWild:false}}));
+    // Bube auf Bube is forbidden outright, which is what the rules card in the app says. Turning
+    // the wild house rule off used to let a Jack match the top Jack by RANK and slip through.
+    check('Jack cannot be stacked on a Jack even with jackWild off',
+      !A.rulesCanPlay(card('J','clubs'),{...base,top:card('J','hearts'),hr:{jackWild:false}}));
+    check('nor on a Jack of its own suit with jackWild off',
+      !A.rulesCanPlay(card('J','hearts'),{...base,top:card('J','hearts'),curSuit:'hearts',hr:{jackWild:false}}));
+    check('with jackWild off a Jack still plays on a matching suit',
+      A.rulesCanPlay(card('J','hearts'),{...base,hr:{jackWild:false}}));
+    check('an ordinary card still answers the suit chosen after a Jack',
+      A.rulesCanPlay(card('4','spades'),{...base,top:card('J','hearts'),curSuit:'spades'}));
     check('while a draw is pending, only a 7 answers',
       A.rulesCanPlay(card('7','clubs'),{...base,drawPend:2})&&
       !A.rulesCanPlay(card('9','clubs'),{...base,drawPend:2}));
@@ -221,6 +236,10 @@ function run(A,W){
       A.mauMauBotMove([card('J','clubs'),card('3','hearts')],ctx,'sharp').card.rank==='3');
     check('spends the Jack when it is the only legal card',
       A.mauMauBotMove([card('J','clubs'),card('2','clubs')],ctx,'sharp').card.rank==='J');
+    // Holding the Jack back only pays while it is wild. With that house rule off it is an ordinary
+    // card worth 20 — the most expensive thing in the hand — so sitting on it just loses points.
+    check('does not hoard the Jack when the wild house rule is off',
+      A.mauMauBotMove([card('J','hearts'),card('3','hearts')],{...ctx,hr:{jackWild:false}},'sharp').card.rank==='J');
     check('prefers an attacking 7 over a plain match',
       A.mauMauBotMove([card('7','hearts'),card('3','hearts')],ctx,'sharp').card.rank==='7');
     check('answers a pending draw with a 7',
