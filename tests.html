@@ -489,6 +489,36 @@ function run(A,W){
     eq('two pair',K([2,2,6,6,3]),'twopair');
     eq('pair',K([4,4,1,3,6]),'pair');
     eq('nothing at all',K([1,3,5,2,6]),'high'); // 1,2,3 then 5,6 — longest run is three
+    // A run beats trips because it is genuinely rarer on five dice, which is also why the reveal
+    // has to SHOW the run -- losing to five ordinary-looking numbers reads as arbitrary otherwise.
+    check('a run outranks three of a kind',A.ddEvaluate([1,2,3,4,6]).rank>A.ddEvaluate([5,5,5,1,2]).rank);
+    check('and it is the rarer throw, which is what justifies that',(()=>{
+      let trips=0,run=0,n=60000;
+      for(let i=0;i<n;i++){
+        const d=[0,0,0,0,0].map(()=>1+(0|Math.random()*6));
+        const k=A.ddEvaluate(d).key;
+        if(k==='three')trips++; else if(k==='sstr')run++;
+      }
+      return run<trips;
+    })(),'a small straight came up more often than three of a kind');
+
+    const marks=(d)=>A.ddScoringDice(d,A.ddEvaluate(d).key).map(i=>d[i]).sort().join('');
+    eq('the reveal marks the three that made the trips',marks([5,5,5,1,2]),'555');
+    eq('the run, without the spare die',marks([1,2,3,4,6]),'1234');
+    eq('both pairs of a two pair',marks([2,2,6,6,3]),'2266');
+    eq('the whole hand for a full house',marks([3,3,3,5,5]),'33355');
+    eq('just the four of a four of a kind',marks([6,6,6,6,2]),'6666');
+    eq('and only the best die when there is nothing',marks([1,3,5,2,6]),'6');
+    check('marked dice are always real, unique positions',(()=>{
+      for(let i=0;i<2000;i++){
+        const d=[0,0,0,0,0].map(()=>1+(0|Math.random()*6));
+        const m=A.ddScoringDice(d,A.ddEvaluate(d).key);
+        if(!m.length||m.some(x=>!Number.isInteger(x)||x<0||x>4))return false;
+        if(new Set(m).size!==m.length)return false;
+      }
+      return true;
+    })());
+
     check('the sum breaks a tie between equal combinations',
       A.ddEvaluate([6,6,1,2,3]).sum>A.ddEvaluate([2,2,1,3,5]).sum);
     check('every random throw lands on a known combination',(()=>{
@@ -1081,7 +1111,7 @@ function grab(W,names){
 }
 const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoCardVal','evalHand',
   'unoBotMove','unoBotColor','pokerBotStrength','pokerBotMove','pokerBotDraw',
-  'ddEvaluate','ddResolveRound','ddBotHolds','ddMaxThrows','ddIsUnderdog','DD_COMBOS','DD_TARGET','DD_COMEBACK_GAP','DD_DUEL_BONUS',
+  'ddEvaluate','ddResolveRound','ddBotHolds','ddScoringDice','ddMaxThrows','ddIsUnderdog','DD_COMBOS','DD_TARGET','DD_COMEBACK_GAP','DD_DUEL_BONUS',
   'yahtzeeBotHolds','yahtzeeBotCategory','blackjackBotMove','rouletteBotBets','isBotPlayer','BOT_GAMES',
   'yScoreCategory','buildDeck','buildUnoDeck','shuffle','momentPortraitSrc','avImgSrc',
   'SUITS','RANKS','AVATARS','ACHIEVEMENTS',

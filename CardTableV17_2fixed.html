@@ -144,6 +144,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100v
 .dd-event.blocked,.dd-event.shieldnote{border-color:rgba(90,160,220,.4);color:#8fc4ea;}
 .dd-event.multiply{border-color:rgba(160,110,224,.45);color:#c9a0e8;}
 .dd-final{font-family:var(--serif);font-size:1.05rem;color:var(--gold2);}
+/* The dice that earned the combination. Without this a Run reads as five unrelated numbers and
+   losing to one looks arbitrary. */
+.dd-die.dd-scoring{box-shadow:0 0 0 2px var(--gold2),0 0 12px rgba(240,204,96,.55);}
+.dd-beats{font-size:.72rem;color:var(--paper2);letter-spacing:.02em;text-align:center;}
+.dd-beats b{color:var(--gold2);font-variant-numeric:tabular-nums;}
 @media(prefers-reduced-motion:reduce){
   .dd-die.dd-tumble{animation:none;}
   .dd-duel-call.flash{animation:none;}
@@ -3414,6 +3419,40 @@ function ddResolveRound(evA,evB,scoreA,scoreB){
     shield,doubled,combos:[ev[0].key,ev[1].key]};
 }
 
+// Which dice actually earned the combination. Losing to a "RUN" is baffling if the run itself is
+// invisible among five ordinary-looking numbers -- the reveal highlights exactly these.
+function ddScoringDice(dice,key){
+  dice=dice||[];
+  const counts=yCounts(dice),idx=[];
+  const takeValue=v=>dice.forEach((d,i)=>{if(d===v)idx.push(i);});
+  if(key==='five'||key==='full'||key==='lstr')return dice.map((_,i)=>i);
+  if(key==='four'||key==='three'){
+    const n=key==='four'?4:3;
+    for(let v=1;v<=6;v++)if(counts[v]>=n){takeValue(v);break;}
+    return idx;
+  }
+  if(key==='twopair'||key==='pair'){
+    for(let v=6;v>=1;v--)if(counts[v]===2)takeValue(v);
+    return key==='pair'?idx.slice(0,2):idx;
+  }
+  if(key==='sstr'){
+    // The longest consecutive run, one die per value -- the spare die is not part of it.
+    const uniq=[...new Set(dice)].sort((a,b)=>a-b);
+    let best=[],cur=[uniq[0]];
+    for(let i=1;i<uniq.length;i++){
+      if(uniq[i]===uniq[i-1]+1)cur.push(uniq[i]);
+      else{if(cur.length>best.length)best=cur;cur=[uniq[i]];}
+    }
+    if(cur.length>best.length)best=cur;
+    const used={};
+    dice.forEach((d,i)=>{if(best.indexOf(d)>=0&&!used[d]){used[d]=1;idx.push(i);}});
+    return idx;
+  }
+  // High die: the single best one is all that is doing any work.
+  let bi=0;dice.forEach((d,i)=>{if(d>dice[bi])bi=i;});
+  return dice.length?[bi]:[];
+}
+
 // Trailing badly buys one extra reroll — a tactical opportunity, never free points. Chosen
 // deliberately over "catch-up points", which reads as the game apologising for you.
 function ddIsUnderdog(myScore,theirScore){return(theirScore||0)-(myScore||0)>=DD_COMEBACK_GAP;}
@@ -3809,8 +3848,13 @@ function rDiceDuelTable(){
     const side=i=>`
       <div class="dd-reveal-side${r&&r.duelWinner===i&&showCombo?' won':''}">
         <div class="dd-reveal-name">${esc(P[i].name)}</div>
-        <div class="dice-tray dd-tray small">${(v.seats[i].dice||[]).map((d,k)=>ddDieHTML(d,false,k,false,false)).join('')}</div>
-        <div class="dd-reveal-combo${showCombo?' in':''}">${evs[i].icon} ${evs[i].short}</div>
+        <div class="dice-tray dd-tray small">${(()=>{
+          const sc=showCombo?ddScoringDice(v.seats[i].dice||[],evs[i].key):[];
+          return (v.seats[i].dice||[]).map((d,k)=>
+            ddDieHTML(d,false,k,false,false).replace('class="die dd-die',
+              'class="die dd-die'+(sc.indexOf(k)>=0?' dd-scoring':''))).join('');
+        })()}</div>
+        <div class="dd-reveal-combo${showCombo?' in':''}">${evs[i].icon} ${evs[i].short} <b>${evs[i].base}</b></div>
         <div class="dd-reveal-pts${showPowers?' in':''}">+${(r?r.delta[i]:0)>=0?'':''}${r?r.delta[i]:0}</div>
       </div>`;
     const powerRows=showPowers&&r?r.events.map(e=>
@@ -3819,6 +3863,7 @@ function rDiceDuelTable(){
       <div class="dd-stage dd-reveal">
         <div class="dd-duel-call${v.step===0?' flash':''}">⚔️ DUEL!</div>
         <div class="dd-reveal-row">${side(0)}<div class="dd-vs">VS</div>${side(1)}</div>
+        ${showCombo&&r&&r.duelWinner!==null?`<div class="dd-beats">${evs[r.duelWinner].short} <b>${evs[r.duelWinner].base}</b> beats ${evs[1-r.duelWinner].short} <b>${evs[1-r.duelWinner].base}</b></div>`:''}
         <div class="dd-events${showPowers?' in':''}">${powerRows}</div>
         ${showScore&&v.phase==='roundover'?`<button class="btn btn-gold" data-a="dd-next">Next round ▶</button>`:''}
         ${showScore&&v.phase==='matchover'?`<div class="dd-final">🏆 Duel over</div>`:''}
