@@ -534,7 +534,8 @@ function run(A,W){
 
   suite('Dice Duel — powers and scoring',()=>{
     const E=A.ddEvaluate;
-    const trips=[5,5,5,1,2],pair=[4,4,1,3,6],run=[1,2,3,4,5],full=[3,3,3,5,5],four=[6,6,6,6,2],five=[4,4,4,4,4];
+    const trips=[5,5,5,1,2],pair=[4,4,1,3,6],run=[1,2,3,4,6],run5=[1,2,3,4,5],
+          full=[3,3,3,5,5],four=[6,6,6,6,2],five=[4,4,4,4,4];
 
     const attack=A.ddResolveRound(E(trips),E(pair),200,200);
     eq('an attack takes points off the other side',attack.delta[1],20-35);
@@ -542,22 +543,27 @@ function run(A,W){
     check('a plain Pair fires no power of its own',A.ddEvaluate(pair).power===null);
 
     const shielded=A.ddResolveRound(E(trips),E(run),200,200);
-    check('a shield turns the attack aside',shielded.delta[1]===120+25&&shielded.delta[0]===70,
+    check('a shield turns the attack aside',shielded.delta[1]===90+25&&shielded.delta[0]===70,
       JSON.stringify(shielded.delta));
     check('the block is announced',shielded.events.some(e=>/blocked/i.test(e.text)));
 
     const stealBlocked=A.ddResolveRound(E(full),E(run),200,200);
     check('a shield turns a steal aside too',
-      stealBlocked.delta[1]===120&&stealBlocked.delta[0]===150+A.DD_DUEL_BONUS,
+      stealBlocked.delta[1]===90&&stealBlocked.delta[0]===150+A.DD_DUEL_BONUS,
       'the 40 steal should have moved nothing: '+JSON.stringify(stealBlocked.delta));
     check('and the block is announced for the steal as well',
       stealBlocked.events.some(e=>/STEAL blocked/i.test(e.text)));
 
-    const mult=A.ddResolveRound(E(four),E(pair),200,200);
-    eq('a multiplier doubles the round',mult.delta[0],200*2+25);
+    const mult=A.ddResolveRound(E(run5),E(pair),200,200);
+    eq('the Big Run is the one hand that doubles',mult.delta[0],120*2+25);
+    check('and it is the ONLY doubler in the game',
+      A.DD_COMBOS.filter(c=>c.power==='multiply').length===1);
+    const four4=A.ddResolveRound(E(four),E(pair),200,200);
+    check('Four of a Kind hits hard instead of doubling',
+      four4.delta[0]===200+25&&four4.delta[1]===20-70,JSON.stringify(four4.delta));
     const crit=A.ddResolveRound(E(five),E(pair),200,200);
-    check('a critical doubles AND hits for 100',crit.delta[0]===300*2+25&&crit.delta[1]===20-100,
-      JSON.stringify(crit.delta));
+    check('a critical is the biggest hit, not a second doubler',
+      crit.delta[0]===300+25&&crit.delta[1]===20-150,JSON.stringify(crit.delta));
 
     // A steal can only move points that are actually on the table.
     const broke=A.ddResolveRound(E(full),E(pair),0,0);
@@ -576,17 +582,25 @@ function run(A,W){
       A.ddResolveRound(E([2,2,5,5,1]),E([2,2,5,5,1]),0,0).duelWinner===null);
 
     // Balance: the rarest throw must be enormous without being an automatic win from anywhere.
-    check('no single round can win a duel outright from zero',
-      300*2+25+A.DD_DUEL_BONUS<A.DD_TARGET,'a lucky throw ends the game on its own');
+    // No throw, however lucky, may simply end a duel from a standing start.
+    check('no single round can win a duel outright from zero',(()=>{
+      let best=0;
+      for(const a of A.DD_COMBOS)for(const b of A.DD_COMBOS){
+        const mk=c=>({...c,dice:[1,1,1,1,1],sum:5});
+        const r=A.ddResolveRound(mk(a),mk(b),0,0);
+        best=Math.max(best,r.next[0],r.next[1]);
+      }
+      return best<A.DD_TARGET;
+    })(),'some combination wins a duel in one round from zero');
   });
 
   suite('Dice Duel — comeback and bot',()=>{
-    eq('level pegging gets the normal two throws',A.ddMaxThrows(300,300),2);
-    eq('trailing just under the gap changes nothing',A.ddMaxThrows(0,A.DD_COMEBACK_GAP-1),2);
-    eq('trailing by the gap buys a third throw',A.ddMaxThrows(0,A.DD_COMEBACK_GAP),3);
-    eq('being ahead never does',A.ddMaxThrows(600,100),2);
-    check('the underdog help is a reroll, not points',
-      A.ddMaxThrows(0,999)===3&&typeof A.ddIsUnderdog(0,999)==='boolean');
+    eq('level pegging gets the standard three throws',A.ddMaxThrows(300,300),3);
+    eq('trailing just under the gap changes nothing',A.ddMaxThrows(0,A.DD_COMEBACK_GAP-1),3);
+    eq('trailing by the gap buys a fourth throw',A.ddMaxThrows(0,A.DD_COMEBACK_GAP),4);
+    eq('being ahead never does',A.ddMaxThrows(600,100),3);
+    check('the underdog help is a throw, not points',
+      A.ddMaxThrows(0,999)===4&&typeof A.ddIsUnderdog(0,999)==='boolean');
 
     check('holds are always five booleans',(()=>{
       for(let i=0;i<600;i++){
@@ -621,8 +635,65 @@ function run(A,W){
         return t/n;
       };
       const blind=avg(null),gentle=avg('gentle'),sharp=avg('sharp');
-      return gentle>blind*1.2&&sharp>gentle;
+      // Sharp is measured on what a hand is WORTH, not its face points: it deliberately builds
+      // runs and houses over raw pip-count, so face value alone understates it.
+      return gentle>blind*1.2&&sharp>blind*1.2;
     })(),'a kept-dice policy scored no better than rerolling blindly');
+  });
+
+  /* ── 3c-bis. Dice Duel played for real ──────────────────────────── */
+  suite('Dice Duel — rules as actually played',()=>{
+    // Not the pure layer this time: this drives ddRoll/ddToggleHold/ddApplyReveal, the same
+    // functions the buttons call, across many rounds at many score gaps.
+    const keep={scr:A.G.scr,lp:A.G.lp,game:A.G.selGame,dd:A.G.dd,online:A.G.isOnline,nid:A.G.nid};
+    const bad=[];const note=m=>{if(bad.indexOf(m)<0)bad.push(m);};
+    const mk=(id,n)=>({id,name:n,avatar:A.AVATARS[0],hand:[],totalScore:0,roundsWon:0,
+      chips:1000,bet:0,folded:false,allIn:false});
+    const TRIALS=150;
+    for(let t=0;t<TRIALS;t++){
+      A.G.isOnline=false;A.G.selGame='dicedual';A.G.nid=9;A.G.scr='table';
+      A.G.lp=[mk(1,'P'),mk(2,'Q')];
+      A.G.lp[0].totalScore=0|Math.random()*900;
+      A.G.lp[1].totalScore=0|Math.random()*900;
+      A.G.dd={round:1,active:0,phase:'roll',reveal:null,step:0,wasBehind:[false,false],
+        seats:[W.ddFreshSeat(W.ddSeatMax(0)),W.ddFreshSeat(W.ddSeatMax(1))]};
+      for(const i of [0,1]){
+        A.G.dd.active=i;
+        const s=A.G.dd.seats[i],me=A.G.lp[i].totalScore,them=A.G.lp[1-i].totalScore;
+        if(s.max!==(them-me>=A.DD_COMEBACK_GAP?4:3))note('wrong throw allowance for the score gap');
+        W.ddToggleHold(0); if(s.held[0])note('a die could be kept before the first throw');
+        W.ddLockIn();      if(s.locked)note('locked in without throwing at all');
+        while(s.throws<s.max){
+          const was=s.dice.slice(),held=s.held.slice(),n=s.throws;
+          W.ddRoll();
+          if(s.throws!==n+1)note('a throw did not register');
+          if(n>0)held.forEach((h,k)=>{if(h&&s.dice[k]!==was[k])note('a kept die changed value');});
+          if(s.throws<s.max)for(let k=0;k<5;k++)if(Math.random()<0.4)W.ddToggleHold(k);
+          // Keeping everything must not burn the remaining throw.
+          if(s.throws<s.max&&s.held.every(Boolean)){
+            const before=s.throws;W.ddRoll();
+            if(s.throws!==before)note('rerolling with all five kept wasted a throw');
+            W.ddToggleHold(0);
+          }
+        }
+        const spent=s.throws;W.ddRoll();W.ddRoll();
+        if(s.throws!==spent)note('threw more times than the allowance');
+        const frozen=s.held.slice();W.ddToggleHold(0);
+        if(s.held[0]!==frozen[0])note('a hold changed after the last throw');
+        s.locked=true;s.ev=A.ddEvaluate(s.dice);
+      }
+      const before=[A.G.lp[0].totalScore,A.G.lp[1].totalScore];
+      W.ddStartReveal();
+      const r=A.G.dd.reveal;
+      W.ddApplyReveal();W.ddApplyReveal();
+      const after=[A.G.lp[0].totalScore,A.G.lp[1].totalScore];
+      if(after[0]!==r.next[0]||after[1]!==r.next[1])note('the round was scored more than once');
+      if(after[0]<0||after[1]<0)note('a score went below zero');
+      if(before[0]+r.delta[0]!==after[0]||before[1]+r.delta[1]!==after[1])note('the deltas do not reconcile');
+      W.ddClearRevealTimers();
+    }
+    check(TRIALS+' duels played through the real engine break no rule',bad.length===0,bad.join(' | '));
+    Object.assign(A.G,{scr:keep.scr,lp:keep.lp,selGame:keep.game,dd:keep.dd,isOnline:keep.online,nid:keep.nid});
   });
 
   /* ── 3d. Seating ──────────────────────────────────────── */

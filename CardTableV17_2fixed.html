@@ -100,6 +100,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100v
   background:linear-gradient(150deg,#22301f,#141d15);border-color:rgba(255,255,255,.1);cursor:default;}
 .dd-combo-now{font-family:var(--serif);font-size:1rem;color:var(--gold2);letter-spacing:.04em;text-align:center;}
 .dd-combo-now.dim{color:var(--paper3);font-size:.85rem;}
+.dd-throws{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--paper3);}
 .dd-underdog{font-size:.7rem;color:#f0cc60;background:rgba(240,204,96,.12);border:1px solid rgba(240,204,96,.32);
   padding:.28rem .7rem;border-radius:999px;}
 .dd-waiting{font-size:.82rem;color:var(--paper2);text-align:center;}
@@ -2043,14 +2044,15 @@ const GAMES=[
   {id:'roulette',icon:'🎡',name:'Roulette',players:'1–8',dur:'15–30 min',diff:'easy',deal:0,cover:'assets/games/roulette.png',
    rules:['A European wheel — <b>0–36</b>, single zero. Everyone bets on the same shared table before each spin.','<b>Inside bet</b>: a straight number pays <b>35:1</b>.','<b>Outside bets</b>: Red/Black, Odd/Even, 1–18/19–36 all pay <b>1:1</b>. A dozen or a column pays <b>2:1</b>.','Pick a chip value, tap the table to place it, tap again to add more. Tap a bet to remove one chip.','Once everyone\'s happy with their bets, spin the wheel — every matching bet pays out at once.','0 loses every outside bet, but a straight-up 0 still pays 35:1.']},
   {id:'dicedual',icon:'⚔️',name:'Dice Duel',players:'2',dur:'10–15 min',diff:'easy',deal:0,minP:2,maxP:2,cover:'assets/games/dicedual.png',
-   rules:['Both duellists throw <b>5 dice</b>: one throw, then one reroll — keep what you like, throw the rest.',
+   rules:['Both duellists throw <b>5 dice</b>: one throw, then <b>two rerolls</b> — keep what you like, throw the rest.',
      'Your combination scores points <i>and</i> fires its power. Nothing to choose, nothing to remember.',
      '<b>Pair</b> 20 · <b>Two Pair</b> 40 · 💰 steal 15 · <b>Trips</b> 70 · ⚔ attack 35',
-     '<b>Run</b> 90 and <b>Big Run</b> 120 · 🛡 shield — turns aside an attack <i>or</i> a steal.',
-     '<b>Full House</b> 150 · 💰 steal 40 · <b>Four of a Kind</b> 200 · ✖ doubles your round.',
-     '<b>Five of a Kind</b> 300 · 💥 <b>CRITICAL</b> — doubled, and 100 straight off the other side.',
+     '<b>Run</b> 90 · 🛡 shield — turns aside an attack <i>or</i> a steal.',
+     '<b>Big Run</b> 120 · ✖ doubles your round — the hardest hand to build, and the best paid.',
+     '<b>Full House</b> 150 · 💰 steal 40 · <b>Four of a Kind</b> 200 · ⚔ attack 70.',
+     '<b>Five of a Kind</b> 300 · 💥 <b>CRITICAL</b> — 150 straight off the other side.',
      'Winning the comparison itself is worth <b>+25</b> on top.',
-     'Fall 250 behind and you get an <b>extra reroll</b> until you catch up. First to 1000 wins.']},
+     'Fall 200 behind and you get a <b>fourth throw</b> until you catch up. First to 900 wins.']},
   {id:'romme',icon:'♦️',name:'Rommé',players:'2–6',dur:'20–45 min',diff:'medium',deal:13,locked:true,cover:'assets/games/romme.png',
    rules:['Draw one card per turn, discard one.','Form <b>sets</b> (3+ same rank) or <b>runs</b> (3+ consecutive same suit).','Lay melds face-up, add to existing melds.','Empty your hand to win.','Coming soon — not yet playable.']},
   {id:'uno',icon:'🔴',name:'Uno',players:'2–8',dur:'10–20 min',diff:'easy',deal:7,maxP:8,cover:'assets/games/uno.png',
@@ -3318,24 +3320,37 @@ async function oYCommitCategory(cat){
    somebody is far enough behind to earn help. No globals, no DOM, no timers, so the local game,
    the online game and the test suite all read the same rules rather than three copies of them. */
 const DD_DICE=5;          // five dice: the fewest that can still make every combination below
+const DD_THROWS=3;        // one throw plus two rerolls; the underdog below gets a fourth
 // 1000, not 500: a doubled Four of a Kind is 400 and a doubled Five is 600, so against a 500 target
 // the rarest throw was simply an instant win from any score — the whole duel decided by one lucky
 // shake, which is the same anticlimox the comeback rule exists to prevent. At 1000 those throws are
 // still enormous (40% and 60% of the game) and still decide a close duel, but they have to be
 // converted rather than just landed. Typical round moves the winner ~100, so a duel runs 8-10 rounds.
-const DD_TARGET=1000;     // first past this when a round settles wins the duel
-const DD_COMEBACK_GAP=250;// trailing by this much buys one extra reroll — see ddIsUnderdog
+// Tuned by simulation, not by feel. Three throws lifted the average round from ~90 to ~117, so the
+// target and the comeback gap had to move with it. At 900 / 200 a duel runs about 7.6 rounds,
+// blowouts inside four rounds are under 1%, and 27% of duels are won by somebody who had been 200
+// behind — the "I can still win" this game is built around, without the leader being robbed.
+const DD_TARGET=900;      // first past this when a round settles wins the duel
+const DD_COMEBACK_GAP=200;// trailing by this much buys one extra reroll — see ddIsUnderdog
 const DD_DUEL_BONUS=25;   // for winning the comparison itself, so "⚔ DUEL!" has a payoff
 
 // Ordered strongest first. `rank` orders the duel, `base` is what the hand scores for its owner,
 // and `power` is the effect it fires. Deliberately one effect per combination: the whole game has
 // to be readable in seconds, so there is nothing to choose and nothing to remember.
+//
+// Which power sits where is a balance decision, not decoration. The multiplier used to sit on Four
+// of a Kind, and once the standard allowance became three throws that broke the game: chasing one
+// number single-mindedly reaches four of a kind about a quarter of the time, so the doubler sat on
+// the EASIEST big hand -- and the bot that just spammed one value beat the bot that built full
+// houses and runs, Gentle taking 54%% of duels off Sharp. The multiplier now sits on the Large
+// Straight, the one hand set-chasing never reaches, and Four of a Kind hits hard instead.
+// Run shields you; Big Run doubles you.
 const VS_='️'; // emoji presentation selector: without it ⚔ and 🛡 draw as thin outline glyphs
 const DD_COMBOS=[
-  {key:'five',    name:'Five of a Kind', short:'FIVE!',       rank:8, base:300, power:'critical', amount:100, icon:'💥'},
-  {key:'four',    name:'Four of a Kind', short:'FOUR',        rank:7, base:200, power:'multiply', amount:0,   icon:'✖'+VS_},
+  {key:'five',    name:'Five of a Kind', short:'FIVE!',       rank:8, base:300, power:'critical', amount:150, icon:'💥'},
+  {key:'four',    name:'Four of a Kind', short:'FOUR',        rank:7, base:200, power:'attack',   amount:70,  icon:'⚔'+VS_},
   {key:'full',    name:'Full House',     short:'FULL HOUSE',  rank:6, base:150, power:'steal',    amount:40,  icon:'💰'},
-  {key:'lstr',    name:'Large Straight', short:'BIG RUN',     rank:5, base:120, power:'shield',   amount:0,   icon:'🛡'+VS_},
+  {key:'lstr',    name:'Large Straight', short:'BIG RUN',     rank:5, base:120, power:'multiply', amount:0,   icon:'✖'+VS_},
   {key:'sstr',    name:'Small Straight', short:'RUN',         rank:4, base:90,  power:'shield',   amount:0,   icon:'🛡'+VS_},
   {key:'three',   name:'Three of a Kind',short:'TRIPS',       rank:3, base:70,  power:'attack',   amount:35,  icon:'⚔'+VS_},
   {key:'twopair', name:'Two Pair',       short:'TWO PAIR',    rank:2, base:40,  power:'steal',    amount:15,  icon:'💰'},
@@ -3377,7 +3392,10 @@ function ddResolveRound(evA,evB,scoreA,scoreB){
   const ev=[evA,evB],score=[scoreA||0,scoreB||0];
   const gain=[0,0],events=[];
   const shield=ev.map(e=>e.power==='shield');
-  const doubled=ev.map(e=>e.power==='multiply'||e.power==='critical');
+  // Only the Big Run doubles. A Critical used to double as well, which made Five of a Kind worth
+  // 625 in a single round — around 60% of a whole duel off one shake, in better than half of all
+  // duels. It is now simply the hardest hit in the game: spectacular without ending things.
+  const doubled=ev.map(e=>e.power==='multiply');
   // 1. Each duellist banks their own combination, doubled if they rolled a multiplier.
   for(let i=0;i<2;i++){
     gain[i]=ev[i].base*(doubled[i]?2:1);
@@ -3456,12 +3474,15 @@ function ddScoringDice(dice,key){
 // Trailing badly buys one extra reroll — a tactical opportunity, never free points. Chosen
 // deliberately over "catch-up points", which reads as the game apologising for you.
 function ddIsUnderdog(myScore,theirScore){return(theirScore||0)-(myScore||0)>=DD_COMEBACK_GAP;}
-function ddMaxThrows(myScore,theirScore){return ddIsUnderdog(myScore,theirScore)?3:2;}
+// Three throws as standard -- one throw and two rerolls, the same shape as a Yahtzee turn -- and a
+// fourth while you are trailing badly.
+function ddMaxThrows(myScore,theirScore){return DD_THROWS+(ddIsUnderdog(myScore,theirScore)?1:0);}
 
 /* ── Dice Duel bot ──
    Same two levels as everywhere else. Gentle keeps whatever it has most of and hopes; sharp keeps
    the strongest thing it is already holding, preferring the draw that is worth the most. */
-function ddBotHolds(dice,level){
+function ddBotHolds(dice,level,throwsLeft){
+  throwsLeft=(throwsLeft===undefined)?1:throwsLeft;
   const holds=[false,false,false,false,false];
   const counts=yCounts(dice);
   const keepValue=v=>dice.forEach((d,i)=>{if(d===v)holds[i]=true;});
@@ -3476,8 +3497,15 @@ function ddBotHolds(dice,level){
   for(let v=1;v<=6;v++){if(counts[v]>=3)trips.push(v);else if(counts[v]===2)pairs.push(v);}
   // Four of a kind is one die from the biggest hand in the game; never break it up.
   if(most>=4){for(let v=1;v<=6;v++)if(counts[v]>=4)keepValue(v);return holds;}
-  // A full house is already worth 150 — keep it whole rather than chasing a fourth.
-  if(most===3&&pairs.length){keepValue(trips[0]);keepValue(pairs[0]);return holds;}
+  // Full house in hand, and a choice: bank 150, or break the pair and chase the fourth for 400
+  // (Four of a Kind carries the multiplier, so it is worth 2.7x the house, not 1.3x). One reroll
+  // is a 1/6 shot — 0.167*400 + 0.833*~70 is about 125, worse than banking 150. Two rerolls give
+  // 1-(5/6)^2 = 30.6%, about 181, better. So the right answer depends on how many throws are left.
+  if(most===3&&pairs.length){
+    keepValue(trips[0]);
+    if(throwsLeft<2)keepValue(pairs[0]);
+    return holds;
+  }
   // Four to a straight is one die from 120 and a shield, which beats drawing to trips.
   const uniq=[...new Set(dice)].sort((a,b)=>a-b);
   let runVals=[],cur=[uniq[0]];
@@ -3530,9 +3558,13 @@ function ddBeginSeat(i){
   G.lpass2=i===0?'Roll your dice — the other side won’t see them.':'Your turn to throw.';
   G.scr='pass';
 }
+// Keeping all five and tapping reroll used to spend the throw and change nothing on screen, which
+// reads exactly like "I only got one throw". A reroll that rerolls nothing is not a throw -- if you
+// want to keep all five, that is what locking in is for.
+function ddAllKept(s){return!!s&&s.throws>0&&s.held.every(Boolean);}
 function ddRoll(){
   const s=G.dd&&G.dd.seats[G.dd.active];
-  if(!s||G.dd.phase!=='roll'||s.locked||s.throws>=s.max)return;
+  if(!s||G.dd.phase!=='roll'||s.locked||s.throws>=s.max||ddAllKept(s))return;
   const rolled=[];
   for(let i=0;i<DD_DICE;i++)if(s.throws===0||!s.held[i]){s.dice[i]=rnd(1,6);rolled.push(i);}
   s.throws++;s.lastRolled=rolled;
@@ -3696,6 +3728,7 @@ async function oDdRoll(){
       const i=oDdMySeat(state);if(i<0)return false;
       const s=state.dd.seats[i];
       if(state.dd.phase!=='roll'||s.locked||s.throws>=s.max)return false;
+      if(s.throws>0&&s.held.every(Boolean))return false; // nothing to reroll -- don't spend the throw
       const rolled=[];
       for(let k=0;k<DD_DICE;k++)if(s.throws===0||!s.held[k]){s.dice[k]=rnd(1,6);rolled.push(k);}
       s.throws++;s.lastRolled=rolled;
@@ -3840,6 +3873,7 @@ function rDiceDuelTable(){
         <div class="dd-divider"><span>⚔️</span></div>
         <div class="dice-tray dd-tray${seat.locked?' locked':''}">${dice}</div>
         ${ev?`<div class="dd-combo-now">${ev.icon} ${ev.short} · ${ev.base} pts${ev.power?` · ${DD_POWER_LABEL[ev.power]}`:''}</div>`:'<div class="dd-combo-now dim">Throw the dice to begin</div>'}
+        <div class="dd-throws">Throw ${Math.min(seat.throws+(seat.throws<seat.max?1:0),seat.max)} of ${seat.max}</div>
         ${underdog?`<div class="dd-underdog">🔥 Underdog — one extra reroll this round</div>`:''}
       </div>`;
   } else {
@@ -3872,8 +3906,11 @@ function rDiceDuelTable(){
 
   let actionBar='';
   if(!revealing&&!seat.locked){
-    const canRoll=seat.throws<seat.max;
-    const label=seat.throws===0?'🎲 THROW':`🎲 Reroll (${seat.max-seat.throws} left)`;
+    const allKept=seat.throws>0&&seat.held.every(Boolean);
+    const canRoll=seat.throws<seat.max&&!allKept;
+    const label=seat.throws===0?'🎲 THROW'
+      :allKept?'✓ All five kept'
+      :`🎲 Reroll (${seat.max-seat.throws} left)`;
     actionBar=`<div class="poker-actions"><div class="poker-action-row">
       <button class="btn btn-gold btn-sm" data-a="dd-roll" ${canRoll?'':'disabled'}>${label}</button>
       <button class="btn btn-green btn-sm" data-a="dd-lock" ${seat.throws?'':'disabled'}>⚔️ Lock in</button>
@@ -3894,7 +3931,9 @@ function rDiceDuelTable(){
       ${ddSeatHeadHTML(P[you],scores[you],'right','')}
     </div>
     <div class="felt-table my-turn dd-felt">${stage}</div>
-    <div class="hint-strip"><div class="hint-txt">${revealing?'':(seat.throws===0?`${actorName} — throw all five.`:'Tap dice to keep them, reroll the rest, then lock in.')}</div></div>
+    <div class="hint-strip"><div class="hint-txt">${revealing?'':(seat.throws===0?`${actorName} — throw all five.`
+      :(seat.throws>0&&seat.held.every(Boolean))?'All five kept — lock in to send it.'
+      :'Tap a die to <b>keep</b> it — everything else gets thrown again.')}</div></div>
     ${actionBar}
     ${talkStripHTML()}
   </div>`;
@@ -5343,7 +5382,7 @@ function botDiceDuelAct(){
   const d=G.dd,s=d.seats[d.active],p=G.lp[d.active];
   if(s.throws===0){ddRoll();return;}
   if(s.throws<s.max){
-    const holds=ddBotHolds(s.dice,p.bot);
+    const holds=ddBotHolds(s.dice,p.bot,s.max-s.throws);
     // Every die worth keeping is already kept — there is nothing a reroll could improve, so stop.
     if(!holds.every(Boolean)){s.held=holds;ddRoll();return;}
   }
