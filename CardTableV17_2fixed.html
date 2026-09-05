@@ -3721,42 +3721,70 @@ function oDdSettleIfReady(state){
     d.phase='matchover';
   }
 }
-async function oDdRoll(){
-  if(_onlineBusy)return;_onlineBusy=true;
-  try{
-    await oDdMutate(state=>{
-      const i=oDdMySeat(state);if(i<0)return false;
-      const s=state.dd.seats[i];
-      if(state.dd.phase!=='roll'||s.locked||s.throws>=s.max)return false;
-      if(s.throws>0&&s.held.every(Boolean))return false; // nothing to reroll -- don't spend the throw
-      const rolled=[];
-      for(let k=0;k<DD_DICE;k++)if(s.throws===0||!s.held[k]){s.dice[k]=rnd(1,6);rolled.push(k);}
-      s.throws++;s.lastRolled=rolled;
-      SFX.diceRoll();haptic([10,20,10]);
-      return true;
-    });
-  } finally { _onlineBusy=false; }
+// Your throw is private until you lock in, so it belongs on your phone and nowhere else. Rolling
+// and keeping dice used to be a full read-modify-write against the shared room ON EVERY TAP, which
+// is the worst possible shape for the one game here where both people act at once: the two devices
+// fought over the same row, the _onlineBusy guard silently swallowed every tap that arrived while a
+// write was in flight (five taps to keep five dice landed two), and a lock-in could lose the race
+// outright so the round never resolved and neither player saw anything. The roll phase is now
+// entirely local -- instant, no contention, no dropped taps -- and exactly ONE write happens per
+// player per round, when you lock in.
+// Because the draft never reaches the room, a refresh would otherwise hand back a clean set of
+// throws — losing an unlucky roll for free, which is both a lost turn for the honest player and a
+// re-roll button for anyone who noticed. Park it on the device, keyed to this room and round.
+function ddSaveLocal(){
+  try{localStorage.setItem('ct_dd_local',JSON.stringify({room:G.roomId,seat:G.ddLocal}));}catch(e){}
 }
-async function oDdHold(idx){
-  if(_onlineBusy)return;_onlineBusy=true;
-  try{
-    await oDdMutate(state=>{
-      const i=oDdMySeat(state);if(i<0)return false;
-      const s=state.dd.seats[i];
-      if(state.dd.phase!=='roll'||s.locked||!s.throws||s.throws>=s.max)return false;
-      s.held[idx]=!s.held[idx];
-      return true;
-    });
-  } finally { _onlineBusy=false; }
+function ddLocalSeat(){
+  const st=G.srv||{},d=st.dd||{},mine=oDdMySeat(st);
+  if(mine<0)return null;
+  const srv=(d.seats||[])[mine];
+  if(!G.ddLocal||G.ddLocal.round!==d.round){
+    let restored=null;
+    try{
+      const raw=JSON.parse(localStorage.getItem('ct_dd_local')||'null');
+      if(raw&&raw.room===G.roomId&&raw.seat&&raw.seat.round===d.round
+         &&Array.isArray(raw.seat.dice)&&raw.seat.dice.length===DD_DICE)restored=raw.seat;
+    }catch(e){}
+    G.ddLocal=restored||{round:d.round,dice:[1,1,1,1,1],held:[false,false,false,false,false],
+      throws:0,max:(srv&&srv.max)||DD_THROWS,locked:!!(srv&&srv.locked),lastRolled:[]};
+  }
+  // The room stays the authority on the two things a refresh must not undo.
+  if(srv&&srv.locked)G.ddLocal.locked=true;
+  if(srv&&srv.max)G.ddLocal.max=srv.max;
+  return G.ddLocal;
+}
+function oDdRoll(){
+  const s=ddLocalSeat(),d=(G.srv||{}).dd||{};
+  if(!s||d.phase!=='roll'||s.locked||s.throws>=s.max||ddAllKept(s))return;
+  const rolled=[];
+  for(let k=0;k<DD_DICE;k++)if(s.throws===0||!s.held[k]){s.dice[k]=rnd(1,6);rolled.push(k);}
+  s.throws++;s.lastRolled=rolled;
+  ddSaveLocal();
+  SFX.diceRoll();haptic([10,20,10]);
+  render();
+}
+function oDdHold(idx){
+  const s=ddLocalSeat(),d=(G.srv||{}).dd||{};
+  if(!s||d.phase!=='roll'||s.locked||!s.throws||s.throws>=s.max)return;
+  s.held[idx]=!s.held[idx];
+  s.lastRolled=[]; // clearing this is what stops the dice tumbling forever on every re-render
+  ddSaveLocal();
+  render();
 }
 async function oDdLock(){
+  const local=ddLocalSeat();
+  if(!local||local.locked||!local.throws)return;
   if(_onlineBusy)return;_onlineBusy=true;
   try{
+    local.locked=true;ddSaveLocal();render(); // the tap answers immediately; the write follows behind
     await oDdMutate(state=>{
       const i=oDdMySeat(state);if(i<0)return false;
       const s=state.dd.seats[i];
-      if(state.dd.phase!=='roll'||s.locked||!s.throws)return false;
-      s.locked=true;SFX.chip();
+      if(state.dd.phase!=='roll'||s.locked)return false;
+      // The whole throw travels in one write, at the only moment it becomes anyone else's business.
+      s.dice=local.dice.slice();s.held=local.held.slice();s.throws=local.throws;s.locked=true;
+      SFX.chip();
       oDdSettleIfReady(state);
       return true;
     });
@@ -3799,10 +3827,13 @@ function maybeDdReveal(){
 // ask again whether it is looking at a local duel or a synced one.
 function ddView(){
   if(G.isOnline){
-    const s=G.srv||{},d=s.dd||{};
-    return{online:true,round:d.round||1,seats:d.seats||[],reveal:d.reveal||null,step:_ddOnlineStep,
-      phase:d.phase||'roll',players:s.players||[],mySeat:Math.max(0,oDdMySeat(s)),
-      controls:Math.max(0,oDdMySeat(s))};
+    const s=G.srv||{},d=s.dd||{},mine=Math.max(0,oDdMySeat(s));
+    const seats=(d.seats||[]).slice();
+    // While the round is still being thrown, MY seat comes from the local draft rather than the
+    // room -- the room does not know about it yet, and does not need to.
+    if(d.phase==='roll'){const loc=ddLocalSeat();if(loc)seats[mine]=loc;}
+    return{online:true,round:d.round||1,seats,reveal:d.reveal||null,step:_ddOnlineStep,
+      phase:d.phase||'roll',players:s.players||[],mySeat:mine,controls:mine};
   }
   const d=G.dd||{},active=d.active||0;
   // A bot's throw must not put its dice on screen: the phone still belongs to the person playing
@@ -3897,7 +3928,11 @@ function rDiceDuelTable(){
       <div class="dd-stage dd-reveal">
         <div class="dd-duel-call${v.step===0?' flash':''}">⚔️ DUEL!</div>
         <div class="dd-reveal-row">${side(0)}<div class="dd-vs">VS</div>${side(1)}</div>
-        ${showCombo&&r&&r.duelWinner!==null?`<div class="dd-beats">${evs[r.duelWinner].short} <b>${evs[r.duelWinner].base}</b> beats ${evs[1-r.duelWinner].short} <b>${evs[1-r.duelWinner].base}</b></div>`:''}
+        ${showCombo&&r&&r.duelWinner!==null?`<div class="dd-beats">${
+          evs[0].rank===evs[1].rank
+            ? `Both threw ${evs[r.duelWinner].short} — won on the higher total, <b>${evs[r.duelWinner].sum}</b> to <b>${evs[1-r.duelWinner].sum}</b>`
+            : `${evs[r.duelWinner].short} <b>${evs[r.duelWinner].base}</b> beats ${evs[1-r.duelWinner].short} <b>${evs[1-r.duelWinner].base}</b>`
+        }</div>`:''}
         <div class="dd-events${showPowers?' in':''}">${powerRows}</div>
         ${showScore&&v.phase==='roundover'?`<button class="btn btn-gold" data-a="dd-next">Next round ▶</button>`:''}
         ${showScore&&v.phase==='matchover'?`<div class="dd-final">🏆 Duel over</div>`:''}
