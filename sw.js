@@ -19,6 +19,7 @@ const GAME_COVERS = [
   './assets/games/maumau.png','./assets/games/texas.png','./assets/games/fivecard.png',
   './assets/games/blackjack.png','./assets/games/battle.png','./assets/games/yahtzee.png',
   './assets/games/roulette.png','./assets/games/uno.png','./assets/games/romme.png',
+  './assets/games/dicedual.png',
 ];
 
 self.addEventListener('install', e => {

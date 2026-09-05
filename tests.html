@@ -473,6 +473,128 @@ function run(A,W){
       A.rouletteBotBets(1,'sharp').every(b=>b.amt>0));
   });
 
+
+  /* ── 3c. Dice Duel ────────────────────────────────────────────────────── */
+  suite('Dice Duel — combinations',()=>{
+    const K=d=>A.ddEvaluate(d).key;
+    eq('five of a kind',K([4,4,4,4,4]),'five');
+    eq('four of a kind',K([6,6,6,6,2]),'four');
+    eq('full house is a full house, not trips',K([3,3,3,5,5]),'full');
+    eq('large straight low',K([1,2,3,4,5]),'lstr');
+    eq('large straight high',K([2,3,4,5,6]),'lstr');
+    eq('small straight',K([1,2,3,4,6]),'sstr');
+    // 1-2-3-4 is a small straight even with the spare die pairing off one of them.
+    eq('a run of four still counts with a pair alongside',K([1,2,3,4,4]),'sstr');
+    eq('three of a kind',K([5,5,5,1,2]),'three');
+    eq('two pair',K([2,2,6,6,3]),'twopair');
+    eq('pair',K([4,4,1,3,6]),'pair');
+    eq('nothing at all',K([1,3,5,2,6]),'high'); // 1,2,3 then 5,6 — longest run is three
+    check('the sum breaks a tie between equal combinations',
+      A.ddEvaluate([6,6,1,2,3]).sum>A.ddEvaluate([2,2,1,3,5]).sum);
+    check('every random throw lands on a known combination',(()=>{
+      const keys=A.DD_COMBOS.map(c=>c.key);
+      for(let i=0;i<3000;i++){
+        const d=[0,0,0,0,0].map(()=>1+(0|Math.random()*6));
+        const e=A.ddEvaluate(d);
+        if(keys.indexOf(e.key)<0||typeof e.base!=='number')return false;
+      }
+      return true;
+    })());
+  });
+
+  suite('Dice Duel — powers and scoring',()=>{
+    const E=A.ddEvaluate;
+    const trips=[5,5,5,1,2],pair=[4,4,1,3,6],run=[1,2,3,4,5],full=[3,3,3,5,5],four=[6,6,6,6,2],five=[4,4,4,4,4];
+
+    const attack=A.ddResolveRound(E(trips),E(pair),200,200);
+    eq('an attack takes points off the other side',attack.delta[1],20-35);
+    eq('and the attacker keeps its own combination plus the duel bonus',attack.delta[0],70+25);
+    check('a plain Pair fires no power of its own',A.ddEvaluate(pair).power===null);
+
+    const shielded=A.ddResolveRound(E(trips),E(run),200,200);
+    check('a shield turns the attack aside',shielded.delta[1]===120+25&&shielded.delta[0]===70,
+      JSON.stringify(shielded.delta));
+    check('the block is announced',shielded.events.some(e=>/blocked/i.test(e.text)));
+
+    const stealBlocked=A.ddResolveRound(E(full),E(run),200,200);
+    check('a shield turns a steal aside too',
+      stealBlocked.delta[1]===120&&stealBlocked.delta[0]===150+A.DD_DUEL_BONUS,
+      'the 40 steal should have moved nothing: '+JSON.stringify(stealBlocked.delta));
+    check('and the block is announced for the steal as well',
+      stealBlocked.events.some(e=>/STEAL blocked/i.test(e.text)));
+
+    const mult=A.ddResolveRound(E(four),E(pair),200,200);
+    eq('a multiplier doubles the round',mult.delta[0],200*2+25);
+    const crit=A.ddResolveRound(E(five),E(pair),200,200);
+    check('a critical doubles AND hits for 100',crit.delta[0]===300*2+25&&crit.delta[1]===20-100,
+      JSON.stringify(crit.delta));
+
+    // A steal can only move points that are actually on the table.
+    const broke=A.ddResolveRound(E(full),E(pair),0,0);
+    check('a steal never takes more than the other side has',broke.next[1]>=0&&broke.delta[0]<=150+25+20,
+      JSON.stringify(broke));
+    check('nobody is ever driven below zero',(()=>{
+      for(let i=0;i<3000;i++){
+        const d=()=>[0,0,0,0,0].map(()=>1+(0|Math.random()*6));
+        const r=A.ddResolveRound(E(d()),E(d()),0|Math.random()*80,0|Math.random()*80);
+        if(r.next[0]<0||r.next[1]<0)return false;
+      }
+      return true;
+    })());
+    check('the duel bonus goes to the stronger hand',A.ddResolveRound(E(four),E(pair),0,0).duelWinner===0);
+    check('two identical throws share no duel bonus',
+      A.ddResolveRound(E([2,2,5,5,1]),E([2,2,5,5,1]),0,0).duelWinner===null);
+
+    // Balance: the rarest throw must be enormous without being an automatic win from anywhere.
+    check('no single round can win a duel outright from zero',
+      300*2+25+A.DD_DUEL_BONUS<A.DD_TARGET,'a lucky throw ends the game on its own');
+  });
+
+  suite('Dice Duel — comeback and bot',()=>{
+    eq('level pegging gets the normal two throws',A.ddMaxThrows(300,300),2);
+    eq('trailing just under the gap changes nothing',A.ddMaxThrows(0,A.DD_COMEBACK_GAP-1),2);
+    eq('trailing by the gap buys a third throw',A.ddMaxThrows(0,A.DD_COMEBACK_GAP),3);
+    eq('being ahead never does',A.ddMaxThrows(600,100),2);
+    check('the underdog help is a reroll, not points',
+      A.ddMaxThrows(0,999)===3&&typeof A.ddIsUnderdog(0,999)==='boolean');
+
+    check('holds are always five booleans',(()=>{
+      for(let i=0;i<600;i++){
+        const d=[0,0,0,0,0].map(()=>1+(0|Math.random()*6));
+        for(const lvl of ['gentle','sharp']){
+          const h=A.ddBotHolds(d,lvl);
+          if(!Array.isArray(h)||h.length!==5||h.some(x=>typeof x!=='boolean'))return false;
+        }
+      }
+      return true;
+    })());
+    check('never breaks up four of a kind',A.ddBotHolds([6,6,6,6,2],'sharp').filter(Boolean).length===4);
+    check('keeps a five of a kind whole',A.ddBotHolds([3,3,3,3,3],'sharp').every(Boolean));
+    check('keeps a full house whole rather than chasing a fourth',
+      A.ddBotHolds([3,3,3,5,5],'sharp').every(Boolean));
+    check('keeps four to a straight over the odd pair',(()=>{
+      const h=A.ddBotHolds([2,3,4,5,5],'sharp');
+      return h.filter(Boolean).length===4; // the run 2-3-4-5; only one of the fives belongs to it
+    })());
+    check('throws everything away when there is nothing to build on',
+      A.ddBotHolds([1,3,5,2,6],'sharp').filter(Boolean).length===0);
+    // The reroll decision has to be worth making, or "the skill is in the reroll" is a fiction.
+    check('both levels beat throwing all five away again',(()=>{
+      const avg=lvl=>{
+        let t=0,n=4000;
+        for(let i=0;i<n;i++){
+          let d=[0,0,0,0,0].map(()=>1+(0|Math.random()*6));
+          if(lvl){const h=A.ddBotHolds(d,lvl);if(!h.every(Boolean))d=d.map((x,k)=>h[k]?x:1+(0|Math.random()*6));}
+          else d=[0,0,0,0,0].map(()=>1+(0|Math.random()*6));
+          t+=A.ddEvaluate(d).base;
+        }
+        return t/n;
+      };
+      const blind=avg(null),gentle=avg('gentle'),sharp=avg('sharp');
+      return gentle>blind*1.2&&sharp>gentle;
+    })(),'a kept-dice policy scored no better than rerolling blindly');
+  });
+
   /* ── 4. Scoring and evaluation the whole app depends on ──────────────── */
   suite('Card values & scoring',()=>{
     eq('Mau Mau: Jack = 20',A.cardVal(card('J','hearts')),20);
@@ -959,6 +1081,7 @@ function grab(W,names){
 }
 const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoCardVal','evalHand',
   'unoBotMove','unoBotColor','pokerBotStrength','pokerBotMove','pokerBotDraw',
+  'ddEvaluate','ddResolveRound','ddBotHolds','ddMaxThrows','ddIsUnderdog','DD_COMBOS','DD_TARGET','DD_COMEBACK_GAP','DD_DUEL_BONUS',
   'yahtzeeBotHolds','yahtzeeBotCategory','blackjackBotMove','rouletteBotBets','isBotPlayer','BOT_GAMES',
   'yScoreCategory','buildDeck','buildUnoDeck','shuffle','momentPortraitSrc','avImgSrc',
   'SUITS','RANKS','AVATARS','ACHIEVEMENTS',

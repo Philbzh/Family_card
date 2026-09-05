@@ -67,6 +67,89 @@ body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100v
     box-shadow:inset -1px 0 0 rgba(255,235,190,.03),8px 0 40px rgba(0,0,0,.45);}
   #app{max-width:none;margin:0;flex:1;min-width:0;}
 }
+/* ═══ DICE DUEL ═══ */
+.game-dicedual .dd-scoreboard{display:flex;align-items:center;gap:.6rem;padding:.6rem 1rem .7rem;
+  border-bottom:1px solid rgba(240,204,96,.14);background:linear-gradient(180deg,rgba(6,12,10,.96),rgba(6,12,10,.86));}
+.dd-seat{display:flex;align-items:center;gap:.55rem;flex:1;min-width:0;}
+.dd-seat.right{flex-direction:row-reverse;text-align:right;}
+.dd-seat-av{width:2.3rem;height:2.3rem;border-radius:50%;overflow:hidden;flex-shrink:0;border:1.5px solid var(--gold3);}
+.dd-seat-body{flex:1;min-width:0;}
+.dd-seat-name{font-size:.72rem;color:var(--paper2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dd-seat-score{font-family:var(--serif);font-size:1.5rem;font-weight:700;color:var(--paper);line-height:1.05;font-variant-numeric:tabular-nums;}
+.dd-bar{height:.3rem;border-radius:999px;background:rgba(255,255,255,.09);overflow:hidden;margin-top:.28rem;}
+.dd-bar-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#c99b4e,#f0cc60);transition:width .6s cubic-bezier(.2,.8,.2,1);}
+.dd-seat.right .dd-bar-fill{margin-left:auto;}
+.dd-vs-badge{flex-shrink:0;font-size:1rem;opacity:.7;filter:drop-shadow(0 0 8px rgba(240,204,96,.4));}
+
+.dd-felt{flex-direction:column;justify-content:center;gap:.8rem;}
+.dd-side-opp{display:flex;flex-direction:column;align-items:center;gap:.4rem;opacity:.75;}
+.dd-opp-dice .dd-die-hidden{font-size:1rem;}
+.dd-divider{display:flex;align-items:center;gap:.6rem;width:min(88%,20rem);color:var(--paper3);}
+.dd-divider::before,.dd-divider::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(240,204,96,.35),transparent);}
+.dd-divider span{font-size:.9rem;opacity:.85;}
+.dd-stage{display:flex;flex-direction:column;align-items:center;gap:.75rem;z-index:1;width:100%;padding:0 .5rem;}
+.dd-opp-status{font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--paper3);}
+.dd-tray{gap:.55rem;}
+.dd-tray.small{gap:.2rem;flex-wrap:nowrap;}
+.dd-die{position:relative;}
+/* Five dice have to sit on ONE row inside a half-width reveal column at phone width; at 2.1rem
+   they wrapped 4+1 and the throw stopped reading as a single hand. */
+.dd-tray.small .dd-die{width:1.55rem;height:1.55rem;border-radius:6px;}
+.dd-tray.small .dd-die .pip{width:.24rem;height:.24rem;}
+.dd-die-hidden{display:grid;place-items:center;font-family:var(--serif);font-size:1.4rem;color:rgba(248,240,224,.35);
+  background:linear-gradient(150deg,#22301f,#141d15);border-color:rgba(255,255,255,.1);cursor:default;}
+.dd-combo-now{font-family:var(--serif);font-size:1rem;color:var(--gold2);letter-spacing:.04em;text-align:center;}
+.dd-combo-now.dim{color:var(--paper3);font-size:.85rem;}
+.dd-underdog{font-size:.7rem;color:#f0cc60;background:rgba(240,204,96,.12);border:1px solid rgba(240,204,96,.32);
+  padding:.28rem .7rem;border-radius:999px;}
+.dd-waiting{font-size:.82rem;color:var(--paper2);text-align:center;}
+
+/* The throw itself: wind up, lift off the felt, tumble, land, bounce, settle square. A die that
+   simply swapped its number would read as a UI state change; this reads as a throw. It ends on a
+   whole number of turns so the die settles flat rather than visibly crooked. */
+@keyframes dd-tumble{
+  0%  {transform:translateY(0)     rotate(0deg)   scale(1);}
+  10% {transform:translateY(3px)   rotate(-8deg)  scale(.95);}
+  22% {transform:translateY(-38px) rotate(180deg) scale(1.1);}
+  44% {transform:translateY(-22px) rotate(400deg) scale(1.05);}
+  60% {transform:translateY(8px)   rotate(600deg) scale(.94);}
+  72% {transform:translateY(-12px) rotate(670deg) scale(1.03);}
+  84% {transform:translateY(3px)   rotate(705deg) scale(.98);}
+  92% {transform:translateY(-3px)  rotate(716deg) scale(1.01);}
+  100%{transform:translateY(0)     rotate(720deg) scale(1);}
+}
+.dd-die.dd-tumble{animation:dd-tumble .85s cubic-bezier(.3,.05,.35,1) both;}
+
+.dd-reveal{gap:.6rem;}
+.dd-duel-call{font-family:var(--serif);font-size:1.6rem;font-weight:800;letter-spacing:.14em;
+  color:#f0cc60;text-shadow:0 0 22px rgba(240,204,96,.55);opacity:.35;transition:opacity .3s;}
+.dd-duel-call.flash{opacity:1;animation:dd-call .65s var(--ease-spring) both;}
+@keyframes dd-call{0%{transform:scale(.6);opacity:0;}55%{transform:scale(1.18);opacity:1;}100%{transform:scale(1);opacity:1;}}
+.dd-reveal-row{display:flex;align-items:flex-start;justify-content:center;gap:.5rem;width:100%;}
+.dd-reveal-side{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:.35rem;
+  padding:.5rem .35rem;border-radius:14px;border:1px solid transparent;transition:border-color .3s,background .3s;}
+.dd-reveal-side.won{border-color:rgba(240,204,96,.45);background:rgba(240,204,96,.08);}
+.dd-reveal-name{font-size:.7rem;color:var(--paper2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.dd-reveal-combo,.dd-reveal-pts{opacity:0;transform:translateY(6px);transition:opacity .35s,transform .35s;}
+.dd-reveal-combo.in,.dd-reveal-pts.in{opacity:1;transform:translateY(0);}
+.dd-reveal-combo{font-family:var(--serif);font-size:.9rem;color:var(--gold2);text-align:center;}
+.dd-reveal-pts{font-family:var(--serif);font-size:1.25rem;font-weight:700;color:var(--paper);font-variant-numeric:tabular-nums;}
+.dd-vs{align-self:center;font-size:.7rem;letter-spacing:.14em;color:var(--paper3);flex-shrink:0;}
+.dd-events{display:flex;flex-direction:column;gap:.25rem;align-items:center;opacity:0;transition:opacity .35s;max-width:100%;}
+.dd-events.in{opacity:1;}
+.dd-event{font-size:.7rem;color:var(--paper2);background:rgba(4,12,8,.7);border:1px solid rgba(255,255,255,.08);
+  padding:.2rem .6rem;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.dd-event.attack{border-color:rgba(232,89,62,.4);color:#f0a08c;}
+.dd-event.steal{border-color:rgba(240,204,96,.4);color:#f0cc60;}
+.dd-event.blocked,.dd-event.shieldnote{border-color:rgba(90,160,220,.4);color:#8fc4ea;}
+.dd-event.multiply{border-color:rgba(160,110,224,.45);color:#c9a0e8;}
+.dd-final{font-family:var(--serif);font-size:1.05rem;color:var(--gold2);}
+@media(prefers-reduced-motion:reduce){
+  .dd-die.dd-tumble{animation:none;}
+  .dd-duel-call.flash{animation:none;}
+  .dd-reveal-combo,.dd-reveal-pts{transition:none;}
+}
+
 /* ═══ MOBILE BOTTOM NAV (the counterpart to the desktop rail above) ═══
    Below 1100px the sidebar is gone, so this carries the same navModel(). Above 1100px it hides and
    the rail takes over — the two are never on screen at once. */
@@ -1954,6 +2037,15 @@ const GAMES=[
    rules:['Roll <b>5 dice</b>, up to <b>3 times</b> a turn — after the first roll, hold any dice you want to keep and reroll the rest.','After your last roll, choose <b>one scoring category</b> to fill in. Each of the 13 categories can only be used once per game.','Upper section (Ones–Sixes): score the sum of matching dice. Total <b>63+</b> across all six earns a <b>+35 bonus</b>.','Lower section: 3/4 of a Kind &amp; Chance score the sum of all dice; Full House = <b>25</b>; Small Straight = <b>30</b>; Large Straight = <b>40</b>; Yahtzee (5 of a kind) = <b>50</b>.','Rolling a second Yahtzee scores a <b>+100 bonus</b> and can fill any open lower-section category at full value.','Highest total across all 13 categories wins the table.']},
   {id:'roulette',icon:'🎡',name:'Roulette',players:'1–8',dur:'15–30 min',diff:'easy',deal:0,cover:'assets/games/roulette.png',
    rules:['A European wheel — <b>0–36</b>, single zero. Everyone bets on the same shared table before each spin.','<b>Inside bet</b>: a straight number pays <b>35:1</b>.','<b>Outside bets</b>: Red/Black, Odd/Even, 1–18/19–36 all pay <b>1:1</b>. A dozen or a column pays <b>2:1</b>.','Pick a chip value, tap the table to place it, tap again to add more. Tap a bet to remove one chip.','Once everyone\'s happy with their bets, spin the wheel — every matching bet pays out at once.','0 loses every outside bet, but a straight-up 0 still pays 35:1.']},
+  {id:'dicedual',icon:'⚔️',name:'Dice Duel',players:'2',dur:'10–15 min',diff:'easy',deal:0,minP:2,maxP:2,cover:'assets/games/dicedual.png',
+   rules:['Both duellists throw <b>5 dice</b>: one throw, then one reroll — keep what you like, throw the rest.',
+     'Your combination scores points <i>and</i> fires its power. Nothing to choose, nothing to remember.',
+     '<b>Pair</b> 20 · <b>Two Pair</b> 40 · 💰 steal 15 · <b>Trips</b> 70 · ⚔ attack 35',
+     '<b>Run</b> 90 and <b>Big Run</b> 120 · 🛡 shield — turns aside an attack <i>or</i> a steal.',
+     '<b>Full House</b> 150 · 💰 steal 40 · <b>Four of a Kind</b> 200 · ✖ doubles your round.',
+     '<b>Five of a Kind</b> 300 · 💥 <b>CRITICAL</b> — doubled, and 100 straight off the other side.',
+     'Winning the comparison itself is worth <b>+25</b> on top.',
+     'Fall 250 behind and you get an <b>extra reroll</b> until you catch up. First to 1000 wins.']},
   {id:'romme',icon:'♦️',name:'Rommé',players:'2–6',dur:'20–45 min',diff:'medium',deal:13,locked:true,cover:'assets/games/romme.png',
    rules:['Draw one card per turn, discard one.','Form <b>sets</b> (3+ same rank) or <b>runs</b> (3+ consecutive same suit).','Lay melds face-up, add to existing melds.','Empty your hand to win.','Coming soon — not yet playable.']},
   {id:'uno',icon:'🔴',name:'Uno',players:'2–8',dur:'10–20 min',diff:'easy',deal:7,maxP:8,cover:'assets/games/uno.png',
@@ -1964,7 +2056,7 @@ const GAMES=[
 ];
 // Single source of truth for which unlocked games have online-multiplayer support, so the "online"
 // gate and the local-only badge on a game's card can never drift out of sync with each other.
-const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno'];
+const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual'];
 
 function isRed(s){return s==='hearts'||s==='diamonds';}
 function mod(n,m){return((n%m)+m)%m;}
@@ -2463,6 +2555,9 @@ function resumeLocalMatch(){
   Object.assign(G,saved.snap);
   G.drawSelections=new Set(drawArr);
   G.isOnline=false;
+  // A duel checkpointed mid-reveal has no timers left to finish its beats, so it would sit forever
+  // on whichever one it was showing. Settle the round on the spot instead.
+  if(G.selGame==='dicedual'&&G.dd&&G.dd.phase==='reveal'){G.dd.step=3;ddApplyReveal();}
   render();
   return true;
 }
@@ -3000,6 +3095,7 @@ function lDealUno(){
 function lDeal(){
   const game=currentGame();
   if(game.id==='yahtzee'){lDealYahtzee();return;}
+  if(game.id==='dicedual'){lDealDiceDuel();return;}
   if(game.id==='roulette'){lDealRoulette();return;}
   if(game.id==='uno'){lDealUno();return;}
   const deck=shuffle(buildDeck(1,game.id));
@@ -3208,6 +3304,555 @@ async function oYCommitCategory(cat){
     state._ts=Date.now();onSrv(state);
     await dbWrite(G.roomId,state);
   } finally { _onlineBusy=false; }
+}
+
+/* ═══════ DICE DUEL ═══════
+   The first simultaneous game at this table: nobody takes a turn, both duellists throw and the
+   dice are compared. Everything that decides the outcome lives in the four pure functions below —
+   evaluate a hand, resolve two hands against each other, pick a bot's keeps, and say whether
+   somebody is far enough behind to earn help. No globals, no DOM, no timers, so the local game,
+   the online game and the test suite all read the same rules rather than three copies of them. */
+const DD_DICE=5;          // five dice: the fewest that can still make every combination below
+// 1000, not 500: a doubled Four of a Kind is 400 and a doubled Five is 600, so against a 500 target
+// the rarest throw was simply an instant win from any score — the whole duel decided by one lucky
+// shake, which is the same anticlimox the comeback rule exists to prevent. At 1000 those throws are
+// still enormous (40% and 60% of the game) and still decide a close duel, but they have to be
+// converted rather than just landed. Typical round moves the winner ~100, so a duel runs 8-10 rounds.
+const DD_TARGET=1000;     // first past this when a round settles wins the duel
+const DD_COMEBACK_GAP=250;// trailing by this much buys one extra reroll — see ddIsUnderdog
+const DD_DUEL_BONUS=25;   // for winning the comparison itself, so "⚔ DUEL!" has a payoff
+
+// Ordered strongest first. `rank` orders the duel, `base` is what the hand scores for its owner,
+// and `power` is the effect it fires. Deliberately one effect per combination: the whole game has
+// to be readable in seconds, so there is nothing to choose and nothing to remember.
+const VS_='️'; // emoji presentation selector: without it ⚔ and 🛡 draw as thin outline glyphs
+const DD_COMBOS=[
+  {key:'five',    name:'Five of a Kind', short:'FIVE!',       rank:8, base:300, power:'critical', amount:100, icon:'💥'},
+  {key:'four',    name:'Four of a Kind', short:'FOUR',        rank:7, base:200, power:'multiply', amount:0,   icon:'✖'+VS_},
+  {key:'full',    name:'Full House',     short:'FULL HOUSE',  rank:6, base:150, power:'steal',    amount:40,  icon:'💰'},
+  {key:'lstr',    name:'Large Straight', short:'BIG RUN',     rank:5, base:120, power:'shield',   amount:0,   icon:'🛡'+VS_},
+  {key:'sstr',    name:'Small Straight', short:'RUN',         rank:4, base:90,  power:'shield',   amount:0,   icon:'🛡'+VS_},
+  {key:'three',   name:'Three of a Kind',short:'TRIPS',       rank:3, base:70,  power:'attack',   amount:35,  icon:'⚔'+VS_},
+  {key:'twopair', name:'Two Pair',       short:'TWO PAIR',    rank:2, base:40,  power:'steal',    amount:15,  icon:'💰'},
+  {key:'pair',    name:'Pair',           short:'PAIR',        rank:1, base:20,  power:null,       amount:0,   icon:''},
+  {key:'high',    name:'High Die',       short:'HIGH DIE',    rank:0, base:10,  power:null,       amount:0,   icon:''},
+];
+const DD_POWER_LABEL={critical:'CRITICAL',multiply:'MULTIPLIER',steal:'STEAL',shield:'SHIELD',attack:'ATTACK'};
+function ddCombo(key){return DD_COMBOS.find(c=>c.key===key)||DD_COMBOS[DD_COMBOS.length-1];}
+
+// Which combination is this hand? Reuses yCounts() — the same tally Yahtzee scores from, so the
+// two dice games can never disagree about what five dice are holding.
+function ddEvaluate(dice){
+  dice=dice||[];
+  const counts=yCounts(dice);                 // index 1..6
+  const most=Math.max.apply(null,counts.slice(1));
+  const pairs=counts.slice(1).filter(n=>n===2).length;
+  const has=v=>counts[v]>0;
+  const run=n=>{
+    for(let s=1;s+n-1<=6;s++){let ok=true;for(let k=0;k<n;k++)if(!has(s+k)){ok=false;break;}if(ok)return true;}
+    return false;
+  };
+  let key='high';
+  if(most>=5)key='five';
+  else if(most===4)key='four';
+  else if(most===3&&pairs>=1)key='full';
+  else if(run(5))key='lstr';
+  else if(run(4))key='sstr';
+  else if(most===3)key='three';
+  else if(pairs>=2)key='twopair';
+  else if(pairs===1)key='pair';
+  const c=ddCombo(key);
+  // Sum breaks a tie between identical combinations — the bigger throw takes the duel bonus.
+  return{...c,dice:dice.slice(),sum:dice.reduce((s,d)=>s+d,0)};
+}
+
+// Both hands in, both score changes out, plus the beats the reveal narrates. Pure: it never reads
+// or writes a score itself, it is handed the two current totals and returns deltas.
+function ddResolveRound(evA,evB,scoreA,scoreB){
+  const ev=[evA,evB],score=[scoreA||0,scoreB||0];
+  const gain=[0,0],events=[];
+  const shield=ev.map(e=>e.power==='shield');
+  const doubled=ev.map(e=>e.power==='multiply'||e.power==='critical');
+  // 1. Each duellist banks their own combination, doubled if they rolled a multiplier.
+  for(let i=0;i<2;i++){
+    gain[i]=ev[i].base*(doubled[i]?2:1);
+    if(doubled[i])events.push({side:i,kind:'multiply',text:`${DD_POWER_LABEL.multiply} — ${ev[i].base} doubled to ${gain[i]}`});
+  }
+  // 2. The comparison itself is worth something, so a duel lost on rank still stings.
+  let duelWinner=null;
+  if(ev[0].rank!==ev[1].rank)duelWinner=ev[0].rank>ev[1].rank?0:1;
+  else if(ev[0].sum!==ev[1].sum)duelWinner=ev[0].sum>ev[1].sum?0:1;
+  if(duelWinner!==null){
+    gain[duelWinner]+=DD_DUEL_BONUS;
+    events.push({side:duelWinner,kind:'duel',text:`Wins the duel — +${DD_DUEL_BONUS}`});
+  } else events.push({side:null,kind:'duel',text:'Dead heat — no duel bonus'});
+  // 3. Attacks and steals land on the opponent, and a shield turns either of them aside.
+  const loss=[0,0],taken=[0,0];
+  for(let i=0;i<2;i++){
+    const o=1-i,e=ev[i];
+    if(e.power==='attack'||e.power==='critical'){
+      if(shield[o]){events.push({side:i,kind:'blocked',text:`${DD_POWER_LABEL.attack} blocked by ${DD_POWER_LABEL.shield}`});}
+      else{loss[o]+=e.amount;events.push({side:i,kind:'attack',text:`${DD_POWER_LABEL.attack} — ${e.amount} damage`});}
+    }
+    if(e.power==='steal'){
+      if(shield[o]){events.push({side:i,kind:'blocked',text:`${DD_POWER_LABEL.steal} blocked by ${DD_POWER_LABEL.shield}`});}
+      else{
+        // You can only take what is actually there — a steal never pushes anyone below zero, and
+        // never invents points that were not on the other side of the table.
+        const amt=Math.max(0,Math.min(e.amount,score[o]+gain[o]-loss[o]-taken[o]));
+        taken[o]+=amt;gain[i]+=amt;
+        events.push({side:i,kind:'steal',text:amt?`${DD_POWER_LABEL.steal} — takes ${amt}`:`${DD_POWER_LABEL.steal} — nothing left to take`});
+      }
+    }
+    if(shield[i]&&!events.some(x=>x.side===i&&x.kind==='shieldnote'))
+      events.push({side:i,kind:'shieldnote',text:`${DD_POWER_LABEL.shield} raised`});
+  }
+  const delta=[gain[0]-loss[0]-taken[0],gain[1]-loss[1]-taken[1]];
+  // Nobody drops below zero: a duel is won by getting to the target, not by burying the other side.
+  const next=[Math.max(0,score[0]+delta[0]),Math.max(0,score[1]+delta[1])];
+  return{before:[score[0],score[1]],delta:[next[0]-score[0],next[1]-score[1]],next,events,duelWinner,
+    shield,doubled,combos:[ev[0].key,ev[1].key]};
+}
+
+// Trailing badly buys one extra reroll — a tactical opportunity, never free points. Chosen
+// deliberately over "catch-up points", which reads as the game apologising for you.
+function ddIsUnderdog(myScore,theirScore){return(theirScore||0)-(myScore||0)>=DD_COMEBACK_GAP;}
+function ddMaxThrows(myScore,theirScore){return ddIsUnderdog(myScore,theirScore)?3:2;}
+
+/* ── Dice Duel bot ──
+   Same two levels as everywhere else. Gentle keeps whatever it has most of and hopes; sharp keeps
+   the strongest thing it is already holding, preferring the draw that is worth the most. */
+function ddBotHolds(dice,level){
+  const holds=[false,false,false,false,false];
+  const counts=yCounts(dice);
+  const keepValue=v=>dice.forEach((d,i)=>{if(d===v)holds[i]=true;});
+  if(level==='gentle'){
+    let best=0,bestN=1;
+    for(let v=1;v<=6;v++)if(counts[v]>bestN){bestN=counts[v];best=v;}
+    if(best)keepValue(best);
+    return holds;
+  }
+  const most=Math.max.apply(null,counts.slice(1));
+  const trips=[],pairs=[];
+  for(let v=1;v<=6;v++){if(counts[v]>=3)trips.push(v);else if(counts[v]===2)pairs.push(v);}
+  // Four of a kind is one die from the biggest hand in the game; never break it up.
+  if(most>=4){for(let v=1;v<=6;v++)if(counts[v]>=4)keepValue(v);return holds;}
+  // A full house is already worth 150 — keep it whole rather than chasing a fourth.
+  if(most===3&&pairs.length){keepValue(trips[0]);keepValue(pairs[0]);return holds;}
+  // Four to a straight is one die from 120 and a shield, which beats drawing to trips.
+  const uniq=[...new Set(dice)].sort((a,b)=>a-b);
+  let runVals=[],cur=[uniq[0]];
+  for(let i=1;i<uniq.length;i++){
+    if(uniq[i]===uniq[i-1]+1)cur.push(uniq[i]);
+    else{if(cur.length>runVals.length)runVals=cur;cur=[uniq[i]];}
+  }
+  if(cur.length>runVals.length)runVals=cur;
+  if(runVals.length>=4&&most<3){
+    const used={};
+    dice.forEach((d,i)=>{if(runVals.indexOf(d)>=0&&!used[d]){used[d]=1;holds[i]=true;}});
+    return holds;
+  }
+  if(most===3){keepValue(trips[0]);return holds;}
+  // Two pair draws to a full house; one pair draws to trips. Anything else is worth throwing
+  // away entirely — with no pair and no run, five fresh dice beat four and a high one.
+  if(pairs.length>=2){keepValue(pairs[0]);keepValue(pairs[1]);return holds;}
+  if(pairs.length===1){keepValue(pairs[0]);return holds;}
+  return holds;
+}
+
+/* ── Dice Duel: local game ──
+   Both duellists throw "simultaneously", but on one phone that has to mean one after the other with
+   the dice hidden in between — the same hand-over the card games already use. Against a bot there
+   is nothing to hide and nobody to pass to, so it rolls in place. */
+function ddFreshSeat(maxThrows){
+  return{dice:[1,1,1,1,1],held:[false,false,false,false,false],throws:0,locked:false,max:maxThrows,ev:null};
+}
+function ddSeatMax(i){
+  const me=G.lp[i],them=G.lp[1-i];
+  return ddMaxThrows(me?.totalScore||0,them?.totalScore||0);
+}
+function lDealDiceDuel(){
+  G.lp.forEach(p=>{p.hand=[];});
+  G.dd={round:1,active:0,phase:'roll',seats:[ddFreshSeat(ddSeatMax(0)),ddFreshSeat(ddSeatMax(1))],
+    reveal:null,step:0,wasBehind:[false,false]};
+  G.llast='';G.lres=null;
+  SFX.deal();
+  ddBeginSeat(0);
+}
+// Start a duellist's throw. A person gets the hand-over screen so the previous roll leaves the
+// screen before they look; a bot never does (see lAdvance — same reasoning).
+function ddBeginSeat(i){
+  G.dd.active=i;G.dd.phase='roll';
+  const p=G.lp[i];
+  // A hand-over screen only earns its interruption when there is genuinely another person to hand
+  // the phone to. A bot has no dice to hide, and playing solo there is nobody on the other side.
+  if(isBotPlayer(p)||G.lp.filter(x=>!isBotPlayer(x)).length<2){G.scr='table';return;}
+  G.lpass1=p.avatar+' '+esc(p.name);
+  G.lpass2=i===0?'Roll your dice — the other side won’t see them.':'Your turn to throw.';
+  G.scr='pass';
+}
+function ddRoll(){
+  const s=G.dd&&G.dd.seats[G.dd.active];
+  if(!s||G.dd.phase!=='roll'||s.locked||s.throws>=s.max)return;
+  const rolled=[];
+  for(let i=0;i<DD_DICE;i++)if(s.throws===0||!s.held[i]){s.dice[i]=rnd(1,6);rolled.push(i);}
+  s.throws++;s.lastRolled=rolled;
+  SFX.diceRoll();haptic([10,20,10]);
+  if(s.throws>=s.max)pulseTension();
+  const ev=ddEvaluate(s.dice);
+  if(ev.rank>=7)celebrateYahtzeeRoll(); // four or five of a kind deserves the big flourish
+  render();
+}
+function ddToggleHold(i){
+  const s=G.dd&&G.dd.seats[G.dd.active];
+  if(!s||G.dd.phase!=='roll'||s.locked||!s.throws||s.throws>=s.max)return;
+  s.held[i]=!s.held[i];s.lastRolled=[];render();
+}
+function ddLockIn(){
+  const d=G.dd;if(!d||d.phase!=='roll')return;
+  const s=d.seats[d.active];
+  if(!s||s.locked||!s.throws)return;
+  s.locked=true;s.ev=ddEvaluate(s.dice);
+  SFX.chip();
+  const other=1-d.active;
+  if(!d.seats[other].locked){ddBeginSeat(other);render();return;}
+  ddStartReveal();
+}
+// The dramatic reveal, staged rather than dumped: the duel call, then what each side is holding,
+// then what those hands do to each other, then the scores actually moving. Each beat is a render.
+let _ddRevealSig=null,_ddTimers=[];
+function ddClearRevealTimers(){_ddTimers.forEach(clearTimeout);_ddTimers=[];}
+function ddStartReveal(){
+  const d=G.dd;
+  const a=d.seats[0].ev||ddEvaluate(d.seats[0].dice), b=d.seats[1].ev||ddEvaluate(d.seats[1].dice);
+  d.reveal=ddResolveRound(a,b,G.lp[0].totalScore||0,G.lp[1].totalScore||0);
+  d.reveal.evs=[a,b];
+  d.phase='reveal';d.step=0;
+  ddRunRevealBeats();
+}
+// Shared by the local and online reveals: same beats, same timings, driven off G.dd.step.
+function ddRunRevealBeats(){
+  ddClearRevealTimers();
+  const round=G.dd.round;
+  const beat=(ms,fn)=>_ddTimers.push(setTimeout(()=>{
+    if(!G.dd||G.dd.round!==round||G.dd.phase!=='reveal')return; // duel abandoned mid-reveal
+    fn();render();
+  },ms));
+  SFX.clash();
+  fxPulse('amber');
+  beat(650,()=>{G.dd.step=1;SFX.flip();});
+  beat(1550,()=>{G.dd.step=2;const r=G.dd.reveal;
+    if(r.combos.some(k=>ddCombo(k).rank>=7))fxPulse('gold');
+    else if(r.events.some(e=>e.kind==='attack'))fxPulse('red');});
+  beat(2600,()=>{G.dd.step=3;ddApplyReveal();});
+  render();
+}
+// Commit the round to the scoreboard. Split out from the beats so the numbers land on the same
+// frame the final beat renders, rather than a frame later.
+function ddApplyReveal(){
+  const d=G.dd,r=d.reveal;
+  if(d.applied)return;
+  d.applied=true;
+  const before=[G.lp[0].totalScore||0,G.lp[1].totalScore||0];
+  G.lp[0].totalScore=r.next[0];G.lp[1].totalScore=r.next[1];
+  // Remember who was ever properly behind, so a win from there can be called what it is.
+  for(let i=0;i<2;i++)if(before[i]+DD_COMEBACK_GAP<=before[1-i])d.wasBehind[i]=true;
+  if(r.duelWinner!==null){fxSeatGlow(r.duelWinner,'gold');G.lp[r.duelWinner].roundsWon=(G.lp[r.duelWinner].roundsWon||0)+1;}
+  const lead=G.lp[0].totalScore>=DD_TARGET,trail=G.lp[1].totalScore>=DD_TARGET;
+  if(lead||trail){
+    // Both across the line on the same round: the higher score takes it, and a dead level score
+    // means the duel simply is not finished — play another round rather than declare a draw.
+    if(lead&&trail&&G.lp[0].totalScore===G.lp[1].totalScore){d.phase='roundover';return;}
+    const wi=!trail?0:(!lead?1:(G.lp[0].totalScore>G.lp[1].totalScore?0:1));
+    d.phase='matchover';
+    _ddTimers.push(setTimeout(()=>ddEndMatch(wi),900));
+    return;
+  }
+  d.phase='roundover';
+}
+function ddNextRound(){
+  const d=G.dd;if(!d)return;
+  ddClearRevealTimers();
+  d.round++;d.reveal=null;d.step=0;d.applied=false;d.phase='roll';
+  d.seats=[ddFreshSeat(ddSeatMax(0)),ddFreshSeat(ddSeatMax(1))];
+  ddBeginSeat(0);render();
+}
+function ddEndMatch(wi){
+  const winner=G.lp[wi],loser=G.lp[1-wi];
+  SFX.win();v14WinnerBurst();celebrateWin(winner.name,winner.avatar);fxPulse('gold');fxSeatGlow(wi,'gold');
+  G.tw++;localStorage.setItem('ct_tw',G.tw);
+  const gap=winner.totalScore-loser.totalScore;
+  const moment=G.dd.wasBehind[wi]?`${winner.name} came back to win the duel.`
+    :(gap<=40?`A nail-biter — ${winner.name} edges the duel by ${gap}.`
+    :`${winner.name} takes the duel ${winner.totalScore}–${loser.totalScore}.`);
+  addHistory({game:'dicedual',winner:winner.name,winnerAvatar:winner.avatar,date:new Date().toISOString(),
+    players:G.lp.map(p=>p.name),moment,
+    stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
+  const bd=G.lp.map(p=>({id:p.id,name:p.name,avatar:p.avatar,delta:p.roundsWon||0,total:p.totalScore||0,isWinner:p===winner}))
+    .sort((a,b)=>b.total-a.total);
+  G.lres={wName:winner.name,wAv:winner.avatar,bd};
+  G.scr='roundend';render();
+}
+
+/* ── Dice Duel: online ──
+   Unlike every other online game here there is no turn to take, so there is no isMyTurn() gate:
+   both duellists roll at once on their own phones and neither result counts until both have locked
+   in. That makes the conditional write the whole mechanism — two devices genuinely do write the
+   same row at the same moment, and whoever lands second is the one that resolves the round. */
+function oDdFreshSeats(players){
+  return players.slice(0,2).map((p,i)=>{
+    const them=players[1-i];
+    return{dice:[1,1,1,1,1],held:[false,false,false,false,false],throws:0,locked:false,
+      max:ddMaxThrows(p.totalScore||0,them?.totalScore||0),ev:null};
+  });
+}
+function oDdBuildStart(rs,players){
+  return{phase:'game',gameId:'dicedual',host:rs.host,hr:rs.hr||G.hr,players,
+    dd:{round:1,phase:'roll',seats:oDdFreshSeats(players),reveal:null,wasBehind:[false,false]},
+    round:1,winner:null,lastAct:'',_ts:Date.now()};
+}
+function oDdMySeat(state){return(state.players||[]).findIndex(p=>p.id===G.myPid);}
+// Same retry-on-conflict loop as roulette's: re-read, re-apply, write only if nobody moved first.
+async function oDdMutate(mutate){
+  for(let i=0;i<6;i++){
+    const state=await dbRead(G.roomId);if(!state||!state.dd)return;
+    const expectedTs=state._ts;
+    if(!mutate(state))return;
+    onSrv(state); // optimistic; the next real sync corrects us if this write lost the race
+    if(await dbWriteIfUnchanged(G.roomId,expectedTs,state))return;
+  }
+  toast('⚠️ Both of you rolled at once — try again');
+}
+// Once both seats are locked the round is decided, and it must be decided ONCE: whichever client
+// writes the second lock resolves it and stores the result, so both phones read identical numbers
+// rather than each computing their own.
+function oDdSettleIfReady(state){
+  const d=state.dd;
+  if(d.phase!=='roll'||!d.seats.every(s=>s.locked))return;
+  const evs=d.seats.map(s=>ddEvaluate(s.dice));
+  const r=ddResolveRound(evs[0],evs[1],state.players[0].totalScore||0,state.players[1].totalScore||0);
+  r.evs=evs;
+  d.reveal=r;d.phase='reveal';
+  for(let i=0;i<2;i++){
+    if(r.before[i]+DD_COMEBACK_GAP<=r.before[1-i])d.wasBehind[i]=true;
+    state.players[i].totalScore=r.next[i];
+  }
+  if(r.duelWinner!==null)state.players[r.duelWinner].roundsWon=(state.players[r.duelWinner].roundsWon||0)+1;
+  const a=state.players[0].totalScore,b=state.players[1].totalScore;
+  if((a>=DD_TARGET||b>=DD_TARGET)&&a!==b){
+    const wi=a>b?0:1,w=state.players[wi],l=state.players[1-wi];
+    const gap=w.totalScore-l.totalScore;
+    state.winner=w.id;state.winnerName=w.name;state.winnerAv=w.avatar;
+    state.roundResult={dd:true};
+    state.lastAct=d.wasBehind[wi]?`${w.name} came back to win the duel.`
+      :(gap<=40?`A nail-biter — ${w.name} edges the duel by ${gap}.`
+      :`${w.name} takes the duel ${w.totalScore}–${l.totalScore}.`);
+    d.phase='matchover';
+  }
+}
+async function oDdRoll(){
+  if(_onlineBusy)return;_onlineBusy=true;
+  try{
+    await oDdMutate(state=>{
+      const i=oDdMySeat(state);if(i<0)return false;
+      const s=state.dd.seats[i];
+      if(state.dd.phase!=='roll'||s.locked||s.throws>=s.max)return false;
+      const rolled=[];
+      for(let k=0;k<DD_DICE;k++)if(s.throws===0||!s.held[k]){s.dice[k]=rnd(1,6);rolled.push(k);}
+      s.throws++;s.lastRolled=rolled;
+      SFX.diceRoll();haptic([10,20,10]);
+      return true;
+    });
+  } finally { _onlineBusy=false; }
+}
+async function oDdHold(idx){
+  if(_onlineBusy)return;_onlineBusy=true;
+  try{
+    await oDdMutate(state=>{
+      const i=oDdMySeat(state);if(i<0)return false;
+      const s=state.dd.seats[i];
+      if(state.dd.phase!=='roll'||s.locked||!s.throws||s.throws>=s.max)return false;
+      s.held[idx]=!s.held[idx];
+      return true;
+    });
+  } finally { _onlineBusy=false; }
+}
+async function oDdLock(){
+  if(_onlineBusy)return;_onlineBusy=true;
+  try{
+    await oDdMutate(state=>{
+      const i=oDdMySeat(state);if(i<0)return false;
+      const s=state.dd.seats[i];
+      if(state.dd.phase!=='roll'||s.locked||!s.throws)return false;
+      s.locked=true;SFX.chip();
+      oDdSettleIfReady(state);
+      return true;
+    });
+  } finally { _onlineBusy=false; }
+}
+async function oDdNextRound(){
+  if(_onlineBusy)return;_onlineBusy=true;
+  try{
+    await oDdMutate(state=>{
+      const d=state.dd;
+      if(d.phase!=='roundover'&&d.phase!=='reveal')return false;
+      d.round++;d.reveal=null;d.phase='roll';d.seats=oDdFreshSeats(state.players);
+      state.round=(state.round||1)+1;state.lastAct='';
+      return true;
+    });
+  } finally { _onlineBusy=false; }
+}
+// The reveal is staged locally on each phone off the shared result, so both see the same beats
+// without either having to drive the other's animation. Armed once per round, exactly like the
+// bot driver: render() is the single hook point, and the round number is the signature.
+let _ddOnlineStep=0,_ddOnlineSig=null;
+function maybeDdReveal(){
+  if(!G.isOnline||(G.srv&&G.srv.gameId)!=='dicedual'){_ddOnlineSig=null;return;}
+  const d=G.srv&&G.srv.dd;
+  if(!d||!d.reveal){_ddOnlineSig=null;_ddOnlineStep=0;return;}
+  const sig='r'+d.round;
+  if(sig===_ddOnlineSig)return;
+  _ddOnlineSig=sig;_ddOnlineStep=0;
+  ddClearRevealTimers();
+  SFX.clash();fxPulse('amber');
+  const beat=(ms,fn)=>_ddTimers.push(setTimeout(()=>{if(_ddOnlineSig!==sig)return;fn();render();},ms));
+  beat(650,()=>{_ddOnlineStep=1;SFX.flip();});
+  beat(1550,()=>{_ddOnlineStep=2;
+    if(d.reveal.combos.some(k=>ddCombo(k).rank>=7))fxPulse('gold');
+    else if(d.reveal.events.some(e=>e.kind==='attack'))fxPulse('red');});
+  beat(2600,()=>{_ddOnlineStep=3;
+    if(d.phase!=='matchover'&&G.srv&&G.srv.dd)G.srv.dd.phase='roundover';});
+}
+// One shape for the renderer, whichever game it is. Everything below reads this and never has to
+// ask again whether it is looking at a local duel or a synced one.
+function ddView(){
+  if(G.isOnline){
+    const s=G.srv||{},d=s.dd||{};
+    return{online:true,round:d.round||1,seats:d.seats||[],reveal:d.reveal||null,step:_ddOnlineStep,
+      phase:d.phase||'roll',players:s.players||[],mySeat:Math.max(0,oDdMySeat(s)),
+      controls:Math.max(0,oDdMySeat(s))};
+  }
+  const d=G.dd||{},active=d.active||0;
+  // A bot's throw must not put its dice on screen: the phone still belongs to the person playing
+  // against it, so keep showing THEIR side (already locked in) while the bot decides.
+  const botActive=isBotPlayer(G.lp[active]);
+  const human=G.lp.findIndex(p=>!isBotPlayer(p));
+  return{online:false,round:d.round||1,seats:d.seats||[],reveal:d.reveal||null,step:d.step||0,
+    phase:d.phase||'roll',players:G.lp,mySeat:active,botActive,
+    controls:(botActive&&human>=0)?human:active};
+}
+
+/* ── Dice Duel: the table ── */
+// A duel die, distinct from Yahtzee's: it tumbles rather than flicking, and it carries the duel's
+// own hold action so the two games' dice can never drive each other's engine by accident.
+function ddDieHTML(value,held,idx,rolling,interactive,face){
+  const pos={1:[[2,2]],2:[[1,1],[3,3]],3:[[1,1],[2,2],[3,3]],4:[[1,1],[1,3],[3,1],[3,3]],
+    5:[[1,1],[1,3],[2,2],[3,1],[3,3]],6:[[1,1],[1,3],[2,1],[2,3],[3,1],[3,3]]}[value]||[];
+  if(face==='hidden')
+    return`<span class="die dd-die dd-die-hidden" aria-label="Hidden die">?</span>`;
+  const pips=pos.map(([r,c])=>`<span class="pip" style="grid-row:${r};grid-column:${c};"></span>`).join('');
+  const cls=`die dd-die${held?' held':''}${rolling?' dd-tumble':''}`;
+  const style=rolling?` style="animation-delay:${idx*70}ms"`:'';
+  if(!interactive)
+    return`<span class="${cls}" aria-label="Die ${idx+1}: ${value}${held?', kept':''}"${style}>${pips}${held?'<span class="die-lock" aria-hidden="true">🔒</span>':''}</span>`;
+  return`<button class="${cls}" data-a="ddhold" data-i="${idx}" aria-pressed="${held}" aria-label="Die ${idx+1}: ${value}${held?', kept — tap to release':' — tap to keep'}"${style}>${pips}${held?'<span class="die-lock" aria-hidden="true">🔒</span>':''}</button>`;
+}
+function ddScoreBarHTML(score){
+  const pct=Math.max(0,Math.min(100,Math.round((score||0)/DD_TARGET*100)));
+  return`<div class="dd-bar"><div class="dd-bar-fill" style="width:${pct}%"></div></div>`;
+}
+function ddSeatHeadHTML(p,score,side,extra){
+  return`<div class="dd-seat ${side}">
+    <span class="dd-seat-av">${avHTML(p?.avatar||'')}</span>
+    <div class="dd-seat-body">
+      <div class="dd-seat-name">${esc(p?.name||'')}${extra||''}</div>
+      <div class="dd-seat-score" data-count="${score||0}">${score||0}</div>
+      ${ddScoreBarHTML(score)}
+    </div>
+  </div>`;
+}
+function rDiceDuelTable(){
+  const v=ddView();
+  const P=v.players,me=v.controls,you=1-me;
+  if(P.length<2)return`<div class="scr on"><p style="padding:2rem;text-align:center;">Waiting for a second duellist…</p></div>`;
+  const scores=P.map(p=>p.totalScore||0);
+  const seat=v.seats[me]||{dice:[1,1,1,1,1],held:[],throws:0,max:2,locked:false};
+  const oppSeat=v.seats[you]||{throws:0,locked:false};
+  const revealing=v.phase==='reveal'||v.phase==='roundover'||v.phase==='matchover';
+  const r=v.reveal;
+  const underdog=ddIsUnderdog(scores[me],scores[you]);
+  // Local play hands the phone over between throws, so "me" is whoever is holding it right now.
+  const actorName=v.online?'You':esc(P[me].name);
+
+  let stage='';
+  if(!revealing){
+    const canHold=seat.throws>0&&seat.throws<seat.max&&!seat.locked;
+    const dice=seat.throws===0
+      ? Array.from({length:DD_DICE},(_,i)=>ddDieHTML(1,false,i,false,false,'hidden')).join('')
+      : seat.dice.map((d,i)=>ddDieHTML(d,seat.held[i],i,(seat.lastRolled||[]).indexOf(i)>=0,canHold)).join('');
+    const ev=seat.throws?ddEvaluate(seat.dice):null;
+    const oppStatus=oppSeat.locked?'has locked in ⚔️':(v.botActive?'is thinking…':v.online?'is still rolling…':'throws next');
+    stage=`
+      <div class="dd-stage">
+        <div class="dd-side dd-side-opp">
+          <div class="dd-opp-status">${esc(P[you].name)} ${oppStatus}</div>
+          <div class="dice-tray dd-tray small dd-opp-dice">${Array.from({length:DD_DICE},(_,i)=>ddDieHTML(1,false,i,false,false,'hidden')).join('')}</div>
+        </div>
+        <div class="dd-divider"><span>⚔️</span></div>
+        <div class="dice-tray dd-tray${seat.locked?' locked':''}">${dice}</div>
+        ${ev?`<div class="dd-combo-now">${ev.icon} ${ev.short} · ${ev.base} pts${ev.power?` · ${DD_POWER_LABEL[ev.power]}`:''}</div>`:'<div class="dd-combo-now dim">Throw the dice to begin</div>'}
+        ${underdog?`<div class="dd-underdog">🔥 Underdog — one extra reroll this round</div>`:''}
+      </div>`;
+  } else {
+    const evs=(r&&r.evs)||[ddEvaluate((v.seats[0]||{}).dice||[]),ddEvaluate((v.seats[1]||{}).dice||[])];
+    const showCombo=v.step>=1,showPowers=v.step>=2,showScore=v.step>=3;
+    const side=i=>`
+      <div class="dd-reveal-side${r&&r.duelWinner===i&&showCombo?' won':''}">
+        <div class="dd-reveal-name">${esc(P[i].name)}</div>
+        <div class="dice-tray dd-tray small">${(v.seats[i].dice||[]).map((d,k)=>ddDieHTML(d,false,k,false,false)).join('')}</div>
+        <div class="dd-reveal-combo${showCombo?' in':''}">${evs[i].icon} ${evs[i].short}</div>
+        <div class="dd-reveal-pts${showPowers?' in':''}">+${(r?r.delta[i]:0)>=0?'':''}${r?r.delta[i]:0}</div>
+      </div>`;
+    const powerRows=showPowers&&r?r.events.map(e=>
+      `<div class="dd-event ${e.kind}">${e.side===null?'':`<b>${esc(P[e.side].name)}</b> `}${esc(e.text)}</div>`).join(''):'';
+    stage=`
+      <div class="dd-stage dd-reveal">
+        <div class="dd-duel-call${v.step===0?' flash':''}">⚔️ DUEL!</div>
+        <div class="dd-reveal-row">${side(0)}<div class="dd-vs">VS</div>${side(1)}</div>
+        <div class="dd-events${showPowers?' in':''}">${powerRows}</div>
+        ${showScore&&v.phase==='roundover'?`<button class="btn btn-gold" data-a="dd-next">Next round ▶</button>`:''}
+        ${showScore&&v.phase==='matchover'?`<div class="dd-final">🏆 Duel over</div>`:''}
+      </div>`;
+  }
+
+  let actionBar='';
+  if(!revealing&&!seat.locked){
+    const canRoll=seat.throws<seat.max;
+    const label=seat.throws===0?'🎲 THROW':`🎲 Reroll (${seat.max-seat.throws} left)`;
+    actionBar=`<div class="poker-actions"><div class="poker-action-row">
+      <button class="btn btn-gold btn-sm" data-a="dd-roll" ${canRoll?'':'disabled'}>${label}</button>
+      <button class="btn btn-green btn-sm" data-a="dd-lock" ${seat.throws?'':'disabled'}>⚔️ Lock in</button>
+    </div></div>`;
+  } else if(!revealing&&seat.locked){
+    actionBar=`<div class="poker-actions"><div class="poker-action-row"><div class="dd-waiting">Locked in — waiting for ${esc(P[you].name)}…</div></div></div>`;
+  }
+
+  return`<div id="s-table" class="scr on game-dicedual">
+    <div class="game-bar">
+      <div class="gb-game">🎲 Dice Duel</div>
+      <div class="gb-turn mine">Round ${v.round} · to ${DD_TARGET}</div>
+      <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
+    </div>
+    <div class="dd-scoreboard">
+      ${ddSeatHeadHTML(P[me],scores[me],'left',v.online?' (You)':'')}
+      <div class="dd-vs-badge">⚔️</div>
+      ${ddSeatHeadHTML(P[you],scores[you],'right','')}
+    </div>
+    <div class="felt-table my-turn dd-felt">${stage}</div>
+    <div class="hint-strip"><div class="hint-txt">${revealing?'':(seat.throws===0?`${actorName} — throw all five.`:'Tap dice to keep them, reroll the rest, then lock in.')}</div></div>
+    ${actionBar}
+    ${talkStripHTML()}
+  </div>`;
 }
 
 /* ═══════ ROULETTE ENGINE ═══════ */
@@ -4496,7 +5141,7 @@ function runCountUps(){
    and against what state", and botAct() dispatches to the one per-game function that makes it. */
 // Every game listed here can seat a bot. Anything not here (there is nothing, currently) simply
 // never offers the button, and the driver below stays dormant for it.
-const BOT_GAMES=new Set(['maumau','uno','texas','fivecard','blackjack','yahtzee','battle','roulette']);
+const BOT_GAMES=new Set(['maumau','uno','texas','fivecard','blackjack','yahtzee','battle','roulette','dicedual']);
 let _botTimer=null,_botSig=null;
 function isBotPlayer(p){return!!(p&&p.bot);}
 // A full table can still gain a bot by converting an empty seat — Battle seats exactly two, so
@@ -4520,6 +5165,14 @@ function botPendingSig(){
     if(!G.roulActive||G.roulSpinning)return null;
     const waiting=G.lp.filter(p=>isBotPlayer(p)&&!p.roulBotDone).length;
     return waiting?'roul|'+waiting:null;
+  }
+  if(g==='dicedual'){
+    // No turn order here either: the duel's own `active` seat says whose throw it is.
+    const d=G.dd;
+    if(!d||d.phase!=='roll')return null;
+    const p=G.lp[d.active],st=d.seats[d.active];
+    if(!isBotPlayer(p)||!st||st.locked)return null;
+    return['dd',d.round,d.active,st.throws,st.dice.join(''),st.held.join('')].join('|');
   }
   if(g==='battle'){
     // Battle has no turns either: one Flip resolves both sides at once, so the human at the table
@@ -4574,6 +5227,7 @@ function botAct(){
   const g=G.selGame;
   if(g==='roulette')return botRouletteAct();
   if(g==='battle')return battleFlip();
+  if(g==='dicedual')return botDiceDuelAct();
   const p=G.lp[G.lcur];
   if(g==='maumau'||g==='uno')return botShedAct(p);
   if(g==='texas'||g==='fivecard')return botPokerAct(p);
@@ -4634,6 +5288,16 @@ function botYahtzeeAct(p){
   }
   const cat=yahtzeeBotCategory(G.ydice,p.scorecard,p.bot);
   if(cat)yCommitCategory(cat);
+}
+function botDiceDuelAct(){
+  const d=G.dd,s=d.seats[d.active],p=G.lp[d.active];
+  if(s.throws===0){ddRoll();return;}
+  if(s.throws<s.max){
+    const holds=ddBotHolds(s.dice,p.bot);
+    // Every die worth keeping is already kept — there is nothing a reroll could improve, so stop.
+    if(!holds.every(Boolean)){s.held=holds;ddRoll();return;}
+  }
+  ddLockIn();
 }
 function botRouletteAct(){
   const p=G.lp.find(x=>isBotPlayer(x)&&!x.roulBotDone);
@@ -5345,7 +6009,7 @@ function hasActiveTable(){
 }
 // One accent color per game, echoing the home-screen game-card border colors, so a portrait's
 // frame and plaque tie back to whichever game it was won at.
-const MOMENT_ACCENT={maumau:'#5fd68a',texas:'#eac976',fivecard:'#eac976',blackjack:'#ef7688',battle:'#7ec2f2',romme:'#a8e0a0',hearts:'#f2a0b4',bridge:'#a8c8e0',uno:'#e0a8d8',yahtzee:'#f2c94c',roulette:'#e0637a'};
+const MOMENT_ACCENT={maumau:'#5fd68a',texas:'#eac976',fivecard:'#eac976',blackjack:'#ef7688',battle:'#7ec2f2',romme:'#a8e0a0',hearts:'#f2a0b4',bridge:'#a8c8e0',uno:'#e0a8d8',yahtzee:'#f2c94c',roulette:'#e0637a',dicedual:'#e8843e'};
 function rMoments(){
   const history=getHistory();
   const frames=history.map(h=>{
@@ -5848,6 +6512,7 @@ function rTable(){
   if(_tblGameId==='blackjack')return rBlackjackTable();
   if(_tblGameId==='battle')return rBattleTable();
   if(_tblGameId==='yahtzee')return rYahtzeeTable();
+  if(_tblGameId==='dicedual')return rDiceDuelTable();
   if(_tblGameId==='roulette')return rRouletteTable();
   const online=G.isOnline,state=online?G.srv:null;
   const cur=curPlayer(),mine=isMyTurn();
@@ -7137,6 +7802,7 @@ function render(){
   applyTableAge();
   checkpointLocalMatch();
   maybeBotTurn();
+  maybeDdReveal();
   // render() always fully rebuilds #app's innerHTML from scratch, which destroys whatever DOM node
   // is currently focused — including a text input mid-keystroke. That's not just a hypothetical:
   // any background render (the family-history fetch resolving, an online-sync tick, a resize
@@ -7331,7 +7997,7 @@ document.addEventListener('click',e=>{
   else if(a==='data-clear-ask'){G.dataClearAsk=true;render();}
   else if(a==='close-data-clear'){G.dataClearAsk=false;render();}
   else if(a==='data-clear-confirm'){clearMyLocalData();G.dataClearAsk=false;G.dataOpen=false;render();}
-  else if(a==='quit-confirm'){stopSync();G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;if(G.lmau)clearTimeout(G.lmau.tid);G.lmau=null;_oMauSig=null;localStorage.removeItem('ct_resume');G.scr='home';render();}
+  else if(a==='quit-confirm'){stopSync();G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;if(G.lmau)clearTimeout(G.lmau.tid);G.lmau=null;_oMauSig=null;ddClearRevealTimers();_ddOnlineSig=null;localStorage.removeItem('ct_resume');G.scr='home';render();}
   else if(a==='addpl'){const cap=currentGame().maxP||(isPoker()?8:6);if(G.lp.length>=cap)return;G.lp.push({id:G.nid++,name:'',avatar:AVATARS[G.lp.length%AVATARS.length],hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false});render();}
   else if(a==='addbot'){
     if(!canAddBot(currentGame())){toast('Table is full — remove a seat to add a bot');return;}
@@ -7366,6 +8032,10 @@ document.addEventListener('click',e=>{
   else if(a==='bj-stand'){G.isOnline?oBjStand():bjStand();}
   else if(a==='bj-double'){G.isOnline?oBjDouble():bjDouble();}
   else if(a==='battle-flip'){G.isOnline?oBattleFlip():battleFlip();}
+  else if(a==='dd-roll'){G.isOnline?oDdRoll():ddRoll();}
+  else if(a==='ddhold'){G.isOnline?oDdHold(+t.getAttribute('data-i')):ddToggleHold(+t.getAttribute('data-i'));}
+  else if(a==='dd-lock'){G.isOnline?oDdLock():ddLockIn();}
+  else if(a==='dd-next'){G.isOnline?oDdNextRound():ddNextRound();}
   else if(a==='yroll'){G.isOnline?oYRoll():yRoll();}
   else if(a==='yhold'){G.isOnline?oYToggleHold(+t.getAttribute('data-i')):yToggleHold(+t.getAttribute('data-i'));}
   else if(a==='yscore'){G.isOnline?oYCommitCategory(t.getAttribute('data-cat')):yCommitCategory(t.getAttribute('data-cat'));}
@@ -7403,6 +8073,12 @@ document.addEventListener('click',e=>{
         for(let i=0;i<500;i++){first=deck.pop();if(!first)break;if(unoIsAction(first)){deck.unshift(first);continue;}break;}
         if(deck.length)shuffle(deck);
         const gs={phase:'game',gameId:'uno',host:rs.host,hr:rs.hr||G.hr,players,deck,discard:first?[first]:[],curSuit:first?first.color:UNO_COLORS[0],curIdx:rnd(0,players.length-1),dir:1,drawPend:0,skip8Pend:false,round:1,winner:null,needsSuit:false,lastAct:'',_ts:Date.now()};
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='dicedual'){
+        const players=rs.players.slice(0,2).map(p=>({...p,totalScore:0,roundsWon:0,hand:[]}));
+        const gs=oDdBuildStart(rs,players);
         G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }
@@ -7613,6 +8289,14 @@ document.addEventListener('click',e=>{
         G.srv=gs;dbWrite(G.roomId,gs);
         return;
       }
+      if(rs.gameId==='dicedual'){
+        // A rematch, not another round: both duellists go back to zero.
+        const players=(rs.players||[]).slice(0,2).map(p=>({...p,totalScore:0,roundsWon:0}));
+        const gs={...rs,players,dd:{round:1,phase:'roll',seats:oDdFreshSeats(players),reveal:null,wasBehind:[false,false]},
+          winner:null,winnerName:null,winnerAv:null,roundResult:null,lastAct:'',round:(rs.round||1)+1,_ts:Date.now()};
+        G.srv=gs;dbWrite(G.roomId,gs);
+        return;
+      }
       if(rs.gameId==='roulette'){
         const roulStillIn=rs.players.filter(p=>p.chips>0);
         if(rs.players.length>1&&roulStillIn.length<=1){onSrv(rs);return;}
@@ -7641,6 +8325,7 @@ document.addEventListener('click',e=>{
       G.dealer=mod(G.dealer+1,G.lp.length);G.lround++;
       lDeal();render();return;
     }
+    else if(G.selGame==='dicedual'){G.lp.forEach(p=>{p.totalScore=0;p.roundsWon=0;});G.lround++;lDeal();render();return;}
     else if(G.selGame==='roulette'){G.lround++;lDeal();render();return;}
     else{G.lround++;G.lstart=mod(G.lstart+1,G.lp.length);lDeal();render();}
   }
