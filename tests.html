@@ -625,6 +625,36 @@ function run(A,W){
     })(),'a kept-dice policy scored no better than rerolling blindly');
   });
 
+  /* ── 3d. Seating ──────────────────────────────────────── */
+  suite('Seating a bot',()=>{
+    // Seats carry over from whichever game was played last, which is why "Add a bot" behaved
+    // differently on two devices belonging to the same person: one had a spare blank seat, the
+    // other did not, and the button simply greyed itself out without saying so.
+    const savedLp=A.G.lp,savedGame=A.G.selGame,savedNid=A.G.nid;
+    const mk=(id,name,bot)=>({id,name,bot,avatar:A.AVATARS[0],hand:[],totalScore:0,roundsWon:0,
+      chips:1000,bet:0,folded:false,allIn:false});
+    const withSeats=(gid,seats,fn)=>{A.G.selGame=gid;A.G.lp=seats;A.G.nid=500;return fn();};
+
+    check('a spare blank seat is the one a bot takes',
+      withSeats('dicedual',[mk(1,'Phil'),mk(2,'')],()=>W.blankSeat()&&W.blankSeat().id===2));
+    check('a full two-seat table can still seat a bot',
+      withSeats('dicedual',[mk(1,'Phil'),mk(2,'Anna')],()=>!!W.convertibleSeat()));
+    check('and the button is offered rather than greyed out',
+      withSeats('dicedual',[mk(1,'Phil'),mk(2,'Anna')],()=>W.canAddBot(W.currentGame())));
+    check('the person holding the phone is never the one replaced',
+      withSeats('dicedual',[mk(1,'Phil'),mk(2,'Anna')],()=>W.convertibleSeat().id===2));
+    check('a seat already holding a bot is not taken over again',
+      withSeats('dicedual',[mk(1,'Phil'),mk(2,'Robo','sharp')],()=>W.convertibleSeat()===null));
+    check('a table of nothing but bots offers no seat at all',
+      withSeats('dicedual',[mk(1,'Robo','sharp'),mk(2,'Ace','gentle')],()=>!W.canAddBot(W.currentGame())));
+    check('an empty seat is preferred over a named one',
+      withSeats('maumau',[mk(1,'Phil'),mk(2,'Anna'),mk(3,'')],()=>W.convertibleSeat().id===3));
+    check('games that seat nobody artificial say no',
+      withSeats('hearts',[mk(1,'Phil'),mk(2,'')],()=>!W.canAddBot(W.currentGame())));
+
+    A.G.lp=savedLp;A.G.selGame=savedGame;A.G.nid=savedNid;
+  });
+
   /* ── 4. Scoring and evaluation the whole app depends on ──────────────── */
   suite('Card values & scoring',()=>{
     eq('Mau Mau: Jack = 20',A.cardVal(card('J','hearts')),20);

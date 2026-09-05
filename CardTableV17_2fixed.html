@@ -5193,9 +5193,14 @@ function isBotPlayer(p){return!!(p&&p.bot);}
 // without this the button would be permanently greyed out in the game most in need of it. Seat 1 is
 // never eligible: that is the person actually holding the phone.
 function blankSeat(){return G.lp.slice(1).reverse().find(p=>!p.bot&&!p.name.trim())||null;}
+// Seat 1 is never a candidate: that is the person holding the phone. An empty seat is taken in
+// preference to a named one, but a named one IS eligible — at a two-seat game with both names
+// filled in, replacing one is the only thing "Add a bot" can possibly mean, and a greyed-out
+// button with no explanation is how that turned into "the bot doesn't work on my iPad".
+function convertibleSeat(){return blankSeat()||G.lp.slice(1).reverse().find(p=>!p.bot)||null;}
 function canAddBot(game){
   if(!BOT_GAMES.has(game.id))return false;
-  return G.lp.length<(game.maxP||(isPoker()?8:6))||!!blankSeat();
+  return G.lp.length<(game.maxP||(isPoker()?8:6))||!!convertibleSeat();
 }
 function clearBotTurn(){clearTimeout(_botTimer);_botTimer=null;_botSig=null;}
 // Every game answers the same two questions: is a bot owed a move right now, and what state is that
@@ -8029,7 +8034,27 @@ document.addEventListener('click',e=>{
     if(!ONLINE_GAMES.includes(G.selGame)){toast('⚠️ Online play is not available for this game yet.');return;}
     G.scr='online';render();
   }
-  else if(a==='pick'){const gid=t.getAttribute('data-gid');if(!GAMES.find(g=>g.id===gid&&g.locked))G.selGame=gid;render();}
+  else if(a==='pick'){
+    const gid=t.getAttribute('data-gid');
+    if(!GAMES.find(g=>g.id===gid&&g.locked)){
+      G.selGame=gid;
+      // Seats carry over between games, so a six-player Mau Mau table walked straight into a
+      // two-seat duel: the extra seats stayed on screen, "Add a bot" greyed out because the table
+      // read as full, and the game quietly played only the first two anyway. Fit the table to the
+      // game that is about to be played, and say so rather than silently dropping people.
+      const g=currentGame(),cap=g.maxP||(isPoker()?8:6),min=g.minP||2;
+      if(G.lp.length>cap){
+        const dropped=G.lp.slice(cap).map(p=>p.name.trim()).filter(Boolean);
+        G.lp=G.lp.slice(0,cap);
+        toast(dropped.length?`${g.name} seats ${cap} — ${dropped.join(', ')} stepped out`
+                            :`${g.name} seats ${cap}`);
+      }
+      while(G.lp.length<min)
+        G.lp.push({id:G.nid++,name:'',avatar:AVATARS[G.lp.length%AVATARS.length],hand:[],totalScore:0,
+          roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false});
+    }
+    render();
+  }
   else if(a==='snd'){G.snd=!G.snd;render();}
   else if(a==='beginner'){G.beginnerMode=!G.beginnerMode;localStorage.setItem('ct_beginner',G.beginnerMode?'1':'0');render();}
   else if(a==='rules'){G.rulesOpen=!G.rulesOpen;render();}
@@ -8051,10 +8076,13 @@ document.addEventListener('click',e=>{
     const taken=new Set(G.lp.map(p=>p.name));
     const name=BOT_NAMES.find(n=>!taken.has(n))||('Bot '+G.nid);
     if(G.lp.length>=cap){
-      // A full table can still gain a bot if one of its seats is empty — Battle seats exactly two,
-      // so refusing here would mean the button never did anything in the game most in need of it.
-      const blank=blankSeat();
-      blank.name=name;blank.bot='sharp';render();return;
+      const seat=convertibleSeat();
+      if(!seat){toast('Table is full — remove a seat to add a bot');return;}
+      const replaced=seat.name.trim();
+      seat.name=name;seat.bot='sharp';
+      // Never silently overwrite a name somebody typed — say who moved over, so it can be undone.
+      toast(replaced?`${name} takes ${replaced}'s seat`:`${name} joins the table`);
+      render();return;
     }
     G.lp.push({id:G.nid++,name,bot:'sharp',avatar:AVATARS[G.lp.length%AVATARS.length],hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false});
     render();
