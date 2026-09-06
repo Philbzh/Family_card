@@ -2007,6 +2007,14 @@ const RANK_VAL={A:14,K:13,Q:12,J:11,'10':10,'9':9,'8':8,'7':7,'6':6,'5':5,'4':4,
 // AVATAR_IMGS is the matching illustrated portrait for each index, used in boxed/visual avatar slots.
 const AVATARS=['🦊','🐼','🐯','🦉','🐶','🐱','🐸','🦈','🤖','👽','🏴‍☠️','🍺','🤠','👸','🃏','🧑‍🚀','🐧','🐨','🐉','🦔','🐰','🐘','🐵','🦄'];
 const AVATAR_IMGS=['assets/avatars/avatar-01.png','assets/avatars/avatar-02.png','assets/avatars/avatar-03.png','assets/avatars/avatar-04.png','assets/avatars/avatar-05.png','assets/avatars/avatar-06.png','assets/avatars/avatar-07.png','assets/avatars/avatar-08.png','assets/avatars/avatar-09.png','assets/avatars/avatar-10.png','assets/avatars/avatar-11.png','assets/avatars/avatar-12.png','assets/avatars/avatar-13.png','assets/avatars/avatar-14.png','assets/avatars/avatar-15.png','assets/avatars/avatar-16.png','assets/avatars/avatar-17.png','assets/avatars/avatar-18.png','assets/avatars/avatar-19.png','assets/avatars/avatar-20.png','assets/avatars/avatar-21.png','assets/avatars/avatar-22.png','assets/avatars/avatar-23.png','assets/avatars/avatar-24.png'];
+// Avatars arrive from other devices inside the shared room state, and went into innerHTML raw:
+// every player NAME beside them was escaped, the avatar never was, at 14 separate sites. So a
+// player who set ct_myavatar to markup and joined a room got script execution on everyone
+// else's phone. Escaping would close it, but an allowlist is stronger and already exists here:
+// the picker only ever offers AVATARS, so anything outside that set is wrong by definition.
+// This is the text-mode twin of avImgSrc() below, which has always resolved through the same
+// list and was therefore never vulnerable.
+function avChar(e){return AVATARS.indexOf(e)>=0?e:AVATARS[0];}
 function avImgSrc(emoji){const i=AVATARS.indexOf(emoji);return AVATAR_IMGS[i>=0?i:0];}
 // A Wall of Fame portrait is the captured photo when there IS one, and the winner's avatar
 // otherwise. Only a real inline image data URL counts as "a photo": earlier builds could leave a
@@ -2726,7 +2734,7 @@ let G={
   hr:(()=>{try{return{draw2stack:true,jackWild:true,sevenSkip:true,eightReverse:true,mauAnn:true,...JSON.parse(localStorage.getItem('ct_hr')||'{}')};}catch{return{draw2stack:true,jackWild:true,sevenSkip:true,eightReverse:true,mauAnn:true};}})(),
   rulesOpen:false,quitOpen:false,dataOpen:false,dataClearAsk:false,
   isOnline:false,roomId:null,myPid:null,isHost:false,
-  myName:localStorage.getItem('ct_myname')||'',myAvatar:localStorage.getItem('ct_myavatar')||AVATARS[0],profileEditing:false,srv:null,
+  myName:localStorage.getItem('ct_myname')||'',myAvatar:avChar(localStorage.getItem('ct_myavatar')),profileEditing:false,srv:null,
   gp:+(localStorage.getItem('ct_gp')||0),
   tw:+(localStorage.getItem('ct_tw')||0),
   beginnerMode:localStorage.getItem('ct_beginner')!=='0',
@@ -6610,7 +6618,7 @@ function rPass(){
     <div class="pass-name">${esc(p.name)}'s turn</div>
     ${G.lpass2?`<p class="pass-sub">${G.lpass2}</p>`:''}
     ${G.lpend>0?`<div class="pass-warn">⚠️ Must play a 7 or draw ${G.lpend} cards.</div>`:''}
-    <button class="btn btn-gold" data-a="ready">${p.avatar} I'm ${esc(p.name)} — Ready!</button>
+    <button class="btn btn-gold" data-a="ready">${avChar(p.avatar)} I'm ${esc(p.name)} — Ready!</button>
     <button class="btn btn-ghost btn-sm" data-a="quit-ask" style="opacity:.45;">⏹ End Game</button>
   </div>`;
 }
@@ -6694,7 +6702,7 @@ function rTable(){
     </div>`;
   }).join('');
 
-  const turnLabel=online?(mine?'⭐ Your turn!':`${cur?.avatar||''} ${esc(cur?.name||'')}`):`${myPl?.avatar||''} ${esc(myPl?.name||'')}`;
+  const turnLabel=online?(mine?'⭐ Your turn!':`${avChar(cur?.avatar)} ${esc(cur?.name||'')}`):`${avChar(myPl?.avatar)} ${esc(myPl?.name||'')}`;
   const legalExists=!online?myHand.some(c=>lCanPlay(c)):mine&&myHand.some(c=>oCanPlay(c,state||{}));
 
   const ldrawn=mine&&!botHand&&(online?(state?.oDrawnCount>0):G.ldrawnCount>0);
@@ -6710,7 +6718,7 @@ function rTable(){
     const hasEight=myHand.some(c=>c.rank==='8');
     hint=hasEight?'<div class="hint-txt">Play an 8 to pass the skip on, or tap the pile to pass.</div>':'<div class="hint-txt">No 8 to play — tap the pile to pass the skip.</div>';
   }
-  else if(online&&!mine)hint=`<div class="hint-txt">${cur?.avatar||''} ${esc(cur?.name||'')}'s turn…</div>`;
+  else if(online&&!mine)hint=`<div class="hint-txt">${avChar(cur?.avatar)} ${esc(cur?.name||'')}'s turn…</div>`;
   // The last action deliberately does NOT appear here. It's already rendered unconditionally as
   // .table-event above the felt, so echoing it in the hint strip printed the same sentence twice on
   // screen at once. Worse, this branch sat ahead of the draw-pending one below and swallowed it —
@@ -6857,7 +6865,7 @@ function rTable(){
 
     <div class="hand-region">
       <div class="hand-meta">
-        <div class="hand-who">${myPl?.avatar||''} ${esc(myPl?.name||'Your hand')}${botHand?' is thinking…':''}${isPokerGame?` · ${myPl?.chips||0}c`:''}</div>
+        <div class="hand-who">${avChar(myPl?.avatar)} ${esc(myPl?.name||'Your hand')}${botHand?' is thinking…':''}${isPokerGame?` · ${myPl?.chips||0}c`:''}</div>
         <div class="hand-cnt">${myHand.length} card${myHand.length!==1?'s':''}</div>
       </div>
       <div class="hand-scroll">${handHTML}</div>
@@ -6910,7 +6918,7 @@ function rBlackjackTable(){
       statusHTML=`<span class="bj-status">Stand</span>`;
     }
     return`<div class="bj-player-row${isActive?' active':''}">
-      <div class="bj-player-head"><span>${p.avatar} ${esc(p.name)}</span><span class="bj-bet">🪙 ${p.bjBet}</span></div>
+      <div class="bj-player-head"><span>${avChar(p.avatar)} ${esc(p.name)}</span><span class="bj-bet">🪙 ${p.bjBet}</span></div>
       <div class="bj-player-cards">${cardsHTML}</div>
       <div class="bj-player-foot"><span class="bj-total">${pv.total}${pv.soft&&pv.total<=21?' soft':''}</span>${statusHTML}</div>
     </div>`;
@@ -6929,7 +6937,7 @@ function rBlackjackTable(){
   return`<div id="s-table" class="scr on game-blackjack">
     <div class="game-bar">
       <div class="gb-game">🎰 Blackjack</div>
-      <div class="gb-turn${showActions?' mine':''}">${showActions?(curP.avatar+' '+esc(curP.name)+"’s turn"):(allDone?(holeHidden?'Dealing…':'Dealer plays…'):(online?`${curP?.avatar||''} ${esc(curP?.name||'')}'s turn…`:'Next player…'))}</div>
+      <div class="gb-turn${showActions?' mine':''}">${showActions?(curP.avatar+' '+esc(curP.name)+"’s turn"):(allDone?(holeHidden?'Dealing…':'Dealer plays…'):(online?`${avChar(curP?.avatar)} ${esc(curP?.name||'')}'s turn…`:'Next player…'))}</div>
       <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
     </div>
     <div class="game-status"><span class="pot-badge">🪙 Bet ${betAmount}</span></div>
@@ -6957,15 +6965,15 @@ function rBattleTable(){
   return`<div id="s-table" class="scr on game-battle">
     <div class="game-bar">
       <div class="gb-game">⚔️ Battle</div>
-      <div class="gb-turn mine">${p0.avatar} ${p0.hand.length} — ${p1.hand.length} ${p1.avatar}</div>
+      <div class="gb-turn mine">${avChar(p0.avatar)} ${p0.hand.length} — ${p1.hand.length} ${avChar(p1.avatar)}</div>
       <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
     </div>
     <div class="game-status">${warBadge}</div>
     <div class="felt-table my-turn">
       <div style="display:flex;gap:.6rem;align-items:center;justify-content:center;z-index:1;width:100%;padding:0 .4rem;">
-        <div class="table-pile" style="flex-shrink:0;">${makeBack(TW,TH)}<div class="table-pile-lbl" style="white-space:nowrap;">${p0.avatar} ${esc(p0.name)} · ${p0.hand.length}</div></div>
+        <div class="table-pile" style="flex-shrink:0;">${makeBack(TW,TH)}<div class="table-pile-lbl" style="white-space:nowrap;">${avChar(p0.avatar)} ${esc(p0.name)} · ${p0.hand.length}</div></div>
         <div style="display:flex;gap:.4rem;flex-shrink:0;">${c0?makeCard(c0,TW,TH):emptySlot}${c1?makeCard(c1,TW,TH):emptySlot}</div>
-        <div class="table-pile" style="flex-shrink:0;">${makeBack(TW,TH)}<div class="table-pile-lbl" style="white-space:nowrap;">${p1.avatar} ${esc(p1.name)} · ${p1.hand.length}</div></div>
+        <div class="table-pile" style="flex-shrink:0;">${makeBack(TW,TH)}<div class="table-pile-lbl" style="white-space:nowrap;">${avChar(p1.avatar)} ${esc(p1.name)} · ${p1.hand.length}</div></div>
       </div>
     </div>
     <div class="hint-strip"><div class="hint-txt">${last?(esc(last.winnerIdx===0?p0.name:p1.name)+' won '+last.cardsWon+' card'+(last.cardsWon!==1?'s':'')):'Tap Flip to begin!'}</div></div>
@@ -7013,7 +7021,7 @@ function rYahtzeeTable(){
   return`<div id="s-table" class="scr on game-yahtzee">
     <div class="game-bar">
       <div class="gb-game">🎲 Yahtzee</div>
-      <div class="gb-turn${mine?' mine':''}">${p.avatar} ${esc(p.name)}’s turn</div>
+      <div class="gb-turn${mine?' mine':''}">${avChar(p.avatar)} ${esc(p.name)}’s turn</div>
       <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
     </div>
     <div class="y-standings-strip">${standings}</div>
@@ -7107,7 +7115,7 @@ function rRouletteTable(){
   const zeroHl=highlight===0?' roul-highlight':'';
   const spinStatus=spinning?(highlight!=null?`<div class="roul-spin-status"><span class="roul-spin-dot"></span>${highlight}${roulColor(highlight)!=='green'?' · '+roulColor(highlight):''}</div>`:`<div class="roul-spin-status"><span class="roul-spin-dot"></span>Spinning…</div>`)
     :countingDown?`<div class="roul-spin-status"><span class="roul-spin-dot"></span>Bets close in ${countdownSecs}s…</div>`:'';
-  const turnLbl=online?(countingDown?'⏳ Last call — bets close soon!':'🎡 Place your bets'):`${me.avatar} ${esc(me.name)} is betting`;
+  const turnLbl=online?(countingDown?'⏳ Last call — bets close soon!':'🎡 Place your bets'):`${avChar(me.avatar)} ${esc(me.name)} is betting`;
 
   return`<div id="s-table" class="scr on game-roulette">
     <div class="game-bar">
@@ -7242,7 +7250,7 @@ function exportMyData(){
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function clearMyLocalData(){
-  ['ct_history','ct_achievements','ct_family','ct_myname','ct_myavatar','ct_tablename','ct_tablename_year','ct_gp','ct_tw','ct_resume','ct_device_id'].forEach(k=>localStorage.removeItem(k));
+  ['ct_history','ct_achievements','ct_family','ct_myname','ct_myavatar','ct_tablename','ct_tablename_year','ct_gp','ct_tw','ct_resume','ct_device_id','ct_online_session','ct_dd_local'].forEach(k=>localStorage.removeItem(k));
   G.myName='';G.myAvatar=AVATARS[0];G.tableName='';G.gp=0;G.tw=0;
   toast('Your local data has been cleared.');
 }
@@ -7395,7 +7403,7 @@ function rMatchEnd(){
   return`<div id="s-matchend" class="scr on">
     <div class="topbar"><span class="top-title" style="font-family:var(--serif);">Tonight at Our Table</span><div class="top-right">${sndBtn()}</div></div>
     <div class="res-body">
-      <div class="winner-banner" style="--acc:${MOMENT_ACCENT[G.isOnline?G.srv?.gameId:G.selGame]||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${sorted[0]?.avatar} ${esc(sorted[0]?.name||'')} won!</div><button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div>
+      <div class="winner-banner" style="--acc:${MOMENT_ACCENT[G.isOnline?G.srv?.gameId:G.selGame]||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${avChar(sorted[0]?.avatar)} ${esc(sorted[0]?.name||'')} won!</div><button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div>
       ${statChips}
       <div class="panel" style="text-align:center;margin-bottom:.8rem;"><div class="panel-lbl">TABLE MOMENT</div><div style="font-family:var(--serif);font-size:1.1rem;color:var(--paper);margin:.2rem 0;">${matchMoment(sorted)}</div></div>
       <div class="standings">${rows}</div>
@@ -7415,7 +7423,7 @@ function rYahtzeeEnd(){
   return`<div id="s-matchend" class="scr on">
     <div class="topbar"><span class="top-title" style="font-family:var(--serif);">Final Scores</span><div class="top-right">${sndBtn()}</div></div>
     <div class="res-body">
-      <div class="winner-banner" style="--acc:${MOMENT_ACCENT.yahtzee||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${winner.avatar} ${esc(winner.name)} wins with ${winner.score}!</div>${marginSub?`<div class="wb-sub">${marginSub}</div>`:''}<button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div>
+      <div class="winner-banner" style="--acc:${MOMENT_ACCENT.yahtzee||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${avChar(winner.avatar)} ${esc(winner.name)} wins with ${winner.score}!</div>${marginSub?`<div class="wb-sub">${marginSub}</div>`:''}<button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div>
       <div class="standings">${rows}</div>
       <div class="res-btns">${G.isOnline?'':'<button class="btn btn-gold btn-full" data-a="rematch">🔥 Rematch</button>'}<button class="btn ${G.isOnline?'btn-gold':'btn-ghost'} btn-full" data-a="newgame">New Game</button></div>
     </div>

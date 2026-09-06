@@ -696,6 +696,39 @@ function run(A,W){
     Object.assign(A.G,{scr:keep.scr,lp:keep.lp,selGame:keep.game,dd:keep.dd,isOnline:keep.online,nid:keep.nid});
   });
 
+  /* ── 3c-ter. Avatars cannot carry markup ────────────────────── */
+  suite('Avatars are an allowlist, not a string',()=>{
+    // Player names were escaped everywhere; avatars were not, at 15 separate render sites. An
+    // avatar arrives from another device inside the shared room state, so a player who set
+    // ct_myavatar to markup and joined got script execution on every other phone at the table.
+    // Escaping would have closed it; resolving through the picker's own list closes it harder,
+    // because anything outside that list is wrong by definition rather than merely dangerous.
+    const nasty='<img src=x onerror="window.__x=1">';
+    eq('markup collapses to the fallback avatar',W.avChar(nasty),A.AVATARS[0]);
+    eq('so does an emoji that is not on the picker',W.avChar('ZZ'),A.AVATARS[0]);
+    eq('and undefined',W.avChar(undefined),A.AVATARS[0]);
+    check('every real avatar survives untouched',A.AVATARS.every(e=>W.avChar(e)===e));
+    check('the image path was always an allowlist too',
+      W.avImgSrc(nasty)===W.avImgSrc(A.AVATARS[0]));
+
+    // The guard has to hold at the render sites, not just in isolation: rebuild each table with a
+    // hostile avatar in play and confirm nothing executable reaches the markup.
+    const keep={scr:A.G.scr,lp:A.G.lp,game:A.G.selGame,online:A.G.isOnline,nid:A.G.nid};
+    const mk=(id,n,av)=>({id,name:n,avatar:av,hand:[],totalScore:0,roundsWon:0,
+      chips:1000,bet:0,folded:false,allIn:false,bjHand:[],scorecard:A.yFreshScorecard(),
+      roulBets:{},roulBetLog:[]});
+    let leaked=[];
+    for(const g of ['maumau','uno','texas','fivecard','blackjack','battle','yahtzee','dicedual']){
+      A.G.isOnline=false;A.G.selGame=g;A.G.nid=9;
+      A.G.lp=[mk(1,'Me',A.AVATARS[0]),mk(2,'Guest',nasty)];
+      let html='';
+      try{ W.lStartMatch(); html=W.rTable(); }catch(e){ html=''; }
+      if(/<img[^>]+onerror/i.test(html)||html.indexOf(nasty)>=0)leaked.push(g);
+    }
+    check('no table renderer emits a hostile avatar',leaked.length===0,'leaked in: '+leaked.join(', '));
+    Object.assign(A.G,{scr:keep.scr,lp:keep.lp,selGame:keep.game,isOnline:keep.online,nid:keep.nid});
+  });
+
   /* ── 3d. Seating ──────────────────────────────────────── */
   suite('Seating a bot',()=>{
     // Seats carry over from whichever game was played last, which is why "Add a bot" behaved
@@ -1212,7 +1245,7 @@ function grab(W,names){
 }
 const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoCardVal','evalHand',
   'unoBotMove','unoBotColor','pokerBotStrength','pokerBotMove','pokerBotDraw',
-  'ddEvaluate','ddResolveRound','ddBotHolds','ddScoringDice','ddMaxThrows','ddIsUnderdog','DD_COMBOS','DD_TARGET','DD_COMEBACK_GAP','DD_DUEL_BONUS',
+  'ddEvaluate','ddResolveRound','ddBotHolds','ddScoringDice','avChar','avImgSrc','yFreshScorecard','ddMaxThrows','ddIsUnderdog','DD_COMBOS','DD_TARGET','DD_COMEBACK_GAP','DD_DUEL_BONUS',
   'yahtzeeBotHolds','yahtzeeBotCategory','blackjackBotMove','rouletteBotBets','isBotPlayer','BOT_GAMES',
   'yScoreCategory','buildDeck','buildUnoDeck','shuffle','momentPortraitSrc','avImgSrc',
   'SUITS','RANKS','AVATARS','ACHIEVEMENTS',
