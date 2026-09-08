@@ -102,7 +102,16 @@ body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100v
 .dd-seat.right .dd-bar-fill{margin-left:auto;}
 .dd-vs-badge{flex-shrink:0;font-size:1rem;opacity:.7;filter:drop-shadow(0 0 8px rgba(240,204,96,.4));}
 
+/* A long reveal — five power lines and two hands — can still outgrow the felt's 48vh cap on a
+   short screen. Scroll it instead of hiding the overflow, so nothing is ever simply invisible. */
 .dd-felt{flex-direction:column;justify-content:center;gap:.8rem;}
+/* Needs .felt-table in the selector to outrank its own overflow:hidden, which is declared later in
+   this stylesheet — a bare .dd-felt rule loses on source order and silently does nothing. */
+.felt-table.dd-felt{overflow-y:auto;}
+/* The header has ~97px on a phone, and "Round 1 · to 900" needs 116 — so it ellipsised to
+   "Round 1 · t…", which reads as broken rather than abbreviated. Drop the target on narrow screens
+   only: the score bars underneath already fill toward it, so the number is the least useful part. */
+@media(max-width:430px){.gb-target{display:none;}}
 .dd-side-opp{display:flex;flex-direction:column;align-items:center;gap:.4rem;opacity:.75;}
 .dd-opp-dice .dd-die-hidden{font-size:1rem;}
 .dd-divider{display:flex;align-items:center;gap:.6rem;width:min(88%,20rem);color:var(--paper3);}
@@ -619,6 +628,12 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
     radial-gradient(ellipse 60% 40% at 80% 60%,rgba(20,33,61,.32),transparent 55%),
     var(--bg);}
 .setup-body{padding:.4rem 1.1rem 2.5rem;display:flex;flex-direction:column;gap:.9rem;overflow-y:auto;}
+/* A flex column whose children can shrink does NOT overflow — it squashes them to fit, and then
+   overflow-y:auto has nothing to scroll. On a phone that clipped the player list mid-row and cut the
+   bottom row of house rules clean off, with no way to scroll to them: scrollHeight === clientHeight,
+   so the screen looked complete and simply was not. Children keep their natural height; the body
+   then genuinely overflows, and the scroll it was always asking for starts working. */
+.setup-body>*{flex-shrink:0;}
 .player-row{display:flex;align-items:center;gap:.65rem;padding:.5rem .1rem;border-bottom:1px solid rgba(255,255,255,.06);}
 .player-row:last-child{border-bottom:none;}
 .av-btn{font-size:1.4rem;width:2.7rem;height:2.7rem;border-radius:50%;background:rgba(14,64,40,.6);border:1.5px solid var(--gold3);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:filter .15s;}
@@ -3981,8 +3996,6 @@ function rDiceDuelTable(){
             : `${evs[r.duelWinner].short} <b>${evs[r.duelWinner].base}</b> beats ${evs[1-r.duelWinner].short} <b>${evs[1-r.duelWinner].base}</b>`
         }</div>`:''}
         <div class="dd-events${showPowers?' in':''}">${powerRows}</div>
-        ${showScore&&v.phase==='roundover'?`<button class="btn btn-gold" data-a="dd-next">Next round ▶</button>`:''}
-        ${showScore&&v.phase==='matchover'?`<div class="dd-final">🏆 Duel over</div>`:''}
       </div>`;
   }
 
@@ -3999,12 +4012,20 @@ function rDiceDuelTable(){
     </div></div>`;
   } else if(!revealing&&seat.locked){
     actionBar=`<div class="poker-actions"><div class="poker-action-row"><div class="dd-waiting">Locked in — waiting for ${esc(P[you].name)}…</div></div></div>`;
+  } else if(revealing&&v.step>=3){
+    // Deliberately NOT inside the felt. The felt is capped at 48vh and clips what will not fit, so
+    // on a phone the button that ends the round sat just past its bottom edge and was unreachable.
+    // Every other game puts its actions in this bar; the duel now does too, which also means the
+    // button cannot be pushed out of reach however long the list of powers gets.
+    actionBar=v.phase==='matchover'
+      ? `<div class="poker-actions"><div class="poker-action-row"><div class="dd-final">🏆 Duel over</div></div></div>`
+      : `<div class="poker-actions"><div class="poker-action-row"><button class="btn btn-gold btn-sm" data-a="dd-next">Next round ▶</button></div></div>`;
   }
 
   return`<div id="s-table" class="scr on game-dicedual">
     <div class="game-bar">
       <div class="gb-game">🎲 Dice Duel</div>
-      <div class="gb-turn mine">Round ${v.round} · to ${DD_TARGET}</div>
+      <div class="gb-turn mine">Round ${v.round}<span class="gb-target"> · to ${DD_TARGET}</span></div>
       <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
     </div>
     <div class="dd-scoreboard">
