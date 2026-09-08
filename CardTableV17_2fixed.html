@@ -15,14 +15,35 @@
 <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Cinzel+Decorative:wght@700;900&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script>
-// Supabase loaded lazily only when online play is requested
+// Supabase loaded lazily only when online play is requested.
+//
+// Pinned to an exact version with an integrity hash, rather than the floating "@2" tag this used to
+// carry. A floating tag means whatever the CDN decides to serve on the day runs with full access to
+// this page — and therefore to the family's stored names, history and photos. SRI makes the browser
+// refuse anything whose bytes do not match, so a compromised CDN or a bad release cannot execute.
+//
+// Two details that matter if you ever change this URL:
+//   1. It must be the exact FILE path (.../dist/umd/supabase.js), not the auto-resolved short form.
+//      jsdelivr generates the short form on the fly and prepends a comment to it, so its bytes can
+//      change without the version changing — the file itself says "Do NOT use SRI with dynamically
+//      generated files". SRI on the short form would eventually fail for no reason.
+//   2. The hash must be regenerated whenever the version changes, or online play stops loading:
+//        curl -s <url> | openssl dgst -sha384 -binary | openssl base64 -A
+//
+// 2.115.0 is what the old floating tag was already resolving to, so pinning changed nothing today.
+// The trade is deliberate: upgrades become a manual step, in exchange for knowing what runs.
 window._sbFailed=false;
+var SB_LIB='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0/dist/umd/supabase.js';
+var SB_LIB_SRI='sha384-CLZeq1dk8+Uzrs7TVvBUdlFoV5F0DMqgRoeHa8g5wJcuPe5SkVfEvdxB0ZuzlnBQ';
 function loadSupabase(cb){
   if(window.supabase){if(cb)cb();return;}
   var s=document.createElement('script');
-  s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-  s.crossOrigin='anonymous';
+  s.src=SB_LIB;
+  s.integrity=SB_LIB_SRI;
+  s.crossOrigin='anonymous'; // required for SRI to be checked at all on a cross-origin script
   s.onload=function(){if(cb)cb();};
+  // Also fires when the integrity check fails, which is the point: a tampered file never runs, and
+  // the app falls back to its existing "online unavailable" path instead of executing it.
   s.onerror=function(){window._sbFailed=true;if(cb)cb();};
   document.head.appendChild(s);
 }
