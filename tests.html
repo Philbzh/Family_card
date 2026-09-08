@@ -729,6 +729,58 @@ function run(A,W){
     Object.assign(A.G,{scr:keep.scr,lp:keep.lp,selGame:keep.game,isOnline:keep.online,nid:keep.nid});
   });
 
+  /* ── 3c-quater. Trophies do not depend on English ──────────────── */
+  suite('Moments carry a key, not just prose',()=>{
+    // Four trophies and the Head-to-Head comeback counter used to recognise themselves by running a
+    // regex over the English sentence stored with each game. Reword a sentence and the trophy stops
+    // unlocking; translate the app and they all stop, silently. They now read a key instead.
+    const dated=o=>({game:'maumau',winner:'Phil',date:new Date().toISOString(),players:['Phil','Anna'],...o});
+
+    // A key is authoritative, whatever language the prose is in.
+    check('a German comeback still counts',
+      W.momentIs(dated({moment:'Phil holt den R\u00fcckstand auf.',momentKey:'comeback'}),'comeback'));
+    check('a French war still counts',
+      W.momentIs(dated({moment:'Anna gagne apr\u00e8s une guerre !',momentKey:'war'}),'war'));
+    check('and a key never answers for a different trophy',
+      !W.momentIs(dated({moment:'whatever',momentKey:'war'}),'comeback'));
+
+    // History recorded BEFORE the key existed must keep working, or families lose earned trophies.
+    check('legacy English prose still counts (comeback)',
+      W.momentIs(dated({moment:'Phil came back to win the round.'}),'comeback'));
+    check('legacy English prose still counts (war)',
+      W.momentIs(dated({moment:'Anna battled through a war to win it all!'}),'war'));
+    check('legacy English prose still counts (blackjack)',
+      W.momentIs(dated({moment:'Phil hit Blackjack!'}),'blackjack'));
+    check('legacy English prose still counts (nail-biter)',
+      W.momentIs(dated({moment:'A nail-biter — Anna edges it out.'}),'nailbiter'));
+
+    // A keyed record must NOT also be matched by the legacy regex for another key: once a record
+    // carries a key, the key is the whole answer.
+    check('a keyed record ignores stray English in its own text',
+      !W.momentIs(dated({moment:'Phil came back to win.',momentKey:'war'}),'comeback'));
+
+    check('an ordinary win unlocks nothing',
+      ['comeback','war','blackjack','nailbiter'].every(k=>
+        !W.momentIs(dated({moment:'Phil takes the round.',momentKey:null}),k)));
+    check('a missing or malformed record is simply false',
+      !W.momentIs(null,'comeback')&&!W.momentIs(undefined,'war')&&!W.momentIs({},'comeback'));
+
+    // The trophies themselves, driven through real stored history.
+    const keep=localStorage.getItem('ct_history');
+    const ids=['comeback','war-veteran','natural-21','photo-finish'];
+    const setH=a=>localStorage.setItem('ct_history',JSON.stringify(a));
+    setH([dated({game:'maumau',moment:'irgendwas',momentKey:'comeback'}),
+          dated({game:'battle',moment:'peu importe',momentKey:'war'}),
+          dated({game:'blackjack',moment:'egal',momentKey:'blackjack'}),
+          dated({game:'uno',moment:'sur le fil',momentKey:'nailbiter'})]);
+    check('all four trophies unlock from translated history',
+      ids.every(id=>A.ACHIEVEMENTS.find(x=>x.id===id).check()));
+    setH([dated({moment:'Phil takes the round.',momentKey:null})]);
+    check('and none of them unlock from an ordinary win',
+      ids.every(id=>!A.ACHIEVEMENTS.find(x=>x.id===id).check()));
+    if(keep===null)localStorage.removeItem('ct_history');else localStorage.setItem('ct_history',keep);
+  });
+
   /* ── 3d. Seating ──────────────────────────────────────── */
   suite('Seating a bot',()=>{
     // Seats carry over from whichever game was played last, which is why "Add a bot" behaved
@@ -1245,7 +1297,7 @@ function grab(W,names){
 }
 const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoCardVal','evalHand',
   'unoBotMove','unoBotColor','pokerBotStrength','pokerBotMove','pokerBotDraw',
-  'ddEvaluate','ddResolveRound','ddBotHolds','ddScoringDice','avChar','avImgSrc','yFreshScorecard','ddMaxThrows','ddIsUnderdog','DD_COMBOS','DD_TARGET','DD_COMEBACK_GAP','DD_DUEL_BONUS',
+  'ddEvaluate','ddResolveRound','ddBotHolds','ddScoringDice','avChar','avImgSrc','yFreshScorecard','momentIs','ddMaxThrows','ddIsUnderdog','DD_COMBOS','DD_TARGET','DD_COMEBACK_GAP','DD_DUEL_BONUS',
   'yahtzeeBotHolds','yahtzeeBotCategory','blackjackBotMove','rouletteBotBets','isBotPlayer','BOT_GAMES',
   'yScoreCategory','buildDeck','buildUnoDeck','shuffle','momentPortraitSrc','avImgSrc',
   'SUITS','RANKS','AVATARS','ACHIEVEMENTS',

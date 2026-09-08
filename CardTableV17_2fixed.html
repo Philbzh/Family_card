@@ -2317,11 +2317,11 @@ const ACHIEVEMENTS=[
   // — Style —
   {id:'streak3',icon:'🔥',name:'Hat Trick',desc:'3 wins in a row',check:()=>winStreak()>=3,progress:()=>({cur:winStreak(),max:3})},
   {id:'streak5',icon:'☄️',name:'On Fire',desc:'5 wins in a row',check:()=>winStreak()>=5,progress:()=>({cur:winStreak(),max:5})},
-  {id:'comeback',icon:'💪',name:'The Comeback',desc:'Won after falling behind',check:()=>getHistory().some(h=>/came back/i.test(h.moment||''))},
+  {id:'comeback',icon:'💪',name:'The Comeback',desc:'Won after falling behind',check:()=>getHistory().some(h=>momentIs(h,'comeback'))},
   {id:'variety',icon:'🎲',name:'Jack of All Games',desc:'Won at 3 different games',check:()=>gamesWonCount()>=3,progress:()=>({cur:gamesWonCount(),max:3})},
   {id:'variety5',icon:'🃏',name:'Master of the Deck',desc:'Won at 5 different games',check:()=>gamesWonCount()>=5,progress:()=>({cur:gamesWonCount(),max:5})},
-  {id:'war-veteran',icon:'⚔️',name:'War Veteran',desc:'Won a Battle that went to war',check:()=>getHistory().some(h=>/battled through a war/i.test(h.moment||''))},
-  {id:'natural-21',icon:'🂡',name:'Natural',desc:'Won a hand with a natural Blackjack',check:()=>getHistory().some(h=>/hit Blackjack/i.test(h.moment||''))},
+  {id:'war-veteran',icon:'⚔️',name:'War Veteran',desc:'Won a Battle that went to war',check:()=>getHistory().some(h=>momentIs(h,'war'))},
+  {id:'natural-21',icon:'🂡',name:'Natural',desc:'Won a hand with a natural Blackjack',check:()=>getHistory().some(h=>momentIs(h,'blackjack'))},
   // — The table —
   {id:'social5',icon:'🫂',name:'Full Table',desc:'Played with 5 different people',check:()=>peopleMetCount()>=5,progress:()=>({cur:peopleMetCount(),max:5})},
   {id:'big-table',icon:'🎪',name:'Packed House',desc:'Played a game with 6 or more at the table',check:()=>getHistory().some(h=>(h.players||[]).length>=6)},
@@ -2332,7 +2332,7 @@ const ACHIEVEMENTS=[
   {id:'early-bird',icon:'🌅',secret:true,name:'Dawn Patrol',desc:'Won a game before 9am',check:()=>getHistory().some(h=>h.winner===G.myName&&new Date(h.date).getHours()<9)},
   {id:'chaos-master',icon:'🎠',secret:true,name:'Chaos Master',desc:'Won 3 different games in one day',check:()=>{const today=new Date().toDateString();return new Set(getHistory().filter(h=>h.winner===G.myName&&new Date(h.date).toDateString()===today).map(h=>h.game)).size>=3;}},
   {id:'marathon',icon:'🕯️',secret:true,name:'The Long Night',desc:'Played 5 games in a single day',check:()=>{const today=new Date().toDateString();return getHistory().filter(h=>new Date(h.date).toDateString()===today).length>=5;}},
-  {id:'photo-finish',icon:'📷',secret:true,name:'Photo Finish',desc:'Won a game by the narrowest of margins',check:()=>getHistory().some(h=>/nail-biter/i.test(h.moment||''))},
+  {id:'photo-finish',icon:'📷',secret:true,name:'Photo Finish',desc:'Won a game by the narrowest of margins',check:()=>getHistory().some(h=>momentIs(h,'nailbiter'))},
   {id:'yahtzee-first-try',icon:'🎯',secret:true,name:'First Try',desc:'Rolled a Yahtzee on the very first roll of a turn',check:()=>getHistory().some(h=>h.stats?.firstTryYahtzee)},
 ];
 // Shared by both the check() and the progress() of the streak achievements, so the bar can never
@@ -2347,6 +2347,22 @@ function peopleMetCount(){return new Set(getHistory().flatMap(h=>h.players||[]).
 // Unlocks moved from a bare array of ids to {id:ISO date} so the Trophy Room can say WHEN each was
 // earned. Old installs stored the plain array — read both shapes and normalise, treating a legacy
 // entry as earned-but-undated rather than throwing away someone's hard-won trophies on upgrade.
+// A "moment" is prose, and prose turned out to be a poor thing to detect achievements with: four
+// trophies and the Head-to-Head comeback counter recognised themselves by running a regex over the
+// English sentence. That breaks the day anyone rewords a sentence, and it breaks completely the day
+// the app speaks German or French — silently, with the trophy simply never unlocking again.
+//
+// Every moment now carries a language-independent key beside its text, and the checks read the key.
+// The old regexes stay as a fallback so history already on the device still counts: a family that
+// earned The Comeback last month does not lose it because of this change.
+const MOMENT_LEGACY={comeback:/came back/i,war:/battled through a war/i,
+  blackjack:/hit Blackjack/i,nailbiter:/nail-biter/i};
+function momentIs(h,key){
+  if(!h)return false;
+  if(h.momentKey)return h.momentKey===key;
+  const legacy=MOMENT_LEGACY[key];
+  return!!(legacy&&legacy.test(h.moment||''));
+}
 function getAchievements(){
   let raw;
   try{raw=JSON.parse(localStorage.getItem('ct_achievements')||'{}');}catch{return{};}
@@ -2639,7 +2655,7 @@ function houseLegends(){
     if(h.winner){
       wins[h.winner]=(wins[h.winner]||0)+1;
       (perGameWins[h.game]=perGameWins[h.game]||{})[h.winner]=(perGameWins[h.game][h.winner]||0)+1;
-      if(h.moment&&/came back/i.test(h.moment))comebacks[h.winner]=(comebacks[h.winner]||0)+1;
+      if(momentIs(h,'comeback'))comebacks[h.winner]=(comebacks[h.winner]||0)+1;
     }
   });
 
@@ -3661,11 +3677,13 @@ function ddEndMatch(wi){
   SFX.win();v14WinnerBurst();celebrateWin(winner.name,winner.avatar);fxPulse('gold');fxSeatGlow(wi,'gold');
   G.tw++;localStorage.setItem('ct_tw',G.tw);
   const gap=winner.totalScore-loser.totalScore;
-  const moment=G.dd.wasBehind[wi]?`${winner.name} came back to win the duel.`
-    :(gap<=40?`A nail-biter — ${winner.name} edges the duel by ${gap}.`
-    :`${winner.name} takes the duel ${winner.totalScore}–${loser.totalScore}.`);
+  const ddComeback=G.dd.wasBehind[wi],ddNail=!ddComeback&&gap<=40;
+  const momentKey=ddComeback?'comeback':ddNail?'nailbiter':null;
+  const moment=ddComeback?`${winner.name} came back to win the duel.`
+    :ddNail?`A nail-biter — ${winner.name} edges the duel by ${gap}.`
+    :`${winner.name} takes the duel ${winner.totalScore}–${loser.totalScore}.`;
   addHistory({game:'dicedual',winner:winner.name,winnerAvatar:winner.avatar,date:new Date().toISOString(),
-    players:G.lp.map(p=>p.name),moment,
+    players:G.lp.map(p=>p.name),moment,momentKey,
     stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
   const bd=G.lp.map(p=>({id:p.id,name:p.name,avatar:p.avatar,delta:p.roundsWon||0,total:p.totalScore||0,isWinner:p===winner}))
     .sort((a,b)=>b.total-a.total);
@@ -4960,9 +4978,10 @@ function bjResolve(){
   G.tw++;localStorage.setItem('ct_tw',G.tw);
   const sorted=[...G.lp].sort((a,b)=>b.chips-a.chips);
   const bd=sorted.map(p=>({id:p.id,name:p.name,avatar:p.avatar,delta:p.bjNet,total:p.chips,isWinner:p.bjResult==='win'||p.bjResult==='blackjack',resultLabel:p.bjResult}));
-  const bjMoment=isComeback(bd)?`${sorted[0].name} came back to win the table.`:sorted[0].bjResult==='blackjack'?`${sorted[0].name} hit Blackjack!`:`${sorted[0].name} beat the house.`;
+  const bjKey=isComeback(bd)?'comeback':sorted[0].bjResult==='blackjack'?'blackjack':null;
+  const bjMoment=bjKey==='comeback'?`${sorted[0].name} came back to win the table.`:bjKey==='blackjack'?`${sorted[0].name} hit Blackjack!`:`${sorted[0].name} beat the house.`;
   if(bd[0].isWinner)celebrateWin(sorted[0].name,sorted[0].avatar);
-  addHistory({game:G.selGame,winner:sorted[0].name,winnerAvatar:sorted[0].avatar,date:new Date().toISOString(),players:G.lp.map(p=>p.name),rules:{bet:G.bjBet},moment:bjMoment,stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
+  addHistory({game:G.selGame,winner:sorted[0].name,winnerAvatar:sorted[0].avatar,date:new Date().toISOString(),players:G.lp.map(p=>p.name),rules:{bet:G.bjBet},moment:bjMoment,momentKey:bjKey,stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
   if(isComeback(bd))G.matchStats.comebacks++;
   G.lres={wName:sorted[0].name,wAv:sorted[0].avatar,bd};
   G.scr='roundend';render();
@@ -5122,7 +5141,7 @@ function battleFlip(){
     const finalWinner=p0.hand.length?p0:p1;
     G.tw++;localStorage.setItem('ct_tw',G.tw);
     finalWinner.roundsWon=(finalWinner.roundsWon||0)+1;
-    addHistory({game:'battle',winner:finalWinner.name,winnerAvatar:finalWinner.avatar,date:new Date().toISOString(),players:G.lp.map(p=>p.name),moment:warRounds>0?`${finalWinner.name} battled through a war to win it all!`:`${finalWinner.name} wins the table.`,stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
+    addHistory({game:'battle',winner:finalWinner.name,winnerAvatar:finalWinner.avatar,date:new Date().toISOString(),players:G.lp.map(p=>p.name),moment:warRounds>0?`${finalWinner.name} battled through a war to win it all!`:`${finalWinner.name} wins the table.`,momentKey:warRounds>0?'war':null,stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
     const bd=[p0,p1].sort((a,b)=>b.hand.length-a.hand.length).map(p=>({id:p.id,name:p.name,avatar:p.avatar,delta:p.hand.length,total:p.hand.length,isWinner:p===finalWinner}));
     G.lres={wName:finalWinner.name,wAv:finalWinner.avatar,bd};
     SFX.win();v14WinnerBurst();celebrateWin(finalWinner.name,finalWinner.avatar);fxPulse('gold');fxSeatGlow(winnerIdx,'gold');
@@ -5500,8 +5519,9 @@ function lEndRound(winner){
   const valFn=G.selGame==='uno'?unoCardVal:cardVal;
   const bd=G.lp.map(p=>{let delta;if(p.id===winner.id){delta=100;p.roundsWon++;}else{delta=-p.hand.reduce((s,c)=>s+valFn(c),0);}p.totalScore+=delta;return{id:p.id,name:p.name,avatar:p.avatar,delta,total:p.totalScore,isWinner:p.id===winner.id};}).sort((a,b)=>b.total-a.total);
   if(isComeback(bd))G.matchStats.comebacks++;
-  const mmMoment=isComeback(bd)?`${winner.name} came back to win the round.`:(bd.length>=2&&Math.abs(bd[0].total-bd[1].total)<=5?`A nail-biter — ${winner.name} edges it out.`:`${winner.name} takes the round.`);
-  addHistory({game:G.selGame,winner:winner.name,winnerAvatar:winner.avatar,date:new Date().toISOString(),players:G.lp.map(p=>p.name),rules:G.hr,moment:mmMoment,stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
+  const mmKey=isComeback(bd)?'comeback':(bd.length>=2&&Math.abs(bd[0].total-bd[1].total)<=5?'nailbiter':null);
+  const mmMoment=mmKey==='comeback'?`${winner.name} came back to win the round.`:mmKey==='nailbiter'?`A nail-biter — ${winner.name} edges it out.`:`${winner.name} takes the round.`;
+  addHistory({game:G.selGame,winner:winner.name,winnerAvatar:winner.avatar,date:new Date().toISOString(),players:G.lp.map(p=>p.name),rules:G.hr,moment:mmMoment,momentKey:mmKey,stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
   G.lres={wName:winner.name,wAv:winner.avatar,bd};G.scr='roundend';render();
 }
 function lMauTimer(player,card,callWord='Mau!',label='Mau'){
@@ -5977,15 +5997,18 @@ function onSrv(state){
         if(wIdx>=0)fxSeatGlow(wIdx,'gold');
         const rules=state.gameId==='blackjack'?{bet:state.bjBetAmount}:state.gameId==='maumau'?state.hr:null;
         const wasComeback=state.gameId!=='battle'&&isComeback(bd);
-        let onlineMoment;
+        let onlineMoment,onlineKey=null;
         if(state.gameId==='blackjack'){
-          onlineMoment=wasComeback?`${state.winnerName} came back to win the table.`:(state.players||[]).some(p=>p.bjResult==='blackjack'&&p.id===state.winner)?`${state.winnerName} hit Blackjack!`:`${state.winnerName} beat the house.`;
+          onlineKey=wasComeback?'comeback':(state.players||[]).some(p=>p.bjResult==='blackjack'&&p.id===state.winner)?'blackjack':null;
+          onlineMoment=onlineKey==='comeback'?`${state.winnerName} came back to win the table.`:onlineKey==='blackjack'?`${state.winnerName} hit Blackjack!`:`${state.winnerName} beat the house.`;
         } else if(state.gameId==='battle'){
-          onlineMoment=state.battleLast?.warRounds>0?`${state.winnerName} battled through a war to win it all!`:`${state.winnerName} wins the table.`;
+          onlineKey=state.battleLast?.warRounds>0?'war':null;
+          onlineMoment=onlineKey==='war'?`${state.winnerName} battled through a war to win it all!`:`${state.winnerName} wins the table.`;
         } else {
-          onlineMoment=wasComeback?`${state.winnerName} came back to win the round.`:(bd.length>=2&&Math.abs(bd[0].total-bd[1].total)<=5?`A nail-biter — ${state.winnerName} edges it out.`:`${state.winnerName} takes the round.`);
+          onlineKey=wasComeback?'comeback':(bd.length>=2&&Math.abs(bd[0].total-bd[1].total)<=5?'nailbiter':null);
+          onlineMoment=onlineKey==='comeback'?`${state.winnerName} came back to win the round.`:onlineKey==='nailbiter'?`A nail-biter — ${state.winnerName} edges it out.`:`${state.winnerName} takes the round.`;
         }
-        addHistory({game:state.gameId,winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),players:(state.players||[]).map(p=>p.name),mode:'online',rules,moment:onlineMoment,stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
+        addHistory({game:state.gameId,winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),players:(state.players||[]).map(p=>p.name),mode:'online',rules,moment:onlineMoment,momentKey:onlineKey,stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
         if(state.winner===G.myPid){G.tw++;localStorage.setItem('ct_tw',G.tw);}
       }
       G.scr='roundend';render();return;
