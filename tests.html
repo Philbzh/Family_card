@@ -1276,6 +1276,220 @@ async function runPresentation(A,W,frame){
     A.G.scr='home';W.render();
   });
 
+  /* —— A room state that is not a game must not be able to crash a client ——————— */
+  /* The room id is a short guessable code, and until now whatever JSON sat in that row was trusted
+     completely. players as an object, a hand that is a number, a hand entry of null — each of those
+     throws inside render(), and a throw inside render() leaves a blank screen with no way back. */
+  suite('A malformed room state cannot crash a client',()=>{
+    const san=W.eval('sanitiseState');
+    check('a non-object is rejected outright',
+      san(null)===null&&san(undefined)===null&&san('a string')===null&&san(42)===null&&san([1,2])===null);
+
+    const hostile=san({players:{a:1},discard:5,deck:null,talk:'x',curIdx:'NaN',gameId:'maumau'});
+    check('players is always an array',Array.isArray(hostile.players));
+    check('discard and deck are always arrays',Array.isArray(hostile.discard)&&Array.isArray(hostile.deck));
+    check('talk is always an array',Array.isArray(hostile.talk));
+    check('curIdx is always a finite number',typeof hostile.curIdx==='number'&&isFinite(hostile.curIdx));
+
+    /* A NORMALISER, not a whitelist: the state carries dozens of per-game fields and a whitelist
+       would silently delete a game's data every time a new game was added. */
+    check('fields it does not know about are left alone',
+      san({players:[],ddSomethingNew:{deep:[1,2]},roulHistory:[7]}).ddSomethingNew.deep[1]===2);
+
+    const bad=san({players:[{name:7,hand:[null,5,'x',{rank:'A',suit:'s'}]},null,'nope',42]});
+    check('non-object players are dropped',bad.players.length===1);
+    check('a numeric name becomes a string',typeof bad.players[0].name==='string');
+    check('hand entries that are not cards are dropped',bad.players[0].hand.length===1);
+    check('the real card survives',bad.players[0].hand[0].rank==='A');
+
+    /* The whole point: the renderer walks this without throwing. */
+    check('the normalised shape survives the reads render() performs',(()=>{
+      try{
+        const st=san({players:{},discard:'x',deck:7,talk:null,curIdx:undefined});
+        st.players.forEach(p=>p.hand.length);
+        return st.discard[st.discard.length-1]===undefined&&st.players.length===0;
+      }catch(e){return false;}
+    })());
+  });
+
+  /* —— Mau Mau cannot seat more players than its deck can deal ——————————— */
+  suite('Mau Mau seats only as many players as 32 cards allow',()=>{
+    const GAMES=W.eval('GAMES'),mm=GAMES.find(g=>g.id==='maumau');
+    check('the deck really is 32 cards',A.buildDeck(1,'maumau').length===32);
+    check('and the cap is low enough to deal them',mm.maxP*mm.deal<32,
+      mm.maxP+' players x '+mm.deal+' cards = '+(mm.maxP*mm.deal)+' from a 32-card deck');
+    check('the advertised range matches the cap',mm.players.indexOf(String(mm.maxP))>=0);
+
+    /* Deal it for real and confirm nobody is short and there is still a pile to draw from. */
+    const G=W.eval('G');
+    G.selGame='maumau';
+    G.lp=Array.from({length:mm.maxP},(_,i)=>({id:i+1,name:'P'+i,avatar:A.AVATARS[i],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false}));
+    G.lstart=0;G.lpend=0;
+    W.eval('lDeal')();
+    check('every player gets a full hand',G.lp.every(p=>p.hand.length===mm.deal));
+    check('an opening card exists',!!G.ldisc[G.ldisc.length-1]);
+    check('and a real draw pile is left over',G.ldeck.length>=2,'deck left: '+G.ldeck.length);
+  });
+
+  /* —— A draw penalty must not survive into the next round ———————————— */
+  suite('A pending +2 does not carry into the next round',()=>{
+    const G=W.eval('G'),lDeal=W.eval('lDeal');
+    const bad=[];
+    for(let i=0;i<60;i++){
+      G.selGame='maumau';
+      G.lp=[0,1,2].map(j=>({id:j+1,name:'P'+j,avatar:A.AVATARS[j],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false}));
+      G.lstart=0;
+      G.lpend=2;              // as if the last round was won by playing a 7
+      lDeal();
+      const top=G.ldisc[G.ldisc.length-1];
+      // The ONLY legitimate reason for a penalty after a deal is an opening 7.
+      if(G.lpend!==0&&!(top&&top.rank==='7'))bad.push((top&&top.rank)+'/'+G.lpend);
+    }
+    check('60 deals, no leftover penalty',bad.length===0,'leftovers: '+bad.join(' '));
+  });
+
+  /* —— Roulette records the player who won, not the richest ———————————— */
+  /* bd is sorted by chip TOTAL, so bd[0] is whoever happens to be richest. Every use of it named the
+     wrong person, and on a spin where every bet missed a permanent unearned win was recorded. Most
+     spins miss and a sitting has many spins, so this was the biggest source of junk in the stats. */
+  suite('Roulette credits the winner of the spin, not the chip leader',()=>{
+    const G=W.eval('G'),roulResolve=W.eval('roulResolve'),getHistory=A.getHistory;
+    const keep=localStorage.getItem('ct_history');
+    const seat=(id,name,chips,bets)=>({id,name,avatar:A.AVATARS[id-1],chips,roulBets:bets||{},roulBetLog:[],roundsWon:0});
+    const spin=(players,num)=>{
+      localStorage.setItem('ct_history','[]');
+      G.selGame='roulette';G.matchStats={cardsPlayed:0,comebacks:0,reactions:0};
+      G.lp=players;roulResolve(num);
+      return getHistory();
+    };
+    // 17 is black, so a bet on 5 and a bet on red both miss.
+    let h=spin([seat(1,'Poor',500,{'straight:5':10}),seat(2,'Rich',9000,{'red':10})],17);
+    check('a spin nobody won records nothing at all',h.length===0);
+    check('and the result screen knows there was no winner',!G.lres.bd.some(b=>b.isWinner));
+
+    h=spin([seat(1,'Poor',500,{'straight:17':10}),seat(2,'Rich',9000,{})],17);
+    check('a spin somebody won records exactly one row',h.length===1);
+    check('the row names the player whose bet paid, not the richest',h[0]&&h[0].winner==='Poor');
+    check('and the banner names them too',G.lres.wName==='Poor');
+
+    h=spin([seat(1,'Small',500,{'black':10}),seat(2,'Big',500,{'straight:17':10})],17);
+    check('with two winners the bigger net gain is named',h[0]&&h[0].winner==='Big');
+
+    if(keep===null)localStorage.removeItem('ct_history');else localStorage.setItem('ct_history',keep);
+  });
+
+  /* —— Honest messages ———————————————————————— */
+  suite('The app does not claim a card was drawn from an empty deck',()=>{
+    const G=W.eval('G'),lDrawN=W.eval('lDrawN'),lDrawCard=W.eval('lDrawCard');
+    G.selGame='maumau';
+    G.lp=[{id:1,name:'Solo',avatar:A.AVATARS[0],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false},
+          {id:2,name:'Other',avatar:A.AVATARS[1],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false}];
+    G.lcur=0;G.lpend=0;G.lskip8=false;
+    // Empty deck and a single discard, so lEnsureDeck cannot recycle anything.
+    G.ldeck=[];G.ldisc=[{id:'x',rank:'A',suit:'s'}];G.lsuit='s';
+    check('lDrawN reports 0 when it dealt nothing',lDrawN(G.lp[0],3)===0);
+    check('and it really did not deal',G.lp[0].hand.length===0);
+
+    G.ldeck=[];G.ldisc=[{id:'x',rank:'A',suit:'s'}];G.lp[0].hand=[];
+    lDrawCard();
+    check('the message says the deck is empty rather than claiming a draw',
+      /deck is empty/i.test(G.llast),G.llast);
+    check('but the turn can still be completed, so nobody is stuck',G.ldrawnCount>0);
+  });
+
+  /* —— Nobody is dealt in with no chips —————————————————— */
+  /* Roulette was the only game that checked. Heads-up poker at 0 chips became an infinite loop of
+     hands that looked like a working game: a 0 blind, an instant all-in with nothing committed, a
+     showdown that correctly awarded nothing, and chips unchanged. */
+  suite('A bankrupt table ends instead of dealing forever',()=>{
+    const G=W.eval('G'),act=sel=>{const el=doc.querySelector(sel);if(el)el.click();return !!el;};
+    const bankrupt=(game)=>{
+      G.isOnline=false;G.srv=null;G.selGame=game;
+      G.lp=[{id:1,name:'A',avatar:A.AVATARS[0],hand:[],totalScore:0,roundsWon:0,chips:0,bet:0,folded:false,allIn:false},
+            {id:2,name:'B',avatar:A.AVATARS[1],hand:[],totalScore:0,roundsWon:0,chips:2000,bet:0,folded:false,allIn:false}];
+      G.lstart=0;G.lround=1;G.scr='roundend';W.render();
+      W.eval('document').querySelectorAll('[data-a="next"]').forEach(b=>b.click());
+      return G.scr;
+    };
+    check('poker with one player out of chips goes to the match end',bankrupt('texas')==='matchend');
+    check('blackjack with one player out of chips goes to the match end',bankrupt('blackjack')==='matchend');
+  });
+
+  /* —— A bot you add is the gentle one ——————————————————— */
+  suite('Added bots start gentle, not sharp',()=>{
+    const G=W.eval('G');
+    G.isOnline=false;G.srv=null;G.selGame='maumau';
+    G.lp=[{id:1,name:'Phil',avatar:A.AVATARS[0],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false},
+          {id:2,name:'',avatar:A.AVATARS[1],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false}];
+    G.nid=3;G.scr='setup';W.render();
+    const btn=doc.querySelector('[data-a="addbot"]');
+    check('the setup screen offers a bot',!!btn);
+    if(btn){
+      btn.click();
+      const bots=G.lp.filter(p=>p.bot);
+      check('a bot was seated',bots.length>0);
+      check('and it is gentle, so a child does not meet the hardest opponent first',
+        bots.every(b=>b.bot==='gentle'),bots.map(b=>b.bot).join(','));
+    }
+  });
+
+  /* —— Every control must be reachable at the sizes this family actually uses —————— */
+  /* Two bugs shipped because the app was only ever checked at desktop width: setup panels squashed
+     instead of scrolling (a flex item with overflow:hidden has min-height:auto == 0, so it collapses
+     rather than overflowing, and scrollHeight === clientHeight means overflow-y:auto never fires),
+     and a button rendered just past the bottom of a clipped felt. A third, the same shape, was
+     found later in the Lobby. This walks the real screens at real device sizes and asserts that
+     every control the app renders can be scrolled to and tapped. */
+  await (async ()=>{
+    const savedW=frame.style.width,savedH=frame.style.height;
+    const sizes=[[390,664,'iPhone portrait'],[844,390,'iPhone landscape'],[820,1180,'iPad portrait']];
+    const mk=n=>Array.from({length:n},(_,i)=>({id:i+1,name:'Player '+(i+1),avatar:A.AVATARS[i%A.AVATARS.length],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false}));
+    const G=W.eval('G');
+    const screens=[
+      ['Home',()=>{G.isOnline=false;G.srv=null;G.scr='home';}],
+      ['Games',()=>{G.scr='games';}],
+      ['Setup (Mau Mau, full table)',()=>{G.selGame='maumau';G.lp=mk(4);G.scr='setup';}],
+      ['Setup (poker, 6 seats)',()=>{G.selGame='texas';G.lp=mk(6);G.scr='setup';}],
+      ['Mau Mau table',()=>{G.selGame='maumau';G.lp=mk(3);G.lstart=0;G.lpend=0;W.eval('lStartMatch')();G.scr='table';}],
+      ['Poker table',()=>{G.selGame='texas';G.lp=mk(4);G.lstart=0;W.eval('lStartMatch')();G.scr='table';}],
+      ['Roulette table',()=>{G.selGame='roulette';G.lp=mk(2).map(p=>({...p,roulBets:{},roulBetLog:[]}));G.lstart=0;W.eval('lStartMatch')();G.scr='table';}],
+      ['Hand-over screen, with a penalty showing',()=>{G.selGame='maumau';G.lp=mk(3);G.lstart=0;G.lpend=2;W.eval('lStartMatch')();G.scr='pass';G.lpass1='Player 2';G.lpass2='';}],
+      ['Lobby, 8 seats',()=>{G.isOnline=true;G.roomId='ABCD';G.isHost=true;G.myPid='p1';
+        G.srv={phase:'lobby',gameId:'maumau',host:'p1',players:mk(8).map((p,i)=>({...p,id:'p'+(i+1)}))};G.scr='lobby';}]
+    ];
+    for(const [w,h,label] of sizes){
+      frame.style.width=w+'px';frame.style.height=h+'px';
+      // The app recomputes card geometry from window.innerWidth on resize, so give the frame a real
+      // resize event and time to lay out again -- measuring a half-reflowed frame produces failures
+      // that do not exist on a device.
+      try{W.dispatchEvent(new W.Event('resize'));}catch(e){}
+      await settle();await settle();await settle();
+      await new Promise(r=>W.requestAnimationFrame(()=>W.requestAnimationFrame(r)));
+      suite('Reachability at '+w+'x'+h+' — '+label,()=>{
+        screens.forEach(([name,setup])=>{
+          let bad=[],err=null;
+          try{
+            setup();W.render();
+            [...doc.querySelectorAll('#app [data-a], #app button, #app input, #app select')].forEach(el=>{
+              const r0=el.getBoundingClientRect();
+              if(r0.width<2||r0.height<2)return;                       // hidden at this width
+              if(W.getComputedStyle(el).visibility==='hidden')return;
+              try{el.scrollIntoView({block:'nearest',inline:'nearest'});}catch(e){}
+              const r=el.getBoundingClientRect();
+              if(r.bottom>h+1||r.top<-1||r.right>w+1||r.left<-1)
+                bad.push((el.getAttribute('data-a')||el.tagName)+' "'+(el.textContent||'').trim().slice(0,18)+'"');
+            });
+          }catch(e){err=e.message;}
+          check(name+': every control can be scrolled to and tapped',!err&&bad.length===0,
+            err?('threw: '+err):('out of reach: '+bad.slice(0,4).join(', ')));
+        });
+      });
+    }
+    frame.style.width=savedW;frame.style.height=savedH;
+    await settle();
+    G.isOnline=false;G.srv=null;G.scr='home';W.render();
+  })();
+
   render();
 }
 

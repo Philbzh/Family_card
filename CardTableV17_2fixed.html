@@ -1616,6 +1616,121 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 @media(prefers-reduced-motion:reduce){.fx-ripple,.fx-pulse,.fx-seat-glow::after{animation:none!important;display:none!important;}}
 
 .btn-pass{background:rgba(212,168,67,.18);border:1.5px solid rgba(212,168,67,.5);color:#d4a843;border-radius:8px;padding:4px 14px;font-size:.85rem;font-weight:600;cursor:pointer;margin-left:8px;}
+
+/* ═══════════ REACHABILITY — content that renders where nobody can get to it ═══════════
+   Yesterday two bugs were fixed by hand (the setup panels, the Dice Duel round button). Both were
+   instances of two general mechanisms, and the same mechanisms were still live in five more places.
+   Written as one block at the end of the sheet so source order settles the overrides.
+
+   MECHANISM 1 — a flex item with overflow:hidden can be squashed to nothing.
+     min-height:auto normally stops a flex item shrinking below its content, but it resolves to 0 for
+     any item whose overflow is not `visible`. .panel, .room-code-card and .btn ALL set
+     overflow:hidden. So in a flex column they do not overflow the container — they collapse inside
+     it, scrollHeight stays equal to clientHeight, and an overflow-y:auto that looks like a safety net
+     never fires. That is exactly how the house rules got cut off with no way to scroll to them.
+
+   MECHANISM 2 — justify-content:center makes the start edge of a scroll container unreachable.
+     Centred overflow is split across BOTH ends, but a scroll container can only scroll toward its
+     end edge. Whatever overflows past the start is unreachable by any gesture. The auto-margin idiom
+     below centres while there is room and keeps both ends reachable once there is not. */
+
+/* 1. The game table could not scroll and nothing in it could shrink: every child sets flex-shrink:0
+      and the felt has a hard min-height:200px. Whenever chrome + 200px exceeded the viewport, the
+      surplus was cut off the bottom with no scrollbar and no hint. In landscape on an iPhone that
+      means the ENTIRE hand region — every card the player holds — is below the clip line. iOS
+      ignores the manifest's "orientation":"portrait-primary", so an installed PWA rotates freely. */
+#s-table{overflow-y:auto;overscroll-behavior-y:contain;}
+@media(orientation:landscape) and (max-height:560px){
+  .felt-table{min-height:120px;max-height:52vh;}
+}
+
+/* 2. Reaction strip: 11 buttons of 2.75rem need ~535px and get ~364px. Centred, so the first two
+      emoji sat off the LEFT edge, unreachable — and the Table Talk toggle, the only way into chat,
+      sat off the right behind a deliberately hidden scrollbar. */
+.react-strip{justify-content:flex-start;}
+.react-strip>:first-child{margin-left:auto;}
+.react-strip>:last-child{margin-right:auto;}
+
+/* 3. Same thing on the iPad (and any phone in landscape — 932px clears the 760px breakpoint): a
+      12-card fanned hand is ~1228px in a 772px box, and the ~228px that overflowed did so past the
+      left edge. The first two cards of your own hand were unreachable, with the fan giving no hint
+      they existed. */
+@media(min-width:760px){
+  .hand-scroll,.opp-strip{justify-content:flex-start;}
+  .hand-scroll>:first-child,.opp-strip>:first-child{margin-left:auto;}
+  .hand-scroll>:last-child,.opp-strip>:last-child{margin-right:auto;}
+}
+
+/* 4. Yesterday's Dice Duel fix was one property short: overflow-y:auto was added but
+      justify-content:center stayed, so a long reveal now overflowed in BOTH directions and the
+      "⚔️ DUEL!" call plus the tops of both dice trays were pushed past the top edge, unreachable. */
+.felt-table.dd-felt{justify-content:flex-start;}
+.felt-table.dd-felt>.dd-stage{margin-block:auto;}
+
+/* 5. The Lobby is yesterday's setup-screen bug, never fixed — same structure, same overflow-y:auto,
+      and it never got the flex-shrink guard. Its children are a .room-code-card, a .panel and a .btn,
+      all three of which are squashable to zero by mechanism 1. At seven or eight seats the 4.5rem
+      gold room code — the single most important thing on the screen — is what gets guillotined,
+      and the Start button flattens. In landscape it happens at any player count. */
+.lobby-body>*{flex-shrink:0;}
+
+/* 6. The hand-over screen never overrode .scr's overflow:hidden, unlike every other non-table
+      screen. Its buttons are .btns, so they floor at zero height: in landscape, with the pass
+      warning showing, the "Ready!" button — the gate to every single local turn — reached zero
+      height with no scroll to reach it. The auto-margins keep it vertically centred when it fits. */
+/* justify-content:center has to go with it: it is declared on #s-pass further up the sheet, and
+   leaving it in place reproduced the very bug this is meant to fix one level down — the overflow was
+   centred, so the sound button sat above the scrollable area and no gesture could reach it. The
+   auto-margins below keep the group centred while there is room, because an auto margin resolves to
+   0 once there is no free space left to absorb. */
+#s-pass{overflow-y:auto;justify-content:flex-start;}
+#s-pass>*{flex-shrink:0;}
+#s-pass>:first-child{margin-top:auto;}
+#s-pass>:last-child{margin-bottom:auto;}
+
+/* 7. Texas Hold'em's five community cards need 422px and get 362.8px. A .community-slot's only
+      content is absolutely positioned, so its min-content width is 0 and the slots really do
+      shrink — while the card SVG inside them does not. Every community card overlapped its
+      neighbour by ~12px and the flop's and river's outer edges were clipped by the felt. Shingle
+      them on purpose instead. */
+@media(max-width:560px){
+  .community-row{gap:0;}
+  .community-row>.community-slot+.community-slot{margin-left:-.9rem;}
+}
+
+/* 8. Touch targets. Roulette's straight-up numbers were 18x32px with a 9.9px label and 2px between
+      neighbours whose payouts differ 35:1 — the smallest target in the app, in the game with the
+      most chips at stake per tap. The felt already scrolls horizontally, so there was never a reason
+      for them to be this small. */
+@media(max-width:480px){
+  .roul-grid{grid-template-columns:26px repeat(12,24px) 32px;grid-template-rows:repeat(3,40px) 34px 34px;}
+  .roul-cell{font-size:.72rem;}
+}
+.ambient-toggle,.bot-level{min-height:44px;}
+.rm-btn,.family-remove,.talk-send-btn,.felt-swatch{min-width:44px;min-height:44px;}
+
+/* 9. Home's action row put three or four labels in 351.6px with no wrap. At three buttons
+      "🌐 Invite remotely" gets 63px of text width and wraps to three lines; at four it gets 33px
+      and, because .btn is overflow:hidden, "remotely" is clipped rather than wrapped. */
+.v10-actions{flex-wrap:wrap;}
+.v10-actions .btn{flex:1 1 9.5rem;}
+
+/* 10. Legibility. .v13-sub is the card and chip count under every player's name on the felt — it
+       is how you see who is one card from winning, and it was 9px at 56% opacity (~3.9:1, under the
+       4.5:1 floor for text this size). The table caption was ~1.7:1, below even the large-text
+       floor. The nav labels were 8.8px. These are information, not decoration. */
+.v13-seat .v13-sub{font-size:.68rem;opacity:.82;}
+.v13-table-caption{font-size:.62rem;color:rgba(251,247,237,.6);}
+.app-mnav-lbl{font-size:.62rem;}
+.ysc-section-lbl{opacity:.62;}
+
+/* 11. Dice Duel was the only screen that ignored the felt themes: every accent in its block is a
+       literal gold, so on the midnight or burgundy felts the rim turned silver or wine while the
+       duel scoreboard, score bars and DUEL! call stayed gold. Route them through the same variables
+       the rest of the table already uses. */
+.dd-scoreboard{border-bottom-color:rgba(var(--rim-bright-rgb,240,204,96),.16);}
+.dd-bar-fill{background:linear-gradient(90deg,var(--gold),var(--gold2));}
+.dd-duel-call,.dd-underdog{color:var(--gold2);}
 </style>
 <style>
 
@@ -1836,9 +1951,39 @@ const SB=()=>{
   if(typeof supabase==='undefined')return null;
   try{return _sb||(_sb=supabase.createClient(SB_URL,SB_KEY));}catch(e){return null;}
 };
+// Every byte the online renderer walks enters through dbRead, and it enters as whatever JSON happens
+// to be sitting in that row — which is not necessarily a game. The room id is a short code anyone
+// can guess, and until now the row's contents were trusted completely: state.players.forEach(...) on
+// a players field that is an object, p.hand.length on a hand that is a number, or card.rank on a hand
+// entry of null all throw inside render(), and a throw inside render() leaves a blank screen with no
+// way back — a family member stranded mid-game night.
+//
+// The local reads already work this way (see getHistory / getFamily, which filter what they parse).
+// This is the same courtesy for the network. Deliberately a NORMALISER, not a whitelist: the state
+// carries dozens of per-game fields and a whitelist would quietly delete a game's data every time a
+// new game was added. Unknown fields pass through untouched; only the handful of fields that every
+// screen walks unconditionally are forced into the shape the renderer already assumes.
+function sanitiseState(s){
+  if(!s||typeof s!=='object'||Array.isArray(s))return null;
+  const arr=v=>Array.isArray(v)?v:[];
+  // A hand entry reaches template code as card.rank / card.suit, so a null or a bare number in there
+  // is a thrown TypeError. Drop those rather than substitute a card: a missing card is a visible,
+  // survivable oddity, an invented one silently changes the game.
+  const cards=v=>arr(v).filter(c=>c&&typeof c==='object');
+  s.players=arr(s.players).filter(p=>p&&typeof p==='object').map(p=>{
+    p.hand=cards(p.hand);
+    if(p.name!=null&&typeof p.name!=='string')p.name=String(p.name);
+    return p;
+  });
+  s.discard=cards(s.discard);
+  s.deck=cards(s.deck);
+  s.talk=arr(s.talk).filter(t=>t&&typeof t==='object'&&t.id!=null);
+  if(typeof s.curIdx!=='number'||!isFinite(s.curIdx))s.curIdx=0;
+  return s;
+}
 const dbRead=async id=>{
   const sb=SB();if(!sb)return null;
-  try{const{data,error}=await sb.from('card_rooms').select('state').eq('id',id).single();return error?null:data?.state||null;}
+  try{const{data,error}=await sb.from('card_rooms').select('state').eq('id',id).single();return error?null:sanitiseState(data?.state||null);}
   catch(e){return null;}
 };
 const dbWrite=async(id,s)=>{
@@ -1906,7 +2051,19 @@ function dbSub(id,cb){
   if(_awayTick)clearInterval(_awayTick);
   _awayTick=setInterval(()=>{if(Object.keys(_absentSince).length)render();oRoulCheckStuckSpin();},4000);
 }
-function stopSync(){if(_ch)SB().removeChannel(_ch);if(_poll)clearInterval(_poll);if(_awayTick)clearInterval(_awayTick);_ch=_poll=_awayTick=null;_presentPids=new Set();_absentSince={};localStorage.removeItem('ct_online_session');}
+// keepSeat=true means "I am walking away from this screen", not "I am done with this game". Tapping
+// Home used to be irreversible: it wiped ct_online_session, and join() refuses any room already in
+// play, so there was no route back in — while your seat, hand and score stayed in the room, making
+// the others sit through a 20-second wait and a Skip tap on every one of your turns for the rest of
+// the match. One mis-tap on the laptop (the sidebar renders Home on the table screen too) spoiled
+// the evening for everyone else. Now the seat is remembered whenever the game is still live, so
+// resumeOnlineSession() can put you straight back into it.
+function stopSync(keepSeat){
+  if(_ch)SB().removeChannel(_ch);if(_poll)clearInterval(_poll);if(_awayTick)clearInterval(_awayTick);
+  _ch=_poll=_awayTick=null;_presentPids=new Set();_absentSince={};
+  const midGame=keepSeat&&G.srv&&G.srv.phase==='game'&&!G.srv.winner;
+  if(!midGame)localStorage.removeItem('ct_online_session');
+}
 // Remembers just enough to silently rejoin the same seat after a refresh, tab close, or the app
 // being reopened from the home screen — without this, a dropped connection mid-game meant losing
 // your spot and having to rejoin as a brand-new player. Cleared automatically by stopSync() whenever
@@ -2073,7 +2230,13 @@ function iconChip(){return `<svg class="icon-svg" viewBox="0 0 24 24" fill="none
 const REACTIONS=['😂','😱','👏','🔥','❤️','🤔','😤','🎉','🙈','💫','🃏','👀'];
 
 const GAMES=[
-  {id:'maumau',icon:'🃏',name:'Mau Mau',players:'2–6',dur:'10–20 min',diff:'easy',deal:6,cover:'assets/games/maumau.png',
+  // maxP is 4 for a hard arithmetic reason: buildDeck(1,'maumau') is 8 ranks x 4 suits = 32 cards,
+  // and mauDealCount hands out 6 each. Five players leaves ONE card in the deck after the opening
+  // card; six players cannot be dealt at all (two get 6, four get 5, deck.pop() for the start card
+  // returns undefined, so the felt shows no card, rulesCanPlay's `if(!top)return true` makes every
+  // card legal, and lEnsureDeck cannot recycle until the discard has more than one card). Four
+  // players uses 24 of 32 and leaves a real draw pile.
+  {id:'maumau',icon:'🃏',name:'Mau Mau',players:'2–4',dur:'10–20 min',diff:'easy',deal:6,minP:2,maxP:4,cover:'assets/games/maumau.png',
    rules:['Match the <b>suit</b> or <b>rank</b> of the top card.','<b>7</b> — next player draws 2 (stackable: 7+7 = draw 4, and so on).','<b>8</b> — next player is skipped, unless they also play an 8 — then the skip passes on to the player after them.','<b>J</b> — wild card, choose any suit. Cannot be played on another J.','1 card left: say <b>Mau!</b> within 5 s or draw 2. Last card is a J: say <b>Mau-Mau!</b> instead.','First empty hand = <b>+100 pts</b>. Others lose card values.']},
   {id:'texas',icon:'♠️',name:'Texas Hold\'em',players:'2–8',dur:'20–60 min',diff:'medium',deal:2,cover:'assets/games/texas.png',
    rules:['Each player gets <b>2 private hole cards</b>.','<b>Pre-flop</b>: blinds posted, first betting round.','<b>Flop</b>: 3 community cards revealed, bet again.','<b>Turn</b>: 4th community card, bet again.','<b>River</b>: 5th community card, final betting.','<b>Showdown</b>: best 5-card hand from 7 cards wins the pot.','Hand ranks: Royal Flush › Straight Flush › 4 of a Kind › Full House › Flush › Straight › 3 of a Kind › Two Pair › Pair › High Card.']},
@@ -2440,6 +2603,15 @@ function showAchievementToast(a){
 }
 function syncHistory(e){
   const sb=SB();if(!sb)return;
+  // An online result arrives on EVERY connected device, and each one used to insert its own row for
+  // the same game. Four people playing one online round produced four rows — so the Family screen
+  // counted it as four games and four wins, and online play silently outweighed local play four to
+  // one on every leaderboard. The host writes the shared row; everyone still keeps their own full
+  // local copy in ct_history, which is what their own screens read from anyway.
+  //
+  // If the host has dropped, the row is simply not written. That loses one row; the alternative
+  // loses the integrity of every statistic in the app.
+  if((e.mode||'local')==='online'&&!G.isHost)return;
   try{sb.from('game_history').insert({device_id:DEVICE_ID,game_id:e.game,mode:e.mode||'local',winner_name:e.winner,players:e.players,rules:e.rules||null}).then(()=>{},()=>{});}
   catch(err){}
 }
@@ -3134,7 +3306,10 @@ function lIllegal(c){
   return top?`Doesn't match ${SYM[G.lsuit]} or ${top.rank}.`:'';
 }
 function lEnsureDeck(){if(G.ldeck.length)return;if(G.ldisc.length<=1)return;const top=G.ldisc.pop();G.ldeck=shuffle(G.ldisc);G.ldisc=[top];}
-function lDrawN(p,n){for(let i=0;i<n;i++){lEnsureDeck();if(G.ldeck.length)p.hand.push(G.ldeck.pop());}}
+// Returns how many cards were ACTUALLY dealt. lEnsureDeck cannot recycle until the discard pile has
+// more than one card, so both of these can legitimately come up empty, and the caller used to
+// announce the draw regardless.
+function lDrawN(p,n){let got=0;for(let i=0;i<n;i++){lEnsureDeck();if(G.ldeck.length){p.hand.push(G.ldeck.pop());got++;}}return got;}
 
 function mauDealCount(n){return 6;}
 
@@ -3183,6 +3358,12 @@ function lDeal(){
 
   let first=null;
   if(game.id==='maumau'){
+    // Clear any draw penalty left over from the round that just ended. Win a round by playing a 7
+    // as your last card and lPlay's `G.lpend+=2` was still standing when the next deal began, so
+    // the new round opened with the first player owing 2 cards and a "must play a 7" banner that
+    // nothing on the table explained. Stacked 7s carried +4 or +6 across. lDealUno already resets
+    // this explicitly; the Mau Mau branch only ever set it conditionally, never cleared it.
+    G.lpend=0;
     // First card must not be a Jack (Bube)
     const jks=[];
     for(let i=0;i<500;i++){first=deck.pop();if(!first)break;if(first.rank==='J'){jks.push(first);continue;}break;}
@@ -3303,8 +3484,13 @@ function yEndGame(){
   G.tw++;localStorage.setItem('ct_tw',G.tw);
   SFX.win();v14WinnerBurst();celebrateWin(winner.name,winner.avatar);fxPulse('gold');
   const wIdx=G.lp.findIndex(p=>p===winner);if(wIdx>=0)fxSeatGlow(wIdx,'gold');
-  addHistory({game:'yahtzee',winner:winner.name,winnerAvatar:winner.avatar,date:new Date().toISOString(),players:G.lp.map(p=>p.name),moment:`${winner.name} wins with ${yTotalScore(winner.scorecard)} points!`,stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions,firstTryYahtzee:G.matchStats.firstTryYahtzee}});
-  G.yres={sorted:sorted.map(p=>({name:p.name,avatar:p.avatar,score:yTotalScore(p.scorecard)}))};
+  // A dead-level finish was being resolved silently by whichever player happened to sort first, so
+  // two children on 214 each saw one of them simply crowned. Dice Duel already refuses to do this
+  // (ddApplyReveal plays another round on a level score); Yahtzee at least names it now.
+  const yTop=yTotalScore(winner.scorecard);
+  const yTied=G.lp.filter(p=>yTotalScore(p.scorecard)===yTop).length>1;
+  addHistory({game:'yahtzee',winner:winner.name,winnerAvatar:winner.avatar,date:new Date().toISOString(),players:G.lp.map(p=>p.name),moment:yTied?`Tied on ${yTop} — ${winner.name} takes it on the tiebreak.`:`${winner.name} wins with ${yTop} points!`,stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions,firstTryYahtzee:G.matchStats.firstTryYahtzee}});
+  G.yres={tie:yTied,sorted:sorted.map(p=>({name:p.name,avatar:p.avatar,score:yTotalScore(p.scorecard)}))};
   G.scr='yahtzeeend';
   render();
 }
@@ -4158,12 +4344,25 @@ function roulResolve(num){
   G.roulHistory=[{number:num,color}].concat(G.roulHistory||[]).slice(0,12);
   G.roulSpinning=false;
   G.tw++;localStorage.setItem('ct_tw',G.tw);
-  SFX.win();
-  if(bd.some(b=>b.isWinner)){v14WinnerBurst();fxPulse('gold');celebrateWin(bd[0].name,bd[0].avatar);}
-  const roulMoment=bd[0].isWinner?`${bd[0].name} called it right on ${num} ${color}.`:`The house takes this spin — ${num} ${color}.`;
-  addHistory({game:'roulette',winner:bd[0].name,winnerAvatar:bd[0].avatar,date:new Date().toISOString(),players:G.lp.map(p=>p.name),moment:roulMoment,stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats.reactions}});
+  // bd is sorted by chip TOTAL, so bd[0] is whoever is currently RICHEST — which is a different
+  // question from who won this spin, and frequently not even someone who placed a bet. Every use of
+  // bd[0] below named the wrong person: the confetti, the moment sentence, the history row and the
+  // round-end banner all credited the chip leader. Worse, on a spin where every bet missed there is
+  // no winner at all, yet a permanent win was still recorded — and since most spins miss and a
+  // sitting has many spins, that was the largest single source of junk in House Legends, Rivalries
+  // and every player profile.
+  //
+  // The winner of a roulette spin is the player whose bets actually paid out, best net gain first.
+  // If nobody's did, the house took it and there is no winner to name or record.
+  const roulWin=bd.filter(b=>b.isWinner).sort((a,b)=>b.delta-a.delta)[0]||null;
+  if(roulWin){SFX.win();v14WinnerBurst();fxPulse('gold');celebrateWin(roulWin.name,roulWin.avatar);}
+  const roulMoment=roulWin?`${roulWin.name} called it right on ${num} ${color}.`:`The house takes this spin — ${num} ${color}.`;
+  if(roulWin)
+    addHistory({game:'roulette',winner:roulWin.name,winnerAvatar:roulWin.avatar,date:new Date().toISOString(),players:G.lp.map(p=>p.name),moment:roulMoment,stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats.reactions}});
   G.lp.forEach(p=>{p.roulBets={};p.roulBetLog=[];});
-  G.lres={wName:bd[0].name,wAv:bd[0].avatar,bd,roulNumber:num,roulColor:color};
+  // wName falls back to the chip leader only so the object shape never carries a null; rRoundEnd
+  // computes roulNoWinner itself and replaces the title with "The house takes this spin".
+  G.lres={wName:(roulWin||bd[0]).name,wAv:(roulWin||bd[0]).avatar,bd,roulNumber:num,roulColor:color};
   // If this spin left at most one player still holding chips, the match is over — nobody else can
   // place another bet, so there's no more game to play, not just a round to replay. Skip straight
   // to the match-end screen (which already ranks players by chips and declares the leader the
@@ -4394,8 +4593,14 @@ async function oRoulResolve(num){
   state.roulHistory=[{number:num,color}].concat(state.roulHistory||[]).slice(0,12);
   state.roulSpinning=false;state.roulHighlight=num;
   state.players.forEach(p=>{p.roulBets={};p.roulBetLog=[];});
-  state.roundResult={wName:bd[0].name,wAv:bd[0].avatar,bd,roulNumber:num,roulColor:color};
-  state.winner=bd[0].id;state.winnerName=bd[0].name;state.winnerAv=bd[0].avatar;
+  // See roulResolve: bd is ordered by chip total, so bd[0] is the richest player rather than the
+  // winner of this spin.
+  const oRoulWin=bd.filter(b=>b.isWinner).sort((a,b)=>b.delta-a.delta)[0]||null;
+  state.roundResult={wName:(oRoulWin||bd[0]).name,wAv:(oRoulWin||bd[0]).avatar,bd,roulNumber:num,roulColor:color};
+  // state.winner still has to CHANGE for onSrv to notice the spin finished and show the round-end
+  // screen, so it keeps pointing at a real seat even when the house won; the name and avatar are the
+  // ones that get shown and recorded, and onSrv only writes a history row when someone truly won.
+  state.winner=(oRoulWin||bd[0]).id;state.winnerName=(oRoulWin||bd[0]).name;state.winnerAv=(oRoulWin||bd[0]).avatar;
   // Same bust-out check as the local game: if at most one player still has chips, nobody left in
   // the room can place another bet, so this is the last spin of the match, not just the round.
   const stillIn=state.players.filter(p=>p.chips>0);
@@ -5159,7 +5364,7 @@ function battleFlip(){
   const p0=G.lp[0],p1=G.lp[1];
   if(!p0||!p1||!p0.hand.length||!p1.hand.length)return;
   const table=[];
-  let warRounds=0,winnerIdx=null,lastC0=null,lastC1=null;
+  let warRounds=0,winnerIdx=null,lastC0=null,lastC1=null,tieC0=null,tieC1=null;
   while(winnerIdx===null){
     if(!p0.hand.length){winnerIdx=1;break;}
     if(!p1.hand.length){winnerIdx=0;break;}
@@ -5168,6 +5373,10 @@ function battleFlip(){
     if(RANK_VAL[c0.rank]>RANK_VAL[c1.rank])winnerIdx=0;
     else if(RANK_VAL[c1.rank]>RANK_VAL[c0.rank])winnerIdx=1;
     else{
+      // Keep the pair that CAUSED the war. lastC0/lastC1 are overwritten by the pair that resolves
+      // it, so the tie — the entire reason a war is happening — was computed and then thrown away
+      // before anything could show it.
+      if(tieC0===null){tieC0=c0;tieC1=c1;}
       warRounds++;
       [p0,p1].forEach(pl=>{for(let b=0;b<3;b++)if(pl.hand.length)table.push(pl.hand.shift());});
     }
@@ -5175,8 +5384,8 @@ function battleFlip(){
   const winner=G.lp[winnerIdx];
   shuffle(table);
   winner.hand.push(...table);
-  G.battleLast={warRounds,winnerIdx,lastC0,lastC1,cardsWon:table.length};
-  G.llast=(warRounds>0?'⚔️ War! ':'')+esc(winner.name)+' wins '+table.length+' card'+(table.length!==1?'s':'')+'.';
+  G.battleLast={warRounds,winnerIdx,lastC0,lastC1,tieC0,tieC1,cardsWon:table.length};
+  G.llast=(warRounds>0?'⚔️ War! Both turned '+esc(tieC0?tieC0.rank:'')+'. ':'')+esc(winner.name)+' wins '+table.length+' card'+(table.length!==1?'s':'')+'.';
   G.matchStats.cardsPlayed+=2;
   if(warRounds>0){SFX.clash();fxPulse('blue');pulseTension();}else{SFX.play();haptic(15);fxRipple();}
   if(!p0.hand.length||!p1.hand.length){
@@ -5192,40 +5401,61 @@ function battleFlip(){
   render();
 }
 
+// Battle is the third game where both players can write at the same moment, and for a long time it
+// was the only one still using a plain dbWrite. It is also the WORST candidate for one: the game has
+// exactly one button, both players are staring at it, so simultaneous taps are the normal case
+// rather than an edge case. Both devices read the same state, shift the same two cards off the same
+// two hands, and both write — the second write wins outright and one flip vanishes, card counts
+// jumping as though a turn never happened. _onlineBusy only ever serialised within one device.
+//
+// Same compare-and-swap retry loop as oDdMutate and roulette's oRoulMutate: if someone else's flip
+// landed between our read and our write, throw ours away and redo it against their result.
 async function oBattleFlip(){
   if(_onlineBusy)return;
   _onlineBusy=true;
   try{
-    const state=await dbRead(G.roomId);if(!state)return;
-    const p0=state.players[0],p1=state.players[1];
-    if(!p0||!p1||!p0.hand.length||!p1.hand.length)return;
-    const table=[];
-    let warRounds=0,winnerIdx=null,lastC0=null,lastC1=null;
-    while(winnerIdx===null){
-      if(!p0.hand.length){winnerIdx=1;break;}
-      if(!p1.hand.length){winnerIdx=0;break;}
-      const c0=p0.hand.shift(),c1=p1.hand.shift();
-      table.push(c0,c1);lastC0=c0;lastC1=c1;
-      if(RANK_VAL[c0.rank]>RANK_VAL[c1.rank])winnerIdx=0;
-      else if(RANK_VAL[c1.rank]>RANK_VAL[c0.rank])winnerIdx=1;
-      else{
-        warRounds++;
-        [p0,p1].forEach(pl=>{for(let b=0;b<3;b++)if(pl.hand.length)table.push(pl.hand.shift());});
+    for(let attempt=0;attempt<6;attempt++){
+      const state=await dbRead(G.roomId);if(!state)return;
+      const expectedTs=state._ts;
+      const p0=state.players[0],p1=state.players[1];
+      if(!p0||!p1||!p0.hand.length||!p1.hand.length)return;
+      const table=[];
+      let warRounds=0,winnerIdx=null,lastC0=null,lastC1=null,tieC0=null,tieC1=null;
+      while(winnerIdx===null){
+        if(!p0.hand.length){winnerIdx=1;break;}
+        if(!p1.hand.length){winnerIdx=0;break;}
+        const c0=p0.hand.shift(),c1=p1.hand.shift();
+        table.push(c0,c1);lastC0=c0;lastC1=c1;
+        if(RANK_VAL[c0.rank]>RANK_VAL[c1.rank])winnerIdx=0;
+        else if(RANK_VAL[c1.rank]>RANK_VAL[c0.rank])winnerIdx=1;
+        else{
+          // Remember the pair that CAUSED the war. lastC0/lastC1 get overwritten by the pair that
+          // resolves it, so the tie — the whole reason a war is happening — was never shown.
+          if(tieC0===null){tieC0=c0;tieC1=c1;}
+          warRounds++;
+          [p0,p1].forEach(pl=>{for(let b=0;b<3;b++)if(pl.hand.length)table.push(pl.hand.shift());});
+        }
+      }
+      const winner=state.players[winnerIdx];
+      shuffle(table);
+      winner.hand.push(...table);
+      state.battleLast={warRounds,winnerIdx,lastC0,lastC1,tieC0,tieC1,cardsWon:table.length};
+      state.lastAct=(warRounds>0?'⚔️ War! Both turned '+esc(tieC0?tieC0.rank:'')+'. ':'')+esc(winner.name)+' wins '+table.length+' card'+(table.length!==1?'s':'')+'.';
+      if(!p0.hand.length||!p1.hand.length){
+        const finalWinner=p0.hand.length?p0:p1;
+        finalWinner.roundsWon=(finalWinner.roundsWon||0)+1;
+        state.winner=finalWinner.id;state.winnerName=finalWinner.name;state.winnerAv=finalWinner.avatar;
+      }
+      state._ts=Date.now();
+      // Sound and screen only once the write has actually landed, so a flip that lost the race is
+      // never shown or heard.
+      if(await dbWriteIfUnchanged(G.roomId,expectedTs,state)){
+        if(warRounds>0){SFX.clash();pulseTension();}else{SFX.play();haptic(15);}
+        onSrv(state);
+        return;
       }
     }
-    const winner=state.players[winnerIdx];
-    shuffle(table);
-    winner.hand.push(...table);
-    state.battleLast={warRounds,winnerIdx,lastC0,lastC1,cardsWon:table.length};
-    state.lastAct=(warRounds>0?'⚔️ War! ':'')+esc(winner.name)+' wins '+table.length+' card'+(table.length!==1?'s':'')+'.';
-    if(warRounds>0){SFX.clash();pulseTension();}else{SFX.play();haptic(15);}
-    if(!p0.hand.length||!p1.hand.length){
-      const finalWinner=p0.hand.length?p0:p1;
-      finalWinner.roundsWon=(finalWinner.roundsWon||0)+1;
-      state.winner=finalWinner.id;state.winnerName=finalWinner.name;state.winnerAv=finalWinner.avatar;
-    }
-    state._ts=Date.now();onSrv(state);
-    await dbWrite(G.roomId,state);
+    toast('⚠️ You both flipped at once — try again');
   } finally { _onlineBusy=false; }
 }
 
@@ -5628,8 +5858,18 @@ function lDrawCard(){
   if(isPoker()&&G.pokerPhase==='draw'){pokerDraw();return;}
   const p=G.lp[G.lcur];
   if(G.lskip8){G.lskip8=false;G.llast=esc(p.name)+' is skipped.';SFX.draw();lAdvance(null);return;}
-  if(G.lpend>0){const n=G.lpend;lDrawN(p,n);G.lpend=0;G.ldrawnCount=n;G.llast=esc(p.name)+' draws '+n+' cards.';SFX.draw();render();return;}
-  lDrawN(p,1);G.ldrawnCount=1;G.llast=esc(p.name)+' draws a card.';SFX.draw();render();
+  // G.lpend is cleared and G.ldrawnCount is still set even when nothing could be dealt, deliberately:
+  // ldrawnCount is what unlocks the Continue button, and an unsatisfiable penalty against an empty
+  // deck would otherwise leave the player unable to draw AND unable to pass. Only the message
+  // changes — it used to claim cards had been drawn when none had.
+  if(G.lpend>0){const n=G.lpend;const got=lDrawN(p,n);G.lpend=0;G.ldrawnCount=n;
+    G.llast=got===n?esc(p.name)+' draws '+n+' cards.'
+      :got>0?esc(p.name)+' draws '+got+' of '+n+' — the deck is empty.'
+      :'The deck is empty — '+esc(p.name)+' cannot draw.';
+    SFX.draw();render();return;}
+  const got1=lDrawN(p,1);G.ldrawnCount=1;
+  G.llast=got1?esc(p.name)+' draws a card.':'The deck is empty — '+esc(p.name)+' cannot draw.';
+  SFX.draw();render();
 }
 
 function lSuit(s){
@@ -5871,6 +6111,9 @@ function oMauTimeoutCheck(sig){
   })();
 }
 function onSrv(state){
+  // dbRead already normalises, but onSrv is also called directly by the local optimistic-update paths
+  // and by the realtime payload path, so guard here too rather than trusting every caller.
+  state=sanitiseState(state);
   if(!state)return;
   const prevWinner=G.srv?.winner,wasLobby=G.scr==='lobby';
   const wasMine=G.srv?.players?.[G.srv?.curIdx||0]?.id===G.myPid;
@@ -6008,6 +6251,9 @@ function onSrv(state){
           if(G.lres.bd.some(b=>b.isWinner)){v14WinnerBurst();fxPulse('gold');celebrateWin(state.winnerName,state.winnerAv);}
           const wIdx=(state.players||[]).findIndex(p=>p.id===state.winner);
           if(wIdx>=0)fxSeatGlow(wIdx,'gold');
+          // See roulResolve: a spin with no winning bet must not be recorded as a win for whoever
+          // happens to be holding the most chips.
+          if(G.lres.bd.some(b=>b.isWinner))
           addHistory({game:'roulette',winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),players:(state.players||[]).map(p=>p.name),mode:'online',moment:roundMoment(G.lres),stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
           if(state.winner===G.myPid){G.tw++;localStorage.setItem('ct_tw',G.tw);}
         }
@@ -6512,7 +6758,15 @@ function rHome(){
   </div>`;
   const resumable=getResumableMatch();
   const resumeGame=resumable?GAMES.find(g=>g.id===resumable.snap.selGame):null;
-  const continueCard=resumable&&resumeGame?`<div class="v10-continue resume" data-a="resume-match" role="button" tabindex="0" aria-label="Resume your in-progress ${esc(resumeGame.name)} game">
+  // An online seat we still hold outranks a local snapshot: other people are sitting at that table
+  // right now waiting on us, which a paused solo game is not. resumeOnlineSession() does all the
+  // real work and already verifies the seat still exists before committing to it.
+  let onlineSeat=null;
+  try{const os_=JSON.parse(localStorage.getItem('ct_online_session')||'null');if(os_&&os_.roomId)onlineSeat=os_;}catch(e){}
+  const onlineSeatGame=onlineSeat?GAMES.find(g=>g.id===G.selGame):null;
+  const continueCard=onlineSeat?`<div class="v10-continue resume" data-a="rejoin-online" role="button" tabindex="0" aria-label="Rejoin your online table in room ${esc(onlineSeat.roomId)}">
+      <div class="v10-continue-top"><div class="v10-game-mark">${onlineSeatGame?onlineSeatGame.icon:'🌐'}</div><div class="v10-continue-copy"><div class="v10-eyebrow">🌐 You still have a seat</div><div class="v10-game-name">Rejoin room ${esc(onlineSeat.roomId)}</div><div class="v10-game-meta">The others are still at the table</div></div><div class="v10-arrow">›</div></div>
+    </div>`:resumable&&resumeGame?`<div class="v10-continue resume" data-a="resume-match" role="button" tabindex="0" aria-label="Resume your in-progress ${esc(resumeGame.name)} game">
       <div class="v10-continue-top"><div class="v10-game-mark">${resumeGame.icon}</div><div class="v10-continue-copy"><div class="v10-eyebrow">⏸ Game in progress</div><div class="v10-game-name">${resumeGame.name}</div><div class="v10-game-meta">Pick up right where you left off</div></div><div class="v10-arrow">›</div></div>
     </div>`:last&&lastGame?`<div class="v10-continue" data-a="local" data-gid="${last.game}" role="button" tabindex="0" aria-label="Start a new local game — last time you played ${esc(lastGame.name)}">
       <div class="v10-continue-top"><div class="v10-game-mark">${lastGame.icon}</div><div class="v10-continue-copy"><div class="v10-eyebrow">Last time at the table</div><div class="v10-game-name">${lastGame.name}</div><div class="v10-game-meta">${esc(last.winner)} won · ${days===0?'Today':days===1?'Yesterday':days+' days ago'}</div></div><div class="v10-arrow">›</div></div>
@@ -8137,8 +8391,12 @@ document.addEventListener('click',e=>{
   } else if((a==='close-quit'||a==='close-rules')&&!t.classList.contains('btn')&&e.target!==t&&t.querySelector('[data-a]')){
     return; // click was on backdrop but propagated from inner element — ignore
   }
-  if(a==='home'||a==='nav-home'){stopSync();G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;G.scr='home';render();}
-  else if(a==='nav-games'){stopSync();G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;G.scr='games';render();}
+  // Both paths clear the Mau timer and any staged Dice Duel reveal the way quit-confirm already
+  // does. Without it, tapping Home inside the 5-second "Mau!" window let the timer fire afterwards,
+  // deal 2 penalty cards and call lAdvance — which sets G.scr='pass' and re-renders, throwing you
+  // out of the Home screen and back into a hand-over screen for a game you had left.
+  if(a==='home'||a==='nav-home'){stopSync(true);G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;if(G.lmau)clearTimeout(G.lmau.tid);G.lmau=null;ddClearRevealTimers();G.scr='home';render();}
+  else if(a==='nav-games'){stopSync(true);G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;if(G.lmau)clearTimeout(G.lmau.tid);G.lmau=null;ddClearRevealTimers();G.scr='games';render();}
   else if(a==='nav-table'){
     if(!hasActiveTable())return;
     const isYahtzee=G.isOnline?G.srv?.gameId==='yahtzee':G.selGame==='yahtzee';
@@ -8226,12 +8484,15 @@ document.addEventListener('click',e=>{
       const seat=convertibleSeat();
       if(!seat){toast('Table is full — remove a seat to add a bot');return;}
       const replaced=seat.name.trim();
-      seat.name=name;seat.bot='sharp';
+      // Gentle by default. A child tapping "Add bot" was being handed the hardest opponent in the
+      // app and had to know to find the level toggle to make it easier — exactly backwards for the
+      // people most likely to be playing alone. Sharp is one tap away for anyone who wants it.
+      seat.name=name;seat.bot='gentle';
       // Never silently overwrite a name somebody typed — say who moved over, so it can be undone.
       toast(replaced?`${name} takes ${replaced}'s seat`:`${name} joins the table`);
       render();return;
     }
-    G.lp.push({id:G.nid++,name,bot:'sharp',avatar:AVATARS[G.lp.length%AVATARS.length],hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false});
+    G.lp.push({id:G.nid++,name,bot:'gentle',avatar:AVATARS[G.lp.length%AVATARS.length],hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false});
     render();
   }
   else if(a==='botlevel'){const p=G.lp.find(x=>x.id===+t.getAttribute('data-id'));if(p&&p.bot){p.bot=p.bot==='sharp'?'gentle':'sharp';render();}}
@@ -8280,7 +8541,30 @@ document.addEventListener('click',e=>{
     const code=(document.getElementById('ol-code')?.value||'').trim().toUpperCase();
     if(!code||code.length<3){toast('Enter the room code');return;}
     G.myName=name;G.myPid='p'+Math.random().toString(36).slice(2,8);G.roomId=code;G.isHost=false;G.isOnline=true;
-    dbRead(code).then(rs=>{if(!rs){toast('Room not found');return;}if(rs.phase==='game'){toast('Game already started');return;}rs.players.push({id:G.myPid,name,avatar:G.myAvatar,hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS});rs._ts=Date.now();G.selGame=rs.gameId||G.selGame;G.srv=rs;dbWrite(code,rs).then(ok=>{if(!ok){toast('Failed to join');return;}(rs.talk||[]).forEach(en=>_seenTalk.add(en.id));dbSub(code,onSrv);saveOnlineSession();SFX.join();G.scr='lobby';render();});});
+    dbRead(code).then(rs=>{if(!rs){toast('Room not found');return;}
+      if(rs.phase==='game'){
+        // Rejoin instead of a flat refusal — but only into a seat this device can prove is its own.
+        // Identity comes from the saved session, never from the typed name: matching on name would
+        // let anyone type "Anna" and take Anna's live seat, hand and score.
+        let sess=null;try{sess=JSON.parse(localStorage.getItem('ct_online_session')||'null');}catch(e){}
+        const mine=sess&&sess.roomId===code&&(rs.players||[]).some(p=>p.id===sess.myPid);
+        if(!mine){toast('Game already started');return;}
+        G.myPid=sess.myPid;G.isHost=!!sess.isHost;G.selGame=rs.gameId||G.selGame;
+        // Seed G.srv first so onSrv's own diffing sees "nothing changed" and does not replay the
+        // confetti, history write and turn alerts for everything that happened while we were gone.
+        G.srv={...rs};
+        (rs.talk||[]).forEach(en=>_seenTalk.add(en.id));
+        dbSub(code,onSrv);saveOnlineSession();SFX.join();onSrv(rs);toast('Back at the table');
+        return;
+      }
+      // The local setup screen enforces each game's cap; joining a room did not check at all, and
+      // the lobby's start button only asks for >=2. A third joiner broke three games in three
+      // different ways: Battle dealt them ~17 cards that no code path ever reads while their Flip
+      // button resolved the other two players' cards; Dice Duel sliced them straight out of
+      // state.players, leaving every button they pressed silently dead; Mau Mau ran out of deck.
+      const joinCap=(GAMES.find(g=>g.id===rs.gameId)||{}).maxP||6;
+      if((rs.players||[]).length>=joinCap){toast('Table is full');return;}
+      rs.players.push({id:G.myPid,name,avatar:G.myAvatar,hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS});rs._ts=Date.now();G.selGame=rs.gameId||G.selGame;G.srv=rs;dbWrite(code,rs).then(ok=>{if(!ok){toast('Failed to join');return;}(rs.talk||[]).forEach(en=>_seenTalk.add(en.id));dbSub(code,onSrv);saveOnlineSession();SFX.join();G.scr='lobby';render();});});
   }
   else if(a==='start'){
     dbRead(G.roomId).then(rs=>{
@@ -8485,6 +8769,9 @@ document.addEventListener('click',e=>{
     if(G.isOnline){dbRead(G.roomId).then(rs=>{
       if(!rs)return;
       if(rs.gameId==='blackjack'){
+        // Same bust-out check as the local game and as online roulette below.
+        const bjStillIn=(rs.players||[]).filter(p=>p.chips>0);
+        if(!bjStillIn.length||((rs.players||[]).length>1&&bjStillIn.length<=1)){onSrv(rs);return;}
         const players=(rs.players||[]).map(p=>({...p,roundsWon:p.roundsWon||0}));
         const d=oBjBuildDeal(rs,players);
         const gs={...rs,players,deck:d.deck,dealerHand:d.dealerHand,dealerHoleHidden:true,curIdx:d.curIdx,winner:null,winnerName:null,winnerAv:null,lastAct:'',round:(rs.round||1)+1,_ts:Date.now()};
@@ -8501,6 +8788,8 @@ document.addEventListener('click',e=>{
         return;
       }
       if(rs.gameId==='texas'||rs.gameId==='fivecard'){
+        const pkStillIn=(rs.players||[]).filter(p=>p.chips>0);
+        if(!pkStillIn.length||((rs.players||[]).length>1&&pkStillIn.length<=1)){onSrv(rs);return;}
         const players=(rs.players||[]).map(p=>({...p,roundsWon:p.roundsWon||0}));
         const dealerIdx=mod((rs.dealer||0)+1,players.length);
         const d=oPokerBuildDeal(rs,players,dealerIdx);
@@ -8539,6 +8828,14 @@ document.addEventListener('click',e=>{
       const game=GAMES.find(g=>g.id===(rs.gameId||'maumau'))||GAMES[0];const deck=shuffle(buildDeck(1,rs.gameId||G.selGame));const players=(rs.players||[]).map(p=>({...p,hand:[]}));const dc=game.deal||7;for(let r=0;r<dc;r++)players.forEach(p=>{if(deck.length)p.hand.push(deck.pop());});let first=null;if(game.id==='maumau'){const jks=[];for(let i=0;i<500;i++){first=deck.pop();if(!first)break;if(first.rank==='J'){jks.push(first);continue;}break;}if(jks.length){deck.push(...jks);shuffle(deck);}}const openDrawPend=first&&first.rank==='7'?2:0;const openSkip8=!!(first&&first.rank==='8');dbWrite(G.roomId,{...rs,players,deck,discard:first?[first]:[],curSuit:first?first.suit:SUITS[0],curIdx:mod((rs.curIdx||0)+1,players.length),drawPend:openDrawPend,skip8Pend:openSkip8,winner:null,needsSuit:false,lastAct:openSkip8?'8 revealed — must play an 8 or pass!':'',round:(rs.round||1)+1,_ts:Date.now()});
     });}
     else if(isPoker()){
+      // Roulette was the only game that checked for bust-out; poker and blackjack dealt bankrupt
+      // players in forever. Heads-up poker was the worse of the two: at 0 chips lDealPoker posts a
+      // blind of Math.min(10,0)=0, immediately marks that player all-in with nothing committed, and
+      // still gives them the action. Call 0 leaves fewer than two players able to act, so the hand
+      // runs itself out to a showdown where the side pots correctly award nothing, chips unchanged
+      // — an infinite loop of hands that looked like a working game and could never end.
+      const pokerStillIn=G.lp.filter(p=>p.chips>0);
+      if(!pokerStillIn.length||(G.lp.length>1&&pokerStillIn.length<=1)){G.scr='matchend';render();return;}
       // Next poker hand
       G.lp.forEach(p=>{p.hand=[];p.folded=false;p.bet=0;p.allIn=false;});
       G.pot=0;G.community=[];G.currentBet=0;G.pokerShowdown=false;
@@ -8547,7 +8844,22 @@ document.addEventListener('click',e=>{
     }
     else if(G.selGame==='dicedual'){G.lp.forEach(p=>{p.totalScore=0;p.roundsWon=0;});G.lround++;lDeal();render();return;}
     else if(G.selGame==='roulette'){G.lround++;lDeal();render();return;}
+    // Blackjack bets Math.min(G.bjBet,p.chips), which at 0 chips is a 0 bet: bjResolve then pays
+    // 0*2 on a win and still counts a round won, so a child who loses their stack goes on playing
+    // hand after hand for literally nothing, with no message and a Next Hand button that keeps
+    // working. Send the table to the match-end screen instead, the way roulette does.
+    else if(G.selGame==='blackjack'){
+      const bjStillIn=G.lp.filter(p=>p.chips>0);
+      if(!bjStillIn.length||(G.lp.length>1&&bjStillIn.length<=1)){G.scr='matchend';render();return;}
+      G.lround++;G.lstart=mod(G.lstart+1,G.lp.length);lDeal();render();return;
+    }
     else{G.lround++;G.lstart=mod(G.lstart+1,G.lp.length);lDeal();render();}
+  }
+  else if(a==='rejoin-online'){
+    resumeOnlineSession().then(ok=>{
+      if(!ok){toast('That table has closed');localStorage.removeItem('ct_online_session');}
+      render();
+    });
   }
   else if(a==='endgame'){G.scr='matchend';render();}
   // Same players, same game, straight back into a fresh match — reuses the exact same lStartMatch()
