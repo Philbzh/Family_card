@@ -998,6 +998,8 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 .roul-chip-pick[data-val="5"]{background:radial-gradient(circle at 35% 30%,#d6455f,#7a1626);}
 .roul-chip-pick[data-val="25"]{background:radial-gradient(circle at 35% 30%,#3fae6e,#0e5c34);}
 .roul-chip-pick[data-val="100"]{background:radial-gradient(circle at 35% 30%,#2a2a2a,#050505);border-color:rgba(212,168,67,.5);}
+.roul-chip-pick[data-val="500"]{background:radial-gradient(circle at 35% 30%,#9a6fe0,#3d1f6e);border-color:rgba(212,168,67,.6);}
+.roul-chip-pick[data-val="1000"]{background:radial-gradient(circle at 35% 30%,#f0cc60,#8a6a1a);border-color:rgba(212,168,67,.9);color:#1a1206;text-shadow:none;}
 .roul-chip-pick:hover{transform:translateY(-3px) scale(1.05);}
 .roul-chip-pick.active{border-color:var(--gold2);box-shadow:inset 0 0 0 4px rgba(8,10,8,.85),inset 0 2px 3px rgba(255,255,255,.2),0 0 0 3px rgba(212,168,67,.35),0 6px 14px rgba(212,168,67,.35);transform:translateY(-3px);}
 .roul-my-bet{margin-left:auto;font-size:.72rem;color:var(--paper3);}
@@ -4235,6 +4237,12 @@ function roulColor(n){return n===0?'green':(ROUL_RED.has(n)?'red':'black');}
 // resting spot for the spin animation, not for any game logic (that's pure RNG via rnd(0,36)).
 const ROUL_WHEEL_ORDER=[0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
 const ROUL_CHIPS=[1,5,25,100];
+// Above 2000 chips a stack is deep enough that 500 and 1000 stop being reckless and start being the
+// only way to build a real bet before the online countdown runs out — at 25 chips a click, getting
+// to 1500 takes 60 taps, which the "bets close in Ns" timer does not allow for. Gated on the
+// CURRENT bettor's own stack (me.chips at the render site), not on the table's richest player, so
+// someone who has been losing sees only the chips they can actually use.
+const ROUL_CHIPS_HIGH=[1,5,25,100,500,1000];
 // How long the "last call" betting window stays open online after someone taps Spin, before the
 // wheel actually starts — long enough to get one more chip down, short enough not to feel sluggish.
 const ROUL_COUNTDOWN_MS=6000;
@@ -7393,7 +7401,9 @@ function rRouletteTable(){
     </button>`;
   }).join('');
   const historyStrip=history.map(h=>`<span class="roul-hist-num roul-hist-${h.color}">${h.number}</span>`).join('');
-  const chipPicker=ROUL_CHIPS.map(v=>`<button class="roul-chip-pick${G.roulChip===v?' active':''}" data-a="roul-chip" data-val="${v}" aria-pressed="${G.roulChip===v}">${v}</button>`).join('');
+  const chipTiers=me.chips>2000?ROUL_CHIPS_HIGH:ROUL_CHIPS;
+  if(!chipTiers.includes(G.roulChip))G.roulChip=chipTiers[chipTiers.length-1];
+  const chipPicker=chipTiers.map(v=>`<button class="roul-chip-pick${G.roulChip===v?' active':''}" data-a="roul-chip" data-val="${v}" aria-pressed="${G.roulChip===v}">${v}</button>`).join('');
 
   const betAmt=key=>players.reduce((s,pl)=>s+((pl.roulBets||{})[key]||0),0);
   const chipBadges=key=>{
