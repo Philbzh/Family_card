@@ -382,6 +382,10 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .v10-gc--roulette:hover{border-color:rgba(224,99,122,.42);}
 .v10-gc--uno{background:linear-gradient(160deg,rgba(229,71,58,.32),rgba(30,8,10,.3));border-top-color:#e5473a;box-shadow:0 10px 28px -12px rgba(229,71,58,.35);}
 .v10-gc--uno:hover{border-color:rgba(229,71,58,.42);}
+/* No cover photo yet, so this is the icon-card path every other game would also fall back to if
+   its art were ever missing (see gameCardHTML) -- a teal nobody else here uses. */
+.v10-gc--farkle{background:linear-gradient(160deg,rgba(66,199,178,.32),rgba(8,26,24,.3));border-top-color:#4fd6c9;box-shadow:0 10px 28px -12px rgba(66,199,178,.35);}
+.v10-gc--farkle:hover{border-color:rgba(79,214,201,.42);}
 .v10-card-icon{width:2.75rem;height:2.75rem;display:grid;place-items:center;font-size:1.5rem;line-height:1;background:rgba(0,0,0,.28);border-radius:12px;border:1px solid rgba(255,255,255,.16);box-shadow:0 4px 14px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.1);position:relative;}
 .v10-card-name{font-family:var(--serif);font-size:1rem;color:var(--paper);margin-top:.55rem;position:relative;}
 .v10-card-meta{font-size:.62rem;color:var(--paper3);margin-top:.16rem;position:relative;}
@@ -516,6 +520,7 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
   .v10-main .v10-gc--yahtzee{background:linear-gradient(180deg,rgba(78,64,20,.85),rgba(20,15,6,.93));border-top-color:rgba(242,201,76,.6);--tile-glow:rgba(242,201,76,.6);}
   .v10-main .v10-gc--roulette{background:linear-gradient(180deg,rgba(74,26,36,.85),rgba(20,8,12,.93));border-top-color:rgba(224,99,122,.6);--tile-glow:rgba(224,99,122,.6);}
   .v10-main .v10-gc--uno{background:linear-gradient(180deg,rgba(74,24,20,.85),rgba(20,8,7,.93));border-top-color:rgba(229,71,58,.6);--tile-glow:rgba(229,71,58,.6);}
+  .v10-main .v10-gc--farkle{background:linear-gradient(180deg,rgba(20,66,60,.85),rgba(6,18,16,.93));border-top-color:rgba(79,214,201,.6);--tile-glow:rgba(79,214,201,.6);}
 
   /* ── actions → pills ── */
   .v10-main .v10-actions{margin:2px 0 0;gap:.7rem;}
@@ -900,6 +905,10 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 .die-lock{position:absolute;top:-.45rem;right:-.45rem;width:1.25rem;height:1.25rem;border-radius:50%;background:#1a1000;font-size:.68rem;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.45),0 0 0 1.5px var(--gold2);}
 @keyframes die-roll{0%{transform:rotate(0) scale(1);}30%{transform:rotate(-18deg) scale(1.08);}60%{transform:rotate(14deg) scale(1.05);}100%{transform:rotate(0) scale(1);}}
 .y-hint{font-size:.74rem;color:var(--paper3);text-align:center;z-index:1;min-height:1.1em;}
+.fk-turn-total{font-size:.82rem;color:var(--paper2);text-align:center;z-index:1;font-variant-numeric:tabular-nums;}
+.fk-turn-total b{color:var(--gold2);}
+.fk-sel-add{color:#86efac;}
+.fk-final-banner{text-align:center;font-size:.72rem;font-weight:700;color:var(--gold2);background:rgba(212,168,67,.14);border:1px solid rgba(212,168,67,.35);border-radius:999px;padding:.3rem .8rem;margin:0 .85rem;flex-shrink:0;}
 
 .y-scorecard{flex:1;min-height:0;overflow-y:auto;margin:0 .85rem .85rem;display:flex;flex-direction:column;gap:.15rem;padding-right:.2rem;}
 .ysc-section-lbl{font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(251,247,237,.4);padding:.6rem 0 .2rem;flex-shrink:0;}
@@ -2248,6 +2257,17 @@ const GAMES=[
    rules:['Get as close to <b>21</b> as possible without going over — you play against the dealer, not each other.','Ace = 1 or 11. Face cards = 10.','<b>Hit</b> to draw. <b>Stand</b> to hold.','<b>Double Down</b>: double your bet, take exactly one more card, then stand.','<b>Blackjack</b>: Ace + 10-value on your first 2 cards = automatic win (pays 3:2).','Dealer stands on all 17s and reveals the hole card once every player is done.','Closest to 21 without busting beats the dealer.']},
   {id:'battle',icon:'⚔️',name:'Battle',players:'2',dur:'5–15 min',diff:'easy',deal:26,minP:2,maxP:2,cover:'assets/games/battle.png',
    rules:['The deck is split 26/26. Tap <b>Flip!</b> to reveal both top cards.','Highest card wins both — Ace is highest, down to 2.','Tie = <b>War!</b> Each player burns 3 cards face-down, then flips a 4th. Highest takes everything on the table.','Run out of cards during a war and you lose the game.','First to win all 52 cards takes the table.']},
+  // No cover art yet -- gameCardHTML falls back to an icon card (see .v10-gc--farkle) when g.cover
+  // is unset, exactly the path every other game's card would take if its art were ever missing.
+  {id:'farkle',icon:'🔥',name:'Farkle',players:'2–8',dur:'15–30 min',diff:'easy',deal:0,
+   rules:['Roll <b>6 dice</b>. Every roll, set aside at least one scoring die or group, or you <b>Farkle</b> — turn over, nothing banked.',
+     'Single <b>1</b> = 100 · Single <b>5</b> = 50.',
+     'Three of a kind: value ×100 (three 1s = 1000). Four of a kind doubles it, five triples it, six quadruples it.',
+     'Straight 1–2–3–4–5–6, or three pairs — either one on all six dice = <b>1500</b>.',
+     'Use every die without busting and it\'s <b>Hot Dice</b> — roll all six again, keeping your points so far.',
+     'After each set-aside, <b>Bank</b> your turn (added to your score) or keep rolling what\'s left, risking it all.',
+     'Your first banked turn needs <b>300+</b> to count.',
+     'First to <b>10,000</b> triggers one last turn for everyone else — highest total after that wins.']},
   {id:'yahtzee',icon:'🎲',name:'Yahtzee',players:'2–6',dur:'30–45 min',diff:'medium',deal:0,cover:'assets/games/yahtzee.png',
    rules:['Roll <b>5 dice</b>, up to <b>3 times</b> a turn — after the first roll, hold any dice you want to keep and reroll the rest.','After your last roll, choose <b>one scoring category</b> to fill in. Each of the 13 categories can only be used once per game.','Upper section (Ones–Sixes): score the sum of matching dice. Total <b>63+</b> across all six earns a <b>+35 bonus</b>.','Lower section: 3/4 of a Kind &amp; Chance score the sum of all dice; Full House = <b>25</b>; Small Straight = <b>30</b>; Large Straight = <b>40</b>; Yahtzee (5 of a kind) = <b>50</b>.','Rolling a second Yahtzee scores a <b>+100 bonus</b> and can fill any open lower-section category at full value.','Highest total across all 13 categories wins the table.']},
   {id:'roulette',icon:'🎡',name:'Roulette',players:'1–8',dur:'15–30 min',diff:'easy',deal:0,cover:'assets/games/roulette.png',
@@ -2272,7 +2292,7 @@ const GAMES=[
 ];
 // Single source of truth for which unlocked games have online-multiplayer support, so the "online"
 // gate and the local-only badge on a game's card can never drift out of sync with each other.
-const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual'];
+const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle'];
 
 function isRed(s){return s==='hearts'||s==='diamonds';}
 function mod(n,m){return((n%m)+m)%m;}
@@ -3127,22 +3147,35 @@ function pokerBotMove(ctx,level){
   // A pinch of noise, so a bot isn't a lookup table anyone can read off after two hands.
   const v=adj+(Math.random()-0.5)*0.08;
   const potOdds=toCall>0?toCall/((ctx.pot||0)+toCall):0;
+  // A raise can never cost more than the chips actually in front of the bot. The branch guards
+  // below only approximate that ("enough left to cover the call plus a couple of blinds"), and an
+  // approximation is exactly the shape of bug this was: at v>0.95 sharp sizes to 3 blinds while its
+  // own guard upstream only ever confirmed 2 were covered, so a real hand could clear the guard and
+  // still propose spending more than its stack held. Clamping right here, where the amount is
+  // decided, closes the whole class instead of that one gap — the same hard cap pokerRaise() itself
+  // enforces at the table, so a bot can still propose an all-in, just never more than one.
+  const maxTo=ctx.bet+ctx.chips;
   if(level==='gentle'){
     // Gentle plays like a cautious beginner — it calls what it can afford, folds only when the
     // price is plainly bad for a weak hand, and bets only holding something real.
-    if(toCall===0)return(v>0.72&&ctx.chips>bb)?{action:'raise',amount:ctx.currentBet+bb}:{action:'check'};
+    if(toCall===0){
+      if(v>0.72&&ctx.chips>bb){const amt=Math.min(ctx.currentBet+bb,maxTo);if(amt>ctx.currentBet)return{action:'raise',amount:amt};}
+      return{action:'check'};
+    }
     if(toCall>=ctx.chips)return v>0.5?{action:'call'}:{action:'fold'};
     if(potOdds>0.45&&v<0.35)return{action:'fold'};
     return{action:'call'};
   }
   if(toCall===0){
-    if(v>0.78&&ctx.chips>bb)return{action:'raise',amount:ctx.currentBet+bb*(v>0.9?3:2)};
-    if(v>0.6&&ctx.chips>bb&&Math.random()<0.45)return{action:'raise',amount:ctx.currentBet+bb};
+    if(v>0.78&&ctx.chips>bb){const amt=Math.min(ctx.currentBet+bb*(v>0.9?3:2),maxTo);if(amt>ctx.currentBet)return{action:'raise',amount:amt};}
+    if(v>0.6&&ctx.chips>bb&&Math.random()<0.45){const amt=Math.min(ctx.currentBet+bb,maxTo);if(amt>ctx.currentBet)return{action:'raise',amount:amt};}
     return{action:'check'};
   }
   if(v<potOdds*0.9&&v<0.55)return{action:'fold'};
-  if(v>0.85&&ctx.chips>toCall+bb*2&&Math.random()<0.6)
-    return{action:'raise',amount:ctx.currentBet+bb*(v>0.95?3:2)};
+  if(v>0.85&&ctx.chips>toCall+bb*2&&Math.random()<0.6){
+    const amt=Math.min(ctx.currentBet+bb*(v>0.95?3:2),maxTo);
+    if(amt>ctx.currentBet)return{action:'raise',amount:amt};
+  }
   if(toCall>=ctx.chips)return v>0.62?{action:'call'}:{action:'fold'};
   return{action:'call'};
 }
@@ -3334,11 +3367,12 @@ function lDealUno(){
   SFX.deal();
   const cp=G.lp[G.lcur];
   if(isBotPlayer(cp)){G.scr='table';return;} // see lAdvance: bots never get a hand-over screen
-  G.lpass1=cp.avatar+' '+esc(cp.name);G.lpass2='';G.scr='pass';
+  G.lpass1=avChar(cp.avatar)+' '+esc(cp.name);G.lpass2='';G.scr='pass';
 }
 function lDeal(){
   const game=currentGame();
   if(game.id==='yahtzee'){lDealYahtzee();return;}
+  if(game.id==='farkle'){lDealFarkle();return;}
   if(game.id==='dicedual'){lDealDiceDuel();return;}
   if(game.id==='roulette'){lDealRoulette();return;}
   if(game.id==='uno'){lDealUno();return;}
@@ -3381,7 +3415,7 @@ function lDeal(){
   if(G.lskip8)G.llast='8 revealed — '+esc(G.lp[G.lcur].name)+' must play an 8 or pass!';
   const cp=G.lp[G.lcur];
   if(isBotPlayer(cp)){G.scr='table';return;} // see lAdvance: bots never get a hand-over screen
-  G.lpass1=cp.avatar+' '+esc(cp.name);G.lpass2=G.llast;G.llast='';G.scr='pass';
+  G.lpass1=avChar(cp.avatar)+' '+esc(cp.name);G.lpass2=G.llast;G.llast='';G.scr='pass';
 }
 
 function lStartMatch(){
@@ -3556,6 +3590,301 @@ async function oYCommitCategory(cat){
     state.lastAct=esc(p.name)+' scores '+Y_LABELS[cat]+' — '+p.scorecard[cat]+' pts.';
     SFX.chip();
     oYAdvanceTurn(state);
+    state._ts=Date.now();onSrv(state);
+    await dbWrite(G.roomId,state);
+  } finally { _onlineBusy=false; }
+}
+
+/* ═══════ FARKLE ═══════
+   A press-your-luck dice game, and the one shape nothing else at this table has: Yahtzee is a
+   fixed 13-turn scorecard, Dice Duel is a locked head-to-head, but Farkle is loose -- any number of
+   players, no card to fill in, just "keep going or bank it" repeated until someone hits the target.
+
+   Six dice, roll them all. Every roll, you must set aside at least one die or group that scores
+   (see fkEvaluateSelection below) or your turn ends with nothing -- a Farkle -- and whatever you
+   had piled up this turn is lost. Set some aside and you choose: bank the lot (added to your real
+   score, turn over), or reroll everything still live and keep pushing. Use every die you have
+   without busting and you get all six back -- Hot Dice -- for the same reason a losing streak in
+   this game only ends when you decide it does.
+   First to 10,000 (by BANKING, not just accumulating this turn) doesn't end the game outright --
+   everyone else gets exactly one more turn to catch up, then the highest total wins. That's the
+   real tension: the leader can still lose it on the very last lap.
+   All of the scoring rules live in four pure functions with no G/state access at all, the same
+   discipline Dice Duel's engine uses -- local, online and the test suite all read one rule set. */
+const FK_ENTRY_MIN=300;   // your first BANKED turn must clear this or it doesn't count -- keeps the
+                           // opening turns from being a free freeroll and gives farkling early a cost.
+const FK_TARGET=10000;
+function fkFreshDiceArr(){return[1,1,1,1,1,1];}
+function fkTripleValue(face){return face===1?1000:face*100;}
+function fkKindMultiplier(count){return count-2;} // 3-of-a-kind->1x, 4->2x, 5->3x, 6->4x the triple value
+// Given the dice a player has chosen to set aside from the CURRENT roll, returns their point value,
+// or null if the selection is not a legal scoring combination. Deterministic on purpose: a count of
+// 3+ of any face is ALWAYS scored as a "kind" group rather than loose 1s/5s, because the kind value
+// is never worse -- so there is nothing to resolve except which dice the player includes. A single
+// die of 2/3/4/6 can never score alone; if the selection contains one, the WHOLE selection is
+// invalid (Farkle does not award partial credit for an illegal set-aside).
+function fkEvaluateSelection(values){
+  if(!values||!values.length)return null;
+  if(values.length===6){
+    const sorted=[...values].sort((a,b)=>a-b);
+    if(sorted.join(',')==='1,2,3,4,5,6')return 1500;
+    const c={};values.forEach(v=>c[v]=(c[v]||0)+1);
+    if(Object.keys(c).length===3&&Object.values(c).every(n=>n===2))return 1500;
+  }
+  const counts={};values.forEach(v=>counts[v]=(counts[v]||0)+1);
+  let total=0;
+  for(const faceStr of Object.keys(counts)){
+    const face=+faceStr,n=counts[face];
+    if(face===1)total+=n>=3?fkTripleValue(1)*fkKindMultiplier(n):100*n;
+    else if(face===5)total+=n>=3?fkTripleValue(5)*fkKindMultiplier(n):50*n;
+    else{if(n>=3)total+=fkTripleValue(face)*fkKindMultiplier(n);else return null;}
+  }
+  return total;
+}
+// Is there ANY way to score from this roll at all? If not, the turn is over the instant it lands --
+// this is the whole tension of the game, so it has to be exactly right.
+function fkHasAnyScore(dice){
+  if(dice.length===6){
+    const sorted=[...dice].sort((a,b)=>a-b);
+    if(sorted.join(',')==='1,2,3,4,5,6')return true;
+    const c={};dice.forEach(v=>c[v]=(c[v]||0)+1);
+    if(Object.keys(c).length===3&&Object.values(c).every(n=>n===2))return true;
+  }
+  const counts={};dice.forEach(v=>counts[v]=(counts[v]||0)+1);
+  if((counts[1]||0)>0||(counts[5]||0)>0)return true;
+  for(let f=1;f<=6;f++)if((counts[f]||0)>=3)return true;
+  return false;
+}
+// What the currently-ticked dice in a live roll are worth right now -- null if empty or illegal,
+// which the UI reads as "nothing to act on yet" and disables both Reroll and Bank accordingly.
+function fkSelectedScore(dice,selected){
+  const chosen=dice.filter((v,i)=>selected[i]);
+  if(!chosen.length)return null;
+  return fkEvaluateSelection(chosen);
+}
+// Both bot levels take every scoring die on offer -- deliberately leaving points on the table (say,
+// holding back a lone 5 hoping to pair it into a triple later) is a marginal, advanced play not
+// worth teaching a bot. The real skill in Farkle is knowing when to stop, which is what actually
+// differs between Gentle and Sharp -- see fkBotShouldBank.
+function fkBotSelect(dice){
+  const counts={};dice.forEach(v=>counts[v]=(counts[v]||0)+1);
+  if(dice.length===6){
+    const sorted=[...dice].sort((a,b)=>a-b);
+    if(sorted.join(',')==='1,2,3,4,5,6')return dice.map(()=>true);
+    if(Object.keys(counts).length===3&&Object.values(counts).every(n=>n===2))return dice.map(()=>true);
+  }
+  return dice.map(v=>v===1||v===5||counts[v]>=3);
+}
+// Textbook farkle bust probabilities by how many dice are still live for the NEXT roll (index =
+// dice remaining). Fewer dice means fewer ways to score, so the risk climbs fast as a turn runs
+// dry -- this is the actual math behind "don't push your luck with one die left."
+const FK_BUST_CHANCE=[0,.6667,.4444,.2778,.1574,.0772,.0231];
+function fkBotShouldBank(projected,remainingDice,onBoard,level){
+  if(!onBoard)return false; // hasn't posted the entry minimum yet -- banking isn't even on the table
+  if(level==='gentle')return projected>=500||remainingDice<=2;
+  // Sharp compares banking now to the expected value of one more roll: bust it and the whole turn
+  // is worth zero, survive it and the turn is worth roughly 100 more per die still live.
+  const bust=FK_BUST_CHANCE[remainingDice]||.05;
+  const evContinue=(1-bust)*(projected+remainingDice*100);
+  return evContinue<=projected||projected>=3000; // and just bank a big score once in a while, too
+}
+function lDealFarkle(){
+  G.lp.forEach(p=>{p.totalScore=0;p.fkOnBoard=false;});
+  G.lcur=G.lstart;
+  G.fk={dice:fkFreshDiceArr(),selected:new Array(6).fill(false),turnTotal:0,hasRolled:false,
+    lastRolled:[],busted:false,finalRoundActive:false,finalRoundEndSeat:null};
+  G.lres=null;
+  SFX.deal();
+  G.scr='table';
+}
+function fkRoll(){
+  const f=G.fk;if(!f||f.busted)return;
+  const n=f.dice.length||6;
+  const newDice=[];for(let i=0;i<n;i++)newDice.push(rnd(1,6));
+  f.dice=newDice;f.selected=new Array(n).fill(false);f.hasRolled=true;
+  f.lastRolled=newDice.map((_,i)=>i);
+  SFX.diceRoll();haptic([10,20,10]);
+  if(!fkHasAnyScore(f.dice)){
+    f.busted=true;
+    G.llast=esc(G.lp[G.lcur].name)+' FARKLED — turn over, '+f.turnTotal+' pt'+(f.turnTotal!==1?'s':'')+' lost.';
+    SFX.bust();fxPulse('red');haptic([30,40,30]);
+    render();
+    setTimeout(()=>fkFarkleOut(),1100);
+    return;
+  }
+  render();
+}
+function fkToggleSelect(i){
+  const f=G.fk;if(!f||!f.hasRolled||f.busted)return;
+  f.selected[i]=!f.selected[i];
+  render();
+}
+// "Set aside and keep going": the ticked dice score into the turn total, and whatever is left
+// (or, on Hot Dice, a fresh six) is waiting for the next roll.
+function fkContinue(){
+  const f=G.fk;if(!f||f.busted)return;
+  const score=fkSelectedScore(f.dice,f.selected);
+  if(score===null)return;
+  f.turnTotal+=score;
+  const remaining=f.dice.filter((v,i)=>!f.selected[i]);
+  const hot=!remaining.length;
+  f.dice=hot?fkFreshDiceArr():remaining;
+  f.selected=new Array(f.dice.length).fill(false);
+  f.hasRolled=false;f.lastRolled=[];
+  SFX.chip();
+  if(hot){G.llast=esc(G.lp[G.lcur].name)+' used every die — HOT DICE! Rolling all six again.';fxPulse('gold');}
+  render();
+}
+function fkBank(){
+  const f=G.fk;if(!f||f.busted)return;
+  const score=fkSelectedScore(f.dice,f.selected);
+  const total=f.turnTotal+(score||0);
+  if(!f.hasRolled||total<=0)return;
+  const p=G.lp[G.lcur];
+  if(!p.fkOnBoard&&total<FK_ENTRY_MIN){
+    toast('Need '+FK_ENTRY_MIN+'+ to get on the board — keep rolling or lose it');
+    return;
+  }
+  p.fkOnBoard=true;
+  p.totalScore=(p.totalScore||0)+total;
+  G.llast=esc(p.name)+' banks '+total+' pt'+(total!==1?'s':'')+'.';
+  SFX.win();fxPulse('gold');
+  if(p.totalScore>=FK_TARGET&&!f.finalRoundActive){
+    f.finalRoundActive=true;
+    f.finalRoundEndSeat=mod(G.lcur-1,G.lp.length);
+    G.llast+=' '+esc(p.name)+' passed '+FK_TARGET+' — everyone else gets one last turn!';
+  }
+  fkAdvanceTurn();
+}
+function fkFarkleOut(){
+  fkAdvanceTurn();
+}
+function fkAdvanceTurn(){
+  const f=G.fk,finishedSeat=G.lcur;
+  if(f.finalRoundActive&&finishedSeat===f.finalRoundEndSeat){fkEndGame();return;}
+  G.lcur=mod(G.lcur+1,G.lp.length);
+  f.dice=fkFreshDiceArr();f.selected=new Array(6).fill(false);
+  f.turnTotal=0;f.hasRolled=false;f.lastRolled=[];f.busted=false;
+  render();
+}
+function fkEndGame(){
+  const sorted=[...G.lp].sort((a,b)=>(b.totalScore||0)-(a.totalScore||0));
+  const winner=sorted[0];
+  const fkTop=winner.totalScore||0;
+  const fkTied=G.lp.filter(p=>(p.totalScore||0)===fkTop).length>1;
+  G.tw++;localStorage.setItem('ct_tw',G.tw);
+  SFX.win();v14WinnerBurst();celebrateWin(winner.name,winner.avatar);fxPulse('gold');
+  const wIdx=G.lp.findIndex(p=>p===winner);if(wIdx>=0)fxSeatGlow(wIdx,'gold');
+  addHistory({game:'farkle',winner:winner.name,winnerAvatar:winner.avatar,date:new Date().toISOString(),
+    players:G.lp.map(p=>p.name),
+    moment:fkTied?`Tied on ${fkTop} — ${winner.name} takes it on the tiebreak.`:`${winner.name} banks the win with ${fkTop} points!`,
+    stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
+  G.scr='matchend';
+  render();
+}
+
+/* ── FARKLE: online ──
+   Turn-gated exactly like Yahtzee: one player rolls at a time, isMyTurn() is the whole guard, and a
+   plain read-mutate-write is safe because only the current player's device ever touches state.fk. */
+function oFkAdvanceTurn(state){
+  const finishedSeat=state.curIdx||0,n=state.players.length;
+  const f=state.fk;
+  if(f.finalRoundActive&&finishedSeat===f.finalRoundEndSeat){
+    const sorted=[...state.players].sort((a,b)=>(b.totalScore||0)-(a.totalScore||0));
+    const winner=sorted[0];
+    state.winner=winner.id;state.winnerName=winner.name;state.winnerAv=winner.avatar;
+    return;
+  }
+  state.curIdx=mod(finishedSeat+1,n);
+  f.dice=fkFreshDiceArr();f.selected=new Array(6).fill(false);
+  f.turnTotal=0;f.hasRolled=false;f.lastRolled=[];f.busted=false;
+}
+async function oFkRoll(){
+  if(_onlineBusy)return;
+  if(!isMyTurn()){toast('Not your turn');return;}
+  _onlineBusy=true;
+  try{
+    const state=await dbRead(G.roomId);if(!state||!state.fk)return;
+    const f=state.fk;if(f.busted)return;
+    const n=f.dice.length||6;
+    const newDice=[];for(let i=0;i<n;i++)newDice.push(rnd(1,6));
+    f.dice=newDice;f.selected=new Array(n).fill(false);f.hasRolled=true;
+    f.lastRolled=newDice.map((_,i)=>i);
+    SFX.diceRoll();haptic([10,20,10]);
+    if(!fkHasAnyScore(f.dice)){
+      f.busted=true;
+      state.lastAct=esc(state.players[state.curIdx||0].name)+' FARKLED — turn over, '+f.turnTotal+' pt'+(f.turnTotal!==1?'s':'')+' lost.';
+      SFX.bust();fxPulse('red');
+    }
+    state._ts=Date.now();onSrv(state);
+    await dbWrite(G.roomId,state);
+    if(f.busted)setTimeout(()=>oFkFarkleAdvance(),1100);
+  } finally { _onlineBusy=false; }
+}
+// The bust is shown for a beat before the turn actually hands off, written by the same device that
+// just rolled and busted -- there is nobody else who could be writing this room at the same moment.
+async function oFkFarkleAdvance(){
+  if(_onlineBusy)return;_onlineBusy=true;
+  try{
+    const state=await dbRead(G.roomId);if(!state||!state.fk||!state.fk.busted)return;
+    oFkAdvanceTurn(state);
+    state._ts=Date.now();onSrv(state);
+    await dbWrite(G.roomId,state);
+  } finally { _onlineBusy=false; }
+}
+async function oFkSelect(idx){
+  if(_onlineBusy)return;
+  if(!isMyTurn()){toast('Not your turn');return;}
+  _onlineBusy=true;
+  try{
+    const state=await dbRead(G.roomId);if(!state||!state.fk)return;
+    const f=state.fk;if(!f.hasRolled||f.busted)return;
+    f.selected[idx]=!f.selected[idx];
+    state._ts=Date.now();onSrv(state);
+    await dbWrite(G.roomId,state);
+  } finally { _onlineBusy=false; }
+}
+async function oFkContinue(){
+  if(_onlineBusy)return;
+  if(!isMyTurn()){toast('Not your turn');return;}
+  _onlineBusy=true;
+  try{
+    const state=await dbRead(G.roomId);if(!state||!state.fk)return;
+    const f=state.fk;
+    const score=fkSelectedScore(f.dice,f.selected);
+    if(score===null)return;
+    f.turnTotal+=score;
+    const remaining=f.dice.filter((v,i)=>!f.selected[i]);
+    const hot=!remaining.length;
+    f.dice=hot?fkFreshDiceArr():remaining;
+    f.selected=new Array(f.dice.length).fill(false);
+    f.hasRolled=false;f.lastRolled=[];
+    SFX.chip();
+    if(hot){state.lastAct=esc(state.players[state.curIdx||0].name)+' used every die — HOT DICE!';fxPulse('gold');}
+    state._ts=Date.now();onSrv(state);
+    await dbWrite(G.roomId,state);
+  } finally { _onlineBusy=false; }
+}
+async function oFkBank(){
+  if(_onlineBusy)return;
+  if(!isMyTurn()){toast('Not your turn');return;}
+  _onlineBusy=true;
+  try{
+    const state=await dbRead(G.roomId);if(!state||!state.fk)return;
+    const f=state.fk;
+    const score=fkSelectedScore(f.dice,f.selected);
+    const total=f.turnTotal+(score||0);
+    if(!f.hasRolled||total<=0)return;
+    const p=state.players[state.curIdx||0];
+    if(!p.fkOnBoard&&total<FK_ENTRY_MIN){toast('Need '+FK_ENTRY_MIN+'+ to get on the board');return;}
+    p.fkOnBoard=true;p.totalScore=(p.totalScore||0)+total;
+    state.lastAct=esc(p.name)+' banks '+total+' pt'+(total!==1?'s':'')+'.';
+    SFX.win();
+    if(p.totalScore>=FK_TARGET&&!f.finalRoundActive){
+      f.finalRoundActive=true;
+      f.finalRoundEndSeat=mod((state.curIdx||0)-1,state.players.length);
+    }
+    oFkAdvanceTurn(state);
     state._ts=Date.now();onSrv(state);
     await dbWrite(G.roomId,state);
   } finally { _onlineBusy=false; }
@@ -3802,7 +4131,7 @@ function ddBeginSeat(i){
   // A hand-over screen only earns its interruption when there is genuinely another person to hand
   // the phone to. A bot has no dice to hide, and playing solo there is nobody on the other side.
   if(isBotPlayer(p)||G.lp.filter(x=>!isBotPlayer(x)).length<2){G.scr='table';return;}
-  G.lpass1=p.avatar+' '+esc(p.name);
+  G.lpass1=avChar(p.avatar)+' '+esc(p.name);
   G.lpass2=i===0?'Roll your dice — the other side won’t see them.':'Your turn to throw.';
   G.scr='pass';
 }
@@ -5621,7 +5950,7 @@ function runCountUps(){
    and against what state", and botAct() dispatches to the one per-game function that makes it. */
 // Every game listed here can seat a bot. Anything not here (there is nothing, currently) simply
 // never offers the button, and the driver below stays dormant for it.
-const BOT_GAMES=new Set(['maumau','uno','texas','fivecard','blackjack','yahtzee','battle','roulette','dicedual']);
+const BOT_GAMES=new Set(['maumau','uno','texas','fivecard','blackjack','yahtzee','battle','roulette','dicedual','farkle']);
 let _botTimer=null,_botSig=null;
 function isBotPlayer(p){return!!(p&&p.bot);}
 // A full table can still gain a bot by converting an empty seat — Battle seats exactly two, so
@@ -5683,6 +6012,10 @@ function botPendingSig(){
     return['bj',G.lcur,p.bjHand.length,G.lround].join('|');
   }
   if(g==='yahtzee')return['y',G.lcur,G.yrolls,G.ydice.join(''),G.yheld.join('')].join('|');
+  if(g==='farkle'){
+    const f=G.fk;if(!f||f.busted)return null; // the farkle-out timer is already running
+    return['fk',G.lcur,f.hasRolled?1:0,f.dice.join(''),f.selected.join(''),f.turnTotal].join('|');
+  }
   return null;
 }
 // Called once per render(), the same single-hook-point pattern as applyTableAge/checkpointLocalMatch.
@@ -5718,6 +6051,7 @@ function botAct(){
   if(g==='texas'||g==='fivecard')return botPokerAct(p);
   if(g==='blackjack')return botBlackjackAct(p);
   if(g==='yahtzee')return botYahtzeeAct(p);
+  if(g==='farkle')return botFarkleAct(p);
 }
 function botShedAct(p){
   const uno=G.selGame==='uno';
@@ -5774,6 +6108,20 @@ function botYahtzeeAct(p){
   const cat=yahtzeeBotCategory(G.ydice,p.scorecard,p.bot);
   if(cat)yCommitCategory(cat);
 }
+function botFarkleAct(p){
+  const f=G.fk;
+  if(!f.hasRolled){fkRoll();return;}
+  // fkRoll already ended the turn if this roll farkled -- botPendingSig returns null once busted,
+  // so this point is only reached with a real scoring choice to make.
+  const pick=fkBotSelect(f.dice);
+  f.selected=pick;
+  const score=fkSelectedScore(f.dice,f.selected);
+  if(score===null)return; // fkBotSelect always finds something when fkHasAnyScore said there was one
+  const projected=f.turnTotal+score;
+  const remaining=f.dice.length-pick.filter(Boolean).length;
+  if(fkBotShouldBank(projected,remaining,p.fkOnBoard,p.bot)){fkBank();}
+  else{fkContinue();fkRoll();}
+}
 function botDiceDuelAct(){
   const d=G.dd,s=d.seats[d.active],p=G.lp[d.active];
   if(s.throws===0){ddRoll();return;}
@@ -5815,7 +6163,7 @@ function lAdvance(played,steps){
   // nonsense. Stay on the table — keeping G.llast intact so the human can still read what just
   // happened — and let the bot driver play from there.
   if(isBotPlayer(cur)){G.scr='table';render();return;}
-  var msg=cur.avatar+' '+esc(cur.name);
+  var msg=avChar(cur.avatar)+' '+esc(cur.name);
   if(G.lpend>0)msg+=' ('+G.lpend+' cards to draw or play a 7)';
   else if(G.lskip8)msg+=' (must play an 8 or pass)';
   G.lpass1=msg;G.lpass2=G.llast;G.llast='';G.scr='pass';render();
@@ -6293,6 +6641,23 @@ function onSrv(state){
         }
         G.scr='yahtzeeend';render();return;
       }
+      if(state.gameId==='farkle'){
+        // A single unbroken match, like Yahtzee -- there is no "deal again, same match" cycle to
+        // route through roundend, so this goes straight to the same final screen every chip-based
+        // bust-out already uses. rMatchEnd's default sort (by p.totalScore) is exactly right here.
+        if(state.winner!==prevWinner){
+          const winnerP=state.players.find(p=>p.id===state.winner);
+          const fkTop=winnerP?.totalScore||0;
+          const fkTied=state.players.filter(p=>(p.totalScore||0)===fkTop).length>1;
+          SFX.win();v14WinnerBurst();celebrateWin(state.winnerName,state.winnerAv);fxPulse('gold');
+          const wIdx=(state.players||[]).findIndex(p=>p.id===state.winner);if(wIdx>=0)fxSeatGlow(wIdx,'gold');
+          addHistory({game:'farkle',winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),players:(state.players||[]).map(p=>p.name),mode:'online',
+            moment:fkTied?`Tied on ${fkTop} — ${state.winnerName} takes it on the tiebreak.`:`${state.winnerName} banks the win with ${fkTop} points!`,
+            stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
+          if(state.winner===G.myPid){G.tw++;localStorage.setItem('ct_tw',G.tw);}
+        }
+        G.scr='matchend';render();return;
+      }
       if(state.gameId==='texas'||state.gameId==='fivecard'){
         G.lres=state.roundResult||null;
         if(state.winner!==prevWinner&&G.lres){
@@ -6514,7 +6879,7 @@ function hasActiveTable(){
 }
 // One accent color per game, echoing the home-screen game-card border colors, so a portrait's
 // frame and plaque tie back to whichever game it was won at.
-const MOMENT_ACCENT={maumau:'#5fd68a',texas:'#eac976',fivecard:'#eac976',blackjack:'#ef7688',battle:'#7ec2f2',romme:'#a8e0a0',hearts:'#f2a0b4',bridge:'#a8c8e0',uno:'#e0a8d8',yahtzee:'#f2c94c',roulette:'#e0637a',dicedual:'#e8843e'};
+const MOMENT_ACCENT={maumau:'#5fd68a',texas:'#eac976',fivecard:'#eac976',blackjack:'#ef7688',battle:'#7ec2f2',romme:'#a8e0a0',hearts:'#f2a0b4',bridge:'#a8c8e0',uno:'#e0a8d8',yahtzee:'#f2c94c',roulette:'#e0637a',dicedual:'#e8843e',farkle:'#4fd6c9'};
 function rMoments(){
   const history=getHistory();
   const frames=history.map(h=>{
@@ -7025,6 +7390,7 @@ function rTable(){
   if(_tblGameId==='blackjack')return rBlackjackTable();
   if(_tblGameId==='battle')return rBattleTable();
   if(_tblGameId==='yahtzee')return rYahtzeeTable();
+  if(_tblGameId==='farkle')return rFarkleTable();
   if(_tblGameId==='dicedual')return rDiceDuelTable();
   if(_tblGameId==='roulette')return rRouletteTable();
   const online=G.isOnline,state=online?G.srv:null;
@@ -7318,7 +7684,7 @@ function rBlackjackTable(){
   return`<div id="s-table" class="scr on game-blackjack">
     <div class="game-bar">
       <div class="gb-game">🎰 Blackjack</div>
-      <div class="gb-turn${showActions?' mine':''}">${showActions?(curP.avatar+' '+esc(curP.name)+"’s turn"):(allDone?(holeHidden?'Dealing…':'Dealer plays…'):(online?`${avChar(curP?.avatar)} ${esc(curP?.name||'')}'s turn…`:'Next player…'))}</div>
+      <div class="gb-turn${showActions?' mine':''}">${showActions?(avChar(curP.avatar)+' '+esc(curP.name)+"’s turn"):(allDone?(holeHidden?'Dealing…':'Dealer plays…'):(online?`${avChar(curP?.avatar)} ${esc(curP?.name||'')}'s turn…`:'Next player…'))}</div>
       <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
     </div>
     <div class="game-status"><span class="pot-badge">🪙 Bet ${betAmount}</span></div>
@@ -7425,6 +7791,95 @@ function rYahtzeeTable(){
       ${p.scorecard.yahtzeeBonus>0?`<div class="ysc-row bonus-row"><span class="ysc-name">Yahtzee Bonus</span><span class="ysc-val">+${p.scorecard.yahtzeeBonus}</span></div>`:''}
       <div class="ysc-row total-row"><span class="ysc-name">Total</span><span class="ysc-val">${yTotalScore(p.scorecard)}</span></div>
     </div>
+    ${talkStripHTML()}
+  </div>`;
+}
+/* ── Farkle: the table ──
+   Deliberately reuses Yahtzee's die -- the pip face, the .held raise, the .just-rolled tumble --
+   because there is no reason for two dice games at the same table to look different, only a reason
+   for them to act different: this one's data-a is "fkselect", a die you tap here means "set aside
+   to score", not "keep for the next reroll", so the two engines still can never drive each other. */
+function fkDieHTML(value,selected,idx,justRolled,interactive){
+  const pos={1:[[2,2]],2:[[1,1],[3,3]],3:[[1,1],[2,2],[3,3]],4:[[1,1],[1,3],[3,1],[3,3]],5:[[1,1],[1,3],[2,2],[3,1],[3,3]],6:[[1,1],[1,3],[2,1],[2,3],[3,1],[3,3]]}[value]||[];
+  const pips=pos.map(([r,c])=>`<span class="pip" style="grid-row:${r};grid-column:${c};"></span>`).join('');
+  const cls=`die${selected?' held':''}${justRolled?' just-rolled':''}`;
+  const lock=selected?'<span class="die-lock" aria-hidden="true">✓</span>':'';
+  if(!interactive)
+    return`<span class="${cls}" aria-label="Die ${idx+1}: ${value}${selected?', set aside':''}">${pips}${lock}</span>`;
+  return`<button class="${cls}" data-a="fkselect" data-i="${idx}" aria-pressed="${selected}" aria-label="Die ${idx+1}: ${value}${selected?', set aside — tap to release':' — tap to set aside for scoring'}">${pips}${lock}</button>`;
+}
+function rFarkleTable(){
+  const online=G.isOnline,state=online?G.srv:null;
+  const players=online?(state?.players||[]):G.lp;
+  const p=curPlayer();
+  const mine=isMyTurn();
+  const emptyFk=()=>({dice:fkFreshDiceArr(),selected:new Array(6).fill(false),turnTotal:0,hasRolled:false,lastRolled:[],busted:false,finalRoundActive:false,finalRoundEndSeat:null});
+  const f=(online?state?.fk:G.fk)||emptyFk();
+  const dice=f.dice,selected=f.selected,hasRolled=f.hasRolled,turnTotal=f.turnTotal||0,busted=!!f.busted;
+  // Locally isMyTurn() is always true (there is only one device), so a bot's turn would otherwise
+  // hand its dice straight to whoever is sitting there -- same guard Yahtzee's table uses.
+  const botTurn=!online&&isBotPlayer(p);
+  const acts=mine&&!botTurn&&!busted;
+  const selScore=fkSelectedScore(dice,selected);
+  const bankAmt=turnTotal+(selScore||0);
+  const canAct=acts&&hasRolled&&selScore!==null;
+  const remainingAfterSel=dice.length-selected.filter(Boolean).length;
+  const diceHTML=dice.map((v,i)=>fkDieHTML(v,selected[i],i,hasRolled&&(f.lastRolled||[]).includes(i),acts&&hasRolled)).join('');
+  const standings=players.map(pl=>`<span class="y-standing-pill${pl===p?' active':''}">${avHTML(pl.avatar)}${esc(pl.name)}: ${pl.totalScore||0}</span>`).join('');
+  let marginHTML='';
+  if(players.length>=2){
+    const byScore=[...players].sort((a,b)=>(b.totalScore||0)-(a.totalScore||0));
+    const lead=(byScore[0].totalScore||0)-(byScore[1].totalScore||0);
+    if(lead>0)marginHTML=`<div class="y-margin">${avHTML(byScore[0].avatar,'y-margin-av')} ${esc(byScore[0].name)} leads by ${lead}</div>`;
+  }
+  const finalBanner=f.finalRoundActive?`<div class="fk-final-banner">🏁 Final lap — ends after ${esc((players[f.finalRoundEndSeat]||{}).name||'')}’s turn</div>`:'';
+  const turnTotalHTML=(hasRolled&&selScore!==null)
+    ? `Turn: <b>${turnTotal}</b> + <b class="fk-sel-add">${selScore}</b> selected = <b>${bankAmt}</b> pts`
+    : `Turn: <b>${turnTotal}</b> pts`;
+  let hint;
+  if(busted)hint='😬 FARKLE — no scoring dice. Turn over.';
+  else if(botTurn)hint=esc(p.name)+' is thinking…';
+  else if(!mine&&online)hint='Waiting for '+esc(p.name)+'…';
+  else if(!hasRolled)hint='Tap Roll to throw all six.';
+  else if(selScore===null)hint="Tap dice that score together — a lone 2, 3, 4 or 6 can't go alone.";
+  else hint='Bank it, or set those aside and reroll the rest.';
+
+  let actionBar='';
+  if(busted){
+    // Nothing to tap — the room (or fkFarkleOut locally) is about to advance the turn on its own.
+  } else if(!acts){
+    // Spectating: showing disabled Roll/Reroll/Bank buttons here would be the wrong reason for them
+    // to be unpressable (not "you can't afford this", just "this isn't your dice to hold"), so it's
+    // a waiting message instead — same call Dice Duel and Yahtzee's tables already make.
+    actionBar=`<div class="poker-actions"><div class="poker-action-row"><div class="dd-waiting">${botTurn?esc(p.name)+' is thinking…':'Watching '+esc(p.name)+' play live'}</div></div></div>`;
+  } else if(!hasRolled){
+    actionBar=`<div class="poker-actions"><div class="poker-action-row">
+      <button class="btn btn-gold btn-full" data-a="fkroll">🎲 Roll all six</button>
+    </div></div>`;
+  } else {
+    const rerollLabel=remainingAfterSel===0?'🔥 Hot Dice — roll again':`🎲 Reroll ${remainingAfterSel}`;
+    actionBar=`<div class="poker-actions"><div class="poker-action-row">
+      <button class="btn btn-green btn-sm" data-a="fkcontinue" ${canAct?'':'disabled'}>${rerollLabel}</button>
+      <button class="btn btn-gold btn-sm" data-a="fkbank" ${canAct?'':'disabled'}>💰 Bank ${bankAmt}</button>
+    </div></div>`;
+  }
+
+  return`<div id="s-table" class="scr on game-farkle">
+    <div class="game-bar">
+      <div class="gb-game">🔥 Farkle</div>
+      <div class="gb-turn${mine?' mine':''}">${avChar(p.avatar)} ${esc(p.name)}’s turn</div>
+      <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
+    </div>
+    <div class="y-standings-strip">${standings}</div>
+    ${marginHTML}
+    ${finalBanner}
+    <div class="felt-table${mine?' my-turn':''}" style="flex:0 0 auto;min-height:0;max-height:none;padding:1.1rem .8rem;gap:.7rem;">
+      <div class="dice-tray${(online&&!mine)||botTurn?' locked':''}">${diceHTML}</div>
+      <div class="fk-turn-total">${turnTotalHTML}</div>
+      <div class="y-hint">${hint}</div>
+      ${!mine&&online?awayIndicatorHTML(p.id,p.name):''}
+    </div>
+    ${actionBar}
     ${talkStripHTML()}
   </div>`;
 }
@@ -7816,7 +8271,7 @@ function rYahtzeeEnd(){
 /* ════════ ROUTER ════════ */
 
 /* ═══ V14 CINEMATIC LAYER ═══ */
-function v14GameLabel(id){return ({maumau:'Mau Mau',texas:"Texas Hold'em",fivecard:'Five Card Draw',blackjack:'Blackjack',battle:'Battle',romme:'Rommé',hearts:'Hearts',bridge:'Bridge',yahtzee:'Yahtzee',roulette:'Roulette'})[id]||id||'Card Game'}
+function v14GameLabel(id){return ({maumau:'Mau Mau',texas:"Texas Hold'em",fivecard:'Five Card Draw',blackjack:'Blackjack',battle:'Battle',romme:'Rommé',hearts:'Hearts',bridge:'Bridge',yahtzee:'Yahtzee',roulette:'Roulette',dicedual:'Dice Duel',uno:'Uno',farkle:'Farkle'})[id]||id||'Card Game'}
 function v14Intro(id,dealerName,dealerAvatar){
   const old=document.querySelector('.game-intro');if(old)old.remove();
   const el=document.createElement('div');el.className='game-intro';
@@ -8583,6 +9038,10 @@ document.addEventListener('click',e=>{
   else if(a==='dd-next'){G.isOnline?oDdNextRound():ddNextRound();}
   else if(a==='yroll'){G.isOnline?oYRoll():yRoll();}
   else if(a==='yhold'){G.isOnline?oYToggleHold(+t.getAttribute('data-i')):yToggleHold(+t.getAttribute('data-i'));}
+  else if(a==='fkroll'){G.isOnline?oFkRoll():fkRoll();}
+  else if(a==='fkselect'){G.isOnline?oFkSelect(+t.getAttribute('data-i')):fkToggleSelect(+t.getAttribute('data-i'));}
+  else if(a==='fkcontinue'){G.isOnline?oFkContinue():fkContinue();}
+  else if(a==='fkbank'){G.isOnline?oFkBank():fkBank();}
   else if(a==='yscore'){G.isOnline?oYCommitCategory(t.getAttribute('data-cat')):yCommitCategory(t.getAttribute('data-cat'));}
   else if(a==='roul-bet'){G.isOnline?oRoulPlaceBet(t.getAttribute('data-key')):roulPlaceBet(t.getAttribute('data-key'));}
   else if(a==='roul-select'){if(G.isOnline)return;G.lcur=+t.getAttribute('data-idx');render();}
@@ -8669,6 +9128,15 @@ document.addEventListener('click',e=>{
       if(rs.gameId==='yahtzee'){
         const players=rs.players.map(p=>({...p,scorecard:yFreshScorecard()}));
         const gs={phase:'game',gameId:'yahtzee',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,ydice:[1,1,1,1,1],yheld:[false,false,false,false,false],yrolls:0,yLastRolled:[],winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='farkle'){
+        const players=rs.players.map(p=>({...p,totalScore:0,fkOnBoard:false}));
+        const gs={phase:'game',gameId:'farkle',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
+          fk:{dice:fkFreshDiceArr(),selected:new Array(6).fill(false),turnTotal:0,hasRolled:false,
+            lastRolled:[],busted:false,finalRoundActive:false,finalRoundEndSeat:null},
+          winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
         G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }
