@@ -1459,12 +1459,17 @@ async function runPresentation(A,W,frame){
     ];
     for(const [w,h,label] of sizes){
       frame.style.width=w+'px';frame.style.height=h+'px';
-      // The app recomputes card geometry from window.innerWidth on resize, so give the frame a real
-      // resize event and time to lay out again -- measuring a half-reflowed frame produces failures
-      // that do not exist on a device.
-      try{W.dispatchEvent(new W.Event('resize'));}catch(e){}
-      await settle();await settle();await settle();
       await new Promise(r=>W.requestAnimationFrame(()=>W.requestAnimationFrame(r)));
+      // The app recomputes card geometry (TW/TH/HW/HH) from window.innerWidth, but only inside a
+      // 150ms-debounced 'resize' listener (deliberately -- an undebounced one nukes a focused input
+      // the instant iOS's keyboard opens, since that fires a resize too). Waiting OUT that debounce
+      // is exactly the race this suite exists to avoid: the wait and the debounce are both timers,
+      // so under any scheduling jitter the measurement can land first and read card geometry sized
+      // for the OLD width against the NEW viewport -- a failure that does not exist on a device,
+      // just like the ones this suite was written to catch actually do. Call the app's own resize
+      // work directly instead of racing its timer.
+      W.eval('updateCardSizes')();
+      W.render();
       suite('Reachability at '+w+'x'+h+' — '+label,()=>{
         screens.forEach(([name,setup])=>{
           let bad=[],err=null;
