@@ -2318,6 +2318,7 @@ const GAMES=[
   {id:'bingo',icon:'🎱',name:'Bingo',players:'2–8',dur:'10–20 min',diff:'easy',deal:0,
    rules:['Everyone gets a <b>ticket</b>: 9 columns, 3 rows, 15 numbers between 1 and 90.',
      'A number is called roughly every <b>6 seconds</b>. Spot it on your ticket and <b>tap it yourself</b> — nothing marks itself, so keep watching your card.',
+     'The caller waits for you: if a called number is still unticked on someone\'s ticket, the next call holds off (up to a point) instead of burying it.',
      'Complete <b>one row</b> = tap Claim for <b>1 point</b>. Complete <b>two rows</b> = <b>2 points</b>. Complete the <b>whole ticket</b> = <b>3 points</b> and the round ends.',
      'A claim only counts what you\'ve actually tapped — miss a number and you can still catch it later, it just has to be tapped before you claim.',
      'Full house pauses the table with a big BINGO banner so everyone can check the winning ticket before the round ends.',
@@ -3965,8 +3966,17 @@ const BG_STAGE_NEED={line:1,twoLines:2,house:3};
 const BG_STAGE_POINTS={line:1,twoLines:2,house:3};
 const BG_STAGE_LABEL={line:'One Line',twoLines:'Two Lines',house:'Full House'};
 // Long enough to find a number on a 15-cell ticket and register it, short enough that a family of
-// four isn't sitting through a number every 8 seconds for what can be a 40+ call round.
+// four isn't sitting through a number every 8 seconds for what can be a 40+ call round. This is
+// only the FLOOR, not a metronome -- see BG_CALL_GRACE_MS below for what happens when it isn't
+// enough.
 const BG_CALL_MS=6000;
+// A flat interval is wrong for everyone: numbers that land on nobody's ticket don't need this long
+// at all, and a number that DOES need tapping can still get buried under the next call if someone
+// was mid-search when the clock ran out -- which is exactly what "the pace feels random, some
+// numbers fly by with no time to react" turned out to mean. So the caller waits past BG_CALL_MS
+// when the current call is still sitting unmarked on a real player's ticket, up to this hard cap,
+// so one distracted player can't stall the whole table forever either.
+const BG_CALL_GRACE_MS=15000;
 // Shouting BINGO doesn't end the round on the spot: the caller stops dead, a big call goes up on
 // every screen, and the room gets this long to actually look at the board before the round
 // concludes -- the real-hall pause where a shout gets checked before it's paid out, done here as a
@@ -4025,6 +4035,13 @@ function bingoStageEligible(ticket,markedSet,stage){return bingoLinesComplete(ti
 function bingoRoundPoints(bg,playerId){
   return BG_STAGES.reduce((s,stage)=>s+((bg.stageWinners[stage]&&bg.stageWinners[stage].id===playerId)?BG_STAGE_POINTS[stage]:0),0);
 }
+// Is the CURRENT call still something a real person needs to go tap? Bots don't count -- they
+// mark themselves instantly, so a call that's only outstanding on a bot's ticket should never
+// hold anything up.
+function bingoCallStillPending(bg,players){
+  const n=bg&&bg.currentCall;if(!n)return false;
+  return(players||[]).some(p=>!isBotPlayer(p)&&p.bgTicket&&p.bgTicket.flat().includes(n)&&!(p.bgMarked||[]).includes(n));
+}
 // A bot's ticket marks itself the instant a matching number is called (see bgCallNext/oBgCallNext)
 // -- there's no UI for a bot to tap, and no skill in dabbing anyway. The only thing a bot's level
 // can honestly differ on is how fast it shouts once it's eligible.
@@ -4033,7 +4050,7 @@ function bingoBotClaimDelay(level){return level==='sharp'?400+Math.random()*700:
 /* ── Bingo: local ── */
 function lDealBingo(){
   G.lp.forEach(p=>{p.bgTicket=bingoGenerateTicket();p.bgMarked=[];});
-  G.bg={calledNumbers:[],currentCall:null,stageWinners:{line:null,twoLines:null,house:null},phase:'calling'};
+  G.bg={calledNumbers:[],currentCall:null,currentCallAt:0,stageWinners:{line:null,twoLines:null,house:null},phase:'calling'};
   G.lres=null;_bgPendingClaims=new Set();G.bgViewSeat=0;
   SFX.deal();
   G.scr='table';
@@ -4044,15 +4061,32 @@ let _bgCallTimer=null,_bgOnlineTimer=null,_bgOnlineSig=null,_bgVerifyTimer=null;
 // which means it runs on every render, not just once. If it cleared and restarted the timer
 // unconditionally on every one of those calls, the countdown would never survive long enough to
 // fire at all -- an unrelated render (a reaction bubble, a resize) would keep resetting it forever.
-// So this only ever STARTS a timer when none is currently pending; bgCallNext() clears it to null
-// right before its own render() call, which is what lets the next render re-arm a fresh one.
+// So this only ever STARTS a timer when none is currently pending; bgTick() clears it to null
+// before deciding what to do next, which is what lets the next render re-arm a fresh one.
 function bgArmLocalCaller(){
   if(G.isOnline||G.selGame!=='bingo'||G.scr!=='table'||!G.bg||G.bg.phase!=='calling'){
     clearTimeout(_bgCallTimer);_bgCallTimer=null;
     return;
   }
   if(_bgCallTimer)return;
-  _bgCallTimer=setTimeout(()=>{_bgCallTimer=null;bgCallNext();},BG_CALL_MS);
+  _bgCallTimer=setTimeout(bgTick,bgNextCallDelay(G.bg,G.lp));
+}
+// How long until the next call, given the PREVIOUS one -- BG_CALL_MS is a floor, not a fixed beat.
+// Once that floor has passed, keep waiting in short checks while a real player still has the
+// current call sitting unmarked, up to BG_CALL_GRACE_MS total; otherwise (or once nobody's waiting
+// on it) the next call is due immediately.
+function bgNextCallDelay(bg,players){
+  const since=bg&&bg.currentCallAt?Date.now()-bg.currentCallAt:0;
+  const floor=BG_CALL_MS-since;
+  if(floor>0)return floor;
+  if(since<BG_CALL_GRACE_MS&&bingoCallStillPending(bg,players))return 1000;
+  return 0;
+}
+function bgTick(){
+  _bgCallTimer=null;
+  const bg=G.bg;if(!bg||bg.phase!=='calling')return;
+  if(bgNextCallDelay(bg,G.lp)>0){bgArmLocalCaller();return;}
+  bgCallNext();
 }
 function bgClearCaller(){clearTimeout(_bgCallTimer);_bgCallTimer=null;clearTimeout(_bgVerifyTimer);_bgVerifyTimer=null;}
 function bgCallNext(){
@@ -4062,6 +4096,7 @@ function bgCallNext(){
   const n=remaining[rnd(0,remaining.length-1)];
   bg.calledNumbers.push(n);
   bg.currentCall=n;
+  bg.currentCallAt=Date.now();
   bingoAutoMarkBots(G.lp,n);
   SFX.chip();haptic([10,20,10]);
   render();
@@ -4170,7 +4205,7 @@ function botBingoAct(){
 function oBgFreshTickets(players){return players.map(p=>({...p,bgTicket:bingoGenerateTicket(),bgMarked:[]}));}
 function oBgBuildStart(rs,players){
   return{phase:'game',gameId:'bingo',host:rs.host,hr:rs.hr||G.hr,players:oBgFreshTickets(players),
-    bg:{calledNumbers:[],currentCall:null,stageWinners:{line:null,twoLines:null,house:null},
+    bg:{calledNumbers:[],currentCall:null,currentCallAt:0,stageWinners:{line:null,twoLines:null,house:null},
       phase:'calling',nextCallAt:Date.now()+BG_CALL_MS},
     winner:null,winnerName:null,winnerAv:null,roundResult:null,lastAct:'',round:1,_ts:Date.now()};
 }
@@ -4180,12 +4215,25 @@ async function oBgCallNext(){
     const state=await dbRead(G.roomId);if(!state||!state.bg)return;
     const bg=state.bg;
     if(bg.phase!=='calling'||Date.now()<(bg.nextCallAt||0))return;
+    const expectedTs=state._ts;
+    const since=bg.currentCallAt?Date.now()-bg.currentCallAt:Infinity;
+    if(since<BG_CALL_GRACE_MS&&bingoCallStillPending(bg,state.players||[])){
+      // Still sitting unmarked on someone's ticket -- snooze the deadline a little instead of
+      // burying it under a new call. Written back so every connected device re-syncs to the SAME
+      // short extension (the onSrv arming block below re-arms off nextCallAt) rather than each one
+      // guessing and potentially racing to draw at slightly different times.
+      bg.nextCallAt=Date.now()+1000;
+      state._ts=Date.now();
+      onSrv(state);
+      await dbWriteIfUnchanged(G.roomId,expectedTs,state);
+      return;
+    }
     const remaining=[];for(let n=1;n<=90;n++)if(!bg.calledNumbers.includes(n))remaining.push(n);
     if(!remaining.length)return;
-    const expectedTs=state._ts;
     const n=remaining[rnd(0,remaining.length-1)];
     bg.calledNumbers.push(n);
     bg.currentCall=n;
+    bg.currentCallAt=Date.now();
     bg.nextCallAt=Date.now()+BG_CALL_MS;
     bingoAutoMarkBots(state.players||[],n);
     state._ts=Date.now();
@@ -9907,7 +9955,7 @@ document.addEventListener('click',e=>{
         // Points carry over, same as roulette's chips -- only the ticket and the call history are
         // fresh each round; there's no bust-out check because nothing here ever goes down.
         const players=oBgFreshTickets((rs.players||[]).map(p=>({...p,totalScore:p.totalScore||0})));
-        const gs={...rs,players,bg:{calledNumbers:[],currentCall:null,
+        const gs={...rs,players,bg:{calledNumbers:[],currentCall:null,currentCallAt:0,
           stageWinners:{line:null,twoLines:null,house:null},phase:'calling',nextCallAt:Date.now()+BG_CALL_MS},
           winner:null,winnerName:null,winnerAv:null,roundResult:null,lastAct:'',round:(rs.round||1)+1,_ts:Date.now()};
         G.srv=gs;dbWrite(G.roomId,gs);

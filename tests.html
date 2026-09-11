@@ -1807,6 +1807,48 @@ async function runPresentation(A,W,frame){
       !(phil.bgMarked||[]).some(n=>philNums.includes(n)));
   });
 
+  /* —— Bingo: the caller waits for a still-unmarked call instead of burying it —————— */
+  suite('Bingo\'s pace adapts to whether anyone still needs to tap the last call',()=>{
+    // Regression: a flat interval meant a human who was mid-search when the clock ran out could
+    // watch the next number bury the one they hadn't found yet, over and over -- reported as "the
+    // pace feels random, sometimes 2-3 numbers go by with no time to react". Tested directly against
+    // the pure delay function with a simulated clock (bg.currentCallAt pushed into the past) rather
+    // than waiting out real timers.
+    const bingoCallStillPending=W.eval('bingoCallStillPending'),bgNextCallDelay=W.eval('bgNextCallDelay'),
+      BG_CALL_MS=W.eval('BG_CALL_MS'),BG_CALL_GRACE_MS=W.eval('BG_CALL_GRACE_MS');
+    const mk=(id,n,bot)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,
+      chips:1000,bet:0,folded:false,allIn:false,...(bot?{bot}:{})});
+    const phil=mk(1,'Phil'),rosie=mk(2,'Rosie','sharp');
+    phil.bgTicket=A.bingoGenerateTicket();
+    rosie.bgTicket=A.bingoGenerateTicket();
+    const num=phil.bgTicket.flat().find(x=>x!==null);
+    const players=[phil,rosie];
+    const bg={currentCall:num,currentCallAt:Date.now()};
+
+    check('right after a call, nothing is due yet regardless of marking',
+      bgNextCallDelay(bg,players)>0);
+
+    bg.currentCallAt=Date.now()-(BG_CALL_MS+100); // floor has passed
+    check('unmarked and relevant to a human: still pending',bingoCallStillPending(bg,players));
+    check('past the floor but still pending: short recheck, not zero, not another full wait',(()=>{
+      const d=bgNextCallDelay(bg,players);
+      return d>0&&d<BG_CALL_MS;
+    })());
+
+    phil.bgMarked=[num];
+    check('once marked, it is no longer pending',!bingoCallStillPending(bg,players));
+    check('once marked, the next call is due immediately',bgNextCallDelay(bg,players)===0);
+
+    phil.bgMarked=[]; // back to unmarked
+    bg.currentCallAt=Date.now()-(BG_CALL_GRACE_MS+100); // past the hard cap
+    check('past the grace cap, it is forced through even though still unmarked',
+      bgNextCallDelay(bg,players)===0);
+
+    const botPhil={...phil,bot:'sharp',bgMarked:[]}; // same ticket/number, only the bot flag differs
+    check('pending only matters for humans -- a bot with the same number never holds things up',
+      !bingoCallStillPending({currentCall:num,currentCallAt:Date.now()},[botPhil]));
+  });
+
   /* —— Bingo: the auto-caller must survive being re-armed by unrelated renders —————— */
   suite('Bingo\'s local caller is not reset by every render()',()=>{
     // Regression: bgArmLocalCaller() used to clear+restart its timer unconditionally every time it
