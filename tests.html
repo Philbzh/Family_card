@@ -1700,7 +1700,7 @@ async function runPresentation(A,W,frame){
 
   /* —— Bingo: the real local engine, deal to full house —————— */
   suite('Bingo plays a full local round end to end through the real engine',()=>{
-    const G=W.eval('G'),bgClaim=W.eval('bgClaim'),lStartMatch=W.eval('lStartMatch'),bgFinalizeHouse=W.eval('bgFinalizeHouse');
+    const G=W.eval('G'),bgClaim=W.eval('bgClaim'),bgMark=W.eval('bgMark'),lStartMatch=W.eval('lStartMatch'),bgFinalizeHouse=W.eval('bgFinalizeHouse');
     const mk=(id,n)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,
       chips:1000,bet:0,folded:false,allIn:false});
     G.isOnline=false;G.srv=null;G.selGame='bingo';
@@ -1708,13 +1708,35 @@ async function runPresentation(A,W,frame){
     check('both seats get their own independent 15-number ticket',
       JSON.stringify(G.lp[0].bgTicket)!==JSON.stringify(G.lp[1].bgTicket));
     check('the caller starts with nothing called yet',G.bg.calledNumbers.length===0&&G.bg.phase==='calling');
+    check('nobody has anything marked yet',(G.lp[0].bgMarked||[]).length===0);
 
+    G.bgViewSeat=0; // marking acts on whichever ticket is on screen, same as the switcher/claim buttons
     const phil=G.lp[0];
+    check('marking a number that was never called does nothing',(()=>{
+      const before=(phil.bgMarked||[]).length;
+      bgMark(999); // guaranteed uncalled -- outside 1-90 entirely
+      return (phil.bgMarked||[]).length===before;
+    })());
+
     const row0=phil.bgTicket[0].filter(n=>n!==null);
     G.bg.calledNumbers.push(...row0);
+    check('a called number sitting on the ticket is not auto-marked -- the player has to tap it',
+      (phil.bgMarked||[]).length===0);
+    check('claiming a line before it\'s actually marked is refused, even though it was called',(()=>{
+      const before=JSON.stringify(G.bg.stageWinners);
+      bgClaim(0,'line');
+      return JSON.stringify(G.bg.stageWinners)===before;
+    })());
+    row0.forEach(n=>bgMark(n));
+    check('tapping every called number on row 0 marks all of them',
+      row0.every(n=>(phil.bgMarked||[]).includes(n)));
+    check('tapping the same number twice does not duplicate the mark',(()=>{
+      bgMark(row0[0]);
+      return phil.bgMarked.filter(n=>n===row0[0]).length===1;
+    })());
     check('claiming a line before it\'s actually complete is refused',(()=>{
       const before=JSON.stringify(G.bg.stageWinners);
-      bgClaim(0,'twoLines'); // only one row called so far, not two
+      bgClaim(0,'twoLines'); // only one row marked so far, not two
       return JSON.stringify(G.bg.stageWinners)===before;
     })());
     bgClaim(0,'line');
@@ -1727,11 +1749,13 @@ async function runPresentation(A,W,frame){
 
     const row1=phil.bgTicket[1].filter(n=>n!==null);
     G.bg.calledNumbers.push(...row1);
+    row1.forEach(n=>bgMark(n));
     bgClaim(0,'twoLines');
     check('two lines adds 2 more, running total 3',phil.totalScore===3);
 
     const row2=phil.bgTicket[2].filter(n=>n!==null);
     G.bg.calledNumbers.push(...row2);
+    row2.forEach(n=>bgMark(n));
     bgClaim(0,'house');
     check('full house adds the last 3, running total 6 (1+2+3)',phil.totalScore===6);
     check('a house claim pauses for verification instead of ending the round immediately',
@@ -1751,10 +1775,36 @@ async function runPresentation(A,W,frame){
     if(G.scr==='table'){
       check('points carry over into the next round',phil.totalScore===6);
       check('a fresh round gets a fresh ticket',JSON.stringify(phil.bgTicket)!==oldTicket);
-      check('the call history and stage winners reset',G.bg.calledNumbers.length===0&&!G.bg.stageWinners.line);
+      check('the call history, stage winners and marks all reset',
+        G.bg.calledNumbers.length===0&&!G.bg.stageWinners.line&&(phil.bgMarked||[]).length===0);
     } else {
       check('deal-again landed on the table screen',false,'landed on '+G.scr+' instead');
     }
+  });
+
+  /* —— Bingo: a bot's ticket marks itself, a human's does not —————— */
+  suite('Bingo auto-marks bot tickets but leaves human tickets for a real tap',()=>{
+    const G=W.eval('G'),lStartMatch=W.eval('lStartMatch'),bgCallNext=W.eval('bgCallNext');
+    const mk=(id,n,bot)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,
+      chips:1000,bet:0,folded:false,allIn:false,...(bot?{bot}:{})});
+    G.isOnline=false;G.srv=null;G.selGame='bingo';
+    G.lp=[mk(1,'Phil'),mk(2,'Rosie','sharp')];G.lstart=0;lStartMatch();
+    const[phil,rosie]=G.lp;
+    // Force the next several calls to land on numbers actually printed on these tickets, so the
+    // difference between "auto-marked" and "left alone" is actually observable within a few calls.
+    const philNums=phil.bgTicket.flat().filter(n=>n!==null);
+    const rosieNums=rosie.bgTicket.flat().filter(n=>n!==null);
+    let sawPhilCalled=false,sawRosieCalled=false;
+    for(let i=0;i<90&&!(sawPhilCalled&&sawRosieCalled);i++){
+      bgCallNext();
+      const n=G.bg.currentCall;
+      if(philNums.includes(n))sawPhilCalled=true;
+      if(rosieNums.includes(n))sawRosieCalled=true;
+    }
+    check('a called number on the bot\'s ticket ends up in its own marked list',
+      rosie.bgMarked.some(n=>rosieNums.includes(n)));
+    check('a called number on the human\'s ticket is NOT auto-marked',
+      !(phil.bgMarked||[]).some(n=>philNums.includes(n)));
   });
 
   /* —— Bingo: the auto-caller must survive being re-armed by unrelated renders —————— */
@@ -1800,8 +1850,13 @@ async function runPresentation(A,W,frame){
       ['Farkle table, mid-turn with a valid selection',()=>{G.selGame='farkle';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();
         G.fk.dice=[1,1,1,5,2,3];G.fk.hasRolled=true;G.fk.selected=[true,true,true,true,false,false];G.scr='table';}],
       ['Bingo table, 4 players',()=>{G.selGame='bingo';G.lp=mk(4);G.lstart=0;W.eval('lStartMatch')();G.scr='table';}],
+      ['Bingo table, a number waiting to be tapped',()=>{G.selGame='bingo';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();
+        const n=G.lp[0].bgTicket.flat().filter(x=>x!==null)[0];G.bg.calledNumbers=[n];G.bg.currentCall=n;G.scr='table';}],
       ['Bingo table, a claim button showing',()=>{G.selGame='bingo';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();
-        const row0=G.lp[0].bgTicket[0].filter(n=>n!==null);G.bg.calledNumbers=row0.slice();G.scr='table';}],
+        const row0=G.lp[0].bgTicket[0].filter(n=>n!==null);G.bg.calledNumbers=row0.slice();G.lp[0].bgMarked=row0.slice();G.scr='table';}],
+      ['Bingo table, the verify pause after a house claim',()=>{G.selGame='bingo';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();
+        const p=G.lp[0],all=p.bgTicket.flat().filter(x=>x!==null);G.bg.calledNumbers=all.slice();p.bgMarked=all.slice();
+        G.bg.stageWinners.house={id:p.id,name:p.name,avatar:p.avatar};G.bg.phase='verifying';G.bg.verifyUntil=Date.now()+60000;G.scr='table';}],
       ['Hand-over screen, with a penalty showing',()=>{G.selGame='maumau';G.lp=mk(3);G.lstart=0;G.lpend=2;W.eval('lStartMatch')();G.scr='pass';G.lpass1='Player 2';G.lpass2='';}],
       ['Lobby, 8 seats',()=>{G.isOnline=true;G.roomId='ABCD';G.isHost=true;G.myPid='p1';
         G.srv={phase:'lobby',gameId:'maumau',host:'p1',players:mk(8).map((p,i)=>({...p,id:'p'+(i+1)}))};G.scr='lobby';}]

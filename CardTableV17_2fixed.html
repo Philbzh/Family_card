@@ -944,6 +944,10 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 .bg-cell.num{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--paper2);}
 .bg-cell.num.hit{background:linear-gradient(155deg,var(--gold2),var(--gold));color:#1a1000;box-shadow:0 2px 6px rgba(212,168,67,.4);border-color:transparent;animation:bg-cell-hit .35s var(--ease-spring) both;}
 @keyframes bg-cell-hit{0%{transform:scale(.7);}60%{transform:scale(1.15);}100%{transform:scale(1);}}
+.bg-cell.markable{cursor:pointer;background:rgba(212,168,67,.12);border-color:rgba(212,168,67,.6);color:var(--gold2);animation:bg-cell-call .9s ease-in-out infinite;}
+@keyframes bg-cell-call{0%,100%{box-shadow:0 0 0 rgba(212,168,67,.5);}50%{box-shadow:0 0 8px rgba(212,168,67,.75);}}
+.bg-current-mine{font-size:.66rem;font-weight:700;color:var(--gold2);background:rgba(212,168,67,.14);border:1px solid rgba(212,168,67,.4);border-radius:999px;padding:.18rem .6rem;animation:bg-cell-call .9s ease-in-out infinite;}
+.bg-ticket-pending{font-size:.62rem;font-weight:700;color:var(--gold2);background:rgba(212,168,67,.14);border-radius:999px;padding:.05rem .45rem;margin-left:.3rem;}
 .bg-verify{display:flex;flex-direction:column;align-items:center;gap:.6rem;width:100%;text-align:center;padding:.4rem 0 .8rem;}
 .bg-verify-shout{font-family:var(--serif);font-size:2.6rem;font-weight:800;letter-spacing:.03em;background:linear-gradient(155deg,#fff6dc,var(--gold2) 55%,var(--gold) 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 4px 14px rgba(212,168,67,.5));animation:bg-shout-in .5s var(--ease-spring) both;}
 @keyframes bg-shout-in{0%{transform:scale(.4) rotate(-8deg);opacity:0;}65%{transform:scale(1.15) rotate(3deg);}100%{transform:scale(1) rotate(0);opacity:1;}}
@@ -2313,9 +2317,10 @@ const GAMES=[
      'First to <b>10,000</b> triggers one last turn for everyone else — highest total after that wins.']},
   {id:'bingo',icon:'🎱',name:'Bingo',players:'2–8',dur:'10–20 min',diff:'easy',deal:0,
    rules:['Everyone gets a <b>ticket</b>: 9 columns, 3 rows, 15 numbers between 1 and 90.',
-     'A number is called roughly every <b>4–5 seconds</b>. Matching numbers on your ticket light up automatically — nothing to tap, nothing to miss.',
+     'A number is called roughly every <b>6 seconds</b>. Spot it on your ticket and <b>tap it yourself</b> — nothing marks itself, so keep watching your card.',
      'Complete <b>one row</b> = tap Claim for <b>1 point</b>. Complete <b>two rows</b> = <b>2 points</b>. Complete the <b>whole ticket</b> = <b>3 points</b> and the round ends.',
-     'Everyone\'s ticket is visible the whole game — watch the whole table race for the same three prizes.',
+     'A claim only counts what you\'ve actually tapped — miss a number and you can still catch it later, it just has to be tapped before you claim.',
+     'Full house pauses the table with a big BINGO banner so everyone can check the winning ticket before the round ends.',
      'First to claim a stage wins it — claims are checked instantly, so nobody can call it early.',
      'Deal again for as many rounds as you like — points carry over across the table.']},
   {id:'yahtzee',icon:'🎲',name:'Yahtzee',players:'2–6',dur:'30–45 min',diff:'medium',deal:0,cover:'assets/games/yahtzee.png',
@@ -3961,7 +3966,7 @@ const BG_STAGE_POINTS={line:1,twoLines:2,house:3};
 const BG_STAGE_LABEL={line:'One Line',twoLines:'Two Lines',house:'Full House'};
 // Long enough to find a number on a 15-cell ticket and register it, short enough that a family of
 // four isn't sitting through a number every 8 seconds for what can be a 40+ call round.
-const BG_CALL_MS=4500;
+const BG_CALL_MS=6000;
 // Shouting BINGO doesn't end the round on the spot: the caller stops dead, a big call goes up on
 // every screen, and the room gets this long to actually look at the board before the round
 // concludes -- the real-hall pause where a shout gets checked before it's paid out, done here as a
@@ -4009,23 +4014,25 @@ function bingoGenerateTicket(){
   for(let attempt=0;attempt<50;attempt++){const t=bingoTryGenerate();if(t)return t;}
   throw new Error('bingoGenerateTicket: exhausted retries');
 }
-function bingoRowComplete(row,calledSet){return row.every(n=>n===null||calledSet.has(n));}
-function bingoLinesComplete(ticket,calledSet){return ticket.filter(row=>bingoRowComplete(row,calledSet)).length;}
-function bingoStageEligible(ticket,calledSet,stage){return bingoLinesComplete(ticket,calledSet)>=BG_STAGE_NEED[stage];}
+// These take whichever set actually decides completion -- the called numbers for "is this row
+// theoretically done", or a player's own marked numbers for "has THIS player actually dabbed it".
+function bingoRowComplete(row,markedSet){return row.every(n=>n===null||markedSet.has(n));}
+function bingoLinesComplete(ticket,markedSet){return ticket.filter(row=>bingoRowComplete(row,markedSet)).length;}
+function bingoStageEligible(ticket,markedSet,stage){return bingoLinesComplete(ticket,markedSet)>=BG_STAGE_NEED[stage];}
 // How many points a player picked up THIS round, from whichever stages they personally claimed --
 // used to build the same {id,name,avatar,delta,total,isWinner} rows every other game's round-end
 // screen already reads, so Bingo needs no results screen of its own.
 function bingoRoundPoints(bg,playerId){
   return BG_STAGES.reduce((s,stage)=>s+((bg.stageWinners[stage]&&bg.stageWinners[stage].id===playerId)?BG_STAGE_POINTS[stage]:0),0);
 }
-// Marking a ticket takes no skill at all -- it's automatic, checked live against the called
-// numbers, so nobody can lose a stage they actually earned by forgetting to tap something. The
-// only thing a bot's level can honestly differ on is how fast it shouts once it's eligible.
+// A bot's ticket marks itself the instant a matching number is called (see bgCallNext/oBgCallNext)
+// -- there's no UI for a bot to tap, and no skill in dabbing anyway. The only thing a bot's level
+// can honestly differ on is how fast it shouts once it's eligible.
 function bingoBotClaimDelay(level){return level==='sharp'?400+Math.random()*700:1800+Math.random()*2200;}
 
 /* ── Bingo: local ── */
 function lDealBingo(){
-  G.lp.forEach(p=>{p.bgTicket=bingoGenerateTicket();});
+  G.lp.forEach(p=>{p.bgTicket=bingoGenerateTicket();p.bgMarked=[];});
   G.bg={calledNumbers:[],currentCall:null,stageWinners:{line:null,twoLines:null,house:null},phase:'calling'};
   G.lres=null;_bgPendingClaims=new Set();G.bgViewSeat=0;
   SFX.deal();
@@ -4052,16 +4059,29 @@ function bgCallNext(){
   const bg=G.bg;if(!bg||bg.phase!=='calling')return;
   const remaining=[];for(let n=1;n<=90;n++)if(!bg.calledNumbers.includes(n))remaining.push(n);
   if(!remaining.length)return; // exhausted with nobody claiming House -- vanishingly unlikely
-  bg.calledNumbers.push(remaining[rnd(0,remaining.length-1)]);
-  bg.currentCall=bg.calledNumbers[bg.calledNumbers.length-1];
+  const n=remaining[rnd(0,remaining.length-1)];
+  bg.calledNumbers.push(n);
+  bg.currentCall=n;
+  bingoAutoMarkBots(G.lp,n);
   SFX.chip();haptic([10,20,10]);
   render();
+}
+// A human has to spot and tap their own numbers -- that's the whole point of the redesign, the
+// game is no longer something to just watch. A bot has nothing to look at and nothing to click, so
+// its ticket marks itself the moment a matching number lands, the same instant a human COULD tap it.
+function bingoAutoMarkBots(players,n){
+  players.forEach(p=>{
+    if(!isBotPlayer(p)||!p.bgTicket)return;
+    if(!p.bgTicket.flat().includes(n))return;
+    p.bgMarked=p.bgMarked||[];
+    if(!p.bgMarked.includes(n))p.bgMarked.push(n);
+  });
 }
 function bgClaim(seatIdx,stage){
   const bg=G.bg;if(!bg||bg.phase!=='calling'||bg.stageWinners[stage])return;
   const p=G.lp[seatIdx];if(!p)return;
-  const calledSet=new Set(bg.calledNumbers);
-  if(!bingoStageEligible(p.bgTicket,calledSet,stage)){toast('Not yet — keep watching the board');return;}
+  const markedSet=new Set(p.bgMarked||[]);
+  if(!bingoStageEligible(p.bgTicket,markedSet,stage)){toast('Not yet — keep watching the board');return;}
   bg.stageWinners[stage]={id:p.id,name:p.name,avatar:p.avatar};
   p.totalScore=(p.totalScore||0)+BG_STAGE_POINTS[stage];
   G.llast=esc(p.name)+' claims '+BG_STAGE_LABEL[stage]+'!';
@@ -4079,6 +4099,20 @@ function bgClaim(seatIdx,stage){
     clearTimeout(_bgVerifyTimer);
     _bgVerifyTimer=setTimeout(()=>bgFinalizeHouse(),BG_VERIFY_MS);
   }
+  render();
+}
+// A number can only ever be dabbed if it was genuinely called -- the ticket only ever renders a
+// data-a="bg-mark" attribute on cells that pass that check (see bgTicketHTML), so there's nothing
+// to validate here beyond phase; this is the local-pass-and-play version, acting on whichever
+// seat's ticket is currently on screen (the same "whoever's looking at the device right now" seat
+// the switcher and claim buttons already use).
+function bgMark(num){
+  const bg=G.bg;if(!bg||bg.phase!=='calling'||!bg.calledNumbers.includes(num))return;
+  const p=G.lp[G.bgViewSeat];if(!p||!p.bgTicket)return;
+  p.bgMarked=p.bgMarked||[];
+  if(p.bgMarked.includes(num))return;
+  p.bgMarked.push(num);
+  SFX.chip();haptic([8]);
   render();
 }
 // force=true is the "everyone's already looked, let's go" tap -- the automatic path still waits
@@ -4104,12 +4138,12 @@ function bgFinalizeHouse(force){
 let _bgPendingClaims=new Set();
 function botBingoAct(){
   const bg=G.bg;if(!bg||bg.phase!=='calling')return;
-  const calledSet=new Set(bg.calledNumbers);
   for(let i=0;i<G.lp.length;i++){
     const p=G.lp[i];if(!isBotPlayer(p))continue;
+    const markedSet=new Set(p.bgMarked||[]);
     for(const stage of BG_STAGES){
       if(bg.stageWinners[stage]||_bgPendingClaims.has(stage))continue;
-      if(!bingoStageEligible(p.bgTicket,calledSet,stage))continue;
+      if(!bingoStageEligible(p.bgTicket,markedSet,stage))continue;
       _bgPendingClaims.add(stage);
       const seatIdx=i;
       setTimeout(()=>{
@@ -4118,7 +4152,7 @@ function botBingoAct(){
         // claimed this exact stage in the meantime, the same defensive re-read every deadline-
         // driven timer in this file already uses (see oMauTimeoutCheck).
         if(!G.bg||G.bg.phase!=='calling'||G.bg.stageWinners[stage])return;
-        if(!bingoStageEligible(G.lp[seatIdx].bgTicket,new Set(G.bg.calledNumbers),stage))return;
+        if(!bingoStageEligible(G.lp[seatIdx].bgTicket,new Set(G.lp[seatIdx].bgMarked||[]),stage))return;
         bgClaim(seatIdx,stage);
       },bingoBotClaimDelay(p.bot));
       return; // one pending claim started per call; the rest wait for the next signature change
@@ -4133,7 +4167,7 @@ function botBingoAct(){
    player), and the compare-and-swap write means whichever device's timer actually fires first is
    the one that lands -- so the game keeps moving even if the player who happened to trigger the
    previous call has since closed the tab. Claims use the same pattern Roulette's bet actions do. */
-function oBgFreshTickets(players){return players.map(p=>({...p,bgTicket:bingoGenerateTicket()}));}
+function oBgFreshTickets(players){return players.map(p=>({...p,bgTicket:bingoGenerateTicket(),bgMarked:[]}));}
 function oBgBuildStart(rs,players){
   return{phase:'game',gameId:'bingo',host:rs.host,hr:rs.hr||G.hr,players:oBgFreshTickets(players),
     bg:{calledNumbers:[],currentCall:null,stageWinners:{line:null,twoLines:null,house:null},
@@ -4149,9 +4183,11 @@ async function oBgCallNext(){
     const remaining=[];for(let n=1;n<=90;n++)if(!bg.calledNumbers.includes(n))remaining.push(n);
     if(!remaining.length)return;
     const expectedTs=state._ts;
-    bg.calledNumbers.push(remaining[rnd(0,remaining.length-1)]);
-    bg.currentCall=bg.calledNumbers[bg.calledNumbers.length-1];
+    const n=remaining[rnd(0,remaining.length-1)];
+    bg.calledNumbers.push(n);
+    bg.currentCall=n;
     bg.nextCallAt=Date.now()+BG_CALL_MS;
+    bingoAutoMarkBots(state.players||[],n);
     state._ts=Date.now();
     onSrv(state);
     await dbWriteIfUnchanged(G.roomId,expectedTs,state);
@@ -4164,8 +4200,8 @@ async function oBgClaim(stage){
     const bg=state.bg;
     if(bg.phase!=='calling'||bg.stageWinners[stage])return;
     const me=(state.players||[]).find(p=>p.id===G.myPid);if(!me)return;
-    const calledSet=new Set(bg.calledNumbers);
-    if(!bingoStageEligible(me.bgTicket,calledSet,stage)){toast('Not yet — keep watching the board');return;}
+    const markedSet=new Set(me.bgMarked||[]);
+    if(!bingoStageEligible(me.bgTicket,markedSet,stage)){toast('Not yet — keep watching the board');return;}
     const expectedTs=state._ts;
     bg.stageWinners[stage]={id:me.id,name:me.name,avatar:me.avatar};
     me.totalScore=(me.totalScore||0)+BG_STAGE_POINTS[stage];
@@ -4179,6 +4215,24 @@ async function oBgClaim(stage){
       // one player's phone processes the claim.
       bg.phase='verifying';bg.verifyUntil=Date.now()+BG_VERIFY_MS;
     }
+    state._ts=Date.now();
+    onSrv(state);
+    await dbWriteIfUnchanged(G.roomId,expectedTs,state);
+  } finally { _onlineBusy=false; }
+}
+// Same "can only dab what was genuinely called" guarantee as the local bgMark -- the ticket never
+// renders a bg-mark control on a cell that isn't in calledNumbers, so this only needs to check phase.
+async function oBgMark(num){
+  if(_onlineBusy)return;_onlineBusy=true;
+  try{
+    const state=await dbRead(G.roomId);if(!state||!state.bg)return;
+    const bg=state.bg;if(bg.phase!=='calling'||!bg.calledNumbers.includes(num))return;
+    const me=(state.players||[]).find(p=>p.id===G.myPid);if(!me)return;
+    me.bgMarked=me.bgMarked||[];
+    if(me.bgMarked.includes(num))return;
+    me.bgMarked.push(num);
+    SFX.chip();haptic([8]);
+    const expectedTs=state._ts;
     state._ts=Date.now();
     onSrv(state);
     await dbWriteIfUnchanged(G.roomId,expectedTs,state);
@@ -8264,23 +8318,29 @@ function rFarkleTable(){
    same stage at the same moment, so the stage row below has to offer a claim button to EVERY
    eligible player (locally, one per seat -- whoever actually taps first wins the race honestly;
    online, only your own), never just to whichever ticket happens to be on screen. */
-function bgTicketHTML(ticket,calledSet){
+// A cell is "hit" once the player has actually tapped it, and "markable" -- tappable, with a
+// pulsing come-tap-me highlight -- when it's been called but not yet dabbed. interactive=false is
+// for the read-only winner ticket on the verify screen, where the round's already decided and
+// nothing should invite a tap.
+function bgTicketHTML(ticket,calledSet,markedSet,interactive){
   let html='<div class="bg-ticket">';
   for(let r=0;r<3;r++)for(let c=0;c<9;c++){
     const n=ticket[r][c];
-    html+=n===null?'<div class="bg-cell blank"></div>':`<div class="bg-cell num${calledSet.has(n)?' hit':''}">${n}</div>`;
+    if(n===null){html+='<div class="bg-cell blank"></div>';continue;}
+    const hit=markedSet.has(n);
+    const markable=interactive&&!hit&&calledSet.has(n);
+    html+=`<div class="bg-cell num${hit?' hit':''}${markable?' markable':''}"${markable?` data-a="bg-mark" data-num="${n}"`:''}>${n}</div>`;
   }
   return html+'</div>';
 }
 function bgStageRowHTML(bg,players,online,myId){
-  const calledSet=new Set(bg.calledNumbers||[]);
   return BG_STAGES.map(stage=>{
     const won=bg.stageWinners[stage];
     let body;
     if(won){
       body=`<span class="bg-stage-who">${avChar(won.avatar)} ${esc(won.name)}</span>`;
     } else {
-      const eligible=players.filter(p=>p.bgTicket&&bingoStageEligible(p.bgTicket,calledSet,stage));
+      const eligible=players.filter(p=>p.bgTicket&&bingoStageEligible(p.bgTicket,new Set(p.bgMarked||[]),stage));
       if(!eligible.length){
         body=`<span class="bg-stage-wait">not yet</span>`;
       } else if(online){
@@ -8322,7 +8382,7 @@ function rBingoTable(){
           <div class="bg-verify-who">${avHTML(wp.avatar)}<span>${esc(wp.name)} shouted Bingo!</span></div>
           <div class="bg-verify-sub">Full house — check it against the numbers called</div>
           <div class="bg-hist-strip">${histHTML||'<span class="roul-hist-empty">No calls yet</span>'}</div>
-          ${bgTicketHTML(wp.bgTicket,calledSet)}
+          ${bgTicketHTML(wp.bgTicket,calledSet,new Set(wp.bgMarked||[]),false)}
           <button class="btn btn-gold btn-full" data-a="bg-confirm">✅ Confirmed — continue</button>
           <div class="bg-verify-hint">Starting the next round shortly…</div>
         </div>
@@ -8332,18 +8392,24 @@ function rBingoTable(){
   }
   const myIdx=online?Math.max(0,players.findIndex(p=>p.id===G.myPid)):Math.min(G.bgViewSeat||0,players.length-1);
   const me=players[myIdx]||players[0];
+  const myMarked=new Set(me.bgMarked||[]);
   const history=(bg.calledNumbers||[]).slice(-14).reverse();
+  // A called number that's sitting right there on your own ticket, unmarked, is exactly the thing
+  // this redesign is trying to surface -- previously nothing pointed at it, so numbers could come
+  // and go in the call history without a player ever noticing their card had them.
+  const onMyCard=bg.currentCall&&me.bgTicket&&me.bgTicket.flat().includes(bg.currentCall)&&!myMarked.has(bg.currentCall);
   const callHTML=bg.currentCall
-    ?`<div class="bg-current"><div class="bg-ball">${bg.currentCall}</div><div class="bg-current-lbl">just called</div></div>`
+    ?`<div class="bg-current"><div class="bg-ball">${bg.currentCall}</div><div class="bg-current-lbl">just called</div>${onMyCard?'<div class="bg-current-mine">👉 it’s on your card — tap it!</div>':''}</div>`
     :`<div class="bg-current"><div class="bg-current-lbl">Waiting for the first call…</div></div>`;
   const histHTML=history.map(n=>`<span class="bg-hist-num">${n}</span>`).join('');
   const switcher=players.map((p,i)=>{
-    const lines=bingoLinesComplete(p.bgTicket,calledSet);
+    const lines=bingoLinesComplete(p.bgTicket,new Set(p.bgMarked||[]));
     const isMe=online?p.id===G.myPid:i===myIdx;
     const clickable=!online;
     const tag=clickable?'button':'span';
     return `<${tag} class="bg-switch${isMe?' active':''}"${clickable?` data-a="bg-view" data-seat="${i}"`:''}>${avHTML(p.avatar)}<span>${esc(p.name)}${online&&isMe?' (You)':''}</span><span class="bg-switch-lines">${lines}/3</span></${tag}>`;
   }).join('');
+  const pending=(bg.calledNumbers||[]).filter(n=>me.bgTicket.flat().includes(n)&&!myMarked.has(n)).length;
   return`<div id="s-table" class="scr on game-bingo">
     <div class="game-bar">
       <div class="gb-game">🎱 Bingo</div>
@@ -8356,8 +8422,8 @@ function rBingoTable(){
       <div class="bg-hist-strip">${histHTML||'<span class="roul-hist-empty">No calls yet</span>'}</div>
       <div class="bg-stage-row">${bgStageRowHTML(bg,players,online,G.myPid)}</div>
       <div class="bg-ticket-wrap">
-        <div class="bg-ticket-lbl">${online?'Your ticket':esc(me.name)+'’s ticket'}</div>
-        ${bgTicketHTML(me.bgTicket,calledSet)}
+        <div class="bg-ticket-lbl">${online?'Your ticket':esc(me.name)+'’s ticket'}${pending?` <span class="bg-ticket-pending">${pending} to tap</span>`:''}</div>
+        ${bgTicketHTML(me.bgTicket,calledSet,myMarked,true)}
       </div>
     </div>
     ${talkStripHTML()}
@@ -9524,6 +9590,7 @@ document.addEventListener('click',e=>{
   else if(a==='fkcontinue'){G.isOnline?oFkContinue():fkContinue();}
   else if(a==='fkbank'){G.isOnline?oFkBank():fkBank();}
   else if(a==='bg-claim'){G.isOnline?oBgClaim(t.getAttribute('data-stage')):bgClaim(+t.getAttribute('data-seat'),t.getAttribute('data-stage'));}
+  else if(a==='bg-mark'){G.isOnline?oBgMark(+t.getAttribute('data-num')):bgMark(+t.getAttribute('data-num'));}
   else if(a==='bg-view'){G.bgViewSeat=+t.getAttribute('data-seat');render();}
   else if(a==='bg-confirm'){G.isOnline?oBgFinalizeHouse(true):bgFinalizeHouse(true);}
   else if(a==='yscore'){G.isOnline?oYCommitCategory(t.getAttribute('data-cat')):yCommitCategory(t.getAttribute('data-cat'));}
