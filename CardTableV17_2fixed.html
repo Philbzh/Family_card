@@ -4499,11 +4499,23 @@ function rDiceDuelTable(){
         : seat.dice.map((d,i)=>ddDieHTML(d,seat.held[i],i,(seat.lastRolled||[]).indexOf(i)>=0,canHold)).join('');
       const ev=seat.throws?ddEvaluate(seat.dice):null;
       const oppStatus=oppSeat.locked?'has locked in ⚔️':(v.botActive?'is thinking…':'throws next');
+      // A real hand-over hides the other side because there is a second PERSON about to look at
+      // the phone -- that secrecy is the whole point of the pass. A bot has nothing to hide and
+      // nobody to hide it from, so showing its dice live as it rolls costs nothing and turns "I
+      // only see the final score" into an actual duel: the same reasoning online play already
+      // uses (a reroll decision only ever depends on your own dice, never a reaction to what the
+      // other side just rolled, so there is no fairness cost to watching either).
+      const oppIsBot=isBotPlayer(P[you]);
+      const oppDice=oppIsBot
+        ? (oppSeat.throws===0
+            ? Array.from({length:DD_DICE},(_,i)=>ddDieHTML(1,false,i,false,false,'hidden')).join('')
+            : oppSeat.dice.map((d,i)=>ddDieHTML(d,oppSeat.held[i],i,(oppSeat.lastRolled||[]).indexOf(i)>=0,false)).join(''))
+        : Array.from({length:DD_DICE},(_,i)=>ddDieHTML(1,false,i,false,false,'hidden')).join('');
       stage=`
         <div class="dd-stage">
           <div class="dd-side dd-side-opp">
             <div class="dd-opp-status">${esc(P[you].name)} ${oppStatus}</div>
-            <div class="dice-tray dd-tray small dd-opp-dice">${Array.from({length:DD_DICE},(_,i)=>ddDieHTML(1,false,i,false,false,'hidden')).join('')}</div>
+            <div class="dice-tray dd-tray small dd-opp-dice${oppIsBot&&oppSeat.locked?' locked':''}">${oppDice}</div>
           </div>
           <div class="dd-divider"><span>⚔️</span></div>
           <div class="dice-tray dd-tray${seat.locked?' locked':''}">${dice}</div>
@@ -6030,10 +6042,15 @@ function maybeBotTurn(){
 // short: the throw and deal animations add their own delay on top, and with two or three bots
 // between your turns anything longer starts to feel like waiting rather than watching. Poker gets a
 // little longer — a fold that lands the instant the turn arrives reads as a glitch, not a decision.
+// Dice Duel gets longer still, and for a different reason: its dice are now genuinely live (see
+// rDiceDuelTable's oppIsBot branch), so this pause is the only time a human has to actually READ
+// five dice — not just notice something changed. The default 500-900ms is tuned for a one-word
+// decision (fold, hit); reading a tumble result and registering a combo needs real time on top of
+// that, or a bot's whole turn reads as a blur of dice nobody had a chance to see.
 function botThinkMs(){
   const g=G.selGame;
-  const base=(g==='texas'||g==='fivecard')?620:(g==='blackjack'?420:500);
-  return base+Math.floor(Math.random()*400);
+  const base=g==='dicedual'?1300:(g==='texas'||g==='fivecard')?620:(g==='blackjack'?420:500);
+  return base+Math.floor(Math.random()*(g==='dicedual'?600:400));
 }
 function botAct(){
   if(G.scr!=='table'||G.isOnline||!BOT_GAMES.has(G.selGame))return;
