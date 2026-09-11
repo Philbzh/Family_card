@@ -3916,21 +3916,35 @@ function ddEndMatch(wi){
 }
 
 /* ── Dice Duel: online ──
-   Unlike every other online game here there is no turn to take, so there is no isMyTurn() gate:
-   both duellists roll at once on their own phones and neither result counts until both have locked
-   in. That makes the conditional write the whole mechanism — two devices genuinely do write the
-   same row at the same moment, and whoever lands second is the one that resolves the round. */
+   Every other online game here is turn-gated (only the current player ever writes). Dice Duel used
+   to be the exception: both duellists rolled "simultaneously" and privately, and neither result
+   counted until both had locked in — which meant nobody ever saw the other side actually roll,
+   only the final numbers at the reveal. That was the whole point of going private in the first
+   place (two devices really were writing the same row at the same moment), but it made the game
+   read as two people playing solitaire next to each other rather than a duel.
+   There is no fairness reason to keep it that way: a reroll decision is about your OWN dice only,
+   never a reaction to what the other side just rolled (the underdog's extra throw is decided by
+   the score BEFORE the round starts), so unlike a bidding game there is no informational advantage
+   in watching live. So Dice Duel is now turn-gated exactly like every other online game: d.active
+   says whose turn it is to roll, only that seat's device ever writes during the roll phase, and the
+   other player's screen shows their dice tumbling in real time off the same realtime sync every
+   other game already uses — no separate spectating channel needed. state.curIdx mirrors d.active so
+   the existing "YOUR TURN" banner and isMyTurn() work here for free.
+   Turn-gating to one writer at a time also removes the reason the local-draft-in-localStorage hack
+   used to exist: two devices can no longer write dd.seats at the same moment, so a plain optimistic
+   mutate-then-write (with the same compare-and-swap every other synced action here already uses) is
+   safe again, and a refresh recovers an in-progress throw from the room itself, not from the device. */
 function oDdFreshSeats(players){
   return players.slice(0,2).map((p,i)=>{
     const them=players[1-i];
     return{dice:[1,1,1,1,1],held:[false,false,false,false,false],throws:0,locked:false,
-      max:ddMaxThrows(p.totalScore||0,them?.totalScore||0),ev:null};
+      max:ddMaxThrows(p.totalScore||0,them?.totalScore||0),ev:null,lastRolled:[]};
   });
 }
 function oDdBuildStart(rs,players){
   return{phase:'game',gameId:'dicedual',host:rs.host,hr:rs.hr||G.hr,players,
-    dd:{round:1,phase:'roll',seats:oDdFreshSeats(players),reveal:null,wasBehind:[false,false]},
-    round:1,winner:null,lastAct:'',_ts:Date.now()};
+    dd:{round:1,phase:'roll',active:0,seats:oDdFreshSeats(players),reveal:null,wasBehind:[false,false]},
+    round:1,curIdx:0,winner:null,lastAct:'',_ts:Date.now()};
 }
 function oDdMySeat(state){return(state.players||[]).findIndex(p=>p.id===G.myPid);}
 // Same retry-on-conflict loop as roulette's: re-read, re-apply, write only if nobody moved first.
@@ -3942,7 +3956,7 @@ async function oDdMutate(mutate){
     onSrv(state); // optimistic; the next real sync corrects us if this write lost the race
     if(await dbWriteIfUnchanged(G.roomId,expectedTs,state))return;
   }
-  toast('⚠️ Both of you rolled at once — try again');
+  toast('⚠️ Connection hiccup — try that again');
 }
 // Once both seats are locked the round is decided, and it must be decided ONCE: whichever client
 // writes the second lock resolves it and stores the result, so both phones read identical numbers
@@ -3971,71 +3985,55 @@ function oDdSettleIfReady(state){
     d.phase='matchover';
   }
 }
-// Your throw is private until you lock in, so it belongs on your phone and nowhere else. Rolling
-// and keeping dice used to be a full read-modify-write against the shared room ON EVERY TAP, which
-// is the worst possible shape for the one game here where both people act at once: the two devices
-// fought over the same row, the _onlineBusy guard silently swallowed every tap that arrived while a
-// write was in flight (five taps to keep five dice landed two), and a lock-in could lose the race
-// outright so the round never resolved and neither player saw anything. The roll phase is now
-// entirely local -- instant, no contention, no dropped taps -- and exactly ONE write happens per
-// player per round, when you lock in.
-// Because the draft never reaches the room, a refresh would otherwise hand back a clean set of
-// throws — losing an unlucky roll for free, which is both a lost turn for the honest player and a
-// re-roll button for anyone who noticed. Park it on the device, keyed to this room and round.
-function ddSaveLocal(){
-  try{localStorage.setItem('ct_dd_local',JSON.stringify({room:G.roomId,seat:G.ddLocal}));}catch(e){}
-}
-function ddLocalSeat(){
-  const st=G.srv||{},d=st.dd||{},mine=oDdMySeat(st);
-  if(mine<0)return null;
-  const srv=(d.seats||[])[mine];
-  if(!G.ddLocal||G.ddLocal.round!==d.round){
-    let restored=null;
-    try{
-      const raw=JSON.parse(localStorage.getItem('ct_dd_local')||'null');
-      if(raw&&raw.room===G.roomId&&raw.seat&&raw.seat.round===d.round
-         &&Array.isArray(raw.seat.dice)&&raw.seat.dice.length===DD_DICE)restored=raw.seat;
-    }catch(e){}
-    G.ddLocal=restored||{round:d.round,dice:[1,1,1,1,1],held:[false,false,false,false,false],
-      throws:0,max:(srv&&srv.max)||DD_THROWS,locked:!!(srv&&srv.locked),lastRolled:[]};
-  }
-  // The room stays the authority on the two things a refresh must not undo.
-  if(srv&&srv.locked)G.ddLocal.locked=true;
-  if(srv&&srv.max)G.ddLocal.max=srv.max;
-  return G.ddLocal;
+// The same "answer the tap instantly, let the write follow behind" shape every other synced action
+// here uses: mutate this client's own copy of the room and render before the network round trip,
+// then persist with the compare-and-swap retry. Only the active seat's own device ever calls this
+// during the roll phase, so contention is not expected — but a dropped connection or a rare stale
+// read still self-corrects by re-reading and re-syncing, rather than silently losing the throw.
+async function oDdSync(state,expectedTs){
+  if(await dbWriteIfUnchanged(G.roomId,expectedTs,state))return;
+  const fresh=await dbRead(G.roomId);if(fresh)onSrv(fresh);
 }
 function oDdRoll(){
-  const s=ddLocalSeat(),d=(G.srv||{}).dd||{};
-  if(!s||d.phase!=='roll'||s.locked||s.throws>=s.max||ddAllKept(s))return;
+  const state=G.srv;if(!state||!state.dd)return;
+  const d=state.dd,i=oDdMySeat(state);
+  if(i<0||d.phase!=='roll'||d.active!==i)return; // not my turn — the button isn't even shown, but refuse anyway
+  const s=d.seats[i];
+  if(s.locked||s.throws>=s.max||ddAllKept(s))return;
+  const expectedTs=state._ts;
   const rolled=[];
   for(let k=0;k<DD_DICE;k++)if(s.throws===0||!s.held[k]){s.dice[k]=rnd(1,6);rolled.push(k);}
   s.throws++;s.lastRolled=rolled;
-  ddSaveLocal();
   SFX.diceRoll();haptic([10,20,10]);
   render();
+  oDdSync(state,expectedTs);
 }
 function oDdHold(idx){
-  const s=ddLocalSeat(),d=(G.srv||{}).dd||{};
-  if(!s||d.phase!=='roll'||s.locked||!s.throws||s.throws>=s.max)return;
+  const state=G.srv;if(!state||!state.dd)return;
+  const d=state.dd,i=oDdMySeat(state);
+  if(i<0||d.phase!=='roll'||d.active!==i)return;
+  const s=d.seats[i];
+  if(s.locked||!s.throws||s.throws>=s.max)return;
   s.held[idx]=!s.held[idx];
   s.lastRolled=[]; // clearing this is what stops the dice tumbling forever on every re-render
-  ddSaveLocal();
+  const expectedTs=state._ts;
   render();
+  oDdSync(state,expectedTs);
 }
 async function oDdLock(){
-  const local=ddLocalSeat();
-  if(!local||local.locked||!local.throws)return;
   if(_onlineBusy)return;_onlineBusy=true;
   try{
-    local.locked=true;ddSaveLocal();render(); // the tap answers immediately; the write follows behind
     await oDdMutate(state=>{
-      const i=oDdMySeat(state);if(i<0)return false;
-      const s=state.dd.seats[i];
-      if(state.dd.phase!=='roll'||s.locked)return false;
-      // The whole throw travels in one write, at the only moment it becomes anyone else's business.
-      s.dice=local.dice.slice();s.held=local.held.slice();s.throws=local.throws;s.locked=true;
+      const d=state.dd,i=oDdMySeat(state);
+      if(i<0||d.phase!=='roll'||d.active!==i)return false;
+      const s=d.seats[i];
+      if(s.locked||!s.throws)return false;
+      s.locked=true;s.ev=ddEvaluate(s.dice);
       SFX.chip();
-      oDdSettleIfReady(state);
+      const other=1-i;
+      // Hand the turn to whoever hasn't gone yet; only settle once BOTH have locked in.
+      if(!d.seats[other].locked){d.active=other;state.curIdx=other;}
+      else oDdSettleIfReady(state);
       return true;
     });
   } finally { _onlineBusy=false; }
@@ -4046,8 +4044,8 @@ async function oDdNextRound(){
     await oDdMutate(state=>{
       const d=state.dd;
       if(d.phase!=='roundover'&&d.phase!=='reveal')return false;
-      d.round++;d.reveal=null;d.phase='roll';d.seats=oDdFreshSeats(state.players);
-      state.round=(state.round||1)+1;state.lastAct='';
+      d.round++;d.reveal=null;d.phase='roll';d.active=0;d.seats=oDdFreshSeats(state.players);
+      state.round=(state.round||1)+1;state.curIdx=0;state.lastAct='';
       return true;
     });
   } finally { _onlineBusy=false; }
@@ -4078,12 +4076,8 @@ function maybeDdReveal(){
 function ddView(){
   if(G.isOnline){
     const s=G.srv||{},d=s.dd||{},mine=Math.max(0,oDdMySeat(s));
-    const seats=(d.seats||[]).slice();
-    // While the round is still being thrown, MY seat comes from the local draft rather than the
-    // room -- the room does not know about it yet, and does not need to.
-    if(d.phase==='roll'){const loc=ddLocalSeat();if(loc)seats[mine]=loc;}
-    return{online:true,round:d.round||1,seats,reveal:d.reveal||null,step:_ddOnlineStep,
-      phase:d.phase||'roll',players:s.players||[],mySeat:mine,controls:mine};
+    return{online:true,round:d.round||1,seats:d.seats||[],reveal:d.reveal||null,step:_ddOnlineStep,
+      phase:d.phase||'roll',active:d.active||0,players:s.players||[],mySeat:mine,controls:mine};
   }
   const d=G.dd||{},active=d.active||0;
   // A bot's throw must not put its dice on screen: the phone still belongs to the person playing
@@ -4091,7 +4085,7 @@ function ddView(){
   const botActive=isBotPlayer(G.lp[active]);
   const human=G.lp.findIndex(p=>!isBotPlayer(p));
   return{online:false,round:d.round||1,seats:d.seats||[],reveal:d.reveal||null,step:d.step||0,
-    phase:d.phase||'roll',players:G.lp,mySeat:active,botActive,
+    phase:d.phase||'roll',active,players:G.lp,mySeat:active,botActive,
     controls:(botActive&&human>=0)?human:active};
 }
 
@@ -4129,34 +4123,68 @@ function rDiceDuelTable(){
   const P=v.players,me=v.controls,you=1-me;
   if(P.length<2)return`<div class="scr on"><p style="padding:2rem;text-align:center;">Waiting for a second duellist…</p></div>`;
   const scores=P.map(p=>p.totalScore||0);
-  const seat=v.seats[me]||{dice:[1,1,1,1,1],held:[],throws:0,max:2,locked:false};
-  const oppSeat=v.seats[you]||{throws:0,locked:false};
+  const seat=v.seats[me]||{dice:[1,1,1,1,1],held:[],throws:0,max:2,locked:false,lastRolled:[]};
+  const oppSeat=v.seats[you]||{dice:[1,1,1,1,1],held:[],throws:0,max:2,locked:false,lastRolled:[]};
   const revealing=v.phase==='reveal'||v.phase==='roundover'||v.phase==='matchover';
   const r=v.reveal;
   const underdog=ddIsUnderdog(scores[me],scores[you]);
-  // Local play hands the phone over between throws, so "me" is whoever is holding it right now.
+  // Local play hands the phone over between throws, so "me" is whoever is holding it right now --
+  // there is no separate turn concept to gate on, "seat" (mine) is always the one currently acting
+  // (or, while a bot thinks, already finished and waiting -- see ddView's botActive comment).
+  // Online, the two ARE separate: my own seat can sit at throws:0 for a while with nothing to do,
+  // because it is genuinely the other player's turn.
   const actorName=v.online?'You':esc(P[me].name);
+  const myTurn=!v.online||v.active===me;
 
   let stage='';
   if(!revealing){
-    const canHold=seat.throws>0&&seat.throws<seat.max&&!seat.locked;
-    const dice=seat.throws===0
-      ? Array.from({length:DD_DICE},(_,i)=>ddDieHTML(1,false,i,false,false,'hidden')).join('')
-      : seat.dice.map((d,i)=>ddDieHTML(d,seat.held[i],i,(seat.lastRolled||[]).indexOf(i)>=0,canHold)).join('');
-    const ev=seat.throws?ddEvaluate(seat.dice):null;
-    const oppStatus=oppSeat.locked?'has locked in ⚔️':(v.botActive?'is thinking…':v.online?'is still rolling…':'throws next');
-    stage=`
-      <div class="dd-stage">
-        <div class="dd-side dd-side-opp">
-          <div class="dd-opp-status">${esc(P[you].name)} ${oppStatus}</div>
-          <div class="dice-tray dd-tray small dd-opp-dice">${Array.from({length:DD_DICE},(_,i)=>ddDieHTML(1,false,i,false,false,'hidden')).join('')}</div>
-        </div>
-        <div class="dd-divider"><span>⚔️</span></div>
-        <div class="dice-tray dd-tray${seat.locked?' locked':''}">${dice}</div>
-        ${ev?`<div class="dd-combo-now">${ev.icon} ${ev.short} · ${ev.base} pts${ev.power?` · ${DD_POWER_LABEL[ev.power]}`:''}</div>`:'<div class="dd-combo-now dim">Throw the dice to begin</div>'}
-        <div class="dd-throws">Throw ${Math.min(seat.throws+(seat.throws<seat.max?1:0),seat.max)} of ${seat.max}</div>
-        ${underdog?`<div class="dd-underdog">🔥 Underdog — one extra reroll this round</div>`:''}
-      </div>`;
+    if(v.online){
+      // Nothing here is hidden information: a reroll decision is about your own dice only, never a
+      // reaction to what the other side just rolled, so unlike a card game there is no fairness
+      // cost to watching the other side's throw live -- which is the entire point of this branch.
+      const canHold=myTurn&&seat.throws>0&&seat.throws<seat.max&&!seat.locked;
+      const dice=seat.throws===0
+        ? Array.from({length:DD_DICE},(_,i)=>ddDieHTML(1,false,i,false,false,'hidden')).join('')
+        : seat.dice.map((d,i)=>ddDieHTML(d,seat.held[i],i,(seat.lastRolled||[]).indexOf(i)>=0,canHold)).join('');
+      const oppDice=oppSeat.throws===0
+        ? Array.from({length:DD_DICE},(_,i)=>ddDieHTML(1,false,i,false,false,'hidden')).join('')
+        : oppSeat.dice.map((d,i)=>ddDieHTML(d,oppSeat.held[i],i,(oppSeat.lastRolled||[]).indexOf(i)>=0,false)).join('');
+      const ev=seat.throws?ddEvaluate(seat.dice):null;
+      const oppStatus=oppSeat.locked?'has locked in ⚔️':oppSeat.throws>0?'is rolling…':(myTurn?'throws next':'is rolling…');
+      stage=`
+        <div class="dd-stage">
+          <div class="dd-side dd-side-opp">
+            <div class="dd-opp-status">${esc(P[you].name)} ${oppStatus}</div>
+            <div class="dice-tray dd-tray small dd-opp-dice${oppSeat.locked?' locked':''}">${oppDice}</div>
+          </div>
+          <div class="dd-divider"><span>⚔️</span></div>
+          <div class="dice-tray dd-tray${seat.locked?' locked':''}">${dice}</div>
+          ${myTurn
+            ?(ev?`<div class="dd-combo-now">${ev.icon} ${ev.short} · ${ev.base} pts${ev.power?` · ${DD_POWER_LABEL[ev.power]}`:''}</div>`:'<div class="dd-combo-now dim">Throw the dice to begin</div>')
+            :`<div class="dd-combo-now dim">${seat.locked?'Locked in — watch below':`Waiting for ${esc(P[you].name)}…`}</div>`}
+          ${myTurn?`<div class="dd-throws">Throw ${Math.min(seat.throws+(seat.throws<seat.max?1:0),seat.max)} of ${seat.max}</div>`:''}
+          ${myTurn&&underdog?`<div class="dd-underdog">🔥 Underdog — one extra reroll this round</div>`:''}
+        </div>`;
+    } else {
+      const canHold=seat.throws>0&&seat.throws<seat.max&&!seat.locked;
+      const dice=seat.throws===0
+        ? Array.from({length:DD_DICE},(_,i)=>ddDieHTML(1,false,i,false,false,'hidden')).join('')
+        : seat.dice.map((d,i)=>ddDieHTML(d,seat.held[i],i,(seat.lastRolled||[]).indexOf(i)>=0,canHold)).join('');
+      const ev=seat.throws?ddEvaluate(seat.dice):null;
+      const oppStatus=oppSeat.locked?'has locked in ⚔️':(v.botActive?'is thinking…':'throws next');
+      stage=`
+        <div class="dd-stage">
+          <div class="dd-side dd-side-opp">
+            <div class="dd-opp-status">${esc(P[you].name)} ${oppStatus}</div>
+            <div class="dice-tray dd-tray small dd-opp-dice">${Array.from({length:DD_DICE},(_,i)=>ddDieHTML(1,false,i,false,false,'hidden')).join('')}</div>
+          </div>
+          <div class="dd-divider"><span>⚔️</span></div>
+          <div class="dice-tray dd-tray${seat.locked?' locked':''}">${dice}</div>
+          ${ev?`<div class="dd-combo-now">${ev.icon} ${ev.short} · ${ev.base} pts${ev.power?` · ${DD_POWER_LABEL[ev.power]}`:''}</div>`:'<div class="dd-combo-now dim">Throw the dice to begin</div>'}
+          <div class="dd-throws">Throw ${Math.min(seat.throws+(seat.throws<seat.max?1:0),seat.max)} of ${seat.max}</div>
+          ${underdog?`<div class="dd-underdog">🔥 Underdog — one extra reroll this round</div>`:''}
+        </div>`;
+    }
   } else {
     const evs=(r&&r.evs)||[ddEvaluate((v.seats[0]||{}).dice||[]),ddEvaluate((v.seats[1]||{}).dice||[])];
     const showCombo=v.step>=1,showPowers=v.step>=2,showScore=v.step>=3;
@@ -4188,7 +4216,32 @@ function rDiceDuelTable(){
   }
 
   let actionBar='';
-  if(!revealing&&!seat.locked){
+  if(revealing&&v.step>=3){
+    // Deliberately NOT inside the felt. The felt is capped at 48vh and clips what will not fit, so
+    // on a phone the button that ends the round sat just past its bottom edge and was unreachable.
+    // Every other game puts its actions in this bar; the duel now does too, which also means the
+    // button cannot be pushed out of reach however long the list of powers gets.
+    actionBar=v.phase==='matchover'
+      ? `<div class="poker-actions"><div class="poker-action-row"><div class="dd-final">🏆 Duel over</div></div></div>`
+      : `<div class="poker-actions"><div class="poker-action-row"><button class="btn btn-gold btn-sm" data-a="dd-next">Next round ▶</button></div></div>`;
+  } else if(!revealing&&v.online){
+    if(myTurn&&!seat.locked){
+      const allKept=seat.throws>0&&seat.held.every(Boolean);
+      const canRoll=seat.throws<seat.max&&!allKept;
+      const label=seat.throws===0?'🎲 THROW'
+        :allKept?'✓ All five kept'
+        :`🎲 Reroll (${seat.max-seat.throws} left)`;
+      actionBar=`<div class="poker-actions"><div class="poker-action-row">
+        <button class="btn btn-gold btn-sm" data-a="dd-roll" ${canRoll?'':'disabled'}>${label}</button>
+        <button class="btn btn-green btn-sm" data-a="dd-lock" ${seat.throws?'':'disabled'}>⚔️ Lock in</button>
+      </div></div>`;
+    } else {
+      // Either it is not my turn yet, or I just locked in and the hand-off hasn't landed. Either
+      // way there is nothing for me to tap -- the point of this screen right now is to watch.
+      const waitTxt=!myTurn?`${esc(P[you].name)}'s turn — watch their dice above`:`Locked in — waiting for ${esc(P[you].name)}…`;
+      actionBar=`<div class="poker-actions"><div class="poker-action-row"><div class="dd-waiting">${waitTxt}</div></div></div>`;
+    }
+  } else if(!revealing&&!seat.locked){
     const allKept=seat.throws>0&&seat.held.every(Boolean);
     const canRoll=seat.throws<seat.max&&!allKept;
     const label=seat.throws===0?'🎲 THROW'
@@ -4200,15 +4253,18 @@ function rDiceDuelTable(){
     </div></div>`;
   } else if(!revealing&&seat.locked){
     actionBar=`<div class="poker-actions"><div class="poker-action-row"><div class="dd-waiting">Locked in — waiting for ${esc(P[you].name)}…</div></div></div>`;
-  } else if(revealing&&v.step>=3){
-    // Deliberately NOT inside the felt. The felt is capped at 48vh and clips what will not fit, so
-    // on a phone the button that ends the round sat just past its bottom edge and was unreachable.
-    // Every other game puts its actions in this bar; the duel now does too, which also means the
-    // button cannot be pushed out of reach however long the list of powers gets.
-    actionBar=v.phase==='matchover'
-      ? `<div class="poker-actions"><div class="poker-action-row"><div class="dd-final">🏆 Duel over</div></div></div>`
-      : `<div class="poker-actions"><div class="poker-action-row"><button class="btn btn-gold btn-sm" data-a="dd-next">Next round ▶</button></div></div>`;
   }
+
+  const hintTxt=revealing?''
+    :v.online
+      ?(myTurn
+        ?(seat.throws===0?`${actorName} — throw all five.`
+          :(seat.throws>0&&seat.held.every(Boolean))?'All five kept — lock in to send it.'
+          :'Tap a die to <b>keep</b> it — everything else gets thrown again.')
+        :`Watching ${esc(P[you].name)} throw…`)
+      :(seat.throws===0?`${actorName} — throw all five.`
+        :(seat.throws>0&&seat.held.every(Boolean))?'All five kept — lock in to send it.'
+        :'Tap a die to <b>keep</b> it — everything else gets thrown again.');
 
   return`<div id="s-table" class="scr on game-dicedual">
     <div class="game-bar">
@@ -4222,9 +4278,7 @@ function rDiceDuelTable(){
       ${ddSeatHeadHTML(P[you],scores[you],'right','')}
     </div>
     <div class="felt-table my-turn dd-felt">${stage}</div>
-    <div class="hint-strip"><div class="hint-txt">${revealing?'':(seat.throws===0?`${actorName} — throw all five.`
-      :(seat.throws>0&&seat.held.every(Boolean))?'All five kept — lock in to send it.'
-      :'Tap a die to <b>keep</b> it — everything else gets thrown again.')}</div></div>
+    <div class="hint-strip"><div class="hint-txt">${hintTxt}</div></div>
     ${actionBar}
     ${talkStripHTML()}
   </div>`;
