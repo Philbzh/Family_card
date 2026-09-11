@@ -1636,6 +1636,140 @@ async function runPresentation(A,W,frame){
       G.lp.every(p=>p.fkOnBoard&&p.totalScore>=9600));
   });
 
+  /* —— Bingo: a real ticket, every time —————— */
+  suite('Bingo tickets are always genuinely valid',()=>{
+    const tickets=[];
+    for(let i=0;i<300;i++)tickets.push(A.bingoGenerateTicket());
+    let rowsOk=true,colsOk=true,rangeOk=true,uniqOk=true,badTicket=null;
+    for(const g of tickets){
+      const flat=[];
+      for(let r=0;r<3;r++){
+        const nums=g[r].filter(x=>x!==null);
+        if(nums.length!==5)rowsOk=false;
+        nums.forEach(n=>flat.push(n));
+      }
+      for(let c=0;c<9;c++){
+        const colVals=[g[0][c],g[1][c],g[2][c]].filter(x=>x!==null);
+        if(colVals.length<1||colVals.length>3)colsOk=false;
+        const[lo,hi]=A.bingoColRange(c);
+        if(!colVals.every(v=>v>=lo&&v<=hi))rangeOk=false;
+        if(JSON.stringify([...colVals].sort((a,b)=>a-b))!==JSON.stringify(colVals))colsOk=false;
+      }
+      if(new Set(flat).size!==15)uniqOk=false;
+      if(!rowsOk||!colsOk||!rangeOk||!uniqOk){badTicket=badTicket||JSON.stringify(g);}
+    }
+    check('every row has exactly 5 numbers, 300 tickets checked',rowsOk,badTicket||'');
+    check('every column has 1-3 numbers, ascending top to bottom',colsOk,badTicket||'');
+    check('every number falls inside its own column\'s range',rangeOk,badTicket||'');
+    check('all 15 numbers on a ticket are unique',uniqOk,badTicket||'');
+    check('column 0 is 1-9, column 8 is 80-90 (11 numbers, one column wider than the rest)',
+      JSON.stringify(A.bingoColRange(0))==='[1,9]'&&JSON.stringify(A.bingoColRange(8))==='[80,90]');
+  });
+
+  /* —— Bingo: a stage is exactly as complete as the calls say, nothing more —————— */
+  suite('Bingo win detection matches the calls, not the ticket owner\'s luck',()=>{
+    const t=A.bingoGenerateTicket();
+    const row0=t[0].filter(n=>n!==null);
+    check('calling exactly one row\'s numbers completes that line',
+      A.bingoLinesComplete(t,new Set(row0))>=1);
+    check('one line is NOT eligible for two lines',
+      !A.bingoStageEligible(t,new Set(row0),'twoLines'));
+    const allNums=t.flat().filter(n=>n!==null);
+    check('calling every number on the ticket is eligible for house',
+      A.bingoStageEligible(t,new Set(allNums),'house'));
+    check('missing exactly one number is NOT house',
+      !A.bingoStageEligible(t,new Set(allNums.slice(0,-1)),'house'));
+    check('nothing called, nothing complete',A.bingoLinesComplete(t,new Set())===0);
+
+    // Round points: only stages THIS player actually claimed should count, and only once.
+    const bg={stageWinners:{line:{id:1},twoLines:{id:2},house:{id:1}}};
+    check('a player who claimed line and house gets 1+3=4, not everything on the board',
+      A.bingoRoundPoints(bg,1)===4);
+    check('a player who claimed only two lines gets exactly 2',
+      A.bingoRoundPoints(bg,2)===2);
+    check('a player who claimed nothing gets 0',A.bingoRoundPoints(bg,3)===0);
+  });
+
+  suite('Bingo bots claim fast on sharp, slow on gentle',()=>{
+    const sharpSamples=[],gentleSamples=[];
+    for(let i=0;i<40;i++){sharpSamples.push(A.bingoBotClaimDelay('sharp'));gentleSamples.push(A.bingoBotClaimDelay('gentle'));}
+    check('sharp never takes longer than gentle\'s fastest possible claim',
+      Math.max(...sharpSamples)<Math.min(...gentleSamples),
+      'sharp max '+Math.max(...sharpSamples)+' vs gentle min '+Math.min(...gentleSamples));
+  });
+
+  /* —— Bingo: the real local engine, deal to full house —————— */
+  suite('Bingo plays a full local round end to end through the real engine',()=>{
+    const G=W.eval('G'),bgClaim=W.eval('bgClaim'),lStartMatch=W.eval('lStartMatch');
+    const mk=(id,n)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,
+      chips:1000,bet:0,folded:false,allIn:false});
+    G.isOnline=false;G.srv=null;G.selGame='bingo';
+    G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;lStartMatch();
+    check('both seats get their own independent 15-number ticket',
+      JSON.stringify(G.lp[0].bgTicket)!==JSON.stringify(G.lp[1].bgTicket));
+    check('the caller starts with nothing called yet',G.bg.calledNumbers.length===0&&G.bg.phase==='calling');
+
+    const phil=G.lp[0];
+    const row0=phil.bgTicket[0].filter(n=>n!==null);
+    G.bg.calledNumbers.push(...row0);
+    check('claiming a line before it\'s actually complete is refused',(()=>{
+      const before=JSON.stringify(G.bg.stageWinners);
+      bgClaim(0,'twoLines'); // only one row called so far, not two
+      return JSON.stringify(G.bg.stageWinners)===before;
+    })());
+    bgClaim(0,'line');
+    check('a valid line claim scores 1 point and records the winner',
+      phil.totalScore===1&&G.bg.stageWinners.line.id===1);
+    check('claiming the SAME stage again is refused, not double-paid',(()=>{
+      bgClaim(0,'line');
+      return phil.totalScore===1;
+    })());
+
+    const row1=phil.bgTicket[1].filter(n=>n!==null);
+    G.bg.calledNumbers.push(...row1);
+    bgClaim(0,'twoLines');
+    check('two lines adds 2 more, running total 3',phil.totalScore===3);
+
+    const row2=phil.bgTicket[2].filter(n=>n!==null);
+    G.bg.calledNumbers.push(...row2);
+    bgClaim(0,'house');
+    check('full house adds the last 3, running total 6 (1+2+3)',phil.totalScore===6);
+    check('the round ends the instant house is claimed',G.scr==='roundend');
+    check('rRoundEnd renders the win with no game-specific screen of its own',(()=>{
+      try{ return W.eval('rRoundEnd')().includes('Phil'); }catch(e){ return false; }
+    })());
+
+    // Deal again: points carry over, everything else is fresh.
+    const oldTicket=JSON.stringify(phil.bgTicket);
+    doc.querySelector('[data-a="next"]')?.click();
+    if(G.scr==='table'){
+      check('points carry over into the next round',phil.totalScore===6);
+      check('a fresh round gets a fresh ticket',JSON.stringify(phil.bgTicket)!==oldTicket);
+      check('the call history and stage winners reset',G.bg.calledNumbers.length===0&&!G.bg.stageWinners.line);
+    } else {
+      check('deal-again landed on the table screen',false,'landed on '+G.scr+' instead');
+    }
+  });
+
+  /* —— Bingo: the auto-caller must survive being re-armed by unrelated renders —————— */
+  suite('Bingo\'s local caller is not reset by every render()',()=>{
+    // Regression: bgArmLocalCaller() used to clear+restart its timer unconditionally every time it
+    // ran, but it's called from render()'s own single-hook-point list -- meaning ANY unrelated
+    // render (a reaction bubble, a resize) would perpetually push the countdown back out, and the
+    // very first number would never actually get called. Caught by driving ten redundant renders
+    // across half a second and confirming the pending call still landed on schedule afterward.
+    const G=W.eval('G'),lStartMatch=W.eval('lStartMatch'),bgClearCaller=W.eval('bgClearCaller');
+    const mk=(id,n)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,
+      chips:1000,bet:0,folded:false,allIn:false});
+    G.isOnline=false;G.srv=null;G.selGame='bingo';
+    G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;lStartMatch();
+    check('a caller timer is armed the instant the round starts',W.eval('_bgCallTimer')!==null);
+    for(let i=0;i<10;i++)W.render();
+    check('ten redundant renders do not touch the call count',G.bg.calledNumbers.length===0);
+    check('the timer is still the one originally armed, not perpetually replaced',W.eval('_bgCallTimer')!==null);
+    bgClearCaller();
+  });
+
   /* —— Every control must be reachable at the sizes this family actually uses —————— */
   /* Two bugs shipped because the app was only ever checked at desktop width: setup panels squashed
      instead of scrolling (a flex item with overflow:hidden has min-height:auto == 0, so it collapses
@@ -1659,6 +1793,9 @@ async function runPresentation(A,W,frame){
       ['Farkle table',()=>{G.selGame='farkle';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();G.scr='table';}],
       ['Farkle table, mid-turn with a valid selection',()=>{G.selGame='farkle';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();
         G.fk.dice=[1,1,1,5,2,3];G.fk.hasRolled=true;G.fk.selected=[true,true,true,true,false,false];G.scr='table';}],
+      ['Bingo table, 4 players',()=>{G.selGame='bingo';G.lp=mk(4);G.lstart=0;W.eval('lStartMatch')();G.scr='table';}],
+      ['Bingo table, a claim button showing',()=>{G.selGame='bingo';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();
+        const row0=G.lp[0].bgTicket[0].filter(n=>n!==null);G.bg.calledNumbers=row0.slice();G.scr='table';}],
       ['Hand-over screen, with a penalty showing',()=>{G.selGame='maumau';G.lp=mk(3);G.lstart=0;G.lpend=2;W.eval('lStartMatch')();G.scr='pass';G.lpass1='Player 2';G.lpass2='';}],
       ['Lobby, 8 seats',()=>{G.isOnline=true;G.roomId='ABCD';G.isHost=true;G.myPid='p1';
         G.srv={phase:'lobby',gameId:'maumau',host:'p1',players:mk(8).map((p,i)=>({...p,id:'p'+(i+1)}))};G.scr='lobby';}]
@@ -1725,6 +1862,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'ddEvaluate','ddResolveRound','ddBotHolds','ddScoringDice','avChar','avImgSrc','yFreshScorecard','momentIs','ddMaxThrows','ddIsUnderdog','DD_COMBOS','DD_TARGET','DD_COMEBACK_GAP','DD_DUEL_BONUS',
   'yahtzeeBotHolds','yahtzeeBotCategory','blackjackBotMove','rouletteBotBets','isBotPlayer','BOT_GAMES',
   'fkEvaluateSelection','fkHasAnyScore','fkSelectedScore','fkBotSelect','fkBotShouldBank','fkFreshDiceArr','FK_ENTRY_MIN','FK_TARGET','botPendingSig','botAct','lStartMatch','curPlayer','isMyTurn',
+  'bingoGenerateTicket','bingoColRange','bingoRowComplete','bingoLinesComplete','bingoStageEligible','bingoRoundPoints','bingoBotClaimDelay','BG_STAGES','BG_STAGE_NEED','BG_STAGE_POINTS','BG_CALL_MS','clearBotTurn',
   'yScoreCategory','buildDeck','buildUnoDeck','shuffle','momentPortraitSrc','avImgSrc',
   'SUITS','RANKS','AVATARS','ACHIEVEMENTS',
   'computeSidePots','settleSidePots','roulPayoutMultiplier','roulBetWins','yScoreForCategory','yFreshScorecard',
