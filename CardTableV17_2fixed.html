@@ -944,6 +944,16 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 .bg-cell.num{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--paper2);}
 .bg-cell.num.hit{background:linear-gradient(155deg,var(--gold2),var(--gold));color:#1a1000;box-shadow:0 2px 6px rgba(212,168,67,.4);border-color:transparent;animation:bg-cell-hit .35s var(--ease-spring) both;}
 @keyframes bg-cell-hit{0%{transform:scale(.7);}60%{transform:scale(1.15);}100%{transform:scale(1);}}
+.bg-verify{display:flex;flex-direction:column;align-items:center;gap:.6rem;width:100%;text-align:center;padding:.4rem 0 .8rem;}
+.bg-verify-shout{font-family:var(--serif);font-size:2.6rem;font-weight:800;letter-spacing:.03em;background:linear-gradient(155deg,#fff6dc,var(--gold2) 55%,var(--gold) 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 4px 14px rgba(212,168,67,.5));animation:bg-shout-in .5s var(--ease-spring) both;}
+@keyframes bg-shout-in{0%{transform:scale(.4) rotate(-8deg);opacity:0;}65%{transform:scale(1.15) rotate(3deg);}100%{transform:scale(1) rotate(0);opacity:1;}}
+.bg-verify-who{display:flex;align-items:center;gap:.45rem;font-size:.9rem;font-weight:700;color:var(--paper1);}
+.bg-verify-who .av-img{width:2rem;height:2rem;border-radius:50%;object-fit:cover;}
+.bg-verify-sub{font-size:.72rem;color:var(--paper3);margin-top:-.2rem;}
+.bg-verify .bg-ticket-wrap,.bg-verify .bg-ticket{width:100%;}
+.bg-verify .bg-hist-strip{margin-bottom:.2rem;}
+.bg-verify .btn-full{width:100%;margin-top:.3rem;}
+.bg-verify-hint{font-size:.66rem;color:rgba(251,247,237,.4);}
 
 .y-scorecard{flex:1;min-height:0;overflow-y:auto;margin:0 .85rem .85rem;display:flex;flex-direction:column;gap:.15rem;padding-right:.2rem;}
 .ysc-section-lbl{font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(251,247,237,.4);padding:.6rem 0 .2rem;flex-shrink:0;}
@@ -3952,6 +3962,12 @@ const BG_STAGE_LABEL={line:'One Line',twoLines:'Two Lines',house:'Full House'};
 // Long enough to find a number on a 15-cell ticket and register it, short enough that a family of
 // four isn't sitting through a number every 8 seconds for what can be a 40+ call round.
 const BG_CALL_MS=4500;
+// Shouting BINGO doesn't end the round on the spot: the caller stops dead, a big call goes up on
+// every screen, and the room gets this long to actually look at the board before the round
+// concludes -- the real-hall pause where a shout gets checked before it's paid out, done here as a
+// beat everyone can watch rather than a rules check nobody can see (the claim is already verified
+// against the called numbers the instant it's made; this pause is for the table, not the software).
+const BG_VERIFY_MS=4500;
 
 function bingoColRange(c){if(c===0)return[1,9];if(c===8)return[80,90];return[c*10,c*10+9];}
 // A ticket is 9 columns x 3 rows, 15 numbers, 12 blanks. Every column holds 1-3 numbers (never 0 --
@@ -4016,7 +4032,7 @@ function lDealBingo(){
   G.scr='table';
   bgArmLocalCaller();
 }
-let _bgCallTimer=null,_bgOnlineTimer=null,_bgOnlineSig=null;
+let _bgCallTimer=null,_bgOnlineTimer=null,_bgOnlineSig=null,_bgVerifyTimer=null;
 // Called from render()'s own single-hook-point list (same convention as maybeBotTurn/maybeDdReveal),
 // which means it runs on every render, not just once. If it cleared and restarted the timer
 // unconditionally on every one of those calls, the countdown would never survive long enough to
@@ -4031,7 +4047,7 @@ function bgArmLocalCaller(){
   if(_bgCallTimer)return;
   _bgCallTimer=setTimeout(()=>{_bgCallTimer=null;bgCallNext();},BG_CALL_MS);
 }
-function bgClearCaller(){clearTimeout(_bgCallTimer);_bgCallTimer=null;}
+function bgClearCaller(){clearTimeout(_bgCallTimer);_bgCallTimer=null;clearTimeout(_bgVerifyTimer);_bgVerifyTimer=null;}
 function bgCallNext(){
   const bg=G.bg;if(!bg||bg.phase!=='calling')return;
   const remaining=[];for(let n=1;n<=90;n++)if(!bg.calledNumbers.includes(n))remaining.push(n);
@@ -4051,18 +4067,38 @@ function bgClaim(seatIdx,stage){
   G.llast=esc(p.name)+' claims '+BG_STAGE_LABEL[stage]+'!';
   SFX.win();fxPulse(stage==='house'?'gold':'blue');haptic(stage==='house'?[20,40,20,40,20]:[15,30,15]);
   if(stage==='house'){
+    // The shout lands and the points are real immediately -- there's nothing left to dispute, the
+    // claim was already checked against the called numbers above. What's deferred is the SCREEN
+    // and the celebration: the caller stops dead and a big shout goes up, but the confetti and the
+    // round-end screen wait for the pause to finish, exactly like the online path has to (there,
+    // nothing can broadcast "round over" without also broadcasting a screen change to every other
+    // phone) -- kept identical here on purpose rather than local getting an early burst online
+    // players don't.
     bgClearCaller();
-    bg.phase='roundover';
-    G.tw++;localStorage.setItem('ct_tw',G.tw);
-    v14WinnerBurst();celebrateWin(p.name,p.avatar);
-    const wIdx=G.lp.indexOf(p);if(wIdx>=0)fxSeatGlow(wIdx,'gold');
-    const bd=G.lp.map(pl=>({id:pl.id,name:pl.name,avatar:pl.avatar,delta:bingoRoundPoints(bg,pl.id),total:pl.totalScore||0,isWinner:pl.id===p.id}));
-    addHistory({game:'bingo',winner:p.name,winnerAvatar:p.avatar,date:new Date().toISOString(),
-      players:G.lp.map(x=>x.name),moment:`${p.name} shouts BINGO! Full house.`,
-      stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats.reactions}});
-    G.lres={wName:p.name,wAv:p.avatar,bd};
-    G.scr='roundend';
+    bg.phase='verifying';bg.verifyUntil=Date.now()+BG_VERIFY_MS;
+    clearTimeout(_bgVerifyTimer);
+    _bgVerifyTimer=setTimeout(()=>bgFinalizeHouse(),BG_VERIFY_MS);
   }
+  render();
+}
+// force=true is the "everyone's already looked, let's go" tap -- the automatic path still waits
+// out the full pause, but nobody should be stuck watching a timer once the table's satisfied.
+function bgFinalizeHouse(force){
+  const bg=G.bg;if(!bg||bg.phase!=='verifying')return;
+  if(!force&&Date.now()<(bg.verifyUntil||0))return;
+  clearTimeout(_bgVerifyTimer);_bgVerifyTimer=null;
+  bg.phase='roundover';
+  const winner=bg.stageWinners.house;
+  const p=G.lp.find(pl=>pl.id===winner.id);if(!p)return;
+  G.tw++;localStorage.setItem('ct_tw',G.tw);
+  v14WinnerBurst();celebrateWin(p.name,p.avatar);
+  const wIdx=G.lp.indexOf(p);if(wIdx>=0)fxSeatGlow(wIdx,'gold');
+  const bd=G.lp.map(pl=>({id:pl.id,name:pl.name,avatar:pl.avatar,delta:bingoRoundPoints(bg,pl.id),total:pl.totalScore||0,isWinner:pl.id===p.id}));
+  addHistory({game:'bingo',winner:p.name,winnerAvatar:p.avatar,date:new Date().toISOString(),
+    players:G.lp.map(x=>x.name),moment:`${p.name} shouts BINGO! Full house.`,
+    stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats.reactions}});
+  G.lres={wName:p.name,wAv:p.avatar,bd};
+  G.scr='roundend';
   render();
 }
 let _bgPendingClaims=new Set();
@@ -4136,11 +4172,32 @@ async function oBgClaim(stage){
     state.lastAct=esc(me.name)+' claims '+BG_STAGE_LABEL[stage]+'!';
     SFX.win();
     if(stage==='house'){
-      bg.phase='roundover';
-      state.winner=me.id;state.winnerName=me.name;state.winnerAv=me.avatar;
-      const bd=(state.players||[]).map(p=>({id:p.id,name:p.name,avatar:p.avatar,delta:bingoRoundPoints(bg,p.id),total:p.totalScore||0,isWinner:p.id===me.id}));
-      state.roundResult={wName:me.name,wAv:me.avatar,bd};
+      // Same two-phase shape as local: the points and the winner are locked in right now (nothing
+      // left to dispute, the claim was just checked against the called numbers), but state.winner
+      // itself stays null until oBgFinalizeHouse runs -- which is what keeps every device on the
+      // table screen, showing the shout, instead of jumping to the round-end screen the instant
+      // one player's phone processes the claim.
+      bg.phase='verifying';bg.verifyUntil=Date.now()+BG_VERIFY_MS;
     }
+    state._ts=Date.now();
+    onSrv(state);
+    await dbWriteIfUnchanged(G.roomId,expectedTs,state);
+  } finally { _onlineBusy=false; }
+}
+// force=true is the manual "we've all seen it" tap; the automatic path (armed from onSrv below,
+// same deadline shape the auto-caller itself uses) still waits out the full pause first.
+async function oBgFinalizeHouse(force){
+  if(_onlineBusy)return;_onlineBusy=true;
+  try{
+    const state=await dbRead(G.roomId);if(!state||!state.bg)return;
+    const bg=state.bg;
+    if(bg.phase!=='verifying'||(!force&&Date.now()<(bg.verifyUntil||0)))return;
+    const winner=bg.stageWinners.house;if(!winner)return;
+    const expectedTs=state._ts;
+    bg.phase='roundover';
+    state.winner=winner.id;state.winnerName=winner.name;state.winnerAv=winner.avatar;
+    const bd=(state.players||[]).map(p=>({id:p.id,name:p.name,avatar:p.avatar,delta:bingoRoundPoints(bg,p.id),total:p.totalScore||0,isWinner:p.id===winner.id}));
+    state.roundResult={wName:winner.name,wAv:winner.avatar,bd};
     state._ts=Date.now();
     onSrv(state);
     await dbWriteIfUnchanged(G.roomId,expectedTs,state);
@@ -6832,14 +6889,23 @@ function onSrv(state){
     _oMauSig=null;
   }
   // Same deadline-scheduling shape as mauPend above, but armed on EVERY connected client rather
-  // than one specific player -- the caller has no owner, so the game has to keep moving even if
-  // whoever's timer fired the previous call has since closed their tab.
+  // than one specific player -- neither the caller nor the post-shout pause has an owner, so the
+  // game has to keep moving even if whoever's timer fired the previous step has since closed
+  // their tab. Two different deadlines share one timer slot; whichever phase state.bg is actually
+  // in decides which one gets armed.
   if(state.gameId==='bingo'&&state.bg&&state.bg.phase==='calling'){
     const sig='bgcall|'+state.bg.nextCallAt;
     if(_bgOnlineSig!==sig){
       _bgOnlineSig=sig;
       clearTimeout(_bgOnlineTimer);
       _bgOnlineTimer=setTimeout(()=>oBgCallNext(),Math.max(0,(state.bg.nextCallAt||0)-Date.now())+150);
+    }
+  } else if(state.gameId==='bingo'&&state.bg&&state.bg.phase==='verifying'){
+    const sig='bgverify|'+state.bg.verifyUntil;
+    if(_bgOnlineSig!==sig){
+      _bgOnlineSig=sig;
+      clearTimeout(_bgOnlineTimer);
+      _bgOnlineTimer=setTimeout(()=>oBgFinalizeHouse(),Math.max(0,(state.bg.verifyUntil||0)-Date.now())+150);
     }
   } else if(_bgOnlineSig!==null){
     _bgOnlineSig=null;clearTimeout(_bgOnlineTimer);_bgOnlineTimer=null;
@@ -8220,10 +8286,10 @@ function bgStageRowHTML(bg,players,online,myId){
       } else if(online){
         const mine=eligible.find(p=>p.id===myId);
         body=mine
-          ?`<button class="btn btn-gold btn-sm" data-a="bg-claim" data-stage="${stage}">🎉 Claim!</button>`
+          ?`<button class="btn btn-gold btn-sm" data-a="bg-claim" data-stage="${stage}">${stage==='house'?'🎱 Shout BINGO!':'🎉 Claim!'}</button>`
           :`<span class="bg-stage-who">${eligible.map(p=>esc(p.name)).join(', ')} can claim!</span>`;
       } else {
-        body=eligible.map(p=>`<button class="btn btn-gold btn-sm" data-a="bg-claim" data-seat="${players.indexOf(p)}" data-stage="${stage}">🎉 ${esc(p.name)}!</button>`).join('');
+        body=eligible.map(p=>`<button class="btn btn-gold btn-sm" data-a="bg-claim" data-seat="${players.indexOf(p)}" data-stage="${stage}">${stage==='house'?'🎱 Shout BINGO!':`🎉 ${esc(p.name)}!`}</button>`).join('');
       }
     }
     return `<div class="bg-stage${won?' won':''}"><div class="bg-stage-hd">${BG_STAGE_LABEL[stage]} <b>+${BG_STAGE_POINTS[stage]}</b></div><div class="bg-stage-body">${body}</div></div>`;
@@ -8235,6 +8301,35 @@ function rBingoTable(){
   const bg=online?state?.bg:G.bg;
   if(!bg||!players.length||!players[0]?.bgTicket)return`<div class="scr on"><p style="padding:2rem;text-align:center;">Dealing tickets…</p></div>`;
   const calledSet=new Set(bg.calledNumbers||[]);
+  if(bg.phase==='verifying'){
+    // The whole point of the pause is that everyone at the table gets the same big shout on their
+    // own screen at the same moment -- so this branch skips the normal calling UI entirely rather
+    // than layering a banner on top of it, and shows the winner's actual ticket against the called
+    // numbers so the room can genuinely check it, not just take the app's word for it.
+    const winner=bg.stageWinners.house;
+    const wp=players.find(p=>p.id===winner.id)||players[0];
+    const history=(bg.calledNumbers||[]).slice(-14).reverse();
+    const histHTML=history.map(n=>`<span class="bg-hist-num">${n}</span>`).join('');
+    return`<div id="s-table" class="scr on game-bingo">
+      <div class="game-bar">
+        <div class="gb-game">🎱 Bingo</div>
+        <div class="gb-turn mine">Round ${online?(state?.round||1):(G.lround||1)}</div>
+        <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
+      </div>
+      <div class="felt-table bg-felt" style="flex:1;min-height:0;padding:1rem .8rem;gap:.7rem;overflow-y:auto;">
+        <div class="bg-verify">
+          <div class="bg-verify-shout">🎱 BINGO!</div>
+          <div class="bg-verify-who">${avHTML(wp.avatar)}<span>${esc(wp.name)} shouted Bingo!</span></div>
+          <div class="bg-verify-sub">Full house — check it against the numbers called</div>
+          <div class="bg-hist-strip">${histHTML||'<span class="roul-hist-empty">No calls yet</span>'}</div>
+          ${bgTicketHTML(wp.bgTicket,calledSet)}
+          <button class="btn btn-gold btn-full" data-a="bg-confirm">✅ Confirmed — continue</button>
+          <div class="bg-verify-hint">Starting the next round shortly…</div>
+        </div>
+      </div>
+      ${talkStripHTML()}
+    </div>`;
+  }
   const myIdx=online?Math.max(0,players.findIndex(p=>p.id===G.myPid)):Math.min(G.bgViewSeat||0,players.length-1);
   const me=players[myIdx]||players[0];
   const history=(bg.calledNumbers||[]).slice(-14).reverse();
@@ -9430,6 +9525,7 @@ document.addEventListener('click',e=>{
   else if(a==='fkbank'){G.isOnline?oFkBank():fkBank();}
   else if(a==='bg-claim'){G.isOnline?oBgClaim(t.getAttribute('data-stage')):bgClaim(+t.getAttribute('data-seat'),t.getAttribute('data-stage'));}
   else if(a==='bg-view'){G.bgViewSeat=+t.getAttribute('data-seat');render();}
+  else if(a==='bg-confirm'){G.isOnline?oBgFinalizeHouse(true):bgFinalizeHouse(true);}
   else if(a==='yscore'){G.isOnline?oYCommitCategory(t.getAttribute('data-cat')):yCommitCategory(t.getAttribute('data-cat'));}
   else if(a==='roul-bet'){G.isOnline?oRoulPlaceBet(t.getAttribute('data-key')):roulPlaceBet(t.getAttribute('data-key'));}
   else if(a==='roul-select'){if(G.isOnline)return;G.lcur=+t.getAttribute('data-idx');render();}

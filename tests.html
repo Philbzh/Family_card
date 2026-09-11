@@ -1700,7 +1700,7 @@ async function runPresentation(A,W,frame){
 
   /* —— Bingo: the real local engine, deal to full house —————— */
   suite('Bingo plays a full local round end to end through the real engine',()=>{
-    const G=W.eval('G'),bgClaim=W.eval('bgClaim'),lStartMatch=W.eval('lStartMatch');
+    const G=W.eval('G'),bgClaim=W.eval('bgClaim'),lStartMatch=W.eval('lStartMatch'),bgFinalizeHouse=W.eval('bgFinalizeHouse');
     const mk=(id,n)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,
       chips:1000,bet:0,folded:false,allIn:false});
     G.isOnline=false;G.srv=null;G.selGame='bingo';
@@ -1734,7 +1734,13 @@ async function runPresentation(A,W,frame){
     G.bg.calledNumbers.push(...row2);
     bgClaim(0,'house');
     check('full house adds the last 3, running total 6 (1+2+3)',phil.totalScore===6);
-    check('the round ends the instant house is claimed',G.scr==='roundend');
+    check('a house claim pauses for verification instead of ending the round immediately',
+      G.scr==='table'&&G.bg.phase==='verifying');
+    check('the table screen shows the shout during the pause',(()=>{
+      try{ return W.eval('rBingoTable')().includes('BINGO!'); }catch(e){ return false; }
+    })());
+    bgFinalizeHouse(true);
+    check('confirming finalizes the round',G.scr==='roundend');
     check('rRoundEnd renders the win with no game-specific screen of its own',(()=>{
       try{ return W.eval('rRoundEnd')().includes('Phil'); }catch(e){ return false; }
     })());
