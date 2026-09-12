@@ -1904,35 +1904,51 @@ async function runPresentation(A,W,frame){
     bgClearCaller();
   });
 
-  /* —— Black Peter: deck, auto-discard, and turn rotation —————— */
-  suite('Black Peter\'s deck, auto-discard, and turn order are all correct',()=>{
+  /* —— Le Pouilleux: deck, auto-discard, and turn rotation —————— */
+  suite('Le Pouilleux\'s deck, auto-discard, and turn order are all correct',()=>{
     const deck=A.bpBuildDeck();
-    check('the deck has two of each pair emoji plus one Black Peter, '+deck.length+' cards total',
-      deck.length===A.BP_PAIR_EMOJI.length*2+1);
-    check('exactly one Black Peter card exists',deck.filter(c=>c===A.BP_PETER).length===1);
-    check('every non-Peter value appears exactly twice',A.BP_PAIR_EMOJI.every(e=>deck.filter(c=>c===e).length===2));
+    check('the deck is a standard 52 minus the Jack of Clubs, '+deck.length+' cards total',deck.length===51);
+    check('the Jack of Clubs is genuinely gone',!deck.some(c=>c.rank==='J'&&c.suit==='clubs'));
+    check('the Jack of Spades is still in the deck -- it just can\'t pair',deck.some(c=>A.bpIsPouilleux(c)));
+    check('every other rank+suit combination from a standard deck survives',(()=>{
+      const expected=[];
+      ['spades','hearts','diamonds','clubs'].forEach(s=>['A','2','3','4','5','6','7','8','9','10','J','Q','K'].forEach(r=>{
+        if(r==='J'&&s==='clubs')return;
+        expected.push(r+s);
+      }));
+      const have=new Set(deck.map(c=>c.rank+c.suit));
+      return expected.every(k=>have.has(k))&&have.size===51;
+    })());
 
-    check('a completed pair is discarded, the odd one out stays',
-      JSON.stringify(A.bpAutoDiscard(['🦁','🐘','🦁']))===JSON.stringify(['🐘']));
-    check('Black Peter never pairs with anything',
-      JSON.stringify(A.bpAutoDiscard([A.BP_PETER,'🐘']))===JSON.stringify([A.BP_PETER,'🐘']));
+    // French rules, not plain Old Maid: a pair needs the SAME RANK *and* SAME COLOR. King of hearts
+    // pairs with king of diamonds (both red); it does NOT pair with king of spades, despite being
+    // the same rank -- that mismatch is exactly what makes this Le Pouilleux, not Old Maid.
+    const KH={rank:'K',suit:'hearts'},KD={rank:'K',suit:'diamonds'},KS={rank:'K',suit:'spades'};
+    check('same rank + same color pairs and discards',
+      JSON.stringify(A.bpAutoDiscard([KH,KD]))==='[]');
+    check('same rank + DIFFERENT color does not pair, even though the rank matches',
+      JSON.stringify(A.bpAutoDiscard([KH,KS]).map(c=>c.rank+c.suit))===JSON.stringify(['Khearts','Kspades']));
+    const JS={rank:'J',suit:'spades'},TWD={rank:'2',suit:'diamonds'};
+    check('the Jack of Spades never pairs with anything -- its black partner was removed from the deck',
+      JSON.stringify(A.bpAutoDiscard([JS,TWD]).map(c=>c.rank+c.suit))===JSON.stringify(['Jspades','2diamonds']));
+    const C8S={rank:'8',suit:'spades'},C8C={rank:'8',suit:'clubs'};
     check('two separate completed pairs both clear at once',
-      JSON.stringify(A.bpAutoDiscard(['🦁','🦁',A.BP_PETER,'🐘','🐘']))===JSON.stringify([A.BP_PETER]));
+      JSON.stringify(A.bpAutoDiscard([KH,KD,JS,C8S,C8C]).map(c=>c.rank+c.suit))===JSON.stringify(['Jspades']));
 
     // The two halves of a pair can legitimately land in different hands after dealing (that's what
     // the draw phase is for) -- what must never happen is a SINGLE hand still holding a completed
-    // pair, or Black Peter failing to survive as the lone odd card out, across many random deals.
+    // pair, or the Jack of Spades failing to survive as the lone odd card out, across many deals.
     let peterOk=true,oddOk=true,noPairOk=true,badTrial=null;
     for(let t=0;t<200;t++){
       const n=2+Math.floor(Math.random()*7);
       const hands=A.bpFreshHands(n);
       const flat=hands.flat();
-      if(flat.filter(c=>c===A.BP_PETER).length!==1)peterOk=false;
+      if(flat.filter(c=>A.bpIsPouilleux(c)).length!==1)peterOk=false;
       if(flat.length%2!==1)oddOk=false;
-      if(!hands.every(h=>{const c={};h.forEach(v=>c[v]=(c[v]||0)+1);return Object.values(c).every(x=>x===1);}))noPairOk=false;
+      if(!hands.every(h=>{const c={};h.forEach(v=>{const k=A.bpCardKey(v);c[k]=(c[k]||0)+1;});return Object.values(c).every(x=>x===1);}))noPairOk=false;
       if((!peterOk||!oddOk||!noPairOk)&&badTrial===null)badTrial=t;
     }
-    check('200 random deals (2-8 players): Black Peter always survives as the lone odd card out',peterOk,badTrial!=null?'first bad trial '+badTrial:'');
+    check('200 random deals (2-8 players): the Jack of Spades always survives as the lone odd card out',peterOk,badTrial!=null?'first bad trial '+badTrial:'');
     check('200 random deals: total cards remaining is always odd',oddOk);
     check('200 random deals: no single hand keeps a completed pair after auto-discard',noPairOk);
 
@@ -1945,18 +1961,19 @@ async function runPresentation(A,W,frame){
     check('active count only counts hands that still have cards',A.bpActiveCount(players)===3);
   });
 
-  /* —— Black Peter: the draw mechanic, and every round actually ends —————— */
-  suite('Black Peter\'s draw mechanic pairs correctly, and every round terminates with one loser',()=>{
-    const a={id:1,bpHand:['🦁','🐘']},b={id:2,bpHand:['🦁']};
+  /* —— Le Pouilleux: the draw mechanic, and every round actually ends —————— */
+  suite('Le Pouilleux\'s draw mechanic pairs correctly, and every round terminates with one loser',()=>{
+    const KH={rank:'K',suit:'hearts'},KD={rank:'K',suit:'diamonds'},NINE={rank:'9',suit:'clubs'},SIX={rank:'6',suit:'diamonds'};
+    const a={id:1,bpHand:[KH,NINE]},b={id:2,bpHand:[KD]};
     const r1=A.bpDraw([a,b],1,0,0);
-    check('drawing a matching value forms and discards a pair',r1.paired===true&&r1.drawnValue==='🦁');
-    check('the offerer loses exactly the drawn card',JSON.stringify(a.bpHand)===JSON.stringify(['🐘']));
+    check('drawing a matching rank+color forms and discards a pair',r1.paired===true&&r1.drawnValue.rank==='K');
+    check('the offerer loses exactly the drawn card',a.bpHand.length===1&&a.bpHand[0].rank==='9');
     check('the drawer\'s hand is empty once its new card paired straight off',b.bpHand.length===0);
 
-    const c={id:3,bpHand:['🐘']},d={id:4,bpHand:['🦉']};
+    const c={id:3,bpHand:[SIX]},d={id:4,bpHand:[NINE]};
     const r2=A.bpDraw([c,d],1,0,0);
-    check('drawing a non-matching value just grows the drawer\'s hand, nothing discarded',
-      r2.paired===false&&c.bpHand.length===0&&JSON.stringify(d.bpHand.slice().sort())===JSON.stringify(['🐘','🦉'].sort()));
+    check('drawing a non-matching card just grows the drawer\'s hand, nothing discarded',
+      r2.paired===false&&c.bpHand.length===0&&d.bpHand.length===2);
 
     let guardOk=true,loserOk=true;
     for(let t=0;t<50;t++){
@@ -1973,14 +1990,14 @@ async function runPresentation(A,W,frame){
       }
       if(guard>=3000)guardOk=false;
       const remaining=players.filter(p=>p.bpHand.length>0);
-      if(remaining.length!==1||remaining[0].bpHand.length!==1||remaining[0].bpHand[0]!==A.BP_PETER)loserOk=false;
+      if(remaining.length!==1||remaining[0].bpHand.length!==1||!A.bpIsPouilleux(remaining[0].bpHand[0]))loserOk=false;
     }
     check('50 full randomly-played rounds all terminate rather than looping forever',guardOk);
-    check('50 full randomly-played rounds all end with exactly one player holding exactly the Black Peter card',loserOk);
+    check('50 full randomly-played rounds all end with exactly one player holding exactly the Jack of Spades',loserOk);
   });
 
-  /* —— Black Peter: standings only credit the first player to escape —————— */
-  suite('Black Peter\'s standings credit only the first player to escape, and rank the loser last',()=>{
+  /* —— Le Pouilleux: standings only credit the first player to escape —————— */
+  suite('Le Pouilleux\'s standings credit only the first player to escape, and rank the loser last',()=>{
     const players=[{id:1,name:'Phil',avatar:'🦊',totalScore:0},{id:2,name:'Anna',avatar:'🐼',totalScore:0},{id:3,name:'Mia',avatar:'🐯',totalScore:5}];
     const loser=players[2];
     const{bd,firstEscapee}=A.bpBuildStandings(players,[1,2],loser);
@@ -1992,13 +2009,13 @@ async function runPresentation(A,W,frame){
       players[0].totalScore===1&&players[2].totalScore===5);
   });
 
-  /* —— Black Peter: a bot has no decision to make, only a turn to take —————— */
-  suite('Black Peter\'s bot takes its turn immediately, with no decision to make',()=>{
+  /* —— Le Pouilleux: a bot has no decision to make, only a turn to take —————— */
+  suite('Le Pouilleux\'s bot takes its turn immediately, with no decision to make',()=>{
     const G=W.eval('G'),lStartMatch=W.eval('lStartMatch'),botBlackPeterAct=W.eval('botBlackPeterAct'),
       botPendingSig=W.eval('botPendingSig'),bpAdvanceToTurn=W.eval('bpAdvanceToTurn');
     const mk=(id,n,bot)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,
       chips:1000,bet:0,folded:false,allIn:false,...(bot?{bot}:{})});
-    G.isOnline=false;G.srv=null;G.selGame='blackpeter';
+    G.isOnline=false;G.srv=null;G.selGame='lepouilleux';
     G.lp=[mk(1,'Phil'),mk(2,'Rosie','sharp')];G.lstart=0;lStartMatch();
     G.scr='table';
     bpAdvanceToTurn(1,''); // force it onto the bot regardless of who the random deal actually started on
@@ -2009,13 +2026,13 @@ async function runPresentation(A,W,frame){
       G.bp.curIdx!==curIdxBefore||G.scr==='roundend');
   });
 
-  /* —— Black Peter: a full local round end to end through the real engine —————— */
-  suite('Black Peter plays a full local round end to end through the real engine',()=>{
+  /* —— Le Pouilleux: a full local round end to end through the real engine —————— */
+  suite('Le Pouilleux plays a full local round end to end through the real engine',()=>{
     const G=W.eval('G'),lStartMatch=W.eval('lStartMatch'),bpDrawCard=W.eval('bpDrawCard'),
-      bpPrevActive=W.eval('bpPrevActive'),BP_PETER=W.eval('BP_PETER');
+      bpPrevActive=W.eval('bpPrevActive'),bpIsPouilleux=W.eval('bpIsPouilleux');
     const mk=(id,n)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,
       chips:1000,bet:0,folded:false,allIn:false});
-    G.isOnline=false;G.srv=null;G.selGame='blackpeter';
+    G.isOnline=false;G.srv=null;G.selGame='lepouilleux';
     G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;lStartMatch();
     check('both seats get a hand, and the round starts with a valid turn',
       !!(G.lp[0].bpHand&&G.lp[1].bpHand&&G.bp&&G.bp.curIdx>=0));
@@ -2030,8 +2047,8 @@ async function runPresentation(A,W,frame){
     }
     check('the round reaches roundend rather than looping forever',G.scr==='roundend');
     const remaining=G.lp.filter(p=>p.bpHand.length>0);
-    check('exactly one player is left holding cards, and it\'s the Black Peter card',
-      remaining.length===1&&remaining[0].bpHand.length===1&&remaining[0].bpHand[0]===BP_PETER);
+    check('exactly one player is left holding cards, and it\'s the Jack of Spades',
+      remaining.length===1&&remaining[0].bpHand.length===1&&bpIsPouilleux(remaining[0].bpHand[0]));
     check('the round result names the actual loser',G.lres&&G.lres.bpLoser&&G.lres.bpLoser.name===remaining[0].name);
     // Regression: a player who ran out of cards by having their LAST card drawn away (rather than
     // by pairing one off as the drawer) used to never get recorded into emptiedOrder at all --
@@ -2039,8 +2056,8 @@ async function runPresentation(A,W,frame){
     check('every player appears in the final standings, not just the loser',G.lres.bd.length===G.lp.length);
     check('the player who escaped is credited as the first escapee',
       G.lres.bd.some(b=>b.id!==remaining[0].id&&b.isWinner&&b.delta===1));
-    check('rRoundEnd renders the Schwarze-Peter reveal, not a generic "wins!"',(()=>{
-      try{ return W.eval('rRoundEnd')().includes('Schwarze Peter'); }catch(e){ return false; }
+    check('rRoundEnd renders the Le Pouilleux reveal, not a generic "wins!"',(()=>{
+      try{ return W.eval('rRoundEnd')().includes('pouilleux'); }catch(e){ return false; }
     })());
 
     // Regression: a stale or duplicate draw arriving after the round already resolved (e.g. a
@@ -2097,8 +2114,8 @@ async function runPresentation(A,W,frame){
       ['Bingo table, the verify pause after a house claim',()=>{G.selGame='bingo';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();
         const p=G.lp[0],all=p.bgTicket.flat().filter(x=>x!==null);G.bg.calledNumbers=all.slice();p.bgMarked=all.slice();
         G.bg.stageWinners.house={id:p.id,name:p.name,avatar:p.avatar};G.bg.phase='verifying';G.bg.verifyUntil=Date.now()+60000;G.scr='table';}],
-      ['Black Peter table, 3 players',()=>{G.selGame='blackpeter';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();G.scr='table';}],
-      ['Black Peter table, my hand has cards to show',()=>{G.selGame='blackpeter';G.lp=mk(2);G.lstart=0;W.eval('lStartMatch')();
+      ['Le Pouilleux table, 3 players',()=>{G.selGame='lepouilleux';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();G.scr='table';}],
+      ['Le Pouilleux table, my hand has cards to show',()=>{G.selGame='lepouilleux';G.lp=mk(2);G.lstart=0;W.eval('lStartMatch')();
         if(!G.lp[G.bp.curIdx].bpHand.length)W.eval('bpAdvanceToTurn')(W.eval('bpNextActive')(G.lp,G.bp.curIdx),'');
         G.scr='table';}],
       ['Hand-over screen, with a penalty showing',()=>{G.selGame='maumau';G.lp=mk(3);G.lstart=0;G.lpend=2;W.eval('lStartMatch')();G.scr='pass';G.lpass1='Player 2';G.lpass2='';}],
@@ -2168,7 +2185,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'yahtzeeBotHolds','yahtzeeBotCategory','blackjackBotMove','rouletteBotBets','isBotPlayer','BOT_GAMES',
   'fkEvaluateSelection','fkHasAnyScore','fkSelectedScore','fkBotSelect','fkBotShouldBank','fkFreshDiceArr','FK_ENTRY_MIN','FK_TARGET','botPendingSig','botAct','lStartMatch','curPlayer','isMyTurn',
   'bingoGenerateTicket','bingoColRange','bingoRowComplete','bingoLinesComplete','bingoStageEligible','bingoRoundPoints','bingoBotClaimDelay','BG_STAGES','BG_STAGE_NEED','BG_STAGE_POINTS','BG_CALL_MS','clearBotTurn',
-  'BP_PAIR_EMOJI','BP_PETER','bpBuildDeck','bpAutoDiscard','bpFreshHands','bpDealValidHands','bpNextActive','bpPrevActive','bpInitialCurIdx','bpActiveCount','bpDraw','bpBuildStandings',
+  'bpBuildDeck','bpCardKey','bpIsPouilleux','bpAutoDiscard','bpFreshHands','bpDealValidHands','bpNextActive','bpPrevActive','bpInitialCurIdx','bpActiveCount','bpDraw','bpBuildStandings',
   'yScoreCategory','buildDeck','buildUnoDeck','shuffle','momentPortraitSrc','avImgSrc',
   'SUITS','RANKS','AVATARS','ACHIEVEMENTS',
   'computeSidePots','settleSidePots','roulPayoutMultiplier','roulBetWins','yScoreForCategory','yFreshScorecard',

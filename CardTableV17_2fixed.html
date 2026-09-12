@@ -979,17 +979,20 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 .bg-verify .btn-full{width:100%;margin-top:.3rem;}
 .bg-verify-hint{font-size:.66rem;color:rgba(251,247,237,.4);}
 
-/* ════════ BLACK PETER ════════ */
+/* ════════ LE POUILLEUX ════════ */
 .bp-turn-banner{text-align:center;font-size:.78rem;color:var(--paper3);padding:.5rem .8rem;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);flex-shrink:0;}
 .bp-turn-banner .av-img{width:1.3rem;height:1.3rem;border-radius:50%;object-fit:cover;vertical-align:-.3em;margin-right:.3rem;}
 .bp-turn-banner b{color:var(--paper);}
 .bp-turn-banner.mine{background:rgba(212,168,67,.14);border-color:rgba(212,168,67,.45);color:var(--gold2);font-weight:700;}
 .bp-offer-row{display:flex;flex-wrap:wrap;justify-content:center;gap:.4rem;flex-shrink:0;}
-.bp-card{width:2.6rem;height:3.6rem;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;}
-.bp-card.back{background:repeating-linear-gradient(45deg,rgba(212,168,67,.14) 0,rgba(212,168,67,.14) 2px,transparent 2px,transparent 9px),linear-gradient(145deg,#0a3020,#1a6040,#0a3020);border:2px solid rgba(212,168,67,.65);}
-.bp-card.back.pick{cursor:pointer;animation:bp-pick-pulse 1.1s ease-in-out infinite;}
+/* Real makeCard()/makeBack() SVGs carry their own face -- this is just the clickable wrapper around
+   one, so a face-down slot in the offer row can pulse to invite a tap without the card art itself
+   needing a "pickable" variant. */
+.bp-card-slot{flex-shrink:0;border-radius:9px;}
+.bp-card-slot.pick{cursor:pointer;animation:bp-pick-pulse 1.1s ease-in-out infinite;}
 @keyframes bp-pick-pulse{0%,100%{box-shadow:0 0 0 rgba(212,168,67,.4);transform:scale(1);}50%{box-shadow:0 0 10px rgba(212,168,67,.6);transform:scale(1.04);}}
-.bp-card.face{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);}
+.bp-card-slot.doom{animation:bp-doom-pulse 1.4s ease-in-out infinite;border-radius:9px;}
+@keyframes bp-doom-pulse{0%,100%{box-shadow:0 0 0 rgba(210,50,60,0);}50%{box-shadow:0 0 12px rgba(210,50,60,.65);}}
 .bp-roster{display:flex;flex-wrap:wrap;justify-content:center;gap:.4rem;flex-shrink:0;}
 .bp-roster-item{display:inline-flex;align-items:center;gap:.3rem;background:rgba(4,12,8,.5);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:.22rem .6rem .22rem .3rem;font-size:.66rem;font-weight:600;color:var(--paper3);}
 .bp-roster-item .av-img{width:1.3rem;height:1.3rem;border-radius:50%;object-fit:cover;}
@@ -2367,13 +2370,13 @@ const GAMES=[
      'Full house pauses the table with a big BINGO banner so everyone can check the winning ticket before the round ends.',
      'First to claim a stage wins it — claims are checked instantly, so nobody can call it early.',
      'Deal again for as many rounds as you like — points carry over across the table.']},
-  {id:'blackpeter',cat:'classic',icon:'🐈‍⬛',name:'Black Peter',players:'2–8',dur:'5–15 min',diff:'easy',deal:0,
-   rules:['Everyone gets a hand of paired picture cards, plus one lone <b>Black Peter</b> card with no partner.',
-     'Any pairs you\'re dealt outright are discarded automatically before play starts.',
+  {id:'lepouilleux',cat:'classic',icon:'🂫',name:'Le Pouilleux',players:'2–8',dur:'5–15 min',diff:'easy',deal:0,
+   rules:['A standard 52-card deck, minus the <b>Jack of Clubs</b> — 51 cards dealt out to everyone.',
+     'A pair is two cards of the <b>same rank and same color</b> — K♥+K♦, or 8♠+8♣ (not just any same rank). Any pairs you\'re dealt outright are discarded automatically.',
      'On your turn, draw <b>one card, face-down</b>, from the hand of the player before you — you won\'t know what it is until it\'s in your hand.',
      'Drew a match? It\'s discarded instantly. No match? Your hand just grew by one, and it\'s the next player\'s turn to draw from you.',
      'Empty your hand and you\'re <b>safe</b> — out of the round for good.',
-     'Play continues until only one player is left holding cards — and it\'s always Black Peter. That player loses the round.']},
+     'With the Jack of Clubs missing, the Jack of Spades can never pair. Whoever\'s left holding it — <b>le pouilleux</b> — loses the round.']},
   {id:'yahtzee',cat:'dice',icon:'🎲',name:'Yahtzee',players:'2–6',dur:'30–45 min',diff:'medium',deal:0,cover:'assets/games/yahtzee.png',
    rules:['Roll <b>5 dice</b>, up to <b>3 times</b> a turn — after the first roll, hold any dice you want to keep and reroll the rest.','After your last roll, choose <b>one scoring category</b> to fill in. Each of the 13 categories can only be used once per game.','Upper section (Ones–Sixes): score the sum of matching dice. Total <b>63+</b> across all six earns a <b>+35 bonus</b>.','Lower section: 3/4 of a Kind &amp; Chance score the sum of all dice; Full House = <b>25</b>; Small Straight = <b>30</b>; Large Straight = <b>40</b>; Yahtzee (5 of a kind) = <b>50</b>.','Rolling a second Yahtzee scores a <b>+100 bonus</b> and can fill any open lower-section category at full value.','Highest total across all 13 categories wins the table.']},
   {id:'roulette',cat:'casino',icon:'🎡',name:'Roulette',players:'1–8',dur:'15–30 min',diff:'easy',deal:0,cover:'assets/games/roulette.png',
@@ -2398,7 +2401,7 @@ const GAMES=[
 ];
 // Single source of truth for which unlocked games have online-multiplayer support, so the "online"
 // gate and the local-only badge on a game's card can never drift out of sync with each other.
-const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','blackpeter'];
+const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux'];
 // The Games tab groups its (growing) roster into these, rather than one long scroll -- every GAMES
 // entry's `cat` must be one of these ids. Order here is the order the category tiles are shown in.
 const GAME_CATEGORIES=[
@@ -3488,7 +3491,7 @@ function lDeal(){
   if(game.id==='yahtzee'){lDealYahtzee();return;}
   if(game.id==='farkle'){lDealFarkle();return;}
   if(game.id==='bingo'){lDealBingo();return;}
-  if(game.id==='blackpeter'){lDealBlackPeter();return;}
+  if(game.id==='lepouilleux'){lDealBlackPeter();return;}
   if(game.id==='dicedual'){lDealDiceDuel();return;}
   if(game.id==='roulette'){lDealRoulette();return;}
   if(game.id==='uno'){lDealUno();return;}
@@ -4365,30 +4368,33 @@ async function oBgFinalizeHouse(force){
   } finally { _onlineBusy=false; }
 }
 
-/* ═══════ BLACK PETER (SCHWARZER PETER) ═══════
-   The oldest kind of hidden-information game at this table: nobody ever chooses anything meaningful
-   -- the only action is picking a face-down position with zero information to act on -- so the
-   entire game is watching hands shrink and grow while everyone braces for who ends up with the cat.
-   Deck: N emoji pairs plus one unpaired Black Peter card. Deal it all out, discard any pairs a
-   player was dealt outright, then take turns drawing one card blind from the hand of the player
-   before you in turn order -- who becomes the new "offerer" for the player after them. A hand that
-   empties is safe for the rest of the round. Whoever's left holding cards once everyone else is
-   empty is necessarily holding just the Black Peter card, and loses. */
-const BP_PAIR_EMOJI=['🦁','🐘','🦒','🐵','🦉','🐸','🦋','🐝','🐙','🦀','🐧','🐢','🦔','🦘','🐨'];
-const BP_PETER='🐈‍⬛';
+/* ═══════ LE POUILLEUX ═══════
+   The French cousin of Old Maid / Schwarzer Peter, and the oldest kind of hidden-information game at
+   this table: nobody ever chooses anything meaningful -- the only action is picking a face-down
+   position with zero information to act on -- so the entire game is watching hands shrink and grow
+   while everyone braces for who ends up with the dreaded card.
+   Deck: a standard 52-card deck minus the Jack of Clubs (51 cards). A pair here is French-rules
+   strict: two cards of the SAME RANK *and* SAME COLOR (K♥+K♦, or 8♠+8♣) -- not just any two of a
+   rank, which is what makes this Le Pouilleux rather than plain Old Maid. Every rank still pairs off
+   completely except the Jack: with J♣ gone, J♥+J♦ still pair, but J♠ has no black partner left --
+   "le pouilleux" falls out of the deck itself, with no special sentinel card needed. Deal it all out,
+   discard any pairs a player was dealt outright, then take turns drawing one card blind from the
+   hand of the player before you in turn order -- who becomes the new "offerer" for the player after
+   them. A hand that empties is safe for the rest of the round. Whoever's left holding cards once
+   everyone else is empty is necessarily holding just the Jack of Spades, and loses. */
 function bpBuildDeck(){
-  const deck=[];
-  BP_PAIR_EMOJI.forEach(e=>deck.push(e,e));
-  deck.push(BP_PETER);
-  return deck;
+  return buildDeck(1,'lepouilleux').filter(c=>!(c.rank==='J'&&c.suit==='clubs'));
 }
-// A value can appear at most twice in a hand -- only 2 of any pair-emoji ever exist -- so removing
-// anything that appears exactly twice removes exactly the completed pairs. Black Peter, partnerless
-// by construction, can never be one of them.
+function bpCardKey(c){return c.rank+(isRed(c.suit)?'r':'b');}
+function bpIsPouilleux(c){return c.rank==='J'&&c.suit==='spades';}
+// A (rank, color) key can appear at most twice in a hand -- only 2 cards of any given rank+color
+// combination ever exist -- so removing anything that appears exactly twice removes exactly the
+// completed pairs. The Jack of Spades, partnerless by construction (its black twin was removed from
+// the deck), can never be one of them.
 function bpAutoDiscard(hand){
   const counts={};
-  hand.forEach(c=>counts[c]=(counts[c]||0)+1);
-  return hand.filter(c=>counts[c]<2);
+  hand.forEach(c=>{const k=bpCardKey(c);counts[k]=(counts[k]||0)+1;});
+  return hand.filter(c=>counts[bpCardKey(c)]<2);
 }
 function bpFreshHands(n){
   const deck=shuffle(bpBuildDeck());
@@ -4438,7 +4444,7 @@ function bpDraw(players,drawerIdx,offererIdx,cardIdx){
   return{drawnValue:card,paired:players[drawerIdx].bpHand.length<=before};
 }
 // Shared by the local and online finalize paths: given the players (with final bpHand state) and
-// the order seats emptied in, builds the standings -- fastest-to-escape first, Black Peter last --
+// the order seats emptied in, builds the standings -- fastest-to-escape first, le pouilleux last --
 // and pays the +1 bonus only to whoever emptied their hand first, the same "first empty hand" credit
 // Mau Mau and Uno already give. Everyone else just gets to have not lost.
 function bpBuildStandings(players,emptiedOrder,loser){
@@ -4454,7 +4460,7 @@ function bpBuildStandings(players,emptiedOrder,loser){
   return{bd,firstEscapee};
 }
 
-/* ── Black Peter: local ── */
+/* ── Le Pouilleux: local ── */
 function lDealBlackPeter(){
   const hands=bpDealValidHands(G.lp.length);
   G.lp.forEach((p,i)=>{p.bpHand=hands[i];});
@@ -4473,7 +4479,7 @@ function bpAdvanceToTurn(curIdx,lastMsg){
   G.bp.turnCount=(G.bp.turnCount||0)+1;
   // rPass() is the SAME shared pass-screen every other local game uses, and it reads G.lcur, not a
   // per-game turn pointer -- without this, it keeps showing whatever player a previous game (or the
-  // previous Black Peter turn) left it pointing at, which can easily be out of bounds for this hand.
+  // previous turn of this same game) left it pointing at, which can easily be out of bounds here.
   G.lcur=curIdx;
   const cur=G.lp[curIdx];
   if(isBotPlayer(cur)){G.scr='table';render();return;}
@@ -4519,8 +4525,8 @@ function bpFinishRound(){
   G.tw++;localStorage.setItem('ct_tw',G.tw);
   SFX.bust();fxPulse('red');
   const loserIdx=G.lp.indexOf(loser);if(loserIdx>=0)fxSeatGlow(loserIdx,'red');
-  addHistory({game:'blackpeter',winner:firstEscapee?firstEscapee.name:null,winnerAvatar:firstEscapee?firstEscapee.avatar:null,
-    date:new Date().toISOString(),players:G.lp.map(x=>x.name),moment:`${loser.name} got stuck with Black Peter!`,
+  addHistory({game:'lepouilleux',winner:firstEscapee?firstEscapee.name:null,winnerAvatar:firstEscapee?firstEscapee.avatar:null,
+    date:new Date().toISOString(),players:G.lp.map(x=>x.name),moment:`${loser.name} is le pouilleux!`,
     stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats.reactions}});
   G.lres={wName:firstEscapee?firstEscapee.name:loser.name,wAv:firstEscapee?firstEscapee.avatar:loser.avatar,bd,bpLoser:{id:loser.id,name:loser.name,avatar:loser.avatar}};
   G.scr='roundend';
@@ -4539,14 +4545,14 @@ function botBlackPeterAct(){
   bpDrawCard(rnd(0,n-1));
 }
 
-/* ── Black Peter: online ──
+/* ── Le Pouilleux: online ──
    Turn-based like Mau Mau, but the action is always the same single thing: draw one blind card from
    the hand of whoever's turn came before yours. There is no strategic race to protect against, just
    the usual CAS write making sure exactly one draw lands per turn. */
 function oBpBuildStart(rs,players){
   const hands=bpDealValidHands(players.length);
   const withHands=players.map((p,i)=>({...p,bpHand:hands[i]}));
-  return{phase:'game',gameId:'blackpeter',host:rs.host,hr:rs.hr||G.hr,players:withHands,
+  return{phase:'game',gameId:'lepouilleux',host:rs.host,hr:rs.hr||G.hr,players:withHands,
     bp:{curIdx:bpInitialCurIdx(withHands),emptiedOrder:[],turnCount:0},
     winner:null,winnerName:null,winnerAv:null,roundResult:null,lastAct:'',round:1,_ts:Date.now()};
 }
@@ -6658,7 +6664,7 @@ function runCountUps(){
    and against what state", and botAct() dispatches to the one per-game function that makes it. */
 // Every game listed here can seat a bot. Anything not here (there is nothing, currently) simply
 // never offers the button, and the driver below stays dormant for it.
-const BOT_GAMES=new Set(['maumau','uno','texas','fivecard','blackjack','yahtzee','battle','roulette','dicedual','farkle','bingo','blackpeter']);
+const BOT_GAMES=new Set(['maumau','uno','texas','fivecard','blackjack','yahtzee','battle','roulette','dicedual','farkle','bingo','lepouilleux']);
 let _botTimer=null,_botSig=null;
 function isBotPlayer(p){return!!(p&&p.bot);}
 // A full table can still gain a bot by converting an empty seat — Battle seats exactly two, so
@@ -6713,8 +6719,8 @@ function botPendingSig(){
     if(!bg||bg.phase!=='calling'||!G.lp.some(isBotPlayer))return null;
     return'bingo|'+bg.calledNumbers.length+'|'+BG_STAGES.filter(s=>!bg.stageWinners[s]).join(',');
   }
-  if(g==='blackpeter'){
-    // No shared G.lcur here either -- Black Peter's turn order lives on G.bp.curIdx, since drawing
+  if(g==='lepouilleux'){
+    // No shared G.lcur here either -- Le Pouilleux's turn order lives on G.bp.curIdx, since drawing
     // (not "playing a card") is the only action, always from the previous active seat.
     const bp=G.bp;if(!bp)return null;
     const cur=G.lp[bp.curIdx];
@@ -6779,7 +6785,7 @@ function botAct(){
   if(g==='battle')return battleFlip();
   if(g==='dicedual')return botDiceDuelAct();
   if(g==='bingo')return botBingoAct();
-  if(g==='blackpeter')return botBlackPeterAct();
+  if(g==='lepouilleux')return botBlackPeterAct();
   const p=G.lp[G.lcur];
   if(g==='maumau'||g==='uno')return botShedAct(p);
   if(g==='texas'||g==='fivecard')return botPokerAct(p);
@@ -7437,13 +7443,13 @@ function onSrv(state){
         }
         G.scr='roundend';render();return;
       }
-      if(state.gameId==='blackpeter'){
+      if(state.gameId==='lepouilleux'){
         G.lres=state.roundResult||null;
         if(state.winner!==prevWinner&&G.lres){
           const loserIdx=(state.players||[]).findIndex(p=>p.id===G.lres.bpLoser?.id);
           SFX.bust();fxPulse('red');
           if(loserIdx>=0)fxSeatGlow(loserIdx,'red');
-          addHistory({game:'blackpeter',winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),players:(state.players||[]).map(p=>p.name),mode:'online',moment:`${G.lres.bpLoser?.name||''} got stuck with Black Peter!`,stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats.reactions}});
+          addHistory({game:'lepouilleux',winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),players:(state.players||[]).map(p=>p.name),mode:'online',moment:`${G.lres.bpLoser?.name||''} is le pouilleux!`,stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats.reactions}});
           if(state.winner===G.myPid){G.tw++;localStorage.setItem('ct_tw',G.tw);}
         }
         G.scr='roundend';render();return;
@@ -7656,7 +7662,7 @@ function hasActiveTable(){
 }
 // One accent color per game, echoing the home-screen game-card border colors, so a portrait's
 // frame and plaque tie back to whichever game it was won at.
-const MOMENT_ACCENT={maumau:'#5fd68a',texas:'#eac976',fivecard:'#eac976',blackjack:'#ef7688',battle:'#7ec2f2',romme:'#a8e0a0',hearts:'#f2a0b4',bridge:'#a8c8e0',uno:'#e0a8d8',yahtzee:'#f2c94c',roulette:'#e0637a',dicedual:'#e8843e',farkle:'#4fd6c9',bingo:'#b98af0',blackpeter:'#6b6b7a'};
+const MOMENT_ACCENT={maumau:'#5fd68a',texas:'#eac976',fivecard:'#eac976',blackjack:'#ef7688',battle:'#7ec2f2',romme:'#a8e0a0',hearts:'#f2a0b4',bridge:'#a8c8e0',uno:'#e0a8d8',yahtzee:'#f2c94c',roulette:'#e0637a',dicedual:'#e8843e',farkle:'#4fd6c9',bingo:'#b98af0',lepouilleux:'#6b6b7a'};
 function rMoments(){
   const history=getHistory();
   const frames=history.map(h=>{
@@ -8194,7 +8200,7 @@ function rTable(){
   if(_tblGameId==='yahtzee')return rYahtzeeTable();
   if(_tblGameId==='farkle')return rFarkleTable();
   if(_tblGameId==='bingo')return rBingoTable();
-  if(_tblGameId==='blackpeter')return rBlackPeterTable();
+  if(_tblGameId==='lepouilleux')return rBlackPeterTable();
   if(_tblGameId==='dicedual')return rDiceDuelTable();
   if(_tblGameId==='roulette')return rRouletteTable();
   const online=G.isOnline,state=online?G.srv:null;
@@ -8805,8 +8811,8 @@ function rBingoTable(){
 }
 // Local pass-and-play never gets a "view any seat" switcher here the way Bingo does -- Bingo's
 // ticket doesn't need secrecy to stay fair, but the entire fun of this game is the mystery of who's
-// holding the cat, so nothing but the current, already-passed-the-device player's own hand is ever
-// shown face-up. Everyone else is always just a name, an avatar and a card-back count.
+// holding le pouilleux, so nothing but the current, already-passed-the-device player's own hand is
+// ever shown face-up. Everyone else is always just a name, an avatar and a card-back count.
 function rBlackPeterTable(){
   const online=G.isOnline,state=online?G.srv:null;
   const players=online?(state?.players||[]):G.lp;
@@ -8818,20 +8824,27 @@ function rBlackPeterTable(){
   const myIdx=online?Math.max(0,players.findIndex(p=>p.id===G.myPid)):curIdx;
   const me=players[myIdx]||players[0];
   const myTurn=online?cur.id===G.myPid:!isBotPlayer(cur);
+  // A hand here can run to 20+ cards -- nothing else in this app packs anywhere near that many face
+  // cards into one row, so this deliberately does NOT reuse HW/HH (sized for a Mau Mau/poker hand of
+  // 5-13): at that size a full Le Pouilleux hand simply doesn't fit, no matter how much the felt
+  // scrolls. A little under half that keeps the real card art while actually fitting several rows.
+  const cw=Math.round(HW*.42),ch=Math.round(HH*.42);
   const turnHTML=myTurn
     ?`<div class="bp-turn-banner mine">👉 Draw a card from ${esc(offerer.name)}!</div>`
     :`<div class="bp-turn-banner">${avHTML(cur.avatar)} <b>${esc(cur.name)}</b> is drawing from ${esc(offerer.name)}…</div>`;
   const offerHTML=Array.from({length:offerer.bpHand.length},(_,i)=>
-    `<div class="bp-card back${myTurn?' pick':''}"${myTurn?` data-a="bp-draw" data-idx="${i}"`:''}></div>`).join('');
+    `<div class="bp-card-slot${myTurn?' pick':''}"${myTurn?` data-a="bp-draw" data-idx="${i}"`:''}>${makeBack(cw,ch)}</div>`).join('');
   const rosterHTML=players.map((p,i)=>{
     const safe=(p.bpHand||[]).length===0;
     return`<div class="bp-roster-item${i===curIdx?' active':''}${safe?' safe':''}">${avHTML(p.avatar)}<span>${esc(p.name)}${online&&p.id===G.myPid?' (You)':''}</span><span class="bp-roster-count">${safe?'✅ safe':'🂠 '+p.bpHand.length}</span></div>`;
   }).join('');
-  const myHandHTML=(me.bpHand||[]).map(c=>`<div class="bp-card face">${c}</div>`).join('')
+  // The Jack of Spades gets a quiet red pulse in your OWN hand only -- a private "oh no" the moment
+  // it lands, since nobody else's screen ever shows your hand's contents at all.
+  const myHandHTML=(me.bpHand||[]).map(c=>`<div class="bp-card-slot${bpIsPouilleux(c)?' doom':''}">${makeCard(c,cw,ch)}</div>`).join('')
     ||'<div class="bp-hand-empty">You\'re safe — empty hand!</div>';
-  return`<div id="s-table" class="scr on game-blackpeter">
+  return`<div id="s-table" class="scr on game-lepouilleux">
     <div class="game-bar">
-      <div class="gb-game">🐈‍⬛ Black Peter</div>
+      <div class="gb-game">🂫 Le Pouilleux</div>
       <div class="gb-turn mine">Round ${online?(state?.round||1):(G.lround||1)}</div>
       <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
     </div>
@@ -9100,7 +9113,7 @@ function roundMoment(r){
   if(r.roulNumber!=null){
     return bd.some(b=>b.isWinner)?`${esc(winner?.name||'')} called ${r.roulNumber} ${r.roulColor} right!`:`${r.roulNumber} ${r.roulColor} — the house takes this spin.`;
   }
-  if(r.bpLoser)return `${esc(r.bpLoser.name)} got stuck holding the cat!`;
+  if(r.bpLoser)return `${esc(r.bpLoser.name)} is le pouilleux!`;
   if(winner&&runnerUp&&typeof winner.total==='number'&&typeof runnerUp.total==='number'){
     const margin=Math.abs(winner.total-runnerUp.total);
     if(margin<=5&&margin>=0)return `A nail-biter — ${esc(winner?.name||'')} edges it out.`;
@@ -9134,14 +9147,17 @@ function rRoundEnd(){
   // the chip leader with "wins!" directly contradicts the correct "house takes this spin" text
   // already shown just below in the table-moment panel.
   const roulNoWinner=isRoulette&&!r.bd.some(b=>b.isWinner);
-  // Black Peter's headline is the loser, not r.wName -- r.wName/wAv there is just whoever gets the
+  // Le Pouilleux's headline is the loser, not r.wName -- r.wName/wAv there is just whoever gets the
   // "first empty hand" scoring credit (kept separate so achievements/history still see a real
-  // winner), but the moment everyone's actually waiting for is who got stuck with the cat.
-  const winTitle=r.bpLoser?`${r.bpLoser.avatar} ${esc(r.bpLoser.name)} is the Schwarze Peter! 🐈‍⬛`:roulNoWinner?'The house takes this spin':`${r.wAv} ${esc(r.wName)} wins!`;
+  // winner), but the moment everyone's actually waiting for is who's stuck holding the Jack of Spades.
+  const winTitle=r.bpLoser?`${r.bpLoser.avatar} ${esc(r.bpLoser.name)} is le pouilleux! 🂫`:roulNoWinner?'The house takes this spin':`${r.wAv} ${esc(r.wName)} wins!`;
   const roulBadge=isRoulette?`<div class="roul-hist-num roul-hist-${r.roulColor}" style="width:2.6rem;height:2.6rem;font-size:1.2rem;margin:.3rem auto 0;">${r.roulNumber}</div>`:'';
+  // The dramatic reveal: it's always the Jack of Spades by construction (see bpBuildDeck), so this
+  // needs no data from the round result beyond "yes, someone lost" -- just show the actual card.
+  const pouilleuxBadge=r.bpLoser?`<div style="margin:.5rem auto 0;">${makeCard({rank:'J',suit:'spades'},72,100)}</div>`:'';
   return`<div id="s-roundend" class="scr on">
     <div class="topbar"><span class="top-title" style="font-family:var(--serif);">${isRoulette?'The Wheel Stops':'Round Result'}</span><div class="top-right">${sndBtn()}</div></div>
-    <div class="res-body"><div class="winner-banner" style="--acc:${MOMENT_ACCENT[rGid]||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${winTitle}</div><div class="wb-sub">A great game at the table · ${new Date().toLocaleDateString(undefined,{day:'numeric',month:'long',year:'numeric'})}</div>${roulBadge}<button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div><div class="panel" style="text-align:center;margin-bottom:.8rem;"><div class="panel-lbl">TABLE MOMENT</div><div style="font-family:var(--serif);font-size:1.1rem;color:var(--paper);margin:.2rem 0;">${roundMoment(r)}</div><div style="font-size:.72rem;color:var(--paper3);">Save the score. Deal again. Keep the memory.</div></div><div class="standings">${rows}</div><div class="res-btns"><button class="btn btn-gold" data-a="next">${isRoulette?'🎡 Spin again':'🃏 Deal again'}</button><button class="btn btn-ghost" data-a="endgame">End table</button></div></div>
+    <div class="res-body"><div class="winner-banner" style="--acc:${MOMENT_ACCENT[rGid]||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${winTitle}</div><div class="wb-sub">A great game at the table · ${new Date().toLocaleDateString(undefined,{day:'numeric',month:'long',year:'numeric'})}</div>${roulBadge}${pouilleuxBadge}<button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div><div class="panel" style="text-align:center;margin-bottom:.8rem;"><div class="panel-lbl">TABLE MOMENT</div><div style="font-family:var(--serif);font-size:1.1rem;color:var(--paper);margin:.2rem 0;">${roundMoment(r)}</div><div style="font-size:.72rem;color:var(--paper3);">Save the score. Deal again. Keep the memory.</div></div><div class="standings">${rows}</div><div class="res-btns"><button class="btn btn-gold" data-a="next">${isRoulette?'🎡 Spin again':'🃏 Deal again'}</button><button class="btn btn-ghost" data-a="endgame">End table</button></div></div>
   </div>`;
 }
 
@@ -9239,7 +9255,7 @@ function rYahtzeeEnd(){
 /* ════════ ROUTER ════════ */
 
 /* ═══ V14 CINEMATIC LAYER ═══ */
-function v14GameLabel(id){return ({maumau:'Mau Mau',texas:"Texas Hold'em",fivecard:'Five Card Draw',blackjack:'Blackjack',battle:'Battle',romme:'Rommé',hearts:'Hearts',bridge:'Bridge',yahtzee:'Yahtzee',roulette:'Roulette',dicedual:'Dice Duel',uno:'Uno',farkle:'Farkle',bingo:'Bingo',blackpeter:'Black Peter'})[id]||id||'Card Game'}
+function v14GameLabel(id){return ({maumau:'Mau Mau',texas:"Texas Hold'em",fivecard:'Five Card Draw',blackjack:'Blackjack',battle:'Battle',romme:'Rommé',hearts:'Hearts',bridge:'Bridge',yahtzee:'Yahtzee',roulette:'Roulette',dicedual:'Dice Duel',uno:'Uno',farkle:'Farkle',bingo:'Bingo',lepouilleux:'Le Pouilleux'})[id]||id||'Card Game'}
 function v14Intro(id,dealerName,dealerAvatar){
   const old=document.querySelector('.game-intro');if(old)old.remove();
   const el=document.createElement('div');el.className='game-intro';
@@ -10122,7 +10138,7 @@ document.addEventListener('click',e=>{
         G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }
-      if(rs.gameId==='blackpeter'){
+      if(rs.gameId==='lepouilleux'){
         const players=rs.players.map(p=>({...p,totalScore:p.totalScore||0}));
         const gs=oBpBuildStart(rs,players);
         G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
@@ -10344,7 +10360,7 @@ document.addEventListener('click',e=>{
         G.srv=gs;dbWrite(G.roomId,gs);
         return;
       }
-      if(rs.gameId==='blackpeter'){
+      if(rs.gameId==='lepouilleux'){
         // Points carry over across rounds -- only the hands and turn order are fresh.
         const hands=bpDealValidHands((rs.players||[]).length);
         const players=(rs.players||[]).map((p,i)=>({...p,bpHand:hands[i],totalScore:p.totalScore||0}));
@@ -10384,7 +10400,7 @@ document.addEventListener('click',e=>{
     else if(G.selGame==='dicedual'){G.lp.forEach(p=>{p.totalScore=0;p.roundsWon=0;});G.lround++;lDeal();render();return;}
     else if(G.selGame==='roulette'){G.lround++;lDeal();render();return;}
     else if(G.selGame==='bingo'){G.lround++;lDeal();render();return;}
-    else if(G.selGame==='blackpeter'){G.lround++;lDeal();render();return;}
+    else if(G.selGame==='lepouilleux'){G.lround++;lDeal();render();return;}
     // Blackjack bets Math.min(G.bjBet,p.chips), which at 0 chips is a 0 bet: bjResolve then pays
     // 0*2 on a win and still counts a round won, so a child who loses their stack goes on playing
     // hand after hand for literally nothing, with no message and a Next Hand button that keeps
