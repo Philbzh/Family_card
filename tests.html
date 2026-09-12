@@ -1935,22 +1935,39 @@ async function runPresentation(A,W,frame){
     check('two separate completed pairs both clear at once',
       JSON.stringify(A.bpAutoDiscard([KH,KD,JS,C8S,C8C]).map(c=>c.rank+c.suit))===JSON.stringify(['Jspades']));
 
-    // The two halves of a pair can legitimately land in different hands after dealing (that's what
-    // the draw phase is for) -- what must never happen is a SINGLE hand still holding a completed
-    // pair, or the Jack of Spades failing to survive as the lone odd card out, across many deals.
-    let peterOk=true,oddOk=true,noPairOk=true,badTrial=null;
+    // bpFreshHands deals RAW hands now -- a dealt-in pair is left in place for the player to clear by
+    // hand, not auto-removed. What must still hold across every deal: the two halves of a pair can
+    // legitimately land in different hands (that's what the draw phase is for) or the SAME hand
+    // (that's what manual matching is for), and the Jack of Spades always survives as the lone card
+    // that can never pair at all, no matter how the rest falls.
+    let peterOk=true,oddOk=true,badTrial=null;
     for(let t=0;t<200;t++){
       const n=2+Math.floor(Math.random()*7);
       const hands=A.bpFreshHands(n);
       const flat=hands.flat();
+      if(flat.length!==51)oddOk=false; // raw deal: nothing discarded, all 51 cards are always dealt out
       if(flat.filter(c=>A.bpIsPouilleux(c)).length!==1)peterOk=false;
-      if(flat.length%2!==1)oddOk=false;
-      if(!hands.every(h=>{const c={};h.forEach(v=>{const k=A.bpCardKey(v);c[k]=(c[k]||0)+1;});return Object.values(c).every(x=>x===1);}))noPairOk=false;
-      if((!peterOk||!oddOk||!noPairOk)&&badTrial===null)badTrial=t;
+      if((!peterOk||!oddOk)&&badTrial===null)badTrial=t;
     }
     check('200 random deals (2-8 players): the Jack of Spades always survives as the lone odd card out',peterOk,badTrial!=null?'first bad trial '+badTrial:'');
-    check('200 random deals: total cards remaining is always odd',oddOk);
-    check('200 random deals: no single hand keeps a completed pair after auto-discard',noPairOk);
+    check('200 random deals: all 51 cards are always dealt out, nothing discarded automatically',oddOk);
+
+    // bpDealAndResolve is the orchestration a real deal actually uses: bots clear their own dealt-in
+    // pairs instantly (no UI for them to tap), humans keep theirs untouched to resolve by hand.
+    const humanP={id:1},botP={id:2,bot:'sharp'};
+    let botResolvedOk=true,accountedForOk=true;
+    for(let t=0;t<30;t++){
+      const hands=A.bpDealAndResolve([humanP,botP]);
+      const botCounts={};hands[1].forEach(c=>{const k=A.bpCardKey(c);botCounts[k]=(botCounts[k]||0)+1;});
+      if(!Object.values(botCounts).every(n=>n===1))botResolvedOk=false;
+      // The bot's own dealt-in pairs are gone (auto-discarded), but every card is still accounted
+      // for somewhere: still in a hand, or removed as one half of a pair the bot just cleared.
+      const remaining=hands[0].length+hands[1].length;
+      const botDiscarded=51-remaining>=0&&(51-remaining)%2===0; // pairs are removed two at a time
+      if(remaining>51||!botDiscarded)accountedForOk=false;
+    }
+    check('bpDealAndResolve clears every pair from a bot\'s dealt hand automatically',botResolvedOk);
+    check('every card is still accounted for -- in a hand, or discarded as a whole pair',accountedForOk);
 
     const players=[{bpHand:['a']},{bpHand:[]},{bpHand:['b']},{bpHand:['c']},{bpHand:[]}];
     check('next active after seat 0 skips the empty seat 1, lands on seat 2',A.bpNextActive(players,0)===2);
@@ -1961,24 +1978,41 @@ async function runPresentation(A,W,frame){
     check('active count only counts hands that still have cards',A.bpActiveCount(players)===3);
   });
 
-  /* —— Le Pouilleux: the draw mechanic, and every round actually ends —————— */
-  suite('Le Pouilleux\'s draw mechanic pairs correctly, and every round terminates with one loser',()=>{
-    const KH={rank:'K',suit:'hearts'},KD={rank:'K',suit:'diamonds'},NINE={rank:'9',suit:'clubs'},SIX={rank:'6',suit:'diamonds'};
+  /* —— Le Pouilleux: the draw mechanic no longer resolves itself —————— */
+  suite('Le Pouilleux\'s draw mechanic just moves the card -- matching it is a separate, manual step',()=>{
+    const KH={id:'kh',rank:'K',suit:'hearts'},KD={id:'kd',rank:'K',suit:'diamonds'},NINE={id:'n9',rank:'9',suit:'clubs'},SIX={id:'s6',rank:'6',suit:'diamonds'};
     const a={id:1,bpHand:[KH,NINE]},b={id:2,bpHand:[KD]};
     const r1=A.bpDraw([a,b],1,0,0);
-    check('drawing a matching rank+color forms and discards a pair',r1.paired===true&&r1.drawnValue.rank==='K');
+    check('drawing a matching rank+color reports paired, but does NOT discard it automatically',
+      r1.paired===true&&r1.drawnValue.rank==='K'&&b.bpHand.length===2);
+    check('both halves of the pair genuinely sit in the drawer\'s hand, waiting to be matched by hand',
+      b.bpHand.some(c=>c.rank==='K'&&c.suit==='hearts')&&b.bpHand.some(c=>c.rank==='K'&&c.suit==='diamonds'));
     check('the offerer loses exactly the drawn card',a.bpHand.length===1&&a.bpHand[0].rank==='9');
-    check('the drawer\'s hand is empty once its new card paired straight off',b.bpHand.length===0);
 
     const c={id:3,bpHand:[SIX]},d={id:4,bpHand:[NINE]};
     const r2=A.bpDraw([c,d],1,0,0);
-    check('drawing a non-matching card just grows the drawer\'s hand, nothing discarded',
+    check('drawing a non-matching card just grows the drawer\'s hand',
       r2.paired===false&&c.bpHand.length===0&&d.bpHand.length===2);
 
+    // bpFindPartner / bpRemovePair are the pure primitives the manual match action is built from.
+    const KH2={id:'kh',rank:'K',suit:'hearts'},KD2={id:'kd',rank:'K',suit:'diamonds'},N2={id:'n',rank:'9',suit:'clubs'};
+    const hand2=[KH2,KD2,N2];
+    check('bpFindPartner(hand, cid) returns the actual partner card',A.bpFindPartner(hand2,'kh')===KD2);
+    check('bpFindPartner returns null for a card with nothing to pair with',A.bpFindPartner(hand2,'n')===null);
+    check('bpRemovePair drops exactly the matched pair, keeping everything else',
+      JSON.stringify(A.bpRemovePair(hand2,'kh').map(x=>x.id))===JSON.stringify(['n']));
+    check('bpRemovePair is a no-op (same cards) if cid has no partner right now',
+      JSON.stringify(A.bpRemovePair(hand2,'n').map(x=>x.id))===JSON.stringify(['kh','kd','n']));
+
+    // Plain repeated drawing, with NOBODY ever matching, is not guaranteed to terminate any more --
+    // a full round-robin lap nets everyone back to their starting hand size (each seat offers once
+    // and draws once per lap). Matching is now what actually removes cards from circulation, so this
+    // simulates an attentive player: after every draw, immediately clear anything now matchable in
+    // the drawer's hand, the same instant-resolve a bot gets for real.
     let guardOk=true,loserOk=true;
     for(let t=0;t<50;t++){
       const n=2+Math.floor(Math.random()*7);
-      const players=A.bpFreshHands(n).map((h,i)=>({id:i+1,bpHand:h}));
+      const players=A.bpFreshHands(n).map((h,i)=>({id:i+1,bpHand:A.bpAutoDiscard(h)}));
       let curIdx=A.bpInitialCurIdx(players);
       if(curIdx<0)continue; // the vanishingly rare all-paired-at-deal fluke; nothing to play
       let guard=0;
@@ -1986,13 +2020,14 @@ async function runPresentation(A,W,frame){
         const offererIdx=A.bpPrevActive(players,curIdx);
         const pick=Math.floor(Math.random()*players[offererIdx].bpHand.length);
         A.bpDraw(players,curIdx,offererIdx,pick);
+        players[curIdx].bpHand=A.bpAutoDiscard(players[curIdx].bpHand); // the attentive-player stand-in
         curIdx=A.bpNextActive(players,curIdx);
       }
       if(guard>=3000)guardOk=false;
       const remaining=players.filter(p=>p.bpHand.length>0);
       if(remaining.length!==1||remaining[0].bpHand.length!==1||!A.bpIsPouilleux(remaining[0].bpHand[0]))loserOk=false;
     }
-    check('50 full randomly-played rounds all terminate rather than looping forever',guardOk);
+    check('50 full randomly-played rounds (with immediate matching) all terminate rather than looping forever',guardOk);
     check('50 full randomly-played rounds all end with exactly one player holding exactly the Jack of Spades',loserOk);
   });
 
@@ -2020,16 +2055,68 @@ async function runPresentation(A,W,frame){
     G.scr='table';
     bpAdvanceToTurn(1,''); // force it onto the bot regardless of who the random deal actually started on
     check('botPendingSig recognizes it\'s the bot\'s turn to draw',botPendingSig()!==null);
+    const bot=G.lp[1];
     const curIdxBefore=G.bp.curIdx;
     botBlackPeterAct();
     check('the bot actually took its turn -- the round moved on',
       G.bp.curIdx!==curIdxBefore||G.scr==='roundend');
+    // A bot has no UI to tap a match with, so it still has to self-resolve instantly after drawing --
+    // otherwise its hand would just accumulate pairs forever with nothing ever clearing them.
+    check('the bot\'s hand holds no completed pair after its own draw -- it resolves itself instantly',(()=>{
+      const counts={};(bot.bpHand||[]).forEach(c=>{const k=A.bpCardKey(c);counts[k]=(counts[k]||0)+1;});
+      return Object.values(counts).every(n=>n===1);
+    })());
+  });
+
+  /* —— Le Pouilleux: manual matching -- selection, confirmation, and turn-skipping —————— */
+  suite('Le Pouilleux\'s manual matching requires an actual tap, and can skip a turn',()=>{
+    const G=W.eval('G'),lStartMatch=W.eval('lStartMatch'),bpMatch=W.eval('bpMatch'),
+      bpHandleSelect=W.eval('bpHandleSelect'),bpCardKey=W.eval('bpCardKey');
+    const mk=(id,n)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,
+      chips:1000,bet:0,folded:false,allIn:false});
+    G.isOnline=false;G.srv=null;G.selGame='lepouilleux';
+    G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;lStartMatch();
+    // Force a known, deterministic hand onto whoever's currently up: a completed pair plus one
+    // spare card that must survive untouched.
+    const KH={id:'kh',rank:'K',suit:'hearts'},KD={id:'kd',rank:'K',suit:'diamonds'},N={id:'n',rank:'9',suit:'clubs'};
+    const cur=G.lp[G.bp.curIdx];
+    cur.bpHand=[KH,N,KD];
+    G.scr='table';
+
+    check('a dealt-in pair is NOT auto-resolved -- it just sits in the hand until tapped',
+      cur.bpHand.length===3&&cur.bpHand.some(c=>c.id==='kh')&&cur.bpHand.some(c=>c.id==='kd'));
+
+    bpHandleSelect('n'); // the spare card has no partner -- selecting it must do nothing
+    check('tapping a card with no partner is a no-op, nothing gets selected',G.bpSelected===null);
+
+    bpHandleSelect('kh');
+    check('tapping a pairable card selects it',G.bpSelected==='kh');
+    bpHandleSelect('kh');
+    check('tapping the same card again cancels the selection',G.bpSelected===null);
+
+    bpHandleSelect('kh');
+    check('re-selecting after cancelling still works',G.bpSelected==='kh');
+    bpMatch('kh'); // bpConfirmMatch's animation is skipped in tests -- this is what it calls once it finishes
+    check('matching clears exactly the pair, leaving the spare card behind',
+      cur.bpHand.length===1&&cur.bpHand[0].id==='n');
+    check('the selection is cleared once the match resolves',G.bpSelected===null);
+
+    // Regression: matching your way to an empty hand right as it becomes your turn to draw must
+    // skip you straight to the next player -- an already-safe player should never still be forced
+    // to draw a card back into jeopardy.
+    const curIdxBefore=G.bp.curIdx;
+    const KS2={id:'ks2',rank:'K',suit:'spades'},KC2={id:'kc2',rank:'K',suit:'clubs'};
+    cur.bpHand=[KS2,KC2]; // exactly one pair, nothing else -- matching it empties the hand outright
+    bpMatch('ks2');
+    check('matching down to zero cards marks the player safe and moves the turn on, without a draw',
+      cur.bpHand.length===0&&(G.bp.curIdx!==curIdxBefore||G.scr==='roundend'));
   });
 
   /* —— Le Pouilleux: a full local round end to end through the real engine —————— */
   suite('Le Pouilleux plays a full local round end to end through the real engine',()=>{
     const G=W.eval('G'),lStartMatch=W.eval('lStartMatch'),bpDrawCard=W.eval('bpDrawCard'),
-      bpPrevActive=W.eval('bpPrevActive'),bpIsPouilleux=W.eval('bpIsPouilleux');
+      bpPassTurn=W.eval('bpPassTurn'),bpPrevActive=W.eval('bpPrevActive'),bpIsPouilleux=W.eval('bpIsPouilleux'),
+      bpFindPartner=W.eval('bpFindPartner'),bpMatch=W.eval('bpMatch');
     const mk=(id,n)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,
       chips:1000,bet:0,folded:false,allIn:false});
     G.isOnline=false;G.srv=null;G.selGame='lepouilleux';
@@ -2038,12 +2125,32 @@ async function runPresentation(A,W,frame){
       !!(G.lp[0].bpHand&&G.lp[1].bpHand&&G.bp&&G.bp.curIdx>=0));
     check('a human turn opens with the pass screen, keeping the offerer\'s hand hidden',G.scr==='pass');
 
+    // Plain repeated drawing alone doesn't terminate any more (see the pure-logic suite above), so
+    // this simulates an attentive human: clear every matchable pair in the current hand -- both
+    // before drawing and again afterward, in case the just-drawn card completed something -- then
+    // explicitly passes, exactly the draw / match / pass shape the real screen walks a player
+    // through (bpDrawCard no longer advances the turn by itself; see bpPassTurn).
+    const matchAll=()=>{
+      while(G.scr==='table'){
+        const cur=G.lp[G.bp.curIdx];
+        const c=cur.bpHand.find(x=>bpFindPartner(cur.bpHand,x.id));
+        if(!c)break;
+        bpMatch(c.id);
+      }
+    };
     let guard=0;
-    while(G.scr!=='roundend'&&guard++<3000){
+    while(G.scr!=='roundend'&&guard++<5000){
       if(G.scr==='pass'){doc.querySelector('[data-a="ready"]')?.click();continue;}
-      const curIdx=G.bp.curIdx,offererIdx=bpPrevActive(G.lp,curIdx);
-      const n=G.lp[offererIdx].bpHand.length;
-      bpDrawCard(Math.floor(Math.random()*n));
+      matchAll();
+      if(G.scr!=='table')continue; // matching moved the turn on or ended the round
+      if(!G.bp.hasDrawn){
+        const curIdx=G.bp.curIdx,offererIdx=bpPrevActive(G.lp,curIdx);
+        const n=G.lp[offererIdx].bpHand.length;
+        bpDrawCard(Math.floor(Math.random()*n));
+        matchAll();
+        if(G.scr!=='table')continue;
+      }
+      if(G.bp.hasDrawn)bpPassTurn();
     }
     check('the round reaches roundend rather than looping forever',G.scr==='roundend');
     const remaining=G.lp.filter(p=>p.bpHand.length>0);
@@ -2185,7 +2292,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'yahtzeeBotHolds','yahtzeeBotCategory','blackjackBotMove','rouletteBotBets','isBotPlayer','BOT_GAMES',
   'fkEvaluateSelection','fkHasAnyScore','fkSelectedScore','fkBotSelect','fkBotShouldBank','fkFreshDiceArr','FK_ENTRY_MIN','FK_TARGET','botPendingSig','botAct','lStartMatch','curPlayer','isMyTurn',
   'bingoGenerateTicket','bingoColRange','bingoRowComplete','bingoLinesComplete','bingoStageEligible','bingoRoundPoints','bingoBotClaimDelay','BG_STAGES','BG_STAGE_NEED','BG_STAGE_POINTS','BG_CALL_MS','clearBotTurn',
-  'bpBuildDeck','bpCardKey','bpIsPouilleux','bpAutoDiscard','bpFreshHands','bpDealValidHands','bpNextActive','bpPrevActive','bpInitialCurIdx','bpActiveCount','bpDraw','bpBuildStandings',
+  'bpBuildDeck','bpCardKey','bpIsPouilleux','bpAutoDiscard','bpFindPartner','bpRemovePair','bpFreshHands','bpDealAndResolve','bpNextActive','bpPrevActive','bpInitialCurIdx','bpActiveCount','bpDraw','bpMatch','bpHandleSelect','bpBuildStandings',
   'yScoreCategory','buildDeck','buildUnoDeck','shuffle','momentPortraitSrc','avImgSrc',
   'SUITS','RANKS','AVATARS','ACHIEVEMENTS',
   'computeSidePots','settleSidePots','roulPayoutMultiplier','roulBetWins','yScoreForCategory','yFreshScorecard',

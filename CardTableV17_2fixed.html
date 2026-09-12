@@ -993,6 +993,15 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 @keyframes bp-pick-pulse{0%,100%{box-shadow:0 0 0 rgba(212,168,67,.4);transform:scale(1);}50%{box-shadow:0 0 10px rgba(212,168,67,.6);transform:scale(1.04);}}
 .bp-card-slot.doom{animation:bp-doom-pulse 1.4s ease-in-out infinite;border-radius:9px;}
 @keyframes bp-doom-pulse{0%,100%{box-shadow:0 0 0 rgba(210,50,60,0);}50%{box-shadow:0 0 12px rgba(210,50,60,.65);}}
+/* A card with a partner sitting somewhere in the same hand pulses gold to invite the first tap. Once
+   picked up it lifts and stops pulsing (it's chosen, not "still available"); its one true partner
+   switches to a faster, greener pulse -- a different color on purpose, so "tap to start" and "tap to
+   finish" never look like the same affordance. */
+.bp-card-slot.pairable{cursor:pointer;animation:bp-pick-pulse 1.3s ease-in-out infinite;}
+.bp-card-slot.selected{cursor:pointer;animation:none;transform:translateY(-10px);filter:drop-shadow(0 6px 10px rgba(212,168,67,.55));}
+.bp-card-slot.match-target{cursor:pointer;animation:bp-target-pulse .85s ease-in-out infinite;}
+@keyframes bp-target-pulse{0%,100%{box-shadow:0 0 0 rgba(95,214,138,.5);transform:scale(1);}50%{box-shadow:0 0 14px rgba(95,214,138,.85);transform:scale(1.07);}}
+.bp-match-hint{text-align:center;font-size:.72rem;color:var(--gold2);background:rgba(212,168,67,.1);border:1px solid rgba(212,168,67,.3);border-radius:999px;padding:.35rem .8rem;flex-shrink:0;}
 .bp-roster{display:flex;flex-wrap:wrap;justify-content:center;gap:.4rem;flex-shrink:0;}
 .bp-roster-item{display:inline-flex;align-items:center;gap:.3rem;background:rgba(4,12,8,.5);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:.22rem .6rem .22rem .3rem;font-size:.66rem;font-weight:600;color:var(--paper3);}
 .bp-roster-item .av-img{width:1.3rem;height:1.3rem;border-radius:50%;object-fit:cover;}
@@ -2372,9 +2381,10 @@ const GAMES=[
      'Deal again for as many rounds as you like — points carry over across the table.']},
   {id:'lepouilleux',cat:'classic',icon:'🂫',name:'Le Pouilleux',players:'2–8',dur:'5–15 min',diff:'easy',deal:0,
    rules:['A standard 52-card deck, minus the <b>Jack of Clubs</b> — 51 cards dealt out to everyone.',
-     'A pair is two cards of the <b>same rank and same color</b> — K♥+K♦, or 8♠+8♣ (not just any same rank). Any pairs you\'re dealt outright are discarded automatically.',
+     'A pair is two cards of the <b>same rank and same color</b> — K♥+K♦, or 8♠+8♣ (not just any same rank).',
+     'Pairs don\'t clear themselves — <b>tap a card that has a match</b>, then tap the partner it lights up to clear both.',
      'On your turn, draw <b>one card, face-down</b>, from the hand of the player before you — you won\'t know what it is until it\'s in your hand.',
-     'Drew a match? It\'s discarded instantly. No match? Your hand just grew by one, and it\'s the next player\'s turn to draw from you.',
+     'After drawing, match anything you can, then tap <b>Pass</b> to hand the turn on.',
      'Empty your hand and you\'re <b>safe</b> — out of the round for good.',
      'With the Jack of Clubs missing, the Jack of Spades can never pair. Whoever\'s left holding it — <b>le pouilleux</b> — loses the round.']},
   {id:'yahtzee',cat:'dice',icon:'🎲',name:'Yahtzee',players:'2–6',dur:'30–45 min',diff:'medium',deal:0,cover:'assets/games/yahtzee.png',
@@ -3095,7 +3105,7 @@ let G={
   pot:0,community:[],communityRevealAnim:null,dealerHand:[],dealerHoleHidden:true,dealerRevealAnim:false,bjBet:50,battleLast:null,battleAnimating:false,pokerPhase:'preflop',bigBlind:20,smallBlind:10,dealer:0,
   currentBet:0,betInput:'',drawSelections:new Set(),pokerShowdown:false,
   hr:(()=>{try{return{draw2stack:true,jackWild:true,sevenSkip:true,eightReverse:true,mauAnn:true,...JSON.parse(localStorage.getItem('ct_hr')||'{}')};}catch{return{draw2stack:true,jackWild:true,sevenSkip:true,eightReverse:true,mauAnn:true};}})(),
-  rulesOpen:false,quitOpen:false,dataOpen:false,dataClearAsk:false,gamesCat:null,
+  rulesOpen:false,quitOpen:false,dataOpen:false,dataClearAsk:false,gamesCat:null,bpSelected:null,
   isOnline:false,roomId:null,myPid:null,isHost:false,
   myName:localStorage.getItem('ct_myname')||'',myAvatar:avChar(localStorage.getItem('ct_myavatar')),profileEditing:false,srv:null,
   gp:+(localStorage.getItem('ct_gp')||0),
@@ -4370,18 +4380,25 @@ async function oBgFinalizeHouse(force){
 
 /* ═══════ LE POUILLEUX ═══════
    The French cousin of Old Maid / Schwarzer Peter, and the oldest kind of hidden-information game at
-   this table: nobody ever chooses anything meaningful -- the only action is picking a face-down
-   position with zero information to act on -- so the entire game is watching hands shrink and grow
-   while everyone braces for who ends up with the dreaded card.
+   this table: nobody ever chooses anything meaningful in the DRAW itself -- the only action there is
+   picking a face-down position with zero information to act on. The one real thing a player DOES do
+   is notice their own pairs and clear them by hand -- selecting a card and tapping its match, rather
+   than having them vanish invisibly, is the whole tactile point of the game.
    Deck: a standard 52-card deck minus the Jack of Clubs (51 cards). A pair here is French-rules
    strict: two cards of the SAME RANK *and* SAME COLOR (K♥+K♦, or 8♠+8♣) -- not just any two of a
    rank, which is what makes this Le Pouilleux rather than plain Old Maid. Every rank still pairs off
    completely except the Jack: with J♣ gone, J♥+J♦ still pair, but J♠ has no black partner left --
-   "le pouilleux" falls out of the deck itself, with no special sentinel card needed. Deal it all out,
-   discard any pairs a player was dealt outright, then take turns drawing one card blind from the
-   hand of the player before you in turn order -- who becomes the new "offerer" for the player after
-   them. A hand that empties is safe for the rest of the round. Whoever's left holding cards once
-   everyone else is empty is necessarily holding just the Jack of Spades, and loses. */
+   "le pouilleux" falls out of the deck itself, with no special sentinel card needed. Deal it all out
+   (bots resolve their own dealt-in pairs instantly -- there's no UI for a bot to tap, and no skill in
+   it either), then take turns drawing one card blind from the hand of the player before you in turn
+   order -- who becomes the new "offerer" for the player after them. A hand that empties (by matching
+   or by being drawn dry) is safe for the rest of the round. Whoever's left holding cards once
+   everyone else is empty is necessarily holding just the Jack of Spades, and loses.
+   IMPORTANT: because matching is no longer automatic, plain repeated drawing alone is NOT guaranteed
+   to terminate -- a full round-robin of draws with nobody ever matching just cycles hand sizes
+   forever (every seat offers once and draws once per lap, netting zero). Bots always self-resolve,
+   which is what keeps an all-bot table converging exactly as before; a human table depends on people
+   actually clearing their pairs, same as it would round a real one. */
 function bpBuildDeck(){
   return buildDeck(1,'lepouilleux').filter(c=>!(c.rank==='J'&&c.suit==='clubs'));
 }
@@ -4390,27 +4407,36 @@ function bpIsPouilleux(c){return c.rank==='J'&&c.suit==='spades';}
 // A (rank, color) key can appear at most twice in a hand -- only 2 cards of any given rank+color
 // combination ever exist -- so removing anything that appears exactly twice removes exactly the
 // completed pairs. The Jack of Spades, partnerless by construction (its black twin was removed from
-// the deck), can never be one of them.
+// the deck), can never be one of them. Used to auto-resolve BOTS only now -- see bpMatch/oBpMatch for
+// the human, one-pair-at-a-time equivalent a player triggers by hand.
 function bpAutoDiscard(hand){
   const counts={};
   hand.forEach(c=>{const k=bpCardKey(c);counts[k]=(counts[k]||0)+1;});
   return hand.filter(c=>counts[bpCardKey(c)]<2);
 }
+// Finds cid's partner in hand, if it has one right now -- the one lookup both the UI (is this card
+// tappable, what does it complete with) and the match actions themselves need.
+function bpFindPartner(hand,cid){
+  const card=hand.find(c=>c.id===cid);if(!card)return null;
+  return hand.find(c=>c.id!==cid&&bpCardKey(c)===bpCardKey(card))||null;
+}
 function bpFreshHands(n){
   const deck=shuffle(bpBuildDeck());
   const hands=Array.from({length:n},()=>[]);
   deck.forEach((c,i)=>hands[i%n].push(c));
-  return hands.map(bpAutoDiscard);
+  return hands;
 }
-// Retries the deal if it leaves fewer than two hands with any cards at all -- an astronomically
-// unlikely fluke (everyone but one player dealt an all-pairs hand), but one that would otherwise
-// mean no turn is even possible. Cheap to just reshuffle rather than special-case.
-function bpDealValidHands(n){
+// Deals raw hands -- pairs included -- then immediately resolves every BOT's dealt-in pairs (they
+// have no UI to do it themselves), leaving every human hand untouched for the player to match by
+// hand. Retries if this leaves fewer than two hands with any cards at all: normally impossible before
+// bot-resolution, but a bot's hand can empty outright if it was dealt nothing but pairs.
+function bpDealAndResolve(players){
+  const resolve=hands=>{players.forEach((p,i)=>{if(isBotPlayer(p))hands[i]=bpAutoDiscard(hands[i]);});return hands;};
   for(let attempt=0;attempt<20;attempt++){
-    const hands=bpFreshHands(n);
+    const hands=resolve(bpFreshHands(players.length));
     if(hands.filter(h=>h.length>0).length>=2)return hands;
   }
-  return bpFreshHands(n);
+  return resolve(bpFreshHands(players.length));
 }
 function bpNextActive(players,fromIdx){
   const n=players.length;
@@ -4437,11 +4463,24 @@ function bpInitialCurIdx(players){
 function bpActiveCount(players){return players.filter(p=>(p.bpHand||[]).length>0).length;}
 // Moves cardIdx from the offerer's hand into the drawer's, discarding any pair that forms. Mutates
 // both players' bpHand in place (works identically for G.lp or an online state.players array).
+// Moves cardIdx from the offerer's hand into the drawer's. No longer resolves a pair itself -- the
+// drawer just ends up holding it, exactly as a human would after picking up a card off a real table.
+// `paired` only reports whether the drawn card now HAS a partner sitting in the hand, for the "you
+// can match it now!" message; whether it actually gets cleared is bpMatch's job, on demand.
 function bpDraw(players,drawerIdx,offererIdx,cardIdx){
   const[card]=players[offererIdx].bpHand.splice(cardIdx,1);
-  const before=players[drawerIdx].bpHand.length;
-  players[drawerIdx].bpHand=bpAutoDiscard([...players[drawerIdx].bpHand,card]);
-  return{drawnValue:card,paired:players[drawerIdx].bpHand.length<=before};
+  players[drawerIdx].bpHand.push(card);
+  const hasPartner=players[drawerIdx].bpHand.some(c=>c.id!==card.id&&bpCardKey(c)===bpCardKey(card));
+  return{drawnValue:card,paired:hasPartner};
+}
+// Removes cid and its current partner from a hand, returning the new (shorter) array -- the
+// human-driven, one-pair-at-a-time equivalent of what bpAutoDiscard does wholesale for bots. Callers
+// reassign p.bpHand to the result; look the partner up with bpFindPartner first if a message or
+// animation needs to know which card it was.
+function bpRemovePair(hand,cid){
+  const partner=bpFindPartner(hand,cid);
+  if(!partner)return hand;
+  return hand.filter(c=>c.id!==cid&&c.id!==partner.id);
 }
 // Shared by the local and online finalize paths: given the players (with final bpHand state) and
 // the order seats emptied in, builds the standings -- fastest-to-escape first, le pouilleux last --
@@ -4462,13 +4501,13 @@ function bpBuildStandings(players,emptiedOrder,loser){
 
 /* ── Le Pouilleux: local ── */
 function lDealBlackPeter(){
-  const hands=bpDealValidHands(G.lp.length);
+  const hands=bpDealAndResolve(G.lp);
   G.lp.forEach((p,i)=>{p.bpHand=hands[i];});
-  G.bp={emptiedOrder:[],turnCount:0};
-  G.lres=null;
+  G.bp={emptiedOrder:[],turnCount:0,hasDrawn:false};
+  G.lres=null;G.bpSelected=null;
   SFX.deal();
   const curIdx=bpInitialCurIdx(G.lp);
-  if(curIdx<0)return; // see bpDealValidHands -- should not happen
+  if(curIdx<0)return; // see bpDealAndResolve -- should not happen
   bpAdvanceToTurn(curIdx,'');
 }
 // Routes to the pass-screen for a human's turn (same convention as Mau Mau: every human turn gets
@@ -4477,6 +4516,8 @@ function lDealBlackPeter(){
 function bpAdvanceToTurn(curIdx,lastMsg){
   G.bp.curIdx=curIdx;
   G.bp.turnCount=(G.bp.turnCount||0)+1;
+  G.bp.hasDrawn=false;
+  G.bpSelected=null; // whatever the last player had mid-selected is meaningless to whoever's up now
   // rPass() is the SAME shared pass-screen every other local game uses, and it reads G.lcur, not a
   // per-game turn pointer -- without this, it keeps showing whatever player a previous game (or the
   // previous turn of this same game) left it pointing at, which can easily be out of bounds here.
@@ -4490,12 +4531,16 @@ function bpAdvanceToTurn(curIdx,lastMsg){
   G.scr='pass';
   render();
 }
+// A bot draws, resolves, and passes in one atomic step -- there's no player waiting on a screen who
+// might want to match something first. A human draws exactly once, then STAYS on their own turn
+// (bp.hasDrawn gates the offer row shut) so they get a real chance to match the card they just
+// picked up -- or anything else sitting in hand -- before tapping bp-pass to hand the turn on.
 function bpDrawCard(cardIdx){
   const bp=G.bp;
   // A stale tap arriving after the round has already resolved (a duplicate dispatch, a leftover
   // reference to a control that no longer matches what's on screen) must not be able to "revive" a
   // finished round by drawing the loser's last card right back out of their hand.
-  if(!bp||bpActiveCount(G.lp)<=1)return;
+  if(!bp||bp.hasDrawn||bpActiveCount(G.lp)<=1)return;
   const curIdx=bp.curIdx;
   const offererIdx=bpPrevActive(G.lp,curIdx);
   if(offererIdx<0)return;
@@ -4503,20 +4548,52 @@ function bpDrawCard(cardIdx){
   if(cardIdx<0||cardIdx>=offerer.bpHand.length)return;
   const{paired}=bpDraw(G.lp,curIdx,offererIdx,cardIdx);
   SFX.chip();haptic(paired?[15,30,15]:[10]);
-  // A hand can empty on EITHER side of a draw -- the drawer, by pairing off their last card, or the
-  // offerer, by having their very last card taken away. Missing the offerer's case here used to mean
-  // a player who escaped that way never made it into emptiedOrder at all -- absent from the final
-  // standings entirely, not just denied the first-escapee bonus.
+  // The offerer can still empty straight from being drawn dry -- untouched by manual matching, since
+  // that only ever changes the DRAWER's hand size, never the offerer's.
   if(offerer.bpHand.length===0)bp.emptiedOrder.push(offerer.id);
-  let msg;
-  if(drawer.bpHand.length===0){
-    bp.emptiedOrder.push(drawer.id);
-    msg=`${esc(drawer.name)} is safe — hand empty!`;
-  } else {
-    msg=paired?`${esc(drawer.name)} drew from ${esc(offerer.name)} — a pair! 🎉`:`${esc(drawer.name)} drew from ${esc(offerer.name)} — no match.`;
+  if(isBotPlayer(drawer)){
+    drawer.bpHand=bpAutoDiscard(drawer.bpHand);
+    const drawerEmptied=drawer.bpHand.length===0;
+    if(drawerEmptied)bp.emptiedOrder.push(drawer.id);
+    const msg=drawerEmptied?`${esc(drawer.name)} is safe — hand empty!`:`${esc(drawer.name)} drew from ${esc(offerer.name)}.`;
+    if(bpActiveCount(G.lp)<=1){bpFinishRound();return;}
+    bpAdvanceToTurn(bpNextActive(G.lp,curIdx),msg);
+    return;
   }
-  if(bpActiveCount(G.lp)<=1){bpFinishRound();return;}
-  bpAdvanceToTurn(bpNextActive(G.lp,curIdx),msg);
+  bp.hasDrawn=true;
+  // Stashed for whatever pass screen bpPassTurn eventually shows -- drawing no longer advances the
+  // turn directly, so this is the only place left that still knows what actually just happened.
+  bp.pendingMsg=paired?`${esc(drawer.name)} drew from ${esc(offerer.name)} — that pairs with one in hand!`:`${esc(drawer.name)} drew from ${esc(offerer.name)} — no match.`;
+  if(bpActiveCount(G.lp)<=1){bpFinishRound();return;} // the offerer emptying out alone can still end it
+  render();
+}
+// Ends a human's turn once they've drawn and matched whatever they wanted to -- the only thing that
+// actually advances G.bp.curIdx for a human now; bpDrawCard no longer does it directly.
+function bpPassTurn(){
+  const bp=G.bp;if(!bp||!bp.hasDrawn||bpActiveCount(G.lp)<=1)return;
+  bpAdvanceToTurn(bpNextActive(G.lp,bp.curIdx),bp.pendingMsg||'');
+}
+// The human-driven match: cid must currently have a partner in the CURRENT drawer's own hand (the
+// only hand ever shown locally -- see rBlackPeterTable). Matching works whether or not you've drawn
+// yet this turn -- clearing a leftover pair before drawing, or the one you just drew, is the same
+// action either way. Called after bpConfirmMatch's animation has already played, so this is pure
+// state.
+function bpMatch(cid){
+  const bp=G.bp;if(!bp||bpActiveCount(G.lp)<=1)return;
+  const curIdx=bp.curIdx,p=G.lp[curIdx];if(!p)return;
+  const partner=bpFindPartner(p.bpHand,cid);if(!partner)return;
+  p.bpHand=bpRemovePair(p.bpHand,cid);
+  G.bpSelected=null;
+  SFX.win();
+  if(p.bpHand.length===0){
+    bp.emptiedOrder.push(p.id);
+    if(bpActiveCount(G.lp)<=1){bpFinishRound();return;}
+    // Empty now, drawn or not -- nothing left to offer or draw with, so skip straight to whoever's
+    // next rather than making an already-safe player still take (or finish) a turn.
+    bpAdvanceToTurn(bpNextActive(G.lp,curIdx),`${esc(p.name)} is safe — hand empty!`);
+    return;
+  }
+  render();
 }
 function bpFinishRound(){
   const loser=G.lp.find(p=>(p.bpHand||[]).length>0);
@@ -4550,18 +4627,21 @@ function botBlackPeterAct(){
    the hand of whoever's turn came before yours. There is no strategic race to protect against, just
    the usual CAS write making sure exactly one draw lands per turn. */
 function oBpBuildStart(rs,players){
-  const hands=bpDealValidHands(players.length);
+  const hands=bpDealAndResolve(players);
   const withHands=players.map((p,i)=>({...p,bpHand:hands[i]}));
   return{phase:'game',gameId:'lepouilleux',host:rs.host,hr:rs.hr||G.hr,players:withHands,
-    bp:{curIdx:bpInitialCurIdx(withHands),emptiedOrder:[],turnCount:0},
+    bp:{curIdx:bpInitialCurIdx(withHands),emptiedOrder:[],turnCount:0,hasDrawn:false},
     winner:null,winnerName:null,winnerAv:null,roundResult:null,lastAct:'',round:1,_ts:Date.now()};
 }
+// No bots online, so every draw here waits for an explicit oBpPassTurn -- there's always a real
+// person who might want to match the card they just drew (or anything else in hand) before handing
+// the turn on, the same as the local twin does for a human specifically.
 async function oBpDraw(cardIdx){
   if(_onlineBusy)return;_onlineBusy=true;
   try{
     const state=await dbRead(G.roomId);if(!state||!state.bp)return;
     const bp=state.bp,players=state.players||[];
-    if(bpActiveCount(players)<=1)return; // round already resolved -- see bpDrawCard's local twin
+    if(bp.hasDrawn||bpActiveCount(players)<=1)return;
     const curIdx=bp.curIdx,me=players[curIdx];
     if(!me||me.id!==G.myPid)return; // not your turn
     const offererIdx=bpPrevActive(players,curIdx);
@@ -4570,11 +4650,10 @@ async function oBpDraw(cardIdx){
     if(cardIdx<0||cardIdx>=offerer.bpHand.length)return;
     const expectedTs=state._ts;
     const{paired}=bpDraw(players,curIdx,offererIdx,cardIdx);
-    state.lastAct=paired?`${esc(me.name)} drew from ${esc(offerer.name)} — a pair!`:`${esc(me.name)} drew from ${esc(offerer.name)}.`;
-    // Same two-sided empty check as the local twin -- the offerer can run out just as easily as the
-    // drawer, by having their very last card taken away.
+    state.lastAct=paired?`${esc(me.name)} drew from ${esc(offerer.name)} — that pairs with one in hand!`:`${esc(me.name)} drew from ${esc(offerer.name)}.`;
+    // The offerer can still empty from being drawn dry -- untouched by manual matching, since that
+    // only ever changes the DRAWER's hand size, never the offerer's.
     if(offerer.bpHand.length===0)bp.emptiedOrder.push(offerer.id);
-    if(me.bpHand.length===0)bp.emptiedOrder.push(me.id);
     if(bpActiveCount(players)<=1){
       const loser=players.find(p=>(p.bpHand||[]).length>0);
       const{bd,firstEscapee}=bpBuildStandings(players,bp.emptiedOrder,loser);
@@ -4583,9 +4662,60 @@ async function oBpDraw(cardIdx){
       state.winnerAv=firstEscapee?firstEscapee.avatar:loser.avatar;
       state.roundResult={wName:state.winnerName,wAv:state.winnerAv,bd,bpLoser:{id:loser.id,name:loser.name,avatar:loser.avatar}};
     } else {
-      bp.curIdx=bpNextActive(players,curIdx);
-      bp.turnCount=(bp.turnCount||0)+1;
+      bp.hasDrawn=true;
     }
+    state._ts=Date.now();
+    onSrv(state);
+    await dbWriteIfUnchanged(G.roomId,expectedTs,state);
+  } finally { _onlineBusy=false; }
+}
+// The online twin of bpPassTurn -- the only thing that actually advances curIdx for a human once
+// they've drawn and matched whatever they wanted to.
+async function oBpPassTurn(){
+  if(_onlineBusy)return;_onlineBusy=true;
+  try{
+    const state=await dbRead(G.roomId);if(!state||!state.bp)return;
+    const bp=state.bp,players=state.players||[];
+    if(!bp.hasDrawn||bpActiveCount(players)<=1)return;
+    const me=players[bp.curIdx];
+    if(!me||me.id!==G.myPid)return;
+    const expectedTs=state._ts;
+    bp.curIdx=bpNextActive(players,bp.curIdx);
+    bp.turnCount=(bp.turnCount||0)+1;
+    bp.hasDrawn=false;
+    state._ts=Date.now();
+    onSrv(state);
+    await dbWriteIfUnchanged(G.roomId,expectedTs,state);
+  } finally { _onlineBusy=false; }
+}
+// The online twin of bpMatch: always your OWN hand (online shows it regardless of whose turn it
+// is), never gated to "your turn to draw" -- only the draw itself needs that.
+async function oBpMatch(cid){
+  if(_onlineBusy)return;_onlineBusy=true;
+  try{
+    const state=await dbRead(G.roomId);if(!state||!state.bp)return;
+    const bp=state.bp,players=state.players||[];
+    if(bpActiveCount(players)<=1)return;
+    const me=players.find(p=>p.id===G.myPid);if(!me)return;
+    const partner=bpFindPartner(me.bpHand,cid);if(!partner)return;
+    const expectedTs=state._ts;
+    me.bpHand=bpRemovePair(me.bpHand,cid);
+    if(me.bpHand.length===0)bp.emptiedOrder.push(me.id);
+    if(bpActiveCount(players)<=1){
+      const loser=players.find(p=>(p.bpHand||[]).length>0);
+      const{bd,firstEscapee}=bpBuildStandings(players,bp.emptiedOrder,loser);
+      state.winner=firstEscapee?firstEscapee.id:loser.id;
+      state.winnerName=firstEscapee?firstEscapee.name:loser.name;
+      state.winnerAv=firstEscapee?firstEscapee.avatar:loser.avatar;
+      state.roundResult={wName:state.winnerName,wAv:state.winnerAv,bd,bpLoser:{id:loser.id,name:loser.name,avatar:loser.avatar}};
+    } else if(bp.curIdx===players.indexOf(me)&&me.bpHand.length===0){
+      // Matched away to empty right as it became my turn to draw -- skip straight past me instead of
+      // making an already-safe player still take a turn.
+      bp.curIdx=bpNextActive(players,bp.curIdx);
+      bp.turnCount=(bp.turnCount||0)+1;
+      bp.hasDrawn=false;
+    }
+    state.lastAct=`${esc(me.name)} clears a pair.`;
     state._ts=Date.now();
     onSrv(state);
     await dbWriteIfUnchanged(G.roomId,expectedTs,state);
@@ -8809,6 +8939,53 @@ function rBingoTable(){
     ${talkStripHTML()}
   </div>`;
 }
+// Tap-to-select rather than real drag-and-drop: cards here can be packed edge to edge at a
+// third of a normal hand card's size, where a literal drag-and-release would be fiddly on a phone.
+// The first tap "picks up" a card (only cards with a partner respond at all); if something is
+// already picked up, a second tap either completes the match (tapping its highlighted partner),
+// swaps the selection (tapping a different pairable card), or cancels it (tapping the same card
+// again). Kept as a global dispatch, exactly like bp-draw, so both local and online route through it.
+let _bpMatchBusy=false;
+function bpHandleSelect(cid){
+  if(_bpMatchBusy)return;
+  const online=G.isOnline,state=online?G.srv:null;
+  const players=online?(state?.players||[]):G.lp;
+  const me=online?players.find(p=>p.id===G.myPid):players[G.bp?.curIdx];
+  if(!me)return;
+  const hand=me.bpHand||[];
+  const partner=bpFindPartner(hand,cid);
+  if(!partner)return; // not actually pairable -- the UI shouldn't have made this clickable at all
+  if(G.bpSelected===cid){G.bpSelected=null;render();return;} // tapped the same card again -- cancel
+  if(G.bpSelected&&partner.id===G.bpSelected){bpConfirmMatch(G.bpSelected,cid);return;}
+  G.bpSelected=cid;render();
+}
+// The visual half of a match: slides the originally-selected card over to sit on its partner (a real
+// measured FLIP-style animation, not a canned CSS transform, since the two cards can be anywhere in
+// a wrapping row), then flashes and shrinks both together before the actual state change happens.
+// The state mutation itself -- and the round-progression it can trigger -- only happens in
+// bpMatch/oBpMatch, once the animation has already told the player what happened.
+function bpConfirmMatch(movingCid,targetCid){
+  if(_bpMatchBusy)return;
+  _bpMatchBusy=true;
+  G.bpSelected=null;
+  const finish=()=>{_bpMatchBusy=false;G.isOnline?oBpMatch(movingCid):bpMatch(movingCid);};
+  const moveEl=document.querySelector(`.bp-card-slot[data-cid="${movingCid}"]`);
+  const targetEl=document.querySelector(`.bp-card-slot[data-cid="${targetCid}"]`);
+  if(!moveEl||!targetEl){finish();return;} // DOM moved on somehow; just resolve the state directly
+  const mr=moveEl.getBoundingClientRect(),tr=targetEl.getBoundingClientRect();
+  const dx=(tr.left+tr.width/2)-(mr.left+mr.width/2), dy=(tr.top+tr.height/2)-(mr.top+mr.height/2);
+  moveEl.style.position='relative';moveEl.style.zIndex='5';
+  moveEl.style.transition='transform .36s cubic-bezier(.3,.85,.4,1)';
+  moveEl.style.transform=`translate(${dx}px,${dy}px) scale(.92) rotate(-6deg)`;
+  SFX.chip();
+  setTimeout(()=>{
+    moveEl.style.transition=targetEl.style.transition='transform .24s ease-in, opacity .24s ease-in';
+    moveEl.style.transform+=' scale(0.15)';moveEl.style.opacity='0';
+    targetEl.style.transform='scale(0.15)';targetEl.style.opacity='0';
+    haptic([15,30,15]);
+    setTimeout(finish,240);
+  },360);
+}
 // Local pass-and-play never gets a "view any seat" switcher here the way Bingo does -- Bingo's
 // ticket doesn't need secrecy to stay fair, but the entire fun of this game is the mystery of who's
 // holding le pouilleux, so nothing but the current, already-passed-the-device player's own hand is
@@ -8824,34 +9001,63 @@ function rBlackPeterTable(){
   const myIdx=online?Math.max(0,players.findIndex(p=>p.id===G.myPid)):curIdx;
   const me=players[myIdx]||players[0];
   const myTurn=online?cur.id===G.myPid:!isBotPlayer(cur);
+  // A human draws exactly once, then stays on their own turn to match before passing -- see
+  // bpDrawCard/bpPassTurn. canDraw is "my turn AND I haven't drawn yet"; once hasDrawn flips, the
+  // offer row goes away and a Pass button takes its place.
+  const canDraw=myTurn&&!bp.hasDrawn;
   // A hand here can run to 20+ cards -- nothing else in this app packs anywhere near that many face
   // cards into one row, so this deliberately does NOT reuse HW/HH (sized for a Mau Mau/poker hand of
   // 5-13): at that size a full Le Pouilleux hand simply doesn't fit, no matter how much the felt
   // scrolls. A little under half that keeps the real card art while actually fitting several rows.
   const cw=Math.round(HW*.42),ch=Math.round(HH*.42);
-  const turnHTML=myTurn
+  const turnHTML=canDraw
     ?`<div class="bp-turn-banner mine">👉 Draw a card from ${esc(offerer.name)}!</div>`
+    :myTurn?`<div class="bp-turn-banner mine">✅ Match anything left, then pass when you're ready</div>`
     :`<div class="bp-turn-banner">${avHTML(cur.avatar)} <b>${esc(cur.name)}</b> is drawing from ${esc(offerer.name)}…</div>`;
-  const offerHTML=Array.from({length:offerer.bpHand.length},(_,i)=>
-    `<div class="bp-card-slot${myTurn?' pick':''}"${myTurn?` data-a="bp-draw" data-idx="${i}"`:''}>${makeBack(cw,ch)}</div>`).join('');
+  const offerHTML=bp.hasDrawn?'':Array.from({length:offerer.bpHand.length},(_,i)=>
+    `<div class="bp-card-slot${canDraw?' pick':''}"${canDraw?` data-a="bp-draw" data-idx="${i}"`:''}>${makeBack(cw,ch)}</div>`).join('');
+  const passHTML=myTurn&&bp.hasDrawn?(()=>{
+    const nextIdx=bpNextActive(players,curIdx),next=players[nextIdx];
+    return`<button class="btn btn-gold btn-full" data-a="bp-pass">✅ Pass to ${esc(next?next.name||'the next player':'the next player')}</button>`;
+  })():'';
   const rosterHTML=players.map((p,i)=>{
     const safe=(p.bpHand||[]).length===0;
     return`<div class="bp-roster-item${i===curIdx?' active':''}${safe?' safe':''}">${avHTML(p.avatar)}<span>${esc(p.name)}${online&&p.id===G.myPid?' (You)':''}</span><span class="bp-roster-count">${safe?'✅ safe':'🂠 '+p.bpHand.length}</span></div>`;
   }).join('');
   // The Jack of Spades gets a quiet red pulse in your OWN hand only -- a private "oh no" the moment
   // it lands, since nobody else's screen ever shows your hand's contents at all.
-  const myHandHTML=(me.bpHand||[]).map(c=>`<div class="bp-card-slot${bpIsPouilleux(c)?' doom':''}">${makeCard(c,cw,ch)}</div>`).join('')
-    ||'<div class="bp-hand-empty">You\'re safe — empty hand!</div>';
+  // Pairs no longer clear themselves -- tap a card that has a partner (it pulses gold to say so),
+  // then tap the partner it highlights green to confirm. Tapping the same card again backs out.
+  const myHand=me.bpHand||[];
+  const selectedCid=G.bpSelected;
+  const selectedCard=selectedCid?myHand.find(c=>c.id===selectedCid):null;
+  const pendingPairs=myHand.reduce((n,c)=>n+(bpFindPartner(myHand,c.id)?1:0),0)/2;
+  const myHandHTML=myHand.map(c=>{
+    const partner=bpFindPartner(myHand,c.id);
+    const isSelected=c.id===selectedCid;
+    const isTarget=!!selectedCard&&!isSelected&&partner&&partner.id===selectedCid;
+    const cls=['bp-card-slot'];
+    if(bpIsPouilleux(c))cls.push('doom');
+    if(partner)cls.push('pairable');
+    if(isSelected)cls.push('selected');
+    if(isTarget)cls.push('match-target');
+    const clickable=!!partner;
+    return`<div class="${cls.join(' ')}"${clickable?` data-a="bp-select" data-cid="${c.id}"`:''} data-cid="${c.id}">${makeCard(c,cw,ch)}</div>`;
+  }).join('')||'<div class="bp-hand-empty">You\'re safe — empty hand!</div>';
+  const matchHintHTML=pendingPairs>0
+    ?`<div class="bp-match-hint">${selectedCard?'Tap the glowing card to complete the match':`✨ ${pendingPairs} pair${pendingPairs>1?'s':''} ready to clear — tap one, then its match`}</div>`:'';
   return`<div id="s-table" class="scr on game-lepouilleux">
     <div class="game-bar">
       <div class="gb-game">🂫 Le Pouilleux</div>
       <div class="gb-turn mine">Round ${online?(state?.round||1):(G.lround||1)}</div>
       <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
     </div>
-    <div class="felt-table bp-felt" style="flex:1;min-height:0;padding:1rem .8rem;gap:.7rem;overflow-y:auto;">
+    <div class="felt-table bp-felt" style="flex:1;min-height:0;padding:1rem .8rem;gap:.7rem;overflow-y:auto;justify-content:flex-start;align-items:stretch;">
       ${turnHTML}
       <div class="bp-offer-row">${offerHTML}</div>
+      ${passHTML}
       <div class="bp-roster">${rosterHTML}</div>
+      ${matchHintHTML}
       <div class="bp-hand-wrap">
         <div class="bp-hand-lbl">${online?'Your hand':esc(me.name)+'’s hand'}</div>
         <div class="bp-hand">${myHandHTML}</div>
@@ -9899,7 +10105,7 @@ document.addEventListener('click',e=>{
   // does. Without it, tapping Home inside the 5-second "Mau!" window let the timer fire afterwards,
   // deal 2 penalty cards and call lAdvance — which sets G.scr='pass' and re-renders, throwing you
   // out of the Home screen and back into a hand-over screen for a game you had left.
-  if(a==='home'||a==='nav-home'){stopSync(true);G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;if(G.lmau)clearTimeout(G.lmau.tid);G.lmau=null;ddClearRevealTimers();bgClearCaller();G.scr='home';render();}
+  if(a==='home'||a==='nav-home'){stopSync(true);G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;if(G.lmau)clearTimeout(G.lmau.tid);G.lmau=null;ddClearRevealTimers();bgClearCaller();G.bpSelected=null;G.scr='home';render();}
   else if(a==='nav-games'){stopSync(true);G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;if(G.lmau)clearTimeout(G.lmau.tid);G.lmau=null;ddClearRevealTimers();bgClearCaller();G.gamesCat=null;G.scr='games';render();}
   else if(a==='games-cat'){G.gamesCat=t.getAttribute('data-cat');render();}
   else if(a==='games-back'){G.gamesCat=null;render();}
@@ -9978,7 +10184,7 @@ document.addEventListener('click',e=>{
   else if(a==='data-clear-ask'){G.dataClearAsk=true;render();}
   else if(a==='close-data-clear'){G.dataClearAsk=false;render();}
   else if(a==='data-clear-confirm'){clearMyLocalData();G.dataClearAsk=false;G.dataOpen=false;render();}
-  else if(a==='quit-confirm'){stopSync();G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;if(G.lmau)clearTimeout(G.lmau.tid);G.lmau=null;_oMauSig=null;ddClearRevealTimers();bgClearCaller();_ddOnlineSig=null;localStorage.removeItem('ct_resume');G.scr='home';render();}
+  else if(a==='quit-confirm'){stopSync();G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;if(G.lmau)clearTimeout(G.lmau.tid);G.lmau=null;_oMauSig=null;ddClearRevealTimers();bgClearCaller();_ddOnlineSig=null;G.bpSelected=null;localStorage.removeItem('ct_resume');G.scr='home';render();}
   else if(a==='addpl'){const cap=currentGame().maxP||(isPoker()?8:6);if(G.lp.length>=cap)return;G.lp.push({id:G.nid++,name:'',avatar:AVATARS[G.lp.length%AVATARS.length],hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false});render();}
   else if(a==='addbot'){
     if(!canAddBot(currentGame())){toast('Table is full — remove a seat to add a bot');return;}
@@ -10034,6 +10240,8 @@ document.addEventListener('click',e=>{
   else if(a==='bg-view'){G.bgViewSeat=+t.getAttribute('data-seat');render();}
   else if(a==='bg-confirm'){G.isOnline?oBgFinalizeHouse(true):bgFinalizeHouse(true);}
   else if(a==='bp-draw'){G.isOnline?oBpDraw(+t.getAttribute('data-idx')):bpDrawCard(+t.getAttribute('data-idx'));}
+  else if(a==='bp-select'){bpHandleSelect(t.getAttribute('data-cid'));}
+  else if(a==='bp-pass'){G.isOnline?oBpPassTurn():bpPassTurn();}
   else if(a==='yscore'){G.isOnline?oYCommitCategory(t.getAttribute('data-cat')):yCommitCategory(t.getAttribute('data-cat'));}
   else if(a==='roul-bet'){G.isOnline?oRoulPlaceBet(t.getAttribute('data-key')):roulPlaceBet(t.getAttribute('data-key'));}
   else if(a==='roul-select'){if(G.isOnline)return;G.lcur=+t.getAttribute('data-idx');render();}
@@ -10362,8 +10570,9 @@ document.addEventListener('click',e=>{
       }
       if(rs.gameId==='lepouilleux'){
         // Points carry over across rounds -- only the hands and turn order are fresh.
-        const hands=bpDealValidHands((rs.players||[]).length);
-        const players=(rs.players||[]).map((p,i)=>({...p,bpHand:hands[i],totalScore:p.totalScore||0}));
+        const basePlayers=(rs.players||[]).map(p=>({...p,totalScore:p.totalScore||0}));
+        const hands=bpDealAndResolve(basePlayers);
+        const players=basePlayers.map((p,i)=>({...p,bpHand:hands[i]}));
         const gs={...rs,players,bp:{curIdx:bpInitialCurIdx(players),emptiedOrder:[],turnCount:0},
           winner:null,winnerName:null,winnerAv:null,roundResult:null,lastAct:'',round:(rs.round||1)+1,_ts:Date.now()};
         G.srv=gs;dbWrite(G.roomId,gs);
