@@ -2519,7 +2519,7 @@ const GAMES=[
 ];
 // Single source of truth for which unlocked games have online-multiplayer support, so the "online"
 // gate and the local-only badge on a game's card can never drift out of sync with each other.
-const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux'];
+const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots'];
 // The Games tab groups its (growing) roster into these, rather than one long scroll -- every GAMES
 // entry's `cat` must be one of these ids. Order here is the order the category tiles are shown in.
 const GAME_CATEGORIES=[
@@ -6177,6 +6177,162 @@ function slotPassTurn(){
   render();
 }
 
+/* ═══════ ONLINE SLOT MACHINE ═══════
+   No bots online (see oBpDraw's note for Le Pouilleux -- same reasoning), so every seat here is a
+   real person and turn order is always well-defined.
+
+   The one real design problem: a spin's reel-stop animation runs for ~1.5-2 real seconds, and
+   everyone watching the table should see the SAME animation, not each device inventing its own
+   random reveal. Writing per-frame flicker state to the DB would make the animation's pacing the
+   pacing of a network round-trip (exactly the mistake Roulette's spin animation was rewritten away
+   from -- see oRoulSpin's own comment). So: the spinning player's client decides the outcome once,
+   up front, and writes only the FINAL grid plus a start timestamp. Every connected client (including
+   the spinner) detects that new timestamp in onSrv() and independently runs an identical, purely
+   local reel-stop animation from it (oSlotAnimateSpin) -- same fixed stop delays, same anticipation
+   rule, everyone sees the same reveal at the same time without a single extra network round-trip
+   after the initial write. Only the spinning player's own client, once ITS copy of that animation
+   finishes, computes the payout and writes the result (oSlotFinishSpin) -- mirroring how only the
+   client whose chase-light animation finishes calls oRoulResolve. */
+function oSlotBuildStart(rs,players){
+  const withChips=players.map(p=>({...p,chips:p.chips||DEFAULT_CHIPS}));
+  return{phase:'game',gameId:'slots',host:rs.host,hr:rs.hr||G.hr,players:withChips,
+    slot:{curIdx:0,bet:Math.max(1,Math.min(5,withChips[0].chips||5)),phase:'idle',
+      reels:slotRandomGrid(),finalGrid:null,spinStartedAt:0,result:null,
+      freeSpins:{active:false,remaining:0,multiplier:1}},
+    slotJackpot:SLOT_JACKPOT_SEED,
+    winner:null,winnerName:null,winnerAv:null,roundResult:null,lastAct:'',round:1,_ts:Date.now()};
+}
+async function oSlotSetBet(v){
+  if(_onlineBusy)return;_onlineBusy=true;
+  try{
+    const state=await dbRead(G.roomId);if(!state||!state.slot)return;
+    const s=state.slot,me=state.players[s.curIdx];
+    if(!me||me.id!==G.myPid||s.phase!=='idle'||s.freeSpins.active)return;
+    const expectedTs=state._ts;
+    s.bet=Math.max(1,Math.min(v,me.chips||1));
+    onSrv(state);
+    await dbWriteIfUnchanged(G.roomId,expectedTs,state);
+  } finally { _onlineBusy=false; }
+}
+async function oSlotSpin(){
+  if(_onlineBusy)return;_onlineBusy=true;
+  try{
+    const state=await dbRead(G.roomId);if(!state||!state.slot)return;
+    const s=state.slot,me=state.players[s.curIdx];
+    if(!me||me.id!==G.myPid||s.phase==='spinning')return;
+    const inFree=s.freeSpins.active&&s.freeSpins.remaining>0;
+    const expectedTs=state._ts;
+    if(!inFree){
+      if(me.chips<s.bet){toast('Not enough chips');SFX.illegal();return;}
+      me.chips-=s.bet;
+      state.slotJackpot=(state.slotJackpot||SLOT_JACKPOT_SEED)+s.bet*SLOT_JACKPOT_FEED_PCT;
+    } else {
+      s.freeSpins.remaining--;
+    }
+    s.thisSpinFree=inFree;
+    s.phase='spinning';
+    s.finalGrid=slotRandomGrid();
+    s.spinStartedAt=Date.now();
+    s.result=null;
+    onSrv(state);
+    await dbWriteIfUnchanged(G.roomId,expectedTs,state);
+  } finally { _onlineBusy=false; }
+}
+// Runs on every connected client (see the onSrv hook) the instant it sees a genuinely new
+// spinStartedAt. Purely local and cosmetic -- G.slot here is a throwaway display-only mirror, never
+// written back to the room; the real per-seat chip/jackpot/free-spin mutation happens once, in
+// oSlotFinishSpin, only on the spinning player's own client.
+function oSlotAnimateSpin(finalGrid,startedAt){
+  slotClearTimers();
+  G.slot={phase:'spinning',finalGrid,spinStartedAt:startedAt,reels:slotRandomGrid(),
+    stoppedCols:new Set(),curIdx:G.srv?.slot?.curIdx||0,bet:G.srv?.slot?.bet||1,
+    freeSpins:G.srv?.slot?.freeSpins||{active:false,remaining:0,multiplier:1},result:null};
+  SFX.reelSpin();haptic(10);
+  _slotFlicker=setInterval(()=>{
+    if(!G.slot||G.slot.spinStartedAt!==startedAt)return;
+    for(let col=0;col<3;col++){
+      if(G.slot.stoppedCols.has(col))continue;
+      [0,1,2].forEach(row=>{G.slot.reels[row*3+col]=slotPick();});
+    }
+    render();
+  },90);
+  const specialCount=id=>finalGrid.filter(x=>x===id).length;
+  const tense=specialCount('jackpot')>=2||specialCount('scatter')>=2;
+  const stopDelays=[650,1000,tense?1950:1550];
+  [0,1,2].forEach(col=>{
+    _slotTimeouts.push(setTimeout(()=>{
+      if(!G.slot||G.slot.spinStartedAt!==startedAt)return;
+      [0,1,2].forEach(row=>{G.slot.reels[row*3+col]=finalGrid[row*3+col];});
+      G.slot.stoppedCols.add(col);
+      SFX.reelStop(col===2);haptic(col===2?[10,25]:8);
+      render();
+      if(G.slot.stoppedCols.size===3){
+        if(_slotFlicker){clearInterval(_slotFlicker);_slotFlicker=null;}
+        const me=G.srv?.players?.[G.srv?.slot?.curIdx];
+        if(me&&me.id===G.myPid)oSlotFinishSpin(startedAt);
+      }
+    },stopDelays[col]));
+  });
+}
+async function oSlotFinishSpin(startedAt){
+  if(_onlineBusy)return;_onlineBusy=true;
+  try{
+    const state=await dbRead(G.roomId);if(!state||!state.slot)return;
+    const s=state.slot;
+    if(s.phase!=='spinning'||s.spinStartedAt!==startedAt)return; // already resolved by us, or superseded
+    const me=state.players[s.curIdx];if(!me)return;
+    const expectedTs=state._ts;
+    const resolved=slotResolveGrid(s.finalGrid);
+    const multiplier=s.thisSpinFree?SLOT_FREE_SPIN_MULTIPLIER:1;
+    const pay=slotPayout(s.bet,resolved,multiplier);
+    let jackpotWon=0;
+    if(resolved.jackpot){jackpotWon=state.slotJackpot||SLOT_JACKPOT_SEED;state.slotJackpot=SLOT_JACKPOT_SEED;}
+    const totalWin=pay.totalWin+jackpotWon;
+    me.chips+=totalWin;
+    const wasActive=s.freeSpins.active;
+    const awarded=slotFreeSpinsAwarded(resolved.scatterCount,wasActive);
+    if(awarded>0){
+      s.freeSpins.active=true;
+      s.freeSpins.remaining=(s.freeSpins.remaining||0)+awarded;
+      s.freeSpins.multiplier=SLOT_FREE_SPIN_MULTIPLIER;
+    } else if(s.freeSpins.remaining<=0){
+      s.freeSpins.active=false;
+    }
+    const tier=slotTier(totalWin,s.bet,resolved.jackpot);
+    const linesWithWin=resolved.lines.map(l=>({...l,win:s.bet*l.multiplier*multiplier}));
+    s.result={lines:linesWithWin,scatterCount:resolved.scatterCount,jackpotHit:resolved.jackpot,
+      lineWin:pay.lineWin,scatterWin:pay.scatterWin,totalWin,jackpotWon,tier,freeSpinsAwarded:awarded,
+      wasFree:s.thisSpinFree};
+    s.reels=s.finalGrid.slice();
+    s.phase='result';
+    state.lastAct=`${esc(me.name)} spins the slots.`;
+    onSrv(state);
+    await dbWriteIfUnchanged(G.roomId,expectedTs,state);
+  } finally {
+    _onlineBusy=false;
+    // Free spins cascade on their own, exactly like local play -- no extra tap needed.
+    if(G.srv?.slot?.freeSpins?.active&&G.srv.slot.freeSpins.remaining>0){
+      setTimeout(()=>{if(G.isOnline)oSlotSpin();},1500);
+    }
+  }
+}
+async function oSlotPassTurn(){
+  if(_onlineBusy)return;_onlineBusy=true;
+  try{
+    const state=await dbRead(G.roomId);if(!state||!state.slot)return;
+    const s=state.slot,me=state.players[s.curIdx];
+    if(!me||me.id!==G.myPid||s.phase!=='result'||s.freeSpins.active)return;
+    const expectedTs=state._ts;
+    const nextIdx=(s.curIdx+1)%state.players.length;
+    s.curIdx=nextIdx;
+    const np=state.players[nextIdx];
+    s.bet=Math.max(1,Math.min(s.bet,np.chips||1));
+    s.phase='idle';s.result=null;s.reels=slotRandomGrid();
+    onSrv(state);
+    await dbWriteIfUnchanged(G.roomId,expectedTs,state);
+  } finally { _onlineBusy=false; }
+}
+
 /* ═══════ POKER ENGINE ═══════ */
 function lDealPoker(deck,game){
   G.ldeck=deck;G.community=[];G.communityRevealAnim=null;G.pot=0;G.pokerPhase='preflop';
@@ -7760,6 +7916,7 @@ function onSrv(state){
   const prevBattleLast=state.gameId==='battle'?G.srv?.battleLast:null;
   const prevCommunityLen=state.gameId==='texas'?(G.srv?.community?.length||0):0;
   const prevRoulSpinStartedAt=state.gameId==='roulette'?G.srv?.roulSpinStartedAt:null;
+  const prevSlotSpinStartedAt=state.gameId==='slots'?G.srv?.slot?.spinStartedAt:null;
   const prevRoulCountdownStartedAt=state.gameId==='roulette'?G.srv?.roulCountdownStartedAt:null;
   const prevYRolls=state.gameId==='yahtzee'?(G.srv?.yrolls||0):0;
   const prevYScores=state.gameId==='yahtzee'?(G.srv?.players||[]).map(p=>({fullHouse:p.scorecard?.fullHouse,largeStraight:p.scorecard?.largeStraight})):null;
@@ -7875,6 +8032,14 @@ function onSrv(state){
         oRoulCountdownTick(state.roulCountdownStartedAt);
       }
     }
+  }
+  // Same "detect a genuinely new one, replay it locally" approach as Roulette's spin above -- see
+  // oSlotAnimateSpin's own comment for why the reel-stop animation itself is never written frame by
+  // frame. Only fires while nobody's local G.slot mirror is already showing this exact spin (a
+  // realtime payload and a poll can both deliver the same write; only the first should start it).
+  if(state.gameId==='slots'&&state.slot?.phase==='spinning'&&state.slot.spinStartedAt
+     &&state.slot.spinStartedAt!==prevSlotSpinStartedAt&&G.slot?.spinStartedAt!==state.slot.spinStartedAt){
+    oSlotAnimateSpin(state.slot.finalGrid,state.slot.spinStartedAt);
   }
   if(state.phase==='lobby'){G.scr='lobby';render();return;}
   if(state.phase==='game'){
@@ -9537,26 +9702,38 @@ function rRouletteTable(){
   </div>`;
 }
 function rSlotsTable(){
-  const s=G.slot;
-  if(!s||!G.lp[s.curIdx])return`<div class="scr on"><p style="padding:2rem;text-align:center;">Setting up the machine…</p></div>`;
-  const cur=G.lp[s.curIdx];
+  const online=G.isOnline,state=online?G.srv:null;
+  const players=online?(state?.players||[]):G.lp;
+  // While a synced spin is actively animating, G.slot is the local, display-only mirror
+  // oSlotAnimateSpin populates (see its own comment) -- use it for the reel grid/lock state so every
+  // client shows the identical reveal in progress. Everything else (whose turn it is, the bet, free
+  // spins) always comes from the real source of truth: state.slot online, G.slot itself locally.
+  const srcSlot=online?state?.slot:G.slot;
+  if(!srcSlot||!players[srcSlot.curIdx])return`<div class="scr on"><p style="padding:2rem;text-align:center;">Setting up the machine…</p></div>`;
+  const animLive=online&&G.slot&&G.slot.spinStartedAt&&G.slot.spinStartedAt===srcSlot.spinStartedAt&&srcSlot.phase==='spinning';
+  const s=srcSlot;
+  const displayReels=animLive?G.slot.reels:s.reels;
+  const stoppedCols=animLive?G.slot.stoppedCols:null;
+  const cur=players[s.curIdx];
+  const myTurn=online?cur.id===G.myPid:!isBotPlayer(cur);
   const spinning=s.phase==='spinning';
-  const canSpin=s.phase==='idle';
+  const canSpin=s.phase==='idle'&&myTurn;
   const showPass=s.phase==='result'&&!s.freeSpins.active;
-  const jackpot=getSlotJackpot();
+  const jackpot=online?(state.slotJackpot||SLOT_JACKPOT_SEED):getSlotJackpot();
   const chipAll=cur.chips>2000?ROUL_CHIPS_HIGH:ROUL_CHIPS;
   const tiers=chipAll.filter(v=>v<=Math.max(1,cur.chips));
   if(!tiers.length)tiers.push(Math.max(1,cur.chips||1));
-  const betLocked=!canSpin;
+  const betLocked=s.phase!=='idle'||!myTurn;
   const chipPicker=tiers.map(v=>`<button class="roul-chip-pick${s.bet===v?' active':''}" data-a="slot-bet" data-val="${v}" aria-pressed="${s.bet===v}" ${betLocked?'disabled':''}>${v}</button>`).join('');
 
-  const reelHTML=s.reels.map((id,i)=>{
+  const reelHTML=displayReels.map((id,i)=>{
     const sym=SLOT_BY_ID[id];
     const col=i%3;
     const isWinCell=s.phase==='result'&&s.result&&s.result.lines.some(l=>SLOT_PAYLINES[l.lineIdx].includes(i));
     const cls=['slot-cell'];
-    if(spinning&&!s.stoppedCols.has(col))cls.push('spinning');
-    else if(spinning&&s.stoppedCols.has(col))cls.push('locked');
+    if(spinning&&stoppedCols&&!stoppedCols.has(col))cls.push('spinning');
+    else if(spinning&&stoppedCols&&stoppedCols.has(col))cls.push('locked');
+    else if(spinning&&!stoppedCols)cls.push('spinning'); // online, not yet mid-local-animation
     if(isWinCell)cls.push('win');
     if(id==='jackpot')cls.push('sym-jackpot');
     if(id==='scatter')cls.push('sym-scatter');
@@ -9566,8 +9743,9 @@ function rSlotsTable(){
 
   const turnHTML=s.freeSpins.active
     ?`<div class="slot-turn-banner free">🎁 FREE SPIN — ${s.freeSpins.remaining} left · <b>2× wins</b></div>`
-    :canSpin?`<div class="slot-turn-banner mine">${avHTML(cur.avatar)} <b>${esc(cur.name)}</b> — set your bet and pull the lever</div>`
+    :canSpin?`<div class="slot-turn-banner mine">${avHTML(cur.avatar)} <b>${online?'Your turn':esc(cur.name)}</b> — set your bet and pull the lever</div>`
     :spinning?`<div class="slot-turn-banner">${avHTML(cur.avatar)} <b>${esc(cur.name)}</b> is spinning…</div>`
+    :online&&!myTurn?`<div class="slot-turn-banner">${avHTML(cur.avatar)} waiting on <b>${esc(cur.name)}</b>'s spin</div>`
     :`<div class="slot-turn-banner">${avHTML(cur.avatar)} <b>${esc(cur.name)}</b>'s spin</div>`;
 
   // The lever IS the spin control (no separate button) -- it stays pulled down for the whole
@@ -9600,7 +9778,7 @@ function rSlotsTable(){
     </div>`;
   })():'';
 
-  const rosterHTML=G.lp.map((p,i)=>`<div class="bp-roster-item${i===s.curIdx?' active':''}">${avHTML(p.avatar)}<span>${esc(p.name)}${isBotPlayer(p)?' 🤖':''}</span><span class="bp-roster-count">🪙${p.chips}</span></div>`).join('');
+  const rosterHTML=players.map((p,i)=>`<div class="bp-roster-item${i===s.curIdx?' active':''}">${avHTML(p.avatar)}<span>${esc(p.name)}${isBotPlayer(p)?' 🤖':''}${online&&p.id===G.myPid?' (You)':''}</span><span class="bp-roster-count">🪙${p.chips}</span></div>`).join('');
 
   // Everything anyone needs to actually PLAY (bet, roster, pass) lives OUTSIDE the felt as its own
   // always-visible strip below it, the same structural split Roulette uses (.roul-controls sibling
@@ -9609,7 +9787,7 @@ function rSlotsTable(){
   return`<div id="s-table" class="scr on game-slots">
     <div class="game-bar">
       <div class="gb-game">💰 Slot Machine</div>
-      <div class="gb-turn mine">🏆 ${jackpot.toLocaleString()}</div>
+      <div class="gb-turn mine">🏆 ${Math.round(jackpot).toLocaleString()}</div>
       <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
     </div>
     <div class="felt-table" style="flex:0 0 auto;min-height:0;max-height:none;padding:1rem .8rem;gap:.6rem;">
@@ -9623,7 +9801,8 @@ function rSlotsTable(){
         <span class="roul-chip-lbl">Bet</span>${chipPicker}
         <span class="slot-cur-bet">${s.freeSpins.active?'FREE':s.bet}</span>
       </div>
-      ${showPass?`<button class="btn btn-gold btn-full" data-a="slot-pass">✅ Pass to ${esc(G.lp[(s.curIdx+1)%G.lp.length].name||'the next player')}</button>`:''}
+      ${showPass&&myTurn?`<button class="btn btn-gold btn-full" data-a="slot-pass">✅ Pass to ${esc(players[(s.curIdx+1)%players.length].name||'the next player')}</button>`
+        :showPass?`<div class="slot-result" style="padding:.5rem;">Waiting for ${esc(cur.name)} to pass…</div>`:''}
     </div>
     ${talkStripHTML()}
   </div>`;
@@ -10734,17 +10913,17 @@ document.addEventListener('click',e=>{
   else if(a==='roul-undo'){G.isOnline?oRoulUndo():roulUndo();}
   else if(a==='roul-clear'){G.isOnline?oRoulClearBets():roulClearBets();}
   else if(a==='roul-spin'){G.isOnline?oRoulStartCountdown():roulSpin();}
-  else if(a==='slot-bet'){slotSetBet(+t.getAttribute('data-val'));}
+  else if(a==='slot-bet'){G.isOnline?oSlotSetBet(+t.getAttribute('data-val')):slotSetBet(+t.getAttribute('data-val'));}
   else if(a==='slot-spin'){
-    // A quick direct-DOM pull before the real state change: slotStartSpin()'s own render() would
-    // otherwise replace this element already in its post-pull "down" position, with no travel for
-    // the eye to actually see (see rSlotsTable's leverDown comment).
+    // A quick direct-DOM pull before the real state change: slotStartSpin()/oSlotSpin()'s own
+    // render() would otherwise replace this element already in its post-pull "down" position, with
+    // no travel for the eye to actually see (see rSlotsTable's leverDown comment).
     const lev=t.closest('.slot-lever');
     if(lev)lev.classList.add('pulled');
     SFX.chip();haptic(12);
-    setTimeout(()=>slotStartSpin(),150);
+    setTimeout(()=>{G.isOnline?oSlotSpin():slotStartSpin();},150);
   }
-  else if(a==='slot-pass'){slotPassTurn();}
+  else if(a==='slot-pass'){G.isOnline?oSlotPassTurn():slotPassTurn();}
   // Online create/join
   else if(a==='create'){
     const name=(document.getElementById('ol-name')?.value||'').trim();if(!name){toast('Enter your name');return;}
@@ -10861,6 +11040,12 @@ document.addEventListener('click',e=>{
       if(rs.gameId==='roulette'){
         const players=rs.players.map(p=>({...p,chips:p.chips||DEFAULT_CHIPS,roundsWon:p.roundsWon||0,roulBets:{},roulBetLog:[]}));
         const gs={phase:'game',gameId:'roulette',host:rs.host,hr:rs.hr||G.hr,players,roulSpinning:false,roulHighlight:null,roulHistory:[],winner:null,winnerName:null,winnerAv:null,roundResult:null,lastAct:'',round:1,_ts:Date.now()};
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='slots'){
+        const players=rs.players.map(p=>({...p,chips:p.chips||DEFAULT_CHIPS}));
+        const gs=oSlotBuildStart(rs,players);
         G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }
