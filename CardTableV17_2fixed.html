@@ -1181,12 +1181,32 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 .slot-turn-banner.mine{color:var(--gold2);font-weight:600;}
 .slot-turn-banner.free{color:#f0a8c0;font-weight:700;text-shadow:0 0 12px rgba(240,168,192,.5);animation:slot-free-glow 1.4s ease-in-out infinite;}
 @keyframes slot-free-glow{0%,100%{opacity:.82;}50%{opacity:1;}}
+.slot-play-row{display:flex;align-items:center;justify-content:center;gap:1rem;flex-wrap:wrap;width:100%;}
 .slot-cabinet{
-  flex-shrink:0;width:100%;max-width:22rem;margin:0 auto;padding:.9rem;border-radius:20px;
+  flex-shrink:0;width:100%;max-width:20rem;padding:.9rem;border-radius:20px;
   background:linear-gradient(160deg,#3a2410,#1c1206 60%,#0c0703);
   box-shadow:0 0 0 1px rgba(240,204,96,.35),0 0 0 4px rgba(10,6,2,.9),0 0 0 6px rgba(212,168,67,.55),
     inset 0 2px 10px rgba(255,255,255,.08),inset 0 -6px 18px rgba(0,0,0,.6),0 18px 40px rgba(0,0,0,.6);
 }
+/* SIGNATURE: a real pull-lever, not a flat "SPIN" button -- mounted beside the cabinet the way a
+   physical machine's is. The knob travels down the track on click (and stays down for the whole
+   spinning phase -- a real lever doesn't spring back until the reels actually settle), and jitters
+   on its own while free spins are auto-cascading, so an unattended machine still reads as "doing
+   something" rather than stuck. See the 'slot-spin' dispatch branch for why the down-travel is
+   triggered as a direct DOM class add BEFORE the state change/render, not after. */
+.slot-lever{position:relative;width:3rem;height:12.5rem;flex-shrink:0;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+.slot-lever.disabled{cursor:default;opacity:.45;}
+.slot-lever-mount{position:absolute;bottom:-.3rem;left:50%;transform:translateX(-50%);width:2.3rem;height:1.4rem;border-radius:45% 45% 50% 50%;background:linear-gradient(160deg,#3a2410,#1c1206);box-shadow:0 0 0 1px rgba(240,204,96,.4),0 4px 10px rgba(0,0,0,.55);}
+.slot-lever-track{position:absolute;left:50%;top:0;bottom:.9rem;width:.5rem;transform:translateX(-50%);border-radius:999px;background:linear-gradient(180deg,#0c0703,#2a1240 55%,#0c0703);box-shadow:inset 0 0 5px rgba(0,0,0,.9),0 0 0 1px rgba(240,204,96,.3);}
+.slot-lever-knob{position:absolute;left:50%;top:0;width:2.3rem;height:2.3rem;border-radius:50%;transform:translate(-50%,0);
+  background:radial-gradient(circle at 35% 28%,#ff9d9d,#c22a2a 55%,#701212);
+  box-shadow:0 5px 12px rgba(0,0,0,.6),inset 0 2px 4px rgba(255,255,255,.4),0 0 0 3px rgba(240,204,96,.55);
+  transition:transform .32s cubic-bezier(.34,1.56,.64,1);}
+.slot-lever:not(.disabled):hover .slot-lever-knob{filter:brightness(1.15);}
+.slot-lever.pulled .slot-lever-knob{transform:translate(-50%,9.3rem);transition:transform .15s ease-in;}
+.slot-lever.auto .slot-lever-knob{animation:slot-lever-auto 1.1s ease-in-out infinite;}
+@keyframes slot-lever-auto{0%,100%{transform:translate(-50%,0);}50%{transform:translate(-50%,9.3rem);}}
+@media(prefers-reduced-motion:reduce){.slot-lever-knob{transition:none!important;}.slot-lever.auto .slot-lever-knob{animation:none!important;}}
 .slot-reels{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;}
 .slot-cell{
   aspect-ratio:1;display:flex;align-items:center;justify-content:center;
@@ -1212,7 +1232,7 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 .slot-result-row span{color:var(--gold2);font-weight:700;}
 .slot-result-row.free{color:#f0a8c0;font-weight:700;}
 .slot-result-row.jackpot{color:#f0cc60;font-weight:700;}
-.slot-controls{width:100%;flex-shrink:0;display:flex;flex-direction:column;gap:.55rem;}
+.slot-controls{width:100%;flex-shrink:0;display:flex;flex-direction:column;gap:.55rem;padding:.5rem .85rem .3rem;}
 .slot-chip-row{display:flex;align-items:center;justify-content:center;gap:.4rem;flex-wrap:wrap;}
 .slot-cur-bet{font-size:.72rem;color:var(--paper3);font-variant-numeric:tabular-nums;background:rgba(255,255,255,.06);border-radius:999px;padding:.15rem .6rem;}
 /* The jackpot reveal reuses .v13-celebrate's dim backdrop + gold-framed card, just with its own
@@ -9550,6 +9570,22 @@ function rSlotsTable(){
     :spinning?`<div class="slot-turn-banner">${avHTML(cur.avatar)} <b>${esc(cur.name)}</b> is spinning…</div>`
     :`<div class="slot-turn-banner">${avHTML(cur.avatar)} <b>${esc(cur.name)}</b>'s spin</div>`;
 
+  // The lever IS the spin control (no separate button) -- it stays pulled down for the whole
+  // spinning phase (a real machine's lever doesn't spring back until the reels settle), and jitters
+  // on its own while free spins are auto-cascading, so it reads as "the machine is doing this
+  // itself" rather than looking stuck. bp-confirm-style click handling (see the 'slot-spin'
+  // dispatch branch) does a quick direct-DOM pull animation before the state actually changes, since
+  // a fresh render() would otherwise skip straight to the down position with no travel to see.
+  const leverDown=spinning||s.freeSpins.active;
+  const leverCls=['slot-lever'];
+  if(!canSpin&&!s.freeSpins.active)leverCls.push('disabled');
+  if(leverDown)leverCls.push('pulled');
+  if(s.freeSpins.active)leverCls.push('auto');
+  const leverHTML=`<div class="${leverCls.join(' ')}"${canSpin?' data-a="slot-spin"':''} role="button" tabindex="${canSpin?0:-1}" aria-label="Pull the lever to spin" aria-disabled="${!canSpin}">
+    <div class="slot-lever-track"><div class="slot-lever-knob"></div></div>
+    <div class="slot-lever-mount"></div>
+  </div>`;
+
   const resultHTML=(s.phase==='result'&&s.result)?(()=>{
     const r=s.result;
     const rows=[];
@@ -9557,7 +9593,7 @@ function rSlotsTable(){
     if(r.scatterWin>0)rows.push(`<div class="slot-result-row">💰×${r.scatterCount} <span>+${r.scatterWin}</span></div>`);
     if(r.freeSpinsAwarded>0)rows.push(`<div class="slot-result-row free">🎁 +${r.freeSpinsAwarded} free spins!</div>`);
     if(r.jackpotHit)rows.push(`<div class="slot-result-row jackpot">🏆 JACKPOT — +${Math.round(r.jackpotWon)}</div>`);
-    if(!rows.length)return`<div class="slot-result">No luck this time — spin again!</div>`;
+    if(!rows.length)return`<div class="slot-result">No luck this time — pull again!</div>`;
     return`<div class="slot-result tier-${r.tier}">
       <div class="slot-result-total">+<span data-count="${Math.round(r.totalWin)}" data-count-from="0">0</span></div>
       ${rows.join('')}
@@ -9566,26 +9602,28 @@ function rSlotsTable(){
 
   const rosterHTML=G.lp.map((p,i)=>`<div class="bp-roster-item${i===s.curIdx?' active':''}">${avHTML(p.avatar)}<span>${esc(p.name)}${isBotPlayer(p)?' 🤖':''}</span><span class="bp-roster-count">🪙${p.chips}</span></div>`).join('');
 
+  // Everything anyone needs to actually PLAY (bet, roster, pass) lives OUTSIDE the felt as its own
+  // always-visible strip below it, the same structural split Roulette uses (.roul-controls sibling
+  // to .felt-table) -- the felt itself only ever holds the reels+lever, a small fixed-size block, so
+  // neither piece needs the other to scroll to be reachable.
   return`<div id="s-table" class="scr on game-slots">
     <div class="game-bar">
       <div class="gb-game">💰 Slot Machine</div>
       <div class="gb-turn mine">🏆 ${jackpot.toLocaleString()}</div>
       <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
     </div>
-    <div class="felt-table" style="flex:1;min-height:0;padding:1rem .8rem;gap:.7rem;overflow-y:auto;justify-content:flex-start;align-items:stretch;">
+    <div class="felt-table" style="flex:0 0 auto;min-height:0;max-height:none;padding:1rem .8rem;gap:.6rem;">
       ${turnHTML}
-      <div class="slot-cabinet"><div class="slot-reels">${reelHTML}</div></div>
+      <div class="slot-play-row"><div class="slot-cabinet"><div class="slot-reels">${reelHTML}</div></div>${leverHTML}</div>
+    </div>
+    <div class="slot-controls">
       ${resultHTML}
       <div class="bp-roster">${rosterHTML}</div>
-      <div class="slot-controls">
-        <div class="slot-chip-row">
-          <span class="roul-chip-lbl">Bet</span>${chipPicker}
-          <span class="slot-cur-bet">${s.freeSpins.active?'FREE':s.bet}</span>
-        </div>
-        ${showPass
-          ?`<button class="btn btn-gold btn-full" data-a="slot-pass">✅ Pass to ${esc(G.lp[(s.curIdx+1)%G.lp.length].name||'the next player')}</button>`
-          :`<button class="btn btn-gold btn-full" data-a="slot-spin" ${!canSpin?'disabled':''}>${spinning?'🎰 Spinning…':s.freeSpins.active?'🎁 Free Spin':'🎰 SPIN'}</button>`}
+      <div class="slot-chip-row">
+        <span class="roul-chip-lbl">Bet</span>${chipPicker}
+        <span class="slot-cur-bet">${s.freeSpins.active?'FREE':s.bet}</span>
       </div>
+      ${showPass?`<button class="btn btn-gold btn-full" data-a="slot-pass">✅ Pass to ${esc(G.lp[(s.curIdx+1)%G.lp.length].name||'the next player')}</button>`:''}
     </div>
     ${talkStripHTML()}
   </div>`;
@@ -10697,7 +10735,15 @@ document.addEventListener('click',e=>{
   else if(a==='roul-clear'){G.isOnline?oRoulClearBets():roulClearBets();}
   else if(a==='roul-spin'){G.isOnline?oRoulStartCountdown():roulSpin();}
   else if(a==='slot-bet'){slotSetBet(+t.getAttribute('data-val'));}
-  else if(a==='slot-spin'){slotStartSpin();}
+  else if(a==='slot-spin'){
+    // A quick direct-DOM pull before the real state change: slotStartSpin()'s own render() would
+    // otherwise replace this element already in its post-pull "down" position, with no travel for
+    // the eye to actually see (see rSlotsTable's leverDown comment).
+    const lev=t.closest('.slot-lever');
+    if(lev)lev.classList.add('pulled');
+    SFX.chip();haptic(12);
+    setTimeout(()=>slotStartSpin(),150);
+  }
   else if(a==='slot-pass'){slotPassTurn();}
   // Online create/join
   else if(a==='create'){
