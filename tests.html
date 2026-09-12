@@ -1429,6 +1429,91 @@ async function runPresentation(A,W,frame){
     if(keep===null)localStorage.removeItem('ct_history');else localStorage.setItem('ct_history',keep);
   });
 
+  /* —— Slot machine: pure payline/scatter/jackpot resolution —————————————————— */
+  suite('Slot machine payline resolution',()=>{
+    const resolveGrid=A.slotResolveGrid;
+
+    eq('a plain top-row 3-of-a-kind pays that symbol',
+      resolveGrid(['spade','spade','spade','heart','bell','seven','club','diamond','scatter']).lines,
+      [{lineIdx:0,symbolId:'spade',multiplier:2}]);
+
+    check('a wild (seven) completes a line as the non-wild symbol',
+      resolveGrid(['spade','spade','seven','heart','bell','club','diamond','scatter','jackpot']).lines
+        .some(l=>l.lineIdx===0&&l.symbolId==='spade'));
+
+    const threeWild=['seven','seven','seven','spade','bell','club','heart','diamond','scatter'];
+    const twr=resolveGrid(threeWild);
+    check('three wilds on a line pay the wild\'s own top multiplier',
+      twr.lines.length===1&&twr.lines[0].multiplier===A.SLOT_SYMBOLS.find(s=>s.id==='seven').pay);
+    check('wilds never trigger the jackpot -- only the dedicated trophy symbol does',twr.jackpot===false);
+
+    const jackpotGrid=['jackpot','spade','club','heart','jackpot','diamond','bell','seven','jackpot'];
+    check('three jackpot symbols ANYWHERE on the grid trigger it, no specific line needed',
+      resolveGrid(jackpotGrid).jackpot===true);
+    check('scattered trophies do not also fake a payline win',resolveGrid(jackpotGrid).lines.length===0);
+
+    check('two trophies is not enough -- needs at least three',
+      resolveGrid(['jackpot','spade','club','heart','jackpot','diamond','bell','seven','club']).jackpot===false);
+
+    check('three scatters in a row do not count as a payline win',
+      resolveGrid(['scatter','scatter','scatter','spade','heart','seven','club','diamond','bell']).lines.length===0);
+    check('scatters are counted no matter where they land',
+      resolveGrid(['scatter','bell','scatter','club','scatter','diamond','seven','jackpot','bell']).scatterCount===3);
+
+    const noWin=['spade','club','heart','diamond','bell','seven','club','spade','diamond'];
+    const nwr=resolveGrid(noWin);
+    check('a genuinely scattered grid with no aligned symbols pays nothing',
+      nwr.lines.length===0&&nwr.scatterCount===0&&!nwr.jackpot);
+
+    check('every payline is exactly 3 cells, and all 5 lines together cover every symmetry a 3x3 grid has',
+      A.SLOT_PAYLINES.every(l=>l.length===3)&&A.SLOT_PAYLINES.length===5);
+  });
+
+  /* —— Slot machine: payout math and free-spin awarding —————————————————— */
+  suite('Slot machine payout math and free spins',()=>{
+    const payout=A.slotPayout,tier=A.slotTier,awarded=A.slotFreeSpinsAwarded;
+    const p=payout(10,{lines:[{lineIdx:0,symbolId:'seven',multiplier:12}],scatterCount:0,jackpot:false});
+    check('payout multiplies bet by the line multiplier',p.lineWin===120&&p.totalWin===120);
+    const p2=payout(10,{lines:[{lineIdx:0,symbolId:'seven',multiplier:12}],scatterCount:0,jackpot:false},A.SLOT_FREE_SPIN_MULTIPLIER);
+    check('the free-spin multiplier doubles line wins',p2.totalWin===240);
+    const p3=payout(10,{lines:[],scatterCount:3,jackpot:false});
+    check('a scatter win reads off the scatter paytable',p3.scatterWin===A.SLOT_SCATTER_PAY[3]*10);
+    check('a bare no-op resolve pays nothing',payout(10,{lines:[],scatterCount:0,jackpot:false}).totalWin===0);
+
+    check('tier() names none/small/big/huge/jackpot by multiple of the bet',
+      tier(0,10,false)==='none' && tier(20,10,false)==='small' && tier(60,10,false)==='big' &&
+      tier(200,10,false)==='huge' && tier(1,10,true)==='jackpot');
+
+    check('two scatters award no free spins',awarded(2,false)===0);
+    check('three scatters award the base free-spin round',awarded(3,false)===A.SLOT_FREE_SPINS_AWARD);
+    check('a retrigger during free spins awards fewer, not zero',awarded(3,true)===A.SLOT_FREE_SPINS_RETRIGGER);
+  });
+
+  /* —— Slot machine: the weighted reel and the progressive jackpot's persisted floor —————————————————— */
+  suite('Slot machine symbol weights and jackpot persistence',()=>{
+    const pick=A.slotPick,grid=A.slotRandomGrid;
+    const counts={};let n=30000;
+    for(let i=0;i<n;i++){const id=pick();counts[id]=(counts[id]||0)+1;}
+    check('every symbol in the paytable actually gets drawn',
+      A.SLOT_SYMBOLS.every(s=>(counts[s.id]||0)>0),JSON.stringify(counts));
+    const totalW=A.SLOT_SYMBOLS.reduce((s,x)=>s+x.weight,0);
+    const worstErr=Math.max(...A.SLOT_SYMBOLS.map(s=>Math.abs((counts[s.id]||0)/n-s.weight/totalW)));
+    check('drawn frequencies track the declared weights within a random-noise tolerance',worstErr<0.02,'worst error '+worstErr);
+    check('a fresh grid is always exactly 9 cells of real symbol ids',
+      grid().length===9&&grid().every(id=>!!A.SLOT_SYMBOLS.find(s=>s.id===id)));
+
+    const keep=localStorage.getItem('ct_slot_jackpot');
+    localStorage.removeItem('ct_slot_jackpot');
+    check('with nothing persisted yet, the jackpot reads back as the seed value',A.getSlotJackpot()===A.SLOT_JACKPOT_SEED);
+    A.setSlotJackpot(A.SLOT_JACKPOT_SEED+42.7);
+    check('a fed jackpot persists (rounded)',A.getSlotJackpot()===A.SLOT_JACKPOT_SEED+43);
+    localStorage.setItem('ct_slot_jackpot','not a number');
+    check('a corrupted stored value falls back to the seed rather than NaN',A.getSlotJackpot()===A.SLOT_JACKPOT_SEED);
+    A.setSlotJackpot(1);
+    check('setSlotJackpot refuses to write anything below the seed floor',A.getSlotJackpot()===A.SLOT_JACKPOT_SEED);
+    if(keep===null)localStorage.removeItem('ct_slot_jackpot');else localStorage.setItem('ct_slot_jackpot',keep);
+  });
+
   /* —— Honest messages ———————————————————————— */
   suite('The app does not claim a card was drawn from an empty deck',()=>{
     const G=W.eval('G'),lDrawN=W.eval('lDrawN'),lDrawCard=W.eval('lDrawCard');
@@ -2189,6 +2274,116 @@ async function runPresentation(A,W,frame){
     }
   });
 
+  /* —— Slot machine: the real engine, end to end ——————————————————
+     Unlike Le Pouilleux/Bingo above, a spin genuinely runs on real setTimeout-staggered reel stops
+     (that's the whole point — the anticipation pause is load-bearing for how it feels), so this
+     can't be driven as one synchronous suite() the way those are: suite()'s callback is never
+     awaited (see its definition), so a callback returning a promise would just run detached and
+     its check()s would land in whatever suite happens to be current by the time it resolves. The
+     fix is the same one the reachability sweep below already uses: keep the actual `await`s at this
+     top level, between separate suite() calls that each only make synchronous assertions. */
+  {
+    const G=W.eval('G'),lStartMatch=W.eval('lStartMatch'),slotStartSpin=W.eval('slotStartSpin'),
+      slotPassTurn=W.eval('slotPassTurn'),slotSetBet=W.eval('slotSetBet'),botPendingSig=W.eval('botPendingSig'),
+      botAct=W.eval('botAct'),slotClearTimers=W.eval('slotClearTimers');
+    const mk=(id,n)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,
+      chips:1000,bet:0,folded:false,allIn:false});
+    const waitWhileSpinning=async(maxTicks)=>{
+      let guard=0;
+      while(G.slot.phase==='spinning'&&guard++<(maxTicks||50))await settle();
+      return G.slot.phase;
+    };
+
+    G.isOnline=false;G.srv=null;G.selGame='slots';
+    G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;lStartMatch();
+    suite('Slot machine deals into a live turn, not a pass-and-play privacy screen',()=>{
+      check('the machine deals into an idle turn for the first seat, with a fresh decorative grid',
+        !!(G.slot&&G.slot.phase==='idle'&&G.slot.curIdx===0&&G.slot.reels.length===9));
+      check('the table screen shows directly -- a spin hides nothing from anyone else at the table',G.scr==='table');
+      slotSetBet(25);
+      check('adjusting the bet while idle actually changes it',G.slot.bet===25);
+    });
+
+    const chipsBefore=G.lp[0].chips;
+    slotStartSpin();
+    suite('Spinning locks the bet and genuinely costs the wager up front',()=>{
+      check('the bet is deducted the instant the spin starts, not when it resolves',
+        G.lp[0].chips===chipsBefore-25);
+      check('the machine is in the spinning phase',G.slot.phase==='spinning');
+      check('trying to adjust the bet mid-spin is refused',(()=>{slotSetBet(5);return G.slot.bet===25;})());
+      check('a second spin request while one is already running is a safe no-op',(()=>{
+        const before=JSON.stringify(G.slot);
+        try{slotStartSpin();}catch(e){return false;}
+        return G.slot.phase==='spinning'&&JSON.stringify(G.slot)===before;
+      })());
+    });
+
+    const phaseAfter=await waitWhileSpinning();
+    suite('A spin resolves on its own into a real, playable result',()=>{
+      check('the spin resolves to a result within a few seconds of real time',phaseAfter==='result');
+      check('the result carries a real, non-negative total win',G.slot.result&&G.slot.result.totalWin>=0);
+      check('a winning line (if any) always names a real symbol and a positive multiplier',
+        G.slot.result.lines.every(l=>!!l.symbolId&&l.multiplier>0&&l.win>=0));
+    });
+
+    // Play whatever real spins/free-spin cascades follow until a turn genuinely ends (no free spins
+    // left pending) -- the outcome is randomised, so this drives the actual UI loop the way a player
+    // would, rather than trying to force a specific grid.
+    let ticks=0;
+    while(ticks++<600){
+      if(G.slot.phase==='result'&&!G.slot.freeSpins.active)break;
+      if(G.slot.phase==='idle'){
+        if(G.lp[G.slot.curIdx].chips<G.slot.bet)G.slot.bet=Math.max(1,G.lp[G.slot.curIdx].chips);
+        slotStartSpin();
+      }
+      await settle();
+    }
+    suite('A turn -- one spin, plus however many free spins it cascaded into -- eventually ends',()=>{
+      check('a pass-worthy turn (no free spins left pending) was reached within a bounded number of ticks',
+        ticks<600,'still going after '+ticks+' ticks: '+JSON.stringify(G.slot.freeSpins));
+      check('landed on a genuine result screen with no free spins still owed',
+        G.slot.phase==='result'&&!G.slot.freeSpins.active);
+    });
+    const curBefore=G.slot.curIdx,nextIdx=(curBefore+1)%G.lp.length;
+    slotPassTurn();
+    suite('Passing moves the turn along on the SAME table screen -- no privacy hand-over needed',()=>{
+      check('the turn moved to the next seat',G.slot.curIdx===nextIdx);
+      check('the new turn opens idle with the result cleared',G.slot.phase==='idle'&&G.slot.result===null);
+    });
+
+    // A fresh table, this time with a bot in the seat that's up -- bots have no UI, so botAct() alone
+    // must carry a spin all the way through to passing the turn on, exactly like a human would.
+    // lDealSlots deliberately always opens on the first HUMAN seat (so nobody watches a bot spin
+    // before the table even appears), so the bot is forced onto the machine directly here, the same
+    // way Le Pouilleux's bot test forces itself past the random start seat via bpAdvanceToTurn.
+    G.lp=[mk(1,'Phil'),{...mk(2,'Robo'),bot:'sharp'}];G.lstart=1;lStartMatch();
+    G.slot.curIdx=1;
+    const sig1=botPendingSig();
+    const botChipsBefore=G.lp[1].chips;
+    botAct();
+    suite('A bot needs no help to take its turn at the machine',()=>{
+      check('botPendingSig recognised it was the bot\'s turn to spin',/^slot-spin\|/.test(sig1||''),sig1);
+      check('acting on that signature actually spun -- chips moved, or the machine is no longer idle',
+        G.lp[1].chips!==botChipsBefore||G.slot.phase!=='idle');
+    });
+    await waitWhileSpinning();
+    ticks=0;
+    while(ticks++<600){
+      if(G.slot.phase==='result'&&!G.slot.freeSpins.active)break;
+      if(G.slot.phase==='idle')botAct();
+      await settle();
+    }
+    const sig2=botPendingSig();
+    botAct();
+    suite('A bot passes its own turn on once the result is in, with nobody tapping anything',()=>{
+      check('botPendingSig asked for a pass once the bot\'s spin (and any bonus spins) settled',
+        /^slot-pass\|/.test(sig2||''),sig2);
+      check('acting on it moved play back to the human seat',G.slot.curIdx===0&&G.slot.phase==='idle');
+    });
+
+    slotClearTimers(); // leave no flicker interval or reel-stop timers running for later suites
+  }
+
   /* —— Every control must be reachable at the sizes this family actually uses —————— */
   /* Two bugs shipped because the app was only ever checked at desktop width: setup panels squashed
      instead of scrolling (a flex item with overflow:hidden has min-height:auto == 0, so it collapses
@@ -2224,6 +2419,12 @@ async function runPresentation(A,W,frame){
       ['Le Pouilleux table, 3 players',()=>{G.selGame='lepouilleux';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();G.scr='table';}],
       ['Le Pouilleux table, my hand has cards to show',()=>{G.selGame='lepouilleux';G.lp=mk(2);G.lstart=0;W.eval('lStartMatch')();
         if(!G.lp[G.bp.curIdx].bpHand.length)W.eval('bpAdvanceToTurn')(W.eval('bpNextActive')(G.lp,G.bp.curIdx),'');
+        G.scr='table';}],
+      ['Slot machine table, idle turn',()=>{G.selGame='slots';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();G.scr='table';}],
+      ['Slot machine table, a result with a win breakdown showing',()=>{G.selGame='slots';G.lp=mk(2);G.lstart=0;W.eval('lStartMatch')();
+        G.slot.phase='result';
+        G.slot.result={lines:[{lineIdx:0,symbolId:'seven',multiplier:12,win:120},{lineIdx:3,symbolId:'bell',multiplier:6,win:60}],
+          scatterCount:3,scatterWin:10,jackpotHit:true,jackpotWon:842,totalWin:1032,tier:'jackpot',freeSpinsAwarded:8,wasFree:false};
         G.scr='table';}],
       ['Hand-over screen, with a penalty showing',()=>{G.selGame='maumau';G.lp=mk(3);G.lstart=0;G.lpend=2;W.eval('lStartMatch')();G.scr='pass';G.lpass1='Player 2';G.lpass2='';}],
       ['Lobby, 8 seats',()=>{G.isOnline=true;G.roomId='ABCD';G.isHost=true;G.myPid='p1';
@@ -2297,6 +2498,10 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'SUITS','RANKS','AVATARS','ACHIEVEMENTS',
   'computeSidePots','settleSidePots','roulPayoutMultiplier','roulBetWins','yScoreForCategory','yFreshScorecard',
   'getHistory','getFamily','getAchievements','getResumableMatch','tonightStats','familyStats','rDataOv',
+  'SLOT_SYMBOLS','SLOT_PAYLINES','SLOT_SCATTER_PAY','SLOT_JACKPOT_MIN','SLOT_FREE_SPINS_AWARD','SLOT_FREE_SPINS_RETRIGGER',
+  'SLOT_FREE_SPIN_MULTIPLIER','SLOT_JACKPOT_SEED','SLOT_JACKPOT_FEED_PCT','slotPick','slotRandomGrid','slotResolveGrid',
+  'slotFreeSpinsAwarded','slotPayout','slotTier','getSlotJackpot','setSlotJackpot','lDealSlots','slotStartSpin',
+  'slotPassTurn','slotSetBet','botSlotsAct','ROUL_CHIPS','ROUL_CHIPS_HIGH',
   // The live game state, for the presentation tests. Declared with `let` in the app, so like the
   // constants it is script-scoped rather than a window property — the object reference eval hands
   // back is the real one, so mutating it drives the real app.
