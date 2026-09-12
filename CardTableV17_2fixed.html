@@ -9032,7 +9032,14 @@ function rBlackPeterTable(){
   const selectedCid=G.bpSelected;
   const selectedCard=selectedCid?myHand.find(c=>c.id===selectedCid):null;
   const pendingPairs=myHand.reduce((n,c)=>n+(bpFindPartner(myHand,c.id)?1:0),0)/2;
-  const myHandHTML=myHand.map(c=>{
+  // Sorted for display only (the underlying hand array is untouched -- matching works by card id,
+  // never by position). Grouping by rank, then black suits before red, puts any same-rank pair
+  // right next to each other so a matchable pair jumps out at a glance instead of hiding at
+  // opposite ends of a 20-card hand.
+  const bpSuitOrder={spades:0,clubs:1,hearts:2,diamonds:3};
+  const sortedHand=[...myHand].sort((a,b)=>
+    (RANKS.indexOf(a.rank)-RANKS.indexOf(b.rank))||(bpSuitOrder[a.suit]-bpSuitOrder[b.suit]));
+  const myHandHTML=sortedHand.map(c=>{
     const partner=bpFindPartner(myHand,c.id);
     const isSelected=c.id===selectedCid;
     const isTarget=!!selectedCard&&!isSelected&&partner&&partner.id===selectedCid;
