@@ -1514,6 +1514,47 @@ async function runPresentation(A,W,frame){
     if(keep===null)localStorage.removeItem('ct_slot_jackpot');else localStorage.setItem('ct_slot_jackpot',keep);
   });
 
+  /* —— Slot machine: a broke seat must never freeze the table ——————————————————
+     Regression: slotPassTurn/oSlotPassTurn only ever allowed passing FROM a settled result, and a
+     seat with 0 chips can never reach one (slotStartSpin/oSlotSpin both refuse to spin a bet nobody
+     can cover) -- so once a player went broke on their own turn, canSpin stayed true forever (still
+     their turn, still phase idle) while every pull silently failed with "Not enough chips", and
+     nothing ever let the table move on. Reported live: "I had no chips anymore, then blocked, nobody
+     could do anything." */
+  suite('Slot machine: a broke seat can pass instead of freezing the table',()=>{
+    const G=W.eval('G'),lStartMatch=W.eval('lStartMatch'),slotPassTurn=W.eval('slotPassTurn'),
+      slotStartSpin=W.eval('slotStartSpin'),botSlotsAct=W.eval('botSlotsAct');
+    const mk=(id,n,bot)=>({id,name:n,bot,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,
+      chips:1000,bet:0,folded:false,allIn:false,...(bot?{bot}:{})});
+    G.isOnline=false;G.srv=null;G.selGame='slots';
+    G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;lStartMatch();
+    G.lp[0].chips=0; // the exact reported scenario: the seat whose turn it is has nothing left
+    check('the broke player\'s own attempt to spin is refused, same as ever',(()=>{
+      const before=JSON.stringify(G.slot);
+      slotStartSpin();
+      return JSON.stringify(G.slot)===before&&G.slot.phase==='idle';
+    })());
+    check('but passing from that same idle-and-broke state is now allowed',(()=>{
+      const nextIdx=(G.slot.curIdx+1)%G.lp.length;
+      slotPassTurn();
+      return G.slot.curIdx===nextIdx&&G.slot.phase==='idle';
+    })());
+    check('a player who still has chips is NOT allowed to pass without spinning first',(()=>{
+      const before=G.slot.curIdx;
+      slotPassTurn(); // G.lp[1] (Anna) has 1000 chips and hasn't spun -- this must be refused
+      return G.slot.curIdx===before&&G.slot.phase==='idle';
+    })());
+
+    // Same freeze, but for a bot seat -- botSlotsAct used to hand a broke bot a bet of 1 anyway
+    // (p.chips||1 treats 0 as falsy) and call slotStartSpin, which would then just refuse forever.
+    G.lp=[mk(1,'Phil'),mk(2,'Robo','sharp')];G.lstart=1;lStartMatch();
+    G.slot.curIdx=1;G.lp[1].chips=0;
+    const before=JSON.stringify(G.lp.map(p=>p.chips));
+    botSlotsAct();
+    check('a broke bot passes its turn instead of attempting an unpayable spin',
+      G.slot.curIdx===0&&G.slot.phase==='idle'&&JSON.stringify(G.lp.map(p=>p.chips))===before);
+  });
+
   /* —— Honest messages ———————————————————————— */
   suite('The app does not claim a card was drawn from an empty deck',()=>{
     const G=W.eval('G'),lDrawN=W.eval('lDrawN'),lDrawCard=W.eval('lDrawCard');

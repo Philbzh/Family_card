@@ -6168,7 +6168,13 @@ function slotCelebrate(tier,p,totalWin){
   }
 }
 function slotPassTurn(){
-  const s=G.slot;if(!s||s.phase!=='result'||s.freeSpins.active)return;
+  const s=G.slot;if(!s||s.freeSpins.active)return;
+  const p=G.lp[s.curIdx];if(!p)return;
+  // Normally only a settled result can be passed on -- but a player with nothing left to bet can
+  // never REACH a result (slotStartSpin refuses to spin a bet it can't cover), so without this
+  // carve-out an idle, broke seat would freeze the whole table: nobody else's turn ever comes up
+  // again. rSlotsTable's own broke-state banner is what actually offers this as a real button.
+  if(!(s.phase==='result'||(s.phase==='idle'&&p.chips<1)))return;
   const nextIdx=(s.curIdx+1)%G.lp.length;
   s.curIdx=nextIdx;
   const np=G.lp[nextIdx];
@@ -6321,7 +6327,10 @@ async function oSlotPassTurn(){
   try{
     const state=await dbRead(G.roomId);if(!state||!state.slot)return;
     const s=state.slot,me=state.players[s.curIdx];
-    if(!me||me.id!==G.myPid||s.phase!=='result'||s.freeSpins.active)return;
+    if(!me||me.id!==G.myPid||s.freeSpins.active)return;
+    // See slotPassTurn's comment -- a broke seat can never reach a real result to pass from, so
+    // idle-while-broke is a second valid pass condition, or the table freezes on this seat forever.
+    if(!(s.phase==='result'||(s.phase==='idle'&&me.chips<1)))return;
     const expectedTs=state._ts;
     const nextIdx=(s.curIdx+1)%state.players.length;
     s.curIdx=nextIdx;
@@ -7527,7 +7536,12 @@ function botRouletteAct(){
 function botSlotsAct(){
   const s=G.slot;if(!s)return;
   const p=G.lp[s.curIdx];if(!p||!isBotPlayer(p))return;
-  if(s.phase==='idle'){s.bet=Math.max(1,Math.min(5,p.chips||1));slotStartSpin();return;}
+  if(s.phase==='idle'){
+    if(p.chips<1){slotPassTurn();return;} // nothing left to bet -- see slotPassTurn's broke carve-out
+    s.bet=Math.max(1,Math.min(5,p.chips));
+    slotStartSpin();
+    return;
+  }
   if(s.phase==='result'&&!s.freeSpins.active){slotPassTurn();return;}
 }
 
@@ -9717,14 +9731,19 @@ function rSlotsTable(){
   const cur=players[s.curIdx];
   const myTurn=online?cur.id===G.myPid:!isBotPlayer(cur);
   const spinning=s.phase==='spinning';
-  const canSpin=s.phase==='idle'&&myTurn;
-  const showPass=s.phase==='result'&&!s.freeSpins.active;
+  // A seat that's run out of chips can never place another bet, so it can never reach a real result
+  // either -- slotStartSpin/oSlotSpin both refuse to spin a bet nobody can cover. Without treating
+  // that as its own state, canSpin would stay true forever (phase idle, it's their turn) while every
+  // pull silently fails, and nothing would ever let the table move on to the next seat.
+  const broke=cur.chips<1;
+  const canSpin=s.phase==='idle'&&myTurn&&!broke;
+  const showPass=(s.phase==='result'||(s.phase==='idle'&&broke))&&!s.freeSpins.active;
   const jackpot=online?(state.slotJackpot||SLOT_JACKPOT_SEED):getSlotJackpot();
   const chipAll=cur.chips>2000?ROUL_CHIPS_HIGH:ROUL_CHIPS;
-  const tiers=chipAll.filter(v=>v<=Math.max(1,cur.chips));
-  if(!tiers.length)tiers.push(Math.max(1,cur.chips||1));
-  const betLocked=s.phase!=='idle'||!myTurn;
-  const chipPicker=tiers.map(v=>`<button class="roul-chip-pick${s.bet===v?' active':''}" data-a="slot-bet" data-val="${v}" aria-pressed="${s.bet===v}" ${betLocked?'disabled':''}>${v}</button>`).join('');
+  const tiers=broke?[]:chipAll.filter(v=>v<=cur.chips);
+  const betLocked=s.phase!=='idle'||!myTurn||broke;
+  const chipPicker=tiers.length?tiers.map(v=>`<button class="roul-chip-pick${s.bet===v?' active':''}" data-a="slot-bet" data-val="${v}" aria-pressed="${s.bet===v}" ${betLocked?'disabled':''}>${v}</button>`).join('')
+    :`<span class="slot-cur-bet">🪙 out of chips</span>`;
 
   const reelHTML=displayReels.map((id,i)=>{
     const sym=SLOT_BY_ID[id];
@@ -9743,6 +9762,7 @@ function rSlotsTable(){
 
   const turnHTML=s.freeSpins.active
     ?`<div class="slot-turn-banner free">🎁 FREE SPIN — ${s.freeSpins.remaining} left · <b>2× wins</b></div>`
+    :broke?`<div class="slot-turn-banner">${avHTML(cur.avatar)} ${myTurn?`<b>You're</b> out of chips — pass the turn`:`<b>${esc(cur.name)}</b> is out of chips`}</div>`
     :canSpin?`<div class="slot-turn-banner mine">${avHTML(cur.avatar)} <b>${online?'Your turn':esc(cur.name)}</b> — set your bet and pull the lever</div>`
     :spinning?`<div class="slot-turn-banner">${avHTML(cur.avatar)} <b>${esc(cur.name)}</b> is spinning…</div>`
     :online&&!myTurn?`<div class="slot-turn-banner">${avHTML(cur.avatar)} waiting on <b>${esc(cur.name)}</b>'s spin</div>`
@@ -9799,7 +9819,7 @@ function rSlotsTable(){
       <div class="bp-roster">${rosterHTML}</div>
       <div class="slot-chip-row">
         <span class="roul-chip-lbl">Bet</span>${chipPicker}
-        <span class="slot-cur-bet">${s.freeSpins.active?'FREE':s.bet}</span>
+        ${broke?'':`<span class="slot-cur-bet">${s.freeSpins.active?'FREE':s.bet}</span>`}
       </div>
       ${showPass&&myTurn?`<button class="btn btn-gold btn-full" data-a="slot-pass">✅ Pass to ${esc(players[(s.curIdx+1)%players.length].name||'the next player')}</button>`
         :showPass?`<div class="slot-result" style="padding:.5rem;">Waiting for ${esc(cur.name)} to pass…</div>`:''}
