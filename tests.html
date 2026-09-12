@@ -1291,6 +1291,42 @@ async function runPresentation(A,W,frame){
     A.G.scr='home';W.render();
   });
 
+  /* —— The Games tab groups its roster into categories, not one long scroll —————— */
+  suite('Games are grouped into categories, browsable as tiles then a filtered list',()=>{
+    const GAMES=W.eval('GAMES'),GAME_CATEGORIES=W.eval('GAME_CATEGORIES'),G=A.G;
+    const catIds=new Set(GAME_CATEGORIES.map(c=>c.id));
+    check('every game has a category, and it is one GAME_CATEGORIES actually lists',
+      GAMES.every(g=>catIds.has(g.cat)),
+      GAMES.filter(g=>!catIds.has(g.cat)).map(g=>g.id).join(', '));
+    check('no category is empty -- an empty tile would be a dead end',
+      GAME_CATEGORIES.every(c=>GAMES.some(g=>g.cat===c.id)));
+
+    G.isOnline=false;G.srv=null;G.gamesCat=null;G.scr='games';W.render();
+    const tileText=doc.getElementById('app').innerText;
+    check('with no category picked, the games screen shows category tiles, not a game list',
+      GAME_CATEGORIES.every(c=>tileText.includes(c.name))&&doc.querySelectorAll('#app [data-gid]').length===0);
+
+    doc.querySelector('[data-a="games-cat"][data-cat="dice"]')?.click();
+    check('picking a category tile filters to just that category\'s games',(()=>{
+      // Cover-art cards render their game as a background image with no visible name text at all,
+      // so this checks the data-gid every game card carries regardless of cover art -- not the text.
+      const shownIds=[...doc.querySelectorAll('#app [data-gid]')].map(el=>el.getAttribute('data-gid'));
+      const diceIds=GAMES.filter(g=>g.cat==='dice').map(g=>g.id);
+      const otherIds=GAMES.filter(g=>g.cat!=='dice').map(g=>g.id);
+      return diceIds.every(id=>shownIds.includes(id))&&!otherIds.some(id=>shownIds.includes(id));
+    })());
+    check('G.gamesCat records which category is open',G.gamesCat==='dice');
+
+    doc.querySelector('[data-a="games-back"]')?.click();
+    check('the back button returns to the category tiles',G.gamesCat===null&&
+      GAME_CATEGORIES.every(c=>doc.getElementById('app').innerText.includes(c.name)));
+
+    G.gamesCat='casino';W.render();
+    doc.querySelector('[data-a="nav-games"]')?.click();
+    check('navigating to Games fresh (from the bottom nav) always resets to the category tiles',
+      G.gamesCat===null);
+  });
+
   /* —— A room state that is not a game must not be able to crash a client ——————— */
   /* The room id is a short guessable code, and until now whatever JSON sat in that row was trusted
      completely. players as an object, a hand that is a number, a hand entry of null — each of those
@@ -2043,7 +2079,8 @@ async function runPresentation(A,W,frame){
     const G=W.eval('G');
     const screens=[
       ['Home',()=>{G.isOnline=false;G.srv=null;G.scr='home';}],
-      ['Games',()=>{G.scr='games';}],
+      ['Games (category tiles)',()=>{G.gamesCat=null;G.scr='games';}],
+      ['Games, Card Games category list',()=>{G.gamesCat='cards';G.scr='games';}],
       ['Setup (Mau Mau, full table)',()=>{G.selGame='maumau';G.lp=mk(4);G.scr='setup';}],
       ['Setup (poker, 6 seats)',()=>{G.selGame='texas';G.lp=mk(6);G.scr='setup';}],
       ['Mau Mau table',()=>{G.selGame='maumau';G.lp=mk(3);G.lstart=0;G.lpend=0;W.eval('lStartMatch')();G.scr='table';}],
