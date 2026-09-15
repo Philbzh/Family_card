@@ -2422,6 +2422,28 @@ async function runPresentation(A,W,frame){
       check('acting on it moved play back to the human seat',G.slot.curIdx===0&&G.slot.phase==='idle');
     });
 
+    // Regression: Poker, Blackjack and Roulette all end the match outright once at most one player
+    // still has chips (see rMatchEnd/roulResolve) -- the slot machine never got the same treatment,
+    // so a table that ground down to one funded player just sat there with a "Pass" button nobody
+    // left could use. Force a guaranteed-losing spin against a seat that can only just cover it.
+    const slotResolveGrid=W.eval('slotResolveGrid');
+    const losingGrid=['spade','club','heart','diamond','bell','scatter','jackpot','spade','club'];
+    check('the forced grid genuinely pays nothing, so this is a clean loss, not an accidental win',
+      slotResolveGrid(losingGrid).lines.length===0);
+    G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;lStartMatch();
+    G.lp[0].chips=5;
+    G.slot.bet=5;
+    W.eval(`slotRandomGrid=()=>${JSON.stringify(losingGrid)}`);
+    slotStartSpin();
+    await waitWhileSpinning();
+    W.eval('slotRandomGrid=function(){return Array.from({length:9},()=>slotPick());}'); // restore real randomness
+    suite('Slot machine ends the match once at most one player still has chips',()=>{
+      check('the losing spin actually emptied the seat -- the scenario is real, not a no-op',G.lp[0].chips===0);
+      check('the OTHER seat is untouched -- only the spinning player\'s own chips ever move',G.lp[1].chips===1000);
+      check('the table goes straight to the match summary instead of offering a dead-end Pass button',
+        G.scr==='matchend');
+    });
+
     slotClearTimers(); // leave no flicker interval or reel-stop timers running for later suites
   }
 
