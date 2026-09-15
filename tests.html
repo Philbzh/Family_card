@@ -2469,7 +2469,13 @@ async function runPresentation(A,W,frame){
         G.scr='table';}],
       ['Hand-over screen, with a penalty showing',()=>{G.selGame='maumau';G.lp=mk(3);G.lstart=0;G.lpend=2;W.eval('lStartMatch')();G.scr='pass';G.lpass1='Player 2';G.lpass2='';}],
       ['Lobby, 8 seats',()=>{G.isOnline=true;G.roomId='ABCD';G.isHost=true;G.myPid='p1';
-        G.srv={phase:'lobby',gameId:'maumau',host:'p1',players:mk(8).map((p,i)=>({...p,id:'p'+(i+1)}))};G.scr='lobby';}]
+        G.srv={phase:'lobby',gameId:'maumau',host:'p1',players:mk(8).map((p,i)=>({...p,id:'p'+(i+1)}))};G.scr='lobby';}],
+      // Last on purpose: this is the one scenario that leaves G.rulesOpen set, and nothing resets it
+      // between scenarios (each one sets only the fields IT cares about, e.g. Hand-over above sets
+      // G.scr='pass' but never touches rulesOpen) -- running anything after this would silently
+      // stack a stale rules overlay on top of it too.
+      ['Slot machine rules overlay, with the payline diagram',()=>{G.selGame='slots';G.lp=mk(2);G.lstart=0;W.eval('lStartMatch')();
+        G.scr='table';G.rulesOpen=true;}],
     ];
     for(const [w,h,label] of sizes){
       frame.style.width=w+'px';frame.style.height=h+'px';
@@ -2489,7 +2495,14 @@ async function runPresentation(A,W,frame){
           let bad=[],err=null;
           try{
             setup();W.render();
-            [...doc.querySelectorAll('#app [data-a], #app button, #app input, #app select')].forEach(el=>{
+            // #overlay-root is a SIBLING of #app, not a descendant (see render()'s
+            // document.getElementById('overlay-root').innerHTML=ov assignment) -- a scenario that
+            // opens a rules/quit/data dialog was invisible to this sweep entirely until now, which is
+            // exactly how the slot machine's payline diagram shipped unreachable: .ov centers its
+            // box with no overflow handling, so once a box was tall enough to overflow, the top of
+            // it -- including the whole diagram -- was clipped with no scroll gesture able to reach
+            // it, and nothing here was checking.
+            [...doc.querySelectorAll('#app [data-a], #app button, #app input, #app select, #overlay-root [data-a], #overlay-root button, #overlay-root input, #overlay-root select')].forEach(el=>{
               const r0=el.getBoundingClientRect();
               if(r0.width<2||r0.height<2)return;                       // hidden at this width
               if(W.getComputedStyle(el).visibility==='hidden')return;

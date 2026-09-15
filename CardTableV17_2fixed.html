@@ -1207,6 +1207,11 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 .slot-lever.auto .slot-lever-knob{animation:slot-lever-auto 1.1s ease-in-out infinite;}
 @keyframes slot-lever-auto{0%,100%{transform:translate(-50%,0);}50%{transform:translate(-50%,9.3rem);}}
 @media(prefers-reduced-motion:reduce){.slot-lever-knob{transition:none!important;}.slot-lever.auto .slot-lever-knob{animation:none!important;}}
+.slot-payline-guide{margin-bottom:.9rem;padding:.7rem .6rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;}
+.slot-payline-title{font-size:.66rem;text-align:center;color:var(--gold2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.6rem;font-weight:600;line-height:1.4;}
+.slot-payline-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:.9rem;}
+.slot-payline-item{display:flex;flex-direction:column;align-items:center;gap:.3rem;}
+.slot-payline-item span{font-size:.6rem;color:var(--paper3);text-align:center;}
 .slot-reels{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;}
 .slot-cell{
   aspect-ratio:1;display:flex;align-items:center;justify-content:center;
@@ -1410,9 +1415,16 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 @keyframes hs-in{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
 
 /* ════════ OVERLAYS ════════ */
-#overlay-root .ov{position:fixed;inset:0;background:rgba(4,6,10,.9);display:flex;align-items:center;justify-content:center;padding:1.4rem;z-index:200;backdrop-filter:blur(14px);animation:ov-in .2s ease both;}
+/* overflow-y:auto + align-items:flex-start, with margin-block:auto on the box itself, is the same
+   auto-margin idiom #s-pass already uses (see the REACHABILITY block further down): align-items/
+   justify-content:center split overflow across BOTH edges of a container that can only ever scroll
+   toward one of them, so whatever hangs past the start is unreachable by any gesture. This overlay
+   backdrop centers a box of unpredictable height (a quit dialog is short; a rules list can run long,
+   and now can run longer still with a diagram in it -- see slotPaylineDiagramHTML), so it needed the
+   same fix, just never got it because nothing had pushed a box tall enough to expose it yet. */
+#overlay-root .ov{position:fixed;inset:0;background:rgba(4,6,10,.9);display:flex;align-items:flex-start;justify-content:center;padding:1.4rem;z-index:200;backdrop-filter:blur(14px);animation:ov-in .2s ease both;overflow-y:auto;}
 @keyframes ov-in{from{opacity:0;}to{opacity:1;}}
-#overlay-root .ov-box{background:linear-gradient(160deg,var(--bg3),var(--bg2));border:1px solid rgba(255,255,255,.12);border-radius:26px;padding:1.9rem;max-width:28rem;width:100%;box-shadow:0 32px 80px rgba(0,0,0,.9),0 0 0 1px rgba(212,168,67,.08);display:flex;flex-direction:column;gap:1rem;animation:ov-box-in .28s var(--ease-spring) both;}
+#overlay-root .ov-box{background:linear-gradient(160deg,var(--bg3),var(--bg2));border:1px solid rgba(255,255,255,.12);border-radius:26px;padding:1.9rem;max-width:28rem;width:100%;box-shadow:0 32px 80px rgba(0,0,0,.9),0 0 0 1px rgba(212,168,67,.08);display:flex;flex-direction:column;gap:1rem;animation:ov-box-in .28s var(--ease-spring) both;margin-block:auto;flex-shrink:0;}
 @keyframes ov-box-in{from{transform:scale(.88) translateY(14px);}to{transform:none;}}
 .ov-title{font-family:var(--serif);font-size:1.45rem;font-weight:700;color:var(--paper);}
 .ov-sub{font-size:.88rem;color:var(--paper3);line-height:1.55;}
@@ -9726,6 +9738,34 @@ function rRouletteTable(){
     ${talkStripHTML()}
   </div>`;
 }
+// A vertical column of three matching symbols LOOKS like an obvious win and isn't one -- a column is
+// one physical reel, not a line crossing the three reels, so it was never in SLOT_PAYLINES. The
+// prose rule already says so ("top row, middle row, bottom row, both diagonals") but a sentence
+// buried in a bullet list doesn't stop someone staring at three matching gems in a column expecting
+// a payout. This draws the 5 real lines so it's visible at a glance, not just written down.
+function slotPaylineSVG(lineIdxs,label){
+  const cell=18,gap=3,size=cell*3+gap*2;
+  const pos=i=>({x:(i%3)*(cell+gap),y:Math.floor(i/3)*(cell+gap)});
+  const squares=Array.from({length:9},(_,i)=>{
+    const{x,y}=pos(i),hl=lineIdxs.includes(i);
+    return`<rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="3" fill="${hl?'rgba(240,204,96,.92)':'rgba(255,255,255,.12)'}"/>`;
+  }).join('');
+  const pts=lineIdxs.map(i=>{const{x,y}=pos(i);return`${x+cell/2},${y+cell/2}`;}).join(' ');
+  return`<div class="slot-payline-item">
+    <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" aria-hidden="true">${squares}
+      <polyline points="${pts}" fill="none" stroke="#f0cc60" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span>${label}</span>
+  </div>`;
+}
+function slotPaylineDiagramHTML(){
+  const lines=[{idxs:[0,1,2],label:'Top row'},{idxs:[3,4,5],label:'Middle row'},{idxs:[6,7,8],label:'Bottom row'},
+    {idxs:[0,4,8],label:'Diagonal ＼'},{idxs:[6,4,2],label:'Diagonal ／'}];
+  return`<div class="slot-payline-guide">
+    <div class="slot-payline-title">The 5 winning lines — a vertical column never pays, only these do</div>
+    <div class="slot-payline-grid">${lines.map(l=>slotPaylineSVG(l.idxs,l.label)).join('')}</div>
+  </div>`;
+}
 function rSlotsTable(){
   const online=G.isOnline,state=online?G.srv:null;
   const players=online?(state?.players||[]):G.lp;
@@ -9878,7 +9918,7 @@ function rMauOv(mp){
     ${canCall?`<button class="btn btn-gold" data-a="mau" style="min-width:11rem;">${word}</button>`:''}
   </div></div>`;
 }
-function rRulesOv(){const game=currentGame();return`<div class="ov" data-a="close-rules"><div class="ov-box" role="dialog" aria-modal="true" aria-label="${esc(game.name)} rules"><div class="ov-title">${game.icon} ${game.name}</div><div class="rules-list">${(game.rules||[]).map(r=>`<div>${r}</div>`).join('')}</div><button class="btn btn-ghost" data-a="close-rules" style="margin-top:.4rem;">Got it ✓</button></div></div>`;}
+function rRulesOv(){const game=currentGame();const paylineHTML=game.id==='slots'?slotPaylineDiagramHTML():'';return`<div class="ov" data-a="close-rules"><div class="ov-box" role="dialog" aria-modal="true" aria-label="${esc(game.name)} rules"><div class="ov-title">${game.icon} ${game.name}</div>${paylineHTML}<div class="rules-list">${(game.rules||[]).map(r=>`<div>${r}</div>`).join('')}</div><button class="btn btn-ghost" data-a="close-rules" style="margin-top:.4rem;">Got it ✓</button></div></div>`;}
 function rQuitOv(){return`<div class="ov" data-a="close-quit"><div class="ov-box" role="dialog" aria-modal="true" aria-label="End the game?"><div class="ov-title">End the game?</div><p class="ov-sub">Current scores and chips will be lost.</p><div class="quit-btns"><button class="btn btn-danger" data-a="quit-confirm">Yes, end game</button><button class="btn btn-ghost" data-a="close-quit">Keep playing</button></div></div></div>`;}
 // An honest accounting of what this app actually stores and where, plus the two actions that
 // matter: take a copy of it, or wipe the local copy. Synced results deliberately can't be
