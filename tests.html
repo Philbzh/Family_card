@@ -1798,6 +1798,127 @@ async function runPresentation(A,W,frame){
       G.lp.every(p=>p.fkOnBoard&&p.totalScore>=9600));
   });
 
+  /* —— Pig: knowing when to stop is the whole game —————— */
+  suite('Pig bots hold around 20, push harder from behind, and never gamble a win',()=>{
+    const bank=A.pigBotShouldBank;
+    check('gentle holds well under 15',!bank(10,0,0,'gentle'));
+    check('gentle banks once it reaches its hold threshold',bank(15,0,0,'gentle'));
+    check('sharp keeps pushing past gentle\'s threshold',!bank(15,0,0,'sharp')&&!bank(19,0,0,'sharp'));
+    check('sharp banks once it reaches its own hold threshold',bank(20,0,0,'sharp'));
+    check('a big lead deficit pushes the hold threshold higher',
+      !bank(20,0,30,'sharp')&&bank(30,0,30,'sharp'));
+    check('a total that would cross the target is always banked, however small',
+      bank(1,99,0,'gentle')&&bank(1,99,0,'sharp'));
+  });
+
+  /* —— Pig: the real engine, not a re-implementation of it —————— */
+  suite('Pig plays a real turn end to end through the local engine',()=>{
+    const G=W.eval('G'),lDealPig=W.eval('lDealPig'),pigRoll=W.eval('pigRoll'),pigBank=W.eval('pigBank');
+    const mk=(id,n)=>({id,name:n,avatar:A.AVATARS[id-1],totalScore:0,roundsWon:0,chips:1000});
+    G.isOnline=false;G.srv=null;G.selGame='pig';
+    G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;G.lcur=0;
+    lDealPig();
+    check('dealing zeroes every score and starts a clean turn',
+      G.lp.every(p=>p.totalScore===0)&&G.pig.turnTotal===0&&!G.pig.hasRolled&&!G.pig.busted);
+
+    const starter=G.lcur;
+    // pigRoll() has no hook to inject a die value -- it always calls the app's own rnd() -- so force
+    // it the same way the slot suite forces a grid: overwrite the app's global by name via W.eval,
+    // drive the real function, then restore it. rnd(1,6) lives in the iframe's own scope, not this
+    // page's, so overriding this page's Math.random (tried first) silently did nothing.
+    W.eval('rnd=(a,b)=>4;'); // a plain scoring roll
+    pigRoll();
+    W.eval('rnd=function(a,b){return Math.floor(Math.random()*(b-a+1))+a;}'); // restore
+    check('a non-1 roll adds to the turn total and leaves the score untouched',
+      G.pig.turnTotal===4&&!G.pig.busted&&G.lp[starter].totalScore===0);
+
+    pigBank();
+    check('banking moves the turn total onto the permanent score',G.lp[starter].totalScore===4);
+    check('the turn passes to the other seat',G.lcur!==starter);
+    check("the next player's turn starts clean",G.pig.turnTotal===0&&!G.pig.hasRolled);
+
+    // A bust must cost only the turn's unbanked total, never anything already on the board.
+    // pigRoll() also schedules a real 1.1s setTimeout(pigAdvanceTurn) on a bust -- left alone, that
+    // timer would fire mid-run against whatever G.pig/G.lcur a LATER suite happens to be using. Stub
+    // setTimeout to run immediately (same "drain it synchronously" idea the bot-driver suite below
+    // uses for the same timer) so the transition completes now and nothing is left dangling.
+    const busterIdx=G.lcur;
+    G.lp[busterIdx].totalScore=30;
+    W.eval('rnd=(a,b)=>1;');
+    W.eval('window.__origSetTimeout=setTimeout; setTimeout=(fn)=>{fn();return 0;};');
+    pigRoll();
+    W.eval('setTimeout=window.__origSetTimeout; rnd=function(a,b){return Math.floor(Math.random()*(b-a+1))+a;}');
+    check('rolling a 1 busts the turn and immediately hands the turn on',G.lcur!==busterIdx);
+    check("busting never touches points already banked on prior turns",G.lp[busterIdx].totalScore===30);
+  });
+
+  /* —— Pig: reaching the target wins outright, mid-round, no final lap —————— */
+  suite('Pig ends the match the instant someone crosses the target',()=>{
+    const G=W.eval('G'),pigBank=W.eval('pigBank');
+    const mk=(id,n,score)=>({id,name:n,avatar:A.AVATARS[id-1],totalScore:score,roundsWon:0,chips:1000});
+    G.isOnline=false;G.srv=null;G.selGame='pig';
+    G.lp=[mk(1,'Phil',95),mk(2,'Anna',60)];G.lcur=0;
+    G.pig={die:6,turnTotal:6,hasRolled:true,busted:false};
+    G.scr='table';
+    pigBank();
+    check('crossing the target ends the match immediately',G.scr==='matchend');
+    check('the winner\'s score reflects the winning bank, no final-lap turns for anyone else',
+      G.lp[0].totalScore===101&&G.lp[1].totalScore===60);
+  });
+
+  /* —— Pig: the bot driver actually finishes a match, unattended —————— */
+  suite('Pig bots can play a whole match to the end without help',()=>{
+    const G=W.eval('G'),botPendingSig=W.eval('botPendingSig'),botAct=W.eval('botAct'),
+      clearBotTurn=W.eval('clearBotTurn');
+    const mk=(id,n,score)=>({id,name:n,bot:id===1?'gentle':'sharp',avatar:A.AVATARS[id-1],
+      totalScore:score,roundsWon:0,chips:1000});
+    // Seeded close to the target so this finishes in a handful of ticks rather than a full race to 100.
+    G.isOnline=false;G.srv=null;G.selGame='pig';
+    G.lp=[mk(1,'RoboA',90),mk(2,'RoboB',88)];
+    G.lcur=0;
+    G.pig={die:1,turnTotal:0,hasRolled:false,busted:false};
+    G.scr='table';
+    const pigAdvanceTurn=W.eval('pigAdvanceTurn');
+    let ticks=0,stuck=0,lastSig=null,err=null;
+    while(G.scr==='table'&&ticks<600){
+      const sig=botPendingSig();
+      if(sig===null){
+        // Not "nothing left to do" -- botPendingSig() also returns null for the ~1.1s beat after a
+        // bust, while the real driver's setTimeout(pigAdvanceTurn) is what advances the turn. Waiting
+        // out a real timer in a tight synchronous loop isn't worth it, so just complete the advance
+        // directly, exactly as the Farkle bot-driver suite above does for its own bust.
+        if(G.pig&&G.pig.busted){pigAdvanceTurn();ticks++;continue;}
+        break;
+      }
+      if(sig===lastSig){stuck++;if(stuck>40){err='stuck on the same signature: '+sig;break;}}else stuck=0;
+      lastSig=sig;
+      try{botAct();}catch(e){err='threw: '+e.message;break;}
+      clearBotTurn();
+      ticks++;
+    }
+    check('the match reaches matchend on its own',G.scr==='matchend','after '+ticks+' ticks, err='+err);
+    check('nothing threw along the way',!err,err||'');
+    check('the winner actually crossed the target',
+      G.lp.some(p=>p.totalScore>=A.PIG_TARGET));
+  });
+
+  /* —— rMatchEnd: a legitimate zero score must never be mistaken for chips —————— */
+  suite('Final standings rank by the right field, even when a score is exactly zero',()=>{
+    const G=W.eval('G'),rMatchEnd=W.eval('rMatchEnd');
+    const mk=(id,n,score)=>({id,name:n,avatar:A.AVATARS[id-1],totalScore:score,roundsWon:0,chips:1000});
+    G.isOnline=false;G.srv=null;G.selGame='pig';
+    // Phil has a real, legitimate score of 0 -- and a nonzero chips balance left over from other
+    // games' shared player shape. A naive `totalScore||chips||0` sort would rank Phil first on
+    // chips alone; only the game-type-aware sort added alongside this test avoids that.
+    G.lp=[mk(1,'Phil',0),mk(2,'Shadow',101),mk(3,'Robo',16)];
+    G.matchStats={comebacks:0,cardsPlayed:0,reactions:0,startedAt:Date.now()};
+    const html=rMatchEnd();
+    const order=[...html.matchAll(/sr-name">([^<]+)</g)].map(m=>m[1]);
+    check('the actual leader sorts first, not whoever happens to have leftover chips',
+      order[0]==='Shadow',order.join(','));
+    check('the rest follow by descending score',order[1]==='Robo'&&order[2]==='Phil',order.join(','));
+  });
+
   /* —— Bingo: a real ticket, every time —————— */
   suite('Bingo tickets are always genuinely valid',()=>{
     const tickets=[];
@@ -2471,6 +2592,9 @@ async function runPresentation(A,W,frame){
       ['Farkle table',()=>{G.selGame='farkle';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();G.scr='table';}],
       ['Farkle table, mid-turn with a valid selection',()=>{G.selGame='farkle';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();
         G.fk.dice=[1,1,1,5,2,3];G.fk.hasRolled=true;G.fk.selected=[true,true,true,true,false,false];G.scr='table';}],
+      ['Pig table, idle turn',()=>{G.selGame='pig';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();G.scr='table';}],
+      ['Pig table, mid-turn with a danger banner showing',()=>{G.selGame='pig';G.lp=mk(2);G.lstart=0;W.eval('lStartMatch')();
+        G.pig.die=6;G.pig.turnTotal=24;G.pig.hasRolled=true;G.scr='table';}],
       ['Bingo table, 4 players',()=>{G.selGame='bingo';G.lp=mk(4);G.lstart=0;W.eval('lStartMatch')();G.scr='table';}],
       ['Bingo table, a number waiting to be tapped',()=>{G.selGame='bingo';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();
         const n=G.lp[0].bgTicket.flat().filter(x=>x!==null)[0];G.bg.calledNumbers=[n];G.bg.currentCall=n;G.scr='table';}],
@@ -2578,6 +2702,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'SLOT_FREE_SPIN_MULTIPLIER','SLOT_JACKPOT_SEED','SLOT_JACKPOT_FEED_PCT','slotPick','slotRandomGrid','slotResolveGrid',
   'slotFreeSpinsAwarded','slotPayout','slotTier','getSlotJackpot','setSlotJackpot','lDealSlots','slotStartSpin',
   'slotPassTurn','slotSetBet','botSlotsAct','ROUL_CHIPS','ROUL_CHIPS_HIGH',
+  'PIG_TARGET','pigBotShouldBank','lDealPig','pigRoll','pigBank','pigAdvanceTurn','pigEndGame','botPigAct','pigDieHTML','rMatchEnd',
   // The live game state, for the presentation tests. Declared with `let` in the app, so like the
   // constants it is script-scoped rather than a window property — the object reference eval hands
   // back is the real one, so mutating it drives the real app.

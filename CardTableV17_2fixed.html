@@ -894,6 +894,10 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
   radial-gradient(circle 380px at 50% 20%,rgba(240,204,96,.05),transparent 70%),
   radial-gradient(ellipse 90% 75% at 50% 40%,#123d2b 0%,#0a2418 45%,#04120c 100%);
   background-size:220% 220%,100% 100%;}
+.game-pig .felt-table{background:
+  radial-gradient(circle 320px at 50% 25%,rgba(242,160,180,.07),transparent 70%),
+  radial-gradient(ellipse 85% 70% at 50% 42%,#3a1c26 0%,#210f16 45%,#120a0c 100%);
+  background-size:220% 220%,100% 100%;}
 
 /* ════════ YAHTZEE ════════ */
 .y-standings-strip{display:flex;gap:.4rem;flex-wrap:wrap;justify-content:center;padding:.5rem .85rem .5rem;flex-shrink:0;position:relative;z-index:1;}
@@ -932,6 +936,16 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 .fk-turn-total b{color:var(--gold2);}
 .fk-sel-add{color:#86efac;}
 .fk-final-banner{text-align:center;font-size:.72rem;font-weight:700;color:var(--gold2);background:rgba(212,168,67,.14);border:1px solid rgba(212,168,67,.35);border-radius:999px;padding:.3rem .8rem;margin:0 .85rem;flex-shrink:0;}
+
+/* ════════ PIG ════════ */
+/* One die, made a lot bigger than Farkle's tray dice -- with nothing to select and nothing else to
+   look at, it's the only thing on the felt, and the whole game is staring at what it just landed
+   on. */
+.pig-die{width:6.5rem;height:6.5rem;border-radius:1.3rem;cursor:default;}
+.pig-die .pip{width:1rem;height:1rem;}
+.pig-danger-banner{text-align:center;font-size:.76rem;font-weight:700;color:#f2a0b4;background:rgba(242,160,180,.12);border:1px solid rgba(242,160,180,.35);border-radius:999px;padding:.35rem .8rem;margin:0 .85rem;flex-shrink:0;animation:pig-danger-pulse 1.3s ease-in-out infinite;}
+@keyframes pig-danger-pulse{0%,100%{box-shadow:0 0 0 rgba(242,160,180,0);}50%{box-shadow:0 0 14px rgba(242,160,180,.5);}}
+@media(prefers-reduced-motion:reduce){.pig-danger-banner{animation:none!important;}}
 
 /* ════════ BINGO ════════ */
 .bg-switch-strip{display:flex;gap:.4rem;flex-wrap:wrap;justify-content:center;padding:.4rem .85rem 0;flex-shrink:0;}
@@ -2491,6 +2505,12 @@ const GAMES=[
      'After each set-aside, <b>Bank</b> your turn (added to your score) or keep rolling what\'s left, risking it all.',
      'Your first banked turn needs <b>300+</b> to count.',
      'First to <b>10,000</b> triggers one last turn for everyone else — highest total after that wins.']},
+  {id:'pig',cat:'dice',icon:'🐷',name:'Pig',players:'2–6',dur:'10–15 min',diff:'easy',deal:0,
+   rules:['On your turn, roll <b>one die</b>, as many times as you dare.',
+     'Roll a <b>2–6</b>? It\'s added to your turn total. Then choose: <b>roll again</b>, or <b>bank</b> what you\'ve built up.',
+     'Roll a <b>1</b>? You lose <b>everything</b> from this turn — nothing already banked is ever at risk, only what you haven\'t locked in yet.',
+     'First to <b>100 points</b> wins the table.',
+     'That\'s the whole game. Every extra roll is free money — until it isn\'t.']},
   {id:'bingo',cat:'classic',icon:'🎱',name:'Bingo',players:'2–8',dur:'10–20 min',diff:'easy',deal:0,cover:'assets/games/bingo.png',
    rules:['Everyone gets a <b>ticket</b>: 9 columns, 3 rows, 15 numbers between 1 and 90.',
      'A number is called roughly every <b>6 seconds</b>. Spot it on your ticket and <b>tap it yourself</b> — nothing marks itself, so keep watching your card.',
@@ -2538,7 +2558,7 @@ const GAMES=[
 ];
 // Single source of truth for which unlocked games have online-multiplayer support, so the "online"
 // gate and the local-only badge on a game's card can never drift out of sync with each other.
-const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots'];
+const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig'];
 // The Games tab groups its (growing) roster into these, rather than one long scroll -- every GAMES
 // entry's `cat` must be one of these ids. Order here is the order the category tiles are shown in.
 const GAME_CATEGORIES=[
@@ -3635,6 +3655,7 @@ function lDeal(){
   const game=currentGame();
   if(game.id==='yahtzee'){lDealYahtzee();return;}
   if(game.id==='farkle'){lDealFarkle();return;}
+  if(game.id==='pig'){lDealPig();return;}
   if(game.id==='bingo'){lDealBingo();return;}
   if(game.id==='lepouilleux'){lDealBlackPeter();return;}
   if(game.id==='dicedual'){lDealDiceDuel();return;}
@@ -4150,6 +4171,138 @@ async function oFkBank(){
       f.finalRoundEndSeat=mod((state.curIdx||0)-1,state.players.length);
     }
     oFkAdvanceTurn(state);
+    state._ts=Date.now();onSrv(state);
+    await dbWrite(G.roomId,state);
+  } finally { _onlineBusy=false; }
+}
+
+/* ═══════ PIG ═══════
+   Farkle's little sibling, deliberately as simple as Farkle is elaborate: one die, one running turn
+   total, one decision every single roll ("again, or bank it?"). No dice to select, no combinations
+   to evaluate, no Hot Dice, no final-lap fairness rule -- the classic game ends the instant someone
+   crosses the target, full stop. It's the tension of "I'm at 37... one more?" with nothing else in
+   the way of it.
+   No hidden information (the die is visible to the whole table) and a single global turn order, so
+   this follows Farkle/Yahtzee's shape exactly rather than Le Pouilleux/Slots': G.lcur is the turn
+   pointer, there's no pass-and-play privacy screen, and online play is turn-gated by isMyTurn() with
+   a plain read-mutate-write (see oFkRoll's own comment on why that's safe here: only the current
+   player's device ever touches state.pig). */
+const PIG_TARGET=100;
+// The one real skill in Pig is knowing when to stop -- textbook analysis holds it's usually right to
+// bank somewhere around 20, so that's the baseline both bot levels lean on. Sharp pushes further, and
+// harder still when well behind, the same "get more aggressive from behind" spirit as Dice Duel's
+// underdog throw and Farkle's sharp EV math. A bank that would outright win is never a gamble.
+function pigBotShouldBank(turnTotal,totalScore,leadDeficit,level){
+  if(totalScore+turnTotal>=PIG_TARGET)return true;
+  let holdAt=level==='gentle'?15:20;
+  if(leadDeficit>25)holdAt+=10;
+  return turnTotal>=holdAt;
+}
+function lDealPig(){
+  G.lp.forEach(p=>{p.totalScore=0;});
+  G.lcur=G.lstart;
+  G.pig={die:1,turnTotal:0,hasRolled:false,busted:false};
+  G.lres=null;
+  SFX.deal();
+  G.scr='table';
+}
+function pigRoll(){
+  const g=G.pig;if(!g||g.busted)return;
+  const v=rnd(1,6);
+  g.die=v;g.hasRolled=true;
+  SFX.diceRoll();haptic([10,20,10]);
+  if(v===1){
+    g.busted=true;
+    G.llast=esc(G.lp[G.lcur].name)+' rolled a 1 — turn over, '+g.turnTotal+' pt'+(g.turnTotal!==1?'s':'')+' lost.';
+    SFX.bust();fxPulse('red');haptic([30,40,30]);
+    render();
+    setTimeout(()=>pigAdvanceTurn(),1100);
+    return;
+  }
+  g.turnTotal+=v;
+  render();
+}
+function pigBank(){
+  const g=G.pig;if(!g||g.busted||!g.hasRolled||g.turnTotal<=0)return;
+  const p=G.lp[G.lcur];
+  p.totalScore=(p.totalScore||0)+g.turnTotal;
+  G.llast=esc(p.name)+' banks '+g.turnTotal+' pt'+(g.turnTotal!==1?'s':'')+'.';
+  SFX.win();fxPulse('gold');
+  if(p.totalScore>=PIG_TARGET){pigEndGame();return;}
+  pigAdvanceTurn();
+}
+function pigAdvanceTurn(){
+  G.lcur=mod(G.lcur+1,G.lp.length);
+  G.pig.die=1;G.pig.turnTotal=0;G.pig.hasRolled=false;G.pig.busted=false;
+  render();
+}
+function pigEndGame(){
+  const sorted=[...G.lp].sort((a,b)=>(b.totalScore||0)-(a.totalScore||0));
+  const winner=sorted[0];
+  G.tw++;localStorage.setItem('ct_tw',G.tw);
+  SFX.win();v14WinnerBurst();celebrateWin(winner.name,winner.avatar);fxPulse('gold');
+  const wIdx=G.lp.findIndex(p=>p===winner);if(wIdx>=0)fxSeatGlow(wIdx,'gold');
+  addHistory({game:'pig',winner:winner.name,winnerAvatar:winner.avatar,date:new Date().toISOString(),
+    players:G.lp.map(p=>p.name),
+    moment:`${winner.name} banks the win with ${winner.totalScore} points!`,
+    stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
+  G.scr='matchend';
+  render();
+}
+
+/* ── PIG: online ──
+   Turn-gated exactly like Farkle -- one player rolls at a time, isMyTurn() is the whole guard. */
+async function oPigRoll(){
+  if(_onlineBusy)return;
+  if(!isMyTurn()){toast('Not your turn');return;}
+  _onlineBusy=true;
+  try{
+    const state=await dbRead(G.roomId);if(!state||!state.pig)return;
+    const g=state.pig;if(g.busted)return;
+    const v=rnd(1,6);
+    g.die=v;g.hasRolled=true;
+    SFX.diceRoll();haptic([10,20,10]);
+    if(v===1){
+      g.busted=true;
+      state.lastAct=esc(state.players[state.curIdx||0].name)+' rolled a 1 — turn over, '+g.turnTotal+' pt'+(g.turnTotal!==1?'s':'')+' lost.';
+      SFX.bust();fxPulse('red');
+    } else {
+      g.turnTotal+=v;
+    }
+    state._ts=Date.now();onSrv(state);
+    await dbWrite(G.roomId,state);
+    if(g.busted)setTimeout(()=>oPigBustAdvance(),1100);
+  } finally { _onlineBusy=false; }
+}
+// The bust is shown for a beat before the turn actually hands off, written by the same device that
+// just rolled and busted -- same reasoning as oFkFarkleAdvance.
+async function oPigBustAdvance(){
+  if(_onlineBusy)return;_onlineBusy=true;
+  try{
+    const state=await dbRead(G.roomId);if(!state||!state.pig||!state.pig.busted)return;
+    state.curIdx=mod((state.curIdx||0)+1,state.players.length);
+    state.pig={die:1,turnTotal:0,hasRolled:false,busted:false};
+    state._ts=Date.now();onSrv(state);
+    await dbWrite(G.roomId,state);
+  } finally { _onlineBusy=false; }
+}
+async function oPigBank(){
+  if(_onlineBusy)return;
+  if(!isMyTurn()){toast('Not your turn');return;}
+  _onlineBusy=true;
+  try{
+    const state=await dbRead(G.roomId);if(!state||!state.pig)return;
+    const g=state.pig;if(g.busted||!g.hasRolled||g.turnTotal<=0)return;
+    const p=state.players[state.curIdx||0];
+    p.totalScore=(p.totalScore||0)+g.turnTotal;
+    state.lastAct=esc(p.name)+' banks '+g.turnTotal+' pt'+(g.turnTotal!==1?'s':'')+'.';
+    SFX.win();
+    if(p.totalScore>=PIG_TARGET){
+      state.winner=p.id;state.winnerName=p.name;state.winnerAv=p.avatar;
+    } else {
+      state.curIdx=mod((state.curIdx||0)+1,state.players.length);
+      state.pig={die:1,turnTotal:0,hasRolled:false,busted:false};
+    }
     state._ts=Date.now();onSrv(state);
     await dbWrite(G.roomId,state);
   } finally { _onlineBusy=false; }
@@ -7332,7 +7485,7 @@ function runCountUps(){
    and against what state", and botAct() dispatches to the one per-game function that makes it. */
 // Every game listed here can seat a bot. Anything not here (there is nothing, currently) simply
 // never offers the button, and the driver below stays dormant for it.
-const BOT_GAMES=new Set(['maumau','uno','texas','fivecard','blackjack','yahtzee','battle','roulette','dicedual','farkle','bingo','lepouilleux','slots']);
+const BOT_GAMES=new Set(['maumau','uno','texas','fivecard','blackjack','yahtzee','battle','roulette','dicedual','farkle','bingo','lepouilleux','slots','pig']);
 let _botTimer=null,_botSig=null;
 function isBotPlayer(p){return!!(p&&p.bot);}
 // A full table can still gain a bot by converting an empty seat — Battle seats exactly two, so
@@ -7427,6 +7580,10 @@ function botPendingSig(){
     const f=G.fk;if(!f||f.busted)return null; // the farkle-out timer is already running
     return['fk',G.lcur,f.hasRolled?1:0,f.dice.join(''),f.selected.join(''),f.turnTotal].join('|');
   }
+  if(g==='pig'){
+    const pg=G.pig;if(!pg||pg.busted)return null; // the bust-advance timer is already running
+    return['pig',G.lcur,pg.hasRolled?1:0,pg.die,pg.turnTotal].join('|');
+  }
   return null;
 }
 // Called once per render(), the same single-hook-point pattern as applyTableAge/checkpointLocalMatch.
@@ -7476,6 +7633,7 @@ function botAct(){
   if(g==='blackjack')return botBlackjackAct(p);
   if(g==='yahtzee')return botYahtzeeAct(p);
   if(g==='farkle')return botFarkleAct(p);
+  if(g==='pig')return botPigAct(p);
 }
 function botShedAct(p){
   const uno=G.selGame==='uno';
@@ -7545,6 +7703,15 @@ function botFarkleAct(p){
   const remaining=f.dice.length-pick.filter(Boolean).length;
   if(fkBotShouldBank(projected,remaining,p.fkOnBoard,p.bot)){fkBank();}
   else{fkContinue();fkRoll();}
+}
+function botPigAct(p){
+  const g=G.pig;if(!g)return;
+  if(g.hasRolled&&!g.busted){
+    const leader=Math.max(...G.lp.map(x=>x.totalScore||0));
+    const leadDeficit=leader-(p.totalScore||0);
+    if(pigBotShouldBank(g.turnTotal,p.totalScore||0,leadDeficit,p.bot)){pigBank();return;}
+  }
+  pigRoll();
 }
 function botDiceDuelAct(){
   const d=G.dd,s=d.seats[d.active],p=G.lp[d.active];
@@ -8136,6 +8303,20 @@ function onSrv(state){
         }
         G.scr='matchend';render();return;
       }
+      if(state.gameId==='pig'){
+        // Same shape as Farkle immediately above, right down to the reasoning -- one unbroken match,
+        // straight to the same final screen, no roundend step to route through.
+        if(state.winner!==prevWinner){
+          const winnerP=state.players.find(p=>p.id===state.winner);
+          SFX.win();v14WinnerBurst();celebrateWin(state.winnerName,state.winnerAv);fxPulse('gold');
+          const wIdx=(state.players||[]).findIndex(p=>p.id===state.winner);if(wIdx>=0)fxSeatGlow(wIdx,'gold');
+          addHistory({game:'pig',winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),players:(state.players||[]).map(p=>p.name),mode:'online',
+            moment:`${state.winnerName} banks the win with ${winnerP?.totalScore||0} points!`,
+            stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
+          if(state.winner===G.myPid){G.tw++;localStorage.setItem('ct_tw',G.tw);}
+        }
+        G.scr='matchend';render();return;
+      }
       if(state.gameId==='texas'||state.gameId==='fivecard'){
         G.lres=state.roundResult||null;
         if(state.winner!==prevWinner&&G.lres){
@@ -8378,7 +8559,7 @@ function hasActiveTable(){
 }
 // One accent color per game, echoing the home-screen game-card border colors, so a portrait's
 // frame and plaque tie back to whichever game it was won at.
-const MOMENT_ACCENT={maumau:'#5fd68a',texas:'#eac976',fivecard:'#eac976',blackjack:'#ef7688',battle:'#7ec2f2',romme:'#a8e0a0',hearts:'#f2a0b4',bridge:'#a8c8e0',uno:'#e0a8d8',yahtzee:'#f2c94c',roulette:'#e0637a',dicedual:'#e8843e',farkle:'#4fd6c9',bingo:'#b98af0',lepouilleux:'#6b6b7a'};
+const MOMENT_ACCENT={maumau:'#5fd68a',texas:'#eac976',fivecard:'#eac976',blackjack:'#ef7688',battle:'#7ec2f2',romme:'#a8e0a0',hearts:'#f2a0b4',bridge:'#a8c8e0',uno:'#e0a8d8',yahtzee:'#f2c94c',roulette:'#e0637a',dicedual:'#e8843e',farkle:'#4fd6c9',bingo:'#b98af0',lepouilleux:'#6b6b7a',slots:'#f0cc60',pig:'#f2a0b4'};
 function rMoments(){
   const history=getHistory();
   const frames=history.map(h=>{
@@ -8915,6 +9096,7 @@ function rTable(){
   if(_tblGameId==='battle')return rBattleTable();
   if(_tblGameId==='yahtzee')return rYahtzeeTable();
   if(_tblGameId==='farkle')return rFarkleTable();
+  if(_tblGameId==='pig')return rPigTable();
   if(_tblGameId==='bingo')return rBingoTable();
   if(_tblGameId==='lepouilleux')return rBlackPeterTable();
   if(_tblGameId==='dicedual')return rDiceDuelTable();
@@ -9403,6 +9585,78 @@ function rFarkleTable(){
     <div class="felt-table${mine?' my-turn':''}" style="flex:0 0 auto;min-height:0;max-height:none;padding:1.1rem .8rem;gap:.7rem;">
       <div class="dice-tray${(online&&!mine)||botTurn?' locked':''}">${diceHTML}</div>
       <div class="fk-turn-total">${turnTotalHTML}</div>
+      <div class="y-hint">${hint}</div>
+      ${!mine&&online?awayIndicatorHTML(p.id,p.name):''}
+    </div>
+    ${actionBar}
+    ${talkStripHTML()}
+  </div>`;
+}
+// One big, non-interactive die -- Pig has nothing to select, just something to look at while you
+// decide whether to push your luck. Same pip-position map fkDieHTML uses; each game's die renderer
+// stays its own small function rather than sharing one, matching how ddDieHTML already does its own.
+function pigDieHTML(value,justRolled){
+  const pos={1:[[2,2]],2:[[1,1],[3,3]],3:[[1,1],[2,2],[3,3]],4:[[1,1],[1,3],[3,1],[3,3]],5:[[1,1],[1,3],[2,2],[3,1],[3,3]],6:[[1,1],[1,3],[2,1],[2,3],[3,1],[3,3]]}[value]||[];
+  const pips=pos.map(([r,c])=>`<span class="pip" style="grid-row:${r};grid-column:${c};"></span>`).join('');
+  return`<span class="die pig-die${justRolled?' just-rolled':''}" aria-label="Die: ${value}">${pips}</span>`;
+}
+function rPigTable(){
+  const online=G.isOnline,state=online?G.srv:null;
+  const players=online?(state?.players||[]):G.lp;
+  const p=curPlayer();
+  const mine=isMyTurn();
+  const g=(online?state?.pig:G.pig)||{die:1,turnTotal:0,hasRolled:false,busted:false};
+  const busted=!!g.busted,hasRolled=!!g.hasRolled,turnTotal=g.turnTotal||0;
+  // Locally isMyTurn() is always true (there is only one device), so a bot's turn would otherwise
+  // hand the die to whoever is sitting there -- same guard Farkle/Yahtzee's tables use.
+  const botTurn=!online&&isBotPlayer(p);
+  const acts=mine&&!botTurn&&!busted;
+  const standings=players.map(pl=>`<span class="y-standing-pill${pl===p?' active':''}">${avHTML(pl.avatar)}${esc(pl.name)}: ${pl.totalScore||0}</span>`).join('');
+  let marginHTML='';
+  if(players.length>=2){
+    const byScore=[...players].sort((a,b)=>(b.totalScore||0)-(a.totalScore||0));
+    const lead=(byScore[0].totalScore||0)-(byScore[1].totalScore||0);
+    if(lead>0)marginHTML=`<div class="y-margin">${avHTML(byScore[0].avatar,'y-margin-av')} ${esc(byScore[0].name)} leads by ${lead}</div>`;
+  }
+  // The one bit of theatre ChatGPT's own pitch for this game specifically asked for: once a turn
+  // total gets properly risky, say so, rather than leaving "should I risk it?" as a silent number.
+  const danger=hasRolled&&!busted&&turnTotal>=20;
+  const dangerHTML=danger?`<div class="pig-danger-banner">⚠️ ${mine?'You are':esc(p.name)+' is'} pushing ${mine?'your':'their'} luck — ${turnTotal} on the line</div>`:'';
+  let hint;
+  if(busted)hint='💀 Rolled a 1 — turn over, nothing banked.';
+  else if(botTurn)hint=esc(p.name)+' is thinking…';
+  else if(!mine&&online)hint='Waiting for '+esc(p.name)+'…';
+  else if(!hasRolled)hint='Tap Roll to throw the die.';
+  else hint='Bank it, or roll again and risk it all.';
+
+  let actionBar='';
+  if(busted){
+    // Nothing to tap — the room (or pigAdvanceTurn locally) is about to advance the turn on its own.
+  } else if(!acts){
+    actionBar=`<div class="poker-actions"><div class="poker-action-row"><div class="dd-waiting">${botTurn?esc(p.name)+' is thinking…':'Watching '+esc(p.name)+' play live'}</div></div></div>`;
+  } else if(!hasRolled){
+    actionBar=`<div class="poker-actions"><div class="poker-action-row">
+      <button class="btn btn-gold btn-full" data-a="pigroll">🎲 Roll</button>
+    </div></div>`;
+  } else {
+    actionBar=`<div class="poker-actions"><div class="poker-action-row">
+      <button class="btn btn-green btn-sm" data-a="pigroll">🎲 Roll again</button>
+      <button class="btn btn-gold btn-sm" data-a="pigbank">💰 Bank ${turnTotal}</button>
+    </div></div>`;
+  }
+
+  return`<div id="s-table" class="scr on game-pig">
+    <div class="game-bar">
+      <div class="gb-game">🐷 Pig</div>
+      <div class="gb-turn${mine?' mine':''}">${avChar(p.avatar)} ${esc(p.name)}’s turn</div>
+      <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
+    </div>
+    <div class="y-standings-strip">${standings}</div>
+    ${marginHTML}
+    ${dangerHTML}
+    <div class="felt-table${mine?' my-turn':''}" style="flex:0 0 auto;min-height:0;max-height:none;padding:1.3rem .8rem;gap:.8rem;">
+      ${pigDieHTML(g.die,hasRolled)}
+      <div class="fk-turn-total">Turn total: <b>${turnTotal}</b> pts</div>
       <div class="y-hint">${hint}</div>
       ${!mine&&online?awayIndicatorHTML(p.id,p.name):''}
     </div>
@@ -10151,8 +10405,8 @@ function matchMoment(sorted){
 function rMatchEnd(){
   const players=G.isOnline?(G.srv?.players||[]):G.lp;
   const isBattle=G.selGame==='battle';
-  const sorted=[...players].sort((a,b)=>isBattle?((b.hand?.length||0)-(a.hand?.length||0)):((b.totalScore||b.chips||0)-(a.totalScore||a.chips||0)));
   const chipGame=isPoker()||G.selGame==='blackjack'||G.selGame==='roulette'||G.selGame==='slots';
+  const sorted=[...players].sort((a,b)=>isBattle?((b.hand?.length||0)-(a.hand?.length||0)):chipGame?((b.chips||0)-(a.chips||0)):((b.totalScore||0)-(a.totalScore||0)));
   const rows=sorted.map((p,i)=>`<div class="sr${i===0?' win':''}"><span class="sr-rank">${['🥇','🥈','🥉','④','⑤','⑥','⑦','⑧'][i]||i+1}</span><span class="sr-av">${avHTML(p.avatar)}</span><span class="sr-name">${esc(p.name)}</span><span class="sr-delta" style="color:var(--paper3);">${p.roundsWon||0} win${(p.roundsWon||0)!==1?'s':''}</span><span class="sr-pts" data-count="${isBattle?(p.hand?.length||0):chipGame?p.chips:(p.totalScore||0)}" data-count-suffix="${isBattle?' cards':chipGame?'c':''}">${isBattle?(p.hand?.length||0)+' cards':chipGame?p.chips+'c':p.totalScore||0}</span></div>`).join('');
   const ms=G.matchStats;
   const statChips=`<div class="tonight-stats">
@@ -10195,7 +10449,7 @@ function rYahtzeeEnd(){
 /* ════════ ROUTER ════════ */
 
 /* ═══ V14 CINEMATIC LAYER ═══ */
-function v14GameLabel(id){return ({maumau:'Mau Mau',texas:"Texas Hold'em",fivecard:'Five Card Draw',blackjack:'Blackjack',battle:'Battle',romme:'Rommé',hearts:'Hearts',bridge:'Bridge',yahtzee:'Yahtzee',roulette:'Roulette',dicedual:'Dice Duel',uno:'Uno',farkle:'Farkle',bingo:'Bingo',lepouilleux:'Le Pouilleux'})[id]||id||'Card Game'}
+function v14GameLabel(id){return ({maumau:'Mau Mau',texas:"Texas Hold'em",fivecard:'Five Card Draw',blackjack:'Blackjack',battle:'Battle',romme:'Rommé',hearts:'Hearts',bridge:'Bridge',yahtzee:'Yahtzee',roulette:'Roulette',dicedual:'Dice Duel',uno:'Uno',farkle:'Farkle',bingo:'Bingo',lepouilleux:'Le Pouilleux',slots:'Slot Machine',pig:'Pig'})[id]||id||'Card Game'}
 function v14Intro(id,dealerName,dealerAvatar){
   const old=document.querySelector('.game-intro');if(old)old.remove();
   const el=document.createElement('div');el.className='game-intro';
@@ -10996,6 +11250,8 @@ document.addEventListener('click',e=>{
   else if(a==='fkselect'){G.isOnline?oFkSelect(+t.getAttribute('data-i')):fkToggleSelect(+t.getAttribute('data-i'));}
   else if(a==='fkcontinue'){G.isOnline?oFkContinue():fkContinue();}
   else if(a==='fkbank'){G.isOnline?oFkBank():fkBank();}
+  else if(a==='pigroll'){G.isOnline?oPigRoll():pigRoll();}
+  else if(a==='pigbank'){G.isOnline?oPigBank():pigBank();}
   else if(a==='bg-claim'){G.isOnline?oBgClaim(t.getAttribute('data-stage')):bgClaim(+t.getAttribute('data-seat'),t.getAttribute('data-stage'));}
   else if(a==='bg-mark'){G.isOnline?oBgMark(+t.getAttribute('data-num')):bgMark(+t.getAttribute('data-num'));}
   else if(a==='bg-view'){G.bgViewSeat=+t.getAttribute('data-seat');render();}
@@ -11108,6 +11364,14 @@ document.addEventListener('click',e=>{
         const gs={phase:'game',gameId:'farkle',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
           fk:{dice:fkFreshDiceArr(),selected:new Array(6).fill(false),turnTotal:0,hasRolled:false,
             lastRolled:[],busted:false,finalRoundActive:false,finalRoundEndSeat:null},
+          winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='pig'){
+        const players=rs.players.map(p=>({...p,totalScore:0}));
+        const gs={phase:'game',gameId:'pig',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
+          pig:{die:1,turnTotal:0,hasRolled:false,busted:false},
           winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
         G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
