@@ -2505,7 +2505,7 @@ const GAMES=[
      'After each set-aside, <b>Bank</b> your turn (added to your score) or keep rolling what\'s left, risking it all.',
      'Your first banked turn needs <b>300+</b> to count.',
      'First to <b>10,000</b> triggers one last turn for everyone else — highest total after that wins.']},
-  {id:'pig',cat:'dice',icon:'🐷',name:'Pig',players:'2–6',dur:'10–15 min',diff:'easy',deal:0,
+  {id:'pig',cat:'dice',icon:'🐷',name:'Pig',players:'2–6',dur:'10–15 min',diff:'easy',deal:0,cover:'assets/games/pig.jpg',
    rules:['On your turn, roll <b>one die</b>, as many times as you dare.',
      'Roll a <b>2–6</b>? It\'s added to your turn total. Then choose: <b>roll again</b>, or <b>bank</b> what you\'ve built up.',
      'Roll a <b>1</b>? You lose <b>everything</b> from this turn — nothing already banked is ever at risk, only what you haven\'t locked in yet.',
@@ -2520,14 +2520,14 @@ const GAMES=[
      'Full house pauses the table with a big BINGO banner so everyone can check the winning ticket before the round ends.',
      'First to claim a stage wins it — claims are checked instantly, so nobody can call it early.',
      'Deal again for as many rounds as you like — points carry over across the table.']},
-  {id:'lepouilleux',cat:'cards',icon:'🂫',name:'Le Pouilleux',players:'2–8',dur:'5–15 min',diff:'easy',deal:0,
+  {id:'lepouilleux',cat:'cards',icon:'🂫',name:'Old Maid',players:'2–8',dur:'5–15 min',diff:'easy',deal:0,cover:'assets/games/lepouilleux.jpg',
    rules:['A standard 52-card deck, minus the <b>Jack of Clubs</b> — 51 cards dealt out to everyone.',
      'A pair is two cards of the <b>same rank and same color</b> — K♥+K♦, or 8♠+8♣ (not just any same rank).',
      'Pairs don\'t clear themselves — <b>tap a card that has a match</b>, then tap the partner it lights up to clear both.',
      'On your turn, draw <b>one card, face-down</b>, from the hand of the player before you — you won\'t know what it is until it\'s in your hand.',
      'After drawing, match anything you can, then tap <b>Pass</b> to hand the turn on.',
      'Empty your hand and you\'re <b>safe</b> — out of the round for good.',
-     'With the Jack of Clubs missing, the Jack of Spades can never pair. Whoever\'s left holding it — <b>le pouilleux</b> — loses the round.']},
+     'With the Jack of Clubs missing, the Jack of Spades can never pair. Whoever\'s left holding it — <b>the Old Maid</b> — loses the round.']},
   {id:'yahtzee',cat:'dice',icon:'🎲',name:'Yahtzee',players:'2–6',dur:'30–45 min',diff:'medium',deal:0,cover:'assets/games/yahtzee.png',
    rules:['Roll <b>5 dice</b>, up to <b>3 times</b> a turn — after the first roll, hold any dice you want to keep and reroll the rest.','After your last roll, choose <b>one scoring category</b> to fill in. Each of the 13 categories can only be used once per game.','Upper section (Ones–Sixes): score the sum of matching dice. Total <b>63+</b> across all six earns a <b>+35 bonus</b>.','Lower section: 3/4 of a Kind &amp; Chance score the sum of all dice; Full House = <b>25</b>; Small Straight = <b>30</b>; Large Straight = <b>40</b>; Yahtzee (5 of a kind) = <b>50</b>.','Rolling a second Yahtzee scores a <b>+100 bonus</b> and can fill any open lower-section category at full value.','Highest total across all 13 categories wins the table.']},
   {id:'roulette',cat:'casino',icon:'🎡',name:'Roulette',players:'1–8',dur:'15–30 min',diff:'easy',deal:0,cover:'assets/games/roulette.png',
@@ -4892,7 +4892,7 @@ function bpFinishRound(){
   SFX.bust();fxPulse('red');
   const loserIdx=G.lp.indexOf(loser);if(loserIdx>=0)fxSeatGlow(loserIdx,'red');
   addHistory({game:'lepouilleux',winner:firstEscapee?firstEscapee.name:null,winnerAvatar:firstEscapee?firstEscapee.avatar:null,
-    date:new Date().toISOString(),players:G.lp.map(x=>x.name),moment:`${loser.name} is le pouilleux!`,
+    date:new Date().toISOString(),players:G.lp.map(x=>x.name),moment:`${loser.name} is the Old Maid!`,
     stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats.reactions}});
   G.lres={wName:firstEscapee?firstEscapee.name:loser.name,wAv:firstEscapee?firstEscapee.avatar:loser.avatar,bd,bpLoser:{id:loser.id,name:loser.name,avatar:loser.avatar}};
   G.scr='roundend';
@@ -8346,7 +8346,7 @@ function onSrv(state){
           const loserIdx=(state.players||[]).findIndex(p=>p.id===G.lres.bpLoser?.id);
           SFX.bust();fxPulse('red');
           if(loserIdx>=0)fxSeatGlow(loserIdx,'red');
-          addHistory({game:'lepouilleux',winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),players:(state.players||[]).map(p=>p.name),mode:'online',moment:`${G.lres.bpLoser?.name||''} is le pouilleux!`,stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats.reactions}});
+          addHistory({game:'lepouilleux',winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),players:(state.players||[]).map(p=>p.name),mode:'online',moment:`${G.lres.bpLoser?.name||''} is the Old Maid!`,stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats.reactions}});
           if(state.winner===G.myPid){G.tw++;localStorage.setItem('ct_tw',G.tw);}
         }
         G.scr='roundend';render();return;
@@ -9896,7 +9896,7 @@ function rBlackPeterTable(){
     ?`<div class="bp-match-hint">${selectedCard?'Tap the glowing card to complete the match':`✨ ${pendingPairs} pair${pendingPairs>1?'s':''} ready to clear — tap one, then its match`}</div>`:'';
   return`<div id="s-table" class="scr on game-lepouilleux">
     <div class="game-bar">
-      <div class="gb-game">🂫 Le Pouilleux</div>
+      <div class="gb-game">🂫 Old Maid</div>
       <div class="gb-turn mine">Round ${online?(state?.round||1):(G.lround||1)}</div>
       <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
     </div>
@@ -10307,7 +10307,7 @@ function roundMoment(r){
   if(r.roulNumber!=null){
     return bd.some(b=>b.isWinner)?`${esc(winner?.name||'')} called ${r.roulNumber} ${r.roulColor} right!`:`${r.roulNumber} ${r.roulColor} — the house takes this spin.`;
   }
-  if(r.bpLoser)return `${esc(r.bpLoser.name)} is le pouilleux!`;
+  if(r.bpLoser)return `${esc(r.bpLoser.name)} is the Old Maid!`;
   if(winner&&runnerUp&&typeof winner.total==='number'&&typeof runnerUp.total==='number'){
     const margin=Math.abs(winner.total-runnerUp.total);
     if(margin<=5&&margin>=0)return `A nail-biter — ${esc(winner?.name||'')} edges it out.`;
@@ -10344,7 +10344,7 @@ function rRoundEnd(){
   // Le Pouilleux's headline is the loser, not r.wName -- r.wName/wAv there is just whoever gets the
   // "first empty hand" scoring credit (kept separate so achievements/history still see a real
   // winner), but the moment everyone's actually waiting for is who's stuck holding the Jack of Spades.
-  const winTitle=r.bpLoser?`${r.bpLoser.avatar} ${esc(r.bpLoser.name)} is le pouilleux! 🂫`:roulNoWinner?'The house takes this spin':`${r.wAv} ${esc(r.wName)} wins!`;
+  const winTitle=r.bpLoser?`${r.bpLoser.avatar} ${esc(r.bpLoser.name)} is the Old Maid! 🂫`:roulNoWinner?'The house takes this spin':`${r.wAv} ${esc(r.wName)} wins!`;
   const roulBadge=isRoulette?`<div class="roul-hist-num roul-hist-${r.roulColor}" style="width:2.6rem;height:2.6rem;font-size:1.2rem;margin:.3rem auto 0;">${r.roulNumber}</div>`:'';
   // The dramatic reveal: it's always the Jack of Spades by construction (see bpBuildDeck), so this
   // needs no data from the round result beyond "yes, someone lost" -- just show the actual card.
@@ -10449,7 +10449,7 @@ function rYahtzeeEnd(){
 /* ════════ ROUTER ════════ */
 
 /* ═══ V14 CINEMATIC LAYER ═══ */
-function v14GameLabel(id){return ({maumau:'Mau Mau',texas:"Texas Hold'em",fivecard:'Five Card Draw',blackjack:'Blackjack',battle:'Battle',romme:'Rommé',hearts:'Hearts',bridge:'Bridge',yahtzee:'Yahtzee',roulette:'Roulette',dicedual:'Dice Duel',uno:'Uno',farkle:'Farkle',bingo:'Bingo',lepouilleux:'Le Pouilleux',slots:'Slot Machine',pig:'Pig'})[id]||id||'Card Game'}
+function v14GameLabel(id){return ({maumau:'Mau Mau',texas:"Texas Hold'em",fivecard:'Five Card Draw',blackjack:'Blackjack',battle:'Battle',romme:'Rommé',hearts:'Hearts',bridge:'Bridge',yahtzee:'Yahtzee',roulette:'Roulette',dicedual:'Dice Duel',uno:'Uno',farkle:'Farkle',bingo:'Bingo',lepouilleux:'Old Maid',slots:'Slot Machine',pig:'Pig'})[id]||id||'Card Game'}
 function v14Intro(id,dealerName,dealerAvatar){
   const old=document.querySelector('.game-intro');if(old)old.remove();
   const el=document.createElement('div');el.className='game-intro';
