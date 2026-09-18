@@ -711,6 +711,132 @@ function run(A,W){
     Object.assign(A.G,{scr:keep.scr,lp:keep.lp,selGame:keep.game,dd:keep.dd,isOnline:keep.online,nid:keep.nid});
   });
 
+  /* ── 3c-bis-bis. Battle has no bot decisions, but it does have real rules ────────────
+     Battle/War has no player choices at all -- the whole game is one shared Flip button, so there
+     is nothing here shaped like the other games' "never proposes an illegal move" bot suites (that
+     pattern is already covered for Le Pouilleux, the other zero-decision game). What Battle does
+     have is a war chain with a genuinely tricky edge -- a hand can run dry mid-war, before either
+     side ever draws the card that was supposed to decide it -- and a card count that must never
+     drift. None of that had a single test before now. */
+  suite('Battle — a plain flip',()=>{
+    const mkP=(id,n)=>({id,name:n,avatar:A.AVATARS[0],hand:[],roundsWon:0});
+    const p0=mkP(1,'P'),p1=mkP(2,'Q');
+    p0.hand=[card('K','spades'),card('2','clubs'),card('3','clubs')];
+    p1.hand=[card('5','hearts'),card('4','diamonds'),card('6','diamonds')];
+    const keep={lp:A.G.lp,game:A.G.selGame,scr:A.G.scr,online:A.G.isOnline};
+    A.G.isOnline=false;A.G.selGame='battle';A.G.lp=[p0,p1];A.G.battleAnimating=false;
+    A.G.matchStats={cardsPlayed:0,reactions:0,comebacks:0,firstTryYahtzee:false,startedAt:Date.now()};
+    W.battleFlip();
+    const bl=A.G.battleLast;
+    check('the higher card wins with no war',bl.warRounds===0&&bl.winnerIdx===0);
+    check('the deciding pair is the two cards that were actually turned',
+      bl.lastC0.rank==='K'&&bl.lastC1.rank==='5'&&bl.tieC0===null);
+    eq('the winner takes exactly the two turned cards',bl.cardsWon,2);
+    eq('the winner is up by the cards it won, less the one it turned',p0.hand.length,4);
+    eq('the loser is down the one card it turned',p1.hand.length,2);
+    Object.assign(A.G,{lp:keep.lp,selGame:keep.game,scr:keep.scr,isOnline:keep.online});
+  });
+
+  suite('Battle — a tie sends both sides to war',()=>{
+    const mkP=(id,n)=>({id,name:n,avatar:A.AVATARS[0],hand:[],roundsWon:0});
+    const p0=mkP(1,'P'),p1=mkP(2,'Q');
+    // Both turn a 7 first -- a war -- then each pays 3 cards face-down and a 4th that actually
+    // decides it: an ace for p0, a 5 for p1. p1 keeps one spare card so the war's loser isn't ALSO
+    // left with an empty hand -- that combination is its own test below.
+    p0.hand=[card('7','spades'),card('2','spades'),card('3','spades'),card('4','spades'),card('A','spades')];
+    p1.hand=[card('7','hearts'),card('9','hearts'),card('9','clubs'),card('9','diamonds'),card('5','hearts'),card('8','clubs')];
+    const keep={lp:A.G.lp,game:A.G.selGame,scr:A.G.scr,online:A.G.isOnline};
+    A.G.isOnline=false;A.G.selGame='battle';A.G.lp=[p0,p1];A.G.battleAnimating=false;
+    A.G.matchStats={cardsPlayed:0,reactions:0,comebacks:0,firstTryYahtzee:false,startedAt:Date.now()};
+    W.battleFlip();
+    const bl=A.G.battleLast;
+    eq('exactly one war round fires',bl.warRounds,1);
+    check('the tie itself is what gets remembered as the tied pair',
+      bl.tieC0.rank==='7'&&bl.tieC1.rank==='7');
+    check('the ace beats the five and takes the whole pile',
+      bl.winnerIdx===0&&bl.lastC0.rank==='A'&&bl.lastC1.rank==='5');
+    eq('the pile is both original cards plus 4 apiece from the war',bl.cardsWon,10);
+    check('every card from both hands is still accounted for',p0.hand.length+p1.hand.length===11);
+    Object.assign(A.G,{lp:keep.lp,selGame:keep.game,scr:keep.scr,isOnline:keep.online});
+  });
+
+  suite('Battle — a hand can run dry mid-war',()=>{
+    // p0 has only one card behind its tied 7, so the war never reaches a deciding card: the
+    // length check at the top of the loop ends it the moment p0 has nothing left to turn.
+    const mkP=(id,n)=>({id,name:n,avatar:A.AVATARS[0],hand:[],roundsWon:0});
+    const p0=mkP(1,'P'),p1=mkP(2,'Q');
+    p0.hand=[card('7','spades'),card('2','spades')];
+    p1.hand=[card('7','hearts'),card('9','hearts'),card('9','clubs'),card('9','diamonds'),card('5','hearts')];
+    const keep={lp:A.G.lp,game:A.G.selGame,scr:A.G.scr,online:A.G.isOnline,tw:A.G.tw,lres:A.G.lres};
+    const keepH=localStorage.getItem('ct_history'),keepAch=localStorage.getItem('ct_achievements'),
+          keepTw=localStorage.getItem('ct_tw');
+    try{
+      A.G.isOnline=false;A.G.selGame='battle';A.G.lp=[p0,p1];A.G.battleAnimating=false;
+      A.G.matchStats={cardsPlayed:0,reactions:0,comebacks:0,firstTryYahtzee:false,startedAt:Date.now()};
+      W.battleFlip();
+      const bl=A.G.battleLast;
+      eq('the war still counts even though it never resolved',bl.warRounds,1);
+      check('p0 running out mid-war hands the round to p1',bl.winnerIdx===1);
+      eq('p1 collects everything on the table, war cards included',bl.cardsWon,6);
+      check('p0 is left with nothing',p0.hand.length===0);
+      check('the round ends immediately, same as any other hand running out',A.G.scr==='roundend');
+      check('the moment is still keyed as a war, not an ordinary win',
+        A.getHistory()[0]?.game==='battle'&&A.getHistory()[0]?.momentKey==='war');
+    } finally {
+      Object.assign(A.G,{lp:keep.lp,selGame:keep.game,scr:keep.scr,isOnline:keep.online,tw:keep.tw,lres:keep.lres});
+      if(keepH===null)localStorage.removeItem('ct_history');else localStorage.setItem('ct_history',keepH);
+      if(keepAch===null)localStorage.removeItem('ct_achievements');else localStorage.setItem('ct_achievements',keepAch);
+      if(keepTw===null)localStorage.removeItem('ct_tw');else localStorage.setItem('ct_tw',keepTw);
+    }
+  });
+
+  suite('Battle — played through the real engine',()=>{
+    // Same shape as the Dice Duel sweep above: deal real 26-card hands through lStartMatch and
+    // flip until somebody wins, watching the one invariant that matters above all others in a
+    // game about who's holding which cards -- the total never drifts from 52.
+    const keep={scr:A.G.scr,lp:A.G.lp,game:A.G.selGame,online:A.G.isOnline,nid:A.G.nid,tw:A.G.tw};
+    const keepH=localStorage.getItem('ct_history'),keepAch=localStorage.getItem('ct_achievements'),
+          keepTw=localStorage.getItem('ct_tw'),keepGp=localStorage.getItem('ct_gp');
+    const bad=[];const note=m=>{if(bad.indexOf(m)<0)bad.push(m);};
+    const mkP=(id,n)=>({id,name:n,avatar:A.AVATARS[0],hand:[],totalScore:0,roundsWon:0,
+      chips:1000,bet:0,folded:false,allIn:false});
+    // battleFlip() drives the real render(), sound and haptics on every call, same as a human
+    // tapping the button would -- so unlike the pure-function sweeps elsewhere in this file, the
+    // trial count here has to stay small. A single War-style deck can legitimately run to hundreds
+    // of flips before it resolves, and this suite pays for every one of them for real.
+    const TRIALS=6;
+    try{
+      for(let t=0;t<TRIALS;t++){
+        A.G.isOnline=false;A.G.selGame='battle';A.G.nid=9;
+        A.G.lp=[mkP(1,'P'),mkP(2,'Q')];
+        W.lStartMatch();
+        const before=A.getHistory().length;
+        let flips=0;
+        while(A.G.lp[0].hand.length&&A.G.lp[1].hand.length&&flips<800){
+          W.battleFlip();flips++;
+          if(A.G.lp[0].hand.length+A.G.lp[1].hand.length!==52)note('a flip changed the total card count');
+          if(A.G.lp[0].hand.length<0||A.G.lp[1].hand.length<0)note('a hand went negative');
+        }
+        if(flips>=500)note('a match never finished within 500 flips');
+        if(A.G.scr!=='roundend')note('the match did not end in roundend');
+        const winnerIdx=A.G.lp[0].hand.length?0:1;
+        if(A.G.lp[winnerIdx].roundsWon!==1)note("the winner's roundsWon was not credited");
+        const hist=A.getHistory();
+        if(hist.length!==before+1)note('the match was not recorded exactly once');
+        if(hist[0].game!=='battle')note('history entry was not tagged battle');
+        if((A.G.battleLast.warRounds>0)!==(hist[0].momentKey==='war'))
+          note('the war moment key did not match whether the deciding flip actually went to war');
+      }
+      check(TRIALS+' battles played through the real engine break no rule',bad.length===0,bad.join(' | '));
+    } finally {
+      Object.assign(A.G,{scr:keep.scr,lp:keep.lp,selGame:keep.game,isOnline:keep.online,nid:keep.nid,tw:keep.tw});
+      if(keepH===null)localStorage.removeItem('ct_history');else localStorage.setItem('ct_history',keepH);
+      if(keepAch===null)localStorage.removeItem('ct_achievements');else localStorage.setItem('ct_achievements',keepAch);
+      if(keepTw===null)localStorage.removeItem('ct_tw');else localStorage.setItem('ct_tw',keepTw);
+      if(keepGp===null)localStorage.removeItem('ct_gp');else localStorage.setItem('ct_gp',keepGp);
+    }
+  });
+
   /* ── 3c-ter. Avatars cannot carry markup ────────────────────── */
   suite('Avatars are an allowlist, not a string',()=>{
     // Player names were escaped everywhere; avatars were not, at 15 separate render sites. An
@@ -2695,7 +2821,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'bingoGenerateTicket','bingoColRange','bingoRowComplete','bingoLinesComplete','bingoStageEligible','bingoRoundPoints','bingoBotClaimDelay','BG_STAGES','BG_STAGE_NEED','BG_STAGE_POINTS','BG_CALL_MS','clearBotTurn',
   'bpBuildDeck','bpCardKey','bpIsPouilleux','bpAutoDiscard','bpFindPartner','bpRemovePair','bpFreshHands','bpDealAndResolve','bpNextActive','bpPrevActive','bpInitialCurIdx','bpActiveCount','bpDraw','bpMatch','bpHandleSelect','bpBuildStandings',
   'yScoreCategory','buildDeck','buildUnoDeck','shuffle','momentPortraitSrc','avImgSrc',
-  'SUITS','RANKS','AVATARS','ACHIEVEMENTS',
+  'SUITS','RANKS','AVATARS','ACHIEVEMENTS','battleFlip',
   'computeSidePots','settleSidePots','roulPayoutMultiplier','roulBetWins','yScoreForCategory','yFreshScorecard',
   'getHistory','getFamily','getAchievements','getResumableMatch','tonightStats','familyStats','rDataOv',
   'SLOT_SYMBOLS','SLOT_PAYLINES','SLOT_SCATTER_PAY','SLOT_JACKPOT_MIN','SLOT_FREE_SPINS_AWARD','SLOT_FREE_SPINS_RETRIGGER',
