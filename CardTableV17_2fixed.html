@@ -964,12 +964,12 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 @media(prefers-reduced-motion:reduce){.pig-danger-banner{animation:none!important;}}
 
 /* ════════ DRAW-IT ════════ */
-.dw-gate{display:flex;flex-direction:column;align-items:center;gap:.7rem;text-align:center;padding:1.6rem 1.1rem;margin:.9rem .85rem;border-radius:20px;background:linear-gradient(160deg,rgba(240,150,76,.16),rgba(10,18,14,.5));border:1px solid rgba(242,149,76,.35);}
+.dw-gate{position:relative;display:flex;flex-direction:column;align-items:center;gap:.7rem;text-align:center;padding:1.6rem 1.1rem;margin:.9rem .85rem;border-radius:20px;background:linear-gradient(160deg,rgba(240,150,76,.16),rgba(10,18,14,.5));border:1px solid rgba(242,149,76,.35);}
 .dw-gate-av .av-img{width:4.2rem;height:4.2rem;border-radius:50%;object-fit:cover;border:2px solid rgba(242,149,76,.6);}
 .dw-gate-title{font-family:var(--serif);font-size:1.3rem;color:var(--paper);}
 .dw-gate-sub{font-size:.8rem;color:var(--paper3);max-width:24rem;line-height:1.45;}
 .dw-word{font-family:var(--serif);font-size:2.3rem;font-weight:700;color:var(--gold2);text-shadow:0 0 22px rgba(234,208,138,.4);word-break:break-word;}
-.dw-stage{display:flex;flex-direction:column;align-items:center;gap:.6rem;padding:.6rem .8rem 0;}
+.dw-stage{position:relative;display:flex;flex-direction:column;align-items:center;gap:.6rem;padding:.6rem .8rem 0;}
 .dw-topline{display:flex;align-items:center;gap:.8rem;}
 .dw-timer{font-family:var(--serif);font-size:1.6rem;font-weight:700;color:var(--gold2);letter-spacing:.04em;font-variant-numeric:tabular-nums;min-width:4.2rem;text-align:center;}
 .dw-timer.low{color:#ff8a8a;animation:dw-pulse .8s ease-in-out infinite;}
@@ -995,6 +995,7 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 .dw-guess-row{display:flex;gap:.5rem;width:100%;max-width:760px;}
 .dw-guess-inp{flex:1;min-width:0;font:inherit;font-size:1rem;color:var(--paper);background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:.7rem .9rem;}
 .dw-guess-inp:focus{outline:none;border-color:var(--gold2);}
+.dw-feed:empty{display:none;}
 .dw-feed{display:flex;flex-direction:column;gap:.3rem;padding:.7rem .9rem 1rem;max-width:760px;margin:0 auto;width:100%;}
 .dw-feed-row{display:flex;align-items:center;gap:.45rem;font-size:.82rem;color:var(--paper2);}
 .dw-feed-row .av-img{width:1.4rem;height:1.4rem;border-radius:50%;object-fit:cover;}
@@ -4730,6 +4731,7 @@ function oDwOnSrv(state,prev,wasLobby){
   const d=state.dw,gs=d.guesses||[];
   if(prev.rid===d.rid&&gs.length>prev.gn){const last=gs[gs.length-1];if(last&&last.ok&&last.pid!==G.myPid){SFX.play();fxPulse('gold');}}
   if(state.winner){
+    if(document.activeElement&&document.activeElement.id==='dw-guess-input')document.activeElement.blur(); // let the screen change (see render())
     G.lres=state.roundResult||null;
     if(state.winner!==prev.winner&&G.lres){
       if(G.lres.dwGot&&G.lres.dwGot.length){SFX.win();fxPulse('gold');}else SFX.bust();
@@ -4750,9 +4752,11 @@ function oDwOnSrv(state,prev,wasLobby){
     } else G.scr='roundend';
     render();return;
   }
+  const wasTable=G.scr==='table';
   G.scr='table';
   if(wasLobby){const opener=state.players[state.curIdx||0];v14Intro('drawit',opener&&opener.name,opener&&opener.avatar);G.gp++;localStorage.setItem('ct_gp',G.gp);}
   else if(prev.rid!==d.rid)SFX.deal();
+  else if(wasTable&&dwPatchTable(state))return;
   render();
 }
 function dwSubmitGuess(){
@@ -4761,6 +4765,7 @@ function dwSubmitGuess(){
   oDwGuess(v);
 }
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.id==='dw-guess-input'){e.preventDefault();dwSubmitGuess();}});
+document.addEventListener('focusout',e=>{if(e.target&&(e.target.id==='dw-guess-input'||e.target.id==='talk-input')&&_dwPendingRender&&!_dwPenDown){_dwPendingRender=false;setTimeout(render,0);}});
 function dwPeek(){
   const g=G.dw,el=document.getElementById('dw-peek');if(!g||!el)return;
   el.textContent=g.word;
@@ -10136,10 +10141,7 @@ function rDrawitOnlineTable(){
   if(!d||!G.dw)return`<div id="s-table" class="scr on"><p style="padding:2rem;text-align:center;">Loading…</p></div>`;
   const players=state.players||[],artistIdx=state.curIdx||0,artist=players[artistIdx]||players[0];
   const iAmArtist=dwIsArtist(),credited=d.credited||[],iGotIt=credited.indexOf(G.myPid)>=0;
-  const standings=players.map((pl,i)=>`<span class="y-standing-pill${i===artistIdx?' active':''}">${avHTML(pl.avatar)}${esc(pl.name)}: ${pl.totalScore||0}${credited.indexOf(pl.id)>=0?' ✅':''}</span>`).join('');
-  const feed=(d.guesses||[]).slice(-10).reverse().map(x=>x.ok
-    ?`<div class="dw-feed-row ok">✅ <b>${esc(x.name)}</b> got it!</div>`
-    :`<div class="dw-feed-row">${avHTML(x.av)}<b>${esc(x.name)}</b> ${esc(x.text)}</div>`).join('');
+  const standings=dwStandingsHTML(state),feed=dwFeedHTML(state);
   let banner,under;
   if(iAmArtist){
     const swatches=DW_COLORS.map(c=>`<button class="dw-swatch${G.dw.color===c?' on':''}" style="background:${c}" data-a="dw-color" data-c="${c}" aria-label="Colour ${c}"></button>`).join('');
@@ -10167,8 +10169,30 @@ function rDrawitOnlineTable(){
       ${under}
       ${!iAmArtist?awayIndicatorHTML(artist.id,artist.name):''}
     </div>
-    ${feed?`<div class="dw-feed">${feed}</div>`:''}
+    <div class="dw-feed" id="dw-feed">${feed}</div>
+    ${talkStripHTML()}
   </div>`;
+}
+function dwStandingsHTML(state){
+  const credited=(state.dw&&state.dw.credited)||[],artistIdx=state.curIdx||0;
+  return(state.players||[]).map((pl,i)=>`<span class="y-standing-pill${i===artistIdx?' active':''}">${avHTML(pl.avatar)}${esc(pl.name)}: ${pl.totalScore||0}${credited.indexOf(pl.id)>=0?' ✅':''}</span>`).join('');
+}
+function dwFeedHTML(state){
+  return((state.dw&&state.dw.guesses)||[]).slice(-10).reverse().map(x=>x.ok
+    ?`<div class="dw-feed-row ok">✅ <b>${esc(x.name)}</b> got it!</div>`
+    :`<div class="dw-feed-row">${avHTML(x.av)}<b>${esc(x.name)}</b> ${esc(x.text)}</div>`).join('');
+}
+// A state update that changes nothing structural (a new guess, the artist's snapshot echo) is applied
+// to the live DOM instead of rebuilding the screen. A rebuild flashes the canvas blank and, on iPad,
+// drops the on-screen keyboard (iOS won't reopen it programmatically), which is what made typing a
+// guess unreliable. Returns false when the screen genuinely needs a full render.
+function dwPatchTable(state){
+  const strip=document.querySelector('#s-table .y-standings-strip'),feed=document.getElementById('dw-feed');
+  if(!strip||!feed||!document.getElementById('dw-canvas'))return false;
+  const iGot=((state.dw&&state.dw.credited)||[]).indexOf(G.myPid)>=0;
+  if(!dwIsArtist()&&iGot===!!document.getElementById('dw-guess-input'))return false; // input <-> "you got it" swap
+  strip.innerHTML=dwStandingsHTML(state);feed.innerHTML=dwFeedHTML(state);
+  return true;
 }
 function rDrawitTable(){
   if(G.isOnline)return rDrawitOnlineTable();
@@ -10217,6 +10241,7 @@ function rDrawitTable(){
     </div>
     <div class="y-standings-strip">${standings}</div>
     ${body}
+    ${talkStripHTML()}
   </div>`;
 }
 /* ── Bingo: the table ──
@@ -11534,6 +11559,9 @@ function render(){
   // A render rebuilds #app, canvas included, which would drop the artist's pen mid-stroke -- and online
   // the artist's own snapshot write echoes straight back as a state update. Hold it until the pen lifts.
   if(_dwPenDown){_dwPendingRender=true;return;}
+  // Same idea for a guesser mid-word: presence blips and away-ticks also call render(), and each rebuild
+  // would dismiss the iPad keyboard. Held until the field loses focus.
+  if(document.activeElement&&(document.activeElement.id==='dw-guess-input'||(document.activeElement.id==='talk-input'&&G.selGame==='drawit'))&&G.scr==='table'){_dwPendingRender=true;return;}
   applyTableAge();
   checkpointLocalMatch();
   maybeBotTurn();
@@ -11558,7 +11586,7 @@ function render(){
   // (3.3s / 4s timers), so a re-render landing mid-flight would cut them short: an incoming
   // reaction could be wiped the same instant it appeared. Carry any still-flying ones across the
   // rebuild, exactly like the focused input above.
-  const oldFelt=appEl.querySelector('.felt-table');
+  const oldFelt=appEl.querySelector('.felt-table,.dw-stage,.dw-gate');
   const flying=oldFelt?[...oldFelt.querySelectorAll('.float-r'),...oldFelt.querySelectorAll('.talk-bubbles')]:[];
   flying.forEach(n=>n.remove());
 
@@ -11582,7 +11610,7 @@ function render(){
   // Re-home the in-flight reactions onto the freshly built felt. If this render navigated away from
   // the table there's no felt to land on and they're simply dropped, which is the right outcome.
   if(flying.length){
-    const newFelt=appEl.querySelector('.felt-table');
+    const newFelt=appEl.querySelector('.felt-table,.dw-stage,.dw-gate');
     if(newFelt)flying.forEach(n=>newFelt.appendChild(n));
   }
   document.getElementById('app-sidebar-root').innerHTML=rSidebar();
@@ -12323,7 +12351,7 @@ function toast(msg){const el=document.getElementById('toast');if(!el)return;el.t
 // floating emoji. A short rolling window of recent reaction timestamps decides when that's true.
 let _reactStormTimes=[];
 function spawnFloatEmoji(emoji){
-  const felt=document.querySelector('.felt-table');if(!felt)return;
+  const felt=document.querySelector('.felt-table,.dw-stage,.dw-gate');if(!felt)return;
   const now=Date.now();
   _reactStormTimes=_reactStormTimes.filter(t=>now-t<2200);
   _reactStormTimes.push(now);
@@ -12334,7 +12362,7 @@ function spawnFloatEmoji(emoji){
   if(isStorm)fxPulse('gold');
 }
 function spawnTalkBubble(entry){
-  const felt=document.querySelector('.felt-table');if(!felt)return;
+  const felt=document.querySelector('.felt-table,.dw-stage,.dw-gate');if(!felt)return;
   let wrap=felt.querySelector('.talk-bubbles');
   if(!wrap){wrap=document.createElement('div');wrap.className='talk-bubbles';wrap.setAttribute('role','log');wrap.setAttribute('aria-live','polite');felt.appendChild(wrap);}
   const el=document.createElement('div');el.className='talk-bubble';
