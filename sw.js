@@ -2,7 +2,7 @@
 // app shell itself. Multiplayer still needs a live connection (Supabase requests are always
 // passed straight through to the network, never cached), so this is about the shell — the HTML,
 // icons, and manifest — not about playing an online game with no signal.
-const CACHE_NAME = 'our-table-v5';
+const CACHE_NAME = 'our-table-v6';
 const APP_SHELL = [
   './CardTableV17_2fixed.html',
   './manifest.json',
@@ -21,6 +21,7 @@ const GAME_COVERS = [
   './assets/games/roulette.jpg','./assets/games/uno.png','./assets/games/romme.png',
   './assets/games/dicedual.png','./assets/games/farkle.png','./assets/games/bingo.png',
   './assets/games/lepouilleux.jpg','./assets/games/pig.jpg','./assets/games/slots.jpg',
+  './assets/games/drawit.jpg',
 ];
 
 self.addEventListener('install', e => {
