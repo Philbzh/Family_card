@@ -991,7 +991,8 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 .dw-chip .av-img{width:1.7rem;height:1.7rem;border-radius:50%;object-fit:cover;}
 .dw-chip.got{background:rgba(212,168,67,.2);border-color:rgba(212,168,67,.6);color:var(--gold2);}
 .dw-rank{font-size:.72rem;font-weight:800;color:#1a1000;background:linear-gradient(155deg,var(--gold2),var(--gold));border-radius:999px;padding:.05rem .45rem;}
-.dw-lvls{display:flex;gap:.4rem;}
+.dw-progress{text-align:center;font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--paper3);margin-top:.3rem;}
+.dw-lvls{display:flex;gap:.4rem;flex-wrap:wrap;}
 .dw-lvl{flex:1;font:inherit;font-size:.85rem;font-weight:600;color:var(--paper2);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:.55rem .4rem;cursor:pointer;min-height:44px;}
 .dw-lvl.on{color:var(--gold2);background:rgba(212,168,67,.18);border-color:rgba(212,168,67,.6);}
 .dw-choices{display:flex;flex-direction:column;gap:.5rem;width:100%;max-width:26rem;}
@@ -2631,7 +2632,7 @@ const GAMES=[
      'Guess fast: <b>+2</b> extra inside the first 15 seconds, <b>+1</b> inside 30. The artist earns <b>1 point</b> for every guesser who got it, so a clear drawing pays off for you too.',
      'The artist picks one of <b>three words</b> (online you get 15 seconds to choose, then a 3-second countdown). Pick <b>Everyday</b>, <b>Mixed</b> or <b>Hard</b> words — and add your own — before you start.',
      'Nobody guessed it? The word is revealed and nobody scores — some words are just unlucky.',
-     'The artist role rotates every round. Play as many rounds as you like, then tap <b>End table</b> — highest score wins.']},
+     'The artist role rotates every round. Before you start choose how long the match runs: <b>open</b> (tap <b>End table</b> whenever you like), <b>everyone once</b>, <b>twice</b>, or <b>first to 30</b> points. Highest score wins.']},
 ];
 // Single source of truth for which unlocked games have online-multiplayer support, so the "online"
 // gate and the local-only badge on a game's card can never drift out of sync with each other.
@@ -4461,6 +4462,23 @@ function dwRoundScores(drawerIdx,credited,n,times){
   if(drawerIdx>=0&&drawerIdx<n)d[drawerIdx]+=rank;
   return d;
 }
+// How long a match runs: until someone taps "End table" ('open'), one or two turns at drawing for
+// everyone ('1', '2'), or until somebody is clearly ahead on 30 points ('score').
+const DW_MATCHES=['open','1','2','score'],DW_SCORE_TARGET=30;
+function dwMatchOver(mode,round,n,scores){
+  if(mode==='1'||mode==='2')return round>=(+mode)*n;
+  if(mode==='score'){
+    const s=(scores||[]).slice().sort((a,b)=>b-a);
+    // A tie at the top plays on: the target alone doesn't decide it, a lead does.
+    return s.length>0&&s[0]>=DW_SCORE_TARGET&&(s.length<2||s[0]>s[1]);
+  }
+  return false;
+}
+function dwProgressText(mode,round,n){
+  if(mode==='1'||mode==='2')return 'Round '+round+' of '+(+mode)*n;
+  if(mode==='score')return 'Round '+round+' · first to '+DW_SCORE_TARGET;
+  return 'Round '+round;
+}
 function dwLevenshtein(a,b){
   const m=a.length,n=b.length;if(!m)return n;if(!n)return m;
   let prev=Array.from({length:n+1},(_,j)=>j);
@@ -4512,6 +4530,7 @@ function lDealDrawit(){
   // lStartMatch sets G.lround=1; every later round arrives through the generic "next" action, which
   // bumps it -- so round 1 is the only time the used-word list should start fresh.
   if((G.lround||1)<=1||!Array.isArray(G.dwUsed))G.dwUsed=[];
+  if((G.lround||1)<=1||!G.dwMode)G.dwMode=dwMatchMode();
   const choices=dwPickChoices(dwPool(dwLevel(),dwLang(),dwCustomList(dwCustomText())),G.dwUsed,3);
   const drawerIdx=mod(G.lstart,G.lp.length);
   G.dw={drawerIdx,word:null,choices,phase:'reveal',wordShown:false,strokes:[],credited:[],times:[],startedAt:null,endsAt:null,color:DW_COLORS[0],size:DW_SIZES[1]};
@@ -4523,6 +4542,16 @@ function lDealDrawit(){
 function dwLevel(){
   const v=G.dwLevel||(function(){try{return localStorage.getItem('ct_dw_level');}catch(e){return null;}})();
   return v==='hard'||v==='mixed'?v:'easy';
+}
+function dwMatchMode(){
+  const v=G.dwMatch||(function(){try{return localStorage.getItem('ct_dw_match');}catch(e){return null;}})();
+  return DW_MATCHES.indexOf(v)>=0?v:'open';
+}
+function dwSetMatch(m){
+  dwReadOptions();
+  G.dwMatch=DW_MATCHES.indexOf(m)>=0?m:'open';
+  try{localStorage.setItem('ct_dw_match',G.dwMatch);}catch(e){}
+  render();
 }
 function dwCustomText(){
   if(typeof G.dwCustomText==='string')return G.dwCustomText;
@@ -4541,7 +4570,10 @@ function dwSetLevel(l){
 }
 function dwOptionsHTML(){
   const lv=dwLevel(),btn=(v,t)=>`<button class="dw-lvl${lv===v?' on':''}" data-a="dw-level" data-l="${v}">${t}</button>`;
-  return`<div class="panel"><div class="panel-lbl">Words</div>
+  const mm=dwMatchMode(),mbtn=(v,t)=>`<button class="dw-lvl${mm===v?' on':''}" data-a="dw-match" data-m="${v}">${t}</button>`;
+  return`<div class="panel"><div class="panel-lbl">Match length</div>
+    <div class="dw-lvls">${mbtn('open','Open')}${mbtn('1','Everyone once')}${mbtn('2','Twice')}${mbtn('score','First to '+DW_SCORE_TARGET)}</div>
+    <div class="panel-lbl" style="margin-top:.9rem;">Words</div>
     <div class="dw-lvls">${btn('easy','Everyday')}${btn('mixed','Mixed')}${btn('hard','Hard')}</div>
     <div style="font-size:.68rem;color:var(--paper3);margin:.7rem 0 .3rem;">Your own words (optional — names, places, in-jokes), separated by commas</div>
     <textarea class="inp" id="dw-custom" rows="2" maxlength="600" placeholder="Oma's garden, Anna's bike, …" style="width:100%;resize:vertical;">${esc(dwCustomText())}</textarea></div>`;
@@ -4592,6 +4624,7 @@ function dwEndRound(){
   G.lp.forEach((p,i)=>{p.totalScore=(p.totalScore||0)+r.deltas[i];});
   r.rows.filter(x=>x.isWinner).forEach(x=>{G.lp[x.i].roundsWon=(G.lp[x.i].roundsWon||0)+1;});
   G.lres=r.result;G.lres.dwStrokes=g.strokes;
+  G.lres.dwOver=dwMatchOver(G.dwMode,G.lround||1,G.lp.length,G.lp.map(p=>p.totalScore||0));
   if(r.got.length){SFX.win();fxPulse('gold');}else{SFX.bust();}
   G.scr='roundend';
   render();
@@ -4796,7 +4829,8 @@ function dwAfterRender(){
 function oDwNewRound(rs,players,round,drawerIdx,used,lang){
   const level=rs.dwLevel==='hard'||rs.dwLevel==='mixed'?rs.dwLevel:'easy',custom=Array.isArray(rs.dwCustom)?rs.dwCustom:[];
   const choices=dwPickChoices(dwPool(level,lang,custom),used||[],3);
-  return{phase:'game',gameId:'drawit',host:rs.host,hr:rs.hr||G.hr,players,curIdx:drawerIdx,dwLang:lang,dwLevel:level,dwCustom:custom,
+  const match=DW_MATCHES.indexOf(rs.dwMatch)>=0?rs.dwMatch:'open';
+  return{phase:'game',gameId:'drawit',host:rs.host,hr:rs.hr||G.hr,players,curIdx:drawerIdx,dwLang:lang,dwLevel:level,dwCustom:custom,dwMatch:match,
     dw:{rid:round+'-'+Date.now(),word:null,choices,used:used||[],phase:'choosing',pickBy:Date.now()+DW_PICK_MS,readyAt:null,endsAt:null,
       strokes:[],q:0,guesses:[],credited:[],creditedAt:[]},
     winner:null,winnerName:null,winnerAv:null,roundResult:null,matchOver:false,lastAct:'',round,_ts:Date.now()};
@@ -4845,6 +4879,7 @@ function dwFinalizeState(state){
   const w=lead.isWinner?players[lead.i]:artist;
   state.winner=w.id;state.winnerName=w.name;state.winnerAv=w.avatar;
   state.roundResult=r.result;state.lastAct=r.moment;
+  state.roundResult.dwOver=dwMatchOver(state.dwMatch,state.round||1,players.length,players.map(p=>p.totalScore||0));
   return true;
 }
 function oDwFinalize(){return oDwMutate(dwFinalizeState);}
@@ -10343,7 +10378,8 @@ function rDrawitOnlineTable(){
       <div class="gb-turn${iAmArtist?' mine':''}">${avChar(artist.avatar)} ${iAmArtist?'You draw':esc(artist.name)+' draws'}</div>
       <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
     </div>
-    <div class="y-standings-strip">${standings}</div>`;
+    <div class="y-standings-strip">${standings}</div>
+    <div class="dw-progress">${dwProgressText(state.dwMatch,state.round||1,players.length)}</div>`;
   if(d.phase==='choosing'){
     return`<div id="s-table" class="scr on game-drawit">${head}
       <div class="dw-gate">
@@ -10458,6 +10494,7 @@ function rDrawitTable(){
       <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
     </div>
     <div class="y-standings-strip">${standings}</div>
+    <div class="dw-progress">${dwProgressText(G.dwMode,G.lround||1,players.length)}</div>
     ${body}
     ${talkStripHTML()}
   </div>`;
@@ -11151,7 +11188,7 @@ function rRoundEnd(){
   const pouilleuxBadge=r.bpLoser?`<div style="margin:.5rem auto 0;">${makeCard({rank:'J',suit:'spades'},72,100)}</div>`:'';
   return`<div id="s-roundend" class="scr on">
     <div class="topbar"><span class="top-title" style="font-family:var(--serif);">${isRoulette?'The Wheel Stops':'Round Result'}</span><div class="top-right">${sndBtn()}</div></div>
-    <div class="res-body"><div class="winner-banner" style="--acc:${MOMENT_ACCENT[rGid]||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${winTitle}</div><div class="wb-sub">${isDraw?(r.dwGot.length?`${esc(r.dwArtist)} drew it · guessed by ${r.dwGot.map(esc).join(', ')}`:`${esc(r.dwArtist)} drew it · nobody guessed`):`A great game at the table · ${new Date().toLocaleDateString(undefined,{day:'numeric',month:'long',year:'numeric'})}`}</div>${roulBadge}${pouilleuxBadge}${isDraw?'<div class="dw-canvas-wrap dw-result"><canvas id="dw-result-canvas" aria-label="The finished drawing"></canvas></div>':''}<button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div><div class="panel" style="text-align:center;margin-bottom:.8rem;"><div class="panel-lbl">TABLE MOMENT</div><div style="font-family:var(--serif);font-size:1.1rem;color:var(--paper);margin:.2rem 0;">${roundMoment(r)}</div><div style="font-size:.72rem;color:var(--paper3);">Save the score. Deal again. Keep the memory.</div></div><div class="standings">${rows}</div><div class="res-btns"><button class="btn btn-gold" data-a="next">${isRoulette?'🎡 Spin again':isDraw?'🎨 Next artist':'🃏 Deal again'}</button><button class="btn btn-ghost" data-a="endgame">End table</button></div></div>
+    <div class="res-body"><div class="winner-banner" style="--acc:${MOMENT_ACCENT[rGid]||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${winTitle}</div><div class="wb-sub">${isDraw?(r.dwGot.length?`${esc(r.dwArtist)} drew it · guessed by ${r.dwGot.map(esc).join(', ')}`:`${esc(r.dwArtist)} drew it · nobody guessed`):`A great game at the table · ${new Date().toLocaleDateString(undefined,{day:'numeric',month:'long',year:'numeric'})}`}</div>${roulBadge}${pouilleuxBadge}${isDraw?'<div class="dw-canvas-wrap dw-result"><canvas id="dw-result-canvas" aria-label="The finished drawing"></canvas></div>':''}<button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div><div class="panel" style="text-align:center;margin-bottom:.8rem;"><div class="panel-lbl">TABLE MOMENT</div><div style="font-family:var(--serif);font-size:1.1rem;color:var(--paper);margin:.2rem 0;">${roundMoment(r)}</div><div style="font-size:.72rem;color:var(--paper3);">Save the score. Deal again. Keep the memory.</div></div><div class="standings">${rows}</div><div class="res-btns">${isDraw&&r.dwOver?'<button class="btn btn-gold" data-a="endgame">🏆 Final scores</button>':`<button class="btn btn-gold" data-a="next">${isRoulette?'🎡 Spin again':isDraw?'🎨 Next artist':'🃏 Deal again'}</button><button class="btn btn-ghost" data-a="endgame">End table</button>`}</div></div>
   </div>`;
 }
 
@@ -12067,6 +12104,7 @@ document.addEventListener('click',e=>{
   else if(a==='dw-end'){G.isOnline?oDwFinalize():dwEndRound();}
   else if(a==='dw-pick'){G.isOnline?oDwPick(+t.getAttribute('data-i')):dwPick(+t.getAttribute('data-i'));}
   else if(a==='dw-level'){dwSetLevel(t.getAttribute('data-l'));}
+  else if(a==='dw-match'){dwSetMatch(t.getAttribute('data-m'));}
   else if(a==='dw-guess'){dwSubmitGuess();}
   else if(a==='pigroll'){G.isOnline?oPigRoll():pigRoll();}
   else if(a==='pigbank'){G.isOnline?oPigBank():pigBank();}
@@ -12189,7 +12227,7 @@ document.addEventListener('click',e=>{
       if(rs.gameId==='drawit'){
         const players=rs.players.slice(0,6).map(p=>({...p,totalScore:0,roundsWon:0}));
         dwReadOptions();
-        const gs=oDwNewRound({...rs,dwLevel:dwLevel(),dwCustom:dwCustomList(dwCustomText())},players,1,rnd(0,players.length-1),[],dwLang());
+        const gs=oDwNewRound({...rs,dwLevel:dwLevel(),dwCustom:dwCustomList(dwCustomText()),dwMatch:dwMatchMode()},players,1,rnd(0,players.length-1),[],dwLang());
         G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }

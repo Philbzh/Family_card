@@ -959,6 +959,63 @@ function run(A,W){
     eq('timings stay with the right guesser when an invalid seat is skipped',A.dwRoundScores(0,[0,1,9,2],3,[1,1000,1,40000]),[2,5,2]);
   });
 
+  suite('Draw-it — match length',()=>{
+    const O=A.dwMatchOver;
+    check('an open match never ends by itself',!O('open',1,3,[0,0,0])&&!O('open',99,3,[500,0,0])&&!O(undefined,5,3,[99,0,0]));
+    check('"everyone once" ends after one round per player',!O('1',1,3,[]) && !O('1',2,3,[]) && O('1',3,3,[]));
+    check('"twice" ends after two rounds per player',!O('2',5,3,[]) && O('2',6,3,[]));
+    check('the count follows the number of players',O('1',2,2,[])&&!O('1',2,4,[])&&O('2',8,4,[]));
+    check('first to 30 ends once someone is clearly ahead on 30',O('score',4,3,[30,12,9])&&O('score',4,3,[41,30,0]));
+    check('and not before',!O('score',4,3,[29,29,10])&&!O('score',1,2,[]));
+    check('a tie at the top plays on rather than picking a winner',!O('score',4,2,[30,30])&&!O('score',4,3,[35,35,5]));
+    check('a single player at 30 is simply ahead',O('score',4,1,[30]));
+    eq('the progress line reads naturally',[A.dwProgressText('open',3,4),A.dwProgressText('2',3,4),A.dwProgressText('score',3,4)],
+      ['Round 3','Round 3 of 8','Round 3 · first to '+A.DW_SCORE_TARGET]);
+    check('the setting is always one of the known modes',A.DW_MATCHES.includes(A.dwMatchMode()));
+
+    const P=n=>({id:'id-'+n,name:n,avatar:A.AVATARS[0],totalScore:0,roundsWon:0});
+    const rs={host:'id-A',hr:{},dwMatch:'1'};
+    const room=round=>{const s=A.oDwNewRound(rs,[P('A'),P('B')],round,0,[],'en');Object.assign(s.dw,{word:'Zelt',phase:'drawing',readyAt:Date.now()-1000,endsAt:Date.now()+60000});return s;};
+    eq('the room remembers the chosen match length',room(1).dwMatch,'1');
+    check('an unknown length falls back to open',A.oDwNewRound({...rs,dwMatch:'nonsense'},[P('A'),P('B')],1,0,[],'en').dwMatch==='open');
+    const r1=room(1);A.dwFinalizeState(r1);
+    const r2=room(2);A.dwFinalizeState(r2);
+    check('online: the round result says whether that was the last round',r1.roundResult.dwOver===false&&r2.roundResult.dwOver===true);
+
+    // Played through the real handlers: a match set to "everyone once" runs exactly one round each and
+    // then offers Final scores instead of another round.
+    const keep={scr:A.G.scr,lp:A.G.lp,game:A.G.selGame,online:A.G.isOnline,nid:A.G.nid,tw:A.G.tw,dw:A.G.dw,used:A.G.dwUsed,round:A.G.lround,start:A.G.lstart,mode:A.G.dwMode,match:A.G.dwMatch};
+    const keepLs={};['ct_history','ct_achievements','ct_tw','ct_gp'].forEach(k=>keepLs[k]=localStorage.getItem(k));
+    const bad=[];const note=m=>{if(bad.indexOf(m)<0)bad.push(m);};
+    const click=sel=>{const el=W.document.querySelector(sel);if(!el){note('no button for '+sel);return false;}el.click();return true;};
+    localStorage.setItem('ct_history','[]');
+    try{
+      for(const n of [2,3,4]){
+        A.G.isOnline=false;A.G.selGame='drawit';A.G.nid=99;A.G.dwMatch='1';
+        A.G.lp=Array.from({length:n},(_,i)=>({id:i+1,name:'P'+(i+1),avatar:A.AVATARS[0],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false}));
+        W.lStartMatch();W.render();
+        for(let r=1;r<=n;r++){
+          click('[data-a="dw-show"]');click('[data-a="dw-pick"][data-i="0"]');click('[data-a="dw-start"]');
+          W.dwToggleCredit((A.G.dw.drawerIdx+1)%n);
+          click('[data-a="dw-end"]');
+          if(A.G.scr!=='roundend'){note('round did not end');break;}
+          const last=r===n;
+          if(!!A.G.lres.dwOver!==last)note('round '+r+' of '+n+' reported the wrong "match over" state');
+          const hasNext=!!W.document.querySelector('[data-a="next"]'),hasFinal=!!W.document.querySelector('[data-a="endgame"]');
+          if(last&&(hasNext||!hasFinal))note('the last round should offer only Final scores');
+          if(!last&&!hasNext)note('a middle round should offer the next artist');
+          if(!last)click('[data-a="next"]');
+        }
+        click('[data-a="endgame"]');
+        if(A.G.scr!=='matchend')note('Final scores did not reach the match-end screen');
+      }
+      check('a match set to "everyone once" runs one round per player, then offers Final scores',bad.length===0,bad.join(' | '));
+    } finally {
+      Object.assign(A.G,{scr:keep.scr,lp:keep.lp,selGame:keep.game,isOnline:keep.online,nid:keep.nid,tw:keep.tw,dw:keep.dw,dwUsed:keep.used,lround:keep.round,lstart:keep.start,dwMode:keep.mode,dwMatch:keep.match});
+      Object.keys(keepLs).forEach(k=>{if(keepLs[k]===null)localStorage.removeItem(k);else localStorage.setItem(k,keepLs[k]);});
+    }
+  });
+
   suite('Draw-it — near misses',()=>{
     const C=A.dwIsClose;
     check('one letter out is close',C('pizzs','pizza')&&C('piza','pizza')&&C('pizzaa','pizza'));
@@ -3161,7 +3218,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'GAMES','GAME_CATEGORIES','ONLINE_GAMES','DW_ROUND_MS','DW_COLORS','DW_SIZES','DW_WORDS_EN','DW_WORDS_DE',
   'dwLang','dwPickWord','dwGuessPoints','dwRoundScores','dwFmt','lDealDrawit','dwShowWord','dwStart','dwToggleCredit','dwEndRound','dwEndMatch','dwTick',
   'dwNormalize','dwGuessMatches','dwHint','dwBuildRound','oDwNewRound','dwFinalizeState',
-  'DW_HARD_EN','DW_HARD_DE','DW_PAPER','dwPool','dwCustomList','dwPickChoices','dwSpeedBonus','dwIsClose','dwLevenshtein','dwPick','dwLevel','dwCustomText',
+  'DW_HARD_EN','DW_HARD_DE','DW_PAPER','dwPool','dwCustomList','dwPickChoices','dwSpeedBonus','dwIsClose','dwLevenshtein','dwPick','dwLevel','dwCustomText','dwMatchOver','dwProgressText','DW_MATCHES','DW_SCORE_TARGET','dwMatchMode',
   'computeSidePots','settleSidePots','roulPayoutMultiplier','roulBetWins','yScoreForCategory','yFreshScorecard',
   'getHistory','getFamily','getAchievements','getResumableMatch','tonightStats','familyStats','rDataOv',
   'SLOT_SYMBOLS','SLOT_PAYLINES','SLOT_SCATTER_PAY','SLOT_JACKPOT_MIN','SLOT_FREE_SPINS_AWARD','SLOT_FREE_SPINS_RETRIGGER',
