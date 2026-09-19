@@ -1,3 +1,4 @@
+// © 2026 Philippe Müller. All rights reserved. This application, including its design, graphics, content, functionality, and source code, is protected by copyright. Any unauthorized copying, reproduction, modification, distribution, or use of the application or its source code is prohibited.
 // Service worker for "Our Table" — makes the app installable and loads fast/offline for the
 // app shell itself. Multiplayer still needs a live connection (Supabase requests are always
 // passed straight through to the network, never cached), so this is about the shell — the HTML,

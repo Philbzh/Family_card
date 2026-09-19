@@ -1,4 +1,7 @@
 <!doctype html>
+<!--
+  © 2026 Philippe Müller. All rights reserved. This application, including its design, graphics, content, functionality, and source code, is protected by copyright. Any unauthorized copying, reproduction, modification, distribution, or use of the application or its source code is prohibited.
+-->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -1144,7 +1147,7 @@ function run(A,W){
   suite('Draw-it — played through the real engine',()=>{
     // Drives a whole match through the real handlers (the same buttons a person taps), for every
     // table size the game allows.
-    const keep={scr:A.G.scr,lp:A.G.lp,game:A.G.selGame,online:A.G.isOnline,nid:A.G.nid,tw:A.G.tw,dw:A.G.dw,used:A.G.dwUsed,round:A.G.lround,start:A.G.lstart};
+    const keep={scr:A.G.scr,lp:A.G.lp,game:A.G.selGame,online:A.G.isOnline,nid:A.G.nid,tw:A.G.tw,dw:A.G.dw,used:A.G.dwUsed,round:A.G.lround,start:A.G.lstart,mode:A.G.dwMode,match:A.G.dwMatch};
     const keepLs={};['ct_history','ct_achievements','ct_tw','ct_gp'].forEach(k=>keepLs[k]=localStorage.getItem(k));
     const bad=[];const note=m=>{if(bad.indexOf(m)<0)bad.push(m);};
     const mkP=(id,n)=>({id,name:n,avatar:A.AVATARS[0],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false});
@@ -1153,7 +1156,7 @@ function run(A,W){
     localStorage.setItem('ct_history','[]'); // history is capped at 50 entries; count from empty
     try{
       for(let n=2;n<=6;n++){
-        A.G.isOnline=false;A.G.selGame='drawit';A.G.nid=99;
+        A.G.isOnline=false;A.G.selGame='drawit';A.G.nid=99;A.G.dwMatch='open'; // don't inherit a saved match length
         A.G.lp=Array.from({length:n},(_,i)=>mkP(i+1,'P'+(i+1)));
         W.lStartMatch();W.render(); // the setup screen's Deal button does both, in this order
         const start=A.G.lstart,before=A.getHistory().length;
@@ -1225,7 +1228,7 @@ function run(A,W){
       check('matches at every table size (2-6) play through the real handlers without breaking a rule',
         bad.length===0,bad.join(' | '));
     } finally {
-      Object.assign(A.G,{scr:keep.scr,lp:keep.lp,selGame:keep.game,isOnline:keep.online,nid:keep.nid,tw:keep.tw,dw:keep.dw,dwUsed:keep.used,lround:keep.round,lstart:keep.start});
+      Object.assign(A.G,{scr:keep.scr,lp:keep.lp,selGame:keep.game,isOnline:keep.online,nid:keep.nid,tw:keep.tw,dw:keep.dw,dwUsed:keep.used,lround:keep.round,lstart:keep.start,dwMatch:keep.match,dwMode:keep.mode});
       Object.keys(keepLs).forEach(k=>{if(keepLs[k]===null)localStorage.removeItem(k);else localStorage.setItem(k,keepLs[k]);});
     }
   });
