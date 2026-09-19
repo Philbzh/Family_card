@@ -805,6 +805,8 @@ function run(A,W){
     // trial count here has to stay small. A single War-style deck can legitimately run to hundreds
     // of flips before it resolves, and this suite pays for every one of them for real.
     const TRIALS=6;
+    // The app keeps at most 50 history entries, so counting entries only works from an empty list.
+    localStorage.setItem('ct_history','[]');
     try{
       for(let t=0;t<TRIALS;t++){
         A.G.isOnline=false;A.G.selGame='battle';A.G.nid=9;
@@ -913,6 +915,63 @@ function run(A,W){
     eq('and never goes negative',A.dwFmt(-500),'0:00');
   });
 
+  suite('Draw-it — word choice, difficulty and speed',()=>{
+    const pool=['a','b','c','d','e'];
+    eq('three different words are offered',new Set(A.dwPickChoices(pool,[],3)).size,3);
+    check('words already used are not offered',A.dwPickChoices(pool,['a','b'],3).every(w=>!['a','b'].includes(w)));
+    check('when fewer than three are left the pool starts over rather than offering fewer',
+      A.dwPickChoices(pool,['a','b','c','d'],3).length===3);
+    check('a tiny pool still returns what it has',A.dwPickChoices(['x','y'],[],3).length===2);
+    check('the pool is not mutated',(()=>{const p=pool.slice(),u=['a'];A.dwPickChoices(p,u,3);return p.join()===pool.join()&&u.join()==='a';})());
+
+    for(const [name,easy,hard] of [['English',A.DW_WORDS_EN,A.DW_HARD_EN],['German',A.DW_WORDS_DE,A.DW_HARD_DE]]){
+      check(name+': the hard list is a real list',hard.length>=40&&hard.every(w=>typeof w==='string'&&w===w.trim()&&w.length>0));
+      const seen=new Map(),clash=[];
+      easy.concat(hard).forEach(w=>{const k=A.dwNormalize(w);if(seen.has(k))clash.push(seen.get(k)+' / '+w);else seen.set(k,w);});
+      check(name+': no word is in both lists, or twice, once normalised',clash.length===0,clash.join(', '));
+      check(name+': every hard word can be guessed by typing it',hard.every(w=>A.dwGuessMatches(w.toUpperCase(),w)));
+    }
+    const lang='en';
+    eq('Everyday is the everyday list',A.dwPool('easy',lang,[]).length,A.DW_WORDS_EN.length);
+    eq('Hard is only the hard list',A.dwPool('hard',lang,[]).length,A.DW_HARD_EN.length);
+    eq('Mixed is both',A.dwPool('mixed',lang,[]).length,A.DW_WORDS_EN.length+A.DW_HARD_EN.length);
+    eq('anything unknown falls back to everyday',A.dwPool('nonsense',lang,[]).length,A.DW_WORDS_EN.length);
+    check('German picks the German lists',A.dwPool('hard','de',[]).every(w=>A.DW_HARD_DE.includes(w)));
+    check('custom words are added on top, without duplicates of what is already there',(()=>{
+      const p=A.dwPool('easy','en',['Oma\'s garden','PIZZA','oma\'s garden']);
+      return p.length===A.DW_WORDS_EN.length+1&&p.includes('Oma\'s garden');
+    })());
+    eq('custom words are split on commas, semicolons and lines, trimmed and de-duplicated',
+      A.dwCustomList(' Oma\'s garden, Anna\'s bike ;\nTent,tent, ,'),['Oma\'s garden','Anna\'s bike','Tent']);
+    check('custom words are capped in length and count',(()=>{
+      const l=A.dwCustomList('x'.repeat(100)+','+Array.from({length:500},(_,i)=>'w'+i).join(','));
+      return l[0].length===30&&l.length===200;
+    })());
+    eq('nothing typed means no custom words',[A.dwCustomList(''),A.dwCustomList(null),A.dwCustomList(undefined)],[[],[],[]]);
+    check('the level and custom text always come back usable',['easy','mixed','hard'].includes(A.dwLevel())&&typeof A.dwCustomText()==='string');
+
+    eq('an answer in the first 15 seconds earns +2',[A.dwSpeedBonus(0),A.dwSpeedBonus(15000)],[2,2]);
+    eq('inside 30 seconds +1',[A.dwSpeedBonus(15001),A.dwSpeedBonus(30000)],[1,1]);
+    eq('slower earns no bonus',A.dwSpeedBonus(30001),0);
+    eq('no timing, or nonsense, earns none',[A.dwSpeedBonus(undefined),A.dwSpeedBonus(null),A.dwSpeedBonus(-5),A.dwSpeedBonus(NaN)],[0,0,0,0]);
+    eq('the bonus is added on top of the rank points',A.dwRoundScores(0,[1,2],3,[1000,20000]),[2,5,3]);
+    eq('with no timings the scores are exactly as before',A.dwRoundScores(0,[1,2],3),[2,3,2]);
+    eq('timings stay with the right guesser when an invalid seat is skipped',A.dwRoundScores(0,[0,1,9,2],3,[1,1000,1,40000]),[2,5,2]);
+  });
+
+  suite('Draw-it — near misses',()=>{
+    const C=A.dwIsClose;
+    check('one letter out is close',C('pizzs','pizza')&&C('piza','pizza')&&C('pizzaa','pizza'));
+    check('a plural is close',C('pizzas','pizza'));
+    check('a long word allows two slips',C('Rasenmaeer','Rasenmäher')&&C('lawn moer','lawn mower'));
+    check('the right answer is not "close", it is right',!C('pizza','pizza')&&!C('PIZZA!','pizza'));
+    check('something unrelated is not close',!C('tiger','pizza')&&!C('car','pizza'));
+    check('short words never count, or every three-letter guess would',!C('cot','cat')&&!C('bad','bat'));
+    check('a very short guess never counts',!C('pi','pizza')&&!C('','pizza'));
+    check('umlaut spellings do not count as a slip',!C('koenig','könig'));
+    eq('edit distance is right',[A.dwLevenshtein('kitten','sitting'),A.dwLevenshtein('','abc'),A.dwLevenshtein('abc','abc')],[3,3,0]);
+  });
+
   suite('Draw-it — typed guesses (online)',()=>{
     const M=A.dwGuessMatches;
     check('case and padding do not matter',M('  PIZZA ','pizza')&&M('pizza','Pizza'));
@@ -977,12 +1036,17 @@ function run(A,W){
     const st=A.oDwNewRound(rs,[P('Anna'),P('Ben'),P('Clara')],3,2,['old'],'en');
     eq('a fresh round is in play',[st.phase,st.gameId,st.round],['game','drawit',3]);
     eq('the artist is the seat whose turn it is, so isMyTurn() and away-skip work unchanged',st.curIdx,2);
-    check('it opens on a timed drawing phase with nothing guessed yet',
-      st.dw.phase==='drawing'&&st.dw.endsAt>Date.now()+A.DW_ROUND_MS-5000&&st.dw.endsAt<=Date.now()+A.DW_ROUND_MS+50&&
-      st.dw.guesses.length===0&&st.dw.credited.length===0&&st.dw.strokes.length===0&&st.dw.q===0);
-    check('the word comes from the requested language and is remembered as used',
-      A.DW_WORDS_EN.includes(st.dw.word)&&st.dw.used.includes(st.dw.word)&&st.dw.used.includes('old'));
-    check('a German room gets a German word',A.DW_WORDS_DE.includes(A.oDwNewRound(rs,[P('A'),P('B')],1,0,[],'de').dw.word));
+    check('it opens with the artist choosing, on a countdown, and nothing guessed yet',
+      st.dw.phase==='choosing'&&st.dw.word===null&&st.dw.pickBy>Date.now()&&st.dw.pickBy<=Date.now()+15050&&
+      st.dw.endsAt===null&&st.dw.readyAt===null&&
+      st.dw.guesses.length===0&&st.dw.credited.length===0&&st.dw.creditedAt.length===0&&st.dw.strokes.length===0&&st.dw.q===0);
+    check('three different words are on offer, from the requested language, none already used',
+      st.dw.choices.length===3&&new Set(st.dw.choices).size===3&&st.dw.choices.every(w=>A.DW_WORDS_EN.includes(w)&&w!=='old')&&st.dw.used.join()==='old');
+    check('a German room offers German words',A.oDwNewRound(rs,[P('A'),P('B')],1,0,[],'de').dw.choices.every(w=>A.DW_WORDS_DE.includes(w)));
+    check('the host\'s difficulty and custom words are carried into the room',(()=>{
+      const h=A.oDwNewRound({...rs,dwLevel:'hard',dwCustom:['Omas Garten']},[P('A'),P('B')],1,0,[],'en');
+      return h.dwLevel==='hard'&&h.dwCustom[0]==='Omas Garten'&&h.dw.choices.every(w=>A.DW_HARD_EN.includes(w)||w==='Omas Garten');
+    })());
     check('no round is over yet',st.winner===null&&st.matchOver===false&&st.roundResult===null);
     check('the whole room state survives JSON (it is stored as one jsonb column)',(()=>{try{return JSON.stringify(JSON.parse(JSON.stringify(st)))===JSON.stringify(st);}catch(e){return false;}})());
     check('each round has its own id, so a stale broadcast from the last one is recognisably stale',
@@ -990,10 +1054,20 @@ function run(A,W){
 
     // Finalising is called from several devices at once (time up, last guesser, artist's button); it
     // must score exactly once no matter how many of them get there.
-    const room=()=>{const s=A.oDwNewRound(rs,[P('Anna',10),P('Ben'),P('Clara')],1,0,[],'en');s.dw.word='Zelt';return s;};
-    const s1=room();s1.dw.credited=['id-Clara','id-Ben'];
+    const room=()=>{const s=A.oDwNewRound(rs,[P('Anna',10),P('Ben'),P('Clara')],1,0,[],'en');
+      Object.assign(s.dw,{word:'Zelt',phase:'drawing',readyAt:Date.now()-1000,endsAt:Date.now()+60000});return s;};
+    const s1=room();s1.dw.credited=['id-Clara','id-Ben'];s1.dw.creditedAt=[40000,45000]; // both slow: no speed bonus
     check('finalising closes an open round',A.dwFinalizeState(s1)===true&&s1.dw.phase==='done');
     eq('and scores it (Clara 3, Ben 2, artist Anna 2 on top of her 10)',s1.players.map(p=>p.name+':'+p.totalScore),['Anna:12','Ben:2','Clara:3']);
+    const fast=room();fast.dw.credited=['id-Clara','id-Ben'];fast.dw.creditedAt=[4000,20000];
+    A.dwFinalizeState(fast);
+    eq('a quick answer earns a speed bonus (Clara 3+2, Ben 2+1, artist 2)',fast.players.map(p=>p.name+':'+p.totalScore),['Anna:12','Ben:3','Clara:5']);
+    const missing=room();missing.dw.credited=['id-Clara'];
+    check('credits with no recorded timing (an older room) still score, just without the bonus',
+      A.dwFinalizeState(missing)&&missing.players.find(p=>p.name==='Clara').totalScore===3);
+    const stuck=A.oDwNewRound(rs,[P('Anna'),P('Ben')],1,0,[],'en');
+    check('a round closed while the artist was still choosing is a round nobody solved',
+      A.dwFinalizeState(stuck)===true&&stuck.dw.phase==='done'&&stuck.dw.word===stuck.dw.choices[0]&&stuck.players.every(p=>p.totalScore===0));
     eq('the round leader is recorded as the winner, which is what routes every device to the result',[s1.winner,s1.winnerName],['id-Clara','Clara']);
     check('with a result the round-result screen can read',s1.roundResult&&s1.roundResult.dwWord==='Zelt'&&s1.roundResult.dwGot.join()==='Clara,Ben');
     const after=JSON.stringify(s1.players);
@@ -1019,6 +1093,7 @@ function run(A,W){
     const mkP=(id,n)=>({id,name:n,avatar:A.AVATARS[0],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false});
     const click=sel=>{const el=W.document.querySelector(sel);if(!el){note('no button for '+sel);return false;}el.click();return true;};
     const ROUNDS=4;
+    localStorage.setItem('ct_history','[]'); // history is capped at 50 entries; count from empty
     try{
       for(let n=2;n<=6;n++){
         A.G.isOnline=false;A.G.selGame='drawit';A.G.nid=99;
@@ -1031,12 +1106,19 @@ function run(A,W){
           if(A.G.scr!=='table'||!dw)note('round did not open on the table');
           if(dw.drawerIdx!==(start+r)%n)note('artist did not rotate by exactly one seat');
           if(dw.phase!=='reveal'||dw.wordShown)note('the word was on show before the artist asked for it');
-          if(words.includes(dw.word))note('a word repeated inside one match');
-          words.push(dw.word);
-          if(A.G.dwUsed.length!==r+1)note('used-word list out of step with rounds played');
+          if(dw.word!==null||!dw.choices||dw.choices.length!==3||new Set(dw.choices).size!==3)note('the artist was not offered three different words');
+          if(A.G.dwUsed.length!==r)note('used-word list out of step with rounds played');
           const before2=A.G.lp.map(p=>p.totalScore);
           click('[data-a="dw-show"]');
           if(!A.G.dw.wordShown)note('show-word did nothing');
+          W.dwStart();
+          if(A.G.dw.phase!=='reveal')note('drawing started before a word was picked');
+          const pickIdx=0|Math.random()*3,offered=dw.choices.slice();
+          click('[data-a="dw-pick"][data-i="'+pickIdx+'"]');
+          if(A.G.dw.word!==offered[pickIdx])note('the picked word was not the one chosen');
+          if(words.includes(A.G.dw.word))note('a word repeated inside one match');
+          words.push(A.G.dw.word);
+          if(A.G.dwUsed.length!==r+1||A.G.dwUsed[r]!==A.G.dw.word)note('only the picked word should be marked used');
           click('[data-a="dw-start"]');
           if(A.G.dw.phase!=='drawing'||!(A.G.dw.endsAt>Date.now()))note('start did not open a timed drawing phase');
           // The artist can never be credited, and a second tap takes a credit back.
@@ -1050,10 +1132,13 @@ function run(A,W){
             // toggled off then on again, so it now sits LAST in the order
             order.push(order.shift());}
           if(JSON.stringify(A.G.dw.credited)!==JSON.stringify(order))note('credit order was not tap order');
-          const expected=A.dwRoundScores(dw.drawerIdx,order,n);
+          if(A.G.dw.times.length!==order.length)note('credit timings out of step with credits');
+          const expected=A.dwRoundScores(dw.drawerIdx,order,n,A.G.dw.times.slice());
+          const drawn=A.G.dw.strokes;
           click('[data-a="dw-end"]');
           if(A.G.scr!=='roundend'||!A.G.lres){note('ending the round did not reach the round-result screen');break;}
           const after=A.G.lp.map(p=>p.totalScore);
+          if(A.G.lres.dwStrokes!==drawn)note('the round result does not carry the drawing');
           if(after.some((v,i)=>v-before2[i]!==expected[i]))note('scores did not match the scoring rules');
           if(after.some(v=>v<0))note('a score went negative');
           if(A.G.lres.bd.reduce((s,b)=>s+b.delta,0)!==expected.reduce((s,x)=>s+x,0))note('round result does not add up');
@@ -1067,7 +1152,7 @@ function run(A,W){
           }
         }
         // Timer expiry ends the round on its own.
-        click('[data-a="next"]');click('[data-a="dw-show"]');click('[data-a="dw-start"]');
+        click('[data-a="next"]');click('[data-a="dw-show"]');click('[data-a="dw-pick"][data-i="0"]');click('[data-a="dw-start"]');
         A.G.dw.endsAt=Date.now()-1;W.dwTick();
         if(A.G.scr!=='roundend')note('the clock running out did not end the round');
         const top=Math.max(...A.G.lp.map(p=>p.totalScore));
@@ -3076,6 +3161,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'GAMES','GAME_CATEGORIES','ONLINE_GAMES','DW_ROUND_MS','DW_COLORS','DW_SIZES','DW_WORDS_EN','DW_WORDS_DE',
   'dwLang','dwPickWord','dwGuessPoints','dwRoundScores','dwFmt','lDealDrawit','dwShowWord','dwStart','dwToggleCredit','dwEndRound','dwEndMatch','dwTick',
   'dwNormalize','dwGuessMatches','dwHint','dwBuildRound','oDwNewRound','dwFinalizeState',
+  'DW_HARD_EN','DW_HARD_DE','DW_PAPER','dwPool','dwCustomList','dwPickChoices','dwSpeedBonus','dwIsClose','dwLevenshtein','dwPick','dwLevel','dwCustomText',
   'computeSidePots','settleSidePots','roulPayoutMultiplier','roulBetWins','yScoreForCategory','yFreshScorecard',
   'getHistory','getFamily','getAchievements','getResumableMatch','tonightStats','familyStats','rDataOv',
   'SLOT_SYMBOLS','SLOT_PAYLINES','SLOT_SCATTER_PAY','SLOT_JACKPOT_MIN','SLOT_FREE_SPINS_AWARD','SLOT_FREE_SPINS_RETRIGGER',

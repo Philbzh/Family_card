@@ -989,6 +989,15 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 .dw-chip .av-img{width:1.7rem;height:1.7rem;border-radius:50%;object-fit:cover;}
 .dw-chip.got{background:rgba(212,168,67,.2);border-color:rgba(212,168,67,.6);color:var(--gold2);}
 .dw-rank{font-size:.72rem;font-weight:800;color:#1a1000;background:linear-gradient(155deg,var(--gold2),var(--gold));border-radius:999px;padding:.05rem .45rem;}
+.dw-lvls{display:flex;gap:.4rem;}
+.dw-lvl{flex:1;font:inherit;font-size:.85rem;font-weight:600;color:var(--paper2);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:.55rem .4rem;cursor:pointer;min-height:44px;}
+.dw-lvl.on{color:var(--gold2);background:rgba(212,168,67,.18);border-color:rgba(212,168,67,.6);}
+.dw-choices{display:flex;flex-direction:column;gap:.5rem;width:100%;max-width:26rem;}
+.dw-choice{font:inherit;font-family:var(--serif);font-size:1.3rem;font-weight:700;color:var(--gold2);background:rgba(255,255,255,.06);border:1px solid rgba(242,149,76,.5);border-radius:14px;padding:.85rem 1rem;cursor:pointer;min-height:52px;word-break:break-word;}
+.dw-choice:active{background:rgba(242,149,76,.2);}
+.dw-result{margin:.8rem auto 0;max-width:420px;}
+.dw-close{color:#f2954c;font-weight:700;font-size:.72rem;}
+.dw-peek{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none;}
 .dw-word-banner{font-size:.85rem;color:var(--paper2);}
 .dw-word-banner b{font-family:var(--serif);font-size:1.5rem;color:var(--gold2);margin-left:.3rem;}
 .dw-hint{font-family:var(--serif);font-size:1.05rem;color:var(--paper);letter-spacing:.06em;text-align:center;word-break:break-word;}
@@ -2617,7 +2626,8 @@ const GAMES=[
   {id:'drawit',cat:'party',icon:'🎨',name:'Draw-it',players:'2–6',dur:'15–30 min',diff:'easy',deal:0,minP:2,maxP:6,cover:'assets/games/drawit.jpg',
    rules:['One player is the <b>artist</b> each round; everyone else is a <b>guesser</b>. The artist secretly sees a word and has <b>70 seconds</b> to draw it — no letters, no numbers, no talking.',
      'Everyone else guesses. On one shared device, shout your guess out loud and the artist taps your name; online, type it in — a right answer is spotted automatically. The first correct guesser earns <b>3 points</b>, the second <b>2</b>, everyone after <b>1</b>.',
-     'The artist earns <b>1 point</b> for every guesser who got it, so a clear drawing pays off for you too.',
+     'Guess fast: <b>+2</b> extra inside the first 15 seconds, <b>+1</b> inside 30. The artist earns <b>1 point</b> for every guesser who got it, so a clear drawing pays off for you too.',
+     'The artist picks one of <b>three words</b> (online you get 15 seconds to choose, then a 3-second countdown). Pick <b>Everyday</b>, <b>Mixed</b> or <b>Hard</b> words — and add your own — before you start.',
      'Nobody guessed it? The word is revealed and nobody scores — some words are just unlucky.',
      'The artist role rotates every round. Play as many rounds as you like, then tap <b>End table</b> — highest score wins.']},
 ];
@@ -4384,10 +4394,34 @@ async function oPigBank(){
    (DW_W x DW_H) and strokes are stored as integer points in that space, so a drawing survives a
    re-render, a resize, and a screen of a different size. */
 const DW_ROUND_MS=70000,DW_W=1000,DW_H=700;
-const DW_COLORS=['#1b1b1b','#d64545','#e8843e','#e9c33a','#3fa068','#3b7ddb','#8a4fd3'];
-const DW_SIZES=[3,7,15];
+const DW_COLORS=['#1b1b1b','#7d7d7d','#8b5a2b','#d64545','#e8843e','#e9c33a','#9bd23c','#3fa068','#2bb5b5','#3b7ddb','#8a4fd3','#ec7fb0'];
+const DW_SIZES=[3,7,15,30];
+// The eraser is simply paper-coloured ink: it needs no special case in the stroke model, the undo
+// stack, the live broadcast or the snapshot, and it paints over earlier strokes exactly as intended.
+const DW_PAPER='#fbf7ee';
+const DW_READY_MS=3000,DW_PICK_MS=15000;
 const DW_WORDS_EN=['pizza','guitar','umbrella','bicycle','volcano','pirate','snowman','telescope','sandwich','rainbow','elephant','airplane','castle','lighthouse','dragon','robot','campfire','skateboard','kangaroo','scissors','toothbrush','popcorn','tornado','backpack','mermaid','cactus','butterfly','treasure map','football','headphones','penguin','pancake','hammer','spider web','submarine','wedding','fireworks','vampire','sunglasses','roller coaster','ice cream','cowboy','ladder','birthday cake','lawn mower','waterfall','hot air balloon','snorkel','chess','bathtub','alarm clock','zombie','sushi','ghost','tent','jellyfish','trampoline','giraffe','wheelbarrow','microphone','vacuum cleaner','palm tree','boomerang','detective','lightning','piano','motorcycle','cheeseburger','bowling','surfing','karaoke','selfie','traffic jam','sunburn','hangover','snoring','sneezing','juggling','fishing','shopping cart','dentist','magician','astronaut','superhero','Santa Claus','Eiffel Tower','pyramid','Statue of Liberty','Titanic','Mona Lisa','Halloween','Christmas tree','Easter bunny','mustache','high heels','bow tie','flamingo','octopus','crocodile','owl','snail','hedgehog','lobster','gorilla','swan','bat','windmill','drawbridge','igloo','skyscraper','bridge','train','sailboat','helicopter','rocket','UFO','camera','laptop','remote control','light bulb','key','crown','sword','shield','bow and arrow','candle','mirror','clock','globe','bell','anchor','compass','lantern','wallet','passport','suitcase','ticket','trophy','medal','ring','necklace','tattoo','wig','beard','yoga','marathon','skiing','fencing','archery','volleyball','tightrope','bungee jumping','parachute','earthquake','avalanche','eclipse','shooting star','black hole','dinosaur','unicorn','werewolf','Bigfoot','Loch Ness monster','mummy','skeleton','witch','genie','fairy','troll','knight','ninja','viking','gladiator'];
 const DW_WORDS_DE=['Pizza','Gitarre','Regenschirm','Fahrrad','Vulkan','Pirat','Schneemann','Teleskop','Sandwich','Regenbogen','Elefant','Flugzeug','Schloss','Leuchtturm','Drache','Roboter','Lagerfeuer','Skateboard','Känguru','Schere','Zahnbürste','Popcorn','Tornado','Rucksack','Meerjungfrau','Kaktus','Schmetterling','Schatzkarte','Fußball','Kopfhörer','Pinguin','Pfannkuchen','Hammer','Spinnennetz','U-Boot','Hochzeit','Feuerwerk','Vampir','Sonnenbrille','Achterbahn','Eiscreme','Cowboy','Leiter','Geburtstagskuchen','Rasenmäher','Wasserfall','Heißluftballon','Schnorchel','Schach','Badewanne','Wecker','Zombie','Sushi','Gespenst','Zelt','Qualle','Trampolin','Giraffe','Schubkarre','Mikrofon','Staubsauger','Palme','Bumerang','Detektiv','Blitz','Klavier','Motorrad','Cheeseburger','Bowling','Surfen','Karaoke','Selfie','Stau','Sonnenbrand','Kater','Schnarchen','Niesen','Jonglieren','Angeln','Einkaufswagen','Zahnarzt','Zauberer','Astronaut','Superheld','Weihnachtsmann','Eiffelturm','Pyramide','Freiheitsstatue','Titanic','Mona Lisa','Halloween','Tannenbaum','Osterhase','Schnurrbart','Stöckelschuhe','Fliege','Flamingo','Krake','Krokodil','Eule','Schnecke','Igel','Hummer','Gorilla','Schwan','Fledermaus','Windmühle','Zugbrücke','Iglu','Wolkenkratzer','Brücke','Zug','Segelboot','Hubschrauber','Rakete','Ufo','Kamera','Laptop','Fernbedienung','Glühbirne','Schlüssel','Krone','Schwert','Schild','Pfeil und Bogen','Kerze','Spiegel','Uhr','Globus','Glocke','Anker','Kompass','Laterne','Geldbeutel','Reisepass','Koffer','Eintrittskarte','Pokal','Medaille','Ring','Halskette','Tätowierung','Perücke','Bart','Yoga','Marathon','Skifahren','Fechten','Bogenschießen','Volleyball','Drahtseil','Bungeespringen','Fallschirm','Erdbeben','Lawine','Sonnenfinsternis','Sternschnuppe','Schwarzes Loch','Dinosaurier','Einhorn','Werwolf','Yeti','Nessie','Mumie','Skelett','Hexe','Flaschengeist','Fee','Troll','Ritter','Ninja','Wikinger','Gladiator'];
+// Harder words for a table that has run out of pizzas: abstract ideas, situations and sayings.
+const DW_HARD_EN=['democracy','jealousy','deja vu','procrastination','gravity','inflation','nightmare','gossip','awkward silence','peer pressure','deadline','time travel','daydream','bad luck','fake news','small talk','home office','burnout','first date','stage fright','road rage','cold feet','sleepwalking','jet lag','mid-life crisis','blind date','green thumb','couch potato','rush hour','power nap','love triangle','brain freeze','goosebumps','photobomb','group chat','slow motion','fire drill','identity crisis','happy hour','elephant in the room','piece of cake','under the weather','raining cats and dogs','butterflies in the stomach','black sheep','white lie','ticking time bomb','snowball effect','domino effect','rat race','wild goose chase'];
+const DW_HARD_DE=['Demokratie','Eifersucht','Deja-vu','Aufschieberitis','Schwerkraft','Inflation','Albtraum','Klatsch','peinliche Stille','Gruppenzwang','Abgabetermin','Zeitreise','Tagtraum','Pech','Fake News','Smalltalk','Homeoffice','Burnout','erstes Date','Lampenfieber','Straßenwut','kalte Füße','Schlafwandeln','Jetlag','Midlife-Crisis','Blind Date','grüner Daumen','Stubenhocker','Berufsverkehr','Powernap','Dreiecksbeziehung','Gänsehaut','Fotobomber','Gruppenchat','Zeitlupe','Feueralarm','Identitätskrise','Feierabend','Elefant im Porzellanladen','ein Kinderspiel','unter dem Wetter','Schäfchen zählen','schwarzes Schaf','Notlüge','tickende Zeitbombe','Schneeballeffekt','Dominoeffekt','Hamsterrad','Schnitzeljagd','Kopfkino'];
+// Which words a table draws from: the everyday list, the hard list, or both, plus anything the family
+// has added themselves (in-jokes, names, places). Custom words are trimmed, de-duplicated and capped.
+function dwCustomList(text){
+  const seen=new Set(),out=[];
+  String(text==null?'':text).split(/[,;\n]+/).forEach(w=>{
+    w=w.trim().slice(0,30);const k=w.toLowerCase();
+    if(w&&!seen.has(k)&&out.length<200){seen.add(k);out.push(w);}
+  });
+  return out;
+}
+function dwPool(level,lang,custom){
+  const easy=lang==='de'?DW_WORDS_DE:DW_WORDS_EN,hard=lang==='de'?DW_HARD_DE:DW_HARD_EN;
+  const base=level==='hard'?hard:level==='mixed'?easy.concat(hard):easy;
+  const seen=new Set(base.map(w=>w.toLowerCase())),extra=[];
+  (custom||[]).forEach(w=>{const k=String(w).toLowerCase();if(w&&!seen.has(k)){seen.add(k);extra.push(w);}});
+  return base.concat(extra);
+}
 // Same locale signal the rest of the app already leans on (dates use the browser's own locale): a
 // German browser gets German words, anything else gets English. No separate language setting.
 function dwLang(){return String((typeof navigator!=='undefined'&&(navigator.language||(navigator.languages||[])[0]))||'').toLowerCase().indexOf('de')===0?'de':'en';}
@@ -4399,19 +4433,47 @@ function dwPickWord(pool,used,rand){
   const word=left[Math.floor((rand||Math.random)()*left.length)];
   return{word,used:base.concat(word)};
 }
+// Offers `n` different words to pick from (the artist chooses one). Same used-list rules as dwPickWord;
+// the picked word is added to the used list by the caller, so the ones passed over come round again.
+function dwPickChoices(pool,used,n,rand){
+  let left=pool.filter(w=>used.indexOf(w)<0);
+  if(left.length<n)left=pool.slice();
+  const out=[],r=rand||Math.random;
+  while(out.length<n&&left.length){out.push(left.splice(Math.floor(r()*left.length),1)[0]);}
+  return out;
+}
 // 1st correct guesser 3, 2nd 2, everyone after 1. rank is 0-based order of getting it right.
 function dwGuessPoints(rank){return rank===0?3:rank===1?2:1;}
-// Points for one round, indexed by seat. `credited` is seat indices in the order they got it; the
-// artist can't credit themselves, a seat only counts once, and the artist earns 1 per guesser so a
-// drawing people can actually read pays off for them too.
-function dwRoundScores(drawerIdx,credited,n){
+// Answering quickly is worth extra: +2 inside the first 15 seconds, +1 inside 30, nothing after.
+function dwSpeedBonus(ms){return typeof ms!=='number'||!(ms>=0)?0:ms<=15000?2:ms<=30000?1:0;}
+// Points for one round, indexed by seat. `credited` is seat indices in the order they got it (`times`,
+// if given, is how many ms into the round each one did); the artist can't credit themselves, a seat
+// only counts once, and the artist earns 1 per guesser so a drawing people can actually read pays off
+// for them too.
+function dwRoundScores(drawerIdx,credited,n,times){
   const d=new Array(n).fill(0),seen=new Set();let rank=0;
-  (credited||[]).forEach(i=>{
+  (credited||[]).forEach((i,j)=>{
     if(i===drawerIdx||!(i>=0&&i<n)||seen.has(i))return;
-    seen.add(i);d[i]+=dwGuessPoints(rank++);
+    seen.add(i);d[i]+=dwGuessPoints(rank++)+dwSpeedBonus(times?times[j]:undefined);
   });
   if(drawerIdx>=0&&drawerIdx<n)d[drawerIdx]+=rank;
   return d;
+}
+function dwLevenshtein(a,b){
+  const m=a.length,n=b.length;if(!m)return n;if(!n)return m;
+  let prev=Array.from({length:n+1},(_,j)=>j);
+  for(let i=1;i<=m;i++){
+    const cur=[i];
+    for(let j=1;j<=n;j++)cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));
+    prev=cur;
+  }
+  return prev[n];
+}
+// A wrong guess that is one slip away (two, for a long word): a typo, a missing letter, a plural.
+function dwIsClose(guess,word){
+  const a=dwNormalize(guess),b=dwNormalize(word);
+  if(!a||a===b||b.length<4||a.length<3)return false;
+  return dwLevenshtein(a,b)<=(b.length>=8?2:1);
 }
 function dwFmt(ms){const s=Math.ceil(Math.max(0,ms)/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
 // Online guesses are typed, so "Pizza", " pizza ", "PIZZA!" and "Pîzza" must all count, and German
@@ -4427,10 +4489,13 @@ function dwHint(word){return String(word||'').split('').map(ch=>/[A-Za-z0-9ÄÖ�
 // One round's outcome from plain data, so the local table and the online room score identically.
 // `credited` is seat indices in the order they got it right; the result is shaped for the generic
 // round-result screen. Does not mutate `players`.
-function dwBuildRound(players,drawerIdx,credited,word){
-  const n=players.length,seen=new Set();
-  const order=(credited||[]).filter(i=>i!==drawerIdx&&i>=0&&i<n&&!seen.has(i)&&seen.add(i));
-  const deltas=dwRoundScores(drawerIdx,order,n),best=Math.max(...deltas);
+function dwBuildRound(players,drawerIdx,credited,word,times){
+  const n=players.length,seen=new Set(),order=[],tt=[];
+  (credited||[]).forEach((i,j)=>{
+    if(i===drawerIdx||!(i>=0&&i<n)||seen.has(i))return;
+    seen.add(i);order.push(i);tt.push(times?times[j]:undefined);
+  });
+  const deltas=dwRoundScores(drawerIdx,order,n,tt),best=Math.max(...deltas);
   const rows=players.map((p,i)=>({i,id:p.id,name:p.name,avatar:p.avatar,delta:deltas[i],total:(p.totalScore||0)+deltas[i],isWinner:best>0&&deltas[i]===best}))
     .sort((a,b)=>b.delta-a.delta||b.total-a.total);
   const artist=players[drawerIdx],got=order.map(i=>players[i].name);
@@ -4445,30 +4510,56 @@ function lDealDrawit(){
   // lStartMatch sets G.lround=1; every later round arrives through the generic "next" action, which
   // bumps it -- so round 1 is the only time the used-word list should start fresh.
   if((G.lround||1)<=1||!Array.isArray(G.dwUsed))G.dwUsed=[];
-  const pick=dwPickWord(dwLang()==='de'?DW_WORDS_DE:DW_WORDS_EN,G.dwUsed);
-  G.dwUsed=pick.used;
+  const choices=dwPickChoices(dwPool(dwLevel(),dwLang(),dwCustomList(dwCustomText())),G.dwUsed,3);
   const drawerIdx=mod(G.lstart,G.lp.length);
-  G.dw={drawerIdx,word:pick.word,phase:'reveal',wordShown:false,rerolled:false,strokes:[],credited:[],endsAt:null,color:DW_COLORS[0],size:DW_SIZES[1]};
+  G.dw={drawerIdx,word:null,choices,phase:'reveal',wordShown:false,strokes:[],credited:[],times:[],startedAt:null,endsAt:null,color:DW_COLORS[0],size:DW_SIZES[1]};
   G.lcur=drawerIdx;G.lres=null;G.llast='';
   SFX.deal();
   G.scr='table';
 }
+// The table's difficulty and the family's own words live in localStorage so they stick between nights.
+function dwLevel(){
+  const v=G.dwLevel||(function(){try{return localStorage.getItem('ct_dw_level');}catch(e){return null;}})();
+  return v==='hard'||v==='mixed'?v:'easy';
+}
+function dwCustomText(){
+  if(typeof G.dwCustomText==='string')return G.dwCustomText;
+  try{return localStorage.getItem('ct_dw_custom')||'';}catch(e){return '';}
+}
+// Called before anything re-renders or starts a match, so what was typed into the words box is kept.
+function dwReadOptions(){
+  const el=document.getElementById('dw-custom');
+  if(el){G.dwCustomText=el.value;try{localStorage.setItem('ct_dw_custom',el.value);}catch(e){}}
+}
+function dwSetLevel(l){
+  dwReadOptions();
+  G.dwLevel=l==='hard'||l==='mixed'?l:'easy';
+  try{localStorage.setItem('ct_dw_level',G.dwLevel);}catch(e){}
+  render();
+}
+function dwOptionsHTML(){
+  const lv=dwLevel(),btn=(v,t)=>`<button class="dw-lvl${lv===v?' on':''}" data-a="dw-level" data-l="${v}">${t}</button>`;
+  return`<div class="panel"><div class="panel-lbl">Words</div>
+    <div class="dw-lvls">${btn('easy','Everyday')}${btn('mixed','Mixed')}${btn('hard','Hard')}</div>
+    <div style="font-size:.68rem;color:var(--paper3);margin:.7rem 0 .3rem;">Your own words (optional — names, places, in-jokes), separated by commas</div>
+    <textarea class="inp" id="dw-custom" rows="2" maxlength="600" placeholder="Oma's garden, Anna's bike, …" style="width:100%;resize:vertical;">${esc(dwCustomText())}</textarea></div>`;
+}
 function dwShowWord(){if(!G.dw)return;G.dw.wordShown=true;render();}
-function dwReroll(){
-  const g=G.dw;if(!g||g.rerolled||g.phase!=='reveal')return;
-  const pick=dwPickWord(dwLang()==='de'?DW_WORDS_DE:DW_WORDS_EN,G.dwUsed||[]);
-  g.word=pick.word;g.rerolled=true;G.dwUsed=pick.used;
+// The artist chooses one of three words; the two passed over stay in the pool for later.
+function dwPick(i){
+  const g=G.dw;if(!g||g.phase!=='reveal'||g.word||!g.choices||!g.choices[i])return;
+  g.word=g.choices[i];G.dwUsed=(G.dwUsed||[]).concat(g.word);
   render();
 }
 function dwStart(){
-  const g=G.dw;if(!g||g.phase!=='reveal')return;
-  g.phase='drawing';g.wordShown=false;g.endsAt=Date.now()+DW_ROUND_MS;
+  const g=G.dw;if(!g||g.phase!=='reveal'||!g.word)return;
+  g.phase='drawing';g.wordShown=false;g.startedAt=Date.now();g.endsAt=g.startedAt+DW_ROUND_MS;
   SFX.play();
   render();
 }
 function dwSetTool(kind,val){
   const g=G.dw;if(!g)return;
-  if(kind==='color'&&DW_COLORS.indexOf(val)>=0)g.color=val;
+  if(kind==='color'&&(DW_COLORS.indexOf(val)>=0||val===DW_PAPER))g.color=val;
   else if(kind==='size'&&DW_SIZES.indexOf(+val)>=0)g.size=+val;
   render();
 }
@@ -4486,17 +4577,19 @@ function dwClear(){
 // shouldn't be permanent).
 function dwToggleCredit(seat){
   const g=G.dw;if(!g||g.phase!=='drawing'||seat===g.drawerIdx||!G.lp[seat])return;
+  if(!g.times)g.times=[]; // a match saved by an older version has no timings
   const at=g.credited.indexOf(seat);
-  if(at>=0)g.credited.splice(at,1);else{g.credited.push(seat);SFX.play();haptic(15);}
+  if(at>=0){g.credited.splice(at,1);g.times.splice(at,1);}
+  else{g.credited.push(seat);g.times.push(Date.now()-(g.startedAt||Date.now()));SFX.play();haptic(15);}
   render();
 }
 function dwEndRound(){
   const g=G.dw;if(!g||g.phase!=='drawing')return;
   g.phase='done';
-  const r=dwBuildRound(G.lp,g.drawerIdx,g.credited,g.word);
+  const r=dwBuildRound(G.lp,g.drawerIdx,g.credited,g.word,g.times);
   G.lp.forEach((p,i)=>{p.totalScore=(p.totalScore||0)+r.deltas[i];});
   r.rows.filter(x=>x.isWinner).forEach(x=>{G.lp[x.i].roundsWon=(G.lp[x.i].roundsWon||0)+1;});
-  G.lres=r.result;
+  G.lres=r.result;G.lres.dwStrokes=g.strokes;
   if(r.got.length){SFX.win();fxPulse('gold');}else{SFX.bust();}
   G.scr='roundend';
   render();
@@ -4541,9 +4634,15 @@ function dwDrawStroke(cv,s,from,tail){
   if(tail){const t=mid(n-2,n-1);ctx.moveTo(t[0],t[1]);ctx.lineTo(p[n-1][0]*k,p[n-1][1]*k);}
   ctx.stroke();
 }
-function dwRedraw(cv){
+function dwRedraw(cv,strokes){
   cv.getContext('2d').clearRect(0,0,cv.width,cv.height);
-  ((G.dw&&G.dw.strokes)||[]).forEach(s=>dwDrawStroke(cv,s,0,true));
+  (strokes||(G.dw&&G.dw.strokes)||[]).forEach(s=>dwDrawStroke(cv,s,0,true));
+}
+// The finished drawing on the round-result screen: everyone gets to see what the word looked like.
+function dwPaintResult(cv){
+  const rect=cv.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);
+  cv.width=Math.max(1,Math.round(rect.width*dpr));cv.height=Math.max(1,Math.round(rect.height*dpr));
+  dwRedraw(cv,(G.isOnline?(G.srv&&G.srv.dw&&G.srv.dw.strokes):(G.lres&&G.lres.dwStrokes))||[]);
 }
 // render() rebuilds #app from scratch, so the canvas element is brand new every time: size it to
 // its box, repaint every stored stroke, and wire the pointer handlers to this instance.
@@ -4563,6 +4662,7 @@ function dwAttachCanvas(cv){
   };
   cv.addEventListener('pointerdown',e=>{
     if(!G.dw||G.dw.phase!=='drawing')return;
+    if(G.isOnline&&Date.now()<((G.srv&&G.srv.dw&&G.srv.dw.readyAt)||0))return; // still in the get-ready countdown
     e.preventDefault();
     try{cv.setPointerCapture(e.pointerId);}catch(err){}
     _dwPenDown=true;_dwPenAt=Date.now();
@@ -4600,13 +4700,30 @@ function dwAttachCanvas(cv){
 // canvas mid-stroke and drop the artist's pen.
 function dwLive(){
   if(G.scr!=='table')return null;
-  if(G.isOnline){const d=G.srv&&G.srv.gameId==='drawit'&&G.srv.dw;return d&&d.phase==='drawing'&&G.dw?d:null;}
+  if(G.isOnline){const d=G.srv&&G.srv.gameId==='drawit'&&G.srv.dw;return d&&(d.phase==='drawing'||d.phase==='choosing')&&G.dw?d:null;}
   return G.selGame==='drawit'&&G.dw&&G.dw.phase==='drawing'?G.dw:null;
+}
+// What the clock shows: the word-picking countdown, the 3-2-1 get-ready, or the round timer.
+function dwTimerText(d){
+  const now=Date.now();
+  if(d.phase==='choosing')return dwFmt(Math.max(0,(d.pickBy||0)-now));
+  if(now<(d.readyAt||0))return '⏳ '+Math.ceil((d.readyAt-now)/1000);
+  return dwFmt(Math.max(0,(d.endsAt||0)-now));
 }
 function dwTick(){
   const g=dwLive();
   if(!g){if(_dwTimer){clearInterval(_dwTimer);_dwTimer=null;}return;}
-  const left=Math.max(0,g.endsAt-Date.now()),el=document.getElementById('dw-timer');
+  const now=Date.now(),el=document.getElementById('dw-timer');
+  if(G.isOnline&&g.phase==='choosing'){
+    // The artist has 15 seconds to pick; if they don't, a word is picked for them (by their device, or
+    // by anyone else's a moment later if theirs has gone quiet).
+    if(el){el.textContent=dwTimerText(g);el.classList.remove('low');}
+    const over=now-(g.pickBy||0);
+    if(over>=(dwIsArtist()?0:2500)&&now-(_dwFinTried['p'+g.rid]||0)>4000){_dwFinTried['p'+g.rid]=now;oDwPick(Math.floor(Math.random()*g.choices.length),true);}
+    return;
+  }
+  if(G.isOnline&&now<(g.readyAt||0)){if(el){el.textContent=dwTimerText(g);el.classList.remove('low');}return;}
+  const left=Math.max(0,g.endsAt-now);
   if(el){el.textContent=dwFmt(left);el.classList.toggle('low',left<=10000);}
   if(!G.isOnline){if(left<=0)dwEndRound();return;}
   // Online: the artist's device calls time; if the artist has gone, any other device does after a
@@ -4619,12 +4736,23 @@ function dwTick(){
   if(G.isOnline&&dwIsArtist()&&_dwSnapDirty&&!_dwPenDown&&Date.now()-_dwSnapAt>2500){_dwSnapDirty=false;_dwSnapAt=Date.now();oDwSaveSnapshot();}
 }
 function dwAfterRender(){
+  const rc=document.getElementById('dw-result-canvas');
+  if(rc&&G.scr==='roundend')dwPaintResult(rc);
   if(!dwLive()){
     if(_dwTimer){clearInterval(_dwTimer);_dwTimer=null;}
     return;
   }
   const cv=document.getElementById('dw-canvas');
   if(cv)dwAttachCanvas(cv);
+  // Hold-to-peek (one shared device): the word shows only while the button is held down, so letting go
+  // -- or the screen being glanced at by someone else a moment later -- never leaves it on show.
+  const pk=document.getElementById('dw-peek');
+  if(pk&&G.dw&&!G.isOnline){
+    const hide=()=>{pk.textContent='👁 Hold to peek';};
+    pk.addEventListener('pointerdown',e=>{e.preventDefault();try{pk.setPointerCapture(e.pointerId);}catch(x){}pk.textContent=G.dw.word||'';});
+    ['pointerup','pointercancel','lostpointercapture'].forEach(ev=>pk.addEventListener(ev,hide));
+    pk.addEventListener('contextmenu',e=>e.preventDefault());
+  }
   if(!_dwTimer)_dwTimer=setInterval(dwTick,250);
   dwTick();
 }
@@ -4634,13 +4762,25 @@ function dwAfterRender(){
    and who has been credited. Pen strokes do NOT travel that way -- a full-row write and re-read per
    stroke would be hopelessly choppy -- they ride the room channel's ephemeral broadcast, with a
    throttled snapshot written to the row so a late joiner or a dropped connection can catch up. */
+// A round opens with the artist choosing one of three words (15 seconds); picking starts a short
+// get-ready countdown, then the round timer. The word stays null until it is picked.
 function oDwNewRound(rs,players,round,drawerIdx,used,lang){
-  const pool=lang==='de'?DW_WORDS_DE:DW_WORDS_EN;
-  const pick=dwPickWord(pool,used||[]);
-  return{phase:'game',gameId:'drawit',host:rs.host,hr:rs.hr||G.hr,players,curIdx:drawerIdx,dwLang:lang,
-    dw:{rid:round+'-'+Date.now(),word:pick.word,used:pick.used,phase:'drawing',endsAt:Date.now()+DW_ROUND_MS,
-      strokes:[],q:0,guesses:[],credited:[]},
+  const level=rs.dwLevel==='hard'||rs.dwLevel==='mixed'?rs.dwLevel:'easy',custom=Array.isArray(rs.dwCustom)?rs.dwCustom:[];
+  const choices=dwPickChoices(dwPool(level,lang,custom),used||[],3);
+  return{phase:'game',gameId:'drawit',host:rs.host,hr:rs.hr||G.hr,players,curIdx:drawerIdx,dwLang:lang,dwLevel:level,dwCustom:custom,
+    dw:{rid:round+'-'+Date.now(),word:null,choices,used:used||[],phase:'choosing',pickBy:Date.now()+DW_PICK_MS,readyAt:null,endsAt:null,
+      strokes:[],q:0,guesses:[],credited:[],creditedAt:[]},
     winner:null,winnerName:null,winnerAv:null,roundResult:null,matchOver:false,lastAct:'',round,_ts:Date.now()};
+}
+function oDwPick(i,force){
+  return oDwMutate(state=>{
+    const d=state.dw;if(d.phase!=='choosing')return false;
+    if(!force&&(state.players[state.curIdx||0]||{}).id!==G.myPid)return false;
+    const w=d.choices&&d.choices[i];if(!w)return false;
+    d.word=w;d.used=(d.used||[]).concat(w);d.phase='drawing';
+    d.readyAt=Date.now()+DW_READY_MS;d.endsAt=d.readyAt+DW_ROUND_MS;
+    return true;
+  });
 }
 async function oDwMutate(mutate){
   for(let i=0;i<6;i++){
@@ -4657,10 +4797,16 @@ async function oDwMutate(mutate){
 // winner so onSrv routes every device to the result screen. Returns false if the round was already
 // closed, which is what makes calling it from several devices at once safe.
 function dwFinalizeState(state){
-  const d=state.dw;if(!d||d.phase!=='drawing')return false;
+  const d=state.dw;if(!d||(d.phase!=='drawing'&&d.phase!=='choosing'))return false;
+  // A round closed while the artist was still choosing (they went away) is simply a round nobody solved.
+  if(!d.word)d.word=(d.choices&&d.choices[0])||'?';
+  // The result screen shows the finished drawing, so store the freshest copy this device has: the
+  // artist's own strokes, or a guesser's live mirror of them, if either is ahead of the last snapshot.
+  if(G.dw&&G.dw.rid===d.rid&&(G.dw.q||0)>=(d.q||0)){d.strokes=G.dw.strokes;d.q=G.dw.q||0;}
   const players=state.players,drawerIdx=state.curIdx||0;
-  const credited=(d.credited||[]).map(pid=>players.findIndex(p=>p.id===pid)).filter(i=>i>=0);
-  const r=dwBuildRound(players,drawerIdx,credited,d.word);
+  const credited=[],times=[];
+  (d.credited||[]).forEach((pid,j)=>{const i=players.findIndex(p=>p.id===pid);if(i>=0){credited.push(i);times.push((d.creditedAt||[])[j]);}});
+  const r=dwBuildRound(players,drawerIdx,credited,d.word,times);
   players.forEach((p,i)=>{p.totalScore=(p.totalScore||0)+r.deltas[i];});
   r.rows.filter(x=>x.isWinner).forEach(x=>{players[x.i].roundsWon=(players[x.i].roundsWon||0)+1;});
   d.phase='done';
@@ -4675,21 +4821,27 @@ function dwFinalizeState(state){
 function oDwFinalize(){return oDwMutate(dwFinalizeState);}
 async function oDwGuess(raw){
   const text=String(raw==null?'':raw).trim().slice(0,40);if(!text)return;
-  let credited=false;
+  let credited=false,close=false;
   await oDwMutate(state=>{
     const d=state.dw;
-    if(d.phase!=='drawing'||Date.now()>d.endsAt+1500)return false;
+    if(d.phase!=='drawing'||Date.now()<(d.readyAt||0)||Date.now()>d.endsAt+1500)return false;
     const players=state.players,me=players.find(p=>p.id===G.myPid);
     if(!me||players[state.curIdx||0].id===me.id||d.credited.includes(me.id))return false;
     const ok=dwGuessMatches(text,d.word);
+    close=!ok&&dwIsClose(text,d.word);
     // A correct guess is recorded WITHOUT its text, so it can't be read off the feed by anyone still
-    // guessing.
-    d.guesses.push({id:Date.now()+'-'+me.id,pid:me.id,name:me.name,av:me.avatar,text:ok?'':text,ok});
+    // guessing. A near miss is flagged, but only its author is shown that.
+    d.guesses.push({id:Date.now()+'-'+me.id,pid:me.id,name:me.name,av:me.avatar,text:ok?'':text,ok,close});
     if(d.guesses.length>30)d.guesses=d.guesses.slice(-30);
-    if(ok){credited=true;d.credited.push(me.id);if(d.credited.length>=players.length-1)dwFinalizeState(state);}
+    if(ok){
+      credited=true;d.credited.push(me.id);
+      (d.creditedAt=d.creditedAt||[]).push(Date.now()-(d.readyAt||Date.now()));
+      if(d.credited.length>=players.length-1)dwFinalizeState(state);
+    }
     return true;
   });
   if(credited){SFX.win();haptic([10,20,10]);}
+  else if(close)toast('🔥 So close!');
 }
 async function oDwNext(){
   if(_onlineBusy)return;_onlineBusy=true;
@@ -4785,12 +4937,6 @@ function dwSubmitGuess(){
 }
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.id==='dw-guess-input'){e.preventDefault();dwSubmitGuess();}});
 document.addEventListener('focusout',e=>{if(e.target&&(e.target.id==='dw-guess-input'||e.target.id==='talk-input')&&_dwPendingRender&&!_dwPenDown){_dwPendingRender=false;setTimeout(render,0);}});
-function dwPeek(){
-  const g=G.dw,el=document.getElementById('dw-peek');if(!g||!el)return;
-  el.textContent=g.word;
-  clearTimeout(dwPeek._t);
-  dwPeek._t=setTimeout(()=>{const e2=document.getElementById('dw-peek');if(e2)e2.textContent='👁 Peek at word';},2500);
-}
 
 /* ═══════ BINGO (90-ball) ═══════
    No turns, no hidden information, and — unlike every dice or card game here — no decisions at
@@ -9506,6 +9652,7 @@ function rSetup(){
         <div style="margin-top:.65rem;font-size:.7rem;color:var(--paper3);">Each player starts with ${DEFAULT_CHIPS.toLocaleString()} chips and plays against the dealer.</div>
       </div>`:''}
       ${game.id==='maumau'?`<div class="panel"><div class="panel-lbl">House Rules</div><div class="hr-grid">${hrD.map(({k,n,d})=>`<div class="hr-tog${G.hr[k]?' on':''}" data-a="hr" data-k="${k}"><div class="hr-row"><span class="hr-nm">${n}</span><span class="hr-chk">${G.hr[k]?'✓':''}</span></div><span class="hr-desc">${d}</span></div>`).join('')}</div></div>`:''}
+      ${game.id==='drawit'?dwOptionsHTML():''}
       <button class="btn btn-gold btn-full" data-a="deal" style="padding:1rem;">${game.id==='yahtzee'?'🎲 Start Rolling':game.id==='roulette'?'🎡 Open the Table':game.id==='slots'?'🎰 Power Up the Machine':game.id==='drawit'?'🎨 Start Drawing':'🃏 Deal the Cards'}</button>
     </div>
   </div>`;
@@ -9539,6 +9686,7 @@ function rLobby(){
       <div style="display:flex;justify-content:center;margin:-.3rem 0 .3rem;">
         <button class="ambient-toggle${G.notifyOn?' on':''}" data-a="toggle-notify" aria-pressed="${G.notifyOn}">🔔 Notify me when it's my turn</button>
       </div>
+      ${game.id==='drawit'&&G.isHost?dwOptionsHTML():''}
       ${G.isHost?`<button class="btn btn-gold btn-full" data-a="start" ${canStart?'':'disabled'}>${canStart?`▶ Start Game — ${players.length} players`:'Waiting for at least 2 players…'}</button>`:
       `<p style="text-align:center;padding:.8rem;color:var(--paper3);font-size:.85rem;">Waiting for the host to start…</p>`}
     </div>
@@ -10161,12 +10309,27 @@ function rDrawitOnlineTable(){
   const players=state.players||[],artistIdx=state.curIdx||0,artist=players[artistIdx]||players[0];
   const iAmArtist=dwIsArtist(),credited=d.credited||[],iGotIt=credited.indexOf(G.myPid)>=0;
   const standings=dwStandingsHTML(state),feed=dwFeedHTML(state);
+  const head=`<div class="game-bar">
+      <div class="gb-game">🎨 Draw-it</div>
+      <div class="gb-turn${iAmArtist?' mine':''}">${avChar(artist.avatar)} ${iAmArtist?'You draw':esc(artist.name)+' draws'}</div>
+      <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
+    </div>
+    <div class="y-standings-strip">${standings}</div>`;
+  if(d.phase==='choosing'){
+    return`<div id="s-table" class="scr on game-drawit">${head}
+      <div class="dw-gate">
+        ${iAmArtist
+          ?`<div class="dw-gate-title">Pick your word</div>${dwChoicesHTML(d.choices)}<div class="dw-gate-sub">The others only see how long it is. Pick within</div>`
+          :`<div class="dw-gate-av">${avHTML(artist.avatar)}</div><div class="dw-gate-title">${esc(artist.name)} is choosing a word…</div>${awayIndicatorHTML(artist.id,artist.name)}`}
+        <div class="dw-timer" id="dw-timer">${dwTimerText(d)}</div>
+      </div>
+      ${talkStripHTML()}
+    </div>`;
+  }
   let banner,under;
   if(iAmArtist){
-    const swatches=DW_COLORS.map(c=>`<button class="dw-swatch${G.dw.color===c?' on':''}" style="background:${c}" data-a="dw-color" data-c="${c}" aria-label="Colour ${c}"></button>`).join('');
-    const sizes=DW_SIZES.map(s=>`<button class="dw-tool${G.dw.size===s?' on':''}" data-a="dw-size" data-s="${s}" aria-label="Brush size ${s}"><i style="width:${4+s}px;height:${4+s}px"></i></button>`).join('');
     banner=`<div class="dw-word-banner">Draw: <b>${esc(d.word)}</b></div>`;
-    under=`<div class="dw-tools">${swatches}${sizes}<button class="dw-tool" data-a="dw-undo" aria-label="Undo last stroke">↩</button><button class="dw-tool" data-a="dw-clear" aria-label="Clear the canvas">🗑</button></div>
+    under=`${dwToolsHTML(G.dw)}
       <div class="poker-actions"><div class="poker-action-row"><button class="btn btn-ghost btn-full" data-a="dw-end">🏁 End round</button></div></div>`;
   } else {
     banner=`<div class="dw-hint">${esc(artist.name)} is drawing — ${esc(dwHint(d.word))}</div>`;
@@ -10174,16 +10337,10 @@ function rDrawitOnlineTable(){
       ?`<div class="dw-gate-sub" style="text-align:center;margin:.6rem 0;">✅ You got it! Waiting for the others…</div>`
       :`<div class="dw-guess-row"><input class="dw-guess-inp" id="dw-guess-input" type="text" maxlength="40" placeholder="Type your guess…" autocomplete="off" autocapitalize="off" autocorrect="off" aria-label="Your guess"><button class="btn btn-gold" data-a="dw-guess">Guess</button></div>`;
   }
-  return`<div id="s-table" class="scr on game-drawit">
-    <div class="game-bar">
-      <div class="gb-game">🎨 Draw-it</div>
-      <div class="gb-turn${iAmArtist?' mine':''}">${avChar(artist.avatar)} ${iAmArtist?'You draw':esc(artist.name)+' draws'}</div>
-      <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
-    </div>
-    <div class="y-standings-strip">${standings}</div>
+  return`<div id="s-table" class="scr on game-drawit">${head}
     <div class="dw-stage">
       ${banner}
-      <div class="dw-topline"><div class="dw-timer" id="dw-timer">${dwFmt(Math.max(0,(d.endsAt||0)-Date.now()))}</div></div>
+      <div class="dw-topline"><div class="dw-timer" id="dw-timer">${dwTimerText(d)}</div></div>
       <div class="dw-canvas-wrap"><canvas id="dw-canvas" aria-label="Drawing canvas"></canvas></div>
       <div class="dw-feed" id="dw-feed">${feed}</div>
       ${under}
@@ -10192,6 +10349,16 @@ function rDrawitOnlineTable(){
     ${talkStripHTML()}
   </div>`;
 }
+// Colour swatches (with an eraser), brush sizes, undo and clear -- shared by the local and online table.
+function dwToolsHTML(g){
+  const swatches=DW_COLORS.map(c=>`<button class="dw-swatch${g.color===c?' on':''}" style="background:${c}" data-a="dw-color" data-c="${c}" aria-label="Colour ${c}"></button>`).join('');
+  const eraser=`<button class="dw-tool${g.color===DW_PAPER?' on':''}" data-a="dw-color" data-c="${DW_PAPER}" aria-label="Eraser">🧽</button>`;
+  const sizes=DW_SIZES.map(s=>`<button class="dw-tool${g.size===s?' on':''}" data-a="dw-size" data-s="${s}" aria-label="Brush size ${s}"><i style="width:${4+s*.6}px;height:${4+s*.6}px"></i></button>`).join('');
+  return`<div class="dw-tools">${swatches}${eraser}${sizes}<button class="dw-tool" data-a="dw-undo" aria-label="Undo last stroke">↩</button><button class="dw-tool" data-a="dw-clear" aria-label="Clear the canvas">🗑</button></div>`;
+}
+function dwChoicesHTML(choices){
+  return`<div class="dw-choices">${(choices||[]).map((w,i)=>`<button class="dw-choice" data-a="dw-pick" data-i="${i}">${esc(w)}</button>`).join('')}</div>`;
+}
 function dwStandingsHTML(state){
   const credited=(state.dw&&state.dw.credited)||[],artistIdx=state.curIdx||0;
   return(state.players||[]).map((pl,i)=>`<span class="y-standing-pill${i===artistIdx?' active':''}">${avHTML(pl.avatar)}${esc(pl.name)}: ${pl.totalScore||0}${credited.indexOf(pl.id)>=0?' ✅':''}</span>`).join('');
@@ -10199,7 +10366,7 @@ function dwStandingsHTML(state){
 function dwFeedHTML(state){
   return((state.dw&&state.dw.guesses)||[]).slice(-4).reverse().map(x=>x.ok
     ?`<div class="dw-feed-row ok">✅ <b>${esc(x.name)}</b> got it!</div>`
-    :`<div class="dw-feed-row">${avHTML(x.av)}<b>${esc(x.name)}</b> ${esc(x.text)}</div>`).join('');
+    :`<div class="dw-feed-row">${avHTML(x.av)}<b>${esc(x.name)}</b> ${esc(x.text)}${x.close&&x.pid===G.myPid?' <span class="dw-close">🔥 so close!</span>':''}</div>`).join('');
 }
 // A state update that changes nothing structural (a new guess, the artist's snapshot echo) is applied
 // to the live DOM instead of rebuilding the screen. A rebuild flashes the canvas blank and, on iPad,
@@ -10227,26 +10394,29 @@ function rDrawitTable(){
       <div class="dw-gate-sub">Only the artist looks at the screen from here — everyone else, eyes away!</div>
       <button class="btn btn-gold btn-full" data-a="dw-show">👁 I’m ${esc(artist.name)} — show my word</button>
     </div>`;
+  } else if(g.phase==='reveal'&&!g.word){
+    body=`<div class="dw-gate">
+      <div class="dw-gate-title">Pick your word</div>
+      ${dwChoicesHTML(g.choices)}
+      <div class="dw-gate-sub">Only you can see these. The others will only be told how long it is.</div>
+    </div>`;
   } else if(g.phase==='reveal'){
     body=`<div class="dw-gate">
       <div class="dw-gate-sub">Your word</div>
       <div class="dw-word">${esc(g.word)}</div>
       <div class="dw-gate-sub">No letters, no numbers, no talking. You get ${Math.round(DW_ROUND_MS/1000)} seconds once you start.</div>
       <button class="btn btn-gold btn-full" data-a="dw-start">✏️ Hide word &amp; start drawing</button>
-      ${g.rerolled?'':'<button class="btn btn-ghost btn-full" data-a="dw-reroll">🔄 Different word (once)</button>'}
     </div>`;
   } else {
-    const swatches=DW_COLORS.map(c=>`<button class="dw-swatch${g.color===c?' on':''}" style="background:${c}" data-a="dw-color" data-c="${c}" aria-label="Colour ${c}"></button>`).join('');
-    const sizes=DW_SIZES.map(s=>`<button class="dw-tool${g.size===s?' on':''}" data-a="dw-size" data-s="${s}" aria-label="Brush size ${s}"><i style="width:${4+s}px;height:${4+s}px"></i></button>`).join('');
     const chips=players.map((pl,i)=>{
       if(i===g.drawerIdx)return'';
       const at=g.credited.indexOf(i);
-      return`<button class="dw-chip${at>=0?' got':''}" data-a="dw-credit" data-seat="${i}">${avHTML(pl.avatar)}${esc(pl.name)}${at>=0?`<span class="dw-rank">${['1st','2nd','3rd'][at]||(at+1)+'th'} +${dwGuessPoints(at)}</span>`:''}</button>`;
+      return`<button class="dw-chip${at>=0?' got':''}" data-a="dw-credit" data-seat="${i}">${avHTML(pl.avatar)}${esc(pl.name)}${at>=0?`<span class="dw-rank">${['1st','2nd','3rd'][at]||(at+1)+'th'} +${dwGuessPoints(at)+dwSpeedBonus(g.times[at])}</span>`:''}</button>`;
     }).join('');
     body=`<div class="dw-stage">
-      <div class="dw-topline"><div class="dw-timer" id="dw-timer">${dwFmt(Math.max(0,(g.endsAt||0)-Date.now()))}</div><button class="dw-peek" id="dw-peek" data-a="dw-peek">👁 Peek at word</button></div>
+      <div class="dw-topline"><div class="dw-timer" id="dw-timer">${dwFmt(Math.max(0,(g.endsAt||0)-Date.now()))}</div><button class="dw-peek" id="dw-peek">👁 Hold to peek</button></div>
       <div class="dw-canvas-wrap"><canvas id="dw-canvas" aria-label="Drawing canvas"></canvas></div>
-      <div class="dw-tools">${swatches}${sizes}<button class="dw-tool" data-a="dw-undo" aria-label="Undo last stroke">↩</button><button class="dw-tool" data-a="dw-clear" aria-label="Clear the canvas">🗑</button></div>
+      ${dwToolsHTML(g)}
     </div>
     <div class="dw-chips-lbl">Guessing is out loud — tap a name when they get it right, in the order they guess it.</div>
     <div class="dw-chips">${chips}</div>
@@ -10952,7 +11122,7 @@ function rRoundEnd(){
   const pouilleuxBadge=r.bpLoser?`<div style="margin:.5rem auto 0;">${makeCard({rank:'J',suit:'spades'},72,100)}</div>`:'';
   return`<div id="s-roundend" class="scr on">
     <div class="topbar"><span class="top-title" style="font-family:var(--serif);">${isRoulette?'The Wheel Stops':'Round Result'}</span><div class="top-right">${sndBtn()}</div></div>
-    <div class="res-body"><div class="winner-banner" style="--acc:${MOMENT_ACCENT[rGid]||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${winTitle}</div><div class="wb-sub">${isDraw?(r.dwGot.length?`${esc(r.dwArtist)} drew it · guessed by ${r.dwGot.map(esc).join(', ')}`:`${esc(r.dwArtist)} drew it · nobody guessed`):`A great game at the table · ${new Date().toLocaleDateString(undefined,{day:'numeric',month:'long',year:'numeric'})}`}</div>${roulBadge}${pouilleuxBadge}<button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div><div class="panel" style="text-align:center;margin-bottom:.8rem;"><div class="panel-lbl">TABLE MOMENT</div><div style="font-family:var(--serif);font-size:1.1rem;color:var(--paper);margin:.2rem 0;">${roundMoment(r)}</div><div style="font-size:.72rem;color:var(--paper3);">Save the score. Deal again. Keep the memory.</div></div><div class="standings">${rows}</div><div class="res-btns"><button class="btn btn-gold" data-a="next">${isRoulette?'🎡 Spin again':isDraw?'🎨 Next artist':'🃏 Deal again'}</button><button class="btn btn-ghost" data-a="endgame">End table</button></div></div>
+    <div class="res-body"><div class="winner-banner" style="--acc:${MOMENT_ACCENT[rGid]||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${winTitle}</div><div class="wb-sub">${isDraw?(r.dwGot.length?`${esc(r.dwArtist)} drew it · guessed by ${r.dwGot.map(esc).join(', ')}`:`${esc(r.dwArtist)} drew it · nobody guessed`):`A great game at the table · ${new Date().toLocaleDateString(undefined,{day:'numeric',month:'long',year:'numeric'})}`}</div>${roulBadge}${pouilleuxBadge}${isDraw?'<div class="dw-canvas-wrap dw-result"><canvas id="dw-result-canvas" aria-label="The finished drawing"></canvas></div>':''}<button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div><div class="panel" style="text-align:center;margin-bottom:.8rem;"><div class="panel-lbl">TABLE MOMENT</div><div style="font-family:var(--serif);font-size:1.1rem;color:var(--paper);margin:.2rem 0;">${roundMoment(r)}</div><div style="font-size:.72rem;color:var(--paper3);">Save the score. Deal again. Keep the memory.</div></div><div class="standings">${rows}</div><div class="res-btns"><button class="btn btn-gold" data-a="next">${isRoulette?'🎡 Spin again':isDraw?'🎨 Next artist':'🃏 Deal again'}</button><button class="btn btn-ghost" data-a="endgame">End table</button></div></div>
   </div>`;
 }
 
@@ -11835,7 +12005,7 @@ document.addEventListener('click',e=>{
   else if(a==='av'){const id=+t.getAttribute('data-id'),pl=G.lp.find(p=>p.id===id);if(pl){pl.avatar=AVATARS[(AVATARS.indexOf(pl.avatar)+1)%AVATARS.length];render();}}
   else if(a==='ol-av'){G.myAvatar=AVATARS[(AVATARS.indexOf(G.myAvatar)+1)%AVATARS.length];render();}
   else if(a==='hr'){G.hr[t.getAttribute('data-k')]=!G.hr[t.getAttribute('data-k')];localStorage.setItem('ct_hr',JSON.stringify(G.hr));render();}
-  else if(a==='deal'){G.lp.forEach((p,i)=>{if(!p.name.trim())p.name='Player '+(i+1);});lStartMatch();render();}
+  else if(a==='deal'){dwReadOptions();G.lp.forEach((p,i)=>{if(!p.name.trim())p.name='Player '+(i+1);});lStartMatch();render();}
   // Poker actions
   else if(a==='force-skip'){oForceSkipCurrentPlayer();}
   else if(a==='poker-fold'){G.isOnline?oPokerFold():(pokerFold(),render());}
@@ -11859,7 +12029,6 @@ document.addEventListener('click',e=>{
   else if(a==='fkcontinue'){G.isOnline?oFkContinue():fkContinue();}
   else if(a==='fkbank'){G.isOnline?oFkBank():fkBank();}
   else if(a==='dw-show'){dwShowWord();}
-  else if(a==='dw-reroll'){dwReroll();}
   else if(a==='dw-start'){dwStart();}
   else if(a==='dw-color'){dwSetTool('color',t.getAttribute('data-c'));}
   else if(a==='dw-size'){dwSetTool('size',t.getAttribute('data-s'));}
@@ -11867,7 +12036,8 @@ document.addEventListener('click',e=>{
   else if(a==='dw-clear'){dwClear();}
   else if(a==='dw-credit'){dwToggleCredit(+t.getAttribute('data-seat'));}
   else if(a==='dw-end'){G.isOnline?oDwFinalize():dwEndRound();}
-  else if(a==='dw-peek'){dwPeek();}
+  else if(a==='dw-pick'){G.isOnline?oDwPick(+t.getAttribute('data-i')):dwPick(+t.getAttribute('data-i'));}
+  else if(a==='dw-level'){dwSetLevel(t.getAttribute('data-l'));}
   else if(a==='dw-guess'){dwSubmitGuess();}
   else if(a==='pigroll'){G.isOnline?oPigRoll():pigRoll();}
   else if(a==='pigbank'){G.isOnline?oPigBank():pigBank();}
@@ -11989,7 +12159,8 @@ document.addEventListener('click',e=>{
       }
       if(rs.gameId==='drawit'){
         const players=rs.players.slice(0,6).map(p=>({...p,totalScore:0,roundsWon:0}));
-        const gs=oDwNewRound(rs,players,1,rnd(0,players.length-1),[],dwLang());
+        dwReadOptions();
+        const gs=oDwNewRound({...rs,dwLevel:dwLevel(),dwCustom:dwCustomList(dwCustomText())},players,1,rnd(0,players.length-1),[],dwLang());
         G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }
