@@ -976,6 +976,8 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 @keyframes dw-pulse{50%{opacity:.5;}}
 .dw-peek{font:inherit;font-size:.72rem;font-weight:600;color:var(--paper2);background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:.35rem .8rem;cursor:pointer;min-height:36px;}
 .dw-canvas-wrap{width:min(100%,calc(56vh*1.4286));max-width:760px;aspect-ratio:10/7;background:#fbf7ee;border-radius:16px;overflow:hidden;box-shadow:0 12px 32px rgba(0,0,0,.45),inset 0 0 0 2px rgba(201,155,78,.55);}
+.dw-canvas-wrap{position:relative;}
+.dw-canvas-wrap canvas.dw-live{position:absolute;left:0;top:0;pointer-events:none;}
 .dw-canvas-wrap canvas{width:100%;height:100%;display:block;touch-action:none;cursor:crosshair;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
 .dw-tools{display:flex;flex-wrap:wrap;gap:.45rem;justify-content:center;align-items:center;}
 .dw-swatch{width:2.1rem;height:2.1rem;border-radius:50%;border:2px solid rgba(255,255,255,.25);padding:0;cursor:pointer;}
@@ -4634,7 +4636,32 @@ function dwDrawStroke(cv,s,from,tail){
   if(tail){const t=mid(n-2,n-1);ctx.moveTo(t[0],t[1]);ctx.lineTo(p[n-1][0]*k,p[n-1][1]*k);}
   ctx.stroke();
 }
+// The smoothed curve always stops half a segment short of the pen, so that last bit is drawn on a
+// separate transparent layer that is wiped and redrawn on every move (it can't leave stubs behind the
+// way drawing it on the real canvas would). The line therefore reaches the pen while it is moving.
+function dwLiveLayer(cv){
+  let ov=cv.parentNode&&cv.parentNode.querySelector('.dw-live');
+  if(!ov&&cv.parentNode){ov=document.createElement('canvas');ov.className='dw-live';cv.parentNode.appendChild(ov);}
+  if(ov&&(ov.width!==cv.width||ov.height!==cv.height)){ov.width=cv.width;ov.height=cv.height;}
+  return ov;
+}
+function dwClearTail(cv){
+  const ov=cv.parentNode&&cv.parentNode.querySelector('.dw-live');
+  if(ov)ov.getContext('2d').clearRect(0,0,ov.width,ov.height);
+}
+function dwDrawTail(cv,s){
+  const ov=dwLiveLayer(cv);if(!ov)return;
+  const ctx=ov.getContext('2d'),k=cv.width/DW_W,p=s.p,n=p.length;
+  ctx.clearRect(0,0,ov.width,ov.height);
+  if(n<2)return;
+  ctx.lineCap='round';ctx.strokeStyle=s.c;ctx.lineWidth=s.w*k;
+  ctx.beginPath();
+  ctx.moveTo((p[n-2][0]+p[n-1][0])/2*k,(p[n-2][1]+p[n-1][1])/2*k);
+  ctx.lineTo(p[n-1][0]*k,p[n-1][1]*k);
+  ctx.stroke();
+}
 function dwRedraw(cv,strokes){
+  dwClearTail(cv);
   cv.getContext('2d').clearRect(0,0,cv.width,cv.height);
   (strokes||(G.dw&&G.dw.strokes)||[]).forEach(s=>dwDrawStroke(cv,s,0,true));
 }
@@ -4683,6 +4710,7 @@ function dwAttachCanvas(cv){
     });
     if(cur.p.length-1===from)return;
     dwDrawStroke(cv,cur,from);
+    dwDrawTail(cv,cur);
     if(!flushTimer)flushTimer=setTimeout(flush,50);
   });
   cv.addEventListener('contextmenu',e=>e.preventDefault());
@@ -4690,6 +4718,7 @@ function dwAttachCanvas(cv){
     if(!cur)return;
     clearTimeout(flushTimer);flush();
     dwDrawStroke(cv,cur,cur.p.length-1,true);
+    dwClearTail(cv);
     cur=null;_dwPenDown=false;
     G.dw.q=(G.dw.q||0)+1;dwSend({k:'e',q:G.dw.q});_dwSnapDirty=true;
     if(_dwPendingRender){_dwPendingRender=false;render();}
@@ -4877,8 +4906,8 @@ function dwOnBroadcast(m){
   if(!m||!G.isOnline||dwIsArtist()||!G.dw||G.dw.rid!==m.rid)return;
   const cv=document.getElementById('dw-canvas'),S=G.dw.strokes;
   if(m.k==='s'&&Array.isArray(m.p)){S.length=Math.min(S.length,m.i);S[m.i]={c:m.c,w:m.w,p:m.p.slice()};if(cv)dwDrawStroke(cv,S[m.i],0);}
-  else if(m.k==='p'&&Array.isArray(m.p)){const s=S[m.i];if(!s)return;const from=s.p.length-1;s.p.push(...m.p);if(cv)dwDrawStroke(cv,s,from);}
-  else if(m.k==='e'){G.dw.q=Math.max(G.dw.q||0,m.q);const s=S[S.length-1];if(s&&cv)dwDrawStroke(cv,s,s.p.length-1,true);}
+  else if(m.k==='p'&&Array.isArray(m.p)){const s=S[m.i];if(!s)return;const from=s.p.length-1;s.p.push(...m.p);if(cv){dwDrawStroke(cv,s,from);dwDrawTail(cv,s);}}
+  else if(m.k==='e'){G.dw.q=Math.max(G.dw.q||0,m.q);const s=S[S.length-1];if(s&&cv){dwDrawStroke(cv,s,s.p.length-1,true);dwClearTail(cv);}}
   else if(m.k==='u'){S.pop();G.dw.q=Math.max(G.dw.q||0,m.q);if(cv)dwRedraw(cv);}
   else if(m.k==='c'){S.length=0;G.dw.q=Math.max(G.dw.q||0,m.q);if(cv)dwRedraw(cv);}
 }
