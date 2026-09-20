@@ -1556,6 +1556,172 @@ function run(A,W){
     })());
   });
 
+  suite('Hot Bomb — rounds, fuses and passing',()=>{
+    const mk=n=>{const ps=Array.from({length:n},(_,i)=>A.hbNewPlayer({name:'P'+i}));return{ps,hb:A.hbNewGame()};};
+    const seq=arr=>{let i=0;return()=>arr[i++%arr.length];};
+    check('the fuse is 9-17 seconds in round 1',(()=>{for(let i=0;i<200;i++){const f=A.hbFuseMs(1);if(f<9000||f>17000)return false;}return true;})());
+    check('and gets shorter, but never under 4 seconds',A.hbFuseMs(6,()=>0)<A.hbFuseMs(1,()=>0)&&A.hbFuseMs(40,()=>0)===4000&&A.hbFuseMs(40,()=>.999)<=7000);
+    let {ps,hb}=mk(4);
+    A.hbStartRound(ps,hb,1000,()=>0);
+    eq('a round has one bomb, held by someone who is in, with the play phase on',[hb.round,hb.phase,hb.bombs.length],[1,'play',1]);
+    check('round 1 has no dark fuse and no jumping bomb',hb.bombs[0].darkFrom===0&&hb.bombs[0].hopAt===0);
+    eq('the fuse time is fixed inside the bomb (so every device agrees)',hb.bombs[0].explodeAt,1000+A.hbFuseMs(1,()=>0));
+    check('power cards are dealt, one per player at most',ps.every(p=>p.card===null||A.HB_CARDS.indexOf(p.card)>=0));
+    check('the whole state survives JSON (it is one jsonb column)',JSON.stringify(JSON.parse(JSON.stringify({ps,hb})))===JSON.stringify({ps,hb}));
+    // who starts
+    ({ps,hb}=mk(4));hb.nextStart=2;hb.lastStruck=1;A.hbStartRound(ps,hb,0,()=>0);
+    eq('a TARGET choice beats the last struck player, and is used up',[hb.bombs[0].holder,hb.nextStart],[2,null]);
+    ({ps,hb}=mk(4));hb.lastStruck=3;A.hbStartRound(ps,hb,0,()=>0);
+    eq('otherwise whoever was struck last starts with the bomb',hb.bombs[0].holder,3);
+    ({ps,hb}=mk(4));hb.lastStruck=3;ps[3].strikes=3;A.hbStartRound(ps,hb,0,()=>0);
+    check('but never someone who is out',hb.bombs[0].holder!==3);
+    // passing
+    ({ps,hb}=mk(4));A.hbStartRound(ps,hb,0,()=>0);
+    const id=hb.bombs[0].id,h=hb.bombs[0].holder,other=(h+1)%4,third=(h+2)%4;
+    check('only the holder can pass',!A.hbCanPass(ps,hb,10,id,other,third));
+    check('you cannot pass to yourself',!A.hbCanPass(ps,hb,10,id,h,h));
+    check('a pass to someone else works, and records who passed',A.hbPass(ps,hb,10,id,h,other)&&hb.bombs[0].holder===other&&hb.bombs[0].from===h&&hb.pass.from===h&&hb.pass.to===other);
+    check('you cannot hand it straight back to the person who passed it to you',!A.hbCanPass(ps,hb,20,id,other,h));
+    check('but you can pass it on to anyone else',A.hbPass(ps,hb,20,id,other,third));
+    check('nobody can pass after the bomb is due',!A.hbCanPass(ps,hb,hb.bombs[0].explodeAt,id,third,h));
+    ps[h].strikes=3;
+    check('and nobody can be given the bomb once they are out',!A.hbCanPass(ps,hb,30,id,third,h));
+    ({ps,hb}=mk(2));A.hbStartRound(ps,hb,0,()=>0);
+    const h2=hb.bombs[0].holder;
+    check('with only two left the bomb may go straight back',A.hbPass(ps,hb,5,hb.bombs[0].id,h2,1-h2)&&A.hbPass(ps,hb,6,hb.bombs[0].id,1-h2,h2));
+    ({ps,hb}=mk(3));A.hbStartRound(ps,hb,0,()=>0);
+    const b3=hb.bombs[0];ps[b3.holder].lockUntil=500;
+    check('a player whose hands are frozen cannot pass yet',!A.hbCanPass(ps,hb,100,b3.id,b3.holder,(b3.holder+1)%3)&&A.hbCanPass(ps,hb,500,b3.id,b3.holder,(b3.holder+1)%3));
+    // dark fuse
+    check('from round 2 fuses sometimes go dark, always before the end, and the countdown reads ???',(()=>{
+      let dark=0;
+      for(let i=0;i<300;i++){
+        const g=A.hbNewGame();g.round=5;const b=A.hbMakeBomb(g,0,1000);
+        if(b.darkFrom){dark++;if(!(b.darkFrom>1000&&b.darkTo>b.darkFrom&&b.darkTo<=b.explodeAt-1200))return false;
+          if(A.hbShownSeconds(b,b.darkFrom+1)!==null||A.hbShownSeconds(b,b.darkTo)===null)return false;}
+      }
+      return dark>100;
+    })());
+    check('round 1 never goes dark; the numbers count down otherwise',(()=>{const g=A.hbNewGame();g.round=1;const b=A.hbMakeBomb(g,0,0,()=>0);return b.darkFrom===0&&A.hbShownSeconds(b,0)===9&&A.hbShownSeconds(b,b.explodeAt-1)===1&&A.hbShownSeconds(b,b.explodeAt+50)===0;})());
+  });
+
+  suite('Hot Bomb — power cards',()=>{
+    const mk=(n,round)=>{const ps=Array.from({length:n},(_,i)=>A.hbNewPlayer({name:'P'+i}));const hb=A.hbNewGame();hb.round=(round||1)-1;A.hbStartRound(ps,hb,0,()=>0.999);ps.forEach(p=>{p.card=null;});return{ps,hb};};
+    let {ps,hb}=mk(4);
+    let b=hb.bombs[0],h=b.holder,id=b.id,o=(h+1)%4,t=(h+2)%4;
+    ps[h].card='reverse';
+    check('REVERSE needs a bomb that someone passed to you',!A.hbUseCard(ps,hb,10,id,h,null)&&ps[h].card==='reverse');
+    ps[h].card=null;A.hbPass(ps,hb,20,id,h,o);ps[o].card='reverse';
+    check('REVERSE sends it straight back, is used up, and works even though it is the passer',A.hbUseCard(ps,hb,30,id,o,null)&&b.holder===h&&ps[o].card===null);
+    ps[t].card='reverse';
+    check('only the holder can play a card',!A.hbUseCard(ps,hb,40,id,t,null)&&ps[t].card==='reverse');
+    ps[h].card='magnet';const before=b.from;
+    check('MAGNET passes the bomb and freezes the receiver’s hands for 2 seconds',A.hbUseCard(ps,hb,100,id,h,t)&&b.holder===t&&ps[t].lockUntil===100+A.HB_LOCK_MS&&ps[h].card===null&&before!==undefined);
+    check('so the receiver cannot pass at once, then can',!A.hbCanPass(ps,hb,1000,id,t,o)&&A.hbCanPass(ps,hb,2100,id,t,o));
+    ({ps,hb}=mk(4));b=hb.bombs[0];h=b.holder;id=b.id;ps[h].card='magnet';
+    check('MAGNET needs a real target',!A.hbUseCard(ps,hb,5,id,h,h)&&!A.hbUseCard(ps,hb,5,id,h,undefined)&&ps[h].card==='magnet');
+    ps[h].card='freeze';const at=b.explodeAt;
+    check('FREEZE adds two seconds to the fuse (and to a dark spell)',A.hbUseCard(ps,hb,5,id,h,null)&&b.explodeAt===at+A.HB_FREEZE_MS&&ps[h].card===null);
+    ps[h].card='double';
+    check('DOUBLE BOMB puts a second bomb on someone else',A.hbUseCard(ps,hb,5,id,h,null)&&hb.bombs.length===2&&hb.bombs[1].holder!==h&&hb.bombs[1].id!==id);
+    ps[h].card='double';A.hbUseCard(ps,hb,5,id,h,null);ps[h].card='double';
+    check('but never more than three bombs',!A.hbUseCard(ps,hb,5,id,h,null)||hb.bombs.length<=3);
+    ({ps,hb}=mk(2));b=hb.bombs[0];h=b.holder;ps[h].card='double';
+    check('and not with fewer than three players left',!A.hbUseCard(ps,hb,5,b.id,h,null)&&hb.bombs.length===1);
+    ({ps,hb}=mk(4));b=hb.bombs[0];h=b.holder;ps[h].card='target';
+    check('TARGET picks who starts the next round, and cannot be yourself',!A.hbUseCard(ps,hb,5,b.id,h,h)&&A.hbUseCard(ps,hb,5,b.id,h,(h+1)%4)&&hb.nextStart===(h+1)%4&&ps[h].card===null);
+    ps[h].card='shield';
+    check('SHIELD is not played by hand',!A.hbUseCard(ps,hb,5,b.id,h,null)&&ps[h].card==='shield');
+    check('a card cannot be played after the bomb is due',(()=>{ps[h].card='freeze';return!A.hbUseCard(ps,hb,b.explodeAt,b.id,h,null);})());
+  });
+
+  suite('Hot Bomb — explosions, strikes and the winner',()=>{
+    const mk=n=>{const ps=Array.from({length:n},(_,i)=>A.hbNewPlayer({name:'P'+i}));const hb=A.hbNewGame();A.hbStartRound(ps,hb,0,()=>0);ps.forEach(p=>{p.card=null;});return{ps,hb};};
+    let {ps,hb}=mk(3);
+    let b=hb.bombs[0],h=b.holder;
+    check('nothing explodes before its time',A.hbExplode(ps,hb,b.explodeAt-1,b.id)===null&&hb.phase==='play');
+    let ev=A.hbExplode(ps,hb,b.explodeAt,b.id);
+    eq('the holder takes a strike, the bomb is gone and the boom pause begins',[ev.type,ev.idx,ev.strikes,ps[h].strikes,hb.bombs.length,hb.phase],['strike',h,1,1,0,'boom']);
+    check('a second call for the same bomb does nothing (every device tries)',A.hbExplode(ps,hb,b.explodeAt+5,b.id)===null&&ps[h].strikes===1);
+    eq('the next round does not start during the pause',A.hbTick(ps,hb,b.explodeAt+A.HB_BOOM_MS-1).changed,false);
+    check('then it starts on its own, and the struck player begins with the bomb',(()=>{const r=A.hbTick(ps,hb,b.explodeAt+A.HB_BOOM_MS,()=>0);return r.changed&&hb.round===2&&hb.phase==='play'&&hb.bombs[0].holder===h;})());
+    // shield
+    ({ps,hb}=mk(3));b=hb.bombs[0];h=b.holder;ps[h].card='shield';const old=b.explodeAt;
+    ev=A.hbExplode(ps,hb,old,b.id,()=>0);
+    check('a SHIELD absorbs the blast: no strike, the shield is spent and the bomb is re-armed with the same player',ev.type==='shield'&&ps[h].strikes===0&&ps[h].card===null&&hb.bombs.length===1&&b.explodeAt>old&&hb.phase==='play');
+    // elimination
+    ({ps,hb}=mk(3));ps[0].strikes=2;hb.bombs[0].holder=0;
+    ev=A.hbExplode(ps,hb,hb.bombs[0].explodeAt,hb.bombs[0].id);
+    eq('the third strike puts you out, in the round it happened',[ev.type,ps[0].hbOut,A.hbAlive(ps)],['out',1,[1,2]]);
+    check('and the game goes on while two remain',hb.phase==='boom');
+    hb.round=2;hb.startAt=0;A.hbTick(ps,hb,10,()=>0);
+    check('an eliminated player is never given the bomb again',hb.bombs[0].holder!==0);
+    ps[1].strikes=2;hb.bombs[0].holder=1;
+    ev=A.hbExplode(ps,hb,hb.bombs[0].explodeAt,hb.bombs[0].id);
+    eq('the last one standing wins',[hb.phase,hb.winner,ev.type],['over',2,'out']);
+    check('nothing more happens after the end',!A.hbTick(ps,hb,1e9).changed);
+    eq('the final order: winner, then the one who lasted longest',A.hbRanking(ps,hb),[2,1,0]);
+    // an eliminated player who was holding a second bomb hands it on
+    ({ps,hb}=mk(4));hb.round=3;
+    hb.bombs=[A.hbMakeBomb(hb,0,0,()=>0),A.hbMakeBomb(hb,0,0,()=>0)];ps[0].strikes=2;
+    A.hbExplode(ps,hb,hb.bombs[0].explodeAt,hb.bombs[0].id);
+    check('an out player’s other bomb moves to someone still in',hb.bombs.length===1&&hb.bombs[0].holder!==0&&hb.phase==='play');
+    // jumping bombs
+    ({ps,hb}=mk(4));hb.round=4;hb.bombs=[A.hbMakeBomb(hb,0,0,()=>0)];hb.bombs[0].hopAt=1000;hb.bombs[0].explodeAt=99999;
+    const r=A.hbTick(ps,hb,1000,()=>0);
+    check('from round 4 a bomb may jump on its own, to someone else, marked as forced',r.changed&&hb.bombs[0].holder!==0&&hb.pass.forced===true&&hb.bombs[0].from===0&&hb.bombs[0].hopAt>1000);
+    // several bombs at once
+    ({ps,hb}=mk(4));hb.round=5;hb.bombs=[A.hbMakeBomb(hb,0,0,()=>0),A.hbMakeBomb(hb,1,0,()=>0)];hb.bombs[1].explodeAt=hb.bombs[0].explodeAt+5000;
+    A.hbTick(ps,hb,hb.bombs[0].explodeAt,()=>0);
+    check('with two bombs the round is not over until both have gone off',hb.phase==='play'&&hb.bombs.length===1&&ps[0].strikes===1);
+  });
+
+  suite('Hot Bomb — bots and whole games',()=>{
+    check('a bot only ever makes a move a person could, over thousands of random positions',(()=>{
+      for(let i=0;i<4000;i++){
+        const n=2+Math.floor(Math.random()*7),ps=Array.from({length:n},()=>A.hbNewPlayer({}));
+        const hb=A.hbNewGame();hb.round=Math.floor(Math.random()*8);A.hbStartRound(ps,hb,0);
+        ps.forEach(p=>{p.strikes=Math.random()<.2?3:Math.floor(Math.random()*3);if(Math.random()<.4)p.card=A.HB_CARDS[Math.floor(Math.random()*6)];});
+        if(A.hbAlive(ps).length<2)continue;
+        const b=hb.bombs[0];const al=A.hbAlive(ps);b.holder=al[Math.floor(Math.random()*al.length)];b.from=Math.random()<.5?al[Math.floor(Math.random()*al.length)]:-1;
+        const now=Math.random()*b.explodeAt*.98;
+        const mv=A.hbBotPick(ps,hb,now,b.id,b.holder,i%2?'sharp':'gentle');
+        if(!mv)continue;
+        if(mv.action==='pass'){if(!A.hbCanPass(ps,hb,now,b.id,b.holder,mv.to))return false;}
+        else{const c=JSON.parse(JSON.stringify({ps,hb}));
+          if(!A.hbUseCard(c.ps,c.hb,now,b.id,b.holder,mv.arg))return false;}
+      }
+      return true;
+    })());
+    check('Sharp steers clear of a shielded player when it can, and picks on the one closest to out',(()=>{
+      const ps=[0,1,2,3].map(()=>A.hbNewPlayer({}));const hb=A.hbNewGame();A.hbStartRound(ps,hb,0,()=>0);ps.forEach(p=>{p.card=null;});
+      const b=hb.bombs[0];b.holder=0;b.from=-1;ps[1].card='shield';ps[1].strikes=2;ps[2].strikes=1;ps[3].strikes=0;
+      for(let i=0;i<50;i++)if(A.hbBotPick(ps,hb,10,b.id,0,'sharp').to!==2)return false;
+      return true;
+    })());
+    check('bots-only games at every table size run to a single winner on a virtual clock',(()=>{
+      for(let n=2;n<=8;n++){
+        const ps=Array.from({length:n},(_,i)=>A.hbNewPlayer({name:'B'+i})),hb=A.hbNewGame();
+        let now=1000,guard=0;
+        while(hb.phase!=='over'&&guard++<200000){
+          now+=100;
+          A.hbTick(ps,hb,now);
+          if(hb.phase==='play')for(const b of hb.bombs.slice()){
+            if(now-(b.passedAt||0)<800||now>=b.explodeAt)continue;
+            if(now<ps[b.holder].lockUntil)continue;
+            const mv=A.hbBotPick(ps,hb,now,b.id,b.holder,b.holder%2?'sharp':'gentle');
+            if(!mv)continue;
+            if(mv.action==='pass'){if(!A.hbPass(ps,hb,now,b.id,b.holder,mv.to))return false;b.passedAt=now;}
+            else{if(!A.hbUseCard(ps,hb,now,b.id,b.holder,mv.arg))return false;b.passedAt=now;}
+          }
+        }
+        if(hb.phase!=='over'||A.hbAlive(ps).length!==1||hb.winner!==A.hbAlive(ps)[0])return false;
+        if(ps.some(p=>p.strikes>3))return false;
+      }
+      return true;
+    })());
+  });
+
   suite('Draw-it — roster wiring',()=>{
     const g=A.GAMES.find(x=>x.id==='drawit');
     check('the game is on the roster',!!g);
@@ -3931,7 +4097,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'dwLang','dwPickWord','dwGuessPoints','dwRoundScores','dwFmt','lDealDrawit','dwShowWord','dwStart','dwToggleCredit','dwEndRound','dwEndMatch','dwTick',
   'dwNormalize','dwGuessMatches','dwHint','dwBuildRound','oDwNewRound','dwFinalizeState',
   'DW_HARD_EN','DW_HARD_DE','DW_PAPER','dwPool','dwCustomList','dwPickChoices','dwSpeedBonus','dwIsClose','dwLevenshtein','dwPick','dwLevel','dwCustomText','dwMatchOver','dwProgressText','DW_MATCHES','DW_SCORE_TARGET','dwMatchMode',
-  'ldRollDice','ldTotalDice','ldCount','ldValidBid','ldMinN','ldCanRaise','ldResolve','ldActiveCount','ldNextActive','ldOpener','ldFaceProb','ldAtLeastProb','ldBotMove','LD_START_DICE','ldBuildReveal','ldCountLine','ldFaceName','ldFaceGlyph','oLdNewRound','SM_LEN','SM_SUMS','SM_MAX_ACTIVE','SM_WIN_TOPS','SM_SUMMIT_TARGET','SM_SUMMIT_TRIES','smSpaceAt','smRoll4','smSplits','smNewPlayer','smNewGame','smFreshTurn','smCur','smActive','smOptions','smStep','smRollTurn','smPick','smNextTurn','smBust','smCamp','smSummitOk','smSummitRoll','smBustProb','smStake','smBotPick','smBotDecide','oSmNewGame','smApplyRoll','smApplyPick','smApplyCamp','smApplySummit','smApplyAdvance','smAutoTurn','SM_BUST_MS','SM_WIN_MS','SM_ZONES','SM_COLORS','smZone','smRank','ldApplyBid','ldApplyChallenge','ldAdvanceState','ldAutoMove','LD_REVEAL_MS',
+  'ldRollDice','ldTotalDice','ldCount','ldValidBid','ldMinN','ldCanRaise','ldResolve','ldActiveCount','ldNextActive','ldOpener','ldFaceProb','ldAtLeastProb','ldBotMove','LD_START_DICE','ldBuildReveal','ldCountLine','ldFaceName','ldFaceGlyph','oLdNewRound','SM_LEN','SM_SUMS','SM_MAX_ACTIVE','SM_WIN_TOPS','SM_SUMMIT_TARGET','SM_SUMMIT_TRIES','smSpaceAt','smRoll4','smSplits','smNewPlayer','smNewGame','smFreshTurn','smCur','smActive','smOptions','smStep','smRollTurn','smPick','smNextTurn','smBust','smCamp','smSummitOk','smSummitRoll','smBustProb','smStake','smBotPick','smBotDecide','HB_STRIKES','HB_BOOM_MS','HB_LOCK_MS','HB_FREEZE_MS','HB_CARDS','HB_CARD_INFO','hbNewPlayer','hbNewGame','hbAlive','hbBomb','hbFuseMs','hbMakeBomb','hbStartRound','hbCanPass','hbPass','hbUseCard','hbExplode','hbTick','hbShownSeconds','hbRanking','hbBotPick','oSmNewGame','smApplyRoll','smApplyPick','smApplyCamp','smApplySummit','smApplyAdvance','smAutoTurn','SM_BUST_MS','SM_WIN_MS','SM_ZONES','SM_COLORS','smZone','smRank','ldApplyBid','ldApplyChallenge','ldAdvanceState','ldAutoMove','LD_REVEAL_MS',
   'computeSidePots','settleSidePots','roulPayoutMultiplier','roulBetWins','yScoreForCategory','yFreshScorecard',
   'getHistory','getFamily','getAchievements','getResumableMatch','tonightStats','familyStats','rDataOv',
   'SLOT_SYMBOLS','SLOT_PAYLINES','SLOT_SCATTER_PAY','SLOT_JACKPOT_MIN','SLOT_FREE_SPINS_AWARD','SLOT_FREE_SPINS_RETRIGGER',

@@ -5728,6 +5728,201 @@ function oSmOnSrv(state,wasLobby){
   render();
 }
 
+/* ═══════ HOT BOMB ═══════
+   "Pass It. Don't Hold It." A fast, chaotic party game. A bomb with a secret fuse sits with one player;
+   whoever holds it must pass it to someone else before it goes off. The player holding it when it
+   explodes takes a strike, three strikes and they are out, the last one standing wins. Later rounds add a
+   fuse that goes dark, faster fuses, a second bomb and bombs that jump on their own; power cards add
+   Reverse, Shield, Magnet, Freeze, Double Bomb and Target. This block is pure rules -- times are passed in
+   (`now`, in ms) and players are plain objects -- so it is shared by the local game and the online room.
+   Player fields: strikes, card (one power card or null), lockUntil (can't pass before this time), hbOut
+   (the round they were knocked out, 0 while still in). hb = {round, phase:'play'|'boom'|'over', bombs[],
+   nextStart, startAt, winner, ev (the latest explosion), pass (the latest pass)}. */
+const HB_STRIKES=3, HB_BOOM_MS=3200, HB_LOCK_MS=2000, HB_FREEZE_MS=2000;
+const HB_CARDS=['reverse','shield','magnet','freeze','double','target'];
+const HB_CARD_INFO={
+  reverse:{e:'🔄',n:'REVERSE',d:'Send the bomb straight back to whoever passed it to you'},
+  shield:{e:'🛡️',n:'SHIELD',d:'Survive one explosion — it works on its own'},
+  magnet:{e:'🧲',n:'MAGNET',d:'Pass the bomb and freeze the receiver’s hands for 2 seconds'},
+  freeze:{e:'⏱️',n:'FREEZE',d:'Stop the fuse for 2 seconds'},
+  double:{e:'💣',n:'DOUBLE BOMB',d:'A second bomb appears somewhere else'},
+  target:{e:'🎯',n:'TARGET',d:'Choose who starts the next round holding the bomb'}};
+function hbNewPlayer(p){p.strikes=0;p.card=null;p.lockUntil=0;p.hbOut=0;return p;}
+function hbNewGame(){return{round:0,phase:'boom',bombs:[],bombSeq:0,nextStart:null,startAt:0,winner:-1,lastStruck:-1,ev:{n:0},pass:null};}
+function hbAlive(ps){const out=[];ps.forEach((p,i)=>{if(p.strikes<HB_STRIKES)out.push(i);});return out;}
+function hbBomb(hb,id){return hb.bombs.find(b=>b.id===id)||null;}
+// The fuse shortens as rounds go on, but never below 4 seconds.
+function hbFuseMs(round,rng){
+  rng=rng||Math.random;
+  const min=Math.max(4000,9000-(round-1)*700),span=Math.max(3000,8000-(round-1)*600);
+  return Math.round(min+rng()*span);
+}
+function hbMakeBomb(hb,holder,now,rng){
+  rng=rng||Math.random;
+  const fuse=hbFuseMs(hb.round,rng),r=hb.round;
+  const b={id:++hb.bombSeq,holder,from:-1,explodeAt:now+fuse,darkFrom:0,darkTo:0,hopAt:0,passes:0};
+  // from round 2 the countdown sometimes disappears for a while ("???") and then comes back
+  if(r>=2&&rng()<Math.min(1,.4+r*.15)){
+    const from=now+fuse*(.2+rng()*.25),len=fuse*(.25+rng()*.15);
+    b.darkFrom=Math.round(from);b.darkTo=Math.round(Math.min(from+len,b.explodeAt-1200));
+    if(b.darkTo<=b.darkFrom)b.darkFrom=b.darkTo=0;
+  }
+  // from round 4 some bombs jump to somebody else on their own
+  if(r>=4&&rng()<.5)b.hopAt=now+3500+Math.round(rng()*3000);
+  return b;
+}
+function hbStartRound(ps,hb,now,rng){
+  rng=rng||Math.random;
+  hb.round++;hb.phase='play';hb.bombs=[];hb.pass=null;
+  const alive=hbAlive(ps);
+  let start;
+  if(hb.nextStart!=null&&alive.indexOf(hb.nextStart)>=0)start=hb.nextStart;
+  else if(hb.lastStruck>=0&&alive.indexOf(hb.lastStruck)>=0)start=hb.lastStruck;
+  else start=alive[Math.floor(rng()*alive.length)];
+  hb.nextStart=null;
+  hb.bombs.push(hbMakeBomb(hb,start,now,rng));
+  if(alive.length>=3&&hb.round>=3&&rng()<Math.min(.5,(hb.round-2)*.15)){
+    const others=alive.filter(i=>i!==start);
+    hb.bombs.push(hbMakeBomb(hb,others[Math.floor(rng()*others.length)],now,rng));
+  }
+  alive.forEach(i=>{
+    ps[i].lockUntil=0;
+    if(!ps[i].card&&rng()<.55)ps[i].card=HB_CARDS[Math.floor(rng()*HB_CARDS.length)];
+  });
+  return hb;
+}
+// Can `from` pass bomb `id` to `to` right now? You can't hand it straight back to the player who just passed
+// it to you (that would be a two-person ping-pong) unless only two players are left.
+function hbCanPass(ps,hb,now,id,from,to,free){
+  const b=hbBomb(hb,id);
+  if(!b||hb.phase!=='play'||b.holder!==from||now>=b.explodeAt)return false;
+  const al=hbAlive(ps);
+  if(al.indexOf(to)<0||al.indexOf(from)<0||to===from)return false;
+  if(now<ps[from].lockUntil)return false;
+  if(!free&&to===b.from&&al.length>2)return false;
+  return true;
+}
+function hbPass(ps,hb,now,id,from,to,free){
+  if(!hbCanPass(ps,hb,now,id,from,to,free))return false;
+  const b=hbBomb(hb,id);
+  b.holder=to;b.from=from;b.passes++;
+  hb.pass={n:(hb.pass?hb.pass.n:0)+1,id,from,to,at:now,forced:false};
+  return true;
+}
+// Power cards. Only the player holding a bomb can play one (Shield works by itself). Returns false, and
+// changes nothing, when the card can't be played.
+function hbUseCard(ps,hb,now,id,idx,arg,rng){
+  rng=rng||Math.random;
+  const b=hbBomb(hb,id),p=ps[idx];
+  if(!b||!p||hb.phase!=='play'||b.holder!==idx||now>=b.explodeAt||!p.card)return false;
+  const card=p.card,al=hbAlive(ps);
+  if(card==='reverse'){
+    if(b.from<0||al.indexOf(b.from)<0||b.from===idx)return false;
+    if(!hbPass(ps,hb,now,id,idx,b.from,true))return false;
+  } else if(card==='magnet'){
+    if(!hbPass(ps,hb,now,id,idx,arg,true))return false;
+    ps[arg].lockUntil=now+HB_LOCK_MS;
+  } else if(card==='freeze'){
+    b.explodeAt+=HB_FREEZE_MS;if(b.darkFrom){b.darkFrom+=HB_FREEZE_MS;b.darkTo+=HB_FREEZE_MS;}if(b.hopAt)b.hopAt+=HB_FREEZE_MS;
+  } else if(card==='double'){
+    if(hb.bombs.length>=3||al.length<3)return false;
+    const others=al.filter(i=>i!==idx);
+    hb.bombs.push(hbMakeBomb(hb,others[Math.floor(rng()*others.length)],now,rng));
+  } else if(card==='target'){
+    if(al.indexOf(arg)<0||arg===idx)return false;
+    hb.nextStart=arg;
+  } else return false;   // shield is passive
+  p.card=null;
+  return true;
+}
+// A bomb whose time is up. A shield absorbs it (the bomb re-arms and stays where it is); otherwise the
+// holder takes a strike, and three strikes knock them out. Returns the event, or null if it wasn't due.
+function hbExplode(ps,hb,now,id,rng){
+  rng=rng||Math.random;
+  const b=hbBomb(hb,id);
+  if(!b||hb.phase!=='play'||now<b.explodeAt)return null;
+  const p=ps[b.holder],ev={n:(hb.ev&&hb.ev.n||0)+1,id:b.id,idx:b.holder,at:now};
+  if(p.card==='shield'){
+    p.card=null;ev.type='shield';
+    b.explodeAt=now+hbFuseMs(hb.round,rng);b.darkFrom=b.darkTo=0;b.hopAt=0;
+    hb.ev=ev;return ev;
+  }
+  p.strikes++;ev.strikes=p.strikes;ev.type=p.strikes>=HB_STRIKES?'out':'strike';
+  hb.bombs=hb.bombs.filter(x=>x!==b);hb.lastStruck=b.holder;
+  if(ev.type==='out'){
+    p.hbOut=hb.round;p.card=null;
+    const al=hbAlive(ps);
+    hb.bombs.forEach(x=>{if(x.holder===b.holder&&al.length){x.holder=al[Math.floor(rng()*al.length)];x.from=-1;}});
+  }
+  hb.ev=ev;
+  const al=hbAlive(ps);
+  if(al.length<=1){hb.bombs=[];hb.phase='over';hb.winner=al.length?al[0]:b.holder;}
+  else if(!hb.bombs.length){hb.phase='boom';hb.startAt=now+HB_BOOM_MS;}
+  return ev;
+}
+// Everything that happens on its own as time passes: explosions, bombs that jump, the next round starting.
+// Safe to call from anywhere, any number of times. Returns {changed, evs}.
+function hbTick(ps,hb,now,rng){
+  rng=rng||Math.random;
+  const evs=[];let changed=false;
+  if(hb.phase==='boom'&&now>=hb.startAt){hbStartRound(ps,hb,now,rng);changed=true;}
+  if(hb.phase==='play'){
+    for(const b of hb.bombs.slice()){
+      if(hb.phase!=='play')break;
+      if(now>=b.explodeAt){const ev=hbExplode(ps,hb,now,b.id,rng);if(ev){evs.push(ev);changed=true;}}
+      else if(b.hopAt&&now>=b.hopAt){
+        const al=hbAlive(ps).filter(i=>i!==b.holder);
+        if(al.length){
+          const to=al[Math.floor(rng()*al.length)];
+          b.from=b.holder;b.holder=to;b.passes++;b.hopAt=now+3500+Math.round(rng()*3000);
+          hb.pass={n:(hb.pass?hb.pass.n:0)+1,id:b.id,from:b.from,to,at:now,forced:true};changed=true;
+        } else b.hopAt=0;
+      }
+    }
+  }
+  return{changed,evs};
+}
+// What the countdown shows right now: seconds left, or null while the fuse is "dark".
+function hbShownSeconds(b,now){
+  if(b.darkFrom&&now>=b.darkFrom&&now<b.darkTo)return null;
+  return Math.max(0,Math.ceil((b.explodeAt-now)/1000));
+}
+// Final order: the winner, then whoever lasted longest, then fewest strikes.
+function hbRanking(ps,hb){
+  return ps.map((p,i)=>i).sort((a,b)=>{
+    const wa=hb.winner===a?1:0,wb=hb.winner===b?1:0;
+    if(wa!==wb)return wb-wa;
+    const oa=ps[a].hbOut||1e9,ob=ps[b].hbOut||1e9;
+    return ob-oa||ps[a].strikes-ps[b].strikes;
+  });
+}
+// Bots. A bot holds the bomb for a moment (the driver decides how long) and then either plays a card or
+// passes. Sharp avoids players who are shielded and picks on the ones closest to being out.
+function hbBotPick(ps,hb,now,id,idx,level,rng){
+  rng=rng||Math.random;
+  const b=hbBomb(hb,id),p=ps[idx];
+  if(!b||b.holder!==idx)return null;
+  const al=hbAlive(ps),left=b.explodeAt-now;
+  let targets=al.filter(i=>i!==idx);
+  if(al.length>2)targets=targets.filter(i=>i!==b.from);
+  if(!targets.length)return null;
+  const pickTarget=()=>{
+    if(level==='sharp'){
+      const open=targets.filter(i=>ps[i].card!=='shield'),pool=open.length?open:targets;
+      const worst=Math.max(...pool.map(i=>ps[i].strikes));
+      const hit=pool.filter(i=>ps[i].strikes===worst);
+      return hit[Math.floor(rng()*hit.length)];
+    }
+    return targets[Math.floor(rng()*targets.length)];
+  };
+  if(p.card==='freeze'&&left<2600)return{action:'card',arg:null};
+  if(p.card==='reverse'&&b.from>=0&&b.from!==idx&&al.indexOf(b.from)>=0&&left<3500&&rng()<.7)return{action:'card',arg:null};
+  if(p.card==='double'&&al.length>=3&&hb.bombs.length<3&&rng()<.3)return{action:'card',arg:null};
+  if(p.card==='target'&&rng()<.5)return{action:'card',arg:pickTarget()};
+  if(p.card==='magnet'&&rng()<.5)return{action:'card',arg:pickTarget()};
+  return{action:'pass',to:pickTarget()};
+}
+
 /* ═══════ DRAW-IT ═══════
    A Pictionary-style party game: one artist sketches a secret word on a canvas, everyone else guesses,
    the artist role rotates every round. Real players only -- a bot can't draw -- so 'drawit' is
