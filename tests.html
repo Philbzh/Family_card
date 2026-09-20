@@ -973,6 +973,153 @@ function run(A,W){
     })());
   });
 
+  suite("Liar's Dice — roster, wording and the reveal script",()=>{
+    const g=A.GAMES.find(x=>x.id==='liarsdice');
+    check('the game is on the roster in Dice Games, for 2 to 6',!!g&&g.cat==='dice'&&g.minP===2&&g.maxP===6);
+    check('it has bots, like every other local game',A.BOT_GAMES.has('liarsdice'));
+    eq('the count line reads the way the design asks',[A.ldCountLine(5,3),A.ldCountLine(1,6),A.ldCountLine(0,4),A.ldCountLine(2,1)],
+      ['THERE ARE 5 THREES!','THERE IS 1 SIX!','THERE ARE NO FOURS!','THERE ARE 2 ONES!']);
+    eq('face names agree in number',[A.ldFaceName(3,1),A.ldFaceName(3,2),A.ldFaceName(6,2)],['THREE','THREES','SIXES']);
+    eq('face glyphs are the six die faces',[1,2,3,4,5,6].map(A.ldFaceGlyph).join(''),'⚀⚁⚂⚃⚄⚅');
+    const players=[{name:'A',avatar:'x'},{name:'B',avatar:'y'},{name:'C',avatar:'z'}];
+    const before=[[1,2,3],[3,3,6],[5]];
+    const rev=A.ldBuildReveal(players,before,{n:4,face:3},1,2,{count:2,bidStands:false,loserIdx:1},false,false);
+    eq('the reveal script carries every die as it was when the challenge was called',rev.dice,before);
+    check('and does not alias the live arrays',rev.dice[0]!==before[0]);
+    eq('which dice count towards the bid',rev.matching,[[false,false,true],[true,true,false],[false]]);
+    eq('with wild ones the ones count as well',A.ldBuildReveal(players,before,{n:4,face:3},1,2,{count:3,bidStands:false,loserIdx:1},true,false).matching[0],[true,false,true]);
+    eq('a bid on ones is not helped by wilds in the script either',A.ldBuildReveal(players,[[1,2],[1,1]],{n:2,face:1},0,1,{count:3,bidStands:true,loserIdx:1},true,false).matching,[[true,false],[true,true]]);
+    eq('who is who is recorded',[rev.bidderIdx,rev.challengerIdx,rev.loserIdx,rev.bidStands],[1,2,1,false]);
+    check('the script names everyone',rev.names.join()==='A,B,C'&&rev.avatars.join()==='x,y,z');
+    // The overlay must not contain a single face before the ROLL beat: dice are '?' tiles until then.
+    W.ldClearReveal();
+    W.ldRevealShow(rev,Date.now()+60000,null); // starts far in the future, so nothing has played
+    const ov=W.document.querySelector('.ld-reveal');
+    check('the reveal overlay is drawn, one tile per die',!!ov&&ov.querySelectorAll('.ld-rdie').length===7);
+    check('and shows no die face before the roll',ov.querySelectorAll('.pip').length===0);
+    check('players with no dice left get no row',(()=>{
+      W.ldClearReveal();
+      W.ldRevealShow(A.ldBuildReveal(players,[[1],[],[2]],{n:1,face:1},0,2,{count:1,bidStands:true,loserIdx:2},false,true),Date.now()+60000,null);
+      return W.document.querySelectorAll('.ld-rrow').length===2;
+    })());
+    W.ldClearReveal();
+    check('clearing removes the overlay and cancels its timers',W.document.querySelectorAll('.ld-reveal').length===0);
+  });
+
+  suite("Liar's Dice — played through the real engine",()=>{
+    // Random legal play through the real handlers (the ones the buttons and the bots use), for every table
+    // size, with and without wild ones. The reveal animation is skipped by clearing it and moving on,
+    // which is exactly what its last beat does.
+    const keep={scr:A.G.scr,lp:A.G.lp,game:A.G.selGame,online:A.G.isOnline,nid:A.G.nid,tw:A.G.tw,ld:A.G.ld,wild:A.G.ldWild,round:A.G.lround,start:A.G.lstart};
+    const keepLs={};['ct_history','ct_achievements','ct_tw','ct_gp'].forEach(k=>keepLs[k]=localStorage.getItem(k));
+    const bad=[];const note=m=>{if(bad.indexOf(m)<0)bad.push(m);};
+    const mkP=(i,bot)=>({id:i+1,name:'P'+(i+1),avatar:A.AVATARS[0],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false,bot:bot||undefined});
+    localStorage.setItem('ct_history','[]');
+    let matches=0,challenges=0;
+    const finishReveal=()=>{W.ldClearReveal();W.ldAfterReveal();};
+    try{
+      for(const wild of [false,true])for(const n of [2,3,4,5,6]){
+        A.G.isOnline=false;A.G.selGame='liarsdice';A.G.nid=99;A.G.ldWild=wild;
+        A.G.lp=Array.from({length:n},(_,i)=>mkP(i));
+        const before=A.getHistory().length;
+        W.lStartMatch();W.render();
+        if(A.G.lp.some(p=>p.dice.length!==5||p.dice.some(d=>!(d>=1&&d<=6))))note('everyone should start with five real dice');
+        if(A.G.ld.wild!==wild)note('the wild rule was not carried into the match');
+        let steps=0;
+        while(A.G.scr!=='matchend'&&steps++<3000){
+          A.G.scr='table'; // the hand-over screen's Ready button
+          W.render();
+          const l=A.G.ld,cur=A.G.lp[A.G.lcur];
+          if(l.phase!=='bid'){note('play continued mid-reveal');break;}
+          if(!cur||cur.dice.length===0){note('a player with no dice was given the turn');break;}
+          const total=A.ldTotalDice(A.G.lp);
+          // Nothing of anyone's dice may be drawn on the shared table: seats are '?' only.
+          const seatPips=W.document.querySelectorAll('.ld-seat .pip').length;
+          if(seatPips)note('a die face was drawn on a seat');
+          if(W.document.querySelectorAll('.ld-mine-dice .pip').length&&A.G.lp.filter(p=>p.dice.length>0).length>1)note('the active dice were on show without being held');
+          if(W.document.querySelectorAll('.ld-seat').length!==n)note('one seat per player');
+          const wantLiar=l.bid&&(!A.ldCanRaise(l.bid,total)||Math.random()<0.35);
+          if(wantLiar){
+            challenges++;
+            const dice=A.G.lp.map(p=>p.dice.slice()),bid={...l.bid},bidder=l.bid.by,challenger=A.G.lcur;
+            const exp=A.ldResolve(dice,bid,bidder,challenger,wild);
+            if(!W.ldChallenge()){note('a legal challenge was refused');break;}
+            A.G.lp.forEach((p,i)=>{if(p.dice.length!==dice[i].length-(i===exp.loserIdx?1:0))note('the wrong player lost the die, or the wrong number');});
+            if(W.document.querySelectorAll('.ld-reveal .pip').length)note('a face was in the reveal before the roll');
+            if(A.G.ld.rev.count!==exp.count)note('the reveal counted differently from the rules');
+            const active=A.ldActiveCount(A.G.lp);
+            finishReveal();
+            if(active>1){
+              if(A.G.lcur!==A.ldOpener(A.G.lp,exp.loserIdx))note('the wrong player opened the next round');
+              if(A.G.lp.some((p,i)=>p.dice.length!==dice[i].length-(i===exp.loserIdx?1:0)))note('dice counts changed at the re-roll');
+              if(A.G.ld.bid!==null)note('the bid was not cleared for the new round');
+            }
+          } else {
+            // an illegal bid is refused and changes nothing
+            if(l.bid){
+              const standing=l.bid;
+              if(W.ldBid(l.bid.n,l.bid.face)!==false)note('a bid that is not a raise was accepted');
+              if(A.G.ld.bid!==standing)note('a refused bid changed the standing bid');
+            }
+            const faces=[1,2,3,4,5,6].filter(f=>A.ldMinN(l.bid,f,total)!==null);
+            const face=faces[0|Math.random()*faces.length],min=A.ldMinN(l.bid,face,total);
+            const nn=Math.min(total,min+(0|Math.random()*3));
+            const who=A.G.lcur;
+            if(!W.ldBid(nn,face)){note('a legal raise was refused');break;}
+            if(!A.G.ld.bid||A.G.ld.bid.n!==nn||A.G.ld.bid.face!==face||A.G.ld.bid.by!==who)note('the bid was not recorded');
+            if(A.G.lcur===who&&A.ldActiveCount(A.G.lp)>1)note('the turn did not pass');
+          }
+        }
+        matches++;
+        if(A.G.scr!=='matchend')note('a match did not finish');
+        if(A.ldActiveCount(A.G.lp)!==1)note('a finished match should leave exactly one player with dice');
+        if(A.G.ld.phase!=='over')note('the match did not close');
+        if(A.getHistory().length-before!==1)note('a finished match should be recorded exactly once');
+      }
+      check('matches at every table size, wild and not, play through the real handlers without breaking a rule ('+matches+' matches, '+challenges+' challenges)',bad.length===0,bad.join(' | '));
+    } finally {
+      W.ldClearReveal();
+      Object.assign(A.G,{scr:keep.scr,lp:keep.lp,selGame:keep.game,isOnline:keep.online,nid:keep.nid,tw:keep.tw,ld:keep.ld,ldWild:keep.wild,lround:keep.round,lstart:keep.start});
+      Object.keys(keepLs).forEach(k=>{if(keepLs[k]===null)localStorage.removeItem(k);else localStorage.setItem(k,keepLs[k]);});
+    }
+  });
+
+  suite("Liar's Dice — bots play a whole match",()=>{
+    const keep={scr:A.G.scr,lp:A.G.lp,game:A.G.selGame,online:A.G.isOnline,nid:A.G.nid,tw:A.G.tw,ld:A.G.ld,wild:A.G.ldWild,round:A.G.lround,start:A.G.lstart};
+    const keepLs={};['ct_history','ct_achievements','ct_tw','ct_gp'].forEach(k=>keepLs[k]=localStorage.getItem(k));
+    const bad=[];const note=m=>{if(bad.indexOf(m)<0)bad.push(m);};
+    localStorage.setItem('ct_history','[]');
+    let matches=0;
+    try{
+      for(const wild of [false,true])for(const n of [2,3,4,6]){
+        A.G.isOnline=false;A.G.selGame='liarsdice';A.G.nid=99;A.G.ldWild=wild;
+        A.G.lp=Array.from({length:n},(_,i)=>({id:i+1,name:'B'+(i+1),avatar:A.AVATARS[0],hand:[],totalScore:0,roundsWon:0,chips:1000,bot:i%2?'sharp':'gentle'}));
+        W.lStartMatch();
+        let steps=0;
+        while(A.G.scr!=='matchend'&&steps++<2500){
+          A.G.scr='table';
+          const l=A.G.ld;
+          if(l.phase!=='bid'){note('a bot was asked to move mid-reveal');break;}
+          const sig=W.botPendingSig();
+          if(sig===null){note('no bot owed a move while bidding');break;}
+          const bidBefore=l.bid,cur=A.G.lcur;
+          W.botAct();
+          const moved=A.G.ld.phase==='reveal'||A.G.ld.bid!==bidBefore;
+          if(!moved){note('a bot made no move');break;}
+          if(A.G.ld.phase==='reveal')W.ldClearReveal(),W.ldAfterReveal();
+        }
+        matches++;
+        if(A.G.scr!=='matchend')note('a bots-only match did not finish');
+        if(A.ldActiveCount(A.G.lp)!==1)note('a bots-only match should leave one survivor');
+      }
+      check('Gentle and Sharp bots finish whole matches, legally ('+matches+' matches)',bad.length===0,bad.join(' | '));
+    } finally {
+      W.ldClearReveal();
+      Object.assign(A.G,{scr:keep.scr,lp:keep.lp,selGame:keep.game,isOnline:keep.online,nid:keep.nid,tw:keep.tw,ld:keep.ld,ldWild:keep.wild,lround:keep.round,lstart:keep.start});
+      Object.keys(keepLs).forEach(k=>{if(keepLs[k]===null)localStorage.removeItem(k);else localStorage.setItem(k,keepLs[k]);});
+    }
+  });
+
   suite('Draw-it — roster wiring',()=>{
     const g=A.GAMES.find(x=>x.id==='drawit');
     check('the game is on the roster',!!g);
@@ -3348,7 +3495,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'dwLang','dwPickWord','dwGuessPoints','dwRoundScores','dwFmt','lDealDrawit','dwShowWord','dwStart','dwToggleCredit','dwEndRound','dwEndMatch','dwTick',
   'dwNormalize','dwGuessMatches','dwHint','dwBuildRound','oDwNewRound','dwFinalizeState',
   'DW_HARD_EN','DW_HARD_DE','DW_PAPER','dwPool','dwCustomList','dwPickChoices','dwSpeedBonus','dwIsClose','dwLevenshtein','dwPick','dwLevel','dwCustomText','dwMatchOver','dwProgressText','DW_MATCHES','DW_SCORE_TARGET','dwMatchMode',
-  'ldRollDice','ldTotalDice','ldCount','ldValidBid','ldMinN','ldCanRaise','ldResolve','ldActiveCount','ldNextActive','ldOpener','ldFaceProb','ldAtLeastProb','ldBotMove','LD_START_DICE',
+  'ldRollDice','ldTotalDice','ldCount','ldValidBid','ldMinN','ldCanRaise','ldResolve','ldActiveCount','ldNextActive','ldOpener','ldFaceProb','ldAtLeastProb','ldBotMove','LD_START_DICE','ldBuildReveal','ldCountLine','ldFaceName','ldFaceGlyph',
   'computeSidePots','settleSidePots','roulPayoutMultiplier','roulBetWins','yScoreForCategory','yFreshScorecard',
   'getHistory','getFamily','getAchievements','getResumableMatch','tonightStats','familyStats','rDataOv',
   'SLOT_SYMBOLS','SLOT_PAYLINES','SLOT_SCATTER_PAY','SLOT_JACKPOT_MIN','SLOT_FREE_SPINS_AWARD','SLOT_FREE_SPINS_RETRIGGER',
