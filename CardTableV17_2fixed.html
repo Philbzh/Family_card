@@ -5066,6 +5066,145 @@ function oLdOnSrv(state,wasLobby){
   render();
 }
 
+/* ═══════ SUMMIT ═══════
+   "How Far Will You Go?" -- a Can't-Stop-style push-your-luck dice game. Roll four dice, split them into two
+   pairs, and climb the routes numbered by the pair sums (2-12). CLIMB rolls again; CAMP banks the turn's progress;
+   a roll that gives nothing usable is an AVALANCHE and the turn's progress is lost. Topping a route and camping
+   there conquers it for that climber (the first to do so earns a crystal); conquering three routes earns the Summit Roll -- the finale that
+   actually wins the game. This block is pure rules (players are plain objects, no G) so it can be tested and
+   shared by the local game and the online room state.
+   Player fields: pos{sum:steps banked}, tmp{sum:steps this turn} (its keys ARE the active routes), cr (banked
+   crystals), tc (crystals found this turn), order[] (routes conquered, oldest first). */
+const SM_LEN={2:3,3:5,4:7,5:9,6:11,7:13,8:11,9:9,10:7,11:5,12:3};
+const SM_SUMS=[2,3,4,5,6,7,8,9,10,11,12];
+const SM_MAX_ACTIVE=3, SM_WIN_TOPS=3, SM_SUMMIT_TARGET=7, SM_SUMMIT_TRIES=3;
+function smSpaceAt(sum,step){
+  const L=SM_LEN[sum];
+  if(step>=L)return 'gate';
+  if(step<=1)return null;
+  if(L>=7&&step%4===0)return 'camp';
+  if(L<5)return null;
+  const h=(sum*7+step*5)%11;
+  return h===0?'rock':h===1?'shortcut':h===2?'crystal':h===3?'slide':null;
+}
+function smRoll4(rng){rng=rng||Math.random;return [0,1,2,3].map(()=>1+Math.floor(rng()*6));}
+function smSplits(d){return [[d[0]+d[1],d[2]+d[3]],[d[0]+d[2],d[1]+d[3]],[d[0]+d[3],d[1]+d[2]]];}
+function smNewPlayer(p){p.pos={};p.tmp={};p.cr=0;p.tc=0;p.order=[];return p;}
+function smNewGame(){return {won:{},over:false,winner:null,round:1,t:smFreshTurn()};}
+function smFreshTurn(){return {phase:'roll',dice:[],opts:[],ev:[],tries:0,picked:null};}
+function smCur(p,sum){return p.tmp[sum]!=null?p.tmp[sum]:(p.pos[sum]||0);}
+function smActive(p){return Object.keys(p.tmp).map(Number);}
+// Options for a roll: every distinct set of routes the player may climb (one step each). Both pairs are
+// used whenever both can be; a lone pair only when the other is unusable.
+function smOptions(p,sm,dice){
+  const act0=smActive(p),seen={},out=[];
+  const valid=list=>{
+    const act=act0.slice(),prog={};
+    for(const s of list){
+      const cur=(prog[s]!=null?prog[s]:smCur(p,s));
+      if(cur>=SM_LEN[s])return false;
+      if(act.indexOf(s)<0){if(act.length>=SM_MAX_ACTIVE)return false;act.push(s);}
+      prog[s]=cur+1;
+    }
+    return true;
+  };
+  const add=l=>{const k=l.slice().sort((a,b)=>a-b).join('+');if(!seen[k]){seen[k]=1;out.push(l);}};
+  for(const [a,b] of smSplits(dice)){
+    if(valid([a,b]))add([a,b]);
+    else{if(valid([a]))add([a]);if(valid([b]))add([b]);}
+  }
+  return out;
+}
+// One step up a route, with whatever the space it lands on does. Returns an event for the animation.
+function smStep(p,sum){
+  const L=SM_LEN[sum],from=smCur(p,sum),step=from+1,space=smSpaceAt(sum,step),ev={sum,from,land:step,to:step,space};
+  p.tmp[sum]=step;
+  if(space==='rock'){p.tmp[sum]=ev.to=Math.max(p.pos[sum]||0,step-2);}
+  else if(space==='shortcut'){p.tmp[sum]=ev.to=Math.min(L,step+2);}
+  else if(space==='slide'){p.tmp[sum]=ev.to=(p.pos[sum]||0);}
+  else if(space==='crystal'){p.tc++;}
+  else if(space==='camp'){p.pos[sum]=step;p.tmp[sum]=step;}   // this stretch is safe from now on
+  return ev;
+}
+function smRollTurn(ps,sm,i,rng){
+  const t=sm.t,dice=smRoll4(rng);
+  t.dice=dice;t.ev=[];t.picked=null;t.opts=smOptions(ps[i],sm,dice);
+  t.phase=t.opts.length?'pick':'bust';
+  return t;
+}
+function smPick(ps,sm,i,k){
+  const t=sm.t;
+  if(t.phase!=='pick'||!t.opts[k])return false;
+  t.picked=k;t.ev=t.opts[k].map(s=>smStep(ps[i],s));
+  t.phase='decide';
+  return true;
+}
+function smNextTurn(ps,sm,i){
+  const p=ps[i];p.tmp={};p.tc=0;
+  const nx=(i+1)%ps.length;
+  if(nx<=i)sm.round++;
+  sm.t=smFreshTurn();
+  return nx;
+}
+// Avalanche: the turn's progress is gone. Returns the next player's index.
+function smBust(ps,sm,i){return smNextTurn(ps,sm,i);}
+// Camp: bank everything. Topping a route conquers it. Three conquests send the player to the Summit Roll.
+function smCamp(ps,sm,i){
+  const p=ps[i],conquered=[];
+  if(sm.t.phase!=='decide')return null;
+  for(const k of Object.keys(p.tmp)){
+    const s=+k;p.pos[s]=p.tmp[s];
+    if(p.pos[s]>=SM_LEN[s]&&p.order.indexOf(s)<0){
+      p.order.push(s);conquered.push(s);
+      if(sm.won[s]==null){sm.won[s]=i;p.cr++;}   // first ascent of a route: a crystal
+    }
+  }
+  p.cr+=p.tc;p.tmp={};p.tc=0;
+  if(p.order.length>=SM_WIN_TOPS){sm.t=smFreshTurn();sm.t.phase='summit';return {next:i,conquered,summit:true};}
+  return {next:smNextTurn(ps,sm,i),conquered,summit:false};
+}
+function smSummitOk(dice,target){return smSplits(dice).some(x=>Math.min(x[0],x[1])>=(target||SM_SUMMIT_TARGET));}
+// One try of the Summit Roll. Success wins; the last try failing slides the newest conquest back down.
+function smSummitRoll(ps,sm,i,rng){
+  const t=sm.t;
+  if(t.phase!=='summit'||sm.over)return null;
+  const dice=smRoll4(rng),ok=smSummitOk(dice);
+  t.dice=dice;t.tries++;
+  if(ok){sm.over=true;sm.winner=i;t.phase='over';return {ok:true,dice,tries:t.tries};}
+  if(t.tries<SM_SUMMIT_TRIES)return {ok:false,dice,tries:t.tries,slid:null,next:i};
+  const p=ps[i],s=p.order.pop();
+  p.pos[s]=SM_LEN[s]-2;
+  return {ok:false,dice,tries:t.tries,slid:s,next:smNextTurn(ps,sm,i)};
+}
+// Chance that the next roll is an avalanche for this player right now (exact, over all 1296 rolls).
+function smBustProb(p,sm){
+  let bad=0;
+  for(let a=1;a<=6;a++)for(let b=1;b<=6;b++)for(let c=1;c<=6;c++)for(let d=1;d<=6;d++)
+    if(!smOptions(p,sm,[a,b,c,d]).length)bad++;
+  return bad/1296;
+}
+function smStake(p){let s=0;for(const k of Object.keys(p.tmp))s+=(p.tmp[k]-(p.pos[k]||0))/SM_LEN[k];return s+p.tc*.1;}
+// Bots. Gentle camps late and climbs greedily; Sharp weighs the avalanche odds against what is at stake.
+function smBotPick(p,sm,level,rng){
+  rng=rng||Math.random;
+  const opts=sm.t.opts;
+  const score=o=>{let v=0;const act=smActive(p);
+    for(const s of o){v+=1/SM_LEN[s];if(act.indexOf(s)<0)v-=.12;
+      const sp=smSpaceAt(s,smCur(p,s)+1);
+      if(sp==='rock'||sp==='slide')v-=.15;else if(sp==='shortcut'||sp==='camp'||sp==='crystal')v+=.1;}
+    return v+(level==='gentle'?rng()*.15:0);};
+  let best=0,bs=-1e9;opts.forEach((o,k)=>{const v=score(o);if(v>bs){bs=v;best=k;}});
+  return best;
+}
+function smBotDecide(p,sm,level,rng){
+  rng=rng||Math.random;
+  const stake=smStake(p);
+  if(stake<=0)return 'climb';
+  if(Object.keys(p.tmp).some(k=>p.tmp[k]>=SM_LEN[k]))return 'camp';   // a summit route in hand: bank it
+  const pb=smBustProb(p,sm),k=level==='gentle'?2.2:1;
+  return pb*stake>(1-pb)*.22*k?'camp':'climb';
+}
+
 /* ═══════ DRAW-IT ═══════
    A Pictionary-style party game: one artist sketches a secret word on a canvas, everyone else guesses,
    the artist role rotates every round. Real players only -- a bot can't draw -- so 'drawit' is

@@ -1252,6 +1252,154 @@ function run(A,W){
     }
   });
 
+  suite('Summit — routes and spaces',()=>{
+    eq('eleven routes, one per pair sum 2-12, long in the middle and short at the ends',A.SM_SUMS.map(s=>A.SM_LEN[s]),[3,5,7,9,11,13,11,9,7,5,3]);
+    check('every route ends at the Summit Gate and never has a special space on its first step',A.SM_SUMS.every(s=>A.smSpaceAt(s,A.SM_LEN[s])==='gate'&&A.smSpaceAt(s,1)===null));
+    const kinds=new Set();A.SM_SUMS.forEach(s=>{for(let k=1;k<=A.SM_LEN[s];k++)kinds.add(A.smSpaceAt(s,k));});
+    check('the mountain has every kind of special space',['rock','shortcut','slide','crystal','camp','gate'].every(k=>kinds.has(k)),[...kinds].join());
+    check('the layout is fixed, so every device sees the same mountain',A.SM_SUMS.every(s=>{for(let k=1;k<=A.SM_LEN[s];k++)if(A.smSpaceAt(s,k)!==A.smSpaceAt(s,k))return false;return true;}));
+    eq('four dice split three ways',A.smSplits([2,3,5,6]),[[5,11],[7,9],[8,8]]);
+  });
+
+  suite('Summit — what a roll allows',()=>{
+    const mk=()=>{const p=A.smNewPlayer({});return {p,sm:A.smNewGame()};};
+    const key=o=>o.map(l=>l.slice().sort((a,b)=>a-b).join('+')).sort();
+    let {p,sm}=mk();
+    eq('with nothing active, a roll offers each of its three splits',key(A.smOptions(p,sm,[2,3,5,6])),['5+11','7+9','8+8']);
+    check('with nothing active, no roll is an avalanche',(()=>{for(let a=1;a<=6;a++)for(let b=1;b<=6;b++)for(let c=1;c<=6;c++)for(let d=1;d<=6;d++)if(!A.smOptions(p,sm,[a,b,c,d]).length)return false;return true;})());
+    p.tmp={6:1,7:1,8:1};
+    eq('with three routes active, only pairs on those routes count (a lone pair when its partner is off them)',key(A.smOptions(p,sm,[2,3,5,6])),['7','8+8']);
+    eq('splits on the active routes are offered, duplicates merged',key(A.smOptions(p,sm,[3,4,3,4])),['6+8','7+7']);
+    eq('nothing on the active routes is an avalanche',A.smOptions(p,sm,[1,1,1,2]).length,0);
+    p.tmp={6:1,7:1};
+    eq('with a free slot a new route can be opened, but only one',key(A.smOptions(p,sm,[1,2,3,4])),['3+7','4+6','5+5']);
+    ({p,sm}=mk());p.tmp={6:1,7:1};
+    check('two new routes cannot both be opened when only one slot is free',!A.smOptions(p,sm,[1,1,5,5]).some(o=>o.length===2&&o[0]!==6&&o[0]!==7&&o[1]!==6&&o[1]!==7));
+    ({p,sm}=mk());p.tmp={4:7};
+    eq('a route already at its top cannot be climbed further',A.smOptions(p,sm,[2,2,3,3]).every(o=>o.indexOf(4)<0),true);
+    ({p,sm}=mk());p.pos[7]=13;
+    check('a route you have already topped is closed to you',A.smOptions(p,sm,[3,4,3,4]).every(o=>o.indexOf(7)<0));
+    ({p,sm}=mk());
+    check('a double (same sum twice) climbs that route two steps',key(A.smOptions(p,sm,[3,3,3,3])).indexOf('6+6')>=0);
+    // probabilities
+    ({p,sm}=mk());
+    eq('nothing can go wrong before the first climb',A.smBustProb(p,sm),0);
+    p.tmp={6:1,7:1,8:1};const mid=A.smBustProb(p,sm);
+    ({p,sm}=mk());p.tmp={2:1,3:1,12:1};const edge=A.smBustProb(p,sm);
+    check('the middle routes are much safer than the ends',mid>0&&mid<.25&&edge>.5&&edge>mid,mid+' vs '+edge);
+    ({p,sm}=mk());p.tmp={6:1,7:1};const two=A.smBustProb(p,sm);
+    check('a free slot makes an avalanche less likely than three fixed routes',two<=mid,two+' vs '+mid);
+  });
+
+  suite('Summit — climbing, camping, avalanche',()=>{
+    const setup=(n)=>{const ps=Array.from({length:n||2},(_,i)=>A.smNewPlayer({name:'P'+i}));return {ps,sm:A.smNewGame()};};
+    let {ps,sm}=setup();
+    // a scripted roll
+    const roll=(dice)=>{sm.t.dice=dice;sm.t.opts=A.smOptions(ps[0],sm,dice);sm.t.phase=sm.t.opts.length?'pick':'bust';};
+    roll([3,4,3,4]);
+    check('a pick moves the climber one step on each pair, temporarily',A.smPick(ps,sm,0,0)&&ps[0].tmp[7]===2&&ps[0].pos[7]===undefined&&sm.t.phase==='decide');
+    check('you cannot pick twice for one roll',!A.smPick(ps,sm,0,0));
+    let r=A.smCamp(ps,sm,0);
+    eq('camping banks the steps and passes the turn',[ps[0].pos[7],Object.keys(ps[0].tmp).length,r.next,r.summit],[2,0,1,false]);
+    eq('the next turn is fresh',[sm.t.phase,sm.t.dice.length,sm.round],['roll',0,1]);
+    check('the round counter goes up when play wraps round the table',(()=>{A.smNextTurn(ps,sm,1);return sm.round===2;})());
+    // avalanche
+    ({ps,sm}=setup());
+    ps[0].pos[7]=2;ps[0].tmp={7:4,6:1};ps[0].tc=1;
+    const nx=A.smBust(ps,sm,0);
+    eq('an avalanche drops back to the last camp and forgets this turn’s crystals',[ps[0].pos[7],Object.keys(ps[0].tmp).length,ps[0].tc,nx],[2,0,0,1]);
+    // crystals
+    ({ps,sm}=setup());
+    ps[0].tmp={7:3};ps[0].tc=2;sm.t.phase='decide';A.smCamp(ps,sm,0);
+    eq('crystals count only once you camp',ps[0].cr,2);
+    // special spaces
+    const findSpace=k=>{for(const s of A.SM_SUMS)for(let st=2;st<=A.SM_LEN[s];st++)if(A.smSpaceAt(s,st)===k)return [s,st];};
+    ({ps,sm}=setup());
+    let [s,st]=findSpace('rock');ps[0].pos[s]=0;ps[0].tmp[s]=st-1;let ev=A.smStep(ps[0],s);
+    eq('a rockfall throws you back two steps, never past your last camp',[ev.space,ev.to],['rock',Math.max(0,st-2)]);
+    ({ps,sm}=setup());[s,st]=findSpace('shortcut');ps[0].tmp[s]=st-1;ev=A.smStep(ps[0],s);
+    eq('a shortcut jumps two ahead (capped at the top)',ev.to,Math.min(A.SM_LEN[s],st+2));
+    ({ps,sm}=setup());[s,st]=findSpace('slide');ps[0].pos[s]=1;ps[0].tmp[s]=st-1;ev=A.smStep(ps[0],s);
+    eq('an avalanche space wipes this turn’s progress on that route',[ev.space,ps[0].tmp[s]],['slide',1]);
+    ({ps,sm}=setup());[s,st]=findSpace('camp');ps[0].tmp[s]=st-1;ev=A.smStep(ps[0],s);
+    eq('a camp space secures the route on the spot',[ps[0].pos[s],ps[0].tmp[s]],[st,st]);
+    ({ps,sm}=setup());[s,st]=findSpace('crystal');ps[0].tmp[s]=st-1;A.smStep(ps[0],s);
+    eq('a crystal cave gives a crystal',ps[0].tc,1);
+    // conquering
+    ({ps,sm}=setup());
+    ps[0].tmp={2:3};sm.t.phase='decide';r=A.smCamp(ps,sm,0);
+    check('camping at the top conquers a route, and the first ascent earns a crystal',sm.won[2]===0&&ps[0].order.join()==='2'&&r.conquered.join()==='2'&&!r.summit&&ps[0].cr===1);
+    check('you cannot climb it again, but everyone else still can',A.smOptions(ps[0],sm,[1,1,1,1]).every(o=>o.indexOf(2)<0)&&A.smOptions(ps[1],sm,[1,1,1,1]).some(o=>o.indexOf(2)>=0));
+    ps[0].tmp={12:3,3:5};sm.t.phase='decide';r=A.smCamp(ps,sm,0);
+    check('three conquests send you to the Summit Roll instead of winning outright',r.summit&&r.next===0&&sm.t.phase==='summit'&&!sm.over&&sm.winner===null);
+  });
+
+  suite('Summit — the Summit Roll',()=>{
+    const setup=()=>{const ps=[A.smNewPlayer({}),A.smNewPlayer({})];const sm=A.smNewGame();ps[0].order=[2,12,3];sm.won={2:0,12:0,3:0};ps[0].pos={2:3,12:3,3:5};sm.t.phase='summit';return {ps,sm};};
+    const seq=arr=>{let i=0;return ()=>arr[i++%arr.length];};
+    // rng feeding exact dice: die = 1+floor(r*6)
+    const dieRng=dice=>{let i=0;return ()=>(dice[i++%dice.length]-1+.5)/6;};
+    check('both pairs must reach the target, in some split of the four dice',A.smSummitOk([3,4,4,3],7)&&!A.smSummitOk([1,1,1,1],7)&&A.smSummitOk([6,6,1,1],7)&&!A.smSummitOk([6,6,1,1],8));
+    let {ps,sm}=setup();
+    let r=A.smSummitRoll(ps,sm,0,dieRng([4,3,4,3]));
+    check('a good roll reaches the summit and only then is the game won',r.ok&&sm.over&&sm.winner===0&&sm.t.phase==='over');
+    check('no more rolling once it is won',A.smSummitRoll(ps,sm,0)===null);
+    ({ps,sm}=setup());
+    r=A.smSummitRoll(ps,sm,0,dieRng([1,1,1,1]));
+    check('a failed try keeps you at the gate while tries remain',!r.ok&&r.tries===1&&r.next===0&&sm.t.phase==='summit'&&!sm.over);
+    A.smSummitRoll(ps,sm,0,dieRng([1,1,1,1]));
+    r=A.smSummitRoll(ps,sm,0,dieRng([1,1,1,1]));
+    check('after the third failure the newest conquest slides back and the turn passes',r.slid===3&&r.next===1&&ps[0].order.join()==='2,12'&&ps[0].pos[3]===A.SM_LEN[3]-2&&sm.t.phase==='roll');
+    check('the route you fell from can be climbed by anyone again',A.smOptions(ps[1],sm,[1,2,1,2]).some(o=>o.indexOf(3)>=0));
+    check('the summit is worth going for: a try succeeds a fair share of the time',(()=>{let n=0;for(let a=1;a<=6;a++)for(let b=1;b<=6;b++)for(let c=1;c<=6;c++)for(let d=1;d<=6;d++)if(A.smSummitOk([a,b,c,d],7))n++;const p=n/1296;return p>.2&&p<.6;})());
+    void seq;
+  });
+
+  suite('Summit — bots and whole matches',()=>{
+    const play=(n,levels,seedRng)=>{
+      const ps=Array.from({length:n},(_,i)=>A.smNewPlayer({name:'B'+i})),sm=A.smNewGame();let cur=0,guard=0;
+      while(!sm.over&&guard++<20000){
+        const t=sm.t;
+        if(t.phase==='summit'){A.smSummitRoll(ps,sm,cur,seedRng);if(sm.over)break;if(sm.t.phase==='roll'){cur=(cur+1)%n;}continue;}
+        if(t.phase==='roll'){A.smRollTurn(ps,sm,cur,seedRng);continue;}
+        if(t.phase==='bust'){cur=A.smBust(ps,sm,cur);continue;}
+        if(t.phase==='pick'){const k=A.smBotPick(ps[cur],sm,levels[cur],seedRng);if(!A.smPick(ps,sm,cur,k))return 'bad pick';continue;}
+        if(t.phase==='decide'){
+          const d=A.smBotDecide(ps[cur],sm,levels[cur],seedRng);
+          if(d==='camp'){const r=A.smCamp(ps,sm,cur);if(!r)return 'bad camp';cur=r.next;}else A.smRollTurn(ps,sm,cur,seedRng);
+        }
+      }
+      return {ps,sm,guard};
+    };
+    check('bots-only matches at every table size always finish with one winner who really has three routes',(()=>{
+      for(let n=2;n<=6;n++)for(let rep=0;rep<4;rep++){
+        const r=play(n,Array.from({length:n},(_,i)=>i%2?'sharp':'gentle'),Math.random);
+        if(typeof r==='string'||!r.sm.over||r.sm.winner===null||r.ps[r.sm.winner].order.length<3)return false;
+        if(Object.keys(r.sm.won).length<1)return false;
+      }
+      return true;
+    })());
+    check('the bot never picks a move the rules do not allow, over thousands of random positions',(()=>{
+      for(let i=0;i<3000;i++){
+        const ps=[A.smNewPlayer({})],sm=A.smNewGame(),p=ps[0];
+        for(const s of A.SM_SUMS)if(Math.random()<.4)p.pos[s]=Math.floor(Math.random()*A.SM_LEN[s]);
+        const act=A.SM_SUMS.filter(()=>Math.random()<.25).slice(0,3);act.forEach(s=>{p.tmp[s]=Math.min(A.SM_LEN[s]-1,(p.pos[s]||0)+1);});
+        A.smRollTurn(ps,sm,0);
+        if(sm.t.phase==='pick'){const k=A.smBotPick(p,sm,i%2?'sharp':'gentle');if(!sm.t.opts[k])return false;}
+      }
+      return true;
+    })());
+    check('a bot with nothing at stake always climbs; with a summit route in hand it always camps',(()=>{
+      const ps=[A.smNewPlayer({})],sm=A.smNewGame(),p=ps[0];
+      if(A.smBotDecide(p,sm,'sharp')!=='climb')return false;
+      p.tmp={2:3};return A.smBotDecide(p,sm,'gentle')==='camp';
+    })());
+    check('both bots bank when a lot is at stake on risky routes',(()=>{
+      const ps=[A.smNewPlayer({})],sm=A.smNewGame(),p=ps[0];p.tmp={2:2,3:3,12:2};
+      return A.smBotDecide(p,sm,'sharp')==='camp'&&A.smBotDecide(p,sm,'gentle')==='camp';
+    })());
+  });
+
   suite('Draw-it — roster wiring',()=>{
     const g=A.GAMES.find(x=>x.id==='drawit');
     check('the game is on the roster',!!g);
@@ -3627,7 +3775,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'dwLang','dwPickWord','dwGuessPoints','dwRoundScores','dwFmt','lDealDrawit','dwShowWord','dwStart','dwToggleCredit','dwEndRound','dwEndMatch','dwTick',
   'dwNormalize','dwGuessMatches','dwHint','dwBuildRound','oDwNewRound','dwFinalizeState',
   'DW_HARD_EN','DW_HARD_DE','DW_PAPER','dwPool','dwCustomList','dwPickChoices','dwSpeedBonus','dwIsClose','dwLevenshtein','dwPick','dwLevel','dwCustomText','dwMatchOver','dwProgressText','DW_MATCHES','DW_SCORE_TARGET','dwMatchMode',
-  'ldRollDice','ldTotalDice','ldCount','ldValidBid','ldMinN','ldCanRaise','ldResolve','ldActiveCount','ldNextActive','ldOpener','ldFaceProb','ldAtLeastProb','ldBotMove','LD_START_DICE','ldBuildReveal','ldCountLine','ldFaceName','ldFaceGlyph','oLdNewRound','ldApplyBid','ldApplyChallenge','ldAdvanceState','ldAutoMove','LD_REVEAL_MS',
+  'ldRollDice','ldTotalDice','ldCount','ldValidBid','ldMinN','ldCanRaise','ldResolve','ldActiveCount','ldNextActive','ldOpener','ldFaceProb','ldAtLeastProb','ldBotMove','LD_START_DICE','ldBuildReveal','ldCountLine','ldFaceName','ldFaceGlyph','oLdNewRound','SM_LEN','SM_SUMS','SM_MAX_ACTIVE','SM_WIN_TOPS','SM_SUMMIT_TARGET','SM_SUMMIT_TRIES','smSpaceAt','smRoll4','smSplits','smNewPlayer','smNewGame','smFreshTurn','smCur','smActive','smOptions','smStep','smRollTurn','smPick','smNextTurn','smBust','smCamp','smSummitOk','smSummitRoll','smBustProb','smStake','smBotPick','smBotDecide','ldApplyBid','ldApplyChallenge','ldAdvanceState','ldAutoMove','LD_REVEAL_MS',
   'computeSidePots','settleSidePots','roulPayoutMultiplier','roulBetWins','yScoreForCategory','yFreshScorecard',
   'getHistory','getFamily','getAchievements','getResumableMatch','tonightStats','familyStats','rDataOv',
   'SLOT_SYMBOLS','SLOT_PAYLINES','SLOT_SCATTER_PAY','SLOT_JACKPOT_MIN','SLOT_FREE_SPINS_AWARD','SLOT_FREE_SPINS_RETRIGGER',
