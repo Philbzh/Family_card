@@ -1120,6 +1120,138 @@ function run(A,W){
     }
   });
 
+  suite("Liar's Dice — online room state",()=>{
+    const P=(n,dice)=>({id:'id-'+n,name:n,avatar:A.AVATARS[0],totalScore:0,roundsWon:0,dice:dice||[]});
+    const rs={host:'id-A',hr:{}};
+    const mk=(names,opener,wild)=>A.oLdNewRound(rs,names.map(n=>P(n)),1,opener||0,!!wild,true);
+    const st=mk(['A','B','C'],2,true);
+    eq('a fresh room is a game in the bidding phase',[st.phase,st.gameId,st.ld.phase,st.ld.round],['game','liarsdice','bid',1]);
+    eq('the opener is the seat whose turn it is, so isMyTurn() and away-skip work unchanged',st.curIdx,2);
+    check('everyone has five real dice, held on the player (not as cards)',st.players.every(p=>p.dice.length===5&&p.dice.every(d=>d>=1&&d<=6)&&(!p.hand||!p.hand.length)));
+    check('the wild rule and an empty table are recorded',st.ld.wild===true&&st.ld.bid===null&&st.ld.reveal===null&&st.winner===null);
+    check('the whole state survives JSON (it is one jsonb column)',(()=>{try{return JSON.stringify(JSON.parse(JSON.stringify(st)))===JSON.stringify(st);}catch(e){return false;}})());
+    check('each round has its own id',A.oLdNewRound(rs,[P('A'),P('B')],1,0,false,true).ld.rid!==A.oLdNewRound(rs,[P('A'),P('B')],2,0,false,false).ld.rid);
+    check('a later round re-rolls only what each player still has',(()=>{
+      const s=A.oLdNewRound(rs,[P('A',[1,2,3]),P('B',[]),P('C',[4])],2,0,false,false);
+      return s.players.map(p=>p.dice.length).join()==='3,0,1';
+    })());
+
+    // bidding
+    const b=mk(['A','B','C'],0);
+    check('only the player whose turn it is can bid',!A.ldApplyBid(b,1,1,1)&&b.ld.bid===null);
+    check('a legal opening bid is recorded and the turn passes',A.ldApplyBid(b,0,3,4)&&b.ld.bid.n===3&&b.ld.bid.face===4&&b.ld.bid.by===0&&b.curIdx===1);
+    check('a bid that is not a raise is refused and changes nothing',!A.ldApplyBid(b,1,3,4)&&!A.ldApplyBid(b,1,2,6)&&b.ld.bid.by===0&&b.curIdx===1);
+    check('a bid past the dice on the table is refused',!A.ldApplyBid(b,1,16,1));
+    check('a raise is accepted',A.ldApplyBid(b,1,3,5)&&b.curIdx===2);
+    check('you cannot challenge out of turn, or with no bid',!A.ldApplyChallenge(b,0,1000)&&!A.ldApplyChallenge(mk(['A','B'],0),0,1000));
+
+    // challenge
+    const c=mk(['A','B','C'],0);
+    c.players[0].dice=[1,2,3,3,6];c.players[1].dice=[3,4,4,5,5];c.players[2].dice=[2,2,2,6,6];
+    A.ldApplyBid(c,0,4,3);              // A: four 3s (there are three)
+    check('the challenger can call it',A.ldApplyChallenge(c,1,5000));
+    eq('it is a bluff, so the BIDDER (A) loses the die, and only that die',c.players.map(p=>p.dice.length),[4,5,5]);
+    eq('the round moves into the reveal with a shared start and end time',[c.ld.phase,c.ld.reveal.startedAt,c.ld.reveal.nextAt],['reveal',5000,5000+A.LD_REVEAL_MS]);
+    eq('the reveal carries every die as it was',c.ld.reveal.rev.dice,[[1,2,3,3,6],[3,4,4,5,5],[2,2,2,6,6]]);
+    eq('and the verdict',[c.ld.reveal.rev.count,c.ld.reveal.rev.bidStands,c.ld.reveal.rev.loserIdx],[3,false,0]);
+    check('a second challenge (another device, same moment) is refused: no double loss',!A.ldApplyChallenge(c,1,5001)&&c.players[0].dice.length===4);
+    check('and nobody can bid during the reveal',!A.ldApplyBid(c,c.curIdx,5,6));
+
+    // advance
+    check('it does not advance before the reveal has finished',!A.ldAdvanceState(c,5000+A.LD_REVEAL_MS-1));
+    const beforeDice=c.players.map(p=>p.dice.slice());
+    check('after it, the next round starts',A.ldAdvanceState(c,5000+A.LD_REVEAL_MS));
+    eq('the loser opens, the bid is cleared, the round counts up',[c.curIdx,c.ld.bid,c.ld.round,c.round,c.ld.phase],[0,null,2,2,'bid']);
+    eq('dice counts are kept and the dice are re-rolled',c.players.map(p=>p.dice.length),[4,5,5]);
+    check('advancing twice does nothing the second time',!A.ldAdvanceState(c,99999)&&c.ld.round===2);
+    void beforeDice;
+
+    // the challenger loses when the bid stands; an eliminated loser hands the opening on
+    const d=mk(['A','B','C'],0);
+    d.players[0].dice=[3,3,3,1,1];d.players[1].dice=[5];d.players[2].dice=[6,6];
+    A.ldApplyBid(d,0,3,3);A.ldApplyChallenge(d,1,10);
+    eq('a bid that stands costs the challenger (B) the die — and B had only one',d.players.map(p=>p.dice.length),[5,0,2]);
+    check('B is out, recorded with the round they fell in',d.players[1].ldOutAt===1);
+    check('the match is not over while two players remain',d.ld.over===false);
+    A.ldAdvanceState(d,10+A.LD_REVEAL_MS);
+    eq('the eliminated loser cannot open: the next player still in does',d.curIdx,2);
+    const e=mk(['A','B'],0);
+    e.players[0].dice=[2];e.players[1].dice=[4];
+    A.ldApplyBid(e,0,2,5);A.ldApplyChallenge(e,1,20);
+    check('the last opponent falling ends the match after the reveal',e.ld.over===true&&e.ld.phase==='reveal'&&e.winner===null);
+    A.ldAdvanceState(e,20+A.LD_REVEAL_MS);
+    eq('then the last player standing is the winner',[e.ld.phase,e.winner,e.winnerName],['over','id-B','B']);
+    check('the winner is credited with the win',e.players[1].roundsWon===1);
+
+    // an absent player
+    const f=mk(['A','B','C'],0);
+    check('an absent opener is played for with the smallest bid',A.ldAutoMove(f,1)&&f.ld.bid.n===1&&f.ld.bid.face===1&&f.curIdx===1);
+    const g=mk(['A','B'],0);g.players[0].dice=[1,2];g.players[1].dice=[3,4];
+    A.ldApplyBid(g,0,4,6);
+    check('with no legal raise left an absent player challenges instead',A.ldAutoMove(g,7)&&g.ld.phase==='reveal');
+
+    // a whole match on room state alone, the way three phones would play it
+    check('random legal play on room state ends with one survivor and conserves dice',(()=>{
+      for(let n=2;n<=6;n++)for(const wild of [false,true]){
+        const s=A.oLdNewRound(rs,Array.from({length:n},(_,i)=>P('P'+i)),1,0,wild,true);
+        let clock=1000,guard=0;
+        while(s.ld.phase!=='over'&&guard++<4000){
+          if(s.ld.phase==='reveal'){clock+=A.LD_REVEAL_MS;if(!A.ldAdvanceState(s,clock))return false;continue;}
+          const total=A.ldTotalDice(s.players),l=s.ld;
+          if(s.players[s.curIdx].dice.length===0)return false;
+          if(l.bid&&(!A.ldCanRaise(l.bid,total)||Math.random()<.35)){
+            const before=total;
+            if(!A.ldApplyChallenge(s,s.curIdx,clock))return false;
+            if(A.ldTotalDice(s.players)!==before-1)return false;
+          } else {
+            const faces=[1,2,3,4,5,6].filter(f=>A.ldMinN(l.bid,f,total)!==null),f=faces[0|Math.random()*faces.length];
+            if(!A.ldApplyBid(s,s.curIdx,A.ldMinN(l.bid,f,total),f))return false;
+          }
+        }
+        if(s.ld.phase!=='over'||A.ldActiveCount(s.players)!==1||!s.winner)return false;
+      }
+      return true;
+    })());
+  });
+
+  suite("Liar's Dice — what each device is allowed to see",()=>{
+    // The private dice must never be drawn for anyone but their owner. The table is rendered as each
+    // player in turn; only the viewer's own dice may produce a die face, anywhere in the markup.
+    const P=(n,dice)=>({id:'id-'+n,name:n,avatar:A.AVATARS[0],totalScore:0,roundsWon:0,dice});
+    const keep={online:A.G.isOnline,srv:A.G.srv,pid:A.G.myPid,game:A.G.selGame,scr:A.G.scr};
+    try{
+      const state=A.oLdNewRound({host:'id-A',hr:{}},[P('A',[1,2,3,4,5]),P('B',[6,6,6]),P('C',[2,2])],2,1,false,false);
+      state.players[0].dice=[1,2,3,4,5];state.players[1].dice=[6,6,6];state.players[2].dice=[2,2]; // fix the values (a later round re-rolls)
+      state.ld.bid={n:3,face:6,by:0};
+      A.G.isOnline=true;A.G.srv=state;A.G.selGame='liarsdice';A.G.scr='table';
+      const parse=h=>new DOMParser().parseFromString(h,'text/html');
+      const seen={};
+      ['id-A','id-B','id-C'].forEach((pid,vi)=>{
+        A.G.myPid=pid;
+        const doc=parse(W.rLiarsDiceTable());
+        const mine=doc.querySelectorAll('.ld-mine .ld-mydie').length,expected=state.players[vi].dice.length;
+        const allPips=doc.querySelectorAll('.pip').length,minePips=doc.querySelectorAll('.ld-mine .pip').length;
+        seen[pid]=[mine===expected,allPips===minePips,doc.querySelectorAll('.ld-seat').length===3,doc.querySelectorAll('.ld-seat .dd-die-hidden').length===state.players.reduce((s,p)=>s+p.dice.length,0)];
+      });
+      check('every viewer sees exactly their own dice',['id-A','id-B','id-C'].every(k=>seen[k][0]),JSON.stringify(seen));
+      check('no die face is drawn anywhere except in the viewer’s own tray',['id-A','id-B','id-C'].every(k=>seen[k][1]));
+      check('every seat is shown, with every die as a hidden tile',['id-A','id-B','id-C'].every(k=>seen[k][2]&&seen[k][3]));
+      A.G.myPid='id-C';
+      const html=W.rLiarsDiceTable();
+      check('the other players’ dice values are not in the markup at all (no data attributes, no text)',
+        !/data-(dice|face|value)/.test(html)&&!/aria-label="Die showing (1|3|4|5|6)"/.test(html));
+      check('and the room row is what carries them, on the players (this is the trust model)',state.players[0].dice.join()==='1,2,3,4,5');
+      A.G.myPid='id-A';
+      const turn=parse(W.rLiarsDiceTable());
+      check('it is B’s turn, so A gets no bid controls, only a wait message',!turn.querySelector('.ld-controls')&&/Waiting for B/.test(turn.body.textContent));
+      A.G.myPid='id-B';
+      const mineTurn=parse(W.rLiarsDiceTable());
+      check('and B gets the controls, including LIAR! because a bid stands',!!mineTurn.querySelector('.ld-controls')&&!!mineTurn.querySelector('[data-a="ld-liar"]'));
+    } finally {
+      Object.assign(A.G,{isOnline:keep.online,srv:keep.srv,myPid:keep.pid,selGame:keep.game,scr:keep.scr,ldSel:null});
+    }
+  });
+
   suite('Draw-it — roster wiring',()=>{
     const g=A.GAMES.find(x=>x.id==='drawit');
     check('the game is on the roster',!!g);
@@ -3495,7 +3627,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'dwLang','dwPickWord','dwGuessPoints','dwRoundScores','dwFmt','lDealDrawit','dwShowWord','dwStart','dwToggleCredit','dwEndRound','dwEndMatch','dwTick',
   'dwNormalize','dwGuessMatches','dwHint','dwBuildRound','oDwNewRound','dwFinalizeState',
   'DW_HARD_EN','DW_HARD_DE','DW_PAPER','dwPool','dwCustomList','dwPickChoices','dwSpeedBonus','dwIsClose','dwLevenshtein','dwPick','dwLevel','dwCustomText','dwMatchOver','dwProgressText','DW_MATCHES','DW_SCORE_TARGET','dwMatchMode',
-  'ldRollDice','ldTotalDice','ldCount','ldValidBid','ldMinN','ldCanRaise','ldResolve','ldActiveCount','ldNextActive','ldOpener','ldFaceProb','ldAtLeastProb','ldBotMove','LD_START_DICE','ldBuildReveal','ldCountLine','ldFaceName','ldFaceGlyph',
+  'ldRollDice','ldTotalDice','ldCount','ldValidBid','ldMinN','ldCanRaise','ldResolve','ldActiveCount','ldNextActive','ldOpener','ldFaceProb','ldAtLeastProb','ldBotMove','LD_START_DICE','ldBuildReveal','ldCountLine','ldFaceName','ldFaceGlyph','oLdNewRound','ldApplyBid','ldApplyChallenge','ldAdvanceState','ldAutoMove','LD_REVEAL_MS',
   'computeSidePots','settleSidePots','roulPayoutMultiplier','roulBetWins','yScoreForCategory','yFreshScorecard',
   'getHistory','getFamily','getAchievements','getResumableMatch','tonightStats','familyStats','rDataOv',
   'SLOT_SYMBOLS','SLOT_PAYLINES','SLOT_SCATTER_PAY','SLOT_JACKPOT_MIN','SLOT_FREE_SPINS_AWARD','SLOT_FREE_SPINS_RETRIGGER',

@@ -2523,6 +2523,8 @@ async function oForceSkipCurrentPlayer(){
     // Draw-it: an artist who has gone can't finish their drawing, so the round simply closes with
     // whatever guesses already landed (compare-and-swap, in its own loop) and the next artist is up.
     if(state.gameId==='drawit'){await oDwFinalize();return;}
+    // Liar's Dice: an absent bidder is played for -- the smallest legal raise, or a challenge if none is left.
+    if(state.gameId==='liarsdice'){await oLdMutate(st=>ldAutoMove(st,Date.now()));return;}
     state.lastAct=esc(p.name)+' was skipped (away too long).';
     let runout=false,allDone=false;
     if(state.gameId==='texas'||state.gameId==='fivecard'){
@@ -2721,12 +2723,12 @@ const GAMES=[
      'The artist picks one of <b>three words</b> (online you get 15 seconds to choose, then a 3-second countdown). Pick <b>Everyday</b>, <b>Mixed</b> or <b>Hard</b> words — and add your own — before you start.',
      'Nobody guessed it? The word is revealed and nobody scores — some words are just unlucky.',
      'The artist role rotates every round. Before you start choose how long the match runs: <b>open</b> (tap <b>End table</b> whenever you like), <b>everyone once</b>, <b>twice</b>, or <b>first to 30</b> points. Highest score wins.']},
-  {id:'liarsdice',cat:'dice',icon:'🎲',name:"Liar's Dice",players:'2–6',dur:'10–20 min',diff:'medium',deal:0,minP:2,maxP:6,
+  {id:'liarsdice',cat:'dice',icon:'🎲',name:"Liar's Dice",players:'2–6',dur:'10–20 min',diff:'medium',deal:0,minP:2,maxP:6,cover:'assets/games/liarsdice.jpg',
    rules:['Everyone starts with <b>5 dice</b> and rolls them in secret — you can only ever see your own.','On your turn, <b>bid</b> how many dice of one face are on the table <i>in total</i> (say “four 3s”), or <b>raise</b> the standing bid: more dice, or the same number of a higher face.','Don’t believe the last bid? Call <b>LIAR!</b> Every die is revealed: if the bid was true <b>you</b> lose a die, if it was a bluff <b>the bidder</b> does.','Optional <b>wild ones</b>: 1s count as any face (a bid on 1s counts only 1s). Switch it on before you start.','The loser opens the next round and everyone re-rolls. Lose all your dice and you’re out — the last player standing wins.','Your dice stay hidden: on one shared device, hold the button to look; online, no one else’s dice are ever drawn on your screen until the reveal.']},
 ];
 // Single source of truth for which unlocked games have online-multiplayer support, so the "online"
 // gate and the local-only badge on a game's card can never drift out of sync with each other.
-const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit'];
+const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice'];
 // The Games tab groups its (growing) roster into these, rather than one long scroll -- every GAMES
 // entry's `cat` must be one of these ids. Order here is the order the category tiles are shown in.
 const GAME_CATEGORIES=[
@@ -4880,6 +4882,143 @@ function ldAfterRender(){
   const hide=()=>{box.innerHTML=me.dice.map(ldHiddenHTML).join('');};
   ['pointerup','pointercancel','lostpointercapture'].forEach(ev=>pk.addEventListener(ev,hide));
   pk.addEventListener('contextmenu',e=>e.preventDefault());
+}
+
+
+/* ── Liar's Dice: online ──
+   The room row carries the round: state.ld = {rid, round, phase:'bid'|'reveal'|'over', bid, wild, over,
+   reveal:{startedAt,nextAt,rev}} and each player's dice live in players[i].dice. Whose turn it is is
+   state.curIdx, so isMyTurn() and the away/skip UI work unchanged. Each device only ever DRAWS its own
+   dice; every other seat is `?` tiles until the challenge writes a snapshot of all dice for the reveal.
+   A challenge is resolved exactly once, inside one compare-and-swap write, together with the die loss
+   and a shared start time; every device then plays the same reveal from that timestamp. */
+const LD_REVEAL_MS=8300;
+// A fresh round. Round 1 gives everyone five dice; later rounds re-roll whatever each player still has.
+function oLdNewRound(rs,players,round,openerIdx,wild,first){
+  players.forEach(p=>{p.dice=first?ldRollDice(LD_START_DICE):(p.dice&&p.dice.length?ldRollDice(p.dice.length):[]);if(first)p.ldOutAt=0;});
+  return{phase:'game',gameId:'liarsdice',host:rs.host,hr:rs.hr||G.hr,players,curIdx:openerIdx,
+    ld:{rid:round+'-'+Date.now(),round,phase:'bid',bid:null,wild:!!wild,over:false,reveal:null},
+    winner:null,winnerName:null,winnerAv:null,matchOver:false,lastAct:'',round,_ts:Date.now()};
+}
+// The three state changes. Each returns false (changing nothing) when the move isn't allowed, which is
+// what makes the compare-and-swap retry loop safe to run from several devices at once.
+function ldApplyBid(state,idx,n,face){
+  const l=state.ld;if(!l||l.phase!=='bid'||state.curIdx!==idx)return false;
+  const players=state.players;if(!players[idx]||!players[idx].dice||!players[idx].dice.length)return false;
+  if(!ldValidBid(l.bid,{n,face},ldTotalDice(players)))return false;
+  l.bid={n,face,by:idx};
+  state.curIdx=ldNextActive(players,idx);
+  return true;
+}
+function ldApplyChallenge(state,idx,now){
+  const l=state.ld;if(!l||l.phase!=='bid'||!l.bid||state.curIdx!==idx)return false;
+  const players=state.players,before=players.map(p=>(p.dice||[]).slice());
+  const r=ldResolve(before,l.bid,l.bid.by,idx,l.wild);
+  const loser=players[r.loserIdx];loser.dice.pop();
+  const eliminated=loser.dice.length===0;
+  if(eliminated)loser.ldOutAt=l.round;
+  l.phase='reveal';l.over=ldActiveCount(players)<=1;
+  l.reveal={startedAt:now,nextAt:now+LD_REVEAL_MS,rev:ldBuildReveal(players,before,l.bid,l.bid.by,idx,r,l.wild,eliminated)};
+  state.lastAct=(players[idx].name||'')+' called LIAR!';
+  return true;
+}
+// After the reveal has played: start the next round, or close the match. Safe to call from every device.
+function ldAdvanceState(state,now){
+  const l=state.ld;if(!l||l.phase!=='reveal'||!l.reveal||now<l.reveal.nextAt)return false;
+  const players=state.players;
+  if(l.over){
+    const w=players.find(p=>p.dice&&p.dice.length>0)||players[0];
+    l.phase='over';w.roundsWon=(w.roundsWon||0)+1;
+    state.winner=w.id;state.winnerName=w.name;state.winnerAv=w.avatar;
+    return true;
+  }
+  const loserIdx=l.reveal.rev.loserIdx;
+  l.round++;state.round=l.round;l.rid=l.round+'-'+now;
+  players.forEach(p=>{p.dice=p.dice&&p.dice.length?ldRollDice(p.dice.length):[];});
+  state.curIdx=ldOpener(players,loserIdx);
+  l.phase='bid';l.bid=null;l.reveal=null;l.over=false;
+  return true;
+}
+// What happens for a player who has gone away: the smallest legal raise, or -- if the table is already
+// exhausted -- a challenge, since nothing else is left.
+function ldAutoMove(state,now){
+  const l=state.ld;if(!l||l.phase!=='bid')return false;
+  const idx=state.curIdx,total=ldTotalDice(state.players);
+  let best=null;
+  for(let f=1;f<=6;f++){const m=ldMinN(l.bid,f,total);if(m!==null&&(best===null||m<best.n))best={n:m,face:f};}
+  if(best)return ldApplyBid(state,idx,best.n,best.face);
+  return l.bid?ldApplyChallenge(state,idx,now):false;
+}
+async function oLdMutate(mutate){
+  for(let i=0;i<6;i++){
+    const state=await dbRead(G.roomId);if(!state||!state.ld||state.gameId!=='liarsdice')return false;
+    const expectedTs=state._ts;
+    if(!mutate(state))return false;
+    onSrv(state); // optimistic; the next real sync corrects us if this write lost the race
+    if(await dbWriteIfUnchanged(G.roomId,expectedTs,state))return true;
+  }
+  toast('⚠️ Connection hiccup — try that again');
+  return false;
+}
+function oLdMyIdx(state){return(state.players||[]).findIndex(p=>p.id===G.myPid);}
+async function oLdBid(n,face){
+  if(!isMyTurn()){toast('Not your turn');return;}
+  const ok=await oLdMutate(state=>{const i=oLdMyIdx(state);return i>=0&&ldApplyBid(state,i,n,face);});
+  if(ok){SFX.chip();haptic(12);}
+}
+async function oLdChallenge(){
+  if(!isMyTurn()){toast('Not your turn');return;}
+  await oLdMutate(state=>{const i=oLdMyIdx(state);return i>=0&&ldApplyChallenge(state,i,Date.now());});
+}
+function oLdAdvance(){return oLdMutate(state=>ldAdvanceState(state,Date.now()));}
+let _ldRevealSig=null,_ldAdvSig=null,_ldAdvTimer=null,_ldSelSig=null,_ldHistSig=null;
+function ldStopOnline(){clearTimeout(_ldAdvTimer);_ldAdvTimer=null;_ldAdvSig=null;_ldRevealSig=null;_ldSelSig=null;_ldHistSig=null;}
+// Every device tries to move the match on once the reveal has finished; the loser's device first, the
+// others a beat later. The compare-and-swap means only one write lands; the retry covers a device that
+// went quiet.
+function ldArmAdvance(sig,nextAt,delayExtra){
+  if(_ldAdvSig===sig)return;
+  _ldAdvSig=sig;clearTimeout(_ldAdvTimer);
+  const attempt=()=>{
+    const l=G.isOnline&&G.srv&&G.srv.ld;
+    if(!l||l.phase!=='reveal'||_ldAdvSig!==sig)return;
+    oLdAdvance();
+    _ldAdvTimer=setTimeout(attempt,4000);
+  };
+  _ldAdvTimer=setTimeout(attempt,Math.max(0,nextAt-Date.now())+delayExtra);
+}
+// Everything onSrv does for a Liar's Dice room.
+function oLdOnSrv(state,wasLobby){
+  const l=state.ld;
+  G.lres=null;
+  if(l.phase==='reveal'&&l.reveal){
+    const sig=l.round+'|'+l.reveal.startedAt;
+    if(sig!==_ldRevealSig){
+      _ldRevealSig=sig;
+      // Play from the shared start time; a device whose clock disagrees (or that joined late) is
+      // clamped so it neither waits long nor misses most of the show.
+      const now=Date.now(),start=Math.min(now+500,Math.max(now-2500,l.reveal.startedAt));
+      ldRevealShow(l.reveal.rev,start,null);
+    }
+    const loser=state.players[l.reveal.rev.loserIdx];
+    ldArmAdvance(sig,l.reveal.nextAt,loser&&loser.id===G.myPid?0:1500+Math.max(0,oLdMyIdx(state))*400);
+  }
+  const selSig=l.round+'|'+(l.bid?l.bid.n+'x'+l.bid.face:'-');
+  if(selSig!==_ldSelSig){_ldSelSig=selSig;G.ldSel=null;}
+  if(l.phase==='over'){
+    if(_ldHistSig!==state.winner+'|'+l.round){
+      _ldHistSig=state.winner+'|'+l.round;
+      SFX.win();v14WinnerBurst();celebrateWin(state.winnerName,state.winnerAv);fxPulse('gold');
+      addHistory({game:'liarsdice',winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),
+        players:state.players.map(p=>p.name),mode:'online',moment:`${state.winnerName} was the last one standing at Liar's Dice.`,
+        stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats.reactions}});
+      if(state.winner===G.myPid){G.tw++;localStorage.setItem('ct_tw',G.tw);}
+    }
+    G.scr='matchend';render();return;
+  }
+  G.scr='table';
+  if(wasLobby){const opener=state.players[state.curIdx||0];v14Intro('liarsdice',opener&&opener.name,opener&&opener.avatar);G.gp++;localStorage.setItem('ct_gp',G.gp);}
+  render();
 }
 
 /* ═══════ DRAW-IT ═══════
@@ -9469,6 +9608,7 @@ function onSrv(state){
   if(state.phase==='lobby'){G.scr='lobby';render();return;}
   if(state.phase==='game'){
     if(state.gameId==='drawit'&&state.dw){oDwOnSrv(state,prevDw,wasLobby);return;}
+    if(state.gameId==='liarsdice'&&state.ld){oLdOnSrv(state,wasLobby);return;}
     if(state.winner){
       if(state.gameId==='yahtzee'){
         const ySorted=[...(state.players||[])].sort((a,b)=>yTotalScore(b.scorecard)-yTotalScore(a.scorecard));
@@ -10253,6 +10393,7 @@ function rLobby(){
         <button class="ambient-toggle${G.notifyOn?' on':''}" data-a="toggle-notify" aria-pressed="${G.notifyOn}">🔔 Notify me when it's my turn</button>
       </div>
       ${game.id==='drawit'&&G.isHost?dwOptionsHTML():''}
+      ${game.id==='liarsdice'&&G.isHost?ldOptionsHTML():''}
       ${G.isHost?`<button class="btn btn-gold btn-full" data-a="start" ${canStart?'':'disabled'}>${canStart?`▶ Start Game — ${players.length} players`:'Waiting for at least 2 players…'}</button>`:
       `<p style="text-align:center;padding:.8rem;color:var(--paper3);font-size:.85rem;">Waiting for the host to start…</p>`}
     </div>
@@ -12469,8 +12610,8 @@ document.addEventListener('click',e=>{
   // does. Without it, tapping Home inside the 5-second "Mau!" window let the timer fire afterwards,
   // deal 2 penalty cards and call lAdvance — which sets G.scr='pass' and re-renders, throwing you
   // out of the Home screen and back into a hand-over screen for a game you had left.
-  if(a==='home'||a==='nav-home'){stopSync(true);G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;if(G.lmau)clearTimeout(G.lmau.tid);G.lmau=null;ddClearRevealTimers();ldClearReveal();bgClearCaller();G.bpSelected=null;G.scr='home';render();}
-  else if(a==='nav-games'){stopSync(true);G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;if(G.lmau)clearTimeout(G.lmau.tid);G.lmau=null;ddClearRevealTimers();ldClearReveal();bgClearCaller();G.gamesCat=null;G.scr='games';render();}
+  if(a==='home'||a==='nav-home'){stopSync(true);G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;if(G.lmau)clearTimeout(G.lmau.tid);G.lmau=null;ddClearRevealTimers();ldClearReveal();ldStopOnline();bgClearCaller();G.bpSelected=null;G.scr='home';render();}
+  else if(a==='nav-games'){stopSync(true);G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;if(G.lmau)clearTimeout(G.lmau.tid);G.lmau=null;ddClearRevealTimers();ldClearReveal();ldStopOnline();bgClearCaller();G.gamesCat=null;G.scr='games';render();}
   else if(a==='games-cat'){G.gamesCat=t.getAttribute('data-cat');render();}
   else if(a==='games-back'){G.gamesCat=null;render();}
   else if(a==='nav-table'){
@@ -12548,7 +12689,7 @@ document.addEventListener('click',e=>{
   else if(a==='data-clear-ask'){G.dataClearAsk=true;render();}
   else if(a==='close-data-clear'){G.dataClearAsk=false;render();}
   else if(a==='data-clear-confirm'){clearMyLocalData();G.dataClearAsk=false;G.dataOpen=false;render();}
-  else if(a==='quit-confirm'){stopSync();G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;if(G.lmau)clearTimeout(G.lmau.tid);G.lmau=null;_oMauSig=null;ddClearRevealTimers();ldClearReveal();bgClearCaller();_ddOnlineSig=null;G.bpSelected=null;slotClearTimers();G.slot=null;localStorage.removeItem('ct_resume');G.scr='home';render();}
+  else if(a==='quit-confirm'){stopSync();G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;if(G.lmau)clearTimeout(G.lmau.tid);G.lmau=null;_oMauSig=null;ddClearRevealTimers();ldClearReveal();ldStopOnline();bgClearCaller();_ddOnlineSig=null;G.bpSelected=null;slotClearTimers();G.slot=null;localStorage.removeItem('ct_resume');G.scr='home';render();}
   else if(a==='addpl'){const cap=currentGame().maxP||(isPoker()?8:6);if(G.lp.length>=cap)return;G.lp.push({id:G.nid++,name:'',avatar:AVATARS[G.lp.length%AVATARS.length],hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false});render();}
   else if(a==='addbot'){
     if(!canAddBot(currentGame())){toast('Table is full — remove a seat to add a bot');return;}
@@ -12732,6 +12873,12 @@ document.addEventListener('click',e=>{
           fk:{dice:fkFreshDiceArr(),selected:new Array(6).fill(false),turnTotal:0,hasRolled:false,
             lastRolled:[],busted:false,finalRoundActive:false,finalRoundEndSeat:null},
           winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='liarsdice'){
+        const players=rs.players.slice(0,6).map(p=>({...p,totalScore:0,roundsWon:0}));
+        const gs=oLdNewRound(rs,players,1,rnd(0,players.length-1),ldWildRule(),true);
         G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }
@@ -12927,6 +13074,7 @@ document.addEventListener('click',e=>{
   }
   else if(a==='next'){
     if(G.isOnline&&G.srv&&G.srv.gameId==='drawit'){oDwNext();return;}
+    if(G.isOnline&&G.srv&&G.srv.gameId==='liarsdice')return; // rounds advance themselves
     if(G.isOnline){dbRead(G.roomId).then(rs=>{
       if(!rs)return;
       if(rs.gameId==='blackjack'){
@@ -13055,7 +13203,7 @@ document.addEventListener('click',e=>{
   // to reset the shared room state for every seated player, which is a bigger, separate change.
   else if(a==='rematch'){lStartMatch();render();}
   else if(a==='newgame'){
-    ldClearReveal();
+    ldClearReveal();ldStopOnline();
     const keep={snd:G.snd,gp:G.gp,tw:G.tw,selGame:G.selGame,myName:G.myName,myAvatar:G.myAvatar,beginnerMode:G.beginnerMode,hr:G.hr};
     stopSync();
     localStorage.removeItem('ct_resume');
