@@ -1934,6 +1934,184 @@ function run(A,W){
     check('harder levels score more for the same play',A.vtScore({budget:900000,remaining:450000,hints:0,mistakes:0,diff:2,chapters:5,won:true}).score>A.vtScore({budget:900000,remaining:450000,hints:0,mistakes:0,diff:0,chapters:5,won:true}).score);
   });
 
+  suite('The Vault — stories',()=>{
+    check('both adventures are on offer and complete',A.VT_ADV_IDS.every(id=>{const a=A.VT_ADV[id];return a.title&&a.tagline&&a.chapters.length===5&&a.roles.length>=6&&a.intro.length>=3&&a.twists.length===3&&a.twists.every(t=>a.finale.reveals[t])&&a.failed.time&&a.failed.lives;}));
+    check('every chapter has a real puzzle type, story text, a solved line and words for its puzzle',A.VT_ADV_IDS.every(id=>{
+      const a=A.VT_ADV[id];
+      return a.chapters.every(c=>['order','dial','seq','code'].indexOf(c.type)>=0&&c.title&&c.story.length>=1&&c.solved.length>=1&&a.skin[c.type==='order'?'order':c.type][c.id]);
+    }));
+    check('the same seed always tells the same story; other seeds tell others',A.VT_ADV_IDS.every(id=>{
+      const a=JSON.stringify(A.vtStory(id,123)),b=JSON.stringify(A.vtStory(id,123));
+      const seen=new Set();for(let s=1;s<=30;s++)seen.add(JSON.stringify(A.vtStory(id,s*977)));
+      return a===b&&seen.size>=12;
+    }));
+    check('a story picks names from its pools and one of its own twists, and a six-strong crew',A.VT_ADV_IDS.every(id=>{
+      const a=A.VT_ADV[id];
+      for(let s=1;s<=20;s++){const st=A.vtStory(id,s*31);
+        if(a.twists.indexOf(st.twist)<0||st.names.crew.length!==6||new Set(st.names.crew).size!==6)return false;
+        for(const k of Object.keys(a.pools))if(k!=='crew'&&k!=='planets'&&a.pools[k].indexOf(st.names[k])<0)return false;}
+      return true;
+    }));
+    check('every line of every scene reads whole: no {placeholder} is left unfilled, in any twist',A.VT_ADV_IDS.every(id=>{
+      const a=A.VT_ADV[id];
+      for(const twist of a.twists){
+        const story=A.vtStory(id,55);story.twist=twist;
+        const vt={adv:id,story,result:{reason:'time'}};
+        const scenes=[{kind:'intro',ch:0}].concat(a.chapters.map((c,i)=>({kind:'chapter',ch:i})),a.chapters.map((c,i)=>({kind:'solved',ch:i})),[{kind:'finale',ch:4},{kind:'failed',ch:1}]);
+        for(const sc of scenes){vt.scene=sc;const lines=A.vtSceneLines(vt);if(!lines.length)return false;
+          for(const l of lines){if(/\{\w+\}/.test(l.t))return false;if(!A.vtSpeaker(vt,l.w).name)return false;}}
+        vt.result={reason:'lives'};vt.scene={kind:'failed',ch:0};if(A.vtSceneLines(vt).some(l=>/\{\w+\}/.test(l.t)))return false;
+      }
+      return true;
+    }));
+    check('the finale differs by twist',(()=>{
+      const a=A.VT_ADV.pirate,vt={adv:'pirate',story:A.vtStory('pirate',1),scene:{kind:'finale',ch:4}},texts=new Set();
+      a.twists.forEach(t=>{vt.story.twist=t;texts.add(A.vtSceneLines(vt).map(l=>l.t).join('|'));});
+      return texts.size===3;
+    })());
+    check('crew names in a chapter’s puzzle come from this game’s story',(()=>{
+      const st=A.vtStory('pirate',9),skin=A.vtChapterSkin('pirate',2,st);
+      return skin.order.items.join()===st.names.crew.join();
+    })());
+  });
+
+  suite('The Vault — every chapter of every adventure can be played, at every table size',()=>{
+    const bad=[];let made=0;
+    for(const id of A.VT_ADV_IDS)for(let d=0;d<3;d++)for(const n of[2,3,4,6]){
+      const rs={host:'id-A',hr:{}},players=Array.from({length:n},(_,i)=>({id:'id-'+i,name:'P'+i,avatar:A.AVATARS[0]}));
+      const st=A.oVtNewGame(rs,players,id,d,1000+d*17+n);
+      for(let ch=0;ch<5;ch++){
+        if(!A.vtStartChapter(st,ch,1)){bad.push(`${id} ${A.VT_DIFFS[d]} ${n}p chapter ${ch+1}: no puzzle`);continue;}
+        made++;
+        const p=st.vt.puz;
+        if(p.deal.length!==n||p.deal.some(x=>x.length===0))bad.push(`${id} ${n}p ch${ch+1}: a player has no clue`);
+        if(A.vtCount(p,p.clues.map((c,i)=>i))!==1)bad.push(`${id} ${n}p ch${ch+1}: not one solution`);
+        if(p.clues.some(c=>!c.t||/undefined|NaN|\{/.test(c.t)))bad.push(`${id} ${n}p ch${ch+1}: bad clue wording`);
+      }
+    }
+    check(`${made} themed puzzles generated, every one sound`,bad.length===0,bad.slice(0,6).join(' | '));
+  });
+
+  suite('The Vault — the room',()=>{
+    const P=n=>({id:'id-'+n,name:n,avatar:A.AVATARS[0],totalScore:0,roundsWon:0});
+    const mk=(adv,diff,n,seed)=>A.oVtNewGame({host:'id-A',hr:{}},'ABCDEF'.slice(0,n||3).split('').map(P),adv||'pirate',diff||0,seed||77);
+    let st=mk();
+    eq('a fresh room is a Vault game at its opening scene, with the clock still',[st.phase,st.gameId,st.vt.phase,st.vt.scene.kind,st.vt.clock.runFrom],['game','vault','scene','intro',null]);
+    eq('lives, hints and time come from the difficulty',[st.vt.lives,st.vt.hintsLeft,st.vt.clock.budget],[3,3,20*60000]);
+    eq('expert has fewer hints and less time',[mk('pirate',2).vt.hintsLeft,mk('pirate',2).vt.clock.budget],[2,12*60000]);
+    check('the whole state survives JSON, including a live puzzle',(()=>{
+      const s=mk();A.vtStartChapter(s,0,5);return JSON.stringify(JSON.parse(JSON.stringify(s)))===JSON.stringify(s);
+    })());
+    // cutscenes
+    st=mk();const t0=st.vt.scene.at;
+    check('a cutscene does not move on before its time',!A.vtApplyAdvance(st,t0+A.VT_INTRO_MS-1,false));
+    check('but does once the time is up, into the first chapter’s scene',A.vtApplyAdvance(st,t0+A.VT_INTRO_MS,false)&&st.vt.scene.kind==='chapter'&&st.vt.scene.ch===0);
+    const sig=A.vtSceneSig(st.vt);
+    check('pressing Continue moves it on at once, into the puzzle, and the clock starts',A.vtApplyAdvance(st,100,true,sig)&&st.vt.phase==='play'&&st.vt.puz&&st.vt.clock.runFrom===100&&st.vt.board.length===st.vt.puz.solution.length);
+    check('a second press for the same scene does nothing (two devices, one tap)',!A.vtApplyAdvance(st,101,true,sig));
+    check('a stale press cannot skip the NEXT scene either',(()=>{const s=mk();A.vtApplyAdvance(s,1,true,A.vtSceneSig(s.vt));const old=A.vtSceneSig(s.vt);A.vtApplyAdvance(s,2,true,old);return !A.vtApplyAdvance(s,3,true,old)&&s.vt.phase==='play';})());
+    // the board
+    const vt=st.vt,sol=vt.puz.solution;
+    check('anyone can put something on the shared board, and it remembers who',A.vtApplyBoard(st,1,0,sol[0])&&vt.board[0]===sol[0]&&vt.last[0]===1);
+    check('nonsense is refused',!A.vtApplyBoard(st,0,99,1)&&!A.vtApplyBoard(st,0,0,'Z')&&!A.vtApplyBoard(st,0,0,-1));
+    check('in an ordering puzzle an item can only sit in one place: moving it clears the old place',(()=>{
+      const s=mk();A.vtStartChapter(s,0,1);const n=s.vt.board.length;
+      A.vtApplyBoard(s,0,0,2);A.vtApplyBoard(s,0,1,2);return s.vt.board[0]===null&&s.vt.board[1]===2;
+    })());
+    check('you cannot try the lock until the board is full',!A.vtApplySubmit(st,0,200));
+    // a wrong answer
+    for(let i=0;i<sol.length;i++)A.vtApplyBoard(st,0,i,sol[(i+1)%sol.length]);
+    const beforeLives=vt.lives;
+    check('a wrong code costs a life and is counted, and the puzzle stays open',A.vtApplySubmit(st,2,300)&&vt.lives===beforeLives-1&&vt.mistakes===1&&vt.wrong.n===1&&vt.wrong.by===2&&vt.phase==='play');
+    check('a hint reveals one more line for everyone and costs one of the hints',A.vtApplyHint(st)&&vt.hintShown===1&&vt.hintsLeft===2&&vt.hintsUsed===1);
+    check('hints run out',A.vtApplyHint(st)&&A.vtApplyHint(st)&&!A.vtApplyHint(st)&&vt.hintsLeft===0);
+    check('clearing empties the board',A.vtApplyClear(st,0)&&vt.board.every(x=>x===null)&&!A.vtApplyClear(st,0));
+    // a right answer
+    for(let i=0;i<sol.length;i++)A.vtApplyBoard(st,0,i,sol[i]);
+    check('the right code solves the chapter: clock rests, a solved scene plays',A.vtApplySubmit(st,0,400)&&vt.phase==='scene'&&vt.scene.kind==='solved'&&vt.clock.runFrom===null&&vt.solved.length===1&&vt.puz===null);
+    check('nothing can be placed during the cutscene',!A.vtApplyBoard(st,0,0,1)&&!A.vtApplyHint(st));
+    // to the next chapter
+    check('the next scene is the next chapter, and its puzzle is a fresh one',A.vtApplyAdvance(st,500,true,A.vtSceneSig(vt))&&vt.scene.kind==='chapter'&&vt.scene.ch===1&&A.vtApplyAdvance(st,501,true,A.vtSceneSig(vt))&&vt.phase==='play'&&vt.ch===1&&vt.hintShown===0);
+    // running out of lives
+    const lv=mk();A.vtApplyAdvance(lv,1,true,A.vtSceneSig(lv.vt));A.vtApplyAdvance(lv,2,true,A.vtSceneSig(lv.vt));
+    const bs=lv.vt.puz.solution;
+    const fillWrong=()=>{for(let i=0;i<bs.length;i++)A.vtApplyBoard(lv,0,i,bs[(i+1)%bs.length]);};
+    fillWrong();A.vtApplySubmit(lv,0,10);fillWrong();A.vtApplySubmit(lv,0,11);fillWrong();
+    check('the third wrong code ends the attempt, gently: a "vault remains sealed" scene, clock stopped',A.vtApplySubmit(lv,0,12)&&lv.vt.phase==='scene'&&lv.vt.scene.kind==='failed'&&lv.vt.result.won===false&&lv.vt.result.reason==='lives'&&lv.vt.clock.runFrom===null);
+    check('then the results screen',A.vtApplyAdvance(lv,1e9,true,A.vtSceneSig(lv.vt))&&lv.vt.phase==='failed');
+    // time
+    const tm=mk();A.vtApplyAdvance(tm,1,true,A.vtSceneSig(tm.vt));A.vtApplyAdvance(tm,1000,true,A.vtSceneSig(tm.vt));
+    check('the clock is not up yet',!A.vtApplyTick(tm,1000+20*60000-1));
+    check('when the time is up the attempt ends',A.vtApplyTick(tm,1000+20*60000)&&tm.vt.scene.kind==='failed'&&tm.vt.result.reason==='time');
+    check('and ending twice does nothing (every device tries)',!A.vtApplyTick(tm,1000+21*60000));
+    // a full run to the end
+    const run=mk('space',1,4,5);let now=1000;
+    const step=()=>{A.vtApplyAdvance(run,now+=1,true,A.vtSceneSig(run.vt));};
+    step();
+    let guard=0;
+    while(run.vt.phase!=='done'&&guard++<100){
+      if(run.vt.phase==='scene'){step();continue;}
+      const s=run.vt.puz.solution;now+=60000;
+      for(let i=0;i<s.length;i++)A.vtApplyBoard(run,0,i,s[i]);
+      if(!A.vtApplySubmit(run,1,now))break;
+    }
+    check('play through all five chapters to the vault opening, with a result and stars',run.vt.phase==='done'&&run.vt.result.won&&run.vt.solved.length===5&&run.vt.result.stars>=1&&run.vt.result.score>0);
+    check('after a win the game can be started afresh, once, with a new seed',(()=>{
+      const seed=run.vt.seed;if(!A.vtApplyRestart(run,seed,'pirate',2,4242))return false;
+      return run.vt.seed===4242&&run.vt.phase==='scene'&&run.vt.adv==='pirate'&&run.vt.lives===3&&!A.vtApplyRestart(run,seed,'pirate',2,1);
+    })());
+    check('but not in the middle of a game',(()=>{const s=mk();return !A.vtApplyRestart(s,s.vt.seed,'pirate',0,9);})());
+  });
+
+  suite('The Vault — what each device is allowed to see',()=>{
+    // The private clues must never be drawn for anyone but their owner. The table is rendered as each
+    // player in turn; only the viewer's own clue text may appear.
+    const keep={online:A.G.isOnline,srv:A.G.srv,pid:A.G.myPid,game:A.G.selGame,scr:A.G.scr,sel:A.G.vtSel};
+    try{
+      const P=n=>({id:'id-'+n,name:n,avatar:A.AVATARS[0],totalScore:0,roundsWon:0});
+      for(const id of A.VT_ADV_IDS){
+        const st=A.oVtNewGame({host:'id-A',hr:{}},['A','B','C'].map(P),id,1,321);
+        A.vtStartChapter(st,0,5);A.vtStartChapter(st,1,5);
+        A.G.isOnline=true;A.G.srv=st;A.G.selGame='vault';A.G.scr='table';
+        const puz=st.vt.puz,parse=h=>new DOMParser().parseFromString(h,'text/html');
+        const seen={};
+        ['id-A','id-B','id-C'].forEach((pid,vi)=>{
+          A.G.myPid=pid;
+          const doc=parse(W.rVaultTable()),text=doc.body.textContent;
+          const mine=puz.deal[vi].map(k=>puz.clues[k].t),others=puz.deal.flatMap((d,i)=>i===vi?[]:d.map(k=>puz.clues[k].t));
+          seen[pid]=[
+            doc.querySelectorAll('.vt-clue').length===mine.length,
+            mine.every(t=>text.indexOf(t)>=0),
+            // another player's clue may only appear if it happens to be word-for-word one of mine
+            others.every(t=>mine.indexOf(t)>=0||text.indexOf(t)<0),
+            doc.querySelector('.vt-role b').textContent===A.VT_ADV[id].roles[vi]
+          ];
+        });
+        check(`${id}: every viewer sees exactly their own clues and role, and nobody else's`,['id-A','id-B','id-C'].every(k=>seen[k].every(Boolean)),JSON.stringify(seen));
+        A.G.myPid='id-A';
+        const html=W.rVaultTable();
+        check(`${id}: the solution is not in the markup`,!new RegExp(JSON.stringify(puz.solution).replace(/[[\]]/g,'\\$&')).test(html.replace(/\s/g,''))||puz.type==='code');
+      }
+      // a spectator with no seat
+      const st=A.oVtNewGame({host:'id-A',hr:{}},['A','B'].map(P),'pirate',0,5);A.vtStartChapter(st,0,5);
+      A.G.srv=st;A.G.myPid='someone-else';
+      const d=new DOMParser().parseFromString(W.rVaultTable(),'text/html');
+      check('someone without a seat sees no clues at all',d.querySelectorAll('.vt-clue').length===0);
+    } finally {
+      W.vtStop();
+      Object.assign(A.G,{isOnline:keep.online,srv:keep.srv,myPid:keep.pid,selGame:keep.game,scr:keep.scr,vtSel:keep.sel});
+    }
+  });
+
+  suite('The Vault — roster',()=>{
+    const g=A.GAMES.find(x=>x.id==='vault');
+    check('it is on the roster in its own category, for 2 to 6, and online only',!!g&&g.cat==='coop'&&g.minP===2&&g.maxP===6&&g.onlineOnly===true&&A.ONLINE_GAMES.indexOf('vault')>=0);
+    check('the category exists',A.GAME_CATEGORIES.some(c=>c.id==='coop'));
+    check('it has no bots (a bot cannot hold secret clues and talk)',!A.BOT_GAMES.has('vault'));
+    check('there are rules to read',g.rules.length>=5);
+    check('every game still belongs to a known category',A.GAMES.every(x=>A.GAME_CATEGORIES.some(c=>c.id===x.cat)));
+  });
+
   suite('Draw-it — roster wiring',()=>{
     const g=A.GAMES.find(x=>x.id==='drawit');
     check('the game is on the roster',!!g);
@@ -1945,7 +2123,7 @@ function run(A,W){
     // off BOT_GAMES.
     check('it is deliberately NOT a bot game',!A.BOT_GAMES.has('drawit'));
     check('and every other playable game still is',
-      A.GAMES.filter(x=>!x.locked&&x.id!=='drawit').every(x=>A.BOT_GAMES.has(x.id)));
+      A.GAMES.filter(x=>!x.locked&&x.id!=='drawit'&&!x.onlineOnly).every(x=>A.BOT_GAMES.has(x.id)));
     check('it has rules to show',g&&g.rules&&g.rules.length>=3);
   });
 
@@ -4309,7 +4487,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'dwLang','dwPickWord','dwGuessPoints','dwRoundScores','dwFmt','lDealDrawit','dwShowWord','dwStart','dwToggleCredit','dwEndRound','dwEndMatch','dwTick',
   'dwNormalize','dwGuessMatches','dwHint','dwBuildRound','oDwNewRound','dwFinalizeState',
   'DW_HARD_EN','DW_HARD_DE','DW_PAPER','dwPool','dwCustomList','dwPickChoices','dwSpeedBonus','dwIsClose','dwLevenshtein','dwPick','dwLevel','dwCustomText','dwMatchOver','dwProgressText','DW_MATCHES','DW_SCORE_TARGET','dwMatchMode',
-  'ldRollDice','ldTotalDice','ldCount','ldValidBid','ldMinN','ldCanRaise','ldResolve','ldActiveCount','ldNextActive','ldOpener','ldFaceProb','ldAtLeastProb','ldBotMove','LD_START_DICE','ldBuildReveal','ldCountLine','ldFaceName','ldFaceGlyph','oLdNewRound','SM_LEN','SM_SUMS','SM_MAX_ACTIVE','SM_WIN_TOPS','SM_SUMMIT_TARGET','SM_SUMMIT_TRIES','smSpaceAt','smRoll4','smSplits','smNewPlayer','smNewGame','smFreshTurn','smCur','smActive','smOptions','smStep','smRollTurn','smPick','smNextTurn','smBust','smCamp','smSummitOk','smSummitRoll','smBustProb','smStake','smBotPick','smBotDecide','vtRng','vtInt','vtPick','vtShuffle','VT_DIFFS','vtAll','vtHolds','vtCountClues','vtPool','vtClueText','VT_SKIN_PLAIN','vtGenCsp','vtSize','vtGenOrder','vtGenDial','vtGenSeq','vtGenCode','VT_GEN','vtCount','vtCheck','vtMakePuzzle','vtHints','vtClock','vtResume','vtPause','vtRemaining','vtPenalty','VT_LEVELS','vtScore','vtFmtTime','oHbNewGame','hbFinishState','HB_STRIKES','HB_BOOM_MS','HB_LOCK_MS','HB_FREEZE_MS','HB_CARDS','HB_CARD_INFO','hbNewPlayer','hbNewGame','hbAlive','hbBomb','hbFuseMs','hbMakeBomb','hbStartRound','hbCanPass','hbPass','hbUseCard','hbExplode','hbTick','hbShownSeconds','hbRanking','hbBotPick','oSmNewGame','smApplyRoll','smApplyPick','smApplyCamp','smApplySummit','smApplyAdvance','smAutoTurn','SM_BUST_MS','SM_WIN_MS','SM_ZONES','SM_COLORS','smZone','smRank','ldApplyBid','ldApplyChallenge','ldAdvanceState','ldAutoMove','LD_REVEAL_MS',
+  'ldRollDice','ldTotalDice','ldCount','ldValidBid','ldMinN','ldCanRaise','ldResolve','ldActiveCount','ldNextActive','ldOpener','ldFaceProb','ldAtLeastProb','ldBotMove','LD_START_DICE','ldBuildReveal','ldCountLine','ldFaceName','ldFaceGlyph','oLdNewRound','SM_LEN','SM_SUMS','SM_MAX_ACTIVE','SM_WIN_TOPS','SM_SUMMIT_TARGET','SM_SUMMIT_TRIES','smSpaceAt','smRoll4','smSplits','smNewPlayer','smNewGame','smFreshTurn','smCur','smActive','smOptions','smStep','smRollTurn','smPick','smNextTurn','smBust','smCamp','smSummitOk','smSummitRoll','smBustProb','smStake','smBotPick','smBotDecide','VT_ADV','VT_ADV_IDS','vtStory','vtFill','vtChapterSkin','vtSceneLines','vtSpeaker','oVtNewGame','vtStartChapter','vtApplyAdvance','vtSceneSig','VT_INTRO_MS','vtApplyBoard','vtApplySubmit','vtApplyHint','vtApplyClear','vtApplyTick','vtApplyRestart','vtRng','vtInt','vtPick','vtShuffle','VT_DIFFS','vtAll','vtHolds','vtCountClues','vtPool','vtClueText','VT_SKIN_PLAIN','vtGenCsp','vtSize','vtGenOrder','vtGenDial','vtGenSeq','vtGenCode','VT_GEN','vtCount','vtCheck','vtMakePuzzle','vtHints','vtClock','vtResume','vtPause','vtRemaining','vtPenalty','VT_LEVELS','vtScore','vtFmtTime','oHbNewGame','hbFinishState','HB_STRIKES','HB_BOOM_MS','HB_LOCK_MS','HB_FREEZE_MS','HB_CARDS','HB_CARD_INFO','hbNewPlayer','hbNewGame','hbAlive','hbBomb','hbFuseMs','hbMakeBomb','hbStartRound','hbCanPass','hbPass','hbUseCard','hbExplode','hbTick','hbShownSeconds','hbRanking','hbBotPick','oSmNewGame','smApplyRoll','smApplyPick','smApplyCamp','smApplySummit','smApplyAdvance','smAutoTurn','SM_BUST_MS','SM_WIN_MS','SM_ZONES','SM_COLORS','smZone','smRank','ldApplyBid','ldApplyChallenge','ldAdvanceState','ldAutoMove','LD_REVEAL_MS',
   'computeSidePots','settleSidePots','roulPayoutMultiplier','roulBetWins','yScoreForCategory','yFreshScorecard',
   'getHistory','getFamily','getAchievements','getResumableMatch','tonightStats','familyStats','rDataOv',
   'SLOT_SYMBOLS','SLOT_PAYLINES','SLOT_SCATTER_PAY','SLOT_JACKPOT_MIN','SLOT_FREE_SPINS_AWARD','SLOT_FREE_SPINS_RETRIGGER',
