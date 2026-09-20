@@ -847,6 +847,132 @@ function run(A,W){
      bank, the scoring maths and a whole match driven through the real click handlers all get
      covered. The canvas itself is pointer input and pixels -- checked by hand in the browser, not
      here. */
+  /* ── Liar's Dice: the pure rules and the bots ────────────────────────────── */
+  suite("Liar's Dice — counting dice",()=>{
+    const C=A.ldCount;
+    eq('counts dice showing the face across everyone',C([[1,2,3],[3,3,6]],3,false),3);
+    eq('ones are wild for any other face when the rule is on',C([[1,2,3],[3,3,6]],3,true),4);
+    eq('but a bid on ones counts only ones, wild or not',[C([[1,1,3],[1,6]],1,true),C([[1,1,3],[1,6]],1,false)],[3,3]);
+    eq('nothing on the table counts nothing',[C([],4,false),C([[],[]],4,true),C(null,4,false)],[0,0,0]);
+    check('every roll is the requested size with faces 1-6',(()=>{
+      for(let n=0;n<=5;n++){const d=A.ldRollDice(n);if(d.length!==n||d.some(x=>!(x>=1&&x<=6&&Number.isInteger(x))))return false;}
+      return true;
+    })());
+    check('the roll uses the injected random source',A.ldRollDice(3,()=>0).join()==='1,1,1'&&A.ldRollDice(3,()=>0.999).join()==='6,6,6');
+    eq('total dice adds every player up',A.ldTotalDice([{dice:[1,2]},{dice:[]},{dice:[3]}]),3);
+    eq('a game starts with five dice each',A.LD_START_DICE,5);
+  });
+
+  suite("Liar's Dice — bids",()=>{
+    const V=A.ldValidBid;
+    check('any opening bid within the dice on the table is fine',V(null,{n:1,face:1},10)&&V(null,{n:10,face:6},10));
+    check('but not more dice than exist, or a nonsense bid',!V(null,{n:11,face:2},10)&&!V(null,{n:0,face:2},10)&&!V(null,{n:2,face:7},10)&&!V(null,{n:2,face:0},10));
+    check('non-integers and missing bids are refused',!V(null,{n:2.5,face:2},10)&&!V(null,null,10)&&!V(null,{n:'3',face:2},10));
+    check('a higher quantity is a raise, whatever the face',V({n:3,face:5},{n:4,face:1},10)&&V({n:3,face:5},{n:4,face:6},10));
+    check('the same quantity needs a higher face',V({n:3,face:4},{n:3,face:5},10)&&!V({n:3,face:4},{n:3,face:4},10)&&!V({n:3,face:4},{n:3,face:2},10));
+    check('a lower quantity is never a raise',!V({n:3,face:2},{n:2,face:6},10));
+    eq('smallest legal quantity: a higher face keeps the count',A.ldMinN({n:3,face:4},5,10),3);
+    eq('a same or lower face needs one more',[A.ldMinN({n:3,face:4},4,10),A.ldMinN({n:3,face:4},1,10)],[4,4]);
+    eq('with no bid you can open on one',A.ldMinN(null,3,10),1);
+    eq('null when the raise would pass the dice on the table',[A.ldMinN({n:10,face:6},2,10),A.ldMinN({n:10,face:2},6,10)],[null,10]);
+    check('the smallest legal quantity is itself a valid bid, and one less is not',(()=>{
+      for(let n=1;n<=8;n++)for(let f=1;f<=6;f++)for(let g=1;g<=6;g++){
+        const prev={n,face:f},m=A.ldMinN(prev,g,10);
+        if(m===null){if(A.ldValidBid(prev,{n:n+1,face:g},10))return false;continue;}
+        if(!V(prev,{n:m,face:g},10)||(m>1&&V(prev,{n:m-1,face:g},10)))return false;
+      }
+      return true;
+    })());
+    check('you can still raise while any face has room, and cannot once the table is exhausted',
+      A.ldCanRaise({n:9,face:6},10)&&!A.ldCanRaise({n:10,face:6},10)&&A.ldCanRaise({n:10,face:1},10)&&A.ldCanRaise(null,1));
+  });
+
+  suite("Liar's Dice — resolving a challenge",()=>{
+    const dice=[[1,2,3,3,6],[3,4,4,5,5],[1,1,2,6,6]];
+    let r=A.ldResolve(dice,{n:3,face:3},0,1,false);
+    eq('three 3s are on the table, so a bid of three stands',[r.count,r.bidStands],[3,true]);
+    eq('and the challenger loses the die',r.loserIdx,1);
+    r=A.ldResolve(dice,{n:4,face:3},0,1,false);
+    eq('four 3s is a bluff: the bidder loses',[r.count,r.bidStands,r.loserIdx],[3,false,0]);
+    r=A.ldResolve(dice,{n:5,face:3},2,0,true);
+    eq('with wild ones the ones count too (3+3 = 5 threes)',[r.count,r.bidStands,r.loserIdx],[6,true,0]);
+    r=A.ldResolve(dice,{n:4,face:1},1,2,true);
+    eq('a bid on ones is not helped by wilds',[r.count,r.bidStands,r.loserIdx],[3,false,1]);
+    check('a bid that is exactly right stands (the challenger was wrong)',A.ldResolve(dice,{n:3,face:3},0,1,false).bidStands);
+  });
+
+  suite("Liar's Dice — who is still in",()=>{
+    const P=(...c)=>c.map(n=>({dice:Array.from({length:n},()=>1)}));
+    eq('next active skips players with no dice',A.ldNextActive(P(2,0,0,3),0),3);
+    eq('and wraps round the table',A.ldNextActive(P(2,0,3),2),0);
+    eq('a sole survivor is their own next',A.ldNextActive(P(0,4,0),1),1);
+    eq('nobody left is -1',A.ldNextActive(P(0,0),0),-1);
+    eq('active count',A.ldActiveCount(P(1,0,2,0)),2);
+    eq('the loser opens the next round',A.ldOpener(P(2,3,1),1),1);
+    eq('unless that was their last die, then the next player in opens',A.ldOpener(P(2,0,1),1),2);
+    eq('and it wraps for the last seat',A.ldOpener(P(2,1,0),2),0);
+  });
+
+  suite("Liar's Dice — odds",()=>{
+    const Pr=A.ldAtLeastProb;
+    eq('needing none is certain, needing more than exist is impossible',[Pr(5,0,1/6),Pr(5,-2,1/6),Pr(3,4,1/6),Pr(0,1,1/6)],[1,1,0,0]);
+    check('one unseen die showing a face is 1 in 6',Math.abs(Pr(1,1,1/6)-1/6)<1e-12);
+    check('at least one of two',Math.abs(Pr(2,1,1/6)-(1-Math.pow(5/6,2)))<1e-12);
+    check('matches brute-force enumeration of every roll for small tables',(()=>{
+      for(const unknown of [1,2,3,4]){
+        for(let k=0;k<=unknown;k++){
+          let hit=0,all=0;
+          const rec=(i,c)=>{if(i===unknown){all++;if(c>=k)hit++;return;}for(let f=1;f<=6;f++)rec(i+1,c+(f===3?1:0));};
+          rec(0,0);
+          if(Math.abs(Pr(unknown,k,1/6)-hit/all)>1e-9)return false;
+        }
+      }
+      return true;
+    })());
+    check('harder bids are never likelier',(()=>{for(let u=1;u<=12;u++)for(let k=0;k<u;k++)if(Pr(u,k+1,1/6)>Pr(u,k,1/6)+1e-12)return false;return true;})());
+    check('a likelier face makes a bid likelier',Pr(6,3,1/3)>Pr(6,3,1/6));
+    check('always a probability',(()=>{for(let u=0;u<=25;u++)for(let k=0;k<=26;k++){const v=Pr(u,k,1/6);if(!(v>=0&&v<=1))return false;}return true;})());
+    eq('wild ones double the odds for every face but one',[A.ldFaceProb(4,false),A.ldFaceProb(4,true),A.ldFaceProb(1,true)],[1/6,1/3,1/6]);
+  });
+
+  suite("Liar's Dice — bots",()=>{
+    let bad=0,spots=0;
+    const rnd=()=>Math.random();
+    for(let i=0;i<4000;i++){
+      const wild=rnd()<.5,mine=A.ldRollDice(1+(0|rnd()*5)),others=0|rnd()*20,total=mine.length+others;
+      let bid=null;
+      if(rnd()<.7){
+        const n=1+(0|rnd()*total),face=1+(0|rnd()*6);
+        if(A.ldValidBid(null,{n,face},total))bid={n,face,by:0};
+      }
+      for(const level of ['gentle','sharp']){
+        const mv=A.ldBotMove({myDice:mine,totalDice:total,bid,wild},level);spots++;
+        if(mv.action==='liar'){if(!bid)bad++;}
+        else if(mv.action==='bid'){if(!A.ldValidBid(bid,{n:mv.n,face:mv.face},total))bad++;}
+        else bad++;
+      }
+    }
+    check('always a legal raise or a legal challenge, never a challenge of nothing ('+spots+' spots, both levels)',bad===0,bad+' illegal moves');
+
+    const stuck={myDice:[2,3],totalDice:5,bid:{n:5,face:6},wild:false};
+    check('with no legal raise left it has to call Liar',['gentle','sharp'].every(l=>A.ldBotMove(stuck,l).action==='liar'));
+    check('it never challenges an opening',['gentle','sharp'].every(l=>{for(let i=0;i<200;i++)if(A.ldBotMove({myDice:[1,2,3,4,5],totalDice:10,bid:null,wild:false},l).action!=='bid')return false;return true;}));
+    const impossible={myDice:[2,2,2,2,2],totalDice:10,bid:{n:9,face:5},wild:false};
+    check('it calls a bid the unseen dice cannot possibly cover',['gentle','sharp'].every(l=>{for(let i=0;i<100;i++)if(A.ldBotMove(impossible,l).action!=='liar')return false;return true;}));
+    const safe={myDice:[3,3,3,3,1],totalDice:10,bid:{n:2,face:3},wild:false};
+    check('sharp never calls a bid its own dice already cover',(()=>{for(let i=0;i<300;i++)if(A.ldBotMove(safe,'sharp').action==='liar')return false;return true;})());
+    eq('the same situation and the same dice of fate give the same answer',
+      A.ldBotMove({myDice:[4,4,4,2,1],totalDice:10,bid:null,wild:false},'sharp',()=>0.5),
+      A.ldBotMove({myDice:[4,4,4,2,1],totalDice:10,bid:null,wild:false},'sharp',()=>0.5));
+    eq('sharp opens on the face it holds most of, as high as the odds allow',
+      A.ldBotMove({myDice:[4,4,4,2,1],totalDice:10,bid:null,wild:false},'sharp',()=>0.5),{action:'bid',n:4,face:4});
+    check('sharp calls more often than gentle on a shaky bid',(()=>{
+      const ctx={myDice:[2,3,5,6,6],totalDice:15,bid:{n:3,face:4},wild:false};
+      let g=0,sh=0;for(let i=0;i<1500;i++){if(A.ldBotMove(ctx,'gentle').action==='liar')g++;if(A.ldBotMove(ctx,'sharp').action==='liar')sh++;}
+      return sh>g;
+    })());
+  });
+
   suite('Draw-it — roster wiring',()=>{
     const g=A.GAMES.find(x=>x.id==='drawit');
     check('the game is on the roster',!!g);
@@ -3222,6 +3348,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'dwLang','dwPickWord','dwGuessPoints','dwRoundScores','dwFmt','lDealDrawit','dwShowWord','dwStart','dwToggleCredit','dwEndRound','dwEndMatch','dwTick',
   'dwNormalize','dwGuessMatches','dwHint','dwBuildRound','oDwNewRound','dwFinalizeState',
   'DW_HARD_EN','DW_HARD_DE','DW_PAPER','dwPool','dwCustomList','dwPickChoices','dwSpeedBonus','dwIsClose','dwLevenshtein','dwPick','dwLevel','dwCustomText','dwMatchOver','dwProgressText','DW_MATCHES','DW_SCORE_TARGET','dwMatchMode',
+  'ldRollDice','ldTotalDice','ldCount','ldValidBid','ldMinN','ldCanRaise','ldResolve','ldActiveCount','ldNextActive','ldOpener','ldFaceProb','ldAtLeastProb','ldBotMove','LD_START_DICE',
   'computeSidePots','settleSidePots','roulPayoutMultiplier','roulBetWins','yScoreForCategory','yFreshScorecard',
   'getHistory','getFamily','getAchievements','getResumableMatch','tonightStats','familyStats','rDataOv',
   'SLOT_SYMBOLS','SLOT_PAYLINES','SLOT_SCATTER_PAY','SLOT_JACKPOT_MIN','SLOT_FREE_SPINS_AWARD','SLOT_FREE_SPINS_RETRIGGER',

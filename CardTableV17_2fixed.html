@@ -4395,6 +4395,98 @@ async function oPigBank(){
   } finally { _onlineBusy=false; }
 }
 
+/* ═══════ LIAR'S DICE ═══════
+   Everyone holds five private dice. A bid says "at least N dice show face F among ALL the dice on the
+   table"; the next player raises the bid or calls LIAR. A challenge reveals every die: if the bid
+   holds, the challenger loses a die, otherwise the bidder does. Last player with a die wins. With the
+   optional wild-ones rule, 1s also count as any face except 1 itself.
+   Everything in this first block is pure (no G, no DOM, no timers) so the rules and the bots can be
+   tested directly. The dice themselves live in each player's `dice` array (deliberately not `hand`,
+   which the network normaliser treats as cards). */
+const LD_START_DICE=5;
+function ldRollDice(n,rng){const r=rng||Math.random;return Array.from({length:Math.max(0,n)},()=>1+Math.floor(r()*6));}
+function ldTotalDice(players){return(players||[]).reduce((s,p)=>s+((p&&p.dice)||[]).length,0);}
+// How many dice among all the lists count towards `face`.
+function ldCount(diceLists,face,wild){
+  let c=0;
+  (diceLists||[]).forEach(list=>(list||[]).forEach(d=>{if(d===face||(wild&&d===1&&face!==1))c++;}));
+  return c;
+}
+// A raise is a higher quantity, or the same quantity of a higher face. A bid can never claim more dice
+// than are on the table. With no standing bid (`prev` null) any bid within the total is an opening.
+function ldValidBid(prev,bid,total){
+  if(!bid||!Number.isInteger(bid.n)||!Number.isInteger(bid.face))return false;
+  if(bid.face<1||bid.face>6||bid.n<1||bid.n>total)return false;
+  if(!prev)return true;
+  return bid.n>prev.n||(bid.n===prev.n&&bid.face>prev.face);
+}
+// Smallest legal quantity for `face` (null when even that would exceed the dice on the table).
+function ldMinN(prev,face,total){
+  const n=!prev?1:face>prev.face?prev.n:prev.n+1;
+  return n<=total?n:null;
+}
+function ldCanRaise(prev,total){for(let f=1;f<=6;f++)if(ldMinN(prev,f,total)!==null)return true;return false;}
+function ldResolve(diceLists,bid,bidderIdx,challengerIdx,wild){
+  const count=ldCount(diceLists,bid.face,wild),bidStands=count>=bid.n;
+  return{count,bidStands,loserIdx:bidStands?challengerIdx:bidderIdx};
+}
+function ldActiveCount(players){return(players||[]).filter(p=>p&&p.dice&&p.dice.length>0).length;}
+// Next seat after `from` that still has dice (same idea as bpNextActive); -1 if nobody does.
+function ldNextActive(players,from){
+  const n=(players||[]).length;
+  for(let step=1;step<=n;step++){const i=(from+step)%n;if(players[i].dice&&players[i].dice.length>0)return i;}
+  return -1;
+}
+// After a challenge the loser opens the next round -- unless that was their last die.
+function ldOpener(players,loserIdx){
+  return players[loserIdx]&&players[loserIdx].dice&&players[loserIdx].dice.length>0?loserIdx:ldNextActive(players,loserIdx);
+}
+// The odds a bot reasons with. Each unseen die shows a given face with probability 1/6, or 1/3 for a
+// face other than 1 when 1s are wild.
+function ldFaceProb(face,wild){return wild&&face!==1?1/3:1/6;}
+function ldAtLeastProb(unknown,k,p){
+  if(k<=0)return 1;
+  if(k>unknown)return 0;
+  let total=0,c=1;
+  // P(X >= k) = 1 - P(X <= k-1)
+  for(let i=0;i<k;i++){
+    if(i>0)c=c*(unknown-i+1)/i;
+    total+=c*Math.pow(p,i)*Math.pow(1-p,unknown-i);
+  }
+  return Math.max(0,Math.min(1,1-total));
+}
+// One bot decision from what a bot is entitled to know: its own dice, how many dice are on the table,
+// the standing bid and the wild rule. Returns {action:'bid',n,face} or {action:'liar'}; it never returns
+// a bid a person couldn't make, and never challenges when there is nothing to challenge.
+function ldBotMove(ctx,level,rng){
+  const r=rng||Math.random,mine=ctx.myDice||[],total=ctx.totalDice,bid=ctx.bid||null,wild=!!ctx.wild;
+  const unknown=Math.max(0,total-mine.length),sharp=level!=='gentle';
+  const prob=(n,f)=>ldAtLeastProb(unknown,n-ldCount([mine],f,wild),ldFaceProb(f,wild));
+  const cands=[];
+  for(let f=1;f<=6;f++){
+    const n0=ldMinN(bid,f,total);if(n0===null)continue;
+    for(let n=n0;n<=Math.min(total,n0+3);n++)cands.push({n,face:f,p:prob(n,f)});
+  }
+  if(bid){
+    if(!cands.length)return{action:'liar'};
+    const pStand=prob(bid.n,bid.face),below=sharp?0.33:0.14;
+    if(pStand<below+(r()-.5)*(sharp?.1:.06))return{action:'liar'};
+    if(!sharp&&r()<0.04)return{action:'liar'};
+  }
+  let pick;
+  const ok=cands.filter(c=>c.p>=(sharp?0.5:0.35));
+  if(ok.length){
+    ok.sort((a,b)=>b.n-a.n||b.p-a.p);
+    pick=sharp?ok[0]:ok[Math.floor(r()*Math.min(ok.length,4))];
+  } else {
+    cands.sort((a,b)=>b.p-a.p||a.n-b.n||a.face-b.face);
+    pick=cands[0];
+  }
+  // Now and then a bot bluffs: a bolder bid than the numbers back.
+  if(sharp&&cands.length>1&&r()<0.1){const bold=cands.slice().sort((a,b)=>b.n-a.n||b.face-a.face);pick=bold[Math.floor(r()*Math.min(3,bold.length))];}
+  return{action:'bid',n:pick.n,face:pick.face};
+}
+
 /* ═══════ DRAW-IT ═══════
    A Pictionary-style party game: one artist sketches a secret word on a canvas, everyone else guesses,
    the artist role rotates every round. Real players only -- a bot can't draw -- so 'drawit' is
