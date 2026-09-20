@@ -4575,19 +4575,24 @@ async function oPigBank(){
    the game rendered, so it never changes a value or a handler. It is skipped for reduced motion and
    when the same roll is simply being re-rendered. */
 let _flickSig='',_dieIntent=0;
-function dieFlick(els){
+let _flickEnd=0;
+function dieFlick(els,resume){
   if(!els||!els.length)return;
   try{if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;}catch(e){}
+  // `resume`: the table was redrawn mid-flick (a die was picked). The new elements already show their
+  // real faces, so keep them shuffling until the same end time and then settle -- the numbers never
+  // jump because of the pick.
   els.forEach((el,i)=>{
-    const finalHTML=el.innerHTML;let n=0;const steps=8+(i%3);
+    const finalHTML=el.innerHTML;let n=0;const steps=5+(i%2);
     const tick=()=>{
       if(!el.isConnected)return;
-      if(n>=steps){el.innerHTML=finalHTML;return;}
+      if(resume?Date.now()>=_flickEnd:n>=steps){el.innerHTML=finalHTML;return;}
       el.innerHTML=ldPipsHTML(1+Math.floor(Math.random()*6));n++;
-      setTimeout(tick,62+n*10);
+      setTimeout(tick,resume?70:55+n*12);
     };
-    setTimeout(tick,60+(i%8)*65);
+    setTimeout(tick,resume?0:40+(i%8)*40);
   });
+  if(!resume)_flickEnd=Date.now()+950;
 }
 function dieFlickAfterRender(){
   const els=[...document.querySelectorAll('#app .die.just-rolled, #app .dd-die.dd-tumble')].filter(e=>!e.classList.contains('dd-die-hidden'));
@@ -4597,9 +4602,13 @@ function dieFlickAfterRender(){
   // The same roll being drawn again (picking a die, a reaction, a sync) must not throw the dice a second
   // time: strip the class before it can paint. Only a roll the player just asked for, or different dice,
   // is a new throw.
-  if(sig===_flickSig&&Date.now()-_dieIntent>=4000){els.forEach(e=>e.classList.remove('just-rolled','dd-tumble'));return;}
+  if(sig===_flickSig&&Date.now()-_dieIntent>=4000){
+    els.forEach(e=>e.classList.remove('just-rolled','dd-tumble'));
+    return;
+  }
+  // A thrown die tumbles (CSS) but always shows its real number: faces are never shuffled on the table,
+  // so picking a die can never make a number change under the player's finger.
   _flickSig=sig;_dieIntent=0;
-  dieFlick(els);
 }
 
 /* ═══════ LIAR'S DICE ═══════
