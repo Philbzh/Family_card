@@ -4574,7 +4574,7 @@ async function oPigBank(){
    purely visual: it swaps the pips for random faces for a moment and then puts back exactly the markup
    the game rendered, so it never changes a value or a handler. It is skipped for reduced motion and
    when the same roll is simply being re-rendered. */
-let _flickSig='',_flickAt=0;
+let _flickSig='',_dieIntent=0;
 function dieFlick(els){
   if(!els||!els.length)return;
   try{if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;}catch(e){}
@@ -4592,9 +4592,13 @@ function dieFlick(els){
 function dieFlickAfterRender(){
   const els=[...document.querySelectorAll('#app .die.just-rolled, #app .dd-die.dd-tumble')].filter(e=>!e.classList.contains('dd-die-hidden'));
   if(!els.length){_flickSig='';return;}
-  const sig=els.map(e=>e.innerHTML).join('|'),now=Date.now();
-  if(sig===_flickSig&&now-_flickAt<2500)return; // the same roll being drawn again
-  _flickSig=sig;_flickAt=now;
+  // the faces only: a held die gains a lock icon, which must not make it look like a new roll
+  const sig=els.map(e=>[...e.querySelectorAll('.pip')].map(p=>p.getAttribute('style')).join('')||e.textContent).join('|');
+  // The same roll being drawn again (picking a die, a reaction, a sync) must not throw the dice a second
+  // time: strip the class before it can paint. Only a roll the player just asked for, or different dice,
+  // is a new throw.
+  if(sig===_flickSig&&Date.now()-_dieIntent>=4000){els.forEach(e=>e.classList.remove('just-rolled','dd-tumble'));return;}
+  _flickSig=sig;_dieIntent=0;
   dieFlick(els);
 }
 
@@ -13304,6 +13308,7 @@ document.addEventListener('pointercancel',()=>{if(_dragState){_dragState.el.clas
 document.addEventListener('click',e=>{
   const t=e.target.closest('[data-a]');if(!t)return;
   const a=t.getAttribute('data-a');
+  if(/roll|throw|summit/.test(a||''))_dieIntent=Date.now();
   if(a==='play'&&_dragPlayedCid===t.getAttribute('data-cid')){_dragPlayedCid=null;return;}
   // For backdrop-close actions, only fire if clicking the backdrop itself, not a child button
   if((a==='close-quit'||a==='close-rules')&&t.classList.contains('btn')){
