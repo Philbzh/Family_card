@@ -6319,6 +6319,306 @@ function oHbOnSrv(state,wasLobby){
 
 function hbRankKey(p){return(p.hbWin?1e9:0)+(p.hbOut||0)*10+(HB_STRIKES-(p.strikes||0));}
 
+/* ═══════ THE VAULT ═══════
+   A co-operative escape adventure: every player privately holds different clues and nobody can solve a
+   puzzle alone. This block is the pure engine (no G, no DOM): a seeded RNG, four puzzle generators that
+   *prove* what they promise, hints, the clock and the scoring. A puzzle is a small finite constraint
+   problem whose clues are plain data, enumerated exhaustively, so the generators can guarantee:
+     (a) all clues together leave exactly ONE solution;
+     (b) no smaller group of clues does -- and because the set is minimal, dropping ANY clue makes it
+         ambiguous, so dropping any player does too (everyone is necessary);
+     (c) every player holds at least one clue.
+   Expert puzzles add a few true-but-redundant decoy clues (flagged `decoy`), which relaxes (b) for them.
+   Clues carry their English text (`t`), built from the adventure's skin when the puzzle is generated. */
+function vtRng(seed){
+  let s=(seed>>>0)||1;
+  return()=>{s=(s+0x6D2B79F5)>>>0;let t=s;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};
+}
+function vtInt(rng,a,b){return a+Math.floor(rng()*(b-a+1));}
+function vtPick(rng,arr){return arr[Math.floor(rng()*arr.length)];}
+function vtShuffle(rng,arr){const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+const VT_DIFFS=['family','challenge','expert'];
+// ── the constraint core ──
+const _vtAllCache={};
+// Every possible assignment. 'perm': a[slot]=item (a permutation, with a.inv[item]=slot); 'free': a[i] in 0..dom-1.
+function vtAll(spec){
+  const key=spec.kind+spec.n+'/'+(spec.dom||0);
+  if(_vtAllCache[key])return _vtAllCache[key];
+  const out=[],a=[];
+  if(spec.kind==='perm'){
+    const used=[];
+    (function rec(){
+      if(a.length===spec.n){const c=a.slice(),inv=[];c.forEach((v,i)=>{inv[v]=i;});c.inv=inv;out.push(c);return;}
+      for(let v=0;v<spec.n;v++){if(used[v])continue;used[v]=1;a.push(v);rec();a.pop();used[v]=0;}
+    })();
+  } else {
+    (function rec(){
+      if(a.length===spec.n){out.push(a.slice());return;}
+      for(let v=0;v<spec.dom;v++){a.push(v);rec();a.pop();}
+    })();
+  }
+  return _vtAllCache[key]=out;
+}
+function vtHolds(c,a){
+  switch(c.k){
+    // Order (a = slot -> item, a.inv = item -> slot)
+    case'pos':return a[c.s]===c.i;
+    case'notpos':return a[c.s]!==c.i;
+    case'adj':return Math.abs(a.inv[c.i]-a.inv[c.j])===1;
+    case'notadj':return Math.abs(a.inv[c.i]-a.inv[c.j])!==1;
+    case'before':return a.inv[c.i]<a.inv[c.j];
+    case'left1':return a.inv[c.j]-a.inv[c.i]===1;
+    // Dial (a = the digits)
+    case'gt':return a[c.i]>a[c.j];
+    case'ne':return a[c.i]!==a[c.j];
+    case'par':return a[c.i]%2===c.e;
+    case'sum':return a[c.i]+a[c.j]===c.s;
+    case'diff':return Math.abs(a[c.i]-a[c.j])===c.d;
+    case'ge':return a[c.i]>=c.v;
+    case'lt':return a[c.i]<c.v;
+    case'mult':return a[c.i]>0&&a[c.i]%c.m===0;
+    case'tot':return a.reduce((x,y)=>x+y,0)===c.s;
+    // Sequence (a = the symbols in order)
+    case'at':return a[c.i]===c.v;
+    case'notat':return a[c.i]!==c.v;
+    case'follows':for(let i=0;i<a.length-1;i++)if(a[i]===c.v&&a[i+1]===c.w)return true;return false;
+    case'nofollow':for(let i=0;i<a.length-1;i++)if(a[i]===c.v&&a[i+1]===c.w)return false;return true;
+    case'cond':return a[c.i]!==c.v||(c.i>0&&a[c.i-1]===c.w);
+    case'count':return a.filter(x=>x===c.v).length===c.n;
+    case'same':return a[c.i]===a[c.j];
+    case'differ':return a[c.i]!==a[c.j];
+  }
+  return false;
+}
+function vtMask(c,all){const m=new Uint8Array(all.length);for(let i=0;i<all.length;i++)m[i]=vtHolds(c,all[i])?1:0;return m;}
+// How many assignments survive the clues at these indexes? (1 = solved, more = ambiguous.)
+function vtCountClues(spec,clues,idxs){
+  const all=vtAll(spec);let n=0;
+  for(let k=0;k<all.length;k++){let ok=true;for(const i of idxs){if(!vtHolds(clues[i],all[k])){ok=false;break;}}if(ok)n++;}
+  return n;
+}
+// ── candidate clues that are TRUE of the solution, per puzzle kind ──
+function vtPool(spec,sol){
+  const out=[],n=spec.n;
+  if(spec.kind==='perm'){
+    const inv=sol.inv||(()=>{const v=[];sol.forEach((x,i)=>{v[x]=i;});return v;})();
+    for(let s=0;s<n;s++){out.push({k:'pos',s,i:sol[s],wt:.5});for(let i=0;i<n;i++)if(i!==sol[s])out.push({k:'notpos',s,i,wt:2});}
+    for(let i=0;i<n;i++)for(let j=0;j<n;j++){
+      if(i===j)continue;
+      if(inv[i]<inv[j])out.push({k:'before',i,j,wt:1.4});
+      if(inv[j]-inv[i]===1)out.push({k:'left1',i,j,wt:1.2});
+      if(i<j){const d=Math.abs(inv[i]-inv[j]);out.push(d===1?{k:'adj',i,j,wt:1.4}:{k:'notadj',i,j,wt:1.2});}
+    }
+  } else if(spec.kind==='dial'){
+    const d=sol;
+    for(let i=0;i<n;i++){
+      out.push({k:'par',i,e:d[i]%2,wt:1.5});
+      for(let v=1;v<=9;v++){if(d[i]>=v)out.push({k:'ge',i,v,wt:1.2});if(d[i]<v)out.push({k:'lt',i,v,wt:1.2});}
+      for(const m of[2,3,4,5])if(d[i]>0&&d[i]%m===0)out.push({k:'mult',i,m,wt:1.4});
+    }
+    for(let i=0;i<n;i++)for(let j=0;j<n;j++){
+      if(i===j)continue;
+      if(d[i]>d[j])out.push({k:'gt',i,j,wt:1.4});
+      if(i<j){if(d[i]!==d[j])out.push({k:'ne',i,j,wt:.8});out.push({k:'sum',i,j,s:d[i]+d[j],wt:1.1});out.push({k:'diff',i,j,d:Math.abs(d[i]-d[j]),wt:1.1});}
+    }
+    out.push({k:'tot',s:d.reduce((x,y)=>x+y,0),wt:.6});
+  } else {
+    const a=sol,k=spec.dom;
+    for(let i=0;i<n;i++)for(let v=0;v<k;v++){
+      if(a[i]===v)out.push({k:'at',i,v,wt:.6});else out.push({k:'notat',i,v,wt:2});
+    }
+    const adj={};for(let i=0;i<n-1;i++)adj[a[i]+'>'+a[i+1]]=1;
+    for(let v=0;v<k;v++)for(let w=0;w<k;w++){out.push(adj[v+'>'+w]?{k:'follows',v,w,wt:1}:{k:'nofollow',v,w,wt:1});}
+    for(let i=1;i<n;i++)out.push({k:'cond',i,v:a[i],w:a[i-1],wt:1.2});
+    for(let v=0;v<k;v++)out.push({k:'count',v,n:a.filter(x=>x===v).length,wt:1});
+    for(let i=0;i<n;i++)for(let j=i+1;j<n;j++)out.push(a[i]===a[j]?{k:'same',i,j,wt:1}:{k:'differ',i,j,wt:1});
+  }
+  // drop duplicates (same clue, ignoring its weight)
+  const seen={},res=[];
+  out.forEach(c=>{const key=JSON.stringify(Object.assign({},c,{wt:0}));if(seen[key])return;seen[key]=1;res.push(c);});
+  return res;
+}
+// ── clue wording, from the adventure's skin ──
+function vtFmt(s,map){return s.replace(/\{(\w+)\}/g,(m,k)=>map[k]!=null?map[k]:m);}
+function vtClueText(kind,c,skin){
+  if(kind==='perm'){
+    const P=skin.order.phr,it=i=>skin.order.items[i],sl=s=>skin.order.slots[s];
+    return vtFmt(P[c.k],{I:it(c.i),J:c.j!=null?it(c.j):'',S:c.s!=null?sl(c.s):''});
+  }
+  if(kind==='dial'){
+    const L=skin.dial.labels,I=c.i!=null?L[c.i]:'',J=c.j!=null?L[c.j]:'';
+    switch(c.k){
+      case'gt':return`The ${I} is higher than the ${J}.`;
+      case'ne':return`The ${I} and the ${J} are different numbers.`;
+      case'par':return`The ${I} is ${c.e?'odd':'even'}.`;
+      case'sum':return`The ${I} and the ${J} add up to ${c.s}.`;
+      case'diff':return`The ${I} and the ${J} are ${c.d} apart.`;
+      case'ge':return`The ${I} is at least ${c.v}.`;
+      case'lt':return`The ${I} is less than ${c.v}.`;
+      case'mult':return`The ${I} is a multiple of ${c.m} (and not zero).`;
+      case'tot':return`All the numbers together add up to ${c.s}.`;
+    }
+  }
+  const S=skin.seq.syms,step=skin.seq.step||'step',sym=v=>S[v];
+  const ord=i=>['first','second','third','fourth','fifth','sixth','seventh'][i];
+  switch(c.k){
+    case'at':return`The ${ord(c.i)} ${step} is ${sym(c.v)}.`;
+    case'notat':return`The ${ord(c.i)} ${step} is NOT ${sym(c.v)}.`;
+    case'follows':return`${sym(c.v)} is followed straight away by ${sym(c.w)} somewhere.`;
+    case'nofollow':return`${sym(c.v)} is never followed straight away by ${sym(c.w)}.`;
+    case'cond':return`The ${ord(c.i)} ${step} is ${sym(c.v)} only if the one before it was ${sym(c.w)}.`;
+    case'count':return`${sym(c.v)} appears exactly ${c.n===1?'once':c.n===0?'never':c.n+' times'}.`;
+    case'same':return`The ${ord(c.i)} and the ${ord(c.j)} ${step}s are the same.`;
+    case'differ':return`The ${ord(c.i)} and the ${ord(c.j)} ${step}s are different.`;
+  }
+  return'';
+}
+// A neutral skin, used by tests and as a fallback; adventures bring their own words.
+const VT_SKIN_PLAIN={
+  order:{items:['Ada','Ben','Cy','Dee','Eve','Fay'],slots:['1st','2nd','3rd','4th','5th','6th'],
+    phr:{pos:'{I} is in place {S}.',notpos:'{I} is NOT in place {S}.',adj:'{I} is right next to {J}.',notadj:'{I} is NOT next to {J}.',before:'{I} comes before {J}.',left1:'{I} is directly before {J}.'}},
+  dial:{labels:['first dial','second dial','third dial','fourth dial']},
+  seq:{syms:['Red','Blue','Green','Gold'],step:'step'},
+  code:{words:['ANCHOR','PARROT','COMPASS','SAILOR','HARBOR','TREASURE'],syms:['▲','●','■','★','◆','♦','☾','☀']}
+};
+// ── generic constraint-puzzle generator ──
+function vtGenCsp(rng,kind,spec,skin,nPlayers,diff){
+  const all=vtAll(spec),capM=Math.max(8,nPlayers*3);
+  for(let attempt=0;attempt<60;attempt++){
+    const sol=all[Math.floor(rng()*all.length)];
+    const pool=vtPool(spec,sol),masks=pool.map(c=>vtMask(c,all));
+    // Greedy: add clues until exactly one assignment survives. Early attempts favour weak clues, so that
+    // there are enough clues to give every player at least one.
+    const weak=attempt%3!==2;
+    let alive=new Uint8Array(all.length).fill(1),left=all.length;const chosen=[];
+    while(left>1&&chosen.length<40){
+      const opts=[];
+      for(let c=0;c<pool.length;c++){
+        if(chosen.indexOf(c)>=0)continue;
+        let red=0;for(let i=0;i<all.length;i++)if(alive[i]&&!masks[c][i])red++;
+        if(red>0)opts.push({c,red});
+      }
+      if(!opts.length)break;
+      opts.sort((x,y)=>x.red-y.red);
+      const lim=weak?Math.max(1,Math.ceil(opts.length*.55)):opts.length;
+      // a weighted random pick among the allowed (weaker first) options
+      const cand=opts.slice(0,lim),tot=cand.reduce((s,o)=>s+pool[o.c].wt,0);let r=rng()*tot,pick=cand[0];
+      for(const o of cand){r-=pool[o.c].wt;if(r<=0){pick=o;break;}}
+      chosen.push(pick.c);
+      left=0;for(let i=0;i<all.length;i++){alive[i]=alive[i]&&masks[pick.c][i]?1:0;if(alive[i])left++;}
+    }
+    if(left!==1)continue;
+    // Minimise: drop every clue that isn't needed. What remains is a minimal set -- each clue essential.
+    let keep=chosen.slice();
+    for(const c of vtShuffle(rng,chosen)){
+      const rest=keep.filter(x=>x!==c);
+      let n=0;for(let i=0;i<all.length;i++){let ok=true;for(const x of rest)if(!masks[x][i]){ok=false;break;}if(ok)n++;if(n>1)break;}
+      if(n===1)keep=rest;
+    }
+    if(keep.length<nPlayers||keep.length>capM)continue;
+    let clues=keep.map(c=>Object.assign({},pool[c]));
+    // Expert: a couple of true but unnecessary clues to distract
+    if(diff>=2){
+      const spare=vtShuffle(rng,pool.map((c,i)=>i).filter(i=>keep.indexOf(i)<0));
+      for(let e=0;e<Math.min(2,spare.length);e++)clues.push(Object.assign({decoy:true},pool[spare[e]]));
+    }
+    clues=vtShuffle(rng,clues);
+    clues.forEach(c=>{delete c.wt;c.t=vtClueText(kind,c,skin);});
+    // Deal: balanced, every player at least one
+    const order=vtShuffle(rng,clues.map((c,i)=>i)),deal=Array.from({length:nPlayers},()=>[]);
+    order.forEach((ci,k)=>deal[k%nPlayers].push(ci));
+    return{type:kind,spec:{kind:spec.kind,n:spec.n,dom:spec.dom||0},solution:sol.slice(),clues,deal,skin:kind==='perm'?{items:skin.order.items.slice(0,spec.n),slots:skin.order.slots.slice(0,spec.n)}:kind==='dial'?{labels:skin.dial.labels.slice(0,spec.n)}:{syms:skin.seq.syms.slice(0,spec.dom),step:skin.seq.step||'step'}};
+  }
+  return null;
+}
+// ── the four puzzle types ──
+const VT_SIZES={order:[4,5,6],dial:[3,3,4],seq:[4,5,6],code:[4,5,6]};
+function vtSize(type,diff,nPlayers){
+  const base=VT_SIZES[type][Math.min(2,diff)];
+  if(type==='order')return Math.min(6,Math.max(base,nPlayers>4?nPlayers:base));
+  if(type==='dial')return Math.min(4,nPlayers>4?4:base);
+  if(type==='seq')return Math.min(6,Math.max(base,nPlayers>4?nPlayers:base));
+  return Math.max(base,nPlayers);
+}
+function vtGenOrder(rng,skin,n,diff){const size=vtSize('order',diff,n);return vtGenCsp(rng,'perm',{kind:'perm',n:size},skin,n,diff);}
+function vtGenDial(rng,skin,n,diff){const size=vtSize('dial',diff,n);return vtGenCsp(rng,'dial',{kind:'dial',n:size,dom:10},skin,n,diff);}
+function vtGenSeq(rng,skin,n,diff){const size=vtSize('seq',diff,n),k=diff===0?3:4;return vtGenCsp(rng,'seq',{kind:'seq',n:size,dom:k},skin,n,diff);}
+// Codebook: a word spelled in symbols; each symbol's meaning is one clue held by one player.
+function vtGenCode(rng,skin,n,diff){
+  const cs=skin.code,minLen=vtSize('code',diff,n);
+  const words=cs.words.filter(w=>new Set(w.split('')).size>=Math.max(n,minLen)&&w.length<=8);
+  const word=vtPick(rng,words.length?words:cs.words.filter(w=>new Set(w.split('')).size>=n));
+  const letters=[...new Set(word.split(''))],glyphs=vtShuffle(rng,cs.syms).slice(0,letters.length);
+  const A='A'.charCodeAt(0);
+  const clues=letters.map((L,i)=>{
+    const g=glyphs[i],idx=L.charCodeAt(0)-A;
+    const rel=diff>=1&&rng()<(diff===1?.35:.65);
+    if(rel){
+      const k=vtInt(rng,1,4);
+      if(idx-k>=0){const base=String.fromCharCode(A+idx-k);return{k:'after',g,base,n:k,t:`${g} is the letter ${k} after ${base} in the alphabet.`};}
+      if(idx+k<26){const base=String.fromCharCode(A+idx+k);return{k:'before',g,base,n:k,t:`${g} is the letter ${k} before ${base} in the alphabet.`};}
+    }
+    return{k:'is',g,L,t:`${g} means the letter ${L}.`};
+  });
+  const shuffled=vtShuffle(rng,clues),order=vtShuffle(rng,shuffled.map((c,i)=>i)),deal=Array.from({length:n},()=>[]);
+  order.forEach((ci,k)=>deal[k%n].push(ci));
+  const gmap={};letters.forEach((L,i)=>{gmap[L]=glyphs[i];});
+  return{type:'code',spec:{kind:'code',n:word.length,dom:26},solution:word.split(''),clues:shuffled,deal,skin:{shown:word.split('').map(L=>gmap[L])}};
+}
+const VT_GEN={order:vtGenOrder,dial:vtGenDial,seq:vtGenSeq,code:vtGenCode};
+// How many solutions do these clues leave? (Codebook: each symbol with a clue is settled, the rest could be any letter.)
+function vtCount(puz,idxs){
+  if(puz.type==='code'){
+    const have={};idxs.forEach(i=>{have[puz.clues[i].g]=1;});
+    let n=1;puz.skin.shown.forEach((g,pos,arr)=>{if(arr.indexOf(g)===pos&&!have[g])n*=26;});
+    return n;
+  }
+  return vtCountClues(puz.spec,puz.clues,idxs);
+}
+function vtCheck(puz,ans){return Array.isArray(ans)&&ans.length===puz.solution.length&&ans.every((v,i)=>v===puz.solution[i]);}
+// The full puzzle with hints, from a seed. `type` is one of order|dial|seq|code.
+function vtMakePuzzle(seed,type,skin,nPlayers,diff){
+  const rng=vtRng(seed);
+  const puz=VT_GEN[type](rng,skin||VT_SKIN_PLAIN,nPlayers,diff);
+  if(!puz)return null;
+  puz.hints=vtHints(rng,puz);
+  return puz;
+}
+// Three hints, gentler to stronger, always consistent with the solution.
+function vtHints(rng,puz){
+  const sol=puz.solution,idx=vtShuffle(rng,sol.map((v,i)=>i));
+  const label=i=>{
+    if(puz.type==='perm')return`place ${puz.skin.slots[i]} holds ${puz.skin.items[sol[i]]}`;
+    if(puz.type==='dial')return`the ${puz.skin.labels[i]} is ${sol[i]}`;
+    if(puz.type==='seq')return`the ${['first','second','third','fourth','fifth','sixth'][i]} ${puz.skin.step} is ${puz.skin.syms[sol[i]]}`;
+    return`letter ${i+1} is ${sol[i]}`;
+  };
+  return[
+    'Every clue matters. Read yours aloud, one at a time, and look for two clues that talk about the same thing.',
+    `Here is one fact for free: ${label(idx[0])}.`,
+    `Two more facts: ${label(idx[1])}, and ${label(idx[2%idx.length])}.`
+  ].map((t,i)=>({level:i+1,t}));
+}
+// ── clock ──
+// budget: total ms available; spent: ms already used; runFrom: when it last started running (null = paused).
+function vtClock(budgetMs){return{budget:budgetMs,spent:0,runFrom:null};}
+function vtResume(c,now){if(c.runFrom==null)c.runFrom=now;return c;}
+function vtPause(c,now){if(c.runFrom!=null){c.spent+=Math.max(0,now-c.runFrom);c.runFrom=null;}return c;}
+function vtRemaining(c,now){return Math.max(0,c.budget-c.spent-(c.runFrom!=null?Math.max(0,now-c.runFrom):0));}
+function vtPenalty(c,ms){c.spent+=ms;return c;}
+const VT_LEVELS={family:{label:'Family',min:20,hints:3,lives:3},challenge:{label:'Challenge',min:15,hints:3,lives:3},expert:{label:'Expert',min:12,hints:2,lives:3}};
+// ── score ──
+// Only things the game can actually measure: time left, hints used, wrong codes tried.
+function vtScore(o){
+  const frac=o.budget>0?o.remaining/o.budget:0,mult=[1,1.25,1.5][Math.min(2,o.diff)];
+  const base=Math.round(frac*5000)+(o.chapters||0)*500;
+  const score=Math.max(0,Math.round((base-o.hints*400-o.mistakes*300)*mult));
+  let stars=5-o.hints-o.mistakes-(frac<.15?1:0);
+  stars=o.won?Math.max(1,Math.min(5,stars)):0;
+  return{score,stars};
+}
+function vtFmtTime(ms){const s=Math.max(0,Math.ceil(ms/1000));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
+
 /* ═══════ DRAW-IT ═══════
    A Pictionary-style party game: one artist sketches a secret word on a canvas, everyone else guesses,
    the artist role rotates every round. Real players only -- a bot can't draw -- so 'drawit' is
