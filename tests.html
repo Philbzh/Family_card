@@ -1722,6 +1722,53 @@ function run(A,W){
     })());
   });
 
+  suite('Hot Bomb — roster, table and final screen',()=>{
+    const g=A.GAMES.find(x=>x.id==='hotbomb');
+    check('the game is on the roster in Party Games, for 2 to 8, with rules',!!g&&g.cat==='party'&&g.minP===2&&g.maxP===8&&g.rules.length>=5);
+    check('it has bots, like every other local game',A.BOT_GAMES.has('hotbomb'));
+    check('every power card has an icon, a name and a description',A.HB_CARDS.every(c=>A.HB_CARD_INFO[c]&&A.HB_CARD_INFO[c].e&&A.HB_CARD_INFO[c].n&&A.HB_CARD_INFO[c].d));
+    const keep={scr:A.G.scr,lp:A.G.lp,game:A.G.selGame,online:A.G.isOnline,hb:A.G.hb,tw:A.G.tw};
+    const keepLs={};['ct_history','ct_tw'].forEach(k=>keepLs[k]=localStorage.getItem(k));
+    try{
+      A.G.isOnline=false;A.G.selGame='hotbomb';
+      A.G.lp=[0,1,2,3].map(i=>({id:i+1,name:'P'+(i+1),avatar:A.AVATARS[0],bot:i===1?'sharp':undefined}));
+      W.lDealHotBomb();
+      const hb=A.G.hb,now=Date.now();
+      A.hbStartRound(A.G.lp,hb,now,()=>0);hb.bombs[0].holder=0;hb.bombs[0].from=-1;A.G.lp.forEach(p=>{p.card=null;});
+      const doc=h=>new DOMParser().parseFromString(h,'text/html');
+      let d=doc(W.rHotBombTable());
+      eq('the table draws every player and one bomb with its countdown',[d.querySelectorAll('.hb-seat').length,d.querySelectorAll('.hb-bomb').length,d.querySelectorAll('.hb-count[data-b]').length],[4,1,1]);
+      eq('the holder is marked, everyone else can be tapped (nobody passed it, so no one is excluded)',[d.querySelectorAll('.hb-seat.holding').length,d.querySelectorAll('.hb-seat.target').length],[1,3]);
+      check('a person holding the bomb sees the prompt and no card button without a card',/tap who gets it/.test(d.body.textContent)&&!d.querySelector('[data-a="hb-card"]'));
+      A.G.lp[0].card='magnet';
+      check('a card in hand appears as a button',!!doc(W.rHotBombTable()).querySelector('[data-a="hb-card"]'));
+      A.G.lp[0].card='shield';
+      check('a shield is shown but cannot be played',doc(W.rHotBombTable()).querySelector('[data-a="hb-card"]').disabled===true);
+      hb.bombs[0].from=1;A.G.lp[0].card=null;
+      check('whoever just passed it to you is not offered as a target (unless only two are left)',doc(W.rHotBombTable()).querySelectorAll('.hb-seat.target').length===2);
+      hb.bombs[0].holder=1;
+      check('when a bot holds it, nothing can be tapped and it says it is deciding',doc(W.rHotBombTable()).querySelectorAll('.hb-seat.target').length===0&&/deciding/.test(doc(W.rHotBombTable()).body.textContent));
+      hb.bombs[0].holder=0;A.G.lp[2].strikes=3;
+      check('a player who is out cannot be tapped and shows as out',(()=>{const x=doc(W.rHotBombTable());return x.querySelectorAll('.hb-seat.out').length===1&&x.querySelectorAll('.hb-seat.target').length===1;})());
+      A.G.lp[2].strikes=0;
+      // a real pass through the handler
+      hb.bombs[0].from=-1;
+      check('passing through the real handler moves the bomb and remembers who passed',W.hbDoPass(0,2)&&hb.bombs[0].holder===2&&hb.bombs[0].from===0);
+      check('and the straight-back rule is enforced there too',!W.hbDoPass(2,0));
+      // final screen
+      A.G.lp.forEach(p=>{p.strikes=3;p.hbOut=1;});A.G.lp[0].hbOut=2;A.G.lp[3].strikes=0;A.G.lp[3].hbOut=0;hb.round=4;hb.phase='over';hb.winner=3;hb.bombs=[];
+      W.hbEnd();
+      const end=doc(W.rMatchEnd());
+      check('the final screen names the winner first and shows strikes',/P4 won/.test(end.body.textContent)&&end.querySelector('.sr.win .sr-name').textContent==='P4'&&/💥/.test(end.body.textContent));
+      eq('then the one who lasted longest',[...end.querySelectorAll('.sr-name')].map(e=>e.textContent).slice(0,2),['P4','P1']);
+      check('the match is recorded once',A.getHistory()[0].game==='hotbomb');
+    } finally {
+      W.hbStop();
+      Object.assign(A.G,{scr:keep.scr,lp:keep.lp,selGame:keep.game,isOnline:keep.online,hb:keep.hb,tw:keep.tw});
+      Object.keys(keepLs).forEach(k=>{if(keepLs[k]===null)localStorage.removeItem(k);else localStorage.setItem(k,keepLs[k]);});
+    }
+  });
+
   suite('Draw-it — roster wiring',()=>{
     const g=A.GAMES.find(x=>x.id==='drawit');
     check('the game is on the roster',!!g);
