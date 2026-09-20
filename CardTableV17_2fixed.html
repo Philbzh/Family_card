@@ -2604,6 +2604,8 @@ async function oForceSkipCurrentPlayer(){
     if(state.gameId==='drawit'){await oDwFinalize();return;}
     // Liar's Dice: an absent bidder is played for -- the smallest legal raise, or a challenge if none is left.
     if(state.gameId==='liarsdice'){await oLdMutate(st=>ldAutoMove(st,Date.now()));return;}
+    // Summit: an absent climber's whole turn is played for them, banking what is at stake.
+    if(state.gameId==='summit'){await oSmMutate(st=>smAutoTurn(st,Date.now()));return;}
     state.lastAct=esc(p.name)+' was skipped (away too long).';
     let runout=false,allDone=false;
     if(state.gameId==='texas'||state.gameId==='fivecard'){
@@ -2809,7 +2811,7 @@ const GAMES=[
 ];
 // Single source of truth for which unlocked games have online-multiplayer support, so the "online"
 // gate and the local-only badge on a game's card can never drift out of sync with each other.
-const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice'];
+const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice','summit'];
 // The Games tab groups its (growing) roster into these, rather than one long scroll -- every GAMES
 // entry's `cat` must be one of these ids. Order here is the order the category tiles are shown in.
 const GAME_CATEGORIES=[
@@ -5160,7 +5162,7 @@ function smRoll4(rng){rng=rng||Math.random;return [0,1,2,3].map(()=>1+Math.floor
 function smSplits(d){return [[d[0]+d[1],d[2]+d[3]],[d[0]+d[2],d[1]+d[3]],[d[0]+d[3],d[1]+d[2]]];}
 function smNewPlayer(p){p.pos={};p.tmp={};p.cr=0;p.tc=0;p.order=[];return p;}
 function smNewGame(){return {won:{},over:false,winner:null,round:1,t:smFreshTurn()};}
-function smFreshTurn(){return {phase:'roll',dice:[],opts:[],ev:[],tries:0,picked:null};}
+function smFreshTurn(){return {phase:'roll',dice:[],opts:[],ev:[],tries:0,picked:null,rolled:0};}
 function smCur(p,sum){return p.tmp[sum]!=null?p.tmp[sum]:(p.pos[sum]||0);}
 function smActive(p){return Object.keys(p.tmp).map(Number);}
 // Options for a roll: every distinct set of routes the player may climb (one step each). Both pairs are
@@ -5197,7 +5199,7 @@ function smStep(p,sum){
 }
 function smRollTurn(ps,sm,i,rng){
   const t=sm.t,dice=smRoll4(rng);
-  t.dice=dice;t.ev=[];t.picked=null;t.opts=smOptions(ps[i],sm,dice);
+  t.dice=dice;t.ev=[];t.picked=null;t.rolled=(t.rolled||0)+1;t.opts=smOptions(ps[i],sm,dice);
   t.phase=t.opts.length?'pick':'bust';
   return t;
 }
@@ -5281,8 +5283,13 @@ const SM_W=400,SM_H=440,SM_X0=34,SM_DX=33.2,SM_BASE=392,SM_STEP=22;
 const SM_ZONES=[{n:'Base Camp',e:'⛺',max:2},{n:'Forest',e:'🌲',max:5},{n:'Cliff',e:'🧗',max:8},{n:'Snow',e:'❄️',max:11},{n:'Summit',e:'🏔️',max:99}];
 const SM_GLYPH={rock:'🪨',shortcut:'🧗',slide:'❄️',crystal:'💎',camp:'⛺',gate:'🏔️'};
 const SM_SPACE_INFO={rock:['🪨 ROCKFALL!','bad'],shortcut:['🧗 SHORTCUT!','good'],slide:['❄️ SNOW SLIDE!','bad'],crystal:['💎 CRYSTAL CAVE!','good'],camp:['⛺ CAMP SECURED','good'],gate:['🏔️ SUMMIT GATE!','good']};
-let _smTimer=null,_smBanner=null,_smBannerT=null,_smJust=false,_smPegPos={};
-function smClearTimers(){clearTimeout(_smTimer);clearTimeout(_smBannerT);_smTimer=null;_smBannerT=null;_smBanner=null;_smPegPos={};_smJust=false;}
+let _smTimer=null,_smBanner=null,_smBannerT=null,_smPegPos={},_smRollSig=null;
+let _smSndSig=null,_smBustSig=null,_smAdvSig=null,_smAdvTimer=null,_smEndSig=null,_smEndTimer=null,_smNoteN=null;
+function smClearTimers(){
+  clearTimeout(_smTimer);clearTimeout(_smBannerT);clearTimeout(_smAdvTimer);clearTimeout(_smEndTimer);
+  _smTimer=_smBannerT=_smAdvTimer=_smEndTimer=null;_smBanner=null;_smPegPos={};
+  _smRollSig=_smSndSig=_smBustSig=_smAdvSig=_smEndSig=_smNoteN=null;
+}
 function smSetBanner(b,ms){_smBanner=b;clearTimeout(_smBannerT);_smBannerT=setTimeout(()=>{_smBanner=null;render();},ms||1400);}
 function smLaneX(sum){return SM_X0+(sum-2)*SM_DX;}
 function smStepY(step){return SM_BASE-step*SM_STEP;}
@@ -5310,7 +5317,7 @@ function smNoteEvents(ev){
 function smDoRoll(){
   const sm=G.sm;if(!sm||G.scr!=='table'||!(sm.t.phase==='roll'||sm.t.phase==='decide'))return false;
   smRollTurn(G.lp,sm,G.lcur);
-  _smJust=true;SFX.diceRoll();haptic([10,20,10]);
+  SFX.diceRoll();haptic([10,20,10]);
   if(sm.t.phase==='bust'){
     SFX.bust();haptic([30,40,30]);
     clearTimeout(_smBannerT);_smBanner={text:'🌨️ AVALANCHE',sub:'Everything from this climb is lost',kind:'avalanche'};
@@ -5337,7 +5344,7 @@ function smDoCamp(){
 function smDoSummit(){
   const sm=G.sm;if(!sm||G.scr!=='table'||sm.t.phase!=='summit'||sm.over)return false;
   const who=G.lp[G.lcur],r=smSummitRoll(G.lp,sm,G.lcur);if(!r)return false;
-  _smJust=true;SFX.diceRoll();haptic([10,20,10]);
+  SFX.diceRoll();haptic([10,20,10]);
   if(r.ok){
     who.smWon=true;SFX.win();
     smSetBanner({text:'🏔️ SUMMIT REACHED!',sub:esc(who.name),kind:'gold'},3600);
@@ -5376,7 +5383,6 @@ function smAct(kind,k){
   if(_smTimer||isBotPlayer(G.lp[G.lcur]))return;
   if(kind==='roll')smDoRoll();else if(kind==='pick')smDoPick(k);else if(kind==='camp')smDoCamp();else if(kind==='summit')smDoSummit();
 }
-function smOnlineAct(){}
 
 /* ── Summit: the table ── */
 function smNextGlyph(p,s){const sp=smSpaceAt(s,smCur(p,s)+1);return sp?SM_GLYPH[sp]:'';}
@@ -5437,7 +5443,7 @@ function smSceneHTML(v,fresh){
   const clouds=[0,1,2].map(i=>`<span class="sm-cloud c${i}" style="animation-duration:${cloudDur[i]}s;animation-delay:-${((Date.now()/1000)%cloudDur[i]).toFixed(1)}s"></span>`).join('');
   const flakes=Array.from({length:14+alt*7},(_,i)=>{const r=(i*7919%97)/97,q=(i*104729%89)/89,d=6+q*6;
     return`<span class="sm-flake" style="left:${(r*100).toFixed(1)}%;width:${2+q*2.5}px;height:${2+q*2.5}px;animation-duration:${d.toFixed(1)}s;animation-delay:-${(r*d).toFixed(1)}s"></span>`;}).join('');
-  const bn=_smBanner;
+  const bn=_smBanner||(sm.t.phase==='bust'?{text:'🌨️ AVALANCHE',sub:'Everything from this climb is lost',kind:'avalanche'}:null);
   const banner=bn?`<div class="sm-banner ${esc(bn.kind||'')}"><div>${bn.text}</div>${bn.sub?`<small>${bn.sub}</small>`:''}</div>`:'';
   return`<div class="sm-scene${bn&&bn.kind==='avalanche'?' avalanche':''}" data-alt="${alt}">${clouds}${svg}<div class="sm-pegs">${pegs}</div><div class="sm-flakes">${flakes}</div><span class="sm-slide"></span>${banner}</div>`;
 }
@@ -5462,7 +5468,9 @@ function rSummitTable(){
   const botTurn=!v.online&&isBotPlayer(cur);
   const mineTurn=v.online?isMyTurn():!botTurn;
   const canAct=mineTurn&&!_smTimer&&!sm.over&&t.phase!=='bust';
-  const fresh=_smJust;_smJust=false;
+  // the dice tumble once per roll, whichever device drew the table and however often it is redrawn
+  const rsig=sm.round+'|'+v.curIdx+'|'+t.rolled+'|'+t.tries;
+  const fresh=!!(t.dice&&t.dice.length)&&rsig!==_smRollSig;_smRollSig=rsig;
   const z=SM_ZONES[smZone(smHeight(cur))];
   let body='';
   const dice=smDiceHTML(t,fresh,canAct);
@@ -5516,6 +5524,156 @@ function smAfterRender(){
     el.style.transition='transform .8s cubic-bezier(.3,.7,.2,1)';el.style.transform='translate(-50%,-50%)';
   });
   _smPegPos=next;
+}
+
+
+/* ── Summit: online ──
+   The room row carries the whole climb: state.sm = the same object the local game uses (won, round, t = this
+   turn's roll), each player's pos/tmp/cr/order live on players[i], and state.curIdx is whose climb it is (so
+   isMyTurn() and the away-skip work unchanged). Every action is a compare-and-swap write and the dice are
+   rolled INSIDE the write, so all devices see the same roll. sm.note is a banner every device shows once. */
+const SM_BUST_MS=2400,SM_WIN_MS=3500;
+function oSmNewGame(rs,players,openerIdx){
+  players.forEach(p=>{smNewPlayer(p);p.smWon=false;});
+  return{phase:'game',gameId:'summit',host:rs.host,hr:rs.hr||G.hr,players,curIdx:openerIdx,sm:smNewGame(),
+    winner:null,winnerName:null,winnerAv:null,matchOver:false,lastAct:'',round:1,_ts:Date.now()};
+}
+function smNote(sm,text,kind,ms,sub){sm.note={n:((sm.note&&sm.note.n)||0)+1,text,sub:sub||'',kind,ms:ms||1400,ts:Date.now()};}
+// The moves. Each returns false (changing nothing) when it isn't allowed, which is what makes the
+// compare-and-swap retry loop safe to run from several devices at once.
+function smApplyRoll(state,idx,now,rng){
+  const sm=state.sm;if(!sm||sm.over||state.curIdx!==idx)return false;
+  const t=sm.t;if(t.phase!=='roll'&&t.phase!=='decide')return false;
+  smRollTurn(state.players,sm,idx,rng);
+  if(sm.t.phase==='bust'){sm.t.bustAt=now;state.lastAct=esc(state.players[idx].name)+' was caught in an avalanche.';}
+  return true;
+}
+function smApplyPick(state,idx,k){
+  const sm=state.sm;if(!sm||sm.over||state.curIdx!==idx)return false;
+  if(!smPick(state.players,sm,idx,k))return false;
+  const hit=sm.t.ev.find(e=>e.space&&SM_SPACE_INFO[e.space]);
+  if(hit)smNote(sm,SM_SPACE_INFO[hit.space][0],SM_SPACE_INFO[hit.space][1],1300);
+  return true;
+}
+function smApplyCamp(state,idx){
+  const sm=state.sm;if(!sm||sm.over||state.curIdx!==idx||sm.t.phase!=='decide')return false;
+  const who=state.players[idx],r=smCamp(state.players,sm,idx);if(!r)return false;
+  state.curIdx=r.next;
+  if(r.summit)smNote(sm,'🏔️ SUMMIT GATE','gold',2400,esc(who.name)+' is at the top — one roll to glory!');
+  else if(r.conquered.length)smNote(sm,'🚩 ROUTE '+r.conquered.join(' & ')+' CONQUERED','gold',1800);
+  else smNote(sm,'⛺ CAMP','good',1100,'Progress secured');
+  state.lastAct=esc(who.name)+' made camp.';
+  return true;
+}
+function smApplySummit(state,idx,now,rng){
+  const sm=state.sm;if(!sm||sm.over||state.curIdx!==idx||sm.t.phase!=='summit')return false;
+  const who=state.players[idx],r=smSummitRoll(state.players,sm,idx,rng);if(!r)return false;
+  if(r.ok){
+    who.smWon=true;who.roundsWon=(who.roundsWon||0)+1;
+    state.winner=who.id;state.winnerName=who.name;state.winnerAv=who.avatar;sm.doneAt=now;
+    smNote(sm,'🏔️ SUMMIT REACHED!','gold',SM_WIN_MS+100,esc(who.name));
+  } else if(r.slid!=null){
+    state.curIdx=r.next;smNote(sm,'🪨 YOU SLIPPED','bad',2400,'Route '+r.slid+' is lost — back down to try again');
+  } else {
+    const left=SM_SUMMIT_TRIES-r.tries;smNote(sm,'💨 NOT YET','bad',1500,left+' '+(left===1?'try':'tries')+' left');
+  }
+  return true;
+}
+// After the avalanche has played: the turn passes. Safe to call from every device; `force` skips the wait.
+function smApplyAdvance(state,now,force){
+  const sm=state.sm;if(!sm||sm.over||sm.t.phase!=='bust')return false;
+  if(!force&&now<(sm.t.bustAt||0)+SM_BUST_MS)return false;
+  state.curIdx=smBust(state.players,sm,state.curIdx);return true;
+}
+// A player who has gone away has their whole climb played for them, carefully: bank what is at stake.
+function smAutoTurn(state,now){
+  const sm=state.sm;if(!sm||sm.over)return false;
+  const idx=state.curIdx;let did=false,guard=0;
+  while(state.curIdx===idx&&!sm.over&&guard++<40){
+    const t=sm.t,p=state.players[idx];let ok=false;
+    if(t.phase==='roll')ok=smApplyRoll(state,idx,now);
+    else if(t.phase==='pick')ok=smApplyPick(state,idx,smBotPick(p,sm,'gentle'));
+    else if(t.phase==='decide')ok=smStake(p)>0?smApplyCamp(state,idx):smApplyRoll(state,idx,now);
+    else if(t.phase==='bust')ok=smApplyAdvance(state,now,true);
+    else if(t.phase==='summit')ok=smApplySummit(state,idx,now);
+    if(!ok)break;did=true;
+  }
+  return did;
+}
+async function oSmMutate(mutate){
+  for(let i=0;i<6;i++){
+    const state=await dbRead(G.roomId);if(!state||!state.sm||state.gameId!=='summit')return false;
+    const expectedTs=state._ts;
+    if(!mutate(state))return false;
+    onSrv(state); // optimistic; the next real sync corrects us if this write lost the race
+    if(await dbWriteIfUnchanged(G.roomId,expectedTs,state))return true;
+  }
+  toast('⚠️ Connection hiccup — try that again');
+  return false;
+}
+function oSmMyIdx(state){return(state.players||[]).findIndex(p=>p.id===G.myPid);}
+async function smOnlineAct(kind,k){
+  if(!isMyTurn()){toast('Not your turn');return;}
+  const run={
+    roll:(st,i)=>smApplyRoll(st,i,Date.now()),
+    pick:(st,i)=>smApplyPick(st,i,k),
+    camp:(st,i)=>smApplyCamp(st,i),
+    summit:(st,i)=>smApplySummit(st,i,Date.now())}[kind];
+  if(!run)return;
+  const ok=await oSmMutate(st=>{const i=oSmMyIdx(st);return i>=0&&run(st,i);});
+  if(ok)haptic(12);
+}
+function oSmAdvance(){return oSmMutate(st=>smApplyAdvance(st,Date.now()));}
+function smArmAdvance(sig,at,extra){
+  if(_smAdvSig===sig)return;
+  _smAdvSig=sig;clearTimeout(_smAdvTimer);
+  const attempt=()=>{
+    const sm=G.isOnline&&G.srv&&G.srv.sm;
+    if(!sm||sm.t.phase!=='bust'||_smAdvSig!==sig)return;
+    oSmAdvance();
+    _smAdvTimer=setTimeout(attempt,3000);
+  };
+  _smAdvTimer=setTimeout(attempt,Math.max(0,at-Date.now())+extra);
+}
+// Everything onSrv does for a Summit room.
+function oSmOnSrv(state,wasLobby){
+  const sm=state.sm,t=sm.t;
+  G.lres=null;
+  if(_smNoteN===null)_smNoteN=0;
+  // a banner another device (or this one) raised, shown once per device
+  if(sm.note&&sm.note.n>_smNoteN){
+    _smNoteN=sm.note.n;
+    if(Date.now()-sm.note.ts<6000){
+      smSetBanner({text:sm.note.text,sub:sm.note.sub,kind:sm.note.kind},sm.note.ms);
+      if(sm.note.kind==='bad'){SFX.illegal();haptic([20,30,20]);}else if(sm.note.kind==='gold')SFX.win();else SFX.chip();
+    }
+  }
+  const rsig=sm.round+'|'+state.curIdx+'|'+t.rolled+'|'+t.tries;
+  if(t.dice&&t.dice.length&&rsig!==_smSndSig){_smSndSig=rsig;SFX.diceRoll();}
+  if(t.phase==='bust'){
+    const bsig=sm.round+'|'+state.curIdx+'|'+t.rolled;
+    if(_smBustSig!==bsig){_smBustSig=bsig;SFX.bust();haptic([30,40,30]);}
+    const mine=oSmMyIdx(state);
+    smArmAdvance(bsig,(t.bustAt||Date.now())+SM_BUST_MS,state.curIdx===mine?0:900+Math.max(0,mine)*300);
+  }
+  if(sm.over){
+    const sig='win|'+state.winner;
+    if(_smEndSig!==sig){
+      _smEndSig=sig;
+      addHistory({game:'summit',winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),
+        players:state.players.map(p=>p.name),mode:'online',moment:`${state.winnerName} conquered the summit.`,
+        stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats.reactions}});
+      if(state.winner===G.myPid){G.tw++;localStorage.setItem('ct_tw',G.tw);}
+      const wait=Math.min(SM_WIN_MS+400,Math.max(0,(sm.doneAt||0)+SM_WIN_MS-Date.now()));
+      clearTimeout(_smEndTimer);
+      _smEndTimer=setTimeout(()=>{_smEndTimer=null;SFX.win();v14WinnerBurst();celebrateWin(state.winnerName,state.winnerAv);G.scr='matchend';render();},wait);
+    }
+    if(G.scr!=='matchend'&&G.scr!=='table')G.scr='table';
+    render();return;
+  }
+  G.scr='table';
+  if(wasLobby){const opener=state.players[state.curIdx||0];v14Intro('summit',opener&&opener.name,opener&&opener.avatar);G.gp++;localStorage.setItem('ct_gp',G.gp);}
+  render();
 }
 
 /* ═══════ DRAW-IT ═══════
@@ -10112,6 +10270,7 @@ function onSrv(state){
   if(state.phase==='game'){
     if(state.gameId==='drawit'&&state.dw){oDwOnSrv(state,prevDw,wasLobby);return;}
     if(state.gameId==='liarsdice'&&state.ld){oLdOnSrv(state,wasLobby);return;}
+    if(state.gameId==='summit'&&state.sm){oSmOnSrv(state,wasLobby);return;}
     if(state.winner){
       if(state.gameId==='yahtzee'){
         const ySorted=[...(state.players||[])].sort((a,b)=>yTotalScore(b.scorecard)-yTotalScore(a.scorecard));
@@ -13393,6 +13552,12 @@ document.addEventListener('click',e=>{
         G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }
+      if(rs.gameId==='summit'){
+        const players=rs.players.slice(0,6).map(p=>({...p,totalScore:0,roundsWon:0}));
+        const gs=oSmNewGame(rs,players,rnd(0,players.length-1));
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
       if(rs.gameId==='drawit'){
         const players=rs.players.slice(0,6).map(p=>({...p,totalScore:0,roundsWon:0}));
         dwReadOptions();
@@ -13585,7 +13750,7 @@ document.addEventListener('click',e=>{
   }
   else if(a==='next'){
     if(G.isOnline&&G.srv&&G.srv.gameId==='drawit'){oDwNext();return;}
-    if(G.isOnline&&G.srv&&G.srv.gameId==='liarsdice')return; // rounds advance themselves
+    if(G.isOnline&&G.srv&&(G.srv.gameId==='liarsdice'||G.srv.gameId==='summit'))return; // rounds advance themselves
     if(G.isOnline){dbRead(G.roomId).then(rs=>{
       if(!rs)return;
       if(rs.gameId==='blackjack'){

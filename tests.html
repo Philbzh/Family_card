@@ -1481,6 +1481,81 @@ function run(A,W){
     check('bots finish whole matches at 2, 3, 4 and 6 players',bad.length===0&&matches===4,bad.join('; '));
   });
 
+  suite('Summit — online room state',()=>{
+    const P=n=>({id:'id-'+n,name:n,avatar:A.AVATARS[0],totalScore:0,roundsWon:0});
+    const mk=(names,opener)=>A.oSmNewGame({host:'id-A',hr:{}},names.map(P),opener||0);
+    const dieRng=dice=>{let i=0;return()=>(dice[i++%dice.length]-1+.5)/6;};
+    const st=mk(['A','B','C'],2);
+    eq('a fresh room is a Summit game with the opener up',[st.phase,st.gameId,st.curIdx,st.sm.t.phase,st.sm.over],['game','summit',2,'roll',false]);
+    check('everyone starts at Base Camp with nothing banked',st.players.every(p=>Object.keys(p.pos).length===0&&Object.keys(p.tmp).length===0&&p.cr===0&&p.order.length===0&&p.smWon===false));
+    check('the whole state survives JSON (it is one jsonb column), including numbered routes',(()=>{
+      const s=mk(['A','B']);A.smApplyRoll(s,0,1,dieRng([3,4,3,4]));A.smApplyPick(s,0,0);
+      const back=JSON.parse(JSON.stringify(s));
+      return JSON.stringify(back)===JSON.stringify(s)&&A.smCur(back.players[0],7)===A.smCur(s.players[0],7);
+    })());
+    // turn order
+    const g=mk(['A','B','C'],0);
+    check('only the player whose climb it is can roll',!A.smApplyRoll(g,1,1)&&g.sm.t.dice.length===0);
+    check('the roll is made inside the move: four real dice, and options',A.smApplyRoll(g,0,1,dieRng([3,4,3,4]))&&g.sm.t.dice.join()==='3,4,3,4'&&g.sm.t.opts.length>0);
+    check('you cannot roll again before choosing',!A.smApplyRoll(g,0,2));
+    check('and nobody else can choose for you',!A.smApplyPick(g,1,0));
+    check('a choice that is not on offer is refused',!A.smApplyPick(g,0,99));
+    check('the choice climbs and can be followed by camping or rolling on',A.smApplyPick(g,0,0)&&g.sm.t.phase==='decide'&&Object.keys(g.players[0].tmp).length>0);
+    check('a second pick for the same roll is refused (two devices, one tap)',!A.smApplyPick(g,0,0));
+    check('camping banks it, passes the turn and leaves a banner note',A.smApplyCamp(g,0)&&g.curIdx===1&&g.sm.note.n===1&&/CAMP/.test(g.sm.note.text)&&Object.keys(g.players[0].pos).length>0);
+    check('a second camp is refused',!A.smApplyCamp(g,0));
+    // avalanche
+    const b=mk(['A','B'],0);
+    b.players[0].tmp={4:1,5:1,6:1};b.sm.t.phase='decide';
+    check('a roll with nothing usable is an avalanche, timed so every device shows it',A.smApplyRoll(b,0,1000,dieRng([1,1,1,1]))&&b.sm.t.phase==='bust'&&b.sm.t.bustAt===1000);
+    check('nobody can move during the avalanche',!A.smApplyRoll(b,0,1001)&&!A.smApplyCamp(b,0));
+    check('the turn does not pass until the avalanche has played',!A.smApplyAdvance(b,1000+A.SM_BUST_MS-1));
+    check('then the progress is lost and the next player is up',A.smApplyAdvance(b,1000+A.SM_BUST_MS)&&b.curIdx===1&&Object.keys(b.players[0].tmp).length===0&&b.sm.t.phase==='roll');
+    check('advancing twice does nothing the second time (every device tries)',!A.smApplyAdvance(b,99999)&&b.curIdx===1);
+    // the summit
+    const s=mk(['A','B'],0);
+    s.players[0].order=[2,12,3];s.players[0].pos={2:3,12:3,3:5};s.sm.t.phase='summit';
+    check('a missed Summit Roll leaves the climber at the gate',A.smApplySummit(s,0,5,dieRng([1,1,1,1]))&&s.sm.t.phase==='summit'&&s.curIdx===0&&!s.sm.over&&/NOT YET/.test(s.sm.note.text));
+    check('a good roll wins: the match is over, and only then',A.smApplySummit(s,0,6,dieRng([4,3,4,3]))&&s.sm.over&&s.winner==='id-A'&&s.winnerName==='A'&&s.players[0].smWon&&s.players[0].roundsWon===1&&s.sm.doneAt===6);
+    check('nothing moves once it is won',!A.smApplyRoll(s,0,7)&&!A.smApplyCamp(s,0)&&!A.smApplySummit(s,0,7)&&!A.smApplyAdvance(s,99999));
+    const f=mk(['A','B'],0);f.players[0].order=[2,12,3];f.players[0].pos={2:3,12:3,3:5};f.sm.t.phase='summit';
+    A.smApplySummit(f,0,1,dieRng([1,1,1,1]));A.smApplySummit(f,0,2,dieRng([1,1,1,1]));
+    check('three misses slip the newest route and pass the turn',A.smApplySummit(f,0,3,dieRng([1,1,1,1]))&&f.curIdx===1&&f.players[0].order.join()==='2,12'&&/SLIPPED/.test(f.sm.note.text));
+    // an absent player
+    check('an absent player’s whole turn is played for them, ending with the turn passing on',(()=>{
+      for(let i=0;i<200;i++){
+        const a=mk(['A','B','C'],0);
+        if(!A.smAutoTurn(a,50))return false;
+        if(a.curIdx===0&&!a.sm.over)return false;
+        if(a.players.some(p=>Object.keys(p.tmp).length))return false;
+      }
+      return true;
+    })());
+    check('and someone stuck at the gate gets their tries played out',(()=>{
+      const a=mk(['A','B'],0);a.players[0].order=[2,12,3];a.players[0].pos={2:3,12:3,3:5};a.sm.t.phase='summit';
+      return A.smAutoTurn(a,9)&&(a.sm.over||a.curIdx===1);
+    })());
+    // a whole match on room state alone, the way three phones would play it
+    check('random play on room state ends with exactly one winner at every table size',(()=>{
+      for(let n=2;n<=6;n++){
+        const r=mk(Array.from({length:n},(_,i)=>'P'+i),0);let clock=1000,guard=0;
+        while(!r.sm.over&&guard++<6000){
+          const idx=r.curIdx,p=r.players[idx],t=r.sm.t;
+          if(t.phase==='bust'){clock+=A.SM_BUST_MS;if(!A.smApplyAdvance(r,clock))return false;continue;}
+          let ok=false;
+          if(t.phase==='roll')ok=A.smApplyRoll(r,idx,clock);
+          else if(t.phase==='pick')ok=A.smApplyPick(r,idx,A.smBotPick(p,r.sm,'sharp'));
+          else if(t.phase==='decide')ok=A.smBotDecide(p,r.sm,'gentle')==='camp'?A.smApplyCamp(r,idx):A.smApplyRoll(r,idx,clock);
+          else if(t.phase==='summit')ok=A.smApplySummit(r,idx,clock);
+          if(!ok)return false;
+        }
+        if(!r.sm.over||!r.winner||r.players.filter(q=>q.smWon).length!==1)return false;
+        if(r.players.find(q=>q.smWon).order.length<3)return false;
+      }
+      return true;
+    })());
+  });
+
   suite('Draw-it — roster wiring',()=>{
     const g=A.GAMES.find(x=>x.id==='drawit');
     check('the game is on the roster',!!g);
@@ -3856,7 +3931,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'dwLang','dwPickWord','dwGuessPoints','dwRoundScores','dwFmt','lDealDrawit','dwShowWord','dwStart','dwToggleCredit','dwEndRound','dwEndMatch','dwTick',
   'dwNormalize','dwGuessMatches','dwHint','dwBuildRound','oDwNewRound','dwFinalizeState',
   'DW_HARD_EN','DW_HARD_DE','DW_PAPER','dwPool','dwCustomList','dwPickChoices','dwSpeedBonus','dwIsClose','dwLevenshtein','dwPick','dwLevel','dwCustomText','dwMatchOver','dwProgressText','DW_MATCHES','DW_SCORE_TARGET','dwMatchMode',
-  'ldRollDice','ldTotalDice','ldCount','ldValidBid','ldMinN','ldCanRaise','ldResolve','ldActiveCount','ldNextActive','ldOpener','ldFaceProb','ldAtLeastProb','ldBotMove','LD_START_DICE','ldBuildReveal','ldCountLine','ldFaceName','ldFaceGlyph','oLdNewRound','SM_LEN','SM_SUMS','SM_MAX_ACTIVE','SM_WIN_TOPS','SM_SUMMIT_TARGET','SM_SUMMIT_TRIES','smSpaceAt','smRoll4','smSplits','smNewPlayer','smNewGame','smFreshTurn','smCur','smActive','smOptions','smStep','smRollTurn','smPick','smNextTurn','smBust','smCamp','smSummitOk','smSummitRoll','smBustProb','smStake','smBotPick','smBotDecide','SM_ZONES','SM_COLORS','smZone','smRank','ldApplyBid','ldApplyChallenge','ldAdvanceState','ldAutoMove','LD_REVEAL_MS',
+  'ldRollDice','ldTotalDice','ldCount','ldValidBid','ldMinN','ldCanRaise','ldResolve','ldActiveCount','ldNextActive','ldOpener','ldFaceProb','ldAtLeastProb','ldBotMove','LD_START_DICE','ldBuildReveal','ldCountLine','ldFaceName','ldFaceGlyph','oLdNewRound','SM_LEN','SM_SUMS','SM_MAX_ACTIVE','SM_WIN_TOPS','SM_SUMMIT_TARGET','SM_SUMMIT_TRIES','smSpaceAt','smRoll4','smSplits','smNewPlayer','smNewGame','smFreshTurn','smCur','smActive','smOptions','smStep','smRollTurn','smPick','smNextTurn','smBust','smCamp','smSummitOk','smSummitRoll','smBustProb','smStake','smBotPick','smBotDecide','oSmNewGame','smApplyRoll','smApplyPick','smApplyCamp','smApplySummit','smApplyAdvance','smAutoTurn','SM_BUST_MS','SM_WIN_MS','SM_ZONES','SM_COLORS','smZone','smRank','ldApplyBid','ldApplyChallenge','ldAdvanceState','ldAutoMove','LD_REVEAL_MS',
   'computeSidePots','settleSidePots','roulPayoutMultiplier','roulBetWins','yScoreForCategory','yFreshScorecard',
   'getHistory','getFamily','getAchievements','getResumableMatch','tonightStats','familyStats','rDataOv',
   'SLOT_SYMBOLS','SLOT_PAYLINES','SLOT_SCATTER_PAY','SLOT_JACKPOT_MIN','SLOT_FREE_SPINS_AWARD','SLOT_FREE_SPINS_RETRIGGER',
