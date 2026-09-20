@@ -1832,7 +1832,7 @@ function run(A,W){
     // Over many seeds, every puzzle type, 2 to 6 players, all three difficulties: the clues give exactly one
     // answer, nobody holds enough to solve alone, everyone holds something, and (short of Expert, which adds
     // decoys) nobody can be left out.
-    const types=['order','dial','seq','code'],bad=[];const note=m=>{if(bad.length<8&&bad.indexOf(m)<0)bad.push(m);};
+    const types=['order','dial','seq','code','scale','word'],bad=[];const note=m=>{if(bad.length<8&&bad.indexOf(m)<0)bad.push(m);};
     let made=0,unsolved=0;
     for(const type of types)for(let n=2;n<=6;n++)for(let d=0;d<3;d++)for(let s=1;s<=3;s++){
       const seed=s*7919+n*31+d*1009+types.indexOf(type)*17;
@@ -1861,7 +1861,7 @@ function run(A,W){
     })());
     check('different seeds give different puzzles',types.every(type=>{const seen=new Set();for(let s=1;s<=12;s++)seen.add(JSON.stringify(A.vtMakePuzzle(s*101,type,A.VT_SKIN_PLAIN,3,1)));return seen.size>=11;}));
     check('a puzzle is plain data: it survives JSON exactly (it lives in one jsonb column)',types.every(type=>{const p=A.vtMakePuzzle(9,type,A.VT_SKIN_PLAIN,4,1);return JSON.stringify(JSON.parse(JSON.stringify(p)))===JSON.stringify(p);}));
-    check('Expert adds true decoy clues that are not needed; the puzzle still has one answer',['order','dial','seq'].every(type=>{
+    check('Expert adds true decoy clues that are not needed; the puzzle still has one answer',['order','dial','seq','scale','word'].every(type=>{
       let any=false;for(let s=1;s<=6;s++){const p=A.vtMakePuzzle(s*13,type,A.VT_SKIN_PLAIN,3,2);const decoys=p.clues.filter(c=>c.decoy).length;if(decoys)any=true;
         const real=p.clues.map((c,i)=>c.decoy?-1:i).filter(i=>i>=0);if(A.vtCount(p,real)!==1)return false;}
       return any;
@@ -1874,7 +1874,7 @@ function run(A,W){
 
   suite('The Vault — hints, the codebook, the clock and the score',()=>{
     const skin=A.VT_SKIN_PLAIN;
-    check('the hints go from a nudge to real help, and every fact in them is true',['order','dial','seq','code'].every(type=>{
+    check('the hints go from a nudge to real help, and every fact in them is true',['order','dial','seq','code','scale','word'].every(type=>{
       for(let s=1;s<=6;s++){
         const p=A.vtMakePuzzle(s*31,type,skin,3,1),h=p.hints;
         if(h.length!==3||h[0].level!==1||h[2].level!==3)return false;
@@ -1884,7 +1884,8 @@ function run(A,W){
         // check each "... is X" fact against the solution
         if(type==='dial'){const m=[...facts.matchAll(/the (\w+ dial) is (\d)/g)];if(!m.length)return false;for(const x of m){const i=p.skin.labels.indexOf(x[1]);if(sol[i]!==+x[2])return false;}}
         if(type==='order'){const m=[...facts.matchAll(/place (\w+) holds (\w+)/g)];if(!m.length)return false;for(const x of m){const sl=p.skin.slots.indexOf(x[1]);if(p.skin.items[sol[sl]]!==x[2])return false;}}
-        if(type==='code'){const m=[...facts.matchAll(/letter (\d) is (\w)/g)];if(!m.length)return false;for(const x of m)if(sol[+x[1]-1]!==x[2])return false;}
+        if(type==='code'||type==='word'){const m=[...facts.matchAll(/letter (\d) is (\w)/g)];if(!m.length)return false;for(const x of m)if(sol[+x[1]-1]!==x[2])return false;}
+        if(type==='scale'){const m=[...facts.matchAll(/the (\w+) reads (\d)/g)];if(!m.length)return false;for(const x of m){const i=p.skin.labels.indexOf(x[1]);if(sol[i]!==+x[2])return false;}}
       }
       return true;
     }));
@@ -1938,7 +1939,7 @@ function run(A,W){
     check('both adventures are on offer and complete',A.VT_ADV_IDS.every(id=>{const a=A.VT_ADV[id];return a.title&&a.tagline&&a.chapters.length===5&&a.roles.length>=6&&a.intro.length>=3&&a.twists.length===3&&a.twists.every(t=>a.finale.reveals[t])&&a.failed.time&&a.failed.lives;}));
     check('every chapter has a real puzzle type, story text, a solved line and words for its puzzle',A.VT_ADV_IDS.every(id=>{
       const a=A.VT_ADV[id];
-      return a.chapters.every(c=>['order','dial','seq','code'].indexOf(c.type)>=0&&c.title&&c.story.length>=1&&c.solved.length>=1&&a.skin[c.type==='order'?'order':c.type][c.id]);
+      return a.chapters.every(c=>['order','dial','seq','code','scale','word'].indexOf(c.type)>=0&&c.title&&c.story.length>=1&&c.solved.length>=1&&a.skin[c.type==='order'?'order':c.type][c.id]);
     }));
     check('the same seed always tells the same story; other seeds tell others',A.VT_ADV_IDS.every(id=>{
       const a=JSON.stringify(A.vtStory(id,123)),b=JSON.stringify(A.vtStory(id,123));
@@ -2159,6 +2160,33 @@ function run(A,W){
     } finally {
       W.vtStop();Object.assign(A.G,{isOnline:keep.online,srv:keep.srv,myPid:keep.pid,selGame:keep.game,scr:keep.scr});
     }
+  });
+
+  suite('The Vault — scales and secret words',()=>{
+    check('scale clues read the readings right',A.vtHolds({k:'wsum',i:0,j:1,x:2},[2,3,5])&&!A.vtHolds({k:'wsum',i:0,j:1,x:2},[2,3,4])&&A.vtHolds({k:'wdbl',i:2,j:0},[2,3,4])&&A.vtHolds({k:'wval',i:1,v:3},[2,3,4])&&A.vtHolds({k:'wmax',i:2},[2,3,4])&&A.vtHolds({k:'wmin',i:0},[2,3,4])&&!A.vtHolds({k:'wmax',i:0},[2,3,4]));
+    check('word clues read the letters right',(()=>{const w='STONE'.split('');return A.vtHolds({k:'wl',p:0,c:'S'},w)&&A.vtHolds({k:'wnl',p:1,c:'A'},w)&&A.vtHolds({k:'wvow',p:2,e:1},w)&&A.vtHolds({k:'wvow',p:0,e:0},w)&&A.vtHolds({k:'wcont',c:'N'},w)&&A.vtHolds({k:'wnot',c:'Z'},w)&&A.vtHolds({k:'wvc',n:2},w);})());
+    eq('all readings of 3 objects from 1 to 9: 504 (all different)',A.vtAll({kind:'inj',n:3,dom:9}).length,504);
+    check('a scale puzzle has all-different readings and clues worded from its objects',(()=>{
+      const p=A.vtMakePuzzle(3,'scale',A.VT_SKIN_PLAIN,3,1);
+      return new Set(p.solution).size===p.solution.length&&p.clues.every(c=>/^The /.test(c.t)||/^All /.test(c.t))&&p.skin.labels.length===p.solution.length;
+    })());
+    check('a word puzzle’s answer is a real word from the list, and the list travels with the puzzle',(()=>{
+      const p=A.vtMakePuzzle(3,'word',A.VT_SKIN_PLAIN,3,1);
+      return A.VT_SKIN_PLAIN.words.list.indexOf(p.solution.join(''))>=0&&p.spec.list.length===A.VT_SKIN_PLAIN.words.list.length;
+    })());
+    check('every adventure’s word list is all five-letter words, plenty of them',A.VT_ADV_IDS.every(id=>{
+      const w=A.VT_ADV[id].skin.word;if(!w)return true;
+      return Object.keys(w).every(k=>w[k].list.length>=25&&w[k].list.every(x=>/^[A-Z]{5}$/.test(x))&&new Set(w[k].list).size===w[k].list.length);
+    }));
+    check('every adventure has five chapters that use at least three kinds of puzzle',A.VT_ADV_IDS.every(id=>new Set(A.VT_ADV[id].chapters.map(c=>c.type)).size>=3));
+    check('there are five adventures, and between them every puzzle type is used',(()=>{const t=new Set();A.VT_ADV_IDS.forEach(id=>A.VT_ADV[id].chapters.forEach(c=>t.add(c.type)));return A.VT_ADV_IDS.length===5&&['order','dial','seq','code','scale','word'].every(x=>t.has(x));})());
+    check('the board accepts readings 1-9 for a scale and letters for a word, and refuses nonsense',(()=>{
+      const rs={host:'id-A',hr:{}},pl=['A','B','C'].map(n=>({id:'id-'+n,name:n,avatar:A.AVATARS[0]}));
+      const s=A.oVtNewGame(rs,pl,'volcano',0,11);A.vtStartChapter(s,0,1);
+      const ok=A.vtApplyBoard(s,0,0,4)&&!A.vtApplyBoard(s,0,0,0)&&!A.vtApplyBoard(s,0,0,'X');
+      const w=A.oVtNewGame(rs,pl,'volcano',0,11);A.vtStartChapter(w,2,1);
+      return ok&&A.vtApplyBoard(w,0,1,'Q')&&!A.vtApplyBoard(w,0,1,7)&&!A.vtApplyBoard(w,0,9,'A');
+    })());
   });
 
   suite('Draw-it — roster wiring',()=>{
