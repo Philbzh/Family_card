@@ -154,7 +154,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100v
   92% {transform:translateY(-3px)  rotate(716deg) scale(1.01);}
   100%{transform:translateY(0)     rotate(720deg) scale(1);}
 }
-.dd-die.dd-tumble{animation:dd-tumble .85s cubic-bezier(.3,.05,.35,1) both;}
+.dd-die.dd-tumble{animation:dd-tumble 1.05s cubic-bezier(.3,.05,.35,1) both;}
 
 .dd-reveal{gap:.6rem;}
 .dd-duel-call{font-family:var(--serif);font-size:1.6rem;font-weight:800;letter-spacing:.14em;
@@ -186,7 +186,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100v
 .dd-beats{font-size:.72rem;color:var(--paper2);letter-spacing:.02em;text-align:center;}
 .dd-beats b{color:var(--gold2);font-variant-numeric:tabular-nums;}
 @media(prefers-reduced-motion:reduce){
-  .dd-die.dd-tumble{animation:none;}
+  .dd-die.dd-tumble,.die.just-rolled{animation:none;}
   .dd-duel-call.flash{animation:none;}
   .dd-reveal-combo,.dd-reveal-pts{transition:none;}
 }
@@ -952,9 +952,24 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 }
 .die.held .pip{background:radial-gradient(circle at 35% 30%,#5c3d08,#2b1c02 75%);}
 .die.held:hover:not(:disabled){transform:translateY(-9px);}
-.die.just-rolled{animation:die-roll .45s cubic-bezier(.36,.2,.4,1.4);}
+.die.just-rolled{animation:die-throw 1.05s cubic-bezier(.3,.05,.35,1) both;}
+/* Thrown in from alternating sides and staggered, so five dice don't move as one block. */
+.die.just-rolled:nth-child(odd){--tx:-38px;}
+.die.just-rolled:nth-child(even){--tx:38px;}
+.die.just-rolled:nth-child(2){animation-delay:.06s;}.die.just-rolled:nth-child(3){animation-delay:.12s;}
+.die.just-rolled:nth-child(4){animation-delay:.03s;}.die.just-rolled:nth-child(5){animation-delay:.09s;}
+.die.just-rolled:nth-child(6){animation-delay:.15s;}
 .die-lock{position:absolute;top:-.45rem;right:-.45rem;width:1.25rem;height:1.25rem;border-radius:50%;background:#1a1000;font-size:.68rem;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.45),0 0 0 1.5px var(--gold2);}
-@keyframes die-roll{0%{transform:rotate(0) scale(1);}30%{transform:rotate(-18deg) scale(1.08);}60%{transform:rotate(14deg) scale(1.05);}100%{transform:rotate(0) scale(1);}}
+@keyframes die-throw{
+  0%  {transform:translate(var(--tx,-38px),-52px) rotate(-200deg) scale(.7);opacity:.15;}
+  14% {opacity:1;}
+  38% {transform:translate(0,0) rotate(220deg) scale(1.12);}
+  54% {transform:translate(calc(var(--tx,-38px)*-.16),-26px) rotate(330deg) scale(1.06);}
+  70% {transform:translate(0,0) rotate(360deg) scale(.96);}
+  82% {transform:translate(0,-8px) rotate(372deg) scale(1.02);}
+  92% {transform:translate(0,0) rotate(358deg) scale(.99);}
+  100%{transform:translate(0,0) rotate(360deg) scale(1);}
+}
 .y-hint{font-size:.74rem;color:var(--paper3);text-align:center;z-index:1;min-height:1.1em;}
 .fk-turn-total{font-size:.82rem;color:var(--paper2);text-align:center;z-index:1;font-variant-numeric:tabular-nums;}
 .fk-turn-total b{color:var(--gold2);}
@@ -4483,6 +4498,35 @@ async function oPigBank(){
   } finally { _onlineBusy=false; }
 }
 
+/* ═══════ DICE: face flicker ═══════
+   A thrown die should be seen changing while it tumbles, not just wobble and show its number. This is
+   purely visual: it swaps the pips for random faces for a moment and then puts back exactly the markup
+   the game rendered, so it never changes a value or a handler. It is skipped for reduced motion and
+   when the same roll is simply being re-rendered. */
+let _flickSig='',_flickAt=0;
+function dieFlick(els){
+  if(!els||!els.length)return;
+  try{if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;}catch(e){}
+  els.forEach((el,i)=>{
+    const finalHTML=el.innerHTML;let n=0;const steps=8+(i%3);
+    const tick=()=>{
+      if(!el.isConnected)return;
+      if(n>=steps){el.innerHTML=finalHTML;return;}
+      el.innerHTML=ldPipsHTML(1+Math.floor(Math.random()*6));n++;
+      setTimeout(tick,62+n*10);
+    };
+    setTimeout(tick,60+(i%8)*65);
+  });
+}
+function dieFlickAfterRender(){
+  const els=[...document.querySelectorAll('#app .die.just-rolled, #app .dd-die.dd-tumble')].filter(e=>!e.classList.contains('dd-die-hidden'));
+  if(!els.length){_flickSig='';return;}
+  const sig=els.map(e=>e.innerHTML).join('|'),now=Date.now();
+  if(sig===_flickSig&&now-_flickAt<2500)return; // the same roll being drawn again
+  _flickSig=sig;_flickAt=now;
+  dieFlick(els);
+}
+
 /* ═══════ LIAR'S DICE ═══════
    Everyone holds five private dice. A bid says "at least N dice show face F among ALL the dice on the
    table"; the next player raises the bid or calls LIAR. A challenge reveals every die: if the bid
@@ -4644,6 +4688,7 @@ function ldRevealShow(rev,startedAt,onDone){
         d.style.animationDelay=((i*3+j)%9*55)+'ms';
       });
     });
+    dieFlick([...el.querySelectorAll('.ld-rdie')]);
     SFX.diceRoll();
   });
   // 2100 -- BOUNCE/settle
@@ -12549,6 +12594,7 @@ function render(){
   runCountUps();
   dwAfterRender();
   ldAfterRender();
+  dieFlickAfterRender();
 }
 
 /* ════════ CARD DRAG PHYSICS ════════ */
