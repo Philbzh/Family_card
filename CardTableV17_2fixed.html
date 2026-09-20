@@ -2658,6 +2658,8 @@ async function oForceSkipCurrentPlayer(){
     if(state.gameId==='liarsdice'){await oLdMutate(st=>ldAutoMove(st,Date.now()));return;}
     // Summit: an absent climber's whole turn is played for them, banking what is at stake.
     if(state.gameId==='summit'){await oSmMutate(st=>smAutoTurn(st,Date.now()));return;}
+    // Hot Bomb has no turns to skip: a bomb in an absent player's hands simply goes off on them.
+    if(state.gameId==='hotbomb'){return;}
     state.lastAct=esc(p.name)+' was skipped (away too long).';
     let runout=false,allDone=false;
     if(state.gameId==='texas'||state.gameId==='fivecard'){
@@ -2865,7 +2867,7 @@ const GAMES=[
 ];
 // Single source of truth for which unlocked games have online-multiplayer support, so the "online"
 // gate and the local-only badge on a game's card can never drift out of sync with each other.
-const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice','summit'];
+const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice','summit','hotbomb'];
 // The Games tab groups its (growing) roster into these, rather than one long scroll -- every GAMES
 // entry's `cat` must be one of these ids. Order here is the order the category tiles are shown in.
 const GAME_CATEGORIES=[
@@ -5984,12 +5986,14 @@ function hbBotPick(ps,hb,now,id,idx,level,rng){
 /* ── Hot Bomb: the local game and the table ── */
 const HB_RX=35,HB_RY=36;
 let _hbTimer=null,_hbBanner=null,_hbBannerT=null,_hbEndT=null,_hbRound=0,_hbBotDue={},_hbPegPos={},_hbTickSec=-1;
+let _hbBusy=false,_hbTryAt=0,_hbEvN=0,_hbPassN=0,_hbEndSig=null;
 SFX.hbTick=()=>{tone(1100,.025,'square');haptic(10);};
 SFX.hbPass=()=>{tone(500,.05,'triangle');setTimeout(()=>tone(720,.06,'triangle'),50);haptic(10);};
 SFX.hbBoom=()=>{tone(90,.35,'sawtooth');tone(60,.5,'square');setTimeout(()=>tone(140,.25,'sawtooth'),60);haptic([80,40,120]);};
 function hbStop(){
   clearInterval(_hbTimer);clearTimeout(_hbBannerT);clearTimeout(_hbEndT);
   _hbTimer=_hbBannerT=_hbEndT=null;_hbBanner=null;_hbRound=0;_hbBotDue={};_hbPegPos={};_hbTickSec=-1;
+  _hbBusy=false;_hbTryAt=0;_hbEvN=0;_hbPassN=0;_hbEndSig=null;
   G.hbSel=null;G.hbCard=null;
 }
 function hbSetBanner(b,ms){_hbBanner=b;clearTimeout(_hbBannerT);_hbBannerT=setTimeout(()=>{_hbBanner=null;render();},ms||1500);}
@@ -6110,6 +6114,7 @@ function hbLoop(){
       if(now>=_hbBotDue[key]&&now<b.explodeAt&&now>=p.lockUntil){delete _hbBotDue[key];hbBotAct(b,p);}
     });
   }
+  else hbOnlineDue(v,now);
   hbPatch(v,now);
 }
 // The countdowns change every second; redrawing the whole table for that would fight with taps.
@@ -6216,8 +6221,102 @@ function hbAfterRender(){
   });
   _hbPegPos=next;
 }
-function hbOnlineSeatTap(){}
-function hbOnlineCard(){}
+
+/* ── Hot Bomb: online ──
+   The room row carries the game: state.hb is the same object the local game uses (bombs with their fuse
+   times, whose hands they are in, the latest explosion and pass) and each player's strikes / card /
+   lockUntil live on players[i]. Every move is a compare-and-swap write. Nobody "owns" the clock: every
+   device notices when something is due (a fuse, a jumping bomb, the next round) and tries to apply it, the
+   holder's device first; hbTick and hbExplode refuse when it isn't due or has already happened, so only
+   one write lands. */
+function oHbNewGame(rs,players){
+  const hb=hbNewGame();hb.startAt=Date.now()+2500;
+  return{phase:'game',gameId:'hotbomb',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,hb,
+    winner:null,winnerName:null,winnerAv:null,matchOver:false,lastAct:'',round:1,_ts:Date.now()};
+}
+// If the tick ended the game, say who won on the room row too (the winner screen and history read it).
+function hbFinishState(st){
+  const hb=st.hb;if(hb.phase!=='over'||st.winner)return;
+  const w=st.players[hb.winner];if(!w)return;
+  w.hbWin=true;w.roundsWon=(w.roundsWon||0)+1;
+  st.winner=w.id;st.winnerName=w.name;st.winnerAv=w.avatar;
+}
+async function oHbMutate(mutate){
+  for(let i=0;i<6;i++){
+    const state=await dbRead(G.roomId);if(!state||!state.hb||state.gameId!=='hotbomb')return false;
+    const expectedTs=state._ts;
+    if(!mutate(state))return false;
+    onSrv(state); // optimistic; the next real sync corrects us if this write lost the race
+    if(await dbWriteIfUnchanged(G.roomId,expectedTs,state))return true;
+  }
+  return false;
+}
+function oHbMyIdx(state){return(state.players||[]).findIndex(p=>p.id===G.myPid);}
+function oHbTick(){
+  if(_hbBusy)return;_hbBusy=true;
+  return oHbMutate(st=>{const r=hbTick(st.players,st.hb,Date.now());if(r.changed)hbFinishState(st);return r.changed;}).finally(()=>{_hbBusy=false;});
+}
+async function hbOnlineSeatTap(v,i){
+  const actor=hbActor(v);if(actor<0)return;
+  const b=hbPickBomb(v.hb,actor);if(!b)return;
+  if(G.hbCard)return hbOnlineCard(actor,i);
+  if(!hbCanPass(v.players,v.hb,Date.now(),b.id,actor,i)){SFX.illegal();toast(hbWhyNot(v,b,actor,i));return;}
+  const ok=await oHbMutate(st=>{const me=oHbMyIdx(st);return me>=0&&hbPass(st.players,st.hb,Date.now(),b.id,me,i);});
+  if(ok){SFX.hbPass();G.hbCard=null;}else toast('Too late — the bomb moved!');
+}
+async function hbOnlineCard(actor,arg){
+  const b=hbPickBomb(hbView().hb,actor);if(!b)return;
+  const card=hbView().players[actor].card;
+  const ok=await oHbMutate(st=>{const me=oHbMyIdx(st);return me>=0&&hbUseCard(st.players,st.hb,Date.now(),b.id,me,arg);});
+  if(ok){SFX.win();G.hbCard=null;if(card)hbSetBanner({text:HB_CARD_INFO[card].e+' '+HB_CARD_INFO[card].n+'!',sub:esc(G.myName||''),kind:'good'},1100);}
+  else{SFX.illegal();toast('Can’t use that right now');G.hbCard=null;render();}
+}
+// A device's part of the clock: when something is due, try to apply it -- the holder's device at once, the
+// others a beat later in case that one has gone quiet.
+function hbOnlineDue(v,now){
+  const hb=v.hb;if(!hb||hb.phase==='over'||_hbBusy)return;
+  let due=Infinity,who=-1;
+  if(hb.phase==='boom')due=hb.startAt;
+  else hb.bombs.forEach(b=>{const d=Math.min(b.explodeAt,b.hopAt||Infinity);if(d<due){due=d;who=b.holder;}});
+  if(now<due)return;
+  const grace=v.meIdx>=0&&v.meIdx===who?0:300+Math.max(0,v.meIdx)*160;
+  if(now<due+grace||now-_hbTryAt<1200)return;
+  _hbTryAt=now;oHbTick();
+}
+function oHbOnSrv(state,wasLobby){
+  const hb=state.hb,now=Date.now();
+  G.lres=null;
+  if(hb.ev&&hb.ev.n>_hbEvN){
+    _hbEvN=hb.ev.n;
+    if(now-hb.ev.at<6000)hbFx([hb.ev],state.players);
+  }
+  if(hb.pass&&hb.pass.n>_hbPassN){
+    _hbPassN=hb.pass.n;
+    if(now-hb.pass.at<3000){
+      if(hb.pass.forced){SFX.hbPass();hbSetBanner({text:'💨 IT JUMPED!',sub:esc((state.players[hb.pass.to]||{}).name||''),kind:'bad'},1000);}
+      else if(hb.pass.from!==oHbMyIdx(state))SFX.hbPass();
+    }
+  }
+  if(hb.round!==_hbRound&&hb.phase==='play'){_hbRound=hb.round;hbRoundBanner(hb);}
+  if(hb.phase==='over'){
+    const sig='win|'+state.winner;
+    if(_hbEndSig!==sig){
+      _hbEndSig=sig;
+      addHistory({game:'hotbomb',winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),
+        players:state.players.map(p=>p.name),mode:'online',moment:`${state.winnerName} outlasted the bomb.`,
+        stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats.reactions}});
+      if(state.winner===G.myPid){G.tw++;localStorage.setItem('ct_tw',G.tw);}
+      clearTimeout(_hbEndT);
+      _hbEndT=setTimeout(()=>{_hbEndT=null;SFX.win();v14WinnerBurst();celebrateWin(state.winnerName,state.winnerAv);G.scr='matchend';render();},2800);
+    }
+    if(G.scr!=='matchend')G.scr='table';
+    render();return;
+  }
+  G.scr='table';
+  if(wasLobby){v14Intro('hotbomb');G.gp++;localStorage.setItem('ct_gp',G.gp);}
+  render();
+}
+
 function hbRankKey(p){return(p.hbWin?1e9:0)+(p.hbOut||0)*10+(HB_STRIKES-(p.strikes||0));}
 
 /* ═══════ DRAW-IT ═══════
@@ -10815,6 +10914,7 @@ function onSrv(state){
     if(state.gameId==='drawit'&&state.dw){oDwOnSrv(state,prevDw,wasLobby);return;}
     if(state.gameId==='liarsdice'&&state.ld){oLdOnSrv(state,wasLobby);return;}
     if(state.gameId==='summit'&&state.sm){oSmOnSrv(state,wasLobby);return;}
+    if(state.gameId==='hotbomb'&&state.hb){oHbOnSrv(state,wasLobby);return;}
     if(state.winner){
       if(state.gameId==='yahtzee'){
         const ySorted=[...(state.players||[])].sort((a,b)=>yTotalScore(b.scorecard)-yTotalScore(a.scorecard));
@@ -14108,6 +14208,12 @@ document.addEventListener('click',e=>{
         G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }
+      if(rs.gameId==='hotbomb'){
+        const players=rs.players.slice(0,8).map(p=>hbNewPlayer({...p,totalScore:0,roundsWon:0,hbWin:false}));
+        const gs=oHbNewGame(rs,players);
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
       if(rs.gameId==='drawit'){
         const players=rs.players.slice(0,6).map(p=>({...p,totalScore:0,roundsWon:0}));
         dwReadOptions();
@@ -14300,7 +14406,7 @@ document.addEventListener('click',e=>{
   }
   else if(a==='next'){
     if(G.isOnline&&G.srv&&G.srv.gameId==='drawit'){oDwNext();return;}
-    if(G.isOnline&&G.srv&&(G.srv.gameId==='liarsdice'||G.srv.gameId==='summit'))return; // rounds advance themselves
+    if(G.isOnline&&G.srv&&(G.srv.gameId==='liarsdice'||G.srv.gameId==='summit'||G.srv.gameId==='hotbomb'))return; // rounds advance themselves
     if(G.isOnline){dbRead(G.roomId).then(rs=>{
       if(!rs)return;
       if(rs.gameId==='blackjack'){

@@ -1769,6 +1769,43 @@ function run(A,W){
     }
   });
 
+  suite('Hot Bomb — online room state',()=>{
+    const P=n=>A.hbNewPlayer({id:'id-'+n,name:n,avatar:A.AVATARS[0],totalScore:0,roundsWon:0,hbWin:false});
+    const mk=n=>A.oHbNewGame({host:'id-A',hr:{}},Array.from({length:n},(_,i)=>P('ABCDEFGH'[i])));
+    const st=mk(3);
+    eq('a fresh room is a Hot Bomb game waiting for its first round',[st.phase,st.gameId,st.hb.phase,st.hb.round,st.hb.bombs.length],['game','hotbomb','boom',0,0]);
+    check('the first round starts shortly, not instantly',st.hb.startAt>Date.now()&&st.hb.startAt<=Date.now()+3000);
+    check('the whole state survives JSON (one jsonb column)',JSON.stringify(JSON.parse(JSON.stringify(st)))===JSON.stringify(st));
+    check('any device can start the round once it is due, and only once',(()=>{
+      const s=mk(3),due=s.hb.startAt;
+      if(A.hbTick(s.players,s.hb,due-1).changed)return false;
+      const r=A.hbTick(s.players,s.hb,due,()=>0);
+      return r.changed&&s.hb.round===1&&s.hb.phase==='play'&&!A.hbTick(s.players,s.hb,due+1).changed;
+    })());
+    check('two devices racing to explode the same bomb: only the first lands',(()=>{
+      const s=mk(3);A.hbStartRound(s.players,s.hb,0,()=>0);s.players.forEach(p=>{p.card=null;});
+      const b=s.hb.bombs[0],t=b.explodeAt,copyA=JSON.parse(JSON.stringify(s)),copyB=JSON.parse(JSON.stringify(s));
+      const a=A.hbTick(copyA.players,copyA.hb,t).changed;
+      // device B read the same row: applying the same tick to ITS copy also "succeeds", so the compare-and-swap
+      // is what keeps it to one write; after A's write B re-reads and finds nothing due.
+      const b2=A.hbTick(copyA.players,copyA.hb,t+5).changed;
+      return a&&!b2&&copyA.players.reduce((n,p)=>n+p.strikes,0)===1&&copyB.players.reduce((n,p)=>n+p.strikes,0)===0;
+    })());
+    check('a finished game names the winner on the room row too',(()=>{
+      const s=mk(2);A.hbStartRound(s.players,s.hb,0,()=>0);
+      s.players[0].strikes=2;s.hb.bombs[0].holder=0;
+      A.hbTick(s.players,s.hb,s.hb.bombs[0].explodeAt);
+      if(s.hb.phase!=='over')return false;
+      A.hbFinishState(s);
+      return s.winner==='id-B'&&s.winnerName==='B'&&s.players[1].hbWin===true&&s.players[1].roundsWon===1;
+    })());
+    check('and does it only once',(()=>{
+      const s=mk(2);A.hbStartRound(s.players,s.hb,0,()=>0);s.players[0].strikes=2;s.hb.bombs[0].holder=0;
+      A.hbTick(s.players,s.hb,s.hb.bombs[0].explodeAt);A.hbFinishState(s);A.hbFinishState(s);
+      return s.players[1].roundsWon===1;
+    })());
+  });
+
   suite('Draw-it — roster wiring',()=>{
     const g=A.GAMES.find(x=>x.id==='drawit');
     check('the game is on the roster',!!g);
@@ -4144,7 +4181,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'dwLang','dwPickWord','dwGuessPoints','dwRoundScores','dwFmt','lDealDrawit','dwShowWord','dwStart','dwToggleCredit','dwEndRound','dwEndMatch','dwTick',
   'dwNormalize','dwGuessMatches','dwHint','dwBuildRound','oDwNewRound','dwFinalizeState',
   'DW_HARD_EN','DW_HARD_DE','DW_PAPER','dwPool','dwCustomList','dwPickChoices','dwSpeedBonus','dwIsClose','dwLevenshtein','dwPick','dwLevel','dwCustomText','dwMatchOver','dwProgressText','DW_MATCHES','DW_SCORE_TARGET','dwMatchMode',
-  'ldRollDice','ldTotalDice','ldCount','ldValidBid','ldMinN','ldCanRaise','ldResolve','ldActiveCount','ldNextActive','ldOpener','ldFaceProb','ldAtLeastProb','ldBotMove','LD_START_DICE','ldBuildReveal','ldCountLine','ldFaceName','ldFaceGlyph','oLdNewRound','SM_LEN','SM_SUMS','SM_MAX_ACTIVE','SM_WIN_TOPS','SM_SUMMIT_TARGET','SM_SUMMIT_TRIES','smSpaceAt','smRoll4','smSplits','smNewPlayer','smNewGame','smFreshTurn','smCur','smActive','smOptions','smStep','smRollTurn','smPick','smNextTurn','smBust','smCamp','smSummitOk','smSummitRoll','smBustProb','smStake','smBotPick','smBotDecide','HB_STRIKES','HB_BOOM_MS','HB_LOCK_MS','HB_FREEZE_MS','HB_CARDS','HB_CARD_INFO','hbNewPlayer','hbNewGame','hbAlive','hbBomb','hbFuseMs','hbMakeBomb','hbStartRound','hbCanPass','hbPass','hbUseCard','hbExplode','hbTick','hbShownSeconds','hbRanking','hbBotPick','oSmNewGame','smApplyRoll','smApplyPick','smApplyCamp','smApplySummit','smApplyAdvance','smAutoTurn','SM_BUST_MS','SM_WIN_MS','SM_ZONES','SM_COLORS','smZone','smRank','ldApplyBid','ldApplyChallenge','ldAdvanceState','ldAutoMove','LD_REVEAL_MS',
+  'ldRollDice','ldTotalDice','ldCount','ldValidBid','ldMinN','ldCanRaise','ldResolve','ldActiveCount','ldNextActive','ldOpener','ldFaceProb','ldAtLeastProb','ldBotMove','LD_START_DICE','ldBuildReveal','ldCountLine','ldFaceName','ldFaceGlyph','oLdNewRound','SM_LEN','SM_SUMS','SM_MAX_ACTIVE','SM_WIN_TOPS','SM_SUMMIT_TARGET','SM_SUMMIT_TRIES','smSpaceAt','smRoll4','smSplits','smNewPlayer','smNewGame','smFreshTurn','smCur','smActive','smOptions','smStep','smRollTurn','smPick','smNextTurn','smBust','smCamp','smSummitOk','smSummitRoll','smBustProb','smStake','smBotPick','smBotDecide','oHbNewGame','hbFinishState','HB_STRIKES','HB_BOOM_MS','HB_LOCK_MS','HB_FREEZE_MS','HB_CARDS','HB_CARD_INFO','hbNewPlayer','hbNewGame','hbAlive','hbBomb','hbFuseMs','hbMakeBomb','hbStartRound','hbCanPass','hbPass','hbUseCard','hbExplode','hbTick','hbShownSeconds','hbRanking','hbBotPick','oSmNewGame','smApplyRoll','smApplyPick','smApplyCamp','smApplySummit','smApplyAdvance','smAutoTurn','SM_BUST_MS','SM_WIN_MS','SM_ZONES','SM_COLORS','smZone','smRank','ldApplyBid','ldApplyChallenge','ldAdvanceState','ldAutoMove','LD_REVEAL_MS',
   'computeSidePots','settleSidePots','roulPayoutMultiplier','roulBetWins','yScoreForCategory','yFreshScorecard',
   'getHistory','getFamily','getAchievements','getResumableMatch','tonightStats','familyStats','rDataOv',
   'SLOT_SYMBOLS','SLOT_PAYLINES','SLOT_SCATTER_PAY','SLOT_JACKPOT_MIN','SLOT_FREE_SPINS_AWARD','SLOT_FREE_SPINS_RETRIGGER',
