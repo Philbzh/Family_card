@@ -1400,6 +1400,87 @@ function run(A,W){
     })());
   });
 
+  suite('Summit — roster and the table it draws',()=>{
+    const g=A.GAMES.find(x=>x.id==='summit');
+    check('the game is on the roster in Dice Games, for 2 to 6, with rules',!!g&&g.cat==='dice'&&g.minP===2&&g.maxP===6&&g.rules.length>=5);
+    check('it has bots, like every other local game',A.BOT_GAMES.has('summit'));
+    eq('the mountain has five altitude zones, from Base Camp to the Summit',A.SM_ZONES.map(z=>z.n),['Base Camp','Forest','Cliff','Snow','Summit']);
+    eq('steps map to zones',[0,2,3,5,6,8,9,11,12,13].map(A.smZone),[0,0,1,1,2,2,3,3,4,4]);
+    check('rank puts the winner first, then routes, then crystals',(()=>{
+      const a={order:[1,2,3],cr:0,pos:{},smWon:false},b={order:[1,2],cr:9,pos:{},smWon:false},c={order:[1,2,3],cr:0,pos:{},smWon:true},d={order:[1,2],cr:3,pos:{},smWon:false};
+      return A.smRank(c)>A.smRank(a)&&A.smRank(a)>A.smRank(b)&&A.smRank(b)>A.smRank(d);
+    })());
+    // draw the table for a position and look at what is in the markup
+    const keep={scr:A.G.scr,lp:A.G.lp,game:A.G.selGame,online:A.G.isOnline,sm:A.G.sm,lcur:A.G.lcur};
+    try{
+      A.G.isOnline=false;A.G.selGame='summit';
+      A.G.lp=[0,1,2].map(i=>({id:i+1,name:'P'+(i+1),avatar:A.AVATARS[0]}));
+      W.lDealSummit();A.G.lcur=0;
+      let html=W.rSummitTable();
+      const doc=new DOMParser().parseFromString(html,'text/html');
+      check('the table shows the mountain, its eleven routes and a roll button',!!doc.querySelector('.sm-scene')&&doc.querySelectorAll('.sm-svg text').length>=11&&!!doc.querySelector('[data-a="sm-roll"]'));
+      eq('every player has a standing',doc.querySelectorAll('.sm-pill').length,3);
+      A.G.lp[0].pos={7:5};A.G.lp[0].tmp={7:6,6:2};A.G.lp[0].order=[12];A.G.sm.t.dice=[1,2,3,4];A.G.sm.t.phase='decide';
+      const d2=new DOMParser().parseFromString(W.rSummitTable(),'text/html');
+      check('secured positions show as dots and active routes as climbers',d2.querySelectorAll('.sm-peg.sec').length===1&&d2.querySelectorAll('.sm-peg.clm').length===2);
+      check('the decide phase offers climbing on or camping, with the avalanche risk',!!d2.querySelector('[data-a="sm-camp"]')&&/Avalanche risk/.test(d2.body.textContent));
+      check('a conquered route is flagged at its top',d2.querySelectorAll('.sm-svg polygon[fill="'+A.SM_COLORS[0]+'"]').length>=1);
+      A.G.sm.t.phase='pick';A.G.sm.t.opts=[[5,11],[7]];
+      const d3=new DOMParser().parseFromString(W.rSummitTable(),'text/html');
+      eq('picking shows each choice as a button',d3.querySelectorAll('[data-a="sm-pick"]').length,2);
+      A.G.sm.t.phase='summit';A.G.sm.t.tries=1;
+      check('at the gate the button says Summit Roll and counts tries',/try 2 of 3/.test(new DOMParser().parseFromString(W.rSummitTable(),'text/html').body.textContent));
+      A.G.lp[1].bot='sharp';A.G.lcur=1;A.G.sm.t.phase='roll';
+      const d4=new DOMParser().parseFromString(W.rSummitTable(),'text/html');
+      check('on a bot’s turn a person gets no buttons',!d4.querySelector('[data-a^="sm-"]'));
+    } finally {
+      W.smClearTimers();W.clearBotTurn();Object.assign(A.G,{scr:keep.scr,lp:keep.lp,selGame:keep.game,isOnline:keep.online,sm:keep.sm,lcur:keep.lcur});
+    }
+  });
+
+  suite('Summit — played through the real engine',()=>{
+    // Bots play whole matches through the real handlers (roll, pick, camp, summit roll). The avalanche
+    // pause and the victory pause run on timers; here they are settled on the spot, which is what they do.
+    const keep={scr:A.G.scr,lp:A.G.lp,game:A.G.selGame,online:A.G.isOnline,nid:A.G.nid,tw:A.G.tw,sm:A.G.sm,lcur:A.G.lcur,start:A.G.lstart};
+    const keepLs={};['ct_history','ct_achievements','ct_tw','ct_gp'].forEach(k=>keepLs[k]=localStorage.getItem(k));
+    const bad=[];const note=m=>{if(bad.indexOf(m)<0)bad.push(m);};
+    const mkP=(i,bot)=>({id:i+1,name:'P'+(i+1),avatar:A.AVATARS[0],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false,bot});
+    localStorage.setItem('ct_history','[]');
+    let matches=0;
+    try{
+      for(const n of [2,3,4,6]){
+        A.G.isOnline=false;A.G.selGame='summit';A.G.nid=99;
+        A.G.lp=Array.from({length:n},(_,i)=>mkP(i,i%2?'sharp':'gentle'));
+        const before=A.getHistory().length;
+        W.lStartMatch();W.render();
+        let steps=0;
+        while(A.G.scr!=='matchend'&&steps++<6000){
+          A.G.scr='table';
+          const sm=A.G.sm;
+          if(sm.over){W.smClearTimers();W.smEnd();continue;}
+          if(sm.t.phase==='bust'){W.smClearTimers();A.G.lcur=A.smBust(A.G.lp,sm,A.G.lcur);continue;}
+          if(A.G.lp[A.G.lcur].tmp&&Object.keys(A.G.lp[A.G.lcur].tmp).length>3){note('more than three active routes');break;}
+          W.botSummitAct(A.G.lp[A.G.lcur]);
+          if(sm.t.phase==='bust'){W.smClearTimers();A.G.lcur=A.smBust(A.G.lp,sm,A.G.lcur);}
+        }
+        if(A.G.scr!=='matchend'){note('a '+n+'-player match did not finish');continue;}
+        matches++;
+        const w=A.G.lp.find(p=>p.smWon);
+        if(!w||w.order.length<3)note('the winner should have three conquered routes');
+        if(A.G.lp.filter(p=>p.smWon).length!==1)note('exactly one winner');
+        if(A.getHistory().length!==before+1||A.getHistory()[0].game!=='summit')note('the match should be recorded once');
+        const end=new DOMParser().parseFromString(W.rMatchEnd(),'text/html');
+        if(!/🚩/.test(end.body.textContent)||!/won!/.test(end.body.textContent))note('the final screen should show the winner and routes');
+        if(!new RegExp(w.name+' won').test(end.body.textContent))note('the final screen should name the winner first');
+      }
+    } finally {
+      W.smClearTimers();W.clearBotTurn();
+      Object.assign(A.G,{scr:keep.scr,lp:keep.lp,selGame:keep.game,isOnline:keep.online,nid:keep.nid,tw:keep.tw,sm:keep.sm,lcur:keep.lcur,lstart:keep.start});
+      Object.keys(keepLs).forEach(k=>{if(keepLs[k]===null)localStorage.removeItem(k);else localStorage.setItem(k,keepLs[k]);});
+    }
+    check('bots finish whole matches at 2, 3, 4 and 6 players',bad.length===0&&matches===4,bad.join('; '));
+  });
+
   suite('Draw-it — roster wiring',()=>{
     const g=A.GAMES.find(x=>x.id==='drawit');
     check('the game is on the roster',!!g);
@@ -3775,7 +3856,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'dwLang','dwPickWord','dwGuessPoints','dwRoundScores','dwFmt','lDealDrawit','dwShowWord','dwStart','dwToggleCredit','dwEndRound','dwEndMatch','dwTick',
   'dwNormalize','dwGuessMatches','dwHint','dwBuildRound','oDwNewRound','dwFinalizeState',
   'DW_HARD_EN','DW_HARD_DE','DW_PAPER','dwPool','dwCustomList','dwPickChoices','dwSpeedBonus','dwIsClose','dwLevenshtein','dwPick','dwLevel','dwCustomText','dwMatchOver','dwProgressText','DW_MATCHES','DW_SCORE_TARGET','dwMatchMode',
-  'ldRollDice','ldTotalDice','ldCount','ldValidBid','ldMinN','ldCanRaise','ldResolve','ldActiveCount','ldNextActive','ldOpener','ldFaceProb','ldAtLeastProb','ldBotMove','LD_START_DICE','ldBuildReveal','ldCountLine','ldFaceName','ldFaceGlyph','oLdNewRound','SM_LEN','SM_SUMS','SM_MAX_ACTIVE','SM_WIN_TOPS','SM_SUMMIT_TARGET','SM_SUMMIT_TRIES','smSpaceAt','smRoll4','smSplits','smNewPlayer','smNewGame','smFreshTurn','smCur','smActive','smOptions','smStep','smRollTurn','smPick','smNextTurn','smBust','smCamp','smSummitOk','smSummitRoll','smBustProb','smStake','smBotPick','smBotDecide','ldApplyBid','ldApplyChallenge','ldAdvanceState','ldAutoMove','LD_REVEAL_MS',
+  'ldRollDice','ldTotalDice','ldCount','ldValidBid','ldMinN','ldCanRaise','ldResolve','ldActiveCount','ldNextActive','ldOpener','ldFaceProb','ldAtLeastProb','ldBotMove','LD_START_DICE','ldBuildReveal','ldCountLine','ldFaceName','ldFaceGlyph','oLdNewRound','SM_LEN','SM_SUMS','SM_MAX_ACTIVE','SM_WIN_TOPS','SM_SUMMIT_TARGET','SM_SUMMIT_TRIES','smSpaceAt','smRoll4','smSplits','smNewPlayer','smNewGame','smFreshTurn','smCur','smActive','smOptions','smStep','smRollTurn','smPick','smNextTurn','smBust','smCamp','smSummitOk','smSummitRoll','smBustProb','smStake','smBotPick','smBotDecide','SM_ZONES','SM_COLORS','smZone','smRank','ldApplyBid','ldApplyChallenge','ldAdvanceState','ldAutoMove','LD_REVEAL_MS',
   'computeSidePots','settleSidePots','roulPayoutMultiplier','roulBetWins','yScoreForCategory','yFreshScorecard',
   'getHistory','getFamily','getAchievements','getResumableMatch','tonightStats','familyStats','rDataOv',
   'SLOT_SYMBOLS','SLOT_PAYLINES','SLOT_SCATTER_PAY','SLOT_JACKPOT_MIN','SLOT_FREE_SPINS_AWARD','SLOT_FREE_SPINS_RETRIGGER',
