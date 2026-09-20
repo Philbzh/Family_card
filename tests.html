@@ -2112,6 +2112,55 @@ function run(A,W){
     check('every game still belongs to a known category',A.GAMES.every(x=>A.GAME_CATEGORIES.some(c=>c.id===x.cat)));
   });
 
+  suite('The Vault — chaos: surges and lost signals',()=>{
+    const P=n=>({id:'id-'+n,name:n,avatar:A.AVATARS[0],totalScore:0,roundsWon:0});
+    const mk=(diff,n,seed)=>A.oVtNewGame({host:'id-A',hr:{}},'ABCDEF'.slice(0,n||3).split('').map(P),'pirate',diff,seed||99);
+    check('Family has no chaos at all',(()=>{const s=mk(0);for(let ch=0;ch<5;ch++){A.vtStartChapter(s,ch,1);if(s.vt.evSched)return false;}return true;})());
+    check('Challenge plans one event in each of chapters 2 to 4, and none in the first or last',(()=>{
+      const s=mk(1);const got=[];for(let ch=0;ch<5;ch++){A.vtStartChapter(s,ch,1000);got.push(!!s.vt.evSched);}
+      return got.join()==='false,true,true,true,false';
+    })());
+    check('Expert adds a fifth-chapter event as well',(()=>{const s=mk(2);const got=[];for(let ch=0;ch<5;ch++){A.vtStartChapter(s,ch,1000);got.push(!!s.vt.evSched);}return got.join()==='false,true,true,true,true';})());
+    check('an event comes 30 to 60 seconds into its chapter, planned from the seed (every device agrees)',(()=>{
+      const a=mk(1,3,5),b=mk(1,3,5);A.vtStartChapter(a,1,5000);A.vtStartChapter(b,1,5000);
+      const e=a.vt.evSched;return JSON.stringify(e)===JSON.stringify(b.vt.evSched)&&e.at>=35000&&e.at<=65000&&e.done===false&&e.who>=0&&e.who<3;
+    })());
+    check('the kinds alternate: surge, signal, surge, signal',(()=>{const s=mk(2);const k=[];for(let ch=1;ch<5;ch++){A.vtStartChapter(s,ch,1);k.push(s.vt.evSched.kind);}return k.join()==='surge,signal,surge,signal';})());
+    // a surge
+    let s=mk(1);A.vtStartChapter(s,1,1000);
+    const es=s.vt.evSched;
+    check('nothing happens before the event is due',!A.vtApplyTick(s,es.at-1));
+    const before=A.vtRemaining(s.vt.clock,es.at);
+    check('a SECURITY SURGE takes exactly 30 seconds off the clock and leaves a banner note',A.vtApplyTick(s,es.at)&&A.vtRemaining(s.vt.clock,es.at)===before-A.VT_SURGE_MS&&/SURGE/.test(s.vt.note.text)&&s.vt.note.n===1&&es.done===true);
+    check('and it only ever happens once (every device ticks)',!A.vtApplyTick(s,es.at+1)&&s.vt.note.n===1);
+    check('a new chapter clears the old event and plans its own',(()=>{A.vtStartChapter(s,2,es.at+5000);return s.vt.event===null&&s.vt.evSched&&s.vt.evSched.done===false&&s.vt.evSched.kind==='signal';})());
+    // a lost signal
+    const sg=s.vt.evSched;
+    check('a LOST SIGNAL blanks one named player for 25 seconds',A.vtApplyTick(s,sg.at)&&s.vt.event.kind==='signal'&&s.vt.event.who===sg.who&&s.vt.event.until===sg.at+A.VT_SIGNAL_MS&&/SIGNAL LOST/.test(s.vt.note.text)&&s.vt.note.text&&s.vt.note.sub.indexOf('ABC'[sg.who])>=0);
+    check('a surge cannot be the cause of running out of time twice: time up still ends the game',(()=>{
+      const t=mk(1);A.vtStartChapter(t,1,0);t.vt.evSched.at=10;
+      const left=A.vtRemaining(t.vt.clock,5);t.vt.clock.spent=t.vt.clock.budget-20000;
+      return A.vtApplyTick(t,10)&&A.vtApplyTick(t,11)&&t.vt.scene.kind==='failed'&&left>0;
+    })());
+    // the blank panel
+    const keep={online:A.G.isOnline,srv:A.G.srv,pid:A.G.myPid,game:A.G.selGame,scr:A.G.scr};
+    try{
+      const st=mk(1,3,321);A.vtStartChapter(st,2,Date.now());
+      st.vt.event={kind:'signal',who:1,until:Date.now()+60000};
+      A.G.isOnline=true;A.G.srv=st;A.G.selGame='vault';A.G.scr='table';
+      const parse=h=>new DOMParser().parseFromString(h,'text/html');
+      A.G.myPid='id-B';const blank=parse(W.rVaultTable());
+      check('the player whose signal is lost sees no clues, only the message',blank.querySelectorAll('.vt-clue').length===0&&/SIGNAL LOST/.test(blank.body.textContent));
+      A.G.myPid='id-A';const fine=parse(W.rVaultTable());
+      check('everyone else still sees theirs',fine.querySelectorAll('.vt-clue').length===st.vt.puz.deal[0].length);
+      st.vt.event={kind:'signal',who:1,until:Date.now()-1};
+      A.G.myPid='id-B';
+      check('and when the signal comes back the clues do too',parse(W.rVaultTable()).querySelectorAll('.vt-clue').length===st.vt.puz.deal[1].length);
+    } finally {
+      W.vtStop();Object.assign(A.G,{isOnline:keep.online,srv:keep.srv,myPid:keep.pid,selGame:keep.game,scr:keep.scr});
+    }
+  });
+
   suite('Draw-it — roster wiring',()=>{
     const g=A.GAMES.find(x=>x.id==='drawit');
     check('the game is on the roster',!!g);
@@ -4487,7 +4536,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'dwLang','dwPickWord','dwGuessPoints','dwRoundScores','dwFmt','lDealDrawit','dwShowWord','dwStart','dwToggleCredit','dwEndRound','dwEndMatch','dwTick',
   'dwNormalize','dwGuessMatches','dwHint','dwBuildRound','oDwNewRound','dwFinalizeState',
   'DW_HARD_EN','DW_HARD_DE','DW_PAPER','dwPool','dwCustomList','dwPickChoices','dwSpeedBonus','dwIsClose','dwLevenshtein','dwPick','dwLevel','dwCustomText','dwMatchOver','dwProgressText','DW_MATCHES','DW_SCORE_TARGET','dwMatchMode',
-  'ldRollDice','ldTotalDice','ldCount','ldValidBid','ldMinN','ldCanRaise','ldResolve','ldActiveCount','ldNextActive','ldOpener','ldFaceProb','ldAtLeastProb','ldBotMove','LD_START_DICE','ldBuildReveal','ldCountLine','ldFaceName','ldFaceGlyph','oLdNewRound','SM_LEN','SM_SUMS','SM_MAX_ACTIVE','SM_WIN_TOPS','SM_SUMMIT_TARGET','SM_SUMMIT_TRIES','smSpaceAt','smRoll4','smSplits','smNewPlayer','smNewGame','smFreshTurn','smCur','smActive','smOptions','smStep','smRollTurn','smPick','smNextTurn','smBust','smCamp','smSummitOk','smSummitRoll','smBustProb','smStake','smBotPick','smBotDecide','VT_ADV','VT_ADV_IDS','vtStory','vtFill','vtChapterSkin','vtSceneLines','vtSpeaker','oVtNewGame','vtStartChapter','vtApplyAdvance','vtSceneSig','VT_INTRO_MS','vtApplyBoard','vtApplySubmit','vtApplyHint','vtApplyClear','vtApplyTick','vtApplyRestart','vtRng','vtInt','vtPick','vtShuffle','VT_DIFFS','vtAll','vtHolds','vtCountClues','vtPool','vtClueText','VT_SKIN_PLAIN','vtGenCsp','vtSize','vtGenOrder','vtGenDial','vtGenSeq','vtGenCode','VT_GEN','vtCount','vtCheck','vtMakePuzzle','vtHints','vtClock','vtResume','vtPause','vtRemaining','vtPenalty','VT_LEVELS','vtScore','vtFmtTime','oHbNewGame','hbFinishState','HB_STRIKES','HB_BOOM_MS','HB_LOCK_MS','HB_FREEZE_MS','HB_CARDS','HB_CARD_INFO','hbNewPlayer','hbNewGame','hbAlive','hbBomb','hbFuseMs','hbMakeBomb','hbStartRound','hbCanPass','hbPass','hbUseCard','hbExplode','hbTick','hbShownSeconds','hbRanking','hbBotPick','oSmNewGame','smApplyRoll','smApplyPick','smApplyCamp','smApplySummit','smApplyAdvance','smAutoTurn','SM_BUST_MS','SM_WIN_MS','SM_ZONES','SM_COLORS','smZone','smRank','ldApplyBid','ldApplyChallenge','ldAdvanceState','ldAutoMove','LD_REVEAL_MS',
+  'ldRollDice','ldTotalDice','ldCount','ldValidBid','ldMinN','ldCanRaise','ldResolve','ldActiveCount','ldNextActive','ldOpener','ldFaceProb','ldAtLeastProb','ldBotMove','LD_START_DICE','ldBuildReveal','ldCountLine','ldFaceName','ldFaceGlyph','oLdNewRound','SM_LEN','SM_SUMS','SM_MAX_ACTIVE','SM_WIN_TOPS','SM_SUMMIT_TARGET','SM_SUMMIT_TRIES','smSpaceAt','smRoll4','smSplits','smNewPlayer','smNewGame','smFreshTurn','smCur','smActive','smOptions','smStep','smRollTurn','smPick','smNextTurn','smBust','smCamp','smSummitOk','smSummitRoll','smBustProb','smStake','smBotPick','smBotDecide','VT_ADV','VT_ADV_IDS','vtStory','vtFill','vtChapterSkin','vtSceneLines','vtSpeaker','oVtNewGame','vtStartChapter','vtApplyAdvance','vtSceneSig','VT_INTRO_MS','vtApplyBoard','vtApplySubmit','vtApplyHint','vtApplyClear','vtApplyTick','vtApplyRestart','VT_SURGE_MS','VT_SIGNAL_MS','vtPlanEvent','vtNote','vtRng','vtInt','vtPick','vtShuffle','VT_DIFFS','vtAll','vtHolds','vtCountClues','vtPool','vtClueText','VT_SKIN_PLAIN','vtGenCsp','vtSize','vtGenOrder','vtGenDial','vtGenSeq','vtGenCode','VT_GEN','vtCount','vtCheck','vtMakePuzzle','vtHints','vtClock','vtResume','vtPause','vtRemaining','vtPenalty','VT_LEVELS','vtScore','vtFmtTime','oHbNewGame','hbFinishState','HB_STRIKES','HB_BOOM_MS','HB_LOCK_MS','HB_FREEZE_MS','HB_CARDS','HB_CARD_INFO','hbNewPlayer','hbNewGame','hbAlive','hbBomb','hbFuseMs','hbMakeBomb','hbStartRound','hbCanPass','hbPass','hbUseCard','hbExplode','hbTick','hbShownSeconds','hbRanking','hbBotPick','oSmNewGame','smApplyRoll','smApplyPick','smApplyCamp','smApplySummit','smApplyAdvance','smAutoTurn','SM_BUST_MS','SM_WIN_MS','SM_ZONES','SM_COLORS','smZone','smRank','ldApplyBid','ldApplyChallenge','ldAdvanceState','ldAutoMove','LD_REVEAL_MS',
   'computeSidePots','settleSidePots','roulPayoutMultiplier','roulBetWins','yScoreForCategory','yFreshScorecard',
   'getHistory','getFamily','getAchievements','getResumableMatch','tonightStats','familyStats','rDataOv',
   'SLOT_SYMBOLS','SLOT_PAYLINES','SLOT_SCATTER_PAY','SLOT_JACKPOT_MIN','SLOT_FREE_SPINS_AWARD','SLOT_FREE_SPINS_RETRIGGER',
