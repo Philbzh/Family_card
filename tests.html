@@ -3662,6 +3662,295 @@ async function runPresentation(A,W,frame){
       G.lp.every(p=>p.fkOnBoard&&p.totalScore>=9600));
   });
 
+  /* —— BUST: scoring is deterministic and distinct from Farkle's, same shape though —————— */
+  suite('BUST scores a selection the same way every time -- bigger numbers, same shape as Farkle',()=>{
+    const ev=A.bstEvaluateValues;
+    check('a single 1 is 200',ev([1])===200);
+    check('a single 5 is 100',ev([5])===100);
+    check('two 1s is 400 (loose, not a kind)',ev([1,1])===400);
+    check('a lone 2 cannot score',ev([2])===null);
+    check('a pair of anything but 1/5 cannot score',ev([3,3])===null);
+    check('three 1s is 2000, not 3x200',ev([1,1,1])===2000);
+    check('three of any other face is face x200',ev([4,4,4])===800);
+    check('four of a kind doubles the triple value',ev([2,2,2,2])===800);
+    check('five of a kind triples it',ev([3,3,3,3,3])===1800);
+    check('six of a kind quadruples it',ev([6,6,6,6,6,6])===4800);
+    check('a straight 1-6 is 3000 flat',ev([1,2,3,4,5,6])===3000);
+    check('three pairs is 3000 flat',ev([2,2,3,3,4,4])===3000);
+    check('a triple pairs with loose 1s/5s alongside it',ev([1,1,1,5,5])===2200);
+    check('one unscorable value poisons the WHOLE selection, even next to a valid triple',
+      ev([1,1,1,2])===null,'got '+ev([1,1,1,2]));
+    check('an empty selection is invalid, not zero',ev([])===null);
+  });
+
+  /* —— BUST: the danger level swaps in themed dice, and there are two distinct ways to go out —— */
+  suite('BUST: dice kinds escalate with the danger level, and busting has two distinguishable reasons',()=>{
+    eq('level 1 is six plain dice',A.bstDiceKinds(1,6),['normal','normal','normal','normal','normal','normal']);
+    eq('level 2 introduces one danger die',A.bstDiceKinds(2,6),['danger','normal','normal','normal','normal','normal']);
+    eq('level 3 adds a second danger die and the instant-bust die',A.bstDiceKinds(3,6),['danger','danger','bust','normal','normal','normal']);
+    eq('level 4 adds the multiplier die on top',A.bstDiceKinds(4,6),['danger','danger','bust','mult','normal','normal']);
+    eq('level 5 -- FINAL RISK -- leaves no plain dice at all with six live',A.bstDiceKinds(5,6),['danger','danger','bust','mult','bonus','shield']);
+    check('with fewer live dice, the level-5 pool still fits within however many are left, all of them special',
+      A.bstDiceKinds(5,3).length===3&&A.bstDiceKinds(5,3).every(k=>k!=='normal'));
+    check('the level is clamped -- never past 5, never under 1',
+      JSON.stringify(A.bstDiceKinds(9,6))===JSON.stringify(A.bstDiceKinds(5,6))&&JSON.stringify(A.bstDiceKinds(0,6))===JSON.stringify(A.bstDiceKinds(1,6)));
+
+    const die=(kind,face)=>({kind,face});
+    check('the instant-bust die alone ends the roll even next to real scoring dice',
+      A.bstIsInstantBust([die('normal',1),die('bust','boom'),die('normal',3)])===true);
+    check('a genuine "nothing scores" roll is a bust for the ordinary reason, not the instant one',
+      A.bstIsBustRoll([die('normal',2),die('normal',3),die('normal',4),die('danger','skull'),die('normal',6),die('normal',2)])===true
+      &&A.bstIsInstantBust([die('normal',2),die('normal',3),die('normal',4),die('danger','skull'),die('normal',6),die('normal',2)])===false);
+    check('any 1 or 5 keeps a roll alive even with danger dice mixed in',
+      A.bstIsBustRoll([die('normal',1),die('danger','skull'),die('normal',3)])===false);
+  });
+
+  /* —— BUST: dead dice can never be picked, riders ride along, a shield rider grants protection —— */
+  suite('BUST: skulls are dead weight, riders only ride, and a shield rider protects without scoring',()=>{
+    const die=(kind,face)=>({kind,face}),sel=A.bstEvaluateSelection;
+    check('a skull can never be part of a selection, even alongside a real scoring die',
+      sel([die('normal',1),die('danger','skull')],[true,true])===null);
+    check('a rider alone, with nothing scoring alongside it, is illegal',
+      sel([die('mult','fire')],[true])===null);
+    check('a multiplier rider doubles the scoring selection it rides with',
+      sel([die('normal',1),die('mult','fire')],[true,true]).score===400);
+    check('a bonus rider adds a flat 500 to the selection it rides with',
+      sel([die('normal',1),die('bonus','coin')],[true,true]).score===700);
+    check('a shield rider does not change the score, only grants protection',(()=>{
+      const r=sel([die('normal',1),die('shield','ward')],[true,true]);
+      return r.score===200&&r.shield===true;
+    })());
+    check('picking only a numeric die with no rider carries no shield',
+      sel([die('normal',1)],[true]).shield===false);
+  });
+
+  /* —— BUST: bots select every scoring die and rider, and know when to stop —————— */
+  suite('BUST bots take every scoring die and every rider, and know when to stop',()=>{
+    const die=(kind,face)=>({kind,face}),pick=A.bstBotSelect;
+    check('takes both loose singles and a complete triple, leaves a dead skull alone',
+      JSON.stringify(pick([die('normal',1),die('normal',5),die('danger',2),die('danger',2),die('normal',2),die('danger','skull')]))
+      ===JSON.stringify([true,true,true,true,true,false]));
+    check('recognises a straight across all six and takes the lot',
+      pick([1,2,3,4,5,6].map(f=>die('normal',f))).every(Boolean));
+    check('recognises three pairs across all six and takes the lot',
+      pick([die('normal',2),die('normal',2),die('normal',3),die('normal',3),die('normal',4),die('normal',4)]).every(Boolean));
+    check('always piggybacks a multiplier/bonus/shield rider once there is a real selection to ride',
+      pick([die('normal',1),die('mult','fire'),die('bonus','coin'),die('shield','ward')]).every(Boolean));
+
+    const bank=A.bstBotShouldBank;
+    check("won't bank before posting the entry minimum, regardless of level",
+      !bank(500,3,false,1,'sharp',false)&&!bank(9000,3,false,1,'gentle',false));
+    check('gentle folds a decent score rather than push',
+      bank(900,2,true,1,'gentle',false));
+    check('gentle banks outright once the danger reaches FINAL RISK, even on a modest score',
+      bank(500,4,true,4,'gentle',false));
+    check('sharp keeps pushing on the same score at level 1 with four dice still live',
+      !bank(900,4,true,1,'sharp',false));
+    check('the same score and dice count gets riskier for sharp as the danger level climbs',
+      !bank(900,4,true,1,'sharp',false)&&bank(900,4,true,5,'sharp',false));
+    check('a live shield can flip sharp from banking to pushing one more roll, at the same score/dice/level',
+      bank(1300,3,true,1,'sharp',false)===true&&bank(1300,3,true,1,'sharp',true)===false);
+  });
+
+  /* —— BUST: the real engine, not a re-implementation of it —————— */
+  suite('BUST plays a real turn end to end through the local engine, including the danger level',()=>{
+    const G=W.eval('G'),bstToggleSelect=W.eval('bstToggleSelect'),bstContinue=W.eval('bstContinue'),
+      bstBank=W.eval('bstBank'),lStartMatch=W.eval('lStartMatch');
+    const mk=(id,n)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,
+      chips:1000,bet:0,folded:false,allIn:false});
+    const die=(kind,face)=>({kind,face});
+    G.isOnline=false;G.srv=null;G.selGame='bust';
+    G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;lStartMatch();
+    const starter=G.lcur;
+    check('the turn starts at danger level 1',G.bst.level===1);
+
+    // Force a known roll rather than trust the RNG: three 1s, a 5, and two dice that can't score alone.
+    G.bst.dice=[die('normal',1),die('normal',1),die('normal',1),die('normal',5),die('normal',2),die('normal',3)];
+    G.bst.hasRolled=true;G.bst.selected=[false,false,false,false,false,false];
+    bstToggleSelect(0);bstToggleSelect(1);bstToggleSelect(2);bstToggleSelect(3);
+    check('selecting the three 1s and the 5 scores 2100 (2000 + 100)',
+      A.bstEvaluateSelection(G.bst.dice,G.bst.selected).score===2100);
+    bstContinue();
+    check('the two unselected, non-scoring dice are exactly what carries over',G.bst.dice.length===2);
+    check("the turn total banks the set-aside score even before the whole turn ends",G.bst.turnTotal===2100);
+    check('hasRolled resets so the player must roll the carried-over dice again',G.bst.hasRolled===false);
+    check('pushing on for one more roll raised the danger level to 2',G.bst.level===2);
+
+    // Hot dice: use every live die and get a fresh six without losing the running total or the level.
+    G.bst.dice=[die('normal',1),die('normal',5)];G.bst.hasRolled=true;G.bst.selected=[false,false];
+    bstToggleSelect(0);bstToggleSelect(1);
+    bstContinue();
+    check('using every die restores a full six (Hot Dice)',G.bst.dice.length===6);
+    check('the turn total survives the hot-dice reset',G.bst.turnTotal===2400);
+    check('the danger level keeps climbing through Hot Dice -- it does not reset',G.bst.level===3);
+
+    // Bank it -- first bank of the game, comfortably over the 600 entry minimum.
+    G.bst.dice=[die('normal',3),die('normal',3),die('normal',3),die('normal',2),die('normal',2),die('normal',2)];
+    G.bst.hasRolled=true;G.bst.selected=new Array(6).fill(true);
+    bstBank();
+    check('banking adds the turn total to the permanent score (2400 carried + 600 for three 3s + 400 for three 2s)',
+      G.lp[starter].totalScore===3400);
+    check('the player is now on the board',G.lp[starter].bstOnBoard===true);
+    check('the turn passes to the other seat',G.lcur!==starter);
+    check("the next player's turn starts clean, back at danger level 1",
+      G.bst.turnTotal===0&&G.bst.hasRolled===false&&G.bst.level===1);
+
+    // A first bank under 600 must be refused, not silently allowed.
+    const before=G.lcur;
+    G.bst.dice=[die('normal',2),die('normal',4),die('normal',1)];G.bst.hasRolled=true;G.bst.selected=[false,false,true];
+    bstBank();
+    check('a first bank under the 600 entry minimum is refused',
+      G.lcur===before&&G.lp[before].totalScore===0&&!G.lp[before].bstOnBoard);
+  });
+
+  /* —— BUST: busting loses the turn's unbanked points, not the player's whole score —————— */
+  suite('BUST: a bust costs only what was never banked',()=>{
+    const G=W.eval('G'),bstFarkleOut=W.eval('bstFarkleOut'),lStartMatch=W.eval('lStartMatch');
+    const mk=(id,n)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,
+      chips:1000,bet:0,folded:false,allIn:false});
+    G.isOnline=false;G.srv=null;G.selGame='bust';
+    G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;lStartMatch();
+    const actor=G.lcur;
+    G.lp[actor].totalScore=4000;G.lp[actor].bstOnBoard=true; // already has real, safe, banked points
+    G.bst.turnTotal=900;G.bst.busted=true;G.bst.level=4; // this turn's unbanked total, about to be lost
+    bstFarkleOut();
+    check("busting wipes THIS TURN's total, never the player's already-banked score",
+      G.lp[actor].totalScore===4000);
+    check('the turn passes on',G.lcur!==actor);
+    check('the busted flag clears for the next player',G.bst.busted===false);
+    check('the danger level resets to 1 for the next player',G.bst.level===1);
+  });
+
+  /* —— BUST: a live shield absorbs the next bust instead of losing the turn —————— */
+  suite('BUST: a shield absorbs the next bust and softly ends the turn',()=>{
+    const G=W.eval('G'),bstRoll=W.eval('bstRoll'),lStartMatch=W.eval('lStartMatch');
+    const mk=(id,n)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,
+      chips:1000,bet:0,folded:false,allIn:false});
+    G.isOnline=false;G.srv=null;G.selGame='bust';
+    G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;lStartMatch();
+    const actor=G.lcur;
+    G.lp[actor].totalScore=3000;G.lp[actor].bstOnBoard=true;
+    G.bst.turnTotal=900;G.bst.shielded=true;G.bst.level=3;G.bst.dice=A.bstPlaceholderDice(6);
+    const origRollFace=W.eval('bstRollFace');
+    try{
+      // Force the bust die to show its instant-bust face on this roll -- same technique the Slot
+      // Machine suite uses to pin down a specific spin rather than trust real randomness.
+      W.eval("bstRollFace=function(k){return k==='bust'?'boom':1;}");
+      bstRoll();
+    } finally {
+      W.bstRollFace=origRollFace;
+    }
+    check('the shield is consumed, not carried to the next turn',G.bst.shielded===false);
+    check('the turn is flagged as shield-saved, not a real bust',G.bst.shieldSaved===true&&G.bst.busted===true);
+    check("this turn's total was banked instead of lost",G.lp[actor].totalScore===3900);
+    check('the player is credited as on the board',G.lp[actor].bstOnBoard===true);
+  });
+
+  /* —— BUST: reaching the target starts a last lap, not an instant win —————— */
+  suite('BUST: reaching the target starts a last lap, not an instant win',()=>{
+    const G=W.eval('G'),bstBank=W.eval('bstBank');
+    const mk=(id,n,score)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:score,bstOnBoard:true,
+      roundsWon:0,chips:1000,bet:0,folded:false,allIn:false});
+    const die=(kind,face)=>({kind,face});
+    G.isOnline=false;G.srv=null;G.selGame='bust';
+    G.lp=[mk(1,'A',19600),mk(2,'B',10000),mk(3,'C',12000)];
+    G.lcur=0;
+    G.bst={dice:[die('normal',1),die('normal',1),die('normal',1),die('normal',5),die('normal',2),die('normal',3)],
+      selected:[true,true,true,true,false,false],turnTotal:0,hasRolled:true,lastRolled:[],busted:false,
+      shieldSaved:false,level:1,shielded:false,finalRoundActive:false,finalRoundEndSeat:null};
+    bstBank(); // A banks 2100, crossing 20,000
+    check('crossing the target does not end the game outright',G.scr==='table');
+    check('it arms the final round instead',G.bst.finalRoundActive===true);
+    check('closing after the seat right before the trigger, seat 2 here',G.bst.finalRoundEndSeat===2);
+
+    // B's turn: banking must not end the match early -- B is not the closing seat.
+    G.bst.dice=[die('normal',1)];G.bst.hasRolled=true;G.bst.selected=[true];
+    bstBank();
+    check("B's turn ending does not end the match — B is not the final-round seat",G.scr==='table');
+
+    // C's turn (the designated closing seat): banks a big roll but not enough to overtake A.
+    G.bst.dice=[die('normal',1),die('normal',1),die('normal',1),die('normal',1),die('normal',1),die('normal',5)];
+    G.bst.hasRolled=true;G.bst.selected=new Array(6).fill(true); // 6000 (five 1s) + 100 (one 5)
+    bstBank();
+    check('the match ends the moment the closing seat finishes',G.scr==='matchend');
+    const sorted=[...G.lp].sort((a,b)=>(b.totalScore||0)-(a.totalScore||0));
+    check('A is still ahead after everyone’s final lap and wins',
+      sorted[0].name==='A'&&sorted[0].totalScore===21700);
+    check('C is credited with everything banked on the last lap',
+      G.lp.find(p=>p.name==='C').totalScore===18100);
+  });
+
+  /* —— BUST: the bot driver actually finishes a match, unattended —————— */
+  suite('BUST bots can play a whole match to the end without help',()=>{
+    const G=W.eval('G'),botPendingSig=W.eval('botPendingSig'),botAct=W.eval('botAct'),
+      clearBotTurn=W.eval('clearBotTurn'),bstFarkleOut=W.eval('bstFarkleOut');
+    const mk=(id,n,score)=>({id,name:n,bot:id===1?'gentle':'sharp',avatar:A.AVATARS[id-1],
+      hand:[],totalScore:score,bstOnBoard:true,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false});
+    // Seeded close to the target so this finishes in a handful of ticks rather than a full game.
+    G.isOnline=false;G.srv=null;G.selGame='bust';
+    G.lp=[mk(1,'RoboA',19300),mk(2,'RoboB',19200)];
+    G.lcur=0;
+    G.bst=A.bstFreshTurnState();
+    G.scr='table';
+    let ticks=0,stuck=0,lastSig=null,err=null;
+    while(G.scr==='table'&&ticks<600){
+      const sig=botPendingSig();
+      if(sig===null){
+        // Not "nothing left to do" -- botPendingSig() also returns null for the beat after a bust
+        // OR a shield-save, while the real driver's setTimeout advances the turn. Complete that
+        // advance directly rather than wait out a real timer in this synchronous loop.
+        if(G.bst&&G.bst.busted){bstFarkleOut();ticks++;continue;}
+        break;
+      }
+      if(sig===lastSig){stuck++;if(stuck>40){err='stuck on the same signature: '+sig;break;}}else stuck=0;
+      lastSig=sig;
+      try{botAct();}catch(e){err='threw: '+e.message;break;}
+      clearBotTurn();
+      ticks++;
+    }
+    check('the match reaches matchend on its own',G.scr==='matchend','after '+ticks+' ticks, err='+err);
+    check('nothing threw along the way',!err,err||'');
+    check('both players ended on the board with a real score',
+      G.lp.every(p=>p.bstOnBoard&&p.totalScore>=19200));
+  });
+
+  /* —— BUST: roster wiring and the table it draws —————— */
+  suite('BUST — roster wiring and the table it draws',()=>{
+    const g=A.GAMES.find(x=>x.id==='bust');
+    check('the game is on the roster in Dice Games, for 2 to 8, with rules',
+      !!g&&g.cat==='dice'&&g.minP===2&&g.maxP===8&&g.rules.length>=5);
+    check('it has bots, like every other local dice game',A.BOT_GAMES.has('bust'));
+    check('it supports online play',A.ONLINE_GAMES.includes('bust'));
+
+    const keep={scr:A.G.scr,lp:A.G.lp,game:A.G.selGame,online:A.G.isOnline,bst:A.G.bst,lcur:A.G.lcur};
+    try{
+      A.G.isOnline=false;A.G.selGame='bust';
+      A.G.lp=[0,1,2].map(i=>({id:i+1,name:'P'+(i+1),avatar:A.AVATARS[0],hand:[],totalScore:0,roundsWon:0,
+        chips:1000,bet:0,folded:false,allIn:false}));
+      W.lDealBust();A.G.lcur=0;
+      const doc=new DOMParser().parseFromString(W.rBustTable(),'text/html');
+      check('the table shows the BUST title, a level-1 badge and a roll button',
+        /BUST/.test(doc.querySelector('.gb-game')?.textContent||'')&&
+        /Level 1/.test(doc.querySelector('.bst-level')?.textContent||'')&&
+        !!doc.querySelector('[data-a="bstroll"]'));
+      check('six dice sit in the tray, none of them tappable before the first roll',
+        doc.querySelectorAll('.dice-tray .die').length===6&&doc.querySelectorAll('.dice-tray [data-a="bstselect"]').length===0);
+
+      A.G.bst.dice=[{kind:'normal',face:1},{kind:'danger',face:'skull'},{kind:'normal',face:3},{kind:'normal',face:4},{kind:'normal',face:5},{kind:'normal',face:6}];
+      A.G.bst.hasRolled=true;A.G.bst.level=2;
+      const d2=new DOMParser().parseFromString(W.rBustTable(),'text/html');
+      check('level 2 shows on the badge',/Level 2/.test(d2.querySelector('.bst-level')?.textContent||''));
+      check('the dead skull die is shown but not offered as a tap target',
+        d2.querySelectorAll('.dice-tray [data-a="bstselect"]').length===5);
+
+      A.G.bst.selected=[true,false,false,false,false,false]; // the lone 1
+      const d3=new DOMParser().parseFromString(W.rBustTable(),'text/html');
+      check('a "ONE MORE!" button appears once a legal selection exists',/ONE MORE/.test(d3.body.textContent));
+    } finally {
+      Object.assign(A.G,{scr:keep.scr,lp:keep.lp,selGame:keep.game,isOnline:keep.online,bst:keep.bst,lcur:keep.lcur});
+    }
+  });
+
   /* —— Pig: knowing when to stop is the whole game —————— */
   suite('Pig bots hold around 20, push harder from behind, and never gamble a win',()=>{
     const bank=A.pigBotShouldBank;
@@ -4456,6 +4745,10 @@ async function runPresentation(A,W,frame){
       ['Farkle table',()=>{G.selGame='farkle';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();G.scr='table';}],
       ['Farkle table, mid-turn with a valid selection',()=>{G.selGame='farkle';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();
         G.fk.dice=[1,1,1,5,2,3];G.fk.hasRolled=true;G.fk.selected=[true,true,true,true,false,false];G.scr='table';}],
+      ['BUST table, idle turn',()=>{G.selGame='bust';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();G.scr='table';}],
+      ['BUST table, FINAL RISK level with special dice and a valid selection',()=>{G.selGame='bust';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();
+        G.bst.level=5;G.bst.dice=[{kind:'danger',face:1},{kind:'danger',face:5},{kind:'bust',face:2},{kind:'mult',face:'fire'},{kind:'bonus',face:'coin'},{kind:'shield',face:'ward'}];
+        G.bst.hasRolled=true;G.bst.selected=[true,true,false,true,true,true];G.scr='table';}],
       ['Pig table, idle turn',()=>{G.selGame='pig';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();G.scr='table';}],
       ['Pig table, mid-turn with a danger banner showing',()=>{G.selGame='pig';G.lp=mk(2);G.lstart=0;W.eval('lStartMatch')();
         G.pig.die=6;G.pig.turnTotal=24;G.pig.hasRolled=true;G.scr='table';}],
@@ -4572,6 +4865,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'slotFreeSpinsAwarded','slotPayout','slotTier','getSlotJackpot','setSlotJackpot','lDealSlots','slotStartSpin',
   'slotPassTurn','slotSetBet','botSlotsAct','ROUL_CHIPS','ROUL_CHIPS_HIGH',
   'PIG_TARGET','pigBotShouldBank','lDealPig','pigRoll','pigBank','pigAdvanceTurn','pigEndGame','botPigAct','pigDieHTML','rMatchEnd',
+  'bstEvaluateValues','bstEvaluateSelection','bstHasAnyScore','bstIsInstantBust','bstIsBustRoll','bstDiceKinds','bstBotSelect','bstBotShouldBank','bstPlaceholderDice','bstFreshTurnState','bstRollFace','BST_ENTRY_MIN','BST_TARGET','botBustAct',
   // The live game state, for the presentation tests. Declared with `let` in the app, so like the
   // constants it is script-scoped rather than a window property — the object reference eval hands
   // back is the real one, so mutating it drives the real app.
