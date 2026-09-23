@@ -6233,7 +6233,7 @@ function oEsOnSrv(state,wasLobby){
     _esWrongN=es.wrong.n;
     if(now-es.wrong.at<5000){SFX.esDenied();_esShakeUntil=now+700;
       const lo=es.lockout[es.wrong.lock];
-      esSetBanner({text:lo&&lo>now?'⚠️ SECURITY LOCKOUT':'❌ ACCESS DENIED',sub:lo&&lo>now?'The keypad locks for 15 seconds.':'That is not right — compare your clues again.',kind:'bad'},2200);}
+      stageEmit('ACCESS_DENIED',{text:lo&&lo>now?'SECURITY LOCKOUT':'ACCESS DENIED',sub:lo&&lo>now?'The keypad locks for 15 seconds.':'That is not right — compare your clues again.'});}
   }
   const ssig=Object.keys(es.solved).sort().join(',');
   if(_esSolvedSig!==ssig){
@@ -6245,7 +6245,7 @@ function oEsOnSrv(state,wasLobby){
           SFX.vtTumblers();setTimeout(SFX.vtClunk,520);
           if(G.esFocus===fresh[0])G.esFocus=null;
           const gained=es.inv.filter(i=>true).length>_esInvN&&_esInvN>=0?' A new item is in your inventory!':'';
-          esSetBanner({text:'🔓 '+(lk?lk.lock.label:'Unlocked'),sub:gained.trim()||'Well done!',kind:'good'},2600);
+          stageEmit('LOCK_OPEN',{text:(lk?lk.lock.label:'Unlocked'),sub:gained.trim()||'Well done!'});
         }
       }
     }
@@ -6256,7 +6256,7 @@ function oEsOnSrv(state,wasLobby){
   if(_esRoom!==es.room){if(_esRoom!==''){G.esFocus=null;G.esSel=null;SFX.esCreak();}_esRoom=es.room;}
   if(es.note&&es.note.n>_esNoteN){
     _esNoteN=es.note.n;
-    if(now-es.note.at<6000){if(es.note.kind==='good')SFX.vtReveal();else SFX.vtAlarm();esSetBanner({text:es.note.text,sub:es.note.sub,kind:es.note.kind},3000);}
+    if(now-es.note.at<6000){if(es.note.kind==='good')SFX.vtReveal();else SFX.vtAlarm();stageEmit('ALERT',{text:es.note.text,sub:es.note.sub,kind:es.note.kind});}
   }
   if(es.hintLog.length>_esHintN&&es.phase==='play')SFX.chip();
   _esHintN=es.hintLog.length;
@@ -6391,8 +6391,34 @@ const STAGE_EVENTS={
   HOT_DICE:d=>({text:'HOT DICE!',sub:'Every die scored — roll all six again',tone:'hot',icon:'🔥',who:d.who,ms:1300,pri:1,shake:false}),
   YAHTZEE:d=>({text:'YAHTZEE!',sub:'Five of a kind — 50 points',tone:'gold',icon:'🎲',who:d.who,pri:2}),
   BLACKJACK:d=>({text:'BLACKJACK!',sub:'A natural 21',tone:'gold',icon:'🂡',who:d.who,pri:2}),
-  BIG_WIN:d=>({text:d.text||'BIG WIN!',sub:d.sub,tone:'gold',icon:d.icon||'🏆',who:d.who,pri:2})
+  BIG_WIN:d=>({text:d.text||'BIG WIN!',sub:d.sub,tone:'gold',icon:d.icon||'🏆',who:d.who,pri:2}),
+  ALL_IN:d=>({text:'ALL IN!',sub:'Everything on the table',tone:'hot',icon:'🔥',who:d.who,pri:2,ms:1400}),
+  LIAR:d=>({text:'LIAR!',sub:'Show the dice…',tone:'bad',icon:'🫵',who:d.who,pri:2,ms:1100}),
+  WAR:d=>({text:'WAR!',sub:d.sub||'Cards burned — flip again',tone:'bad',icon:'⚔️',pri:2,ms:1400}),
+  SKIP:d=>({text:'SKIPPED!',sub:'Next player loses a turn',tone:'cool',icon:'⛔',who:d.who,ms:1000,shake:false}),
+  REVERSE:d=>({text:'REVERSE!',sub:'Play changes direction',tone:'cool',icon:'🔄',who:d.who,ms:1000,shake:false}),
+  DRAW_TWO:d=>({text:'+2!',sub:'The next player draws two',tone:'bad',icon:'✌️',who:d.who,ms:1100}),
+  DRAW_FOUR:d=>({text:'+4!',sub:'The next player draws four',tone:'bad',icon:'🃏',who:d.who,ms:1200,pri:2}),
+  WISH:d=>({text:'JACK!',sub:'Choose the next suit',tone:'hot',icon:'🃏',who:d.who,ms:1000,shake:false}),
+  CALL:d=>({text:(d.word||'UNO')+'!',sub:'One card left',tone:'gold',icon:'📣',who:d.who,ms:1000,shake:false}),
+  ACCESS_DENIED:d=>({text:d.text||'ACCESS DENIED',sub:d.sub,tone:'bad',icon:'❌',pri:2,ms:1700}),
+  LOCK_OPEN:d=>({text:d.text||'UNLOCKED',sub:d.sub,tone:'good',icon:'🔓',pri:2,ms:1700,shake:false}),
+  ALERT:d=>({text:d.text||'ALERT',sub:d.sub,tone:d.kind==='good'?'good':'bad',pri:2,ms:2300,shake:d.kind!=='good'})
 };
+// a special card has just landed on the pile (Uno and Mau Mau, local or online)
+function stageCardPlayed(game,card,who){
+  if(!card)return;
+  if(game==='uno'){
+    if(card.value==='skip')stageEmit('SKIP',{who});
+    else if(card.value==='reverse')stageEmit('REVERSE',{who});
+    else if(card.value==='draw2')stageEmit('DRAW_TWO',{who});
+    else if(card.value==='wild4')stageEmit('DRAW_FOUR',{who});
+  } else if(game==='maumau'){
+    if(card.rank==='7')stageEmit('DRAW_TWO',{who});
+    else if(card.rank==='8')stageEmit('SKIP',{who});
+    else if(card.rank==='J')stageEmit('WISH',{who});
+  }
+}
 function stageEmit(name,d){const f=STAGE_EVENTS[name];if(!f)return null;const o=f(d||{});return o?stageMoment(o):null;}
 const BST_LEVEL_LINES={2:['DANGER LEVEL 2','Dead 💀 dice creep in','hot'],3:['DANGER LEVEL 3','A ☠️ die can bust you instantly','bad'],4:['DANGER LEVEL 4','A 🔥 ×2 die joins the pool','bad'],5:['FINAL RISK','Every die is dangerous now','bad']};
 function stageBustLevel(level){stageEmit('DANGER_LEVEL',{level});}
@@ -6416,6 +6442,17 @@ function stageOnSrv(prev,state){
       (state.players||[]).forEach((p,i)=>{const b=(prev.players||[])[i];
         if(b&&b.scorecard&&p.scorecard&&p.scorecard.yahtzee>0&&!(b.scorecard.yahtzee>0))stageEmit('YAHTZEE',{who:p});});
     }
+    else if(g==='maumau'||g==='uno'){
+      const a=(prev.discard||[]),b=(state.discard||[]),top=b[b.length-1],was=a[a.length-1];
+      if(top&&(!was||was.id!==top.id)&&b.length>=a.length)stageCardPlayed(g,top,(prev.players||[])[prev.curIdx||0]);
+    }
+    else if(g==='texas'||g==='fivecard'){
+      (state.players||[]).forEach((p,i)=>{const b=(prev.players||[])[i];if(b&&p.allIn&&!b.allIn&&(state.pokerPhase||state.phase)!=null&&p.chips===0&&!b.folded)stageEmit('ALL_IN',{who:p});});
+    }
+    else if(g==='liarsdice'&&prev.ld&&state.ld&&prev.ld.phase==='bid'&&state.ld.phase==='reveal')
+      stageEmit('LIAR',{who:(state.players||[])[prev.curIdx||0]});
+    else if(g==='battle'&&state.battleLast&&state.battleLast.warRounds>0&&JSON.stringify(state.battleLast)!==JSON.stringify(prev.battleLast||null))
+      stageEmit('WAR',{sub:state.battleLast.warRounds>1?state.battleLast.warRounds+' wars in a row!':undefined});
     else if(g==='blackjack'){
       (state.players||[]).forEach((p,i)=>{const b=(prev.players||[])[i];
         if(b&&p.bjBust&&!b.bjBust)stageEmit('BUST',{who:p,sub:'Over 21'});});
@@ -7232,6 +7269,7 @@ function ldChallenge(){
   const eliminated=loser.dice.length===0;
   if(eliminated)loser.ldOutAt=l.round;
   l.phase='reveal';l.over=ldActiveCount(G.lp)<=1;
+  stageEmit('LIAR',{who:G.lp[challenger]});
   l.rev=ldBuildReveal(G.lp,diceBefore,l.bid,bidder,challenger,r,l.wild,eliminated);
   ldRevealShow(l.rev,Date.now(),ldAfterReveal);
   render();
@@ -9820,7 +9858,7 @@ function oVtOnSrv(state,wasLobby){
   }
   if(vt.note&&vt.note.n>_vtNoteN){
     _vtNoteN=vt.note.n;
-    if(now-vt.note.at<6000){SFX.vtAlarm();vtSetBanner({text:vt.note.text,sub:vt.note.sub,kind:vt.note.kind},3000);}
+    if(now-vt.note.at<6000){SFX.vtAlarm();stageEmit('ALERT',{text:vt.note.text,sub:vt.note.sub,kind:vt.note.kind});}
   }
   if(vt.hintShown>_vtHintN&&vt.phase==='play')SFX.chip();
   _vtHintN=vt.phase==='play'?vt.hintShown:0;
@@ -12746,7 +12784,7 @@ function pokerCall(){
   const p=G.lp[G.lcur];
   const toCall=Math.min(G.currentBet-p.bet,p.chips);
   p.chips-=toCall;p.bet+=toCall;G.pot+=toCall;SFX.chip();
-  if(p.chips===0){p.allIn=true;pulseTension();}
+  if(p.chips===0){p.allIn=true;pulseTension();stageEmit('ALL_IN',{who:p});}
   G.llast=toCall===0?esc(p.name)+' checks.':(p.allIn?esc(p.name)+' calls all-in for '+toCall+'.':esc(p.name)+' calls '+toCall+'.');
   pokerNextPlayer();
 }
@@ -12762,7 +12800,7 @@ function pokerRaise(amt){
   const toAdd=amt-p.bet;
   if(toAdd<=0){toast('Raise must be higher than current bet');return;}
   p.chips-=toAdd;p.bet=amt;G.pot+=toAdd;G.currentBet=amt;SFX.chip();
-  if(p.chips===0){p.allIn=true;pulseTension();}
+  if(p.chips===0){p.allIn=true;pulseTension();stageEmit('ALL_IN',{who:p});}
   G.llast=p.allIn?esc(p.name)+' is all in for '+amt+'!':esc(p.name)+' raises to '+amt+'.';
   // The raiser becomes the new "closes the action" reference — the round can't complete via the
   // backToStart check in pokerNextPlayer() until action has gone all the way back around to them,
@@ -13458,7 +13496,7 @@ function battleFlip(){
   G.battleLast={warRounds,winnerIdx,lastC0,lastC1,tieC0,tieC1,cardsWon:table.length};
   G.llast=(warRounds>0?'⚔️ War! Both turned '+esc(tieC0?tieC0.rank:'')+'. ':'')+esc(winner.name)+' wins '+table.length+' card'+(table.length!==1?'s':'')+'.';
   G.matchStats.cardsPlayed+=2;
-  if(warRounds>0){SFX.clash();fxPulse('blue');pulseTension();}else{SFX.play();haptic(15);fxRipple();}
+  if(warRounds>0){SFX.clash();fxPulse('blue');pulseTension();stageEmit('WAR',{sub:warRounds>1?warRounds+' wars in a row!':undefined});}else{SFX.play();haptic(15);fxRipple();}
   if(!p0.hand.length||!p1.hand.length){
     const finalWinner=p0.hand.length?p0:p1;
     G.tw++;localStorage.setItem('ct_tw',G.tw);
@@ -14026,6 +14064,7 @@ function lPlay(cid){
   captureCardFlight(cid);
   SFX.play();p.hand.splice(idx,1);G.ldisc.push(card);G.llast='';G.matchStats.cardsPlayed++;
   G.lshowThrow=card.id;
+  stageCardPlayed(G.selGame,card,p);
   if(G.selGame==='maumau'){
     if(card.rank==='7'){G.lpend+=2;fxPulse('red');}    // 7: nächster zieht 2 (stapelbar)
     if(card.rank==='8'){G.lskip8=true;fxPulse('amber');} // 8: nächster setzt aus
@@ -14074,6 +14113,7 @@ function lMauBtn(){
   clearTimeout(G.lmau.tid);SFX.mau();
   const p=G.lp[G.lcur];
   G.llast=esc(p.name)+' calls '+G.lmau.callWord+'!';
+  stageEmit('CALL',{word:G.lmau.callWord,who:p});
   const c=G.lmau.card;G.lmau=null;
   if(p.hand.length===0){lEndRound(p);}else if(G.selGame==='uno'){uAdvance(c);}else{lAdvance(c);}
 }

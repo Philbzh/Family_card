@@ -4253,6 +4253,26 @@ async function runPresentation(A,W,frame){
       &&saw(()=>W.stageOnSrv(room('bust',{bst:{busted:false,level:4}}),room('bust',{bst:{busted:false,level:5}})))==='FINAL RISK');
     check('a Yahtzee is announced the moment it is scored',(()=>{const a=room('yahtzee'),b=room('yahtzee');b.players[1].scorecard.yahtzee=50;return saw(()=>W.stageOnSrv(a,b))==='YAHTZEE!'&&saw(()=>W.stageOnSrv(b,b))===null;})());
     check('a Blackjack bust is announced',(()=>{const a=room('blackjack'),b=room('blackjack');b.players[0].bjBust=true;return saw(()=>W.stageOnSrv(a,b))==='BUST!';})());
+    check('Uno and Mau Mau special cards are announced on every device when they land',(()=>{
+      const mk=(g,top)=>room(g,{curIdx:0,discard:top?[{id:'old',color:'red',value:'5',rank:'2'},top]:[{id:'old',color:'red',value:'5',rank:'2'}]});
+      return saw(()=>W.stageOnSrv(mk('uno'),mk('uno',{id:'n1',color:'red',value:'skip'})))==='SKIPPED!'
+        &&saw(()=>W.stageOnSrv(mk('uno'),mk('uno',{id:'n2',color:'blue',value:'draw2'})))==='+2!'
+        &&saw(()=>W.stageOnSrv(mk('uno'),mk('uno',{id:'n3',color:'black',value:'wild4'})))==='+4!'
+        &&saw(()=>W.stageOnSrv(mk('uno'),mk('uno',{id:'n4',color:'red',value:'reverse'})))==='REVERSE!'
+        &&saw(()=>W.stageOnSrv(mk('maumau'),mk('maumau',{id:'m1',suit:'hearts',rank:'7'})))==='+2!'
+        &&saw(()=>W.stageOnSrv(mk('maumau'),mk('maumau',{id:'m2',suit:'hearts',rank:'8'})))==='SKIPPED!'
+        &&saw(()=>W.stageOnSrv(mk('maumau'),mk('maumau',{id:'m3',suit:'hearts',rank:'J'})))==='JACK!'
+        &&saw(()=>W.stageOnSrv(mk('uno'),mk('uno',{id:'n5',color:'red',value:'7'})))===null;
+    })());
+    check('a poker all-in, a Liar’s Dice challenge and a Battle war are each announced once',(()=>{
+      const a=room('texas',{pokerPhase:'flop'}),b=room('texas',{pokerPhase:'flop'});b.players[1].allIn=true;b.players[1].chips=0;
+      const l0=room('liarsdice',{curIdx:1,ld:{phase:'bid'}}),l1=room('liarsdice',{curIdx:1,ld:{phase:'reveal'}});
+      const w0=room('battle',{battleLast:null}),w1=room('battle',{battleLast:{warRounds:2,cardsWon:10}});
+      return saw(()=>W.stageOnSrv(a,b))==='ALL IN!'&&saw(()=>W.stageOnSrv(b,b))===null
+        &&saw(()=>W.stageOnSrv(l0,l1))==='LIAR!'&&saw(()=>W.stageOnSrv(l1,l1))===null
+        &&saw(()=>W.stageOnSrv(w0,w1))==='WAR!'&&saw(()=>W.stageOnSrv(w1,w1))===null;
+    })());
+    check('the escape rooms speak through the stage: access denied, lock open, alerts',['ACCESS_DENIED','LOCK_OPEN','ALERT'].every(k=>{W.stageClear();W.stageEmit(k,{text:'X'+k});const ok=text()==='X'+k;W.stageClear();return ok;})&&(()=>{W.stageEmit('ALERT',{text:'A',kind:'good'});const g=!!doc.querySelector('.stage-moment.stg-good');W.stageClear();W.stageEmit('ALERT',{text:'A',kind:'bad'});const b=!!doc.querySelector('.stage-moment.stg-bad');W.stageClear();return g&&b;})());
     check('a change of game, a lobby, or missing data never throws or stages',
       saw(()=>W.stageOnSrv(null,room('farkle')))===null&&saw(()=>W.stageOnSrv(room('farkle'),room('pig')))===null&&saw(()=>W.stageOnSrv(room('farkle'),{phase:'lobby',gameId:'farkle'}))===null);
   });
