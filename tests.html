@@ -4287,6 +4287,42 @@ async function runPresentation(A,W,frame){
       saw(()=>W.stageOnSrv(null,room('farkle')))===null&&saw(()=>W.stageOnSrv(room('farkle'),room('pig')))===null&&saw(()=>W.stageOnSrv(room('farkle'),{phase:'lobby',gameId:'farkle'}))===null);
   });
 
+  /* —— The family table home screen —————— */
+  suite('Family table home — the family, the rooms and the records',()=>{
+    const G=W.eval('G'),keep={fam:localStorage.getItem('ct_family'),vb:localStorage.getItem('ct_vault_best'),eb:localStorage.getItem('ct_escape_best'),name:G.myName,av:G.myAvatar};
+    try{
+      const H=(game,winner,players)=>({game,winner,players:players||['Phil','Anna'],date:new Date().toISOString(),mode:'local'});
+      G.myName='Phil';G.myAvatar=A.AVATARS[0];
+      localStorage.setItem('ct_family',JSON.stringify([{name:'Anna',avatar:A.AVATARS[1]},{name:'Max',avatar:A.AVATARS[2]}]));
+      const hist=[H('farkle','Anna',['Phil','Anna','RoboA']),H('farkle','Phil'),H('pig','RoboA',['Phil','RoboA']),H('vault','The whole crew',['Phil','Anna'])];
+      const fam=W.homeFamily(hist);
+      check('the family strip is the saved family plus you — bots and guests are not family',fam.map(m=>m.name).sort().join(',')==='Anna,Max,Phil');
+      check('each person’s wins are counted from the results, and the top winner comes first',fam[0].wins>=fam[1].wins&&fam.find(m=>m.name==='Anna').wins===1&&fam.find(m=>m.name==='Phil').wins===1&&fam.find(m=>m.name==='Max').wins===0);
+      check('a co-op crew win is nobody’s personal win',fam.every(m=>m.wins<=1));
+      const rooms=new DOMParser().parseFromString('<div>'+W.homeRoomsHTML()+'</div>','text/html');
+      const cats=A.GAME_CATEGORIES.filter(c=>A.GAMES.some(g=>g.cat===c.id&&!g.locked));
+      check('there is one room to walk into for every category that has games',rooms.querySelectorAll('.home-room[data-a="home-room"]').length===cats.length&&cats.length>=5);
+      check('every room says how many games it holds',[...rooms.querySelectorAll('.home-room')].every((el,i)=>new RegExp(A.GAMES.filter(g=>g.cat===cats[i].id&&!g.locked).length+' game').test(el.textContent)));
+      check('“jump back in” starts with what was played, then the newest games, never more than four',(()=>{
+        const j=W.homeJumpGames(hist).map(g=>g.id),e=W.homeJumpGames([]).map(g=>g.id);
+        return j[0]==='farkle'&&j.includes('pig')&&j.includes('vault')&&j.length===4&&e.join(',')==='escape,vault,bust,summit';})());
+      // records
+      localStorage.setItem('ct_vault_best',JSON.stringify({'pirate|0':{used:640000},'space|1':{used:420000}}));
+      localStorage.setItem('ct_escape_best',JSON.stringify({'clockmaker|0|3':{used:900000},'d|2026-09-24|deepblue|1|2':{used:700000}}));
+      const recs=W.familyRecords(hist),by=l=>recs.find(r=>r.label===l);
+      check('the family records show the champion (never “the whole crew”), the favourite game and the crew’s escapes',/Anna|Phil/.test(by('Table champion').value)&&by('Favourite game').value==='Farkle'&&by('Rooms escaped together').value==='1');
+      check('the fastest vault and fastest escape are picked from the saved best times',by('Fastest vault').value==='7:00'&&by('Fastest escape').value==='11:40'&&/Deep Blue/.test(by('Fastest escape').sub)&&/daily/.test(by('Fastest escape').sub));
+      check('a table with no history has no records to show, and no error',W.familyRecords([]).every(r=>r.label!=='Table champion'));
+      localStorage.setItem('ct_vault_best','not json');check('broken saved data is ignored',(()=>{try{return Array.isArray(W.familyRecords([]));}catch(e){return false;}})());
+      check('the home screen opens on rooms, not on a wall of every cover',(()=>{
+        G.scr='home';const d=new DOMParser().parseFromString(W.rHome(),'text/html');
+        return d.querySelectorAll('.home-room').length===cats.length&&d.querySelectorAll('.v10-main .v10-game-card').length<=4&&!!d.querySelector('.home-family');})());
+    } finally{
+      ['ct_family','ct_vault_best','ct_escape_best'].forEach((k,i)=>{const v=[keep.fam,keep.vb,keep.eb][i];if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v);});
+      G.myName=keep.name;G.myAvatar=keep.av;
+    }
+  });
+
   /* —— Pig: knowing when to stop is the whole game —————— */
   suite('Pig bots hold around 20, push harder from behind, and never gamble a win',()=>{
     const bank=A.pigBotShouldBank;

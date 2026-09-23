@@ -1249,6 +1249,33 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 @media(prefers-reduced-motion:reduce){.stg-seats{animation:none;opacity:1;}#app.stg-shake{animation:none;}}
 /* ════════ TABLE STAGE END ════════ */
 
+/* ════════ FAMILY TABLE HOME ════════ */
+.home-family{display:flex;gap:.9rem;overflow-x:auto;padding:.2rem .1rem .8rem;margin:0 -.2rem;scrollbar-width:none;}
+.home-family::-webkit-scrollbar{display:none;}
+.home-fam{display:flex;flex-direction:column;align-items:center;gap:.15rem;min-width:4.4rem;text-align:center;}
+.home-fam-av{position:relative;width:3.4rem;height:3.4rem;border-radius:50%;box-shadow:0 0 0 2px rgba(240,213,138,.5),0 6px 16px -6px #000;}
+.home-fam-av img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;}
+.home-crown{position:absolute;top:-.85rem;left:50%;transform:translateX(-50%) rotate(-8deg);font-style:normal;font-size:1.1rem;filter:drop-shadow(0 2px 4px rgba(0,0,0,.7));z-index:2;}
+.home-fam-add{cursor:pointer;}.home-fam-add .home-fam-av{display:grid;place-items:center;font-size:1.6rem;color:var(--gold2,#f0d58a);background:rgba(255,255,255,.05);box-shadow:0 0 0 2px rgba(240,213,138,.35);border:0;}
+.home-fam b{font-size:.78rem;color:var(--paper,#f2ecdc);}.home-fam small{font-size:.66rem;color:var(--paper3,#9a9483);}
+.home-rooms{display:grid;grid-template-columns:repeat(2,1fr);gap:.7rem;margin-bottom:1rem;}
+@media(min-width:760px){.home-rooms{grid-template-columns:repeat(3,1fr);}}
+.home-room{position:relative;overflow:hidden;cursor:pointer;border-radius:16px;padding:.9rem .9rem .8rem;min-height:7.6rem;display:flex;flex-direction:column;gap:.2rem;
+  background:linear-gradient(160deg,rgba(var(--rc),.26),rgba(6,12,10,.55));border:1.5px solid rgba(var(--rc),.4);box-shadow:0 10px 26px -14px rgba(var(--rc),.6);transition:transform .16s,border-color .16s;}
+.home-room:hover,.home-room:focus-visible{transform:translateY(-2px);border-color:rgba(var(--rc),.8);outline:none;}
+.home-room-ic{font-size:2rem;line-height:1;filter:drop-shadow(0 4px 10px rgba(0,0,0,.5));}
+.home-room-name{font-family:var(--serif,Georgia,serif);font-size:1.05rem;color:var(--paper,#f2ecdc);margin-top:.2rem;}
+.home-room-games{font-size:.68rem;color:var(--paper2,#d9d2c0);line-height:1.3;opacity:.85;}
+.home-room-count{margin-top:auto;font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:rgb(var(--rc));}
+.home-records{display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem;margin-bottom:1rem;}
+.home-rec{display:flex;gap:.6rem;align-items:center;background:rgba(255,255,255,.04);border:1px solid rgba(240,213,138,.2);border-radius:14px;padding:.6rem .7rem;}
+.home-rec-ic{font-size:1.5rem;flex:none;}
+.home-rec small{display:block;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gold2,#f0d58a);}
+.home-rec b{display:block;font-size:.95rem;color:var(--paper,#f2ecdc);line-height:1.15;}
+.home-rec em{display:block;font-style:normal;font-size:.68rem;color:var(--paper3,#9a9483);}
+@media(prefers-reduced-motion:reduce){.home-room{transition:none;}}
+/* ════════ FAMILY TABLE HOME END ════════ */
+
 /* ════════ BUST ════════
    Reuses .die/.dice-tray/.held/.just-rolled wholesale (see the comment above .die itself) -- only
    the per-kind border tint and the special-face glyph are new here, plus a level badge that gets
@@ -15119,13 +15146,85 @@ function rGamesCategoryList(){
     </div>
   </div>`;
 }
+/* ═══════ FAMILY TABLE HOME ═══════
+   The home screen used to open on a wall of 24 game covers. It now opens on the family and the rooms of the
+   house: who is at your table (with their wins), which ROOM to walk into (cards, dice, casino, party, escape...),
+   a short "jump back in" row, and the family's records. Everything is read from data the app already keeps --
+   nothing new is stored. */
+function homeMs(ms){const s=Math.max(0,Math.round(ms/1000));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
+// The people at YOUR table: the saved family roster plus you. (Bots and one-off guests appear in results too, but
+// they are not family, so the strip is built from the roster and only uses results to count wins.)
+function homeFamily(history){
+  const map={},add=(name,avatar)=>{if(!name||map[name])return;map[name]={name,avatar:avatar||null,wins:0,games:0};};
+  getFamily().forEach(m=>add(m.name,m.avatar));
+  if(G.myName)add(G.myName,G.myAvatar);
+  history.forEach(h=>{
+    (h.players||[]).forEach(n=>{if(map[n])map[n].games++;});
+    if(h.winner&&map[h.winner])map[h.winner].wins++;
+  });
+  return Object.values(map).sort((a,b)=>b.wins-a.wins||b.games-a.games||a.name.localeCompare(b.name)).slice(0,8);
+}
+function homeFamilyHTML(history){
+  const fam=homeFamily(history);
+  const top=fam[0]&&fam[0].wins>0?fam[0].name:null;
+  const chips=fam.map(m=>`<div class="home-fam"><div class="home-fam-av">${top===m.name?'<i class="home-crown" aria-hidden="true">👑</i>':''}${avHTML(m.avatar||AVATARS[0])}</div><b>${esc(m.name.slice(0,12))}</b><small>${m.wins} win${m.wins!==1?'s':''}</small></div>`).join('')+(fam.length<2?'<div class="home-fam home-fam-add" data-a="nav-family" role="button" tabindex="0"><div class="home-fam-av">+</div><b>Add family</b><small>seat everyone</small></div>':'');
+  return`<div class="v10-section"><div class="v10-section-title">Around your table</div><div class="v10-section-note v10-section-link" data-a="nav-family" role="button" tabindex="0">Family →</div></div><div class="home-family">${chips}</div>`;
+}
+const HOME_ROOM_COLORS={cards:'95,214,138',dice:'79,214,201',casino:'239,118,136',classic:'234,201,118',party:'242,149,76',coop:'224,176,64'};
+function homeRoomsHTML(){
+  const tiles=GAME_CATEGORIES.map(c=>{
+    const games=GAMES.filter(g=>g.cat===c.id&&!g.locked);
+    if(!games.length)return'';
+    const names=games.slice(0,3).map(g=>g.name).join(' · ')+(games.length>3?' …':'');
+    return`<div class="home-room" style="--rc:${HOME_ROOM_COLORS[c.id]||'201,164,92'}" data-a="home-room" data-cat="${c.id}" role="button" tabindex="0" aria-label="${esc(c.name)}, ${games.length} games">
+      <div class="home-room-ic">${c.icon}</div><div class="home-room-name">${esc(c.name)}</div><div class="home-room-games">${esc(names)}</div><div class="home-room-count">${games.length} game${games.length!==1?'s':''}</div>
+    </div>`;
+  }).join('');
+  return`<div class="v10-section"><div class="v10-section-title">Choose a room</div><div class="v10-section-note v10-section-link" data-a="nav-games" role="button" tabindex="0">All ${GAMES.filter(g=>!g.locked).length} games →</div></div><div class="home-rooms">${tiles}</div>`;
+}
+// The games this family actually plays, most recent first -- or, for a brand-new table, the newest games.
+function homeJumpGames(history){
+  const seen=[];history.forEach(h=>{const g=GAMES.find(x=>x.id===h.game);if(g&&!g.locked&&seen.indexOf(g.id)<0)seen.push(g.id);});
+  ['escape','vault','bust','summit'].forEach(id=>{if(seen.length<4&&seen.indexOf(id)<0)seen.push(id);});
+  return seen.slice(0,4).map(id=>GAMES.find(g=>g.id===id)).filter(Boolean);
+}
+function homeJumpHTML(history){
+  const games=homeJumpGames(history);
+  if(!games.length)return'';
+  return`<div class="v10-section"><div class="v10-section-title">${history.length?'Jump back in':'Try these first'}</div></div><div class="v10-games">${games.map(gameCardHTML).join('')}</div>`;
+}
+// The family's records, from the results and best times already on this device.
+function familyRecords(history){
+  const out=[];
+  const winners={};history.forEach(h=>{if(h.winner&&h.winner!=='The whole crew')winners[h.winner]=(winners[h.winner]||0)+1;});
+  const champ=Object.entries(winners).sort((a,b)=>b[1]-a[1])[0];
+  if(champ)out.push({ic:'👑',label:'Table champion',value:champ[0],sub:champ[1]+' win'+(champ[1]!==1?'s':'')});
+  const st=winStreak();if(st>=2)out.push({ic:'🔥',label:'Win streak',value:st+' in a row',sub:history[0]?history[0].winner:''});
+  const played={};history.forEach(h=>{played[h.game]=(played[h.game]||0)+1;});
+  const fav=Object.entries(played).sort((a,b)=>b[1]-a[1])[0],favG=fav&&GAMES.find(g=>g.id===fav[0]);
+  if(favG)out.push({ic:favG.icon,label:'Favourite game',value:favG.name,sub:fav[1]+' game'+(fav[1]!==1?'s':'')+' played'});
+  const best=(key,pick)=>{let b=null;try{const all=JSON.parse(localStorage.getItem(key)||'{}')||{};Object.keys(all).forEach(k=>{const e=all[k];if(e&&typeof e.used==='number'&&(!b||e.used<b.e.used))b={k,e};});}catch(e){}return b;};
+  const vb=best('ct_vault_best');
+  if(vb){const adv=vb.k.split('|')[0];out.push({ic:'🔐',label:'Fastest vault',value:homeMs(vb.e.used),sub:(typeof VT_ADV!=='undefined'&&VT_ADV[adv]?VT_ADV[adv].title:'The Vault')});}
+  const eb=best('ct_escape_best');
+  if(eb){const parts=eb.k.split('|'),adv=parts[0]==='d'?parts[2]:parts[0];out.push({ic:'🗝️',label:'Fastest escape',value:homeMs(eb.e.used),sub:(ES_ADV[adv]?ES_ADV[adv].title:'Escape')+(parts[0]==='d'?' · daily':'')});}
+  const crew=history.filter(h=>h.game==='vault'||h.game==='escape').length;
+  if(crew)out.push({ic:'🤝',label:'Rooms escaped together',value:String(crew),sub:'co-op adventures'});
+  return out;
+}
+function homeRecordsHTML(history){
+  const recs=familyRecords(history);
+  if(!recs.length)return'';
+  return`<div class="v10-section"><div class="v10-section-title">Family records</div><div class="v10-section-note">Your table’s best</div></div><div class="home-records">${recs.map(r=>`<div class="home-rec"><span class="home-rec-ic">${r.ic}</span><div><small>${esc(r.label)}</small><b>${esc(r.value)}</b>${r.sub?`<em>${esc(r.sub)}</em>`:''}</div></div>`).join('')}</div>`;
+}
+/* ═══════ FAMILY TABLE HOME END ═══════ */
+
 function rHome(){
   const history=getHistory(),last=history[0];
   const lastGame=last?GAMES.find(g=>g.id===last.game):null;
   const days=last?Math.max(0,Math.round((Date.now()-new Date(last.date).getTime())/864e5)):0;
   const playerName=G.myName||'Player';
   const featured=GAMES.filter(g=>!g.locked);
-  const cards=featured.map(gameCardHTML).join('');
   // The Plaque — a small, personal touch: an engraved nameplate you set once, turning a generic
   // app into "your" table. Tap to name it or rename it; empty state invites without nagging.
   const plaqueHTML=G.plaqueEditing
@@ -15217,8 +15316,10 @@ function rHome(){
         ${plaqueHTML}
         ${feltPickerHTML}
         ${continueCard}
-        <div class="v10-section"><div class="v10-section-title">Choose a game</div><div class="v10-section-note v10-section-link" data-a="nav-games" role="button" tabindex="0">See all ${GAMES.length} →</div></div>
-        <div class="v10-games">${cards}</div>
+        ${homeFamilyHTML(history)}
+        ${homeRoomsHTML()}
+        ${homeJumpHTML(history)}
+        ${homeRecordsHTML(history)}
         <div class="v10-section v10-section--journey"><div class="v10-section-title">Your table</div><div class="v10-section-note">Your journey</div></div>
         <div class="v10-bottom-grid">
           ${yourTableStats}
@@ -17640,6 +17741,7 @@ document.addEventListener('click',e=>{
   if(a==='home'||a==='nav-home'){stopSync(true);G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;if(G.lmau)clearTimeout(G.lmau.tid);G.lmau=null;ddClearRevealTimers();ldClearReveal();ldStopOnline();smClearTimers();hbStop();vtStop();esStop();bgClearCaller();G.bpSelected=null;G.scr='home';render();}
   else if(a==='nav-games'){stopSync(true);G.isOnline=false;G.srv=null;G.quitOpen=false;G.rulesOpen=false;if(G.lmau)clearTimeout(G.lmau.tid);G.lmau=null;ddClearRevealTimers();ldClearReveal();ldStopOnline();smClearTimers();hbStop();vtStop();esStop();bgClearCaller();G.gamesCat=null;G.scr='games';render();}
   else if(a==='games-cat'){G.gamesCat=t.getAttribute('data-cat');render();}
+  else if(a==='home-room'){G.gamesCat=t.getAttribute('data-cat');G.scr='games';render();}
   else if(a==='games-back'){G.gamesCat=null;render();}
   else if(a==='nav-table'){
     if(!hasActiveTable())return;
