@@ -4009,9 +4009,13 @@ async function runPresentation(A,W,frame){
       ok(A.esApplyTry(es,0,'cipherdesk',c.cipherdesk.word,now)&&A.esApplyTry(es,0,'safe',c.safe,now)&&A.esApplyTry(es,0,'ladder',c.ladder,now),'workshop locks');
       ok(A.esApplyDoor(es,'ladder')&&es.room==='tower','ladder');
       ok(!A.esApplyTry(es,0,'clockface',c.clockface,now),'clock face moved before its mechanism');
+      ok(!A.esApplyPendulum(es,0,es.syncEpoch,now),'pendulum swung before the mechanism was fitted');
       ok(!A.esApplyUse(es,0,'brassKey','mechanism',now),'brass key used up but accepted');
       ok(A.esApplyUse(es,0,'smallGear','mechanism',now)&&!es.solved.mechanism,'one gear is not enough');
       ok(A.esApplyUse(es,0,'bigGear','mechanism',now)&&es.solved.mechanism,'two gears');
+      ok(!A.esApplyTry(es,0,'clockface',c.clockface,now),'clock face turned before the pendulum');
+      for(let p=0;p<n;p++)ok(A.esApplyPendulum(es,p,es.syncEpoch+A.ES_SYNC_MS*2+p*40,now),'pendulum press');
+      ok(es.solved.pendulum,'pendulum solved by everyone on one swing');
       ok(!A.esApplyDoor(es,'hiddendoor'),'hidden door open too early');
       ok(A.esApplyTry(es,0,'clockface',c.clockface,now)&&A.esApplyDoor(es,'hiddendoor')&&es.room==='chamber','clock face');
       // the cooperative door: everybody within the window
@@ -4058,6 +4062,57 @@ async function runPresentation(A,W,frame){
     check('but everyone inside one window opens it',es.solved.exit===true);
     // scoring
     check('the difficulty levels get shorter and stingier',A.ES_LEVELS.family.min>A.ES_LEVELS.challenge.min&&A.ES_LEVELS.challenge.min>A.ES_LEVELS.expert.min&&A.ES_LEVELS.family.hints>A.ES_LEVELS.expert.hints);
+  });
+
+
+  suite('Escape — the pendulum, the power failure and the Daily Escape',()=>{
+    const mk=(n,diff,seed)=>{const es=A.esNewState('clockmaker',seed||31,diff||0,n,0);A.esApplyAdvance(es,1000,true);es.room='tower';es.solved.mechanism=true;return es;};
+    let es=mk(3);const E=es.syncEpoch,T=A.ES_SYNC_MS;
+    A.esApplyPendulum(es,0,E+T,2000);A.esApplyPendulum(es,1,E+T+30,2000);
+    check('two of three players on one swing is not enough',!es.solved.pendulum&&Object.keys(es.sync.by).length===2);
+    A.esApplyPendulum(es,2,E+T+T/2,2000);
+    check('a third press on a DIFFERENT swing starts over instead of opening it',!es.solved.pendulum&&Object.keys(es.sync.by).length===1);
+    es=mk(3);A.esApplyPendulum(es,0,E+T,2000);A.esApplyPendulum(es,1,E+T+T/4,2000);
+    check('a press off the beat sends everyone back to the start',!es.sync&&!es.solved.pendulum&&/SYNC/.test(es.note.text));
+    es=mk(2);A.esApplyPendulum(es,0,E+T,2000);A.esApplyPendulum(es,1,E+T+100,2000);
+    check('everyone on the same swing opens it, even with a slightly slow clock',es.solved.pendulum===true);
+    // power failure
+    es=mk(3,1);es.blackSched={at:5000,who:1,done:false};
+    check('nothing happens before the failure is due',!A.esApplyTick(es,4000)&&!A.esBlackout(es));
+    A.esApplyTick(es,6000);
+    check('on a harder level the lights go out, for one chosen player to fix',A.esBlackout(es)&&es.event.who===1&&/POWER/.test(es.note.text));
+    check('while it is dark, nothing in the room can be touched',!A.esApplyTry(es,0,'desk',es.world.codes.desk,6100)&&!A.esApplyPendulum(es,0,E+T,6100)&&!A.esApplyDoor(es,'back2'));
+    check('only the player at the fuse box can restore power',!A.esApplyFuse(es,0,6200)&&A.esApplyFuse(es,1,6300)&&!A.esBlackout(es));
+    es=mk(3,1);es.blackSched={at:5000,who:1,done:false};A.esApplyTick(es,6000);const spent=es.clock.spent;
+    A.esApplyTick(es,6000+A.ES_BLACKOUT_MS+10);
+    check('if nobody finds the fuse the lights return by themselves, at a cost of 30 seconds',!A.esBlackout(es)&&es.clock.spent>=spent+30000);
+    const f0=A.esNewState('clockmaker',5,0,3,0),f1=A.esNewState('clockmaker',5,1,3,0);A.esApplyAdvance(f0,1000,true);A.esApplyAdvance(f1,1000,true);
+    check('the Family level never has a power failure; harder levels plan one',f0.blackSched===null&&!!f1.blackSched&&f1.blackSched.at>1000);
+    // daily
+    check('the Daily Escape seed is the same all day and differs from day to day',A.esDailySeed('2026-09-24')===A.esDailySeed('2026-09-24')&&A.esDailySeed('2026-09-24')!==A.esDailySeed('2026-09-25'));
+    check('everyone who plays the same day with the same party size gets the identical mystery',(()=>{const s=A.esDailySeed('2026-09-24');return JSON.stringify(A.esNewState('clockmaker',s,0,3,0,'2026-09-24').world)===JSON.stringify(A.esNewState('clockmaker',s,2,3,999,'2026-09-24').world);})());
+    check('a daily game remembers its date',A.esNewState('clockmaker',7,0,3,0,'2026-09-24').daily==='2026-09-24'&&A.esNewState('clockmaker',7,0,3,0).daily===null);
+    check('today’s date is written year-month-day',/^\d{4}-\d{2}-\d{2}$/.test(A.esTodayStr()));
+  });
+
+
+  suite('Quick tours and the escape trophies',()=>{
+    const T=W.eval('TOURS');
+    check('every tour has at least three slides, each with an icon, a heading and text',Object.keys(T).length>=5&&Object.values(T).every(t=>t.slides.length>=3&&t.slides.every(s=>s.ic&&s.h&&s.t)));
+    check('the tours cover the games that are hardest to explain, and each one is on the roster',['summit','escape','vault','bust','hotbomb'].every(id=>T[id]&&A.GAMES.some(g=>g.id===id)));
+    const keep=localStorage.getItem('ct_history');
+    try{
+      const mkH=over=>Object.assign({game:'escape',winner:'The whole crew',date:new Date().toISOString(),players:['a','b'],mode:'online',stats:{escapeHints:0,escapeMistakes:0,escapeLeftMs:400000,escapeDiff:2,escapeDaily:'2026-09-24'}},over);
+      const ach=id=>W.eval('ACHIEVEMENTS').find(a=>a.id===id);
+      localStorage.setItem('ct_history',JSON.stringify([mkH({})]));
+      check('a clean, fast, expert daily escape unlocks the escape trophies',['first-escape','escape-mastermind','escape-speed','escape-perfect','escape-expert','escape-daily'].every(id=>ach(id)&&ach(id).check()));
+      localStorage.setItem('ct_history',JSON.stringify([mkH({stats:{escapeHints:2,escapeMistakes:3,escapeLeftMs:1000,escapeDiff:0,escapeDaily:null}})]));
+      check('a scrappy family-level escape unlocks only the first one',ach('first-escape').check()&&!ach('escape-mastermind').check()&&!ach('escape-speed').check()&&!ach('escape-perfect').check()&&!ach('escape-expert').check()&&!ach('escape-daily').check());
+      localStorage.setItem('ct_history',JSON.stringify([1,2,3].map(d=>mkH({stats:{escapeDaily:'2026-09-2'+d,escapeHints:1,escapeMistakes:1,escapeLeftMs:0,escapeDiff:0}}))));
+      check('daily escapes on three different days unlock Three Days Running',ach('escape-daily3').check());
+      localStorage.setItem('ct_history',JSON.stringify([mkH({game:'vault',stats:{}}),mkH({})]));
+      check('beating both the vault and an escape room makes an Escape Artist',ach('vault-open').check()&&ach('escape-artist').check());
+    } finally{if(keep===null)localStorage.removeItem('ct_history');else localStorage.setItem('ct_history',keep);}
   });
 
   suite('Escape — roster',()=>{
@@ -4985,7 +5040,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'slotFreeSpinsAwarded','slotPayout','slotTier','getSlotJackpot','setSlotJackpot','lDealSlots','slotStartSpin',
   'slotPassTurn','slotSetBet','botSlotsAct','ROUL_CHIPS','ROUL_CHIPS_HIGH',
   'PIG_TARGET','pigBotShouldBank','lDealPig','pigRoll','pigBank','pigAdvanceTurn','pigEndGame','botPigAct','pigDieHTML','rMatchEnd',
-  'esNewState','esBuild','esInspect','esApplyAdvance','esApplyTry','esApplyUse','esApplyDoor','esApplyCoop','esApplyHint','esApplyTick','esNextLock','esCaesar','ES_ADV','esObjOf','esLockObj','esItemFits','ES_LEVELS','ES_COOP_WINDOW','esCoopButtons','oEsNewGame','bstEvaluateValues','bstEvaluateSelection','bstHasAnyScore','bstIsInstantBust','bstIsBustRoll','bstDiceKinds','bstBotSelect','bstBotShouldBank','bstPlaceholderDice','bstFreshTurnState','bstRollFace','BST_ENTRY_MIN','BST_TARGET','botBustAct',
+  'esNewState','esBuild','esInspect','esApplyAdvance','esApplyTry','esApplyUse','esApplyDoor','esApplyCoop','esApplyHint','esApplyTick','esApplyPendulum','esApplyFuse','esBlackout','esDailySeed','esTodayStr','ES_SYNC_MS','ES_BLACKOUT_MS','esNextLock','esCaesar','ES_ADV','esObjOf','esLockObj','esItemFits','ES_LEVELS','ES_COOP_WINDOW','esCoopButtons','oEsNewGame','bstEvaluateValues','bstEvaluateSelection','bstHasAnyScore','bstIsInstantBust','bstIsBustRoll','bstDiceKinds','bstBotSelect','bstBotShouldBank','bstPlaceholderDice','bstFreshTurnState','bstRollFace','BST_ENTRY_MIN','BST_TARGET','botBustAct',
   // The live game state, for the presentation tests. Declared with `let` in the app, so like the
   // constants it is script-scoped rather than a window property — the object reference eval hands
   // back is the real one, so mutating it drives the real app.
