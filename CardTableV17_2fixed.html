@@ -6392,7 +6392,7 @@ const STAGE_EVENTS={
   YAHTZEE:d=>({text:'YAHTZEE!',sub:'Five of a kind — 50 points',tone:'gold',icon:'🎲',who:d.who,pri:2}),
   BLACKJACK:d=>({text:'BLACKJACK!',sub:'A natural 21',tone:'gold',icon:'🂡',who:d.who,pri:2}),
   BIG_WIN:d=>({text:d.text||'BIG WIN!',sub:d.sub,tone:'gold',icon:d.icon||'🏆',who:d.who,pri:2}),
-  ALL_IN:d=>({text:'ALL IN!',sub:'Everything on the table',tone:'hot',icon:'🔥',who:d.who,pri:2,ms:1400}),
+  ALL_IN:d=>({text:'ALL IN!',sub:d.sub||'Everything on the table',tone:'hot',icon:'🔥',who:d.who,pri:2,ms:1400}),
   LIAR:d=>({text:'LIAR!',sub:'Show the dice…',tone:'bad',icon:'🫵',who:d.who,pri:2,ms:1100}),
   WAR:d=>({text:'WAR!',sub:d.sub||'Cards burned — flip again',tone:'bad',icon:'⚔️',pri:2,ms:1400}),
   SKIP:d=>({text:'SKIPPED!',sub:'Next player loses a turn',tone:'cool',icon:'⛔',who:d.who,ms:1000,shake:false}),
@@ -6448,6 +6448,14 @@ function stageOnSrv(prev,state){
     }
     else if(g==='texas'||g==='fivecard'){
       (state.players||[]).forEach((p,i)=>{const b=(prev.players||[])[i];if(b&&p.allIn&&!b.allIn&&(state.pokerPhase||state.phase)!=null&&p.chips===0&&!b.folded)stageEmit('ALL_IN',{who:p});});
+    }
+    else if(g==='slots'&&prev.slot&&state.slot&&state.slot.phase==='spinning'&&prev.slot.phase!=='spinning'&&!state.slot.thisSpinFree){
+      const sp=(state.players||[])[state.slot.curIdx||0],was=(prev.players||[])[state.slot.curIdx||0];
+      if(sp&&was&&sp.chips===0&&was.chips>0)stageEmit('ALL_IN',{who:sp,sub:'Last chips on the reels'});
+    }
+    else if(g==='roulette'){
+      (state.players||[]).forEach((p,i)=>{const b=(prev.players||[])[i];
+        if(b&&b.chips>0&&p.chips===0&&Object.keys(p.roulBets||{}).length)stageEmit('ALL_IN',{who:p,sub:'Every chip on the table'});});
     }
     else if(g==='liarsdice'&&prev.ld&&state.ld&&prev.ld.phase==='bid'&&state.ld.phase==='reveal')
       stageEmit('LIAR',{who:(state.players||[])[prev.curIdx||0]});
@@ -11980,6 +11988,7 @@ function roulPlaceBet(key){
   if(G.roulSpinning){toast('Wheel is spinning — wait for it to land');SFX.illegal();return;}
   if(p.chips<G.roulChip){toast('Not enough chips');SFX.illegal();return;}
   p.chips-=G.roulChip;
+  if(p.chips===0)stageEmit('ALL_IN',{who:p,sub:'Every chip on the table'});
   p.roulBets[key]=(p.roulBets[key]||0)+G.roulChip;
   p.roulBetLog.push({key,amt:G.roulChip});
   SFX.chip();
@@ -12440,6 +12449,7 @@ function slotStartSpin(){
   if(!inFree){
     if(p.chips<s.bet){toast('Not enough chips');SFX.illegal();return;}
     p.chips-=s.bet;
+    if(p.chips===0)stageEmit('ALL_IN',{who:p,sub:'Last chips on the reels'});
     setSlotJackpot(getSlotJackpot()+s.bet*SLOT_JACKPOT_FEED_PCT);
   } else {
     s.freeSpins.remaining--;

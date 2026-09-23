@@ -4273,6 +4273,16 @@ async function runPresentation(A,W,frame){
         &&saw(()=>W.stageOnSrv(w0,w1))==='WAR!'&&saw(()=>W.stageOnSrv(w1,w1))===null;
     })());
     check('the escape rooms speak through the stage: access denied, lock open, alerts',['ACCESS_DENIED','LOCK_OPEN','ALERT'].every(k=>{W.stageClear();W.stageEmit(k,{text:'X'+k});const ok=text()==='X'+k;W.stageClear();return ok;})&&(()=>{W.stageEmit('ALERT',{text:'A',kind:'good'});const g=!!doc.querySelector('.stage-moment.stg-good');W.stageClear();W.stageEmit('ALERT',{text:'A',kind:'bad'});const b=!!doc.querySelector('.stage-moment.stg-bad');W.stageClear();return g&&b;})());
+    check('going all-in on the Slot Machine or Roulette is announced on every device',(()=>{
+      const s0=room('slots',{curIdx:0,slot:{phase:'idle',curIdx:0}}),s1=room('slots',{curIdx:0,slot:{phase:'spinning',curIdx:0}});
+      s0.players[0].chips=50;s1.players[0].chips=0;
+      const s2=JSON.parse(JSON.stringify(s1));s2.players[0].chips=30;
+      const free=JSON.parse(JSON.stringify(s1));free.slot.thisSpinFree=true;
+      const r0=room('roulette'),r1=room('roulette');r0.players[1].chips=100;r1.players[1].chips=0;r1.players[1].roulBets={red:100};
+      const r2=JSON.parse(JSON.stringify(r1));r2.players[1].roulBets={};
+      return saw(()=>W.stageOnSrv(s0,s1))==='ALL IN!'&&saw(()=>W.stageOnSrv(s0,s2))===null&&saw(()=>W.stageOnSrv(s0,free))===null&&saw(()=>W.stageOnSrv(s1,s1))===null
+        &&saw(()=>W.stageOnSrv(r0,r1))==='ALL IN!'&&saw(()=>W.stageOnSrv(r0,r2))===null&&saw(()=>W.stageOnSrv(r1,r1))===null;
+    })());
     check('a change of game, a lobby, or missing data never throws or stages',
       saw(()=>W.stageOnSrv(null,room('farkle')))===null&&saw(()=>W.stageOnSrv(room('farkle'),room('pig')))===null&&saw(()=>W.stageOnSrv(room('farkle'),{phase:'lobby',gameId:'farkle'}))===null);
   });
