@@ -4115,6 +4115,94 @@ async function runPresentation(A,W,frame){
     } finally{if(keep===null)localStorage.removeItem('ct_history');else localStorage.setItem('ct_history',keep);}
   });
 
+
+  suite('Escape — Deep Blue: a fair world, and every player has a job',()=>{
+    const bad=[];
+    [2,3,4,5,6].forEach(n=>{for(let s=1;s<=100;s++){
+      const es=A.esNewState('deepblue',s*53,s%3,n,0),w=es.world;
+      for(const lock in w.src){const chs=new Set();w.src[lock].forEach(o=>w.parts[o].filter(p=>p.lock===lock).forEach(p=>chs.add(p.ch)));if(chs.size<2)bad.push(`n${n} s${s}: ${lock} lives on one player`);}
+      if(!w.circ){bad.push(`n${n} s${s}: no circuit`);continue;}
+      if(A.esCircuitOK(w.circ,w.circ.start))bad.push(`n${n} s${s}: circuit starts solved`);
+      if(!A.esCircuitOK(w.circ,w.circ.sol))bad.push(`n${n} s${s}: circuit has no solution`);
+      for(let p=0;p<n;p++)if(!w.circ.owner.includes(p))bad.push(`n${n} s${s}: player ${p} owns no wire tile`);
+    }});
+    check('every code is split, every circuit is solvable but not solved, and every player owns tiles',bad.length===0,bad.slice(0,3).join(' | '));
+    check('the circuit is different from seed to seed',JSON.stringify(A.esBuild('deepblue',1,3,0).circ)!==JSON.stringify(A.esBuild('deepblue',2,3,0).circ));
+  });
+
+  suite('Escape — Deep Blue: the circuit, the signals and the whole run',()=>{
+    const mk=(n,seed)=>{const es=A.esNewState('deepblue',seed||9,0,n,0);A.esApplyAdvance(es,1000,true);return es;};
+    let es=mk(3);const c=es.world.circ;
+    es.room='lab';
+    const mine=c.owner.indexOf(0),theirs=c.owner.indexOf(1),empty=c.types.indexOf('empty');
+    check('only the owner can turn a tile, and empty slots never turn',!A.esApplyRotate(es,1,mine,10)&&A.esApplyRotate(es,0,mine,10)&&es.circ.rots[mine]===(c.start[mine]+1)%4&&(empty<0||!A.esApplyRotate(es,0,empty,10)));
+    es.room='dock';check('the circuit only moves in the laboratory',!A.esApplyRotate(es,c.owner[mine],mine,10));
+    es=mk(3);es.room='lab';
+    let guard=0;while(!es.solved.circuit&&guard++<100)for(let i=0;i<c.types.length;i++)if(c.types[i]!=='empty'&&es.circ.rots[i]!==c.sol[i])A.esApplyRotate(es,c.owner[i],i,50);
+    check('everyone turning their own tiles into place powers the relay',!!es.solved.circuit);
+    // morse: decode what the sonar and hydrophone say back into the terminal code
+    const w=es.world,dec=m=>A.ES_MORSE.indexOf(m);
+    const heard=[...(w.parts.sonar||[]),...(w.parts.hydrophone||[])].flatMap(p=>p.morse.map(dec));
+    check('the two signals really do spell the terminal’s four digits',JSON.stringify(heard)===JSON.stringify(w.codes.terminal));
+    check('each signal is heard by one player only, and is playable',(()=>{const e2=mk(4),s=A.esInspect(e2,'sonar',0),o=A.esInspect(e2,'sonar',1);return[0,1,2,3].filter(p=>A.esInspect(e2,'sonar',p).some(l=>l.morse)).length===1;})());
+    check('the signals manual (the key to reading them) is visible to everyone',[0,1,2].every(p=>A.esInspect(mk(3),'manual',p).some(l=>/SIGNALS/.test(l.t))));
+    // hints for every lock, all three levels
+    const e3=mk(3);let miss=[];
+    A.ES_ADV.deepblue.chain.forEach(id=>{e3.solved={};for(const k of A.ES_ADV.deepblue.chain){if(k===id)break;e3.solved[k]=true;}e3.hintFor=null;e3.hintsLeft=9;[1,2,3].forEach(l=>{if(!A.esHintText(e3,l))miss.push(id+l);});});
+    check('every lock in Deep Blue has all three hints',miss.length===0,miss.join(','));
+    check('the story text fills in its names for every scene',['intro','finale','failed'].every(k=>{const l=A.esSceneLines(mk(3),k);return l.length>0&&l.every(x=>!/\{\w+\}/.test(x.t));}));
+    // a full run through the real rules, at every party size
+    const bad=[];
+    [2,3,4,5,6].forEach(n=>[1,2,3].forEach(seed=>{
+      const s=A.esNewState('deepblue',seed*97,seed%3,n,0),cc=s.world.codes,now=1000;A.esApplyAdvance(s,now,true);
+      const ok=(x,m)=>{if(!x)bad.push(`n${n} s${seed}: ${m}`);};
+      ok(!A.esApplyTry(s,0,'terminal',cc.terminal,now),'terminal opened from the docking bay');
+      ok(A.esApplyTry(s,0,'locker',cc.locker,now)&&s.inv.includes('fuse'),'locker');
+      ok(!A.esApplyDoor(s,'labdoor'),'lab hatch opened before the fuse');
+      ok(A.esApplyUse(s,0,'fuse','fusebox',now)&&A.esApplyDoor(s,'labdoor'),'fuse + hatch');
+      ok(!A.esApplyDoor(s,'liftdoor'),'lift before the power');
+      let g=0;while(!s.solved.circuit&&g++<100)for(let i=0;i<s.world.circ.types.length;i++)if(s.world.circ.types[i]!=='empty'&&s.circ.rots[i]!==s.world.circ.sol[i])A.esApplyRotate(s,s.world.circ.owner[i],i,now);
+      ok(s.solved.circuit,'circuit');
+      ok(A.esApplyTry(s,0,'terminal',cc.terminal,now)&&s.inv.includes('keycard'),'terminal');
+      ok(A.esApplyDoor(s,'liftdoor')&&s.room==='control','lift');
+      ok(!A.esApplyTry(s,0,'valves',cc.valves,now),'valves before the card');
+      ok(A.esApplyUse(s,0,'keycard','keyreader',now)&&A.esApplyTry(s,0,'valves',cc.valves,now)&&A.esApplyDoor(s,'poddoor')&&s.room==='pod','valves + pod door');
+      ok(!A.esApplyCoop(s,0,0,now),'the pod hatch moved before the pressure was released');
+      for(let p=0;p<n;p++)ok(A.esApplyPendulum(s,p,s.syncEpoch+A.ES_SYNC_MS*2+p*30,now),'pressure release');
+      ok(s.solved.flush,'flush solved');
+      const nb=A.esCoopButtons(n);for(let p=0;p<nb;p++)A.esApplyCoop(s,p,p,now+p*100);
+      ok(s.solved.exit&&s.scene&&s.scene.kind==='finale','hatch');
+      A.esApplyAdvance(s,now+1,true);ok(s.phase==='done'&&s.result.won,'finish');
+    }));
+    check('Deep Blue can be played from the docking bay to the pod at every party size',bad.length===0,bad.slice(0,3).join(' | '));
+  });
+
+  suite('Escape — both adventures are wired together correctly',()=>{
+    check('there are two adventures to choose from',A.ES_ADV_IDS.length>=2&&A.ES_ADV_IDS.includes('clockmaker')&&A.ES_ADV_IDS.includes('deepblue'));
+    A.ES_ADV_IDS.forEach(id=>{
+      const adv=A.ES_ADV[id];
+      check(id+': every chain lock, door target, requirement and reward is real',(()=>{
+        const all=Object.values(adv.rooms).flatMap(r=>r.objs);
+        const locks=all.filter(o=>o.lock).map(o=>o.lock.id);
+        return adv.chain.every(l=>locks.includes(l))&&all.filter(o=>o.kind==='door').every(o=>adv.rooms[o.to])&&all.every(o=>!o.req||locks.includes(o.req))&&all.every(o=>!o.needs||locks.includes(o.needs))
+          &&Object.values(adv.gives).flat().every(i=>adv.items[i])&&!!adv.rooms[adv.finalRoom]&&adv.chain[adv.chain.length-1]==='exit';
+      })());
+      check(id+': every object has art, and every room a backdrop',(()=>{
+        const all=Object.values(adv.rooms).flatMap(r=>r.objs);
+        return all.every(o=>typeof A.esArtFor(id,o.id)==='function')&&Object.keys(adv.rooms).every(r=>typeof W.eval('ES_BACK')[r]==='function');
+      })());
+      check(id+': the scenes have a title, kickers and a big picture',!!adv.kickers.intro&&!!adv.kickers.won&&!!adv.kickers.lost&&(adv.scene==='sub'||adv.scene==='clock'));
+    });
+    check('the drawn table works for a whole Deep Blue game in each room',(()=>{
+      const keep={scr:A.G.scr,online:A.G.isOnline,srv:A.G.srv,pid:A.G.myPid,focus:A.G.esFocus};
+      try{
+        const st=A.oEsNewGame({host:'a',hr:{}},[0,1,2].map(i=>({id:'p'+i,name:'P'+i,avatar:A.AVATARS[0]})),'deepblue',1,5);
+        A.esApplyAdvance(st.es,Date.now()+99999,true);A.G.isOnline=true;A.G.srv=st;A.G.myPid='p0';
+        return['dock','lab','control','pod'].every(r=>{st.es.room=r;A.G.esFocus=null;const d=new DOMParser().parseFromString(W.rEscapeTable(),'text/html');return!!d.querySelector('.es-room .es-obj')&&d.querySelectorAll('.es-obj').length===A.ES_ADV.deepblue.rooms[r].objs.length;});
+      } finally{A.G.scr=keep.scr;A.G.isOnline=keep.online;A.G.srv=keep.srv;A.G.myPid=keep.pid;A.G.esFocus=keep.focus;}
+    })());
+  });
+
   suite('Escape — roster',()=>{
     const g=A.GAMES.find(x=>x.id==='escape');
     check('Escape is on the roster with the co-op adventures, online only, for 2 to 6',!!g&&g.cat==='coop'&&g.onlineOnly===true&&g.minP===2&&g.maxP===6&&g.rules.length>=5);
@@ -5040,7 +5128,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'slotFreeSpinsAwarded','slotPayout','slotTier','getSlotJackpot','setSlotJackpot','lDealSlots','slotStartSpin',
   'slotPassTurn','slotSetBet','botSlotsAct','ROUL_CHIPS','ROUL_CHIPS_HIGH',
   'PIG_TARGET','pigBotShouldBank','lDealPig','pigRoll','pigBank','pigAdvanceTurn','pigEndGame','botPigAct','pigDieHTML','rMatchEnd',
-  'esNewState','esBuild','esInspect','esApplyAdvance','esApplyTry','esApplyUse','esApplyDoor','esApplyCoop','esApplyHint','esApplyTick','esApplyPendulum','esApplyFuse','esBlackout','esDailySeed','esTodayStr','ES_SYNC_MS','ES_BLACKOUT_MS','esNextLock','esCaesar','ES_ADV','esObjOf','esLockObj','esItemFits','ES_LEVELS','ES_COOP_WINDOW','esCoopButtons','oEsNewGame','bstEvaluateValues','bstEvaluateSelection','bstHasAnyScore','bstIsInstantBust','bstIsBustRoll','bstDiceKinds','bstBotSelect','bstBotShouldBank','bstPlaceholderDice','bstFreshTurnState','bstRollFace','BST_ENTRY_MIN','BST_TARGET','botBustAct',
+  'esNewState','esBuild','esInspect','esApplyAdvance','esApplyTry','esApplyUse','esApplyDoor','esApplyCoop','esApplyHint','esApplyTick','esApplyRotate','esCircuitOK','esCircuitWalk','ES_ADV_IDS','ES_MORSE','esSceneLines','esRotMask','ES_TILES','esArtFor','esHintText','esApplyPendulum','esApplyFuse','esBlackout','esDailySeed','esTodayStr','ES_SYNC_MS','ES_BLACKOUT_MS','esNextLock','esCaesar','ES_ADV','esObjOf','esLockObj','esItemFits','ES_LEVELS','ES_COOP_WINDOW','esCoopButtons','oEsNewGame','bstEvaluateValues','bstEvaluateSelection','bstHasAnyScore','bstIsInstantBust','bstIsBustRoll','bstDiceKinds','bstBotSelect','bstBotShouldBank','bstPlaceholderDice','bstFreshTurnState','bstRollFace','BST_ENTRY_MIN','BST_TARGET','botBustAct',
   // The live game state, for the presentation tests. Declared with `let` in the app, so like the
   // constants it is script-scoped rather than a window property — the object reference eval hands
   // back is the real one, so mutating it drives the real app.
