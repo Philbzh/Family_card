@@ -3951,6 +3951,126 @@ async function runPresentation(A,W,frame){
     }
   });
 
+  /* —— Escape: the world every game is built from —————— */
+  suite('Escape — every game builds a fair world, for every party size',()=>{
+    const bad=[],seeds=[];for(let s=1;s<=120;s++)seeds.push(s*7919);
+    [2,3,4,5,6].forEach(n=>seeds.forEach(seed=>{
+      const es=A.esNewState('clockmaker',seed,seed%3,n,0),w=es.world;
+      for(const lock in w.src){
+        const chs=new Set();w.src[lock].forEach(o=>w.parts[o].filter(p=>p.lock===lock).forEach(p=>chs.add(p.ch)));
+        if(chs.size<2)bad.push(`n${n} seed${seed}: ${lock} lives on one player only`);
+      }
+      for(let c=0;c<n;c++){let has=false;for(const o in w.parts)if(w.parts[o].some(p=>p.ch===c))has=true;if(!has)bad.push(`n${n} seed${seed}: player ${c} never holds a clue`);}
+      const dd=w.codes.desk;if(dd.length!==3||dd[0]<1)bad.push('desk code shape');
+    }));
+    check('every code is split over at least two players, and every player holds a clue somewhere',bad.length===0,bad.slice(0,3).join(' | '));
+    check('the same seed always builds the same world; another seed a different one',
+      JSON.stringify(A.esBuild('clockmaker',5,4,0))===JSON.stringify(A.esBuild('clockmaker',5,4,0))&&JSON.stringify(A.esBuild('clockmaker',5,4,0))!==JSON.stringify(A.esBuild('clockmaker',6,4,0)));
+    eq('the Caesar cipher round-trips',A.esCaesar(A.esCaesar('CLOCKWORK',7),-7),'CLOCKWORK');
+    check('the cipher lock’s word really is hidden behind its shift',(()=>{const c=A.esBuild('clockmaker',9,3,0).codes.cipherdesk;return A.esCaesar(c.word,c.shift)===c.cipher&&c.cipher!==c.word;})());
+  });
+
+  suite('Escape — privacy: you only read your own clues',()=>{
+    const es=A.esNewState('clockmaker',4242,0,4,0);
+    let leak=null;
+    for(const obj in es.world.parts)for(let me=0;me<4;me++){
+      const mine=A.esInspect(es,obj,me).map(l=>l.t).join(' ');
+      es.world.parts[obj].filter(p=>p.ch!==me).forEach(p=>{if(mine.indexOf(p.t)>=0)leak=obj+' shows player '+p.ch+'’s clue to '+me;});
+    }
+    check('inspecting an object never shows another player’s clue',leak===null,leak||'');
+    check('an object holding only other people’s clues tells you to ask them',(()=>{
+      for(const obj in es.world.parts)for(let me=0;me<4;me++){const ps=es.world.parts[obj];if(ps.length&&!ps.some(p=>p.ch===me))return/ask them/.test(A.esInspect(es,obj,me).map(l=>l.t).join(' '));}
+      return true;})());
+    // the table itself: draw the panel for two different players and compare the words on screen
+    const keep={scr:A.G.scr,online:A.G.isOnline,srv:A.G.srv,pid:A.G.myPid,focus:A.G.esFocus};
+    try{
+      const st=A.oEsNewGame({host:'a',hr:{}},[0,1,2,3].map(i=>({id:'p'+i,name:'P'+i,avatar:A.AVATARS[0]})),'clockmaker',0,4242);
+      A.esApplyAdvance(st.es,Date.now()+99999,true);
+      A.G.isOnline=true;A.G.srv=st;A.G.esFocus='painting';
+      const words=me=>{A.G.myPid='p'+me;return new DOMParser().parseFromString(W.rEscapeTable(),'text/html').querySelector('.es-panel').textContent;};
+      const t0=words(0),t1=words(1);
+      const mineOnly=(me,text)=>st.es.world.parts.painting.filter(p=>p.ch===me).every(p=>text.indexOf(p.t)>=0)&&st.es.world.parts.painting.filter(p=>p.ch!==me).every(p=>text.indexOf(p.t)<0);
+      check('the drawn panel shows each player only their own clue',mineOnly(0,t0)&&mineOnly(1,t1));
+    } finally {A.G.scr=keep.scr;A.G.isOnline=keep.online;A.G.srv=keep.srv;A.G.myPid=keep.pid;A.G.esFocus=keep.focus;}
+  });
+
+  suite('Escape — the whole estate can be played through the real rules',()=>{
+    const bad=[];
+    [2,3,4,5,6].forEach(n=>[1,2,3,4,5,6].forEach(seed=>{
+      const es=A.esNewState('clockmaker',seed*101,seed%3,n,0),c=es.world.codes;let now=1000;
+      A.esApplyAdvance(es,now,true);
+      const ok=(x,m)=>{if(!x)bad.push(`n${n} seed${seed}: ${m}`);};
+      ok(!A.esApplyTry(es,0,'safe',c.safe,now),'the safe opened from the study');
+      ok(A.esApplyTry(es,0,'desk',c.desk,now),'desk');ok(es.inv.indexOf('brassKey')>=0,'key given');
+      ok(!A.esApplyUse(es,0,'brassKey','desk',now),'the key fits the desk');
+      ok(!A.esApplyDoor(es,'workdoor'),'door opened without its key');
+      ok(A.esApplyUse(es,0,'brassKey','workdoor',now),'use key');ok(A.esApplyDoor(es,'workdoor')&&es.room==='workshop','walk through');
+      ok(!A.esApplyTry(es,0,'desk',c.desk,now),'solved lock accepted twice');
+      ok(A.esApplyTry(es,0,'cipherdesk',c.cipherdesk.word,now)&&A.esApplyTry(es,0,'safe',c.safe,now)&&A.esApplyTry(es,0,'ladder',c.ladder,now),'workshop locks');
+      ok(A.esApplyDoor(es,'ladder')&&es.room==='tower','ladder');
+      ok(!A.esApplyTry(es,0,'clockface',c.clockface,now),'clock face moved before its mechanism');
+      ok(!A.esApplyUse(es,0,'brassKey','mechanism',now),'brass key used up but accepted');
+      ok(A.esApplyUse(es,0,'smallGear','mechanism',now)&&!es.solved.mechanism,'one gear is not enough');
+      ok(A.esApplyUse(es,0,'bigGear','mechanism',now)&&es.solved.mechanism,'two gears');
+      ok(!A.esApplyDoor(es,'hiddendoor'),'hidden door open too early');
+      ok(A.esApplyTry(es,0,'clockface',c.clockface,now)&&A.esApplyDoor(es,'hiddendoor')&&es.room==='chamber','clock face');
+      // the cooperative door: everybody within the window
+      const nb=A.esCoopButtons(n);
+      for(let p=0;p<nb-1;p++)ok(A.esApplyCoop(es,p,p,now+p*200)&&!es.solved.exit,'coop early');
+      ok(A.esApplyCoop(es,nb-1,nb-1,now+nb*200)&&es.solved.exit&&es.scene&&es.scene.kind==='finale','coop finish');
+      A.esApplyAdvance(es,now+1,true);ok(es.phase==='done'&&es.result.won&&es.result.stars>=1,'finish');
+    }));
+    check('a full run works at every party size, and no lock can be skipped',bad.length===0,bad.slice(0,3).join(' | '));
+  });
+
+  suite('Escape — locks, hints, the clock and the cooperative door',()=>{
+    const mk=(n,seed)=>{const es=A.esNewState('clockmaker',seed||77,0,n,0);A.esApplyAdvance(es,0,true);return es;};
+    // a wrong code costs nothing but a mistake; the keypad locks after three
+    let es=mk(3),c=es.world.codes;es.room='workshop';
+    A.esApplyTry(es,0,'cipherdesk',c.cipherdesk.word,10);
+    const wrong=c.safe.map(d=>(d+1)%10);
+    for(let i=0;i<2;i++)A.esApplyTry(es,0,'safe',wrong,100+i);
+    check('two wrong codes do not lock the keypad',!es.lockout.safe&&es.mistakes===2);
+    A.esApplyTry(es,0,'safe',wrong,300);
+    check('the third wrong code locks it for a while',es.lockout.safe>300&&!A.esApplyTry(es,0,'safe',c.safe,301));
+    check('and it opens again afterwards',A.esApplyTry(es,0,'safe',c.safe,es.lockout.safe+1)&&es.solved.safe);
+    // wrong and right shapes
+    es=mk(3);c=es.world.codes;
+    check('a code of the wrong length is simply a wrong attempt',A.esApplyTry(es,0,'desk',[1,2],5)===true&&es.mistakes===1&&!es.solved.desk);
+    // hints follow the chain and get more specific
+    es=mk(3);const h=[1,2,3].map(()=>{A.esApplyHint(es);return es.hintLog[es.hintLog.length-1].t;});
+    check('three hints, each different, aimed at the desk',new Set(h).size===3&&/desk/i.test(h[0]+h[1]));
+    check('the third hint gives away a real digit of the code',h[2].indexOf(String(es.world.codes.desk[0]))>=0);
+    check('a fourth hint for the same lock is refused, and hints cost time-free but score',!A.esApplyHint(es)&&es.hintsUsed===3);
+    // the clock
+    es=mk(3);check('time running out fails the game',A.esApplyTick(es,es.clock.budget+5000)&&es.scene.kind==='failed');
+    es=mk(3);es.diff=1;es.evSched={at:100,done:false};A.esApplyTick(es,200);
+    check('on harder levels the house chimes and takes 30 seconds',es.evSched.done&&es.clock.spent>=30000&&!!es.note);
+    // cooperative door
+    es=mk(3);es.room='chamber';
+    A.esApplyCoop(es,0,0,1000);
+    check('one button is not enough, and it is only yours to press',!es.solved.exit&&!A.esApplyCoop(es,0,1,1100));
+    A.esApplyCoop(es,1,1,1000+A.ES_COOP_WINDOW+500);
+    check('presses too far apart do not add up',!es.solved.exit);
+    A.esApplyCoop(es,2,2,1000+A.ES_COOP_WINDOW+900);
+    check('two presses of three are still not enough',!es.solved.exit);
+    A.esApplyCoop(es,0,0,1000+A.ES_COOP_WINDOW+1200);
+    check('but everyone inside one window opens it',es.solved.exit===true);
+    // scoring
+    check('the difficulty levels get shorter and stingier',A.ES_LEVELS.family.min>A.ES_LEVELS.challenge.min&&A.ES_LEVELS.challenge.min>A.ES_LEVELS.expert.min&&A.ES_LEVELS.family.hints>A.ES_LEVELS.expert.hints);
+  });
+
+  suite('Escape — roster',()=>{
+    const g=A.GAMES.find(x=>x.id==='escape');
+    check('Escape is on the roster with the co-op adventures, online only, for 2 to 6',!!g&&g.cat==='coop'&&g.onlineOnly===true&&g.minP===2&&g.maxP===6&&g.rules.length>=5);
+    check('it is an online game, and has no bots',A.ONLINE_GAMES.includes('escape')&&!A.BOT_GAMES.has('escape'));
+    check('every object in every room has a name and a valid position',(()=>{
+      const adv=A.ES_ADV.clockmaker;
+      return Object.values(adv.rooms).every(r=>r.objs.every(o=>o.name&&o.x>=0&&o.x<=100&&o.y>=0&&o.y<=60&&(o.kind!=='door'||adv.rooms[o.to])));
+    })());
+    check('the chain lists real locks in order',(()=>{const adv=A.ES_ADV.clockmaker;return adv.chain.every(id=>A.esLockObj(adv,id));})());
+  });
+
   /* —— Pig: knowing when to stop is the whole game —————— */
   suite('Pig bots hold around 20, push harder from behind, and never gamble a win',()=>{
     const bank=A.pigBotShouldBank;
@@ -4865,7 +4985,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'slotFreeSpinsAwarded','slotPayout','slotTier','getSlotJackpot','setSlotJackpot','lDealSlots','slotStartSpin',
   'slotPassTurn','slotSetBet','botSlotsAct','ROUL_CHIPS','ROUL_CHIPS_HIGH',
   'PIG_TARGET','pigBotShouldBank','lDealPig','pigRoll','pigBank','pigAdvanceTurn','pigEndGame','botPigAct','pigDieHTML','rMatchEnd',
-  'bstEvaluateValues','bstEvaluateSelection','bstHasAnyScore','bstIsInstantBust','bstIsBustRoll','bstDiceKinds','bstBotSelect','bstBotShouldBank','bstPlaceholderDice','bstFreshTurnState','bstRollFace','BST_ENTRY_MIN','BST_TARGET','botBustAct',
+  'esNewState','esBuild','esInspect','esApplyAdvance','esApplyTry','esApplyUse','esApplyDoor','esApplyCoop','esApplyHint','esApplyTick','esNextLock','esCaesar','ES_ADV','esObjOf','esLockObj','esItemFits','ES_LEVELS','ES_COOP_WINDOW','esCoopButtons','oEsNewGame','bstEvaluateValues','bstEvaluateSelection','bstHasAnyScore','bstIsInstantBust','bstIsBustRoll','bstDiceKinds','bstBotSelect','bstBotShouldBank','bstPlaceholderDice','bstFreshTurnState','bstRollFace','BST_ENTRY_MIN','BST_TARGET','botBustAct',
   // The live game state, for the presentation tests. Declared with `let` in the app, so like the
   // constants it is script-scoped rather than a window property — the object reference eval hands
   // back is the real one, so mutating it drives the real app.
