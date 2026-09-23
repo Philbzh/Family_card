@@ -1220,6 +1220,35 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 @media(prefers-reduced-motion:reduce){.tour-slide{animation:none;}}
 /* ════════ TOURS END ════════ */
 
+/* ════════ TABLE STAGE ════════ */
+.stage-moment{position:fixed;inset:0;z-index:120;pointer-events:none;display:grid;place-items:center;overflow:hidden;}
+.stg-flash{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,rgba(var(--stg-c),0) 35%,rgba(var(--stg-c),.42) 100%);animation:stgflash 1.1s ease-out both;}
+.stg-card{position:relative;text-align:center;padding:.4rem 1.2rem;animation:stgpop .45s cubic-bezier(.2,1.5,.4,1) both;}
+.stg-icon{font-size:clamp(3rem,16vw,5.4rem);line-height:1;filter:drop-shadow(0 6px 18px rgba(0,0,0,.6));animation:stgicon .6s ease-out both;}
+.stg-text{font-family:var(--serif,Georgia,serif);font-weight:900;font-size:clamp(2.2rem,12.5vw,4.6rem);letter-spacing:.04em;line-height:1.05;color:rgb(var(--stg-c));text-shadow:0 3px 0 rgba(0,0,0,.75),0 0 30px rgba(var(--stg-c),.75),0 0 70px rgba(var(--stg-c),.45);-webkit-text-stroke:1px rgba(0,0,0,.35);}
+.stg-sub{margin-top:.35rem;font-size:clamp(.9rem,4vw,1.15rem);font-weight:700;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.9);}
+.stg-who{display:inline-flex;align-items:center;gap:.45rem;margin-top:.7rem;padding:.25rem .8rem .25rem .3rem;border-radius:999px;background:rgba(0,0,0,.55);border:1.5px solid rgba(var(--stg-c),.7);font-weight:700;color:#fff;}
+.stg-av{display:inline-block;width:1.7rem;height:1.7rem;border-radius:50%;overflow:hidden;vertical-align:middle;flex:none;}
+.stg-av img{width:100%;height:100%;object-fit:cover;display:block;}
+.stage-moment.stg-out{animation:stgout .28s ease-in both;}
+@keyframes stgflash{0%{opacity:0;}12%{opacity:1;}100%{opacity:0;}}
+@keyframes stgpop{0%{transform:scale(.3) rotate(-4deg);opacity:0;}60%{transform:scale(1.12) rotate(1deg);opacity:1;}100%{transform:scale(1) rotate(0);}}
+@keyframes stgicon{0%{transform:translateY(20px) scale(.5);}70%{transform:translateY(-6px) scale(1.15);}100%{transform:none;}}
+@keyframes stgout{to{opacity:0;transform:scale(1.06);}}
+.stg-bad .stg-text{animation:stgwobble .5s .3s ease-in-out 2;}
+@keyframes stgwobble{25%{transform:translateX(-6px) rotate(-1.2deg);}75%{transform:translateX(6px) rotate(1.2deg);}}
+#app.stg-shake{animation:stgshake .5s cubic-bezier(.36,.07,.19,.97);}
+@keyframes stgshake{10%,90%{transform:translateX(-2px);}20%,80%{transform:translateX(4px);}30%,50%,70%{transform:translateX(-7px);}40%,60%{transform:translateX(7px);}}
+.stage-moment.stg-still .stg-card,.stage-moment.stg-still .stg-icon,.stage-moment.stg-still .stg-text{animation:none;}
+.stage-moment.stg-still .stg-flash{animation:stgflash .6s ease-out both;}
+/* the intro: game icon, tagline and the players around the table */
+.game-intro-suits.stg-bigicon{font-size:3.2rem;letter-spacing:0;}
+.stg-seats{display:flex;gap:.7rem;justify-content:center;flex-wrap:wrap;margin-top:1.1rem;opacity:0;animation:dealerReveal .5s cubic-bezier(.2,.8,.2,1) .55s forwards;}
+.stg-seat{display:flex;flex-direction:column;align-items:center;gap:.2rem;font-size:.66rem;color:var(--paper2,#d9d2c0);}
+.stg-seat .stg-av{width:2.4rem;height:2.4rem;box-shadow:0 0 0 2px rgba(240,213,138,.55);}
+@media(prefers-reduced-motion:reduce){.stg-seats{animation:none;opacity:1;}#app.stg-shake{animation:none;}}
+/* ════════ TABLE STAGE END ════════ */
+
 /* ════════ BUST ════════
    Reuses .die/.dice-tray/.held/.just-rolled wholesale (see the comment above .die itself) -- only
    the per-kind border tint and the special-face glyph are new here, plus a level badge that gets
@@ -4738,6 +4767,7 @@ function yCommitCategory(cat){
   p.scorecard[cat]=yScoreForCategory(cat,G.ydice,p.scorecard);
   G.llast=esc(p.name)+' scores '+Y_LABELS[cat]+' — '+p.scorecard[cat]+' pts.';
   if((cat==='fullHouse'||cat==='largeStraight')&&p.scorecard[cat]>0)celebrateGoodCategory(Y_LABELS[cat]);
+  if(cat==='yahtzee'&&p.scorecard[cat]>0)stageEmit('YAHTZEE',{who:p});
   yAdvanceTurn();
 }
 function yAdvanceTurn(){
@@ -4943,6 +4973,7 @@ function fkRoll(){
     f.busted=true;
     G.llast=esc(G.lp[G.lcur].name)+' FARKLED — turn over, '+f.turnTotal+' pt'+(f.turnTotal!==1?'s':'')+' lost.';
     SFX.bust();fxPulse('red');haptic([30,40,30]);
+    stageEmit('FARKLE',{who:G.lp[G.lcur],points:f.turnTotal});
     render();
     setTimeout(()=>fkFarkleOut(),1100);
     return;
@@ -4967,7 +4998,7 @@ function fkContinue(){
   f.selected=new Array(f.dice.length).fill(false);
   f.hasRolled=false;f.lastRolled=[];
   SFX.chip();
-  if(hot){G.llast=esc(G.lp[G.lcur].name)+' used every die — HOT DICE! Rolling all six again.';fxPulse('gold');}
+  if(hot){G.llast=esc(G.lp[G.lcur].name)+' used every die — HOT DICE! Rolling all six again.';fxPulse('gold');stageEmit('HOT_DICE',{who:G.lp[G.lcur]});}
   render();
 }
 function fkBank(){
@@ -6301,6 +6332,98 @@ function rTourOv(){
 }
 /* ═══════ TOURS END ═══════ */
 
+/* ═══════ TABLE STAGE ═══════
+   One shared place for the big moments at the table. Every game already knew when something dramatic happened
+   (a bust, a hot streak, a Yahtzee) but each told it differently -- a sound here, a border pulse there, or
+   nothing. stageMoment() gives them all the same voice: a full-screen flash in the mood's colour, a big word
+   that pops in over the table, the player it happened to, a shake if it went badly. It never blocks a tap, it
+   waits its turn behind a bigger moment, and it stays still for anyone who asked their device for less motion.
+   For online games stageOnSrv() spots the same moments in the room state, so EVERY device sees them, not only
+   the one that rolled. */
+const STAGE_TAGS={maumau:'Match, shed, shout Mau!',texas:'Read the table.',fivecard:'Draw to the best hand.',blackjack:'Beat the dealer to 21.',battle:'Flip. Win. Repeat.',yahtzee:'Five dice. Thirteen chances.',roulette:'Place your bets.',dicedual:'Roll. Strike. Survive.',uno:'Match the colour. Shout UNO!',farkle:'How much will you risk?',bingo:'Keep your eyes on your card.',lepouilleux:'Don’t get stuck with the Old Maid.',slots:'Pull the lever.',pig:'One roll too many…',drawit:'Draw. Guess. Laugh.',liarsdice:'Trust nobody.',summit:'How far will you go?',hotbomb:'Pass it. Don’t hold it.',vault:'Nobody cracks it alone.',bust:'One more!',escape:'Enter. Explore. Solve.'};
+const STAGE_TONES={
+  good:{c:'95,214,138',buzz:[20,40,20]},bad:{c:'255,90,78',buzz:[40,50,40]},gold:{c:'244,201,93',buzz:[20,30,60]},
+  hot:{c:'255,138,47',buzz:[15,30,15]},cool:{c:'126,200,242',buzz:[15]}
+};
+let _stageEl=null,_stageT=null,_stagePri=-1,_stageShakeT=null;
+// o: {text, sub, tone ('good'|'bad'|'gold'|'hot'|'cool'), icon, who:{name,avatar}, ms, pri, shake}
+function stageMoment(o){
+  if(!o||!o.text||typeof document==='undefined'||!document.body)return null;
+  const pri=o.pri!=null?o.pri:1;
+  if(_stageEl&&_stageEl.isConnected&&pri<_stagePri)return null;   // a bigger moment is still on screen
+  stageClear();
+  const tone=STAGE_TONES[o.tone]?o.tone:'gold',T=STAGE_TONES[tone];
+  let reduced=false;try{reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
+  const el=document.createElement('div');
+  el.className='stage-moment stg-'+tone+(reduced?' stg-still':'');
+  el.setAttribute('role','status');el.setAttribute('aria-live','assertive');
+  el.style.setProperty('--stg-c',T.c);
+  const who=o.who&&o.who.name?`<div class="stg-who"><span class="stg-av">${avHTML(o.who.avatar)}</span><span>${esc(o.who.name)}</span></div>`:'';
+  el.innerHTML=`<div class="stg-flash"></div><div class="stg-card">${o.icon?`<div class="stg-icon">${o.icon}</div>`:''}<div class="stg-text">${esc(o.text)}</div>${o.sub?`<div class="stg-sub">${esc(o.sub)}</div>`:''}${who}</div>`;
+  document.body.appendChild(el);
+  _stageEl=el;_stagePri=pri;
+  const ms=o.ms||1500;
+  _stageT=setTimeout(()=>{el.classList.add('stg-out');setTimeout(()=>{if(_stageEl===el){el.remove();_stageEl=null;_stagePri=-1;}else el.remove();},280);},ms);
+  if(o.snd&&typeof SFX!=='undefined'&&SFX[o.snd])try{SFX[o.snd]();}catch(e){}
+  if(o.buzz!==false)haptic(T.buzz);
+  if((o.shake||tone==='bad')&&!reduced&&o.shake!==false){
+    const app=document.getElementById('app');
+    if(app){app.classList.remove('stg-shake');void app.offsetWidth;app.classList.add('stg-shake');clearTimeout(_stageShakeT);_stageShakeT=setTimeout(()=>app.classList.remove('stg-shake'),520);}
+  }
+  return el;
+}
+function stageClear(){clearTimeout(_stageT);if(_stageEl){_stageEl.remove();_stageEl=null;_stagePri=-1;}}
+// the players around the table, for the intro
+function stageSeatsHTML(){
+  const ps=(G.isOnline?(G.srv&&G.srv.players):G.lp)||[];
+  if(!ps.length)return'';
+  return`<div class="stg-seats">${ps.slice(0,8).map(p=>`<span class="stg-seat"><span class="stg-av">${avHTML(p.avatar)}</span><small>${esc((p.name||'').slice(0,10))}</small></span>`).join('')}</div>`;
+}
+// The stage as an event system: games say WHAT happened, the stage decides how it looks and sounds.
+//   stageEmit('FARKLE',{who:player,points:650})   stageEmit('BUST',{who:player,points:900})   stageEmit('YAHTZEE',{who:player})
+// Unknown events are ignored, so a game can emit something the stage has not learned yet without breaking.
+const STAGE_EVENTS={
+  FARKLE:d=>({text:'FARKLE!',sub:(d.points||0)+' points lost',tone:'bad',icon:'😬',who:d.who}),
+  PIG_OUT:d=>({text:'PIG OUT!',sub:(d.points||0)+' points lost',tone:'bad',icon:'🐷',who:d.who}),
+  BUST:d=>({text:'BUST!',sub:d.sub!=null?d.sub:(d.points!=null?d.points+' points gone':''),tone:'bad',icon:'💥',who:d.who,pri:2}),
+  SHIELD:d=>({text:'SHIELD!',sub:'The turn is saved',tone:'cool',icon:'🛡️',who:d.who,pri:2}),
+  DANGER_LEVEL:d=>{const l=BST_LEVEL_LINES[d.level];return l?{text:l[0],sub:l[1],tone:l[2],icon:d.level>=5?'🔥':'⚠️',ms:1100,pri:0,shake:false,buzz:false}:null;},
+  HOT_DICE:d=>({text:'HOT DICE!',sub:'Every die scored — roll all six again',tone:'hot',icon:'🔥',who:d.who,ms:1300,pri:1,shake:false}),
+  YAHTZEE:d=>({text:'YAHTZEE!',sub:'Five of a kind — 50 points',tone:'gold',icon:'🎲',who:d.who,pri:2}),
+  BLACKJACK:d=>({text:'BLACKJACK!',sub:'A natural 21',tone:'gold',icon:'🂡',who:d.who,pri:2}),
+  BIG_WIN:d=>({text:d.text||'BIG WIN!',sub:d.sub,tone:'gold',icon:d.icon||'🏆',who:d.who,pri:2})
+};
+function stageEmit(name,d){const f=STAGE_EVENTS[name];if(!f)return null;const o=f(d||{});return o?stageMoment(o):null;}
+const BST_LEVEL_LINES={2:['DANGER LEVEL 2','Dead 💀 dice creep in','hot'],3:['DANGER LEVEL 3','A ☠️ die can bust you instantly','bad'],4:['DANGER LEVEL 4','A 🔥 ×2 die joins the pool','bad'],5:['FINAL RISK','Every die is dangerous now','bad']};
+function stageBustLevel(level){stageEmit('DANGER_LEVEL',{level});}
+// Online: compare the room before and after a change, and stage what just happened on every device.
+function stageOnSrv(prev,state){
+  try{
+    if(!prev||!state||prev.gameId!==state.gameId||state.phase!=='game')return;
+    const cur=(state.players||[])[state.curIdx||0];
+    const g=state.gameId;
+    if(g==='farkle'&&prev.fk&&state.fk&&state.fk.busted&&!prev.fk.busted)
+      stageEmit('FARKLE',{who:cur,points:state.fk.turnTotal});
+    else if(g==='pig'&&prev.pig&&state.pig&&state.pig.busted&&!prev.pig.busted)
+      stageEmit('PIG_OUT',{who:cur,points:state.pig.turnTotal});
+    else if(g==='bust'&&prev.bst&&state.bst){
+      if(state.bst.busted&&!prev.bst.busted){
+        if(state.bst.shieldSaved)stageEmit('SHIELD',{who:cur});
+        else stageEmit('BUST',{who:cur,points:state.bst.turnTotal||0});
+      } else if(state.bst.level>prev.bst.level&&!state.bst.busted)stageBustLevel(state.bst.level);
+    }
+    else if(g==='yahtzee'){
+      (state.players||[]).forEach((p,i)=>{const b=(prev.players||[])[i];
+        if(b&&b.scorecard&&p.scorecard&&p.scorecard.yahtzee>0&&!(b.scorecard.yahtzee>0))stageEmit('YAHTZEE',{who:p});});
+    }
+    else if(g==='blackjack'){
+      (state.players||[]).forEach((p,i)=>{const b=(prev.players||[])[i];
+        if(b&&p.bjBust&&!b.bjBust)stageEmit('BUST',{who:p,sub:'Over 21'});});
+    }
+  }catch(e){}
+}
+/* ═══════ TABLE STAGE END ═══════ */
+
 /* ═══════ BUST ═══════
    Farkle's louder, riskier cousin: same "set aside a scoring group or lose the turn" heartbeat, but
    the pool of dice itself gets more dangerous the longer a turn runs. Every reroll inside the SAME
@@ -6467,6 +6590,7 @@ function bstRoll(){
       }
       G.llast=msg;
       SFX.chip();fxPulse('gold');
+      stageEmit('SHIELD',{who:p});
       render();
       setTimeout(()=>bstAdvanceTurn(),1300);
       return;
@@ -6474,6 +6598,7 @@ function bstRoll(){
     f.busted=true;
     G.llast=esc(p.name)+' screams. 😂 💥 BUST — turn over, '+f.turnTotal+' pt'+(f.turnTotal!==1?'s':'')+' lost.';
     SFX.bust();fxPulse('red');haptic([30,40,30]);
+    stageEmit('BUST',{who:p,points:f.turnTotal});
     render();
     setTimeout(()=>bstFarkleOut(),1100);
     return;
@@ -6492,8 +6617,8 @@ function bstContinue(){
   f.selected=new Array(f.dice.length).fill(false);
   f.hasRolled=false;f.lastRolled=[];
   f.level=Math.min(f.level+1,5);
-  SFX.chip();
-  if(hot){G.llast=(sel.shield?G.llast+' ':'')+esc(G.lp[G.lcur].name)+' used every die — HOT DICE! Rolling all six again.';fxPulse('gold');}
+  SFX.chip();stageBustLevel(f.level);
+  if(hot){G.llast=(sel.shield?G.llast+' ':'')+esc(G.lp[G.lcur].name)+' used every die — HOT DICE! Rolling all six again.';fxPulse('gold');stageEmit('HOT_DICE',{who:G.lp[G.lcur]});}
   render();
 }
 function bstBank(){
@@ -6713,6 +6838,7 @@ function pigRoll(){
     g.busted=true;
     G.llast=esc(G.lp[G.lcur].name)+' rolled a 1 — turn over, '+g.turnTotal+' pt'+(g.turnTotal!==1?'s':'')+' lost.';
     SFX.bust();fxPulse('red');haptic([30,40,30]);
+    stageEmit('PIG_OUT',{who:G.lp[G.lcur],points:g.turnTotal});
     render();
     setTimeout(()=>pigAdvanceTurn(),1100);
     return;
@@ -13096,7 +13222,7 @@ function lDealBlackjack(deck){
     G.lp.forEach(p=>{if(G.ldeck.length)p.bjHand.push(G.ldeck.pop());});
     if(G.ldeck.length)G.dealerHand.push(G.ldeck.pop());
   }
-  G.lp.forEach((p,i)=>{if(bjValue(p.bjHand).total===21){p.bjBlackjack=true;p.bjDone=true;setTimeout(()=>{fxPulse('gold');fxSeatGlow(i,'gold');},1150);}});
+  G.lp.forEach((p,i)=>{if(bjValue(p.bjHand).total===21){p.bjBlackjack=true;p.bjDone=true;setTimeout(()=>{fxPulse('gold');fxSeatGlow(i,'gold');stageEmit('BLACKJACK',{who:p});},1150);}});
   SFX.deal();
   const firstIdx=G.lp.findIndex(p=>!p.bjDone);
   G.lcur=firstIdx>=0?firstIdx:0;
@@ -13110,7 +13236,7 @@ function bjHit(){
   if(G.ldeck.length)p.bjHand.push(G.ldeck.pop());
   SFX.draw();G.matchStats.cardsPlayed++;
   const v=bjValue(p.bjHand);
-  if(v.total>=21){if(v.total>21){p.bjBust=true;SFX.bust();fxPulse('red');fxSeatGlow(G.lcur,'red');}p.bjDone=true;render();setTimeout(bjAdvance,500);}
+  if(v.total>=21){if(v.total>21){p.bjBust=true;SFX.bust();fxPulse('red');fxSeatGlow(G.lcur,'red');stageEmit('BUST',{who:p,sub:'Over 21'});}p.bjDone=true;render();setTimeout(bjAdvance,500);}
   else render();
 }
 function bjStand(){
@@ -13125,7 +13251,7 @@ function bjDouble(){
   p.chips-=p.bjBet;p.bjBet*=2;p.bjDoubled=true;
   if(G.ldeck.length)p.bjHand.push(G.ldeck.pop());
   SFX.draw();G.matchStats.cardsPlayed++;
-  if(bjValue(p.bjHand).total>21){p.bjBust=true;SFX.bust();fxPulse('red');fxSeatGlow(G.lcur,'red');}
+  if(bjValue(p.bjHand).total>21){p.bjBust=true;SFX.bust();fxPulse('red');fxSeatGlow(G.lcur,'red');stageEmit('BUST',{who:p,sub:'Over 21'});}
   p.bjDone=true;render();setTimeout(bjAdvance,500);
 }
 function bjAdvance(){
@@ -14192,6 +14318,7 @@ function onSrv(state){
   const prevYRolls=state.gameId==='yahtzee'?(G.srv?.yrolls||0):0;
   const prevYScores=state.gameId==='yahtzee'?(G.srv?.players||[]).map(p=>({fullHouse:p.scorecard?.fullHouse,largeStraight:p.scorecard?.largeStraight})):null;
   const prevDw=state.gameId==='drawit'?{rid:G.srv?.dw?.rid,gn:(G.srv?.dw?.guesses||[]).length,winner:prevWinner,matchOver:!!G.srv?.matchOver}:null;
+  stageOnSrv(G.srv,state);
   G.srv=state;_lts=state._ts||0;
   if(state.mauPend&&state.mauPend.pid===G.myPid){
     const sig=state.mauPend.pid+'|'+state.mauPend.deadline;
@@ -16775,11 +16902,12 @@ function rYahtzeeEnd(){
 
 /* ═══ V14 CINEMATIC LAYER ═══ */
 function v14GameLabel(id){return ({maumau:'Mau Mau',texas:"Texas Hold'em",fivecard:'Five Card Draw',blackjack:'Blackjack',battle:'Battle',romme:'Rommé',hearts:'Hearts',bridge:'Bridge',yahtzee:'Yahtzee',roulette:'Roulette',dicedual:'Dice Duel',uno:'Uno',farkle:'Farkle',bingo:'Bingo',lepouilleux:'Old Maid',slots:'Slot Machine',pig:'Pig',drawit:'Draw-it',liarsdice:"Liar's Dice",summit:'Summit',hotbomb:'Hot Bomb',vault:'The Vault',bust:'BUST',escape:'Escape'})[id]||id||'Card Game'}
+function stageIsCards(id){const g=GAMES.find(x=>x.id===id);return!!g&&(g.cat==='cards'||g.cat==='casino');}
 function v14Intro(id,dealerName,dealerAvatar){
   const old=document.querySelector('.game-intro');if(old)old.remove();
   const el=document.createElement('div');el.className='game-intro';
   const dealerHTML=dealerName?`<div class="game-intro-dealer"><span class="gid-av">${avHTML(dealerAvatar)}</span><span class="gid-text"><span class="gid-name">${esc(dealerName)}</span><span class="gid-tag">deals first</span></span></div>`:'';
-  el.innerHTML=`<div class="game-intro-card"><div class="game-intro-kicker">OUR TABLE · READY TO PLAY</div><div class="game-intro-title">${v14GameLabel(id)}</div><div class="game-intro-suits">♠ ♥ ♦ ♣</div><div class="game-intro-deal"></div><div class="game-intro-sub">${dealerName?'The cut falls to…':'The table is ready. Let the game begin.'}</div>${dealerHTML}</div>`;
+  el.innerHTML=`<div class="game-intro-card"><div class="game-intro-kicker">OUR TABLE · READY TO PLAY</div><div class="game-intro-title">${v14GameLabel(id)}</div>${stageIsCards(id)?'<div class="game-intro-suits">♠ ♥ ♦ ♣</div>':`<div class="game-intro-suits stg-bigicon">${(GAMES.find(x=>x.id===id)||{}).icon||'🎲'}</div>`}<div class="game-intro-deal"></div><div class="game-intro-sub">${STAGE_TAGS[id]?esc(STAGE_TAGS[id]):(dealerName?'The cut falls to…':'The table is ready. Let the game begin.')}</div>${stageSeatsHTML()}${dealerHTML}</div>`;
   document.body.appendChild(el);
   const dur=dealerName?2000:1450;
   setTimeout(()=>el.classList.add('hide'),dur);

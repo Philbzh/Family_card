@@ -4214,6 +4214,49 @@ async function runPresentation(A,W,frame){
     check('the chain lists real locks in order',(()=>{const adv=A.ES_ADV.clockmaker;return adv.chain.every(id=>A.esLockObj(adv,id));})());
   });
 
+  /* —— Table stage: the shared big-moment layer —————— */
+  suite('Table stage — big moments look the same in every game',()=>{
+    const doc=W.document,text=()=>{const e=doc.querySelector('.stage-moment .stg-text');return e?e.textContent:null;};
+    W.stageClear();
+    check('every playable game has a tagline for its intro',A.GAMES.filter(g=>!g.locked).every(g=>W.eval('STAGE_TAGS')[g.id]));
+    check('card and casino games keep their suits, the others show their own icon',W.stageIsCards('texas')&&W.stageIsCards('blackjack')&&!W.stageIsCards('farkle')&&!W.stageIsCards('escape'));
+    W.stageMoment({text:'FARKLE!',tone:'bad',icon:'😬',who:{name:'Anna',avatar:A.AVATARS[1]},sub:'650 points lost'});
+    check('a moment shows its word, its mood, who it happened to and what it cost',text()==='FARKLE!'&&!!doc.querySelector('.stage-moment.stg-bad')&&/Anna/.test(doc.querySelector('.stg-who').textContent)&&/650/.test(doc.querySelector('.stg-sub').textContent));
+    check('it never blocks a tap (it sits above the table without catching clicks)',W.getComputedStyle(doc.querySelector('.stage-moment')).pointerEvents==='none');
+    W.stageMoment({text:'LEVEL 2',tone:'hot',pri:0});
+    check('a smaller moment waits its turn behind a bigger one that is still showing',text()==='FARKLE!');
+    W.stageMoment({text:'BUST!',tone:'bad',pri:2});
+    check('a bigger or equal moment takes over, and only one is ever on screen',text()==='BUST!'&&doc.querySelectorAll('.stage-moment').length===1);
+    W.stageClear();check('it can be cleared',!doc.querySelector('.stage-moment'));
+    check('games can just say what happened (stageEmit) and the stage decides how it looks',(()=>{
+      const want={FARKLE:'FARKLE!',PIG_OUT:'PIG OUT!',BUST:'BUST!',SHIELD:'SHIELD!',HOT_DICE:'HOT DICE!',YAHTZEE:'YAHTZEE!',BLACKJACK:'BLACKJACK!',BIG_WIN:'BIG WIN!'};
+      return Object.keys(want).every(k=>{W.stageClear();W.stageEmit(k,{who:{name:'Phil',avatar:A.AVATARS[0]},points:100});const ok=text()===want[k];W.stageClear();return ok;});
+    })());
+    check('a danger level with no line, or an event the stage has not learned, is quietly ignored',W.stageEmit('DANGER_LEVEL',{level:1})===null&&W.stageEmit('NOT_A_THING',{})===null&&!doc.querySelector('.stage-moment'));
+    check('html in names or words is escaped, never run',(()=>{W.stageMoment({text:'<img src=x onerror=1>',who:{name:'<b>x</b>',avatar:A.AVATARS[0]}});const ok=!doc.querySelector('.stage-moment img[src="x"]')&&!doc.querySelector('.stg-who b');W.stageClear();return ok;})());
+  });
+
+  suite('Table stage — online rooms show the same moments on every device',()=>{
+    const doc=W.document,text=()=>{const e=doc.querySelector('.stage-moment .stg-text');return e?e.textContent:null;};
+    const pl=[{id:'a',name:'Phil',avatar:A.AVATARS[0],scorecard:{}},{id:'b',name:'Anna',avatar:A.AVATARS[1],scorecard:{}}];
+    const room=(g,extra)=>Object.assign({phase:'game',gameId:g,players:JSON.parse(JSON.stringify(pl)),curIdx:1},extra);
+    const saw=(fn)=>{W.stageClear();fn();const t=text();W.stageClear();return t;};
+    check('a Farkle bust is announced when it happens, and only once',
+      saw(()=>W.stageOnSrv(room('farkle',{fk:{busted:false,turnTotal:400}}),room('farkle',{fk:{busted:true,turnTotal:400}})))==='FARKLE!'
+      &&saw(()=>W.stageOnSrv(room('farkle',{fk:{busted:true}}),room('farkle',{fk:{busted:true}})))===null);
+    check('a Pig bust is announced',saw(()=>W.stageOnSrv(room('pig',{pig:{busted:false}}),room('pig',{pig:{busted:true,turnTotal:12}})))==='PIG OUT!');
+    check('BUST tells a real bust from a shield save',
+      saw(()=>W.stageOnSrv(room('bust',{bst:{busted:false,level:2}}),room('bust',{bst:{busted:true,level:2,turnTotal:900}})))==='BUST!'
+      &&saw(()=>W.stageOnSrv(room('bust',{bst:{busted:false,level:2}}),room('bust',{bst:{busted:true,shieldSaved:true,level:2,turnTotal:900}})))==='SHIELD!');
+    check('BUST announces each new danger level, but not level 1',
+      saw(()=>W.stageOnSrv(room('bust',{bst:{busted:false,level:1}}),room('bust',{bst:{busted:false,level:2}})))==='DANGER LEVEL 2'
+      &&saw(()=>W.stageOnSrv(room('bust',{bst:{busted:false,level:4}}),room('bust',{bst:{busted:false,level:5}})))==='FINAL RISK');
+    check('a Yahtzee is announced the moment it is scored',(()=>{const a=room('yahtzee'),b=room('yahtzee');b.players[1].scorecard.yahtzee=50;return saw(()=>W.stageOnSrv(a,b))==='YAHTZEE!'&&saw(()=>W.stageOnSrv(b,b))===null;})());
+    check('a Blackjack bust is announced',(()=>{const a=room('blackjack'),b=room('blackjack');b.players[0].bjBust=true;return saw(()=>W.stageOnSrv(a,b))==='BUST!';})());
+    check('a change of game, a lobby, or missing data never throws or stages',
+      saw(()=>W.stageOnSrv(null,room('farkle')))===null&&saw(()=>W.stageOnSrv(room('farkle'),room('pig')))===null&&saw(()=>W.stageOnSrv(room('farkle'),{phase:'lobby',gameId:'farkle'}))===null);
+  });
+
   /* —— Pig: knowing when to stop is the whole game —————— */
   suite('Pig bots hold around 20, push harder from behind, and never gamble a win',()=>{
     const bank=A.pigBotShouldBank;
