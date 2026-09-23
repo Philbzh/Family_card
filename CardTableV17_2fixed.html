@@ -2072,6 +2072,7 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 .roul-chip-pick[data-val="500"]{background:radial-gradient(circle at 35% 30%,#9a6fe0,#3d1f6e);border-color:rgba(212,168,67,.6);}
 .roul-chip-pick[data-val="1000"]{background:radial-gradient(circle at 35% 30%,#f0cc60,#8a6a1a);border-color:rgba(212,168,67,.9);color:#1a1206;text-shadow:none;}
 .roul-chip-pick:hover{transform:translateY(-3px) scale(1.05);}
+.roul-chip-all{width:auto;min-width:4.2rem;padding:0 .8rem;border-radius:999px;font-size:.7rem;letter-spacing:.08em;background:linear-gradient(160deg,#ff8a4a,#c22a1a)!important;border:2px solid #ffd36a!important;box-shadow:0 0 14px rgba(255,120,60,.45),0 3px 6px rgba(0,0,0,.5);}
 .roul-chip-pick.active{border-color:var(--gold2);box-shadow:inset 0 0 0 4px rgba(8,10,8,.85),inset 0 2px 3px rgba(255,255,255,.2),0 0 0 3px rgba(212,168,67,.35),0 6px 14px rgba(212,168,67,.35);transform:translateY(-3px);}
 .roul-my-bet{margin-left:auto;font-size:.72rem;color:var(--paper3);}
 .roul-my-bet b{color:var(--gold2);}
@@ -12013,11 +12014,12 @@ function lDealRoulette(){
 function roulPlaceBet(key){
   const p=G.lp[G.lcur];
   if(G.roulSpinning){toast('Wheel is spinning — wait for it to land');SFX.illegal();return;}
-  if(p.chips<G.roulChip){toast('Not enough chips');SFX.illegal();return;}
-  p.chips-=G.roulChip;
+  const amt=G.roulAll?p.chips:G.roulChip;   // ALL IN puts every chip you have on this one spot
+  if(amt<=0||p.chips<amt){toast('Not enough chips');SFX.illegal();return;}
+  p.chips-=amt;G.roulAll=false;
   if(p.chips===0)stageEmit('ALL_IN',{who:p,sub:'Every chip on the table'});
-  p.roulBets[key]=(p.roulBets[key]||0)+G.roulChip;
-  p.roulBetLog.push({key,amt:G.roulChip});
+  p.roulBets[key]=(p.roulBets[key]||0)+amt;
+  p.roulBetLog.push({key,amt});
   SFX.chip();
   render();
 }
@@ -12141,10 +12143,11 @@ async function oRoulPlaceBet(key){
   try{
     await oRoulMutate(state=>{
       const p=state.players.find(pl=>pl.id===G.myPid);if(!p)return false;
-      if(p.chips<G.roulChip){toast('Not enough chips');SFX.illegal();return false;}
-      p.chips-=G.roulChip;
-      p.roulBets=p.roulBets||{};p.roulBets[key]=(p.roulBets[key]||0)+G.roulChip;
-      p.roulBetLog=p.roulBetLog||[];p.roulBetLog.push({key,amt:G.roulChip});
+      const amt=G.roulAll?p.chips:G.roulChip;
+      if(amt<=0||p.chips<amt){toast('Not enough chips');SFX.illegal();return false;}
+      p.chips-=amt;G.roulAll=false;
+      p.roulBets=p.roulBets||{};p.roulBets[key]=(p.roulBets[key]||0)+amt;
+      p.roulBetLog=p.roulBetLog||[];p.roulBetLog.push({key,amt});
       SFX.chip();
       return true;
     });
@@ -16541,7 +16544,8 @@ function rRouletteTable(){
   const historyStrip=history.map(h=>`<span class="roul-hist-num roul-hist-${h.color}">${h.number}</span>`).join('');
   const chipTiers=me.chips>2000?ROUL_CHIPS_HIGH:ROUL_CHIPS;
   if(!chipTiers.includes(G.roulChip))G.roulChip=chipTiers[chipTiers.length-1];
-  const chipPicker=chipTiers.map(v=>`<button class="roul-chip-pick${G.roulChip===v?' active':''}" data-a="roul-chip" data-val="${v}" aria-pressed="${G.roulChip===v}">${v}</button>`).join('');
+  if(me.chips<=0)G.roulAll=false;
+  const chipPicker=chipTiers.map(v=>`<button class="roul-chip-pick${!G.roulAll&&G.roulChip===v?' active':''}" data-a="roul-chip" data-val="${v}" aria-pressed="${!G.roulAll&&G.roulChip===v}">${v}</button>`).join('')+(me.chips>0?`<button class="roul-chip-pick roul-chip-all${G.roulAll?' active':''}" data-a="roul-all" aria-pressed="${!!G.roulAll}" aria-label="Bet everything: ${me.chips} chips">ALL IN</button>`:'');
 
   const betAmt=key=>players.reduce((s,pl)=>s+((pl.roulBets||{})[key]||0),0);
   const chipBadges=key=>{
@@ -16671,7 +16675,8 @@ function rSlotsTable(){
   const chipAll=cur.chips>2000?ROUL_CHIPS_HIGH:ROUL_CHIPS;
   const tiers=broke?[]:chipAll.filter(v=>v<=cur.chips);
   const betLocked=s.phase!=='idle'||!myTurn||broke;
-  const chipPicker=tiers.length?tiers.map(v=>`<button class="roul-chip-pick${s.bet===v?' active':''}" data-a="slot-bet" data-val="${v}" aria-pressed="${s.bet===v}" ${betLocked?'disabled':''}>${v}</button>`).join('')
+  const allInBtn=broke?'':`<button class="roul-chip-pick roul-chip-all${s.bet===cur.chips?' active':''}" data-a="slot-bet" data-val="${cur.chips}" aria-pressed="${s.bet===cur.chips}" ${betLocked?'disabled':''} aria-label="Bet everything: ${cur.chips} chips">ALL IN</button>`;
+  const chipPicker=tiers.length?tiers.map(v=>`<button class="roul-chip-pick${s.bet===v?' active':''}" data-a="slot-bet" data-val="${v}" aria-pressed="${s.bet===v}" ${betLocked?'disabled':''}>${v}</button>`).join('')+allInBtn
     :`<span class="slot-cur-bet">🪙 out of chips</span>`;
 
   const reelHTML=displayReels.map((id,i)=>{
@@ -17949,7 +17954,8 @@ document.addEventListener('click',e=>{
   else if(a==='yscore'){G.isOnline?oYCommitCategory(t.getAttribute('data-cat')):yCommitCategory(t.getAttribute('data-cat'));}
   else if(a==='roul-bet'){G.isOnline?oRoulPlaceBet(t.getAttribute('data-key')):roulPlaceBet(t.getAttribute('data-key'));}
   else if(a==='roul-select'){if(G.isOnline)return;G.lcur=+t.getAttribute('data-idx');render();}
-  else if(a==='roul-chip'){G.roulChip=+t.getAttribute('data-val');render();}
+  else if(a==='roul-chip'){G.roulChip=+t.getAttribute('data-val');G.roulAll=false;render();}
+  else if(a==='roul-all'){G.roulAll=!G.roulAll;SFX.chip();render();}
   else if(a==='roul-undo'){G.isOnline?oRoulUndo():roulUndo();}
   else if(a==='roul-clear'){G.isOnline?oRoulClearBets():roulClearBets();}
   else if(a==='roul-spin'){G.isOnline?oRoulStartCountdown():roulSpin();}

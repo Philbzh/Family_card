@@ -4324,6 +4324,31 @@ async function runPresentation(A,W,frame){
   });
 
   /* —— Pig: knowing when to stop is the whole game —————— */
+  suite('ALL IN — the Slot Machine and Roulette offer it, and it puts every chip in',()=>{
+    const G=W.eval('G'),keep={scr:G.scr,lp:G.lp,game:G.selGame,online:G.isOnline,lcur:G.lcur,chip:G.roulChip,all:G.roulAll};
+    try{
+      G.isOnline=false;G.selGame='roulette';
+      const mk=()=>[{id:1,name:'Phil',avatar:A.AVATARS[0],hand:[],totalScore:0,roundsWon:0,chips:730,bet:0,folded:false,allIn:false,roulBets:{},roulBetLog:[]},{id:2,name:'Anna',avatar:A.AVATARS[1],hand:[],totalScore:0,roundsWon:0,chips:500,bet:0,folded:false,allIn:false,roulBets:{},roulBetLog:[]}];
+      G.lp=mk();G.lcur=0;G.roulChip=5;G.roulAll=true;G.roulSpinning=false;
+      W.roulPlaceBet('red');
+      check('ALL IN on the roulette table puts every chip on the chosen spot at once',G.lp[0].chips===0&&G.lp[0].roulBets.red===730&&G.lp[0].roulBetLog[0].amt===730);
+      check('and switches itself off afterwards, so the next bet is an ordinary chip again',G.roulAll===false);
+      G.lp=mk();G.roulAll=false;G.roulChip=25;W.roulPlaceBet('black');
+      check('an ordinary chip still places just that chip',G.lp[0].chips===705&&G.lp[0].roulBets.black===25);
+      G.lp=mk();G.roulAll=true;G.lp[0].chips=0;W.roulPlaceBet('red');
+      check('ALL IN with no chips left places nothing',G.lp[0].roulBets.red===undefined&&G.lp[0].chips===0);
+      // what the table shows
+      G.lp=mk();G.lcur=0;G.roulAll=false;G.scr='table';
+      const rt=new DOMParser().parseFromString(W.rRouletteTable(),'text/html');
+      check('the roulette table shows an ALL IN chip beside the ordinary ones',!!rt.querySelector('[data-a="roul-all"]')&&/ALL IN/.test(rt.querySelector('[data-a="roul-all"]').textContent));
+      G.selGame='slots';G.lp=mk();W.lDealSlots();G.lcur=0;G.slot.curIdx=0;G.lp[0].chips=730;G.scr='table';
+      const st=new DOMParser().parseFromString(W.rSlotsTable(),'text/html'),all=st.querySelector('[data-a="slot-bet"].roul-chip-all');
+      check('the Slot Machine shows an ALL IN chip that bets everything you have',!!all&&all.getAttribute('data-val')==='730');
+      W.slotSetBet(730);
+      check('choosing it bets every chip',G.slot.bet===730);
+    } finally{Object.assign(G,{scr:keep.scr,lp:keep.lp,selGame:keep.game,isOnline:keep.online,lcur:keep.lcur,roulChip:keep.chip,roulAll:keep.all});W.slotClearTimers&&W.slotClearTimers();}
+  });
+
   suite('Pig bots hold around 20, push harder from behind, and never gamble a win',()=>{
     const bank=A.pigBotShouldBank;
     check('gentle holds well under 15',!bank(10,0,0,'gentle'));
