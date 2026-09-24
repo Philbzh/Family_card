@@ -4302,6 +4302,9 @@ async function runPresentation(A,W,frame){
       const rooms=new DOMParser().parseFromString('<div>'+W.homeRoomsHTML()+'</div>','text/html');
       const cats=A.GAME_CATEGORIES.filter(c=>A.GAMES.some(g=>g.cat===c.id&&!g.locked));
       check('there is one room to walk into for every category that has games',rooms.querySelectorAll('.home-room[data-a="home-room"]').length===cats.length&&cats.length>=5);
+      check('every room is drawn with its own picture',[...rooms.querySelectorAll('.home-room')].every((el,i)=>(el.getAttribute('style')||'').includes('assets/rooms/'+cats[i].id+'.jpg')));
+      const gt=new DOMParser().parseFromString('<div>'+W.rGamesCategoryTiles()+'</div>','text/html');
+      check('the Games tab shows the very same room tiles as the home page',gt.querySelectorAll('.home-room[data-a="games-cat"]').length===cats.length);
       check('every room says how many games it holds',[...rooms.querySelectorAll('.home-room')].every((el,i)=>new RegExp(A.GAMES.filter(g=>g.cat===cats[i].id&&!g.locked).length+' game').test(el.textContent)));
       check('“jump back in” starts with what was played, then the newest games, never more than four',(()=>{
         const j=W.homeJumpGames(hist).map(g=>g.id),e=W.homeJumpGames([]).map(g=>g.id);

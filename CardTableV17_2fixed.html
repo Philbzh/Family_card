@@ -1259,14 +1259,17 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 .home-fam-add{cursor:pointer;}.home-fam-add .home-fam-av{display:grid;place-items:center;font-size:1.6rem;color:var(--gold2,#f0d58a);background:rgba(255,255,255,.05);box-shadow:0 0 0 2px rgba(240,213,138,.35);border:0;}
 .home-fam b{font-size:.78rem;color:var(--paper,#f2ecdc);}.home-fam small{font-size:.66rem;color:var(--paper3,#9a9483);}
 .home-rooms{display:grid;grid-template-columns:repeat(2,1fr);gap:.7rem;margin-bottom:1rem;}
-@media(min-width:760px){.home-rooms{grid-template-columns:repeat(3,1fr);}}
-.home-room{position:relative;overflow:hidden;cursor:pointer;border-radius:16px;padding:.9rem .9rem .8rem;min-height:7.6rem;display:flex;flex-direction:column;gap:.2rem;
-  background:linear-gradient(160deg,rgba(var(--rc),.26),rgba(6,12,10,.55));border:1.5px solid rgba(var(--rc),.4);box-shadow:0 10px 26px -14px rgba(var(--rc),.6);transition:transform .16s,border-color .16s;}
-.home-room:hover,.home-room:focus-visible{transform:translateY(-2px);border-color:rgba(var(--rc),.8);outline:none;}
-.home-room-ic{font-size:2rem;line-height:1;filter:drop-shadow(0 4px 10px rgba(0,0,0,.5));}
-.home-room-name{font-family:var(--serif,Georgia,serif);font-size:1.05rem;color:var(--paper,#f2ecdc);margin-top:.2rem;}
-.home-room-games{font-size:.68rem;color:var(--paper2,#d9d2c0);line-height:1.3;opacity:.85;}
-.home-room-count{margin-top:auto;font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:rgb(var(--rc));}
+@media(min-width:760px){.home-rooms{grid-template-columns:repeat(3,1fr);}.home-room{aspect-ratio:4/3;}}
+.games-rooms{max-width:64rem;margin:0 auto;}
+.home-room{position:relative;overflow:hidden;cursor:pointer;border-radius:18px;aspect-ratio:1/1;display:flex;flex-direction:column;justify-content:flex-end;
+  background:#07110e var(--img) center/cover no-repeat;border:1.5px solid #d9b45a;box-shadow:0 0 0 1px rgba(0,0,0,.5),0 12px 28px -14px rgba(var(--rc),.7);transition:transform .18s,box-shadow .18s;}
+.home-room::before{content:"";position:absolute;inset:5px;border-radius:13px;border:1px solid rgba(240,213,138,.4);pointer-events:none;z-index:1;}
+.home-room::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 42%,rgba(4,8,6,.88) 100%);pointer-events:none;}
+.home-room:hover,.home-room:focus-visible{transform:translateY(-3px);box-shadow:0 0 0 1px rgba(0,0,0,.5),0 16px 34px -12px rgba(var(--rc),.95);outline:none;}
+.home-room-body{position:relative;z-index:2;padding:.8rem .95rem .85rem;display:flex;flex-direction:column;gap:.15rem;}
+.home-room-name{font-family:var(--serif,Georgia,serif);font-size:1.12rem;color:#fff6dc;text-shadow:0 2px 8px rgba(0,0,0,.9);}
+.home-room-games{font-size:.68rem;color:#eadfc4;line-height:1.3;text-shadow:0 1px 6px rgba(0,0,0,.9);}
+.home-room-count{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:rgb(var(--rc));text-shadow:0 1px 6px rgba(0,0,0,.9);}
 .home-records{display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem;margin-bottom:1rem;}
 .home-rec{display:flex;gap:.6rem;align-items:center;background:rgba(255,255,255,.04);border:1px solid rgba(240,213,138,.2);border-radius:14px;padding:.6rem .7rem;}
 .home-rec-ic{font-size:1.5rem;flex:none;}
@@ -15119,21 +15122,11 @@ function rGames(){
   return G.gamesCat?rGamesCategoryList():rGamesCategoryTiles();
 }
 function rGamesCategoryTiles(){
-  const tiles=GAME_CATEGORIES.map(c=>{
-    const games=GAMES.filter(g=>g.cat===c.id);
-    const preview=games.slice(0,4).map(g=>g.icon).join(' ');
-    return`<div class="v10-cat-tile v10-cat-tile--${c.id}" data-a="games-cat" data-cat="${c.id}" role="button" tabindex="0" aria-label="${esc(c.name)}, ${games.length} games">
-      <div class="v10-cat-icon">${c.icon}</div>
-      <div class="v10-cat-name">${esc(c.name)}</div>
-      <div class="v10-cat-desc">${esc(c.desc)}</div>
-      <div class="v10-cat-preview">${preview}</div>
-      <div class="v10-cat-count">${games.length} game${games.length!==1?'s':''}</div>
-    </div>`;
-  }).join('');
+  const tiles=GAME_CATEGORIES.map(c=>roomTileHTML(c,'games-cat')).join('');
   return`<div id="s-games" class="scr on" style="overflow-y:auto;">
     <div class="topbar"><button class="back-btn" data-a="home">← Home</button><span class="top-title">Games</span><div class="top-right">${sndBtn()}</div></div>
     <div style="padding:1.1rem 1.2rem .2rem;font-size:.82rem;color:var(--paper3);">Pick a category to see what's on the table.</div>
-    <div class="v10-cat-grid" style="padding:1rem 1.2rem 1.5rem;">${tiles}</div>
+    <div class="home-rooms games-rooms" style="padding:1rem 1.2rem 1.5rem;">${tiles}</div>
   </div>`;
 }
 function rGamesCategoryList(){
@@ -15174,15 +15167,18 @@ function homeFamilyHTML(history){
   return`<div class="v10-section"><div class="v10-section-title">Around your table</div><div class="v10-section-note v10-section-link" data-a="nav-family" role="button" tabindex="0">Family →</div></div><div class="home-family">${chips}</div>`;
 }
 const HOME_ROOM_COLORS={cards:'95,214,138',dice:'79,214,201',casino:'239,118,136',classic:'234,201,118',party:'242,149,76',coop:'224,176,64'};
+// One room tile, used on the home page and on the Games tab so both look the same: the room's picture
+// (assets/rooms/<category>.jpg), a golden frame, and the name / games / count over a dark fade.
+function roomTileHTML(c,action){
+  const games=GAMES.filter(g=>g.cat===c.id&&!g.locked);
+  if(!games.length)return'';
+  const names=games.slice(0,3).map(g=>g.name).join(' · ')+(games.length>3?' …':'');
+  return`<div class="home-room" style="--rc:${HOME_ROOM_COLORS[c.id]||'201,164,92'};--img:url(assets/rooms/${c.id}.jpg)" data-a="${action}" data-cat="${c.id}" role="button" tabindex="0" aria-label="${esc(c.name)}, ${games.length} games">
+    <div class="home-room-body"><div class="home-room-name">${esc(c.name)}</div><div class="home-room-games">${esc(names)}</div><div class="home-room-count">${games.length} game${games.length!==1?'s':''}</div></div>
+  </div>`;
+}
 function homeRoomsHTML(){
-  const tiles=GAME_CATEGORIES.map(c=>{
-    const games=GAMES.filter(g=>g.cat===c.id&&!g.locked);
-    if(!games.length)return'';
-    const names=games.slice(0,3).map(g=>g.name).join(' · ')+(games.length>3?' …':'');
-    return`<div class="home-room" style="--rc:${HOME_ROOM_COLORS[c.id]||'201,164,92'}" data-a="home-room" data-cat="${c.id}" role="button" tabindex="0" aria-label="${esc(c.name)}, ${games.length} games">
-      <div class="home-room-ic">${c.icon}</div><div class="home-room-name">${esc(c.name)}</div><div class="home-room-games">${esc(names)}</div><div class="home-room-count">${games.length} game${games.length!==1?'s':''}</div>
-    </div>`;
-  }).join('');
+  const tiles=GAME_CATEGORIES.map(c=>roomTileHTML(c,'home-room')).join('');
   return`<div class="v10-section"><div class="v10-section-title">Choose a room</div><div class="v10-section-note v10-section-link" data-a="nav-games" role="button" tabindex="0">All ${GAMES.filter(g=>!g.locked).length} games →</div></div><div class="home-rooms">${tiles}</div>`;
 }
 // The games this family actually plays, most recent first -- or, for a brand-new table, the newest games.
