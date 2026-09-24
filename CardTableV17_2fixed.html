@@ -1281,7 +1281,8 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
    phone 1.2rem, tablet 2rem (the same as the section titles and game cards), desktop dashboard 0 (panels fill the column). */
 .home-family,.home-rooms,.home-records{margin-left:1.2rem;margin-right:1.2rem;}
 .home-family{padding-left:0;padding-right:0;margin-bottom:0;}
-@media(min-width:650px){.home-family,.home-rooms,.home-records,.table-plaque,.felt-picker{margin-left:2rem;margin-right:2rem;}}
+@media(min-width:650px){.home-family,.home-rooms,.home-records,.table-plaque,.felt-picker{margin-left:2rem;margin-right:2rem;}
+.v10-bottom-grid,.v10-actions{padding-left:0;padding-right:0;}}
 @media(min-width:1100px){.home-family,.home-rooms,.home-records,.table-plaque,.felt-picker{margin-left:0;margin-right:0;}}
 /* ════════ FAMILY TABLE HOME END ════════ */
 
@@ -2212,6 +2213,15 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 .slot-result-row span{color:var(--gold2);font-weight:700;}
 .slot-result-row.free{color:#f0a8c0;font-weight:700;}
 .slot-result-row.jackpot{color:#f0cc60;font-weight:700;}
+.slot-second{display:flex;flex-direction:column;gap:.5rem;background:linear-gradient(160deg,rgba(255,150,60,.16),rgba(20,8,4,.4));border:1.5px solid rgba(255,190,90,.55);border-radius:16px;padding:.7rem .7rem .6rem;box-shadow:0 0 22px -6px rgba(255,150,60,.5);}
+.slot-second-title{text-align:center;font-family:var(--serif);font-size:.95rem;color:#ffd98a;}
+.slot-second-row{display:grid;grid-template-columns:repeat(3,1fr);gap:.45rem;}
+.slot-second-btn{display:flex;flex-direction:column;align-items:center;gap:.1rem;padding:.55rem .3rem;border-radius:12px;border:1.5px solid rgba(255,190,90,.6);background:linear-gradient(160deg,#ff8a4a,#b3281a);color:#fff6dc;cursor:pointer;font:inherit;}
+.slot-second-btn b{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;}
+.slot-second-btn span{font-size:1rem;font-weight:700;}
+.slot-second-btn em{font-style:normal;font-size:.62rem;opacity:.9;}
+.slot-second-btn:disabled{opacity:.4;cursor:not-allowed;filter:grayscale(.6);}
+.slot-second-note{text-align:center;font-size:.62rem;color:var(--paper3);}
 .slot-controls{width:100%;flex-shrink:0;display:flex;flex-direction:column;gap:.55rem;padding:.5rem .85rem .3rem;}
 .slot-chip-row{display:flex;align-items:center;justify-content:center;gap:.4rem;flex-wrap:wrap;}
 .slot-cur-bet{font-size:.72rem;color:var(--paper3);font-variant-numeric:tabular-nums;background:rgba(255,255,255,.06);border-radius:999px;padding:.15rem .6rem;}
@@ -3500,6 +3510,7 @@ const GAMES=[
    rules:['Bet chips, then pull the lever — <b>3 reels, 5 paylines</b> (top row, middle row, bottom row, both diagonals).',
      'Land <b>3 matching symbols</b> on a payline to win. Sevens (<b>7️⃣</b>) are wild and complete almost any line.',
      '<b>3 or more 💰 moneybags</b> anywhere on the grid — not even on the same line — pay out <i>and</i> launch <b>free spins</b>, where every win pays <b>double</b>. Landing more moneybags during free spins adds even more of them.',
+     '<b>Near miss?</b> When the reels stop on something tempting, you may <b>re-spin one reel</b> while the other two stay. It costs chips (priced from the exact odds, always a fair gamble) and gives up the win you are holding — or just collect it.',
      '<b>3 or more 🏆 trophies</b> anywhere on the grid win the entire <b>progressive jackpot</b> — a pot that keeps climbing with every spin anyone at the table takes, by anyone, until somebody hits it.',
      'One spin (plus whatever free spins it cascades into) is your turn — then it\'s passed to the next player. Everyone gets their own pulls with their own chips.']},
   {id:'dicedual',cat:'dice',icon:'⚔️',name:'Dice Duel',players:'2',dur:'10–15 min',diff:'easy',deal:0,minP:2,maxP:2,cover:'assets/games/dicedual.png',
@@ -12453,6 +12464,44 @@ function slotTier(totalWin,bet,jackpotHit){
   if(m>0)return'small';
   return'none';
 }
+/* ── SECOND CHANCE ──────────────────────────────────────────────────────────────────────────
+   When the reels stop on a near miss, the player may HOLD two reels and RE-SPIN the third, for a price.
+   The price is never a guess: every one of the 8x8x8 things the loose reel can land on is added up
+   exactly (slotSecondChance), the re-spin is charged 15% MORE than it is expected to be worth, and the
+   win you are holding is given up when you re-spin. So it is always a real gamble -- never free money --
+   and it only appears when the odds are actually interesting (a gain of half a bet or more). */
+const SLOT_FS_VALUE=SLOT_FREE_SPINS_AWARD*SLOT_FREE_SPIN_MULTIPLIER*0.82; // what a free-spin round is worth, in bets
+const SLOT_SECOND_MARGIN=1.15;   // the machine charges 115% of the fair price
+const SLOT_SECOND_MIN_GAIN=2;    // offered only when the best re-spin is worth at least two bets more than the grid held (about 1 spin in 8)
+function slotGridValue(grid,jackpotBets){
+  const r=slotResolveGrid(grid);
+  return slotPayout(1,r,1).totalWin+(r.jackpot?jackpotBets:0)+(r.scatterCount>=3?SLOT_FS_VALUE:0);
+}
+// Pure: for each reel (0,1,2) what re-spinning just that reel would cost and could win.
+// gain = expected value of the re-spin minus the value of the grid being held (both in bets).
+function slotSecondChance(grid,bet,pool){
+  const jb=pool/Math.max(1,bet),cur=slotGridValue(grid,jb),T=SLOT_TOTAL_WEIGHT,out=[];
+  for(let col=0;col<3;col++){
+    let ev=0,better=0;
+    for(const a of SLOT_SYMBOLS)for(const b of SLOT_SYMBOLS)for(const c of SLOT_SYMBOLS){
+      const n=grid.slice();n[col]=a.id;n[3+col]=b.id;n[6+col]=c.id;
+      const w=(a.weight*b.weight*c.weight)/(T*T*T),v=slotGridValue(n,jb);
+      ev+=w*v;if(v>cur+1e-9)better+=w;
+    }
+    const gain=ev-cur;
+    out.push({col,gain,chance:better,cost:Math.max(1,Math.ceil(Math.max(0,gain)*bet*SLOT_SECOND_MARGIN))});
+  }
+  return out;
+}
+// The offer, or null: never on a jackpot / free-spin grid, and only when some affordable re-spin is worth a look.
+function slotSecondOffer(grid,bet,pool,chips){
+  const r=slotResolveGrid(grid);
+  if(r.jackpot||r.scatterCount>=3)return null;
+  const opts=slotSecondChance(grid,bet,pool);
+  return opts.some(o=>o.gain>=SLOT_SECOND_MIN_GAIN&&o.cost<=chips)?opts:null;
+}
+// Pure: the grid after re-spinning reel `col` (new symbols given, top to bottom).
+function slotRespinGrid(grid,col,syms){const n=grid.slice();n[col]=syms[0];n[3+col]=syms[1];n[6+col]=syms[2];return n;}
 // The progressive pool is shared across every player and every session on this device — a plain
 // persisted number, the same scalar convention as gp/tw (see the STATE section), just with a floor:
 // it must never read back below the seed, since it always resets straight to the seed the instant
@@ -12494,6 +12543,7 @@ function slotStartSpin(){
     s.freeSpins.remaining--;
   }
   s.thisSpinFree=inFree;
+  s.respun=false;s.offer=null;
   s.phase='spinning';s.result=null;
   s.finalGrid=slotRandomGrid();
   s.stoppedCols=new Set();
@@ -12535,6 +12585,40 @@ function slotStopReel(s,token,col,resolved){
 function slotFinishSpin(s,token,resolved){
   if(G.slot!==s||s.spinToken!==token)return;
   if(_slotFlicker){clearInterval(_slotFlicker);_slotFlicker=null;}
+  const p=G.lp[s.curIdx];
+  // Near miss on a paid spin: pause before paying out and offer the second chance (people only; bots just collect).
+  if(!s.thisSpinFree&&!s.respun&&!isBotPlayer(p)){
+    const offer=slotSecondOffer(s.finalGrid,s.bet,getSlotJackpot(),p.chips);
+    if(offer){s.phase='decide';s.offer=offer;s.reels=s.finalGrid.slice();SFX.reelStop(true);render();return;}
+  }
+  slotSettle(s,resolved);
+}
+function slotCollect(){const s=G.slot;if(!s||s.phase!=='decide')return;slotSettle(s,slotResolveGrid(s.finalGrid));}
+function slotRespin(col){
+  const s=G.slot;if(!s||s.phase!=='decide'||!s.offer)return;
+  const p=G.lp[s.curIdx],o=s.offer[col];if(!p||!o)return;
+  if(p.chips<o.cost){toast('Not enough chips');SFX.illegal();return;}
+  p.chips-=o.cost;
+  if(p.chips===0)stageEmit('ALL_IN',{who:p,sub:'Everything on one reel'});
+  setSlotJackpot(getSlotJackpot()+o.cost*SLOT_JACKPOT_FEED_PCT);
+  s.respun=true;s.offer=null;
+  s.finalGrid=slotRespinGrid(s.finalGrid,col,[slotPick(),slotPick(),slotPick()]);
+  s.phase='spinning';s.result=null;
+  s.stoppedCols=new Set([0,1,2].filter(c=>c!==col));
+  s.spinToken=(s.spinToken||0)+1;
+  const token=s.spinToken;
+  slotClearTimers();
+  SFX.reelSpin();haptic(10);
+  _slotFlicker=setInterval(()=>{
+    if(G.slot!==s||s.spinToken!==token)return;
+    [0,1,2].forEach(row=>{s.reels[row*3+col]=slotPick();});
+    render();
+  },90);
+  const resolved=slotResolveGrid(s.finalGrid);
+  _slotTimeouts.push(setTimeout(()=>slotStopReel(s,token,col,resolved),1300));
+  render();
+}
+function slotSettle(s,resolved){
   const p=G.lp[s.curIdx];
   const wasActive=s.freeSpins.active;
   const multiplier=s.thisSpinFree?SLOT_FREE_SPIN_MULTIPLIER:1;
@@ -12651,6 +12735,7 @@ async function oSlotSpin(){
       s.freeSpins.remaining--;
     }
     s.thisSpinFree=inFree;
+    s.respun=false;s.offer=null;s.held=[];
     s.phase='spinning';
     s.finalGrid=slotRandomGrid();
     s.spinStartedAt=Date.now();
@@ -12663,10 +12748,13 @@ async function oSlotSpin(){
 // spinStartedAt. Purely local and cosmetic -- G.slot here is a throwaway display-only mirror, never
 // written back to the room; the real per-seat chip/jackpot/free-spin mutation happens once, in
 // oSlotFinishSpin, only on the spinning player's own client.
-function oSlotAnimateSpin(finalGrid,startedAt){
+function oSlotAnimateSpin(finalGrid,startedAt,held){
   slotClearTimers();
-  G.slot={phase:'spinning',finalGrid,spinStartedAt:startedAt,reels:slotRandomGrid(),
-    stoppedCols:new Set(),curIdx:G.srv?.slot?.curIdx||0,bet:G.srv?.slot?.bet||1,
+  held=held||[];
+  const reels0=slotRandomGrid();
+  held.forEach(c=>[0,1,2].forEach(r=>{reels0[r*3+c]=finalGrid[r*3+c];}));
+  G.slot={phase:'spinning',finalGrid,spinStartedAt:startedAt,reels:reels0,
+    stoppedCols:new Set(held),curIdx:G.srv?.slot?.curIdx||0,bet:G.srv?.slot?.bet||1,
     freeSpins:G.srv?.slot?.freeSpins||{active:false,remaining:0,multiplier:1},result:null};
   SFX.reelSpin();haptic(10);
   _slotFlicker=setInterval(()=>{
@@ -12679,8 +12767,8 @@ function oSlotAnimateSpin(finalGrid,startedAt){
   },90);
   const specialCount=id=>finalGrid.filter(x=>x===id).length;
   const tense=specialCount('jackpot')>=2||specialCount('scatter')>=2;
-  const stopDelays=[650,1000,tense?1950:1550];
-  [0,1,2].forEach(col=>{
+  const stopDelays=held.length?[1300,1300,1300]:[650,1000,tense?1950:1550];
+  [0,1,2].filter(c=>!held.includes(c)).forEach(col=>{
     _slotTimeouts.push(setTimeout(()=>{
       if(!G.slot||G.slot.spinStartedAt!==startedAt)return;
       [0,1,2].forEach(row=>{G.slot.reels[row*3+col]=finalGrid[row*3+col];});
@@ -12695,6 +12783,69 @@ function oSlotAnimateSpin(finalGrid,startedAt){
     },stopDelays[col]));
   });
 }
+function oSlotSettleState(state,s,me){
+  const resolved=slotResolveGrid(s.finalGrid);
+  const multiplier=s.thisSpinFree?SLOT_FREE_SPIN_MULTIPLIER:1;
+  const pay=slotPayout(s.bet,resolved,multiplier);
+  let jackpotWon=0;
+  if(resolved.jackpot){jackpotWon=state.slotJackpot||SLOT_JACKPOT_SEED;state.slotJackpot=SLOT_JACKPOT_SEED;}
+  const totalWin=pay.totalWin+jackpotWon;
+  me.chips+=totalWin;
+  const wasActive=s.freeSpins.active;
+  const awarded=slotFreeSpinsAwarded(resolved.scatterCount,wasActive);
+  if(awarded>0){
+    s.freeSpins.active=true;
+    s.freeSpins.remaining=(s.freeSpins.remaining||0)+awarded;
+    s.freeSpins.multiplier=SLOT_FREE_SPIN_MULTIPLIER;
+  } else if(s.freeSpins.remaining<=0){
+    s.freeSpins.active=false;
+  }
+  const tier=slotTier(totalWin,s.bet,resolved.jackpot);
+  const linesWithWin=resolved.lines.map(l=>({...l,win:s.bet*l.multiplier*multiplier}));
+  s.result={lines:linesWithWin,scatterCount:resolved.scatterCount,jackpotHit:resolved.jackpot,
+    lineWin:pay.lineWin,scatterWin:pay.scatterWin,totalWin,jackpotWon,tier,freeSpinsAwarded:awarded,
+    wasFree:s.thisSpinFree};
+  s.reels=s.finalGrid.slice();
+  s.phase='result';
+  state.lastAct=`${esc(me.name)} spins the slots.`;
+  // Same reasoning as slotFinishSpin's local version: at most one funded player left means there's
+  // no more game to play. state.matchOver is shared so every connected client reaches the same
+  // conclusion off the same synced state (see the onSrv hook), not just the one who resolved this
+  // spin -- exactly the state.matchOver convention Roulette's own online resolve already uses.
+  const stillIn=state.players.filter(x=>x.chips>0);
+  state.matchOver=state.players.length>1&&stillIn.length<=1;
+  _oSlotMatchOver=state.matchOver;
+}
+async function oSlotCollect(){
+  if(_onlineBusy)return;_onlineBusy=true;
+  try{
+    const state=await dbRead(G.roomId);if(!state||!state.slot)return;
+    const s=state.slot,me=state.players[s.curIdx];
+    if(!me||me.id!==G.myPid||s.phase!=='decide')return;
+    const expectedTs=state._ts;
+    oSlotSettleState(state,s,me);
+    onSrv(state);
+    await dbWriteIfUnchanged(G.roomId,expectedTs,state);
+  } finally { _onlineBusy=false; }
+}
+async function oSlotRespin(col){
+  if(_onlineBusy)return;_onlineBusy=true;
+  try{
+    const state=await dbRead(G.roomId);if(!state||!state.slot)return;
+    const s=state.slot,me=state.players[s.curIdx];
+    if(!me||me.id!==G.myPid||s.phase!=='decide'||!s.offer)return;
+    const o=s.offer[col];if(!o)return;
+    if(me.chips<o.cost){toast('Not enough chips');SFX.illegal();return;}
+    const expectedTs=state._ts;
+    me.chips-=o.cost;
+    state.slotJackpot=(state.slotJackpot||SLOT_JACKPOT_SEED)+o.cost*SLOT_JACKPOT_FEED_PCT;
+    s.respun=true;s.offer=null;s.held=[0,1,2].filter(c=>c!==col);
+    s.finalGrid=slotRespinGrid(s.finalGrid,col,[slotPick(),slotPick(),slotPick()]);
+    s.phase='spinning';s.result=null;s.spinStartedAt=Date.now();
+    onSrv(state);
+    await dbWriteIfUnchanged(G.roomId,expectedTs,state);
+  } finally { _onlineBusy=false; }
+}
 let _oSlotMatchOver=false;
 async function oSlotFinishSpin(startedAt){
   if(_onlineBusy)return;_onlineBusy=true;
@@ -12704,37 +12855,18 @@ async function oSlotFinishSpin(startedAt){
     if(s.phase!=='spinning'||s.spinStartedAt!==startedAt)return; // already resolved by us, or superseded
     const me=state.players[s.curIdx];if(!me)return;
     const expectedTs=state._ts;
-    const resolved=slotResolveGrid(s.finalGrid);
-    const multiplier=s.thisSpinFree?SLOT_FREE_SPIN_MULTIPLIER:1;
-    const pay=slotPayout(s.bet,resolved,multiplier);
-    let jackpotWon=0;
-    if(resolved.jackpot){jackpotWon=state.slotJackpot||SLOT_JACKPOT_SEED;state.slotJackpot=SLOT_JACKPOT_SEED;}
-    const totalWin=pay.totalWin+jackpotWon;
-    me.chips+=totalWin;
-    const wasActive=s.freeSpins.active;
-    const awarded=slotFreeSpinsAwarded(resolved.scatterCount,wasActive);
-    if(awarded>0){
-      s.freeSpins.active=true;
-      s.freeSpins.remaining=(s.freeSpins.remaining||0)+awarded;
-      s.freeSpins.multiplier=SLOT_FREE_SPIN_MULTIPLIER;
-    } else if(s.freeSpins.remaining<=0){
-      s.freeSpins.active=false;
+    // Near miss on a paid spin: pause before paying out and offer the second chance to the player.
+    if(!s.thisSpinFree&&!s.respun){
+      const offer=slotSecondOffer(s.finalGrid,s.bet,state.slotJackpot||SLOT_JACKPOT_SEED,me.chips);
+      if(offer){
+        s.phase='decide';s.offer=offer;s.reels=s.finalGrid.slice();_oSlotMatchOver=false;
+        state.lastAct=`${esc(me.name)} is thinking about a re-spin.`;
+        onSrv(state);
+        await dbWriteIfUnchanged(G.roomId,expectedTs,state);
+        return;
+      }
     }
-    const tier=slotTier(totalWin,s.bet,resolved.jackpot);
-    const linesWithWin=resolved.lines.map(l=>({...l,win:s.bet*l.multiplier*multiplier}));
-    s.result={lines:linesWithWin,scatterCount:resolved.scatterCount,jackpotHit:resolved.jackpot,
-      lineWin:pay.lineWin,scatterWin:pay.scatterWin,totalWin,jackpotWon,tier,freeSpinsAwarded:awarded,
-      wasFree:s.thisSpinFree};
-    s.reels=s.finalGrid.slice();
-    s.phase='result';
-    state.lastAct=`${esc(me.name)} spins the slots.`;
-    // Same reasoning as slotFinishSpin's local version: at most one funded player left means there's
-    // no more game to play. state.matchOver is shared so every connected client reaches the same
-    // conclusion off the same synced state (see the onSrv hook), not just the one who resolved this
-    // spin -- exactly the state.matchOver convention Roulette's own online resolve already uses.
-    const stillIn=state.players.filter(x=>x.chips>0);
-    state.matchOver=state.players.length>1&&stillIn.length<=1;
-    _oSlotMatchOver=state.matchOver;
+    oSlotSettleState(state,s,me);
     onSrv(state);
     await dbWriteIfUnchanged(G.roomId,expectedTs,state);
   } finally {
@@ -14527,7 +14659,7 @@ function onSrv(state){
   // realtime payload and a poll can both deliver the same write; only the first should start it).
   if(state.gameId==='slots'&&state.slot?.phase==='spinning'&&state.slot.spinStartedAt
      &&state.slot.spinStartedAt!==prevSlotSpinStartedAt&&G.slot?.spinStartedAt!==state.slot.spinStartedAt){
-    oSlotAnimateSpin(state.slot.finalGrid,state.slot.spinStartedAt);
+    oSlotAnimateSpin(state.slot.finalGrid,state.slot.spinStartedAt,state.slot.held||[]);
   }
   // Slots has no per-spin "winner" the way a hand of cards does (a spin isn't won FROM another
   // player), so it never sets state.winner and the state.winner-driven roundend/matchend block
@@ -16666,6 +16798,7 @@ function rSlotsTable(){
   const cur=players[s.curIdx];
   const myTurn=online?cur.id===G.myPid:!isBotPlayer(cur);
   const spinning=s.phase==='spinning';
+  const deciding=s.phase==='decide'&&Array.isArray(s.offer);
   // A seat that's run out of chips can never place another bet, so it can never reach a real result
   // either -- slotStartSpin/oSlotSpin both refuse to spin a bet nobody can cover. Without treating
   // that as its own state, canSpin would stay true forever (phase idle, it's their turn) while every
@@ -16700,6 +16833,7 @@ function rSlotsTable(){
     ?`<div class="slot-turn-banner free">🎁 FREE SPIN — ${s.freeSpins.remaining} left · <b>2× wins</b></div>`
     :broke?`<div class="slot-turn-banner">${avHTML(cur.avatar)} ${myTurn?`<b>You're</b> out of chips — pass the turn`:`<b>${esc(cur.name)}</b> is out of chips`}</div>`
     :canSpin?`<div class="slot-turn-banner mine">${avHTML(cur.avatar)} <b>${online?'Your turn':esc(cur.name)}</b> — set your bet and pull the lever</div>`
+    :deciding?`<div class="slot-turn-banner mine">${avHTML(cur.avatar)} <b>${myTurn?'So close!':esc(cur.name)+' is deciding'}</b> — hold two reels, re-spin the third?</div>`
     :spinning?`<div class="slot-turn-banner">${avHTML(cur.avatar)} <b>${esc(cur.name)}</b> is spinning…</div>`
     :online&&!myTurn?`<div class="slot-turn-banner">${avHTML(cur.avatar)} waiting on <b>${esc(cur.name)}</b>'s spin</div>`
     :`<div class="slot-turn-banner">${avHTML(cur.avatar)} <b>${esc(cur.name)}</b>'s spin</div>`;
@@ -16734,6 +16868,18 @@ function rSlotsTable(){
     </div>`;
   })():'';
 
+  // The second chance: three buttons (one per reel) priced from the exact odds, and a Collect button.
+  const secondHTML=deciding?(()=>{
+    if(!myTurn)return`<div class="slot-result" style="padding:.5rem;">${esc(cur.name)} can re-spin one reel — waiting…</div>`;
+    const held=slotPayout(s.bet,slotResolveGrid(s.reels),1).totalWin;
+    const names=['Left','Middle','Right'];
+    return`<div class="slot-second">
+      <div class="slot-second-title">Re-spin one reel — the other two stay</div>
+      <div class="slot-second-row">${s.offer.map(o=>`<button class="slot-second-btn" data-a="slot-respin" data-col="${o.col}" ${cur.chips<o.cost?'disabled':''} aria-label="Re-spin the ${names[o.col]} reel for ${o.cost} chips, ${Math.round(o.chance*100)} percent to improve"><b>${names[o.col]}</b><span>${o.cost} 🪙</span><em>${Math.round(o.chance*100)}% better</em></button>`).join('')}</div>
+      <button class="btn btn-gold btn-full" data-a="slot-collect">${held>0?`Collect +${held}`:'Take it as it is'}</button>
+      <div class="slot-second-note">Re-spinning gives up what you are holding. The price comes from the exact odds, so it is always a real gamble.</div>
+    </div>`;
+  })():'';
   const rosterHTML=players.map((p,i)=>`<div class="bp-roster-item${i===s.curIdx?' active':''}">${avHTML(p.avatar)}<span>${esc(p.name)}${isBotPlayer(p)?' 🤖':''}${online&&p.id===G.myPid?' (You)':''}</span><span class="bp-roster-count">🪙${p.chips}</span></div>`).join('');
 
   // Everything anyone needs to actually PLAY (bet, roster, pass) lives OUTSIDE the felt as its own
@@ -16752,6 +16898,7 @@ function rSlotsTable(){
     </div>
     <div class="slot-controls">
       ${resultHTML}
+      ${secondHTML}
       <div class="bp-roster">${rosterHTML}</div>
       <div class="slot-chip-row">
         <span class="roul-chip-lbl">Bet</span>${chipPicker}
@@ -17972,6 +18119,8 @@ document.addEventListener('click',e=>{
     setTimeout(()=>{G.isOnline?oSlotSpin():slotStartSpin();},150);
   }
   else if(a==='slot-pass'){G.isOnline?oSlotPassTurn():slotPassTurn();}
+  else if(a==='slot-collect'){G.isOnline?oSlotCollect():slotCollect();}
+  else if(a==='slot-respin'){const c=+t.getAttribute('data-col');G.isOnline?oSlotRespin(c):slotRespin(c);}
   // Online create/join
   else if(a==='create'){
     const name=(document.getElementById('ol-name')?.value||'').trim();if(!name){toast('Enter your name');return;}

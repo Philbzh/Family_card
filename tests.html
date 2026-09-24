@@ -4352,6 +4352,54 @@ async function runPresentation(A,W,frame){
     } finally{Object.assign(G,{scr:keep.scr,lp:keep.lp,selGame:keep.game,isOnline:keep.online,lcur:keep.lcur,roulChip:keep.chip,roulAll:keep.all});W.slotClearTimers&&W.slotClearTimers();}
   });
 
+  suite('Slot Machine — the second chance (hold two reels, re-spin the third)',()=>{
+    const G=W.eval('G'),keep={scr:G.scr,lp:G.lp,game:G.selGame,online:G.isOnline,slot:G.slot};
+    const two=['jackpot','spade','club','heart','jackpot','diamond','club','heart','spade'];   // two trophies showing: one more wins the jackpot
+    try{
+      G.isOnline=false;G.selGame='slots';
+      // ---- the pure odds ----
+      let fair=true,ranges=true;
+      for(let i=0;i<40;i++){const g=W.slotRandomGrid(),bet=[1,5,25][i%3];
+        W.slotSecondChance(g,bet,300).forEach(o=>{if(o.gain*bet-o.cost>1e-9)fair=false;if(o.cost<1||o.chance<0||o.chance>1)ranges=false;});}
+      check('every re-spin is priced above what it is expected to win, so it is never free money',fair);
+      check('every price is at least a chip, and every chance is a real probability',ranges);
+      const opts=W.slotSecondChance(two,5,300);
+      check('with two trophies showing, re-spinning the third reel has a real chance to improve',opts.length===3&&opts[2].chance>0.05&&opts[2].gain>=W.eval('SLOT_SECOND_MIN_GAIN'));
+      check('the offer appears for that near miss when the player can pay for it',!!W.slotSecondOffer(two,5,300,1000));
+      check('but not when the player cannot afford any re-spin',W.slotSecondOffer(two,5,300,0)===null);
+      check('never on a grid that has already won the jackpot or free spins',
+        W.slotSecondOffer(['jackpot','jackpot','jackpot','spade','club','heart','spade','club','heart'],5,300,1000)===null
+        &&W.slotSecondOffer(['scatter','scatter','scatter','spade','club','heart','spade','club','heart'],5,300,1000)===null);
+      const ng=W.slotRespinGrid(two,2,['bell','bell','bell']);
+      check('re-spinning a reel changes only that reel',ng[2]==='bell'&&ng[5]==='bell'&&ng[8]==='bell'&&[0,1,3,4,6,7].every(i=>ng[i]===two[i]));
+      // ---- a whole hand, played locally ----
+      const mk=()=>[{id:1,name:'Phil',avatar:A.AVATARS[0],hand:[],totalScore:0,roundsWon:0,chips:500,bet:0,folded:false,allIn:false},{id:2,name:'Anna',avatar:A.AVATARS[1],hand:[],totalScore:0,roundsWon:0,chips:500,bet:0,folded:false,allIn:false}];
+      G.lp=mk();W.lDealSlots();G.scr='table';
+      let s=G.slot;s.curIdx=0;s.bet=5;s.thisSpinFree=false;s.respun=false;s.finalGrid=two.slice();s.reels=two.slice();s.phase='spinning';s.spinToken=1;
+      G.lp[0].chips=495;
+      W.slotFinishSpin(s,1,W.slotResolveGrid(two));
+      check('a near miss pauses BEFORE paying, so the player can decide',s.phase==='decide'&&s.offer.length===3&&G.lp[0].chips===495);
+      const cost=s.offer[2].cost;
+      W.slotRespin(2);
+      check('re-spinning charges the price and turns only the chosen reel',G.lp[0].chips===495-cost&&s.phase==='spinning'&&s.respun===true&&[0,1,3,4,6,7].every(i=>s.finalGrid[i]===two[i]));
+      W.slotClearTimers();
+      W.slotStopReel(s,s.spinToken,2,W.slotResolveGrid(s.finalGrid));
+      check('after the re-spin the result is paid at once, with no second offer',s.phase==='result'&&s.respun===true);
+      W.slotClearTimers();
+      // collect instead
+      G.lp=mk();W.lDealSlots();G.scr='table';s=G.slot;s.curIdx=0;s.bet=5;s.thisSpinFree=false;s.respun=false;
+      const win=['bell','bell','bell','spade','club','heart','club','heart','diamond'];   // a winning top line, near miss elsewhere or not
+      s.finalGrid=win.slice();s.reels=win.slice();s.phase='decide';s.offer=W.slotSecondChance(win,5,300);G.lp[0].chips=495;
+      W.slotCollect();
+      check('collecting pays exactly what the held grid is worth',s.phase==='result'&&G.lp[0].chips===495+W.slotPayout(5,W.slotResolveGrid(win),1).totalWin&&G.lp[0].chips>495);
+      // ---- the screen ----
+      G.lp=mk();W.lDealSlots();G.scr='table';s=G.slot;s.curIdx=0;s.bet=5;s.finalGrid=two.slice();s.reels=two.slice();s.phase='decide';s.offer=W.slotSecondChance(two,5,300);
+      const d=new DOMParser().parseFromString(W.rSlotsTable(),'text/html');
+      check('the table offers three re-spin buttons (one per reel) and a Collect button',d.querySelectorAll('[data-a="slot-respin"]').length===3&&!!d.querySelector('[data-a="slot-collect"]'));
+      check('the lever cannot be pulled and the bet is locked while deciding',!d.querySelector('[data-a="slot-spin"]')&&[...d.querySelectorAll('[data-a="slot-bet"]')].every(b=>b.disabled));
+    } finally{W.slotClearTimers&&W.slotClearTimers();Object.assign(G,{scr:keep.scr,lp:keep.lp,selGame:keep.game,isOnline:keep.online,slot:keep.slot});}
+  });
+
   suite('Pig bots hold around 20, push harder from behind, and never gamble a win',()=>{
     const bank=A.pigBotShouldBank;
     check('gentle holds well under 15',!bank(10,0,0,'gentle'));
