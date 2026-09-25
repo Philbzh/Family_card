@@ -4587,25 +4587,26 @@ async function runPresentation(A,W,frame){
     const G=W.eval('G'),bgClaim=W.eval('bgClaim'),bgMark=W.eval('bgMark'),lStartMatch=W.eval('lStartMatch'),bgFinalizeHouse=W.eval('bgFinalizeHouse');
     const mk=(id,n)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,
       chips:1000,bet:0,folded:false,allIn:false});
-    G.isOnline=false;G.srv=null;G.selGame='bingo';
+    G.isOnline=false;G.srv=null;G.selGame='bingo';W.eval('bingoSetTicketsWanted')(1);
     G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;lStartMatch();
     check('both seats get their own independent 15-number ticket',
-      JSON.stringify(G.lp[0].bgTicket)!==JSON.stringify(G.lp[1].bgTicket));
+      JSON.stringify(G.lp[0].bgTickets[0].grid)!==JSON.stringify(G.lp[1].bgTickets[0].grid));
     check('the caller starts with nothing called yet',G.bg.calledNumbers.length===0&&G.bg.phase==='calling');
-    check('nobody has anything marked yet',(G.lp[0].bgMarked||[]).length===0);
+    check('nobody has anything marked yet',(G.lp[0].bgTickets[0].marked||[]).length===0);
+    check('nobody has a power token yet',(G.lp[0].bgTokens||0)===0);
 
-    G.bgViewSeat=0; // marking acts on whichever ticket is on screen, same as the switcher/claim buttons
+    G.bgViewSeat=0;G.bgViewTicket=0; // marking acts on whichever ticket is on screen, same as the switcher/claim buttons
     const phil=G.lp[0];
     check('marking a number that was never called does nothing',(()=>{
-      const before=(phil.bgMarked||[]).length;
+      const before=(phil.bgTickets[0].marked||[]).length;
       bgMark(999); // guaranteed uncalled -- outside 1-90 entirely
-      return (phil.bgMarked||[]).length===before;
+      return (phil.bgTickets[0].marked||[]).length===before;
     })());
 
-    const row0=phil.bgTicket[0].filter(n=>n!==null);
+    const row0=phil.bgTickets[0].grid[0].filter(n=>n!==null);
     G.bg.calledNumbers.push(...row0);
     check('a called number sitting on the ticket is not auto-marked -- the player has to tap it',
-      (phil.bgMarked||[]).length===0);
+      (phil.bgTickets[0].marked||[]).length===0);
     check('claiming a line before it\'s actually marked is refused, even though it was called',(()=>{
       const before=JSON.stringify(G.bg.stageWinners);
       bgClaim(0,'line');
@@ -4613,10 +4614,10 @@ async function runPresentation(A,W,frame){
     })());
     row0.forEach(n=>bgMark(n));
     check('tapping every called number on row 0 marks all of them',
-      row0.every(n=>(phil.bgMarked||[]).includes(n)));
+      row0.every(n=>(phil.bgTickets[0].marked||[]).includes(n)));
     check('tapping the same number twice does not duplicate the mark',(()=>{
       bgMark(row0[0]);
-      return phil.bgMarked.filter(n=>n===row0[0]).length===1;
+      return phil.bgTickets[0].marked.filter(n=>n===row0[0]).length===1;
     })());
     check('claiming a line before it\'s actually complete is refused',(()=>{
       const before=JSON.stringify(G.bg.stageWinners);
@@ -4631,13 +4632,13 @@ async function runPresentation(A,W,frame){
       return phil.totalScore===1;
     })());
 
-    const row1=phil.bgTicket[1].filter(n=>n!==null);
+    const row1=phil.bgTickets[0].grid[1].filter(n=>n!==null);
     G.bg.calledNumbers.push(...row1);
     row1.forEach(n=>bgMark(n));
     bgClaim(0,'twoLines');
     check('two lines adds 2 more, running total 3',phil.totalScore===3);
 
-    const row2=phil.bgTicket[2].filter(n=>n!==null);
+    const row2=phil.bgTickets[0].grid[2].filter(n=>n!==null);
     G.bg.calledNumbers.push(...row2);
     row2.forEach(n=>bgMark(n));
     bgClaim(0,'house');
@@ -4654,16 +4655,21 @@ async function runPresentation(A,W,frame){
     })());
 
     // Deal again: points carry over, everything else is fresh.
-    const oldTicket=JSON.stringify(phil.bgTicket);
+    const oldTicket=JSON.stringify(phil.bgTickets[0].grid);
     doc.querySelector('[data-a="next"]')?.click();
     if(G.scr==='table'){
       check('points carry over into the next round',phil.totalScore===6);
-      check('a fresh round gets a fresh ticket',JSON.stringify(phil.bgTicket)!==oldTicket);
-      check('the call history, stage winners and marks all reset',
-        G.bg.calledNumbers.length===0&&!G.bg.stageWinners.line&&(phil.bgMarked||[]).length===0);
+      check('a fresh round gets a fresh ticket',JSON.stringify(phil.bgTickets[0].grid)!==oldTicket);
+      check('the call history, stage winners, marks and tokens all reset',
+        G.bg.calledNumbers.length===0&&!G.bg.stageWinners.line&&(phil.bgTickets[0].marked||[]).length===0&&(phil.bgTokens||0)===0);
     } else {
       check('deal-again landed on the table screen',false,'landed on '+G.scr+' instead');
     }
+    // lStartMatch/lDealBingo arms a REAL setTimeout auto-caller -- left running, it fires minutes
+    // later against whatever G.bg/G.lp a totally unrelated later suite happens to be using at that
+    // moment. Every suite that deals a real round cleans it up before moving on, same as the
+    // dedicated "not reset by every render()" suite below already does.
+    W.eval('bgClearCaller')();
   });
 
   /* —— Bingo: a bot's ticket marks itself, a human's does not —————— */
@@ -4676,8 +4682,8 @@ async function runPresentation(A,W,frame){
     const[phil,rosie]=G.lp;
     // Force the next several calls to land on numbers actually printed on these tickets, so the
     // difference between "auto-marked" and "left alone" is actually observable within a few calls.
-    const philNums=phil.bgTicket.flat().filter(n=>n!==null);
-    const rosieNums=rosie.bgTicket.flat().filter(n=>n!==null);
+    const philNums=phil.bgTickets[0].grid.flat().filter(n=>n!==null);
+    const rosieNums=rosie.bgTickets[0].grid.flat().filter(n=>n!==null);
     let sawPhilCalled=false,sawRosieCalled=false;
     for(let i=0;i<90&&!(sawPhilCalled&&sawRosieCalled);i++){
       bgCallNext();
@@ -4686,9 +4692,10 @@ async function runPresentation(A,W,frame){
       if(rosieNums.includes(n))sawRosieCalled=true;
     }
     check('a called number on the bot\'s ticket ends up in its own marked list',
-      rosie.bgMarked.some(n=>rosieNums.includes(n)));
+      rosie.bgTickets[0].marked.some(n=>rosieNums.includes(n)));
     check('a called number on the human\'s ticket is NOT auto-marked',
-      !(phil.bgMarked||[]).some(n=>philNums.includes(n)));
+      !(phil.bgTickets[0].marked||[]).some(n=>philNums.includes(n)));
+    W.eval('bgClearCaller')(); // see the note on the previous suite's cleanup
   });
 
   /* —— Bingo: the caller waits for a still-unmarked call instead of burying it —————— */
@@ -4703,9 +4710,9 @@ async function runPresentation(A,W,frame){
     const mk=(id,n,bot)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,
       chips:1000,bet:0,folded:false,allIn:false,...(bot?{bot}:{})});
     const phil=mk(1,'Phil'),rosie=mk(2,'Rosie','sharp');
-    phil.bgTicket=A.bingoGenerateTicket();
-    rosie.bgTicket=A.bingoGenerateTicket();
-    const num=phil.bgTicket.flat().find(x=>x!==null);
+    phil.bgTickets=[{grid:A.bingoGenerateTicket(),marked:[]}];
+    rosie.bgTickets=[{grid:A.bingoGenerateTicket(),marked:[]}];
+    const num=phil.bgTickets[0].grid.flat().find(x=>x!==null);
     const players=[phil,rosie];
     const bg={currentCall:num,currentCallAt:Date.now()};
 
@@ -4719,16 +4726,16 @@ async function runPresentation(A,W,frame){
       return d>0&&d<BG_CALL_MS;
     })());
 
-    phil.bgMarked=[num];
+    phil.bgTickets[0].marked=[num];
     check('once marked, it is no longer pending',!bingoCallStillPending(bg,players));
     check('once marked, the next call is due immediately',bgNextCallDelay(bg,players)===0);
 
-    phil.bgMarked=[]; // back to unmarked
+    phil.bgTickets[0].marked=[]; // back to unmarked
     bg.currentCallAt=Date.now()-(BG_CALL_GRACE_MS+100); // past the hard cap
     check('past the grace cap, it is forced through even though still unmarked',
       bgNextCallDelay(bg,players)===0);
 
-    const botPhil={...phil,bot:'sharp',bgMarked:[]}; // same ticket/number, only the bot flag differs
+    const botPhil={...phil,bot:'sharp',bgTickets:[{grid:phil.bgTickets[0].grid,marked:[]}]}; // same ticket/number, only the bot flag differs
     check('pending only matters for humans -- a bot with the same number never holds things up',
       !bingoCallStillPending({currentCall:num,currentCallAt:Date.now()},[botPhil]));
   });
@@ -4750,6 +4757,182 @@ async function runPresentation(A,W,frame){
     check('ten redundant renders do not touch the call count',G.bg.calledNumbers.length===0);
     check('the timer is still the one originally armed, not perpetually replaced',W.eval('_bgCallTimer')!==null);
     bgClearCaller();
+  });
+
+  /* —— Bingo: multiple tickets, a real choice with real math —————— */
+  suite('Bingo\'s ticket-count choice is remembered and every ticket dealt is independently valid',()=>{
+    const bingoTicketsWanted=W.eval('bingoTicketsWanted'),bingoSetTicketsWanted=W.eval('bingoSetTicketsWanted'),
+      bingoGenerateTickets=W.eval('bingoGenerateTickets'),BG_TICKET_COUNTS=W.eval('BG_TICKET_COUNTS');
+    check('the three offered counts are 1, 2 and 3',JSON.stringify(BG_TICKET_COUNTS)==='[1,2,3]');
+    bingoSetTicketsWanted(2);
+    check('the choice is remembered',bingoTicketsWanted()===2);
+    bingoSetTicketsWanted(99); // not one of the offered counts
+    check('an invalid count is ignored, the last valid choice stands',bingoTicketsWanted()===2);
+    for(const n of [1,2,3]){
+      const tix=bingoGenerateTickets(n);
+      check(n+' ticket(s) requested, '+n+' dealt',tix.length===n);
+      check('every one of them is its own genuinely valid ticket, 15 unique numbers each',
+        tix.every(t=>new Set(t.grid.flat().filter(x=>x!==null)).size===15));
+      check('every ticket starts fully unmarked',tix.every(t=>(t.marked||[]).length===0));
+    }
+    check('two tickets from the same deal are independent (different numbers)',(()=>{
+      const tix=bingoGenerateTickets(3);
+      return JSON.stringify(tix[0].grid)!==JSON.stringify(tix[1].grid);
+    })());
+    bingoSetTicketsWanted(1); // leave the shared setting as found for every other suite
+  });
+
+  suite('Bingo — a player is eligible for a stage the moment ANY ONE ticket completes it',()=>{
+    const bingoGenerateTickets=W.eval('bingoGenerateTickets'),bingoTicketsStageEligible=W.eval('bingoTicketsStageEligible'),
+      bingoTicketsBestLines=W.eval('bingoTicketsBestLines'),bingoTicketsEligibleIndex=W.eval('bingoTicketsEligibleIndex');
+    const tix=bingoGenerateTickets(2);
+    check('nothing marked, nothing eligible for anything',!bingoTicketsStageEligible(tix,'line')&&bingoTicketsBestLines(tix)===0);
+    const row0=tix[1].grid[0].filter(n=>n!==null);
+    tix[1].marked=row0.slice(); // only the SECOND ticket completes a line
+    check('ticket 0 alone would not be eligible, but ticket 1 makes the PLAYER eligible',
+      bingoTicketsStageEligible(tix,'line'));
+    check('the best-lines chip reports the best of the two, not the first',bingoTicketsBestLines(tix)===1);
+    check('the eligible-ticket lookup correctly points at ticket 1, not 0',bingoTicketsEligibleIndex(tix,'line')===1);
+    check('a stage neither ticket has reached is correctly not eligible',!bingoTicketsStageEligible(tix,'house'));
+  });
+
+  /* —— Bingo: power-ups are earned by tapping, priced in tokens, and never free wins —————— */
+  suite('Bingo lucky numbers pay a token exactly once, never for luck alone',()=>{
+    const bingoPickLucky=W.eval('bingoPickLucky'),bingoGrantLucky=W.eval('bingoGrantLucky');
+    for(let i=0;i<50;i++){
+      const lucky=bingoPickLucky();
+      check('always exactly 6 lucky numbers',lucky.length===6);
+      check('two come from each third of the board (1-30/31-60/61-90)',
+        lucky.filter(n=>n<=30).length===2&&lucky.filter(n=>n>30&&n<=60).length===2&&lucky.filter(n=>n>60).length===2);
+      check('no duplicates',new Set(lucky).size===6);
+    }
+    const bg={lucky:[7,40,85]},p={};
+    check('marking a lucky number for the first time earns a token',bingoGrantLucky(bg,p,7)===true&&p.bgTokens===1);
+    check('marking that exact number again earns nothing more',bingoGrantLucky(bg,p,7)===false&&p.bgTokens===1);
+    check('marking a DIFFERENT lucky number earns a second token',bingoGrantLucky(bg,p,40)===true&&p.bgTokens===2);
+    check('marking an ordinary, non-lucky number earns nothing',bingoGrantLucky(bg,p,12)===false&&p.bgTokens===2);
+  });
+
+  suite('Bingo power-ups: Free square, Swap and Double dab all do exactly what they say',()=>{
+    const bingoGenerateTickets=W.eval('bingoGenerateTickets'),bingoPowerFree=W.eval('bingoPowerFree'),
+      bingoPowerSwap=W.eval('bingoPowerSwap'),bingoPowerDab=W.eval('bingoPowerDab'),bingoPowerDabTargets=W.eval('bingoPowerDabTargets'),
+      bingoColRange=W.eval('bingoColRange');
+
+    // FREE: marks an uncalled cell directly.
+    let tix=bingoGenerateTickets(1);
+    let fr=0,fc=0;for(let r=0;r<3;r++)for(let c=0;c<9;c++)if(tix[0].grid[r][c]!==null){fr=r;fc=c;}
+    const num=tix[0].grid[fr][fc];
+    check('free square marks the exact cell tapped, even though it was never called',
+      bingoPowerFree(tix,0,fr,fc)===true&&tix[0].marked.includes(num));
+    check('free square refuses an already-marked cell (a wasted tap must never burn the token)',
+      bingoPowerFree(tix,0,fr,fc)===false);
+    check('free square refuses a blank cell',(()=>{
+      for(let r2=0;r2<3;r2++)for(let c2=0;c2<9;c2++)if(tix[0].grid[r2][c2]===null)return bingoPowerFree(tix,0,r2,c2)===false;
+      return true;
+    })());
+
+    // SWAP: only touches an uncalled cell, keeps the ticket a genuinely valid ticket.
+    tix=bingoGenerateTickets(1);
+    let sr=0,sc=0;for(let r2=0;r2<3;r2++)for(let c2=0;c2<9;c2++)if(tix[0].grid[r2][c2]!==null){sr=r2;sc=c2;}
+    const before=tix[0].grid[sr][sc];
+    const swapped=bingoPowerSwap(tix,0,sr,sc,new Set());
+    check('swap changes the number at that cell',swapped===true&&tix[0].grid[sr][sc]!==before);
+    const[lo,hi]=bingoColRange(sc);
+    check('the new number still respects its own column\'s range',tix[0].grid[sr][sc]>=lo&&tix[0].grid[sr][sc]<=hi);
+    check('the ticket still has 15 unique numbers after a swap',new Set(tix[0].grid.flat().filter(x=>x!==null)).size===15);
+    check('swap refuses a cell that has already been called (nothing to gain)',(()=>{
+      const t2=bingoGenerateTickets(1);
+      let r3=0,c3=0;for(let a=0;a<3;a++)for(let b=0;b<9;b++)if(t2[0].grid[a][b]!==null){r3=a;c3=b;}
+      const n3=t2[0].grid[r3][c3];
+      return bingoPowerSwap(t2,0,r3,c3,new Set([n3]))===false;
+    })());
+    check('swap refuses an already-marked cell',(()=>{
+      const t2=bingoGenerateTickets(1);
+      let r3=0,c3=0;for(let a=0;a<3;a++)for(let b=0;b<9;b++)if(t2[0].grid[a][b]!==null){r3=a;c3=b;}
+      t2[0].marked=[t2[0].grid[r3][c3]];
+      return bingoPowerSwap(t2,0,r3,c3,new Set())===false;
+    })());
+
+    // DAB: stamps the current call across every ticket that still needs it, in one go.
+    tix=bingoGenerateTickets(3);
+    const shared=tix[0].grid.flat().find(n=>n!==null&&tix[1].grid.flat().includes(n));
+    if(shared){
+      const targets=bingoPowerDabTargets(tix,shared);
+      check('dab targets every ticket that carries the call and hasn\'t marked it yet',targets.includes(0)&&targets.includes(1));
+      const dabbed=bingoPowerDab(tix,shared);
+      check('dab marks it on all of them in one call',dabbed===targets.length&&tix[0].marked.includes(shared)&&tix[1].marked.includes(shared));
+      check('dabbing again finds nothing left to do',bingoPowerDabTargets(tix,shared).length===0);
+    }
+    check('dab with no current call targets nothing',bingoPowerDabTargets(bingoGenerateTickets(2),null).length===0);
+  });
+
+  /* —— Bingo: tokens earned and spent through the real local engine —————— */
+  suite('Bingo\'s power tokens are earned and spent through the real local engine',()=>{
+    const G=W.eval('G'),bgMark=W.eval('bgMark'),bgUsePower=W.eval('bgUsePower'),lStartMatch=W.eval('lStartMatch'),
+      bingoSetTicketsWanted=W.eval('bingoSetTicketsWanted');
+    const mk=(id,n)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,
+      chips:1000,bet:0,folded:false,allIn:false});
+    G.isOnline=false;G.srv=null;G.selGame='bingo';bingoSetTicketsWanted(2);
+    G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;lStartMatch();
+    G.bgViewSeat=0;G.bgViewTicket=0;
+    const phil=G.lp[0];
+    check('Phil was dealt exactly 2 tickets, as chosen',phil.bgTickets.length===2);
+
+    // Force a known number to be THE lucky one, so earning a token is deterministic rather than
+    // depending on a random lucky number happening to land on this ticket.
+    const num=phil.bgTickets[0].grid.flat().find(x=>x!==null);
+    G.bg.lucky=[num];
+    G.bg.calledNumbers.push(num);
+    bgMark(num);
+    check('tapping a lucky number on your own ticket earns a power token',(phil.bgTokens||0)===1);
+    check('and the lucky number itself is now correctly marked',phil.bgTickets[0].marked.includes(num));
+
+    // Spend it on Free square, on the ticket currently on screen.
+    const t=phil.bgTickets[0];
+    let fr=-1,fc=-1;for(let r=0;r<3;r++)for(let c=0;c<9;c++)if(t.grid[r][c]!==null&&!t.marked.includes(t.grid[r][c])){fr=r;fc=c;break;}
+    const target=t.grid[fr][fc];
+    bgUsePower('free',fr,fc);
+    check('spending Free square marks that exact cell',t.marked.includes(target));
+    check('spending Free square actually spends the token',(phil.bgTokens||0)===0);
+    check('spending with no tokens left is refused, not free',(()=>{
+      const before=JSON.stringify(t.marked);
+      let fr2=-1,fc2=-1;for(let r=0;r<3;r++)for(let c=0;c<9;c++)if(t.grid[r][c]!==null&&!t.marked.includes(t.grid[r][c])){fr2=r;fc2=c;break;}
+      if(fr2<0)return true;
+      bgUsePower('free',fr2,fc2);
+      return JSON.stringify(t.marked)===before;
+    })());
+    bingoSetTicketsWanted(1); // leave the shared setting as found for every other suite
+    W.eval('bgClearCaller')(); // see the cleanup note on the very first Bingo local-play suite
+  });
+
+  /* —— Bingo: the table screen shows tabs and power buttons exactly when it should —————— */
+  suite('Bingo\'s table screen offers ticket tabs and power buttons only when they matter',()=>{
+    const G=W.eval('G'),lStartMatch=W.eval('lStartMatch'),bingoSetTicketsWanted=W.eval('bingoSetTicketsWanted'),
+      rBingoTable=W.eval('rBingoTable');
+    const mk=(id,n)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,
+      chips:1000,bet:0,folded:false,allIn:false});
+
+    bingoSetTicketsWanted(1);
+    G.isOnline=false;G.srv=null;G.selGame='bingo';
+    G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;lStartMatch();G.scr='table';
+    let d=new DOMParser().parseFromString(rBingoTable(),'text/html');
+    check('with a single ticket, no ticket tabs clutter the screen',!d.querySelector('.bg-ticket-tabs'));
+    check('with zero tokens, the power row still shows but every spend button is disabled',(()=>{
+      const btns=[...d.querySelectorAll('.bg-power-btn')];
+      return btns.length===3&&btns.every(b=>b.disabled);
+    })());
+
+    bingoSetTicketsWanted(3);
+    G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;lStartMatch();G.scr='table';
+    G.lp[0].bgTokens=2;
+    d=new DOMParser().parseFromString(rBingoTable(),'text/html');
+    check('with three tickets, three ticket tabs appear',d.querySelectorAll('.bg-ticket-tab').length===3);
+    check('with tokens in hand, Free square and Swap are enabled',(()=>{
+      const btns=[...d.querySelectorAll('.bg-power-btn')];
+      return !btns[0].disabled&&!btns[1].disabled;
+    })());
+    bingoSetTicketsWanted(1); // leave the shared setting as found for every other suite
+    W.eval('bgClearCaller')(); // see the cleanup note on the very first Bingo local-play suite
   });
 
   /* —— Le Pouilleux: deck, auto-discard, and turn rotation —————— */
@@ -5202,11 +5385,11 @@ async function runPresentation(A,W,frame){
         G.pig.die=6;G.pig.turnTotal=24;G.pig.hasRolled=true;G.scr='table';}],
       ['Bingo table, 4 players',()=>{G.selGame='bingo';G.lp=mk(4);G.lstart=0;W.eval('lStartMatch')();G.scr='table';}],
       ['Bingo table, a number waiting to be tapped',()=>{G.selGame='bingo';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();
-        const n=G.lp[0].bgTicket.flat().filter(x=>x!==null)[0];G.bg.calledNumbers=[n];G.bg.currentCall=n;G.scr='table';}],
+        const n=G.lp[0].bgTickets[0].grid.flat().filter(x=>x!==null)[0];G.bg.calledNumbers=[n];G.bg.currentCall=n;G.scr='table';}],
       ['Bingo table, a claim button showing',()=>{G.selGame='bingo';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();
-        const row0=G.lp[0].bgTicket[0].filter(n=>n!==null);G.bg.calledNumbers=row0.slice();G.lp[0].bgMarked=row0.slice();G.scr='table';}],
+        const row0=G.lp[0].bgTickets[0].grid[0].filter(n=>n!==null);G.bg.calledNumbers=row0.slice();G.lp[0].bgTickets[0].marked=row0.slice();G.scr='table';}],
       ['Bingo table, the verify pause after a house claim',()=>{G.selGame='bingo';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();
-        const p=G.lp[0],all=p.bgTicket.flat().filter(x=>x!==null);G.bg.calledNumbers=all.slice();p.bgMarked=all.slice();
+        const p=G.lp[0],all=p.bgTickets[0].grid.flat().filter(x=>x!==null);G.bg.calledNumbers=all.slice();p.bgTickets[0].marked=all.slice();
         G.bg.stageWinners.house={id:p.id,name:p.name,avatar:p.avatar};G.bg.phase='verifying';G.bg.verifyUntil=Date.now()+60000;G.scr='table';}],
       ['Old Maid table, 3 players',()=>{G.selGame='lepouilleux';G.lp=mk(3);G.lstart=0;W.eval('lStartMatch')();G.scr='table';}],
       ['Old Maid table, my hand has cards to show',()=>{G.selGame='lepouilleux';G.lp=mk(2);G.lstart=0;W.eval('lStartMatch')();

@@ -1948,6 +1948,27 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 .bg-verify .bg-hist-strip{margin-bottom:.2rem;}
 .bg-verify .btn-full{width:100%;margin-top:.3rem;}
 .bg-verify-hint{font-size:.66rem;color:rgba(251,247,237,.4);}
+/* multiple tickets: a small tab strip above the ticket itself, only shown once there's more than one */
+.bg-ticket-tabs{display:flex;justify-content:center;gap:.4rem;margin-bottom:.4rem;}
+.bg-ticket-tab{position:relative;font:inherit;cursor:pointer;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:var(--paper3);border-radius:999px;padding:.28rem .75rem;font-size:.68rem;font-weight:600;}
+.bg-ticket-tab.active{background:rgba(212,168,67,.18);border-color:rgba(212,168,67,.5);color:var(--gold2);}
+.bg-tab-dot{position:absolute;top:-.15rem;right:-.15rem;width:.55rem;height:.55rem;border-radius:50%;background:var(--gold2);box-shadow:0 0 6px rgba(212,168,67,.8);font-style:normal;animation:bg-cell-call .9s ease-in-out infinite;}
+/* power-ups: tokens earned from lucky numbers, spent on free/swap/dab */
+.bg-power-row{width:100%;flex-shrink:0;display:flex;flex-direction:column;gap:.35rem;align-items:center;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:.5rem .6rem;}
+.bg-power-tokens{font-size:.7rem;font-weight:700;color:var(--gold2);}
+.bg-power-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;width:100%;}
+.bg-power-btn{font:inherit;cursor:pointer;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);color:var(--paper2);border-radius:10px;padding:.4rem .2rem;font-size:.62rem;font-weight:700;text-align:center;}
+.bg-power-btn:disabled{opacity:.35;cursor:not-allowed;}
+.bg-power-btn.armed{background:linear-gradient(155deg,var(--gold2),var(--gold));color:#1a1000;border-color:transparent;box-shadow:0 0 10px rgba(212,168,67,.5);}
+.bg-power-hint{font-size:.64rem;color:var(--gold2);text-align:center;}
+/* lucky numbers: a starred call, a starred history chip, a starred cell */
+.bg-ball.lucky{background:radial-gradient(circle at 35% 30%,#fff6dc,#f2954c 55%,#c2601a 100%);box-shadow:0 3px 0 #8a4212,0 10px 28px rgba(242,149,76,.55),inset 0 1px 1px rgba(255,255,255,.7);}
+.bg-ball-star{position:absolute;top:-.5rem;right:-.3rem;font-size:1.1rem;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));}
+.bg-ball{position:relative;}
+.bg-hist-num.lucky{background:rgba(242,149,76,.24);border-color:rgba(242,149,76,.6);color:#ffd9a8;}
+.bg-cell{position:relative;}
+.bg-cell-star{position:absolute;top:-.35rem;right:-.2rem;font-size:.6rem;}
+.bg-ticket.power-free .bg-cell.markable,.bg-ticket.power-swap .bg-cell.markable{border-color:rgba(242,149,76,.7);background:rgba(242,149,76,.16);color:#ffd9a8;}
 
 /* ════════ LE POUILLEUX ════════ */
 .bp-turn-banner{text-align:center;font-size:.78rem;color:var(--paper3);padding:.5rem .8rem;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);flex-shrink:0;}
@@ -3488,11 +3509,12 @@ const GAMES=[
      'First to <b>100 points</b> wins the table.',
      'That\'s the whole game. Every extra roll is free money — until it isn\'t.']},
   {id:'bingo',cat:'classic',icon:'🎱',name:'Bingo',players:'2–8',dur:'10–20 min',diff:'easy',deal:0,cover:'assets/games/bingo.png',
-   rules:['Everyone gets a <b>ticket</b>: 9 columns, 3 rows, 15 numbers between 1 and 90.',
-     'A number is called roughly every <b>6 seconds</b>. Spot it on your ticket and <b>tap it yourself</b> — nothing marks itself, so keep watching your card.',
+   rules:['Choose how many <b>tickets</b> to play before dealing — 1 to 3. Each is 9 columns, 3 rows, 15 numbers between 1 and 90. More tickets means better odds, but more boards to watch.',
+     'A number is called roughly every <b>6 seconds</b>. Spot it on your ticket and <b>tap it yourself</b> — nothing marks itself, so keep watching your card(s).',
      'The caller waits for you: if a called number is still unticked on someone\'s ticket, the next call holds off (up to a point) instead of burying it.',
-     'Complete <b>one row</b> = tap Claim for <b>1 point</b>. Complete <b>two rows</b> = <b>2 points</b>. Complete the <b>whole ticket</b> = <b>3 points</b> and the round ends.',
+     'Complete <b>one row</b> on any one of your tickets = tap Claim for <b>1 point</b>. Complete <b>two rows</b> = <b>2 points</b>. Complete the <b>whole ticket</b> = <b>3 points</b> and the round ends.',
      'A claim only counts what you\'ve actually tapped — miss a number and you can still catch it later, it just has to be tapped before you claim.',
+     'A handful of numbers each round are secretly <b>⭐ lucky</b>. Tap one when it lands and earn a <b>power token</b>: spend it on a 🎯 Free square (mark any cell, called or not), a 🔄 Swap (trade an uncalled number for a fresh one), or a ✨ Double dab (stamp the current call onto every ticket you own at once).',
      'Full house pauses the table with a big BINGO banner so everyone can check the winning ticket before the round ends.',
      'First to claim a stage wins it — claims are checked instantly, so nobody can call it early.',
      'Deal again for as many rounds as you like — points carry over across the table.']},
@@ -7275,6 +7297,14 @@ function ldOptionsHTML(){
   const w=ldWildRule();
   return`<div class="panel"><div class="panel-lbl">House rule</div><div class="hr-grid"><div class="hr-tog${w?' on':''}" data-a="ld-wild"><div class="hr-row"><span class="hr-nm">Wild ones</span><span class="hr-chk">${w?'✓':''}</span></div><span class="hr-desc">1s count as any face (a bid on 1s counts only 1s)</span></div></div></div>`;
 }
+// How many tickets to juggle -- 1 is the classic pace; 2-3 trade attention for better odds and more
+// chances at the lucky numbers that earn power-up tokens. One shared choice for the whole table,
+// same convention as Liar's Dice's wild-ones rule above.
+function bgOptionsHTML(){
+  const n=bingoTicketsWanted();
+  const desc={1:'The classic pace.',2:'Two boards to watch — better odds.',3:'Three boards — sharp eyes only!'};
+  return`<div class="panel"><div class="panel-lbl">Tickets per player</div><div class="hr-grid">${BG_TICKET_COUNTS.map(v=>`<div class="hr-tog${n===v?' on':''}" data-a="bg-tickets" data-n="${v}"><div class="hr-row"><span class="hr-nm">${v} ticket${v>1?'s':''}</span><span class="hr-chk">${n===v?'✓':''}</span></div><span class="hr-desc">${desc[v]}</span></div>`).join('')}</div></div>`;
+}
 function lDealLiarsDice(){
   G.lp.forEach(p=>{p.dice=ldRollDice(LD_START_DICE);p.roundsWon=0;p.ldOutAt=0;});
   G.ld={round:1,phase:'bid',bid:null,wild:ldWildRule(),rev:null,over:false};
@@ -10642,18 +10672,106 @@ function bingoRoundPoints(bg,playerId){
 // hold anything up.
 function bingoCallStillPending(bg,players){
   const n=bg&&bg.currentCall;if(!n)return false;
-  return(players||[]).some(p=>!isBotPlayer(p)&&p.bgTicket&&p.bgTicket.flat().includes(n)&&!(p.bgMarked||[]).includes(n));
+  return(players||[]).some(p=>!isBotPlayer(p)&&(p.bgTickets||[]).some(t=>t.grid.flat().includes(n)&&!(t.marked||[]).includes(n)));
 }
 // A bot's ticket marks itself the instant a matching number is called (see bgCallNext/oBgCallNext)
 // -- there's no UI for a bot to tap, and no skill in dabbing anyway. The only thing a bot's level
 // can honestly differ on is how fast it shouts once it's eligible.
 function bingoBotClaimDelay(level){return level==='sharp'?400+Math.random()*700:1800+Math.random()*2200;}
 
+/* ── Bingo: multiple tickets ──────────────────────────────────────────────────────────────
+   1-3 tickets per player, one shared table-wide choice (same convention as Liar's Dice's wild-ones
+   rule): more tickets means better odds at every stage, at the cost of having to actually watch and
+   tap more than one board -- a real decision, not a difficulty slider, since nothing else about a
+   round changes. A player is eligible for a stage the instant ANY ONE of their tickets completes it
+   on its own; tickets never combine, so three tickets is three separate races, not one easier one. */
+const BG_TICKET_COUNTS=[1,2,3];
+function bingoTicketsWanted(){
+  let v=1;try{v=+(localStorage.getItem('ct_bg_tickets')||1);}catch(e){}
+  return BG_TICKET_COUNTS.includes(v)?v:1;
+}
+function bingoSetTicketsWanted(n){if(!BG_TICKET_COUNTS.includes(n))return;try{localStorage.setItem('ct_bg_tickets',String(n));}catch(e){}}
+function bingoGenerateTickets(n){return Array.from({length:Math.max(1,Math.min(3,n||1))},()=>({grid:bingoGenerateTicket(),marked:[]}));}
+function bingoTicketsStageEligible(tickets,stage){return(tickets||[]).some(t=>bingoStageEligible(t.grid,new Set(t.marked||[]),stage));}
+function bingoTicketsBestLines(tickets){return Math.max(0,...(tickets||[]).map(t=>bingoLinesComplete(t.grid,new Set(t.marked||[]))));}
+// Which of a player's tickets actually satisfies a stage -- used once there could be more than one,
+// to show the real ticket that won rather than always assuming ticket 0.
+function bingoTicketsEligibleIndex(tickets,stage){return(tickets||[]).findIndex(t=>bingoStageEligible(t.grid,new Set(t.marked||[]),stage));}
+
+/* ── Bingo: power-ups ──────────────────────────────────────────────────────────────────────
+   A handful of numbers on the board are secretly lucky, drawn fresh each round and spread across
+   the 1-90 range (two from each third) so no single stretch of the game hogs them. Whoever notices
+   a lucky call land on one of their tickets and taps it -- tapping is still required, the same as
+   any other number -- earns a token. A token is spent later, on whichever of three helpers is
+   actually useful in the moment:
+     FREE  -- mark any one cell on the ticket you're looking at, called or not.
+     SWAP  -- trade a number that hasn't been called yet for a fresh one in the same column.
+     DAB   -- the current call, stamped onto every ticket you own that carries it, in one tap,
+              instead of flipping to each ticket in turn to tap it there too.
+   All three only ever touch the tickets of the player spending the token -- nobody can affect
+   anyone else's ticket -- so, like Slots' second chance, each is a single pure function with no
+   notion of the shared room: safe to unit-test directly, safe to apply identically online (every
+   connected client runs the very same pure transform under its own CAS write). */
+const BG_POWERS=['free','swap','dab'];
+function bingoPickLucky(){
+  const out=[];
+  [[1,30],[31,60],[61,90]].forEach(([lo,hi])=>{
+    const pool=[];for(let n=lo;n<=hi;n++)pool.push(n);
+    shuffle(pool).slice(0,2).forEach(n=>out.push(n));
+  });
+  return out.sort((a,b)=>a-b);
+}
+// Does marking `num` earn a token? Only if it's genuinely lucky and this player has never banked
+// this exact lucky number before -- so the same number sitting on two of a player's tickets, or
+// being re-marked by a power-up, can never pay out twice.
+function bingoGrantLucky(bg,p,num){
+  if(!bg||!(bg.lucky||[]).includes(num))return false;
+  p.bgLucky=p.bgLucky||[];
+  if(p.bgLucky.includes(num))return false;
+  p.bgLucky.push(num);
+  p.bgTokens=(p.bgTokens||0)+1;
+  return true;
+}
+// FREE: mark any one not-yet-marked, non-blank cell -- no requirement it was ever called. Refuses
+// on a blank or already-hit cell so a wasted tap never burns the token (see the two call sites).
+function bingoPowerFree(tickets,idx,row,col){
+  const t=tickets[idx];if(!t)return false;
+  const n=t.grid[row]&&t.grid[row][col];if(n==null)return false;
+  t.marked=t.marked||[];if(t.marked.includes(n))return false;
+  t.marked.push(n);return true;
+}
+// SWAP: replace a NOT-yet-called number with a fresh one from the same column's range -- one that
+// doesn't already sit anywhere on this ticket and hasn't been called. Refuses on a called or
+// already-marked cell (nothing to gain by swapping those) and if the column has genuinely run dry
+// (never happens in practice: a column holds at most 3 of its 10 possible numbers).
+function bingoPowerSwap(tickets,idx,row,col,calledSet){
+  const t=tickets[idx];if(!t)return false;
+  const n=t.grid[row]&&t.grid[row][col];if(n==null||calledSet.has(n)||(t.marked||[]).includes(n))return false;
+  const[lo,hi]=bingoColRange(col);
+  const used=new Set(t.grid.flat().filter(x=>x!=null));
+  const pool=[];for(let x=lo;x<=hi;x++)if(!used.has(x)&&!calledSet.has(x))pool.push(x);
+  if(!pool.length)return false;
+  t.grid[row][col]=pool[rnd(0,pool.length-1)];
+  return true;
+}
+// DAB: which of a player's tickets WOULD change if they spent a token dabbing the current call --
+// checked before spending, so a token can never be burned on a dab that would do nothing.
+function bingoPowerDabTargets(tickets,call){
+  if(call==null)return[];
+  return(tickets||[]).map((t,i)=>i).filter(i=>tickets[i].grid.flat().includes(call)&&!(tickets[i].marked||[]).includes(call));
+}
+function bingoPowerDab(tickets,call){
+  const idxs=bingoPowerDabTargets(tickets,call);
+  idxs.forEach(i=>{tickets[i].marked=tickets[i].marked||[];tickets[i].marked.push(call);});
+  return idxs.length;
+}
+
 /* ── Bingo: local ── */
 function lDealBingo(){
-  G.lp.forEach(p=>{p.bgTicket=bingoGenerateTicket();p.bgMarked=[];});
-  G.bg={calledNumbers:[],currentCall:null,currentCallAt:0,stageWinners:{line:null,twoLines:null,house:null},phase:'calling'};
-  G.lres=null;_bgPendingClaims=new Set();G.bgViewSeat=0;
+  const lucky=bingoPickLucky(),n=bingoTicketsWanted();
+  G.lp.forEach(p=>{p.bgTickets=bingoGenerateTickets(n);p.bgTokens=0;p.bgLucky=[];});
+  G.bg={calledNumbers:[],currentCall:null,currentCallAt:0,stageWinners:{line:null,twoLines:null,house:null},phase:'calling',lucky};
+  G.lres=null;_bgPendingClaims=new Set();G.bgViewSeat=0;G.bgViewTicket=0;G.bgPower=null;
   SFX.deal();
   G.scr='table';
   bgArmLocalCaller();
@@ -10699,26 +10817,29 @@ function bgCallNext(){
   bg.calledNumbers.push(n);
   bg.currentCall=n;
   bg.currentCallAt=Date.now();
-  bingoAutoMarkBots(G.lp,n);
+  bingoAutoMarkBots(bg,G.lp,n);
   SFX.chip();haptic([10,20,10]);
   render();
 }
 // A human has to spot and tap their own numbers -- that's the whole point of the redesign, the
 // game is no longer something to just watch. A bot has nothing to look at and nothing to click, so
 // its ticket marks itself the moment a matching number lands, the same instant a human COULD tap it.
-function bingoAutoMarkBots(players,n){
+function bingoAutoMarkBots(bg,players,n){
   players.forEach(p=>{
-    if(!isBotPlayer(p)||!p.bgTicket)return;
-    if(!p.bgTicket.flat().includes(n))return;
-    p.bgMarked=p.bgMarked||[];
-    if(!p.bgMarked.includes(n))p.bgMarked.push(n);
+    if(!isBotPlayer(p)||!p.bgTickets)return;
+    let touched=false;
+    p.bgTickets.forEach(t=>{
+      if(!t.grid.flat().includes(n))return;
+      t.marked=t.marked||[];
+      if(!t.marked.includes(n)){t.marked.push(n);touched=true;}
+    });
+    if(touched)bingoGrantLucky(bg,p,n);
   });
 }
 function bgClaim(seatIdx,stage){
   const bg=G.bg;if(!bg||bg.phase!=='calling'||bg.stageWinners[stage])return;
   const p=G.lp[seatIdx];if(!p)return;
-  const markedSet=new Set(p.bgMarked||[]);
-  if(!bingoStageEligible(p.bgTicket,markedSet,stage)){toast('Not yet — keep watching the board');return;}
+  if(!bingoTicketsStageEligible(p.bgTickets,stage)){toast('Not yet — keep watching the board');return;}
   bg.stageWinners[stage]={id:p.id,name:p.name,avatar:p.avatar};
   p.totalScore=(p.totalScore||0)+BG_STAGE_POINTS[stage];
   G.llast=esc(p.name)+' claims '+BG_STAGE_LABEL[stage]+'!';
@@ -10745,11 +10866,31 @@ function bgClaim(seatIdx,stage){
 // the switcher and claim buttons already use).
 function bgMark(num){
   const bg=G.bg;if(!bg||bg.phase!=='calling'||!bg.calledNumbers.includes(num))return;
-  const p=G.lp[G.bgViewSeat];if(!p||!p.bgTicket)return;
-  p.bgMarked=p.bgMarked||[];
-  if(p.bgMarked.includes(num))return;
-  p.bgMarked.push(num);
+  const p=G.lp[G.bgViewSeat];if(!p||!p.bgTickets)return;
+  const t=p.bgTickets[G.bgViewTicket||0];if(!t)return;
+  t.marked=t.marked||[];
+  if(t.marked.includes(num))return;
+  t.marked.push(num);
+  bingoGrantLucky(bg,p,num);
   SFX.chip();haptic([8]);
+  render();
+}
+// Spend a token on one of the three helpers above. row/col say which cell for 'free' and 'swap';
+// 'dab' ignores them, it always targets the current call across every ticket that still needs it.
+function bgUsePower(kind,row,col){
+  const bg=G.bg;if(!bg||bg.phase!=='calling')return;
+  const p=G.lp[G.bgViewSeat];if(!p||!p.bgTickets)return;
+  if((p.bgTokens||0)<1){toast('No tokens yet — mark a ⭐ lucky number to earn one');return;}
+  const idx=G.bgViewTicket||0;
+  let ok=false,num=null;
+  if(kind==='free'){const t=p.bgTickets[idx];num=t&&t.grid[row]&&t.grid[row][col];ok=bingoPowerFree(p.bgTickets,idx,row,col);}
+  else if(kind==='swap'){ok=bingoPowerSwap(p.bgTickets,idx,row,col,new Set(bg.calledNumbers));}
+  else if(kind==='dab'){num=bg.currentCall;ok=bingoPowerDab(p.bgTickets,bg.currentCall)>0;}
+  if(!ok){toast('Nothing to use that on');return;}
+  p.bgTokens--;
+  if(num!=null)bingoGrantLucky(bg,p,num);
+  G.bgPower=null;
+  SFX.chip();haptic([10,20,10]);fxPulse('blue');
   render();
 }
 // force=true is the "everyone's already looked, let's go" tap -- the automatic path still waits
@@ -10777,10 +10918,9 @@ function botBingoAct(){
   const bg=G.bg;if(!bg||bg.phase!=='calling')return;
   for(let i=0;i<G.lp.length;i++){
     const p=G.lp[i];if(!isBotPlayer(p))continue;
-    const markedSet=new Set(p.bgMarked||[]);
     for(const stage of BG_STAGES){
       if(bg.stageWinners[stage]||_bgPendingClaims.has(stage))continue;
-      if(!bingoStageEligible(p.bgTicket,markedSet,stage))continue;
+      if(!bingoTicketsStageEligible(p.bgTickets,stage))continue;
       _bgPendingClaims.add(stage);
       const seatIdx=i;
       setTimeout(()=>{
@@ -10789,7 +10929,7 @@ function botBingoAct(){
         // claimed this exact stage in the meantime, the same defensive re-read every deadline-
         // driven timer in this file already uses (see oMauTimeoutCheck).
         if(!G.bg||G.bg.phase!=='calling'||G.bg.stageWinners[stage])return;
-        if(!bingoStageEligible(G.lp[seatIdx].bgTicket,new Set(G.lp[seatIdx].bgMarked||[]),stage))return;
+        if(!bingoTicketsStageEligible(G.lp[seatIdx].bgTickets,stage))return;
         bgClaim(seatIdx,stage);
       },bingoBotClaimDelay(p.bot));
       return; // one pending claim started per call; the rest wait for the next signature change
@@ -10804,11 +10944,11 @@ function botBingoAct(){
    player), and the compare-and-swap write means whichever device's timer actually fires first is
    the one that lands -- so the game keeps moving even if the player who happened to trigger the
    previous call has since closed the tab. Claims use the same pattern Roulette's bet actions do. */
-function oBgFreshTickets(players){return players.map(p=>({...p,bgTicket:bingoGenerateTicket(),bgMarked:[]}));}
+function oBgFreshTickets(players){const n=bingoTicketsWanted();return players.map(p=>({...p,bgTickets:bingoGenerateTickets(n),bgTokens:0,bgLucky:[]}));}
 function oBgBuildStart(rs,players){
   return{phase:'game',gameId:'bingo',host:rs.host,hr:rs.hr||G.hr,players:oBgFreshTickets(players),
     bg:{calledNumbers:[],currentCall:null,currentCallAt:0,stageWinners:{line:null,twoLines:null,house:null},
-      phase:'calling',nextCallAt:Date.now()+BG_CALL_MS},
+      phase:'calling',nextCallAt:Date.now()+BG_CALL_MS,lucky:bingoPickLucky()},
     winner:null,winnerName:null,winnerAv:null,roundResult:null,lastAct:'',round:1,_ts:Date.now()};
 }
 async function oBgCallNext(){
@@ -10837,7 +10977,7 @@ async function oBgCallNext(){
     bg.currentCall=n;
     bg.currentCallAt=Date.now();
     bg.nextCallAt=Date.now()+BG_CALL_MS;
-    bingoAutoMarkBots(state.players||[],n);
+    bingoAutoMarkBots(bg,state.players||[],n);
     state._ts=Date.now();
     onSrv(state);
     await dbWriteIfUnchanged(G.roomId,expectedTs,state);
@@ -10850,8 +10990,7 @@ async function oBgClaim(stage){
     const bg=state.bg;
     if(bg.phase!=='calling'||bg.stageWinners[stage])return;
     const me=(state.players||[]).find(p=>p.id===G.myPid);if(!me)return;
-    const markedSet=new Set(me.bgMarked||[]);
-    if(!bingoStageEligible(me.bgTicket,markedSet,stage)){toast('Not yet — keep watching the board');return;}
+    if(!bingoTicketsStageEligible(me.bgTickets,stage)){toast('Not yet — keep watching the board');return;}
     const expectedTs=state._ts;
     bg.stageWinners[stage]={id:me.id,name:me.name,avatar:me.avatar};
     me.totalScore=(me.totalScore||0)+BG_STAGE_POINTS[stage];
@@ -10877,11 +11016,36 @@ async function oBgMark(num){
   try{
     const state=await dbRead(G.roomId);if(!state||!state.bg)return;
     const bg=state.bg;if(bg.phase!=='calling'||!bg.calledNumbers.includes(num))return;
-    const me=(state.players||[]).find(p=>p.id===G.myPid);if(!me)return;
-    me.bgMarked=me.bgMarked||[];
-    if(me.bgMarked.includes(num))return;
-    me.bgMarked.push(num);
+    const me=(state.players||[]).find(p=>p.id===G.myPid);if(!me||!me.bgTickets)return;
+    const t=me.bgTickets[G.bgViewTicket||0];if(!t)return;
+    t.marked=t.marked||[];
+    if(t.marked.includes(num))return;
+    t.marked.push(num);
+    bingoGrantLucky(bg,me,num);
     SFX.chip();haptic([8]);
+    const expectedTs=state._ts;
+    state._ts=Date.now();
+    onSrv(state);
+    await dbWriteIfUnchanged(G.roomId,expectedTs,state);
+  } finally { _onlineBusy=false; }
+}
+async function oBgUsePower(kind,row,col){
+  if(_onlineBusy)return;_onlineBusy=true;
+  try{
+    const state=await dbRead(G.roomId);if(!state||!state.bg)return;
+    const bg=state.bg;if(bg.phase!=='calling')return;
+    const me=(state.players||[]).find(p=>p.id===G.myPid);if(!me||!me.bgTickets)return;
+    if((me.bgTokens||0)<1){toast('No tokens yet — mark a ⭐ lucky number to earn one');return;}
+    const idx=G.bgViewTicket||0;
+    let ok=false,num=null;
+    if(kind==='free'){const t=me.bgTickets[idx];num=t&&t.grid[row]&&t.grid[row][col];ok=bingoPowerFree(me.bgTickets,idx,row,col);}
+    else if(kind==='swap'){ok=bingoPowerSwap(me.bgTickets,idx,row,col,new Set(bg.calledNumbers));}
+    else if(kind==='dab'){num=bg.currentCall;ok=bingoPowerDab(me.bgTickets,bg.currentCall)>0;}
+    if(!ok){toast('Nothing to use that on');return;}
+    me.bgTokens--;
+    if(num!=null)bingoGrantLucky(bg,me,num);
+    G.bgPower=null;
+    SFX.chip();haptic([10,20,10]);fxPulse('blue');
     const expectedTs=state._ts;
     state._ts=Date.now();
     onSrv(state);
@@ -14558,6 +14722,10 @@ function onSrv(state){
   // their tab. Two different deadlines share one timer slot; whichever phase state.bg is actually
   // in decides which one gets armed.
   if(state.gameId==='bingo'&&state.bg&&state.bg.phase==='calling'){
+    // A brand-new table (nothing called yet) means a fresh round just started -- drop any armed
+    // power and go back to ticket 1, the same reset lDealBingo does locally, so an old round's
+    // leftover selection can never bleed into the next one.
+    if(!(state.bg.calledNumbers||[]).length){G.bgViewTicket=0;G.bgPower=null;}
     const sig='bgcall|'+state.bg.nextCallAt;
     if(_bgOnlineSig!==sig){
       _bgOnlineSig=sig;
@@ -15514,6 +15682,7 @@ function rSetup(){
       ${game.id==='maumau'?`<div class="panel"><div class="panel-lbl">House Rules</div><div class="hr-grid">${hrD.map(({k,n,d})=>`<div class="hr-tog${G.hr[k]?' on':''}" data-a="hr" data-k="${k}"><div class="hr-row"><span class="hr-nm">${n}</span><span class="hr-chk">${G.hr[k]?'✓':''}</span></div><span class="hr-desc">${d}</span></div>`).join('')}</div></div>`:''}
       ${game.id==='drawit'?dwOptionsHTML():''}
       ${game.id==='liarsdice'?ldOptionsHTML():''}
+      ${game.id==='bingo'?bgOptionsHTML():''}
       <button class="btn btn-gold btn-full" data-a="deal" style="padding:1rem;">${game.id==='yahtzee'?'🎲 Start Rolling':game.id==='roulette'?'🎡 Open the Table':game.id==='slots'?'🎰 Power Up the Machine':game.id==='drawit'?'🎨 Start Drawing':game.id==='liarsdice'?'🎲 Roll the Dice':game.id==='summit'?'🏔️ Start the Climb':game.id==='hotbomb'?'💣 Light the Fuse':'🃏 Deal the Cards'}</button>
     </div>
   </div>`;
@@ -15550,6 +15719,7 @@ function rLobby(){
       ${tourBtnHTML(game.id)}
       ${game.id==='drawit'&&G.isHost?dwOptionsHTML():''}
       ${game.id==='liarsdice'&&G.isHost?ldOptionsHTML():''}
+      ${game.id==='bingo'&&G.isHost?bgOptionsHTML():''}
       ${game.id==='vault'&&G.isHost?vtOptionsHTML():''}
       ${game.id==='escape'&&G.isHost?esOptionsHTML():''}
       ${G.isHost?`<button class="btn btn-gold btn-full" data-a="start" ${canStart?'':'disabled'}>${canStart?`▶ Start Game — ${players.length} players`:'Waiting for at least 2 players…'}</button>`:
@@ -16410,14 +16580,21 @@ function rDrawitTable(){
 // pulsing come-tap-me highlight -- when it's been called but not yet dabbed. interactive=false is
 // for the read-only winner ticket on the verify screen, where the round's already decided and
 // nothing should invite a tap.
-function bgTicketHTML(ticket,calledSet,markedSet,interactive){
-  let html='<div class="bg-ticket">';
+function bgTicketHTML(ticket,calledSet,markedSet,interactive,powerMode,luckySet){
+  let html='<div class="bg-ticket'+(powerMode?' power-'+powerMode:'')+'">';
   for(let r=0;r<3;r++)for(let c=0;c<9;c++){
     const n=ticket[r][c];
     if(n===null){html+='<div class="bg-cell blank"></div>';continue;}
     const hit=markedSet.has(n);
-    const markable=interactive&&!hit&&calledSet.has(n);
-    html+=`<div class="bg-cell num${hit?' hit':''}${markable?' markable':''}"${markable?` data-a="bg-mark" data-num="${n}"`:''}>${n}</div>`;
+    let markable=false;
+    if(interactive&&!hit){
+      if(powerMode==='free')markable=true;
+      else if(powerMode==='swap')markable=!calledSet.has(n);
+      else markable=calledSet.has(n);
+    }
+    const lucky=!!(luckySet&&luckySet.has(n));
+    const cls=['bg-cell','num'];if(hit)cls.push('hit');if(markable)cls.push('markable');if(lucky)cls.push('lucky');
+    html+=`<div class="${cls.join(' ')}"${markable?` data-a="bg-mark" data-num="${n}" data-row="${r}" data-col="${c}"`:''}>${n}${lucky&&!hit?'<i class="bg-cell-star" aria-hidden="true">⭐</i>':''}</div>`;
   }
   return html+'</div>';
 }
@@ -16428,7 +16605,7 @@ function bgStageRowHTML(bg,players,online,myId){
     if(won){
       body=`<span class="bg-stage-who">${avChar(won.avatar)} ${esc(won.name)}</span>`;
     } else {
-      const eligible=players.filter(p=>p.bgTicket&&bingoStageEligible(p.bgTicket,new Set(p.bgMarked||[]),stage));
+      const eligible=players.filter(p=>p.bgTickets&&bingoTicketsStageEligible(p.bgTickets,stage));
       if(!eligible.length){
         body=`<span class="bg-stage-wait">not yet</span>`;
       } else if(online){
@@ -16447,17 +16624,21 @@ function rBingoTable(){
   const online=G.isOnline,state=online?G.srv:null;
   const players=online?(state?.players||[]):G.lp;
   const bg=online?state?.bg:G.bg;
-  if(!bg||!players.length||!players[0]?.bgTicket)return`<div class="scr on"><p style="padding:2rem;text-align:center;">Dealing tickets…</p></div>`;
+  if(!bg||!players.length||!players[0]?.bgTickets)return`<div class="scr on"><p style="padding:2rem;text-align:center;">Dealing tickets…</p></div>`;
   const calledSet=new Set(bg.calledNumbers||[]);
+  const luckySet=new Set(bg.lucky||[]);
   if(bg.phase==='verifying'){
     // The whole point of the pause is that everyone at the table gets the same big shout on their
     // own screen at the same moment -- so this branch skips the normal calling UI entirely rather
     // than layering a banner on top of it, and shows the winner's actual ticket against the called
-    // numbers so the room can genuinely check it, not just take the app's word for it.
+    // numbers so the room can genuinely check it, not just take the app's word for it. With more
+    // than one ticket in play, it shows the SPECIFIC ticket that actually completed the house.
     const winner=bg.stageWinners.house;
     const wp=players.find(p=>p.id===winner.id)||players[0];
+    const wIdx=Math.max(0,bingoTicketsEligibleIndex(wp.bgTickets,'house'));
+    const wTicket=wp.bgTickets[wIdx]||wp.bgTickets[0];
     const history=(bg.calledNumbers||[]).slice(-14).reverse();
-    const histHTML=history.map(n=>`<span class="bg-hist-num">${n}</span>`).join('');
+    const histHTML=history.map(n=>`<span class="bg-hist-num${luckySet.has(n)?' lucky':''}">${n}</span>`).join('');
     return`<div id="s-table" class="scr on game-bingo">
       <div class="game-bar">
         <div class="gb-game">🎱 Bingo</div>
@@ -16467,10 +16648,10 @@ function rBingoTable(){
       <div class="felt-table bg-felt" style="flex:1;min-height:0;padding:1rem .8rem;gap:.7rem;overflow-y:auto;">
         <div class="bg-verify">
           <div class="bg-verify-shout">🎱 BINGO!</div>
-          <div class="bg-verify-who">${avHTML(wp.avatar)}<span>${esc(wp.name)} shouted Bingo!</span></div>
+          <div class="bg-verify-who">${avHTML(wp.avatar)}<span>${esc(wp.name)} shouted Bingo!${wp.bgTickets.length>1?` — ticket ${wIdx+1} of ${wp.bgTickets.length}`:''}</span></div>
           <div class="bg-verify-sub">Full house — check it against the numbers called</div>
           <div class="bg-hist-strip">${histHTML||'<span class="roul-hist-empty">No calls yet</span>'}</div>
-          ${bgTicketHTML(wp.bgTicket,calledSet,new Set(wp.bgMarked||[]),false)}
+          ${bgTicketHTML(wTicket.grid,calledSet,new Set(wTicket.marked||[]),false,null,luckySet)}
           <button class="btn btn-gold btn-full" data-a="bg-confirm">✅ Confirmed — continue</button>
           <div class="bg-verify-hint">Starting the next round shortly…</div>
         </div>
@@ -16480,24 +16661,47 @@ function rBingoTable(){
   }
   const myIdx=online?Math.max(0,players.findIndex(p=>p.id===G.myPid)):Math.min(G.bgViewSeat||0,players.length-1);
   const me=players[myIdx]||players[0];
-  const myMarked=new Set(me.bgMarked||[]);
+  const myTicketIdx=Math.min(G.bgViewTicket||0,(me.bgTickets.length||1)-1);
+  const myTicket=me.bgTickets[myTicketIdx];
+  const myMarked=new Set(myTicket.marked||[]);
   const history=(bg.calledNumbers||[]).slice(-14).reverse();
-  // A called number that's sitting right there on your own ticket, unmarked, is exactly the thing
-  // this redesign is trying to surface -- previously nothing pointed at it, so numbers could come
-  // and go in the call history without a player ever noticing their card had them.
-  const onMyCard=bg.currentCall&&me.bgTicket&&me.bgTicket.flat().includes(bg.currentCall)&&!myMarked.has(bg.currentCall);
+  // A called number that's sitting right there on one of your tickets, unmarked, is exactly the
+  // thing this redesign is trying to surface -- previously nothing pointed at it, so numbers could
+  // come and go in the call history without a player ever noticing their card had them. With more
+  // than one ticket, it also says WHICH of your tickets to switch to.
+  const callOnTickets=bg.currentCall?me.bgTickets.map((t,i)=>t.grid.flat().includes(bg.currentCall)&&!(t.marked||[]).includes(bg.currentCall)?i:-1).filter(i=>i>=0):[];
+  const onMyCard=callOnTickets.includes(myTicketIdx);
+  const onOtherCard=callOnTickets.length>0&&!onMyCard;
+  const isLuckyCall=bg.currentCall&&luckySet.has(bg.currentCall);
   const callHTML=bg.currentCall
-    ?`<div class="bg-current"><div class="bg-ball">${bg.currentCall}</div><div class="bg-current-lbl">just called</div>${onMyCard?'<div class="bg-current-mine">👉 it’s on your card — tap it!</div>':''}</div>`
+    ?`<div class="bg-current"><div class="bg-ball${isLuckyCall?' lucky':''}">${bg.currentCall}${isLuckyCall?'<i class="bg-ball-star" aria-hidden="true">⭐</i>':''}</div><div class="bg-current-lbl">just called${isLuckyCall?' — lucky number!':''}</div>${onMyCard?'<div class="bg-current-mine">👉 it’s on your card — tap it!</div>':onOtherCard?`<div class="bg-current-mine">👉 it’s on ticket ${callOnTickets.map(i=>i+1).join(', ')} — switch and tap it!</div>`:''}</div>`
     :`<div class="bg-current"><div class="bg-current-lbl">Waiting for the first call…</div></div>`;
-  const histHTML=history.map(n=>`<span class="bg-hist-num">${n}</span>`).join('');
+  const histHTML=history.map(n=>`<span class="bg-hist-num${luckySet.has(n)?' lucky':''}">${n}</span>`).join('');
   const switcher=players.map((p,i)=>{
-    const lines=bingoLinesComplete(p.bgTicket,new Set(p.bgMarked||[]));
+    const lines=bingoTicketsBestLines(p.bgTickets);
     const isMe=online?p.id===G.myPid:i===myIdx;
     const clickable=!online;
     const tag=clickable?'button':'span';
     return `<${tag} class="bg-switch${isMe?' active':''}"${clickable?` data-a="bg-view" data-seat="${i}"`:''}>${avHTML(p.avatar)}<span>${esc(p.name)}${online&&isMe?' (You)':''}</span><span class="bg-switch-lines">${lines}/3</span></${tag}>`;
   }).join('');
-  const pending=(bg.calledNumbers||[]).filter(n=>me.bgTicket.flat().includes(n)&&!myMarked.has(n)).length;
+  // A second row of tabs only shows up once there's actually more than one ticket to flip between
+  // -- with just one, it would be a control that does nothing.
+  const ticketTabsHTML=me.bgTickets.length>1?`<div class="bg-ticket-tabs">${me.bgTickets.map((t,i)=>
+    `<button class="bg-ticket-tab${i===myTicketIdx?' active':''}" data-a="bg-view-ticket" data-idx="${i}">Ticket ${i+1}${callOnTickets.includes(i)?'<i class="bg-tab-dot" aria-hidden="true"></i>':''}</button>`
+  ).join('')}</div>`:'';
+  const pending=(bg.calledNumbers||[]).filter(n=>myTicket.grid.flat().includes(n)&&!myMarked.has(n)).length;
+  const canAct=bg.phase==='calling'; // local: whichever seat is on screen IS who may act; online: you only ever see your own ticket
+  const powerMode=canAct?G.bgPower:null;
+  const dabTargets=canAct?bingoPowerDabTargets(me.bgTickets,bg.currentCall):[];
+  const powerRowHTML=canAct?`<div class="bg-power-row">
+    <div class="bg-power-tokens">🪙 ${me.bgTokens||0} power token${me.bgTokens===1?'':'s'}</div>
+    <div class="bg-power-btns">
+      <button class="bg-power-btn${G.bgPower==='free'?' armed':''}" data-a="bg-power-arm" data-power="free" ${(me.bgTokens||0)<1?'disabled':''} aria-pressed="${G.bgPower==='free'}">🎯 Free square</button>
+      <button class="bg-power-btn${G.bgPower==='swap'?' armed':''}" data-a="bg-power-arm" data-power="swap" ${(me.bgTokens||0)<1?'disabled':''} aria-pressed="${G.bgPower==='swap'}">🔄 Swap number</button>
+      <button class="bg-power-btn" data-a="bg-power-dab" ${(me.bgTokens||0)<1||!dabTargets.length?'disabled':''}>✨ Double dab</button>
+    </div>
+    ${G.bgPower?`<div class="bg-power-hint">${G.bgPower==='free'?'Tap any cell on this ticket to mark it, free.':'Tap a not-yet-called number to swap it for a new one.'}</div>`:''}
+  </div>`:'';
   return`<div id="s-table" class="scr on game-bingo">
     <div class="game-bar">
       <div class="gb-game">🎱 Bingo</div>
@@ -16509,9 +16713,11 @@ function rBingoTable(){
       ${callHTML}
       <div class="bg-hist-strip">${histHTML||'<span class="roul-hist-empty">No calls yet</span>'}</div>
       <div class="bg-stage-row">${bgStageRowHTML(bg,players,online,G.myPid)}</div>
+      ${powerRowHTML}
       <div class="bg-ticket-wrap">
+        ${ticketTabsHTML}
         <div class="bg-ticket-lbl">${online?'Your ticket':esc(me.name)+'’s ticket'}${pending?` <span class="bg-ticket-pending">${pending} to tap</span>`:''}</div>
-        ${bgTicketHTML(me.bgTicket,calledSet,myMarked,true)}
+        ${bgTicketHTML(myTicket.grid,calledSet,myMarked,canAct,powerMode,luckySet)}
       </div>
     </div>
     ${talkStripHTML()}
@@ -18096,8 +18302,16 @@ document.addEventListener('click',e=>{
   else if(a==='pigroll'){G.isOnline?oPigRoll():pigRoll();}
   else if(a==='pigbank'){G.isOnline?oPigBank():pigBank();}
   else if(a==='bg-claim'){G.isOnline?oBgClaim(t.getAttribute('data-stage')):bgClaim(+t.getAttribute('data-seat'),t.getAttribute('data-stage'));}
-  else if(a==='bg-mark'){G.isOnline?oBgMark(+t.getAttribute('data-num')):bgMark(+t.getAttribute('data-num'));}
-  else if(a==='bg-view'){G.bgViewSeat=+t.getAttribute('data-seat');render();}
+  else if(a==='bg-mark'){
+    const num=+t.getAttribute('data-num'),row=+t.getAttribute('data-row'),col=+t.getAttribute('data-col');
+    if(G.bgPower==='free'||G.bgPower==='swap'){G.isOnline?oBgUsePower(G.bgPower,row,col):bgUsePower(G.bgPower,row,col);}
+    else{G.isOnline?oBgMark(num):bgMark(num);}
+  }
+  else if(a==='bg-power-arm'){const pw=t.getAttribute('data-power');G.bgPower=G.bgPower===pw?null:pw;render();}
+  else if(a==='bg-power-dab'){G.isOnline?oBgUsePower('dab'):bgUsePower('dab');}
+  else if(a==='bg-view'){G.bgViewSeat=+t.getAttribute('data-seat');G.bgViewTicket=0;G.bgPower=null;render();}
+  else if(a==='bg-view-ticket'){G.bgViewTicket=+t.getAttribute('data-idx');G.bgPower=null;render();}
+  else if(a==='bg-tickets'){bingoSetTicketsWanted(+t.getAttribute('data-n'));render();}
   else if(a==='bg-confirm'){G.isOnline?oBgFinalizeHouse(true):bgFinalizeHouse(true);}
   else if(a==='bp-draw'){G.isOnline?oBpDraw(+t.getAttribute('data-idx')):bpDrawCard(+t.getAttribute('data-idx'));}
   else if(a==='bp-select'){bpHandleSelect(t.getAttribute('data-cid'));}
@@ -18498,7 +18712,7 @@ document.addEventListener('click',e=>{
         // fresh each round; there's no bust-out check because nothing here ever goes down.
         const players=oBgFreshTickets((rs.players||[]).map(p=>({...p,totalScore:p.totalScore||0})));
         const gs={...rs,players,bg:{calledNumbers:[],currentCall:null,currentCallAt:0,
-          stageWinners:{line:null,twoLines:null,house:null},phase:'calling',nextCallAt:Date.now()+BG_CALL_MS},
+          stageWinners:{line:null,twoLines:null,house:null},phase:'calling',nextCallAt:Date.now()+BG_CALL_MS,lucky:bingoPickLucky()},
           winner:null,winnerName:null,winnerAv:null,roundResult:null,lastAct:'',round:(rs.round||1)+1,_ts:Date.now()};
         G.srv=gs;dbWrite(G.roomId,gs);
         return;
