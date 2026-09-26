@@ -4947,6 +4947,128 @@ async function runPresentation(A,W,frame){
     W.eval('bgClearCaller')(); // see the cleanup note on the very first Bingo local-play suite
   });
 
+  /* —— Shut the Box: the pure rules —————— */
+  suite('Shut the Box — the rules are exactly the classic ones',()=>{
+    const F=n=>W.eval(n);
+    const stbSubsets=F('stbSubsets'),stbOneDie=F('stbOneDie'),stbValidShut=F('stbValidShut'),stbApplyShut=F('stbApplyShut'),
+      stbScore=F('stbScore'),stbFreshOpen=F('stbFreshOpen'),stbRollDice=F('stbRollDice'),stbCanMove=F('stbCanMove'),stbTarget=F('stbTarget');
+    const all=stbFreshOpen();
+    check('the box starts with the nine tiles 1 to 9',JSON.stringify(all)==='[1,2,3,4,5,6,7,8,9]');
+    check('a 9 can be made 8 ways from a full box (9, 1+8, 2+7, 3+6, 4+5, 1+2+6, 1+3+5, 2+3+4)',stbSubsets(all,9).length===8);
+    check('every subset sums to the target and uses each tile once',[2,5,7,10,12].every(t=>stbSubsets(all,t).every(s=>s.reduce((a,b)=>a+b,0)===t&&new Set(s).size===s.length)));
+    check('a total that no open tile can make finds nothing',stbSubsets([8,9],5).length===0&&!stbCanMove([8,9],5));
+    check('a 12 is possible from the full box (3+9, 4+8, 5+7, 1+2+9 ...)',stbCanMove(all,12));
+    check('two dice are thrown while any of 7, 8, 9 is open',!stbOneDie(all)&&!stbOneDie([9])&&!stbOneDie([1,2,3,7]));
+    check('one die once 7, 8 and 9 are all shut',stbOneDie([1,2,3])&&stbOneDie([]));
+    check('a throw is one die or two, always 1-6 each, matching that rule',(()=>{
+      for(let i=0;i<200;i++){const one=stbRollDice([1,2]),two=stbRollDice(all);
+        if(one.length!==1||two.length!==2||![...one,...two].every(v=>v>=1&&v<=6))return false;}
+      return true;})());
+    check('the total is the sum of the dice',stbTarget([3,4])===7&&stbTarget([6])===6);
+    check('a legal shut must be open tiles adding up exactly',stbValidShut(all,[4,5],9)&&stbValidShut(all,[9],9));
+    check('the wrong sum is refused',!stbValidShut(all,[4,4],9)&&!stbValidShut(all,[4,6],9));
+    check('a tile picked twice is refused',!stbValidShut(all,[3,3,3],9));
+    check('a tile that is already shut is refused',!stbValidShut([1,2,3],[4,5],9));
+    check('an empty or malformed pick is refused',!stbValidShut(all,[],9)&&!stbValidShut(all,null,9)&&!stbValidShut(all,'45',9));
+    check('applying a legal shut removes exactly those tiles',JSON.stringify(stbApplyShut(all,[4,5],9))==='[1,2,3,6,7,8,9]');
+    check('applying an illegal shut changes nothing (null)',stbApplyShut(all,[4,4],9)===null);
+    check('the score is the sum of the tiles still standing; a shut box is 0',stbScore([1,2,7])===10&&stbScore([])===0);
+  });
+
+  suite('Shut the Box — ranking, ties and the bot\'s choices',()=>{
+    const F=n=>W.eval(n);
+    const stbRankKey=F('stbRankKey'),stbWinners=F('stbWinners'),stbBotPick=F('stbBotPick'),stbSubsets=F('stbSubsets'),
+      stbSurviveProb=F('stbSurviveProb'),stbFreshOpen=F('stbFreshOpen');
+    const P=(name,score,tiles)=>({name,stbScore:score,stbTiles:tiles});
+    check('the lowest score wins',stbWinners([P('a',22,3),P('b',9,2),P('c',15,4)]).map(p=>p.name).join()==='b');
+    check('a tie on points goes to fewer tiles standing',stbWinners([P('a',10,4),P('b',10,2)]).map(p=>p.name).join()==='b');
+    check('an exact tie is shared',stbWinners([P('a',10,2),P('b',10,2),P('c',30,5)]).map(p=>p.name).sort().join()==='a,b');
+    check('a shut box (0) beats everything',stbWinners([P('a',1,1),P('b',0,0)]).map(p=>p.name).join()==='b');
+    check('players who have not played yet never win',stbWinners([P('a',null,null),P('b',40,5)]).map(p=>p.name).join()==='b');
+    check('rank keys sort lowest first, unplayed last',[P('a',null,null),P('b',5,2),P('c',0,0)].sort((x,y)=>stbRankKey(x)-stbRankKey(y)).map(p=>p.name).join('')==='cba');
+    // bots always play a legal shut, and sharp never picks a worse set than any alternative
+    let legal=true,sharpBest=true,none=true;
+    for(let i=0;i<300;i++){
+      const open=stbFreshOpen().filter(()=>Math.random()<.6),target=2+Math.floor(Math.random()*11),subs=stbSubsets(open,target);
+      const g=stbBotPick(open,target,'gentle'),s=stbBotPick(open,target,'sharp');
+      if(!subs.length){if(g!==null||s!==null)none=false;continue;}
+      const ok=x=>x&&subs.some(y=>JSON.stringify(y)===JSON.stringify([...x].sort((a,b)=>a-b)));
+      if(!ok(g)||!ok(s))legal=false;
+      const surv=x=>stbSurviveProb(open.filter(t=>!x.includes(t)));
+      if(subs.some(x=>surv(x)>surv(s)+1e-9))sharpBest=false;
+    }
+    check('both bot levels always pick a legal set of tiles (300 random boxes)',legal);
+    check('with nothing legal a bot picks nothing',none);
+    check('a sharp bot always keeps the box as playable as it can',sharpBest);
+    check('the odds of surviving the next throw are sane: high on a full box, zero on an empty one',stbSurviveProb(stbFreshOpen())>0.95&&stbSurviveProb([])===0);
+  });
+
+  suite('Shut the Box — is on the roster like every other dice game',()=>{
+    const g=A.GAMES.find(x=>x.id==='shutbox');
+    check('it is a playable dice game for 1 to 8',!!g&&g.cat==='dice'&&!g.locked&&g.minP===1&&g.maxP===8);
+    check('it has bots, and it can be played online',A.BOT_GAMES.has('shutbox')&&A.ONLINE_GAMES.includes('shutbox'));
+    check('it has an intro tagline',!!W.eval('STAGE_TAGS').shutbox);
+    check('its rules explain the one-die rule and the scoring',/one die/i.test(g.rules.join(' '))&&/lowest/i.test(g.rules.join(' ')));
+  });
+
+  /* —— Shut the Box: a whole game through the real local engine —————— */
+  suite('Shut the Box plays a whole game through the real local engine',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const lStartMatch=F('lStartMatch'),stbShut=F('stbShut'),stbFinishTurn=F('stbFinishTurn'),stbAdvanceTurn=F('stbAdvanceTurn'),
+      botShutBoxAct=F('botShutBoxAct'),stbRoll=F('stbRoll'),stbToggleTile=F('stbToggleTile'),rShutBoxTable=F('rShutBoxTable');
+    // Swallow the "show the result for a beat" timers so nothing dangles into a later suite.
+    W.eval('window.__origSetTimeout=setTimeout; setTimeout=(fn)=>0;');
+    try{
+      const mk=(id,n,bot)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false,...(bot?{bot}:{})});
+      G.isOnline=false;G.srv=null;G.selGame='shutbox';
+      G.lp=[mk(1,'Phil'),mk(2,'Anna'),mk(3,'Robo','sharp')];G.lstart=0;lStartMatch();
+      G.lstart=0;G.lcur=0; // lStartMatch cuts for the first player at random -- pin it so the seats below are known
+      check('dealing opens a full box and nobody has a score yet',G.stb.open.length===9&&G.stb.phase==='roll'&&G.lp.every(p=>p.stbScore==null));
+      // Force a throw so the moves are known.
+      G.stb.dice=[3,4];G.stb.target=7;G.stb.phase='pick';G.scr='table';
+      G.stbSel=[];
+      stbToggleTile(2);stbToggleTile(5);
+      check('tapping tiles selects them (and tapping again unselects)',JSON.stringify(G.stbSel)==='[2,5]'&&(stbToggleTile(5),JSON.stringify(G.stbSel)==='[2]'));
+      stbShut([1,2]);
+      check('shutting tiles that do not add up to the throw is refused',G.stb.open.length===9&&G.stb.phase==='pick');
+      stbShut([2,5]);
+      check('shutting 2+5 for a 7 closes exactly those tiles and goes back to throwing',JSON.stringify(G.stb.open)==='[1,3,4,6,7,8,9]'&&G.stb.phase==='roll');
+      // A stuck throw ends the turn with the standing tiles as the score.
+      G.stb.open=[8,9];G.stb.dice=[1,2];G.stb.target=3;G.stb.phase='pick';
+      stbFinishTurn();
+      check('a turn that ends stuck scores the sum of the standing tiles',G.lp[0].stbScore===17&&G.lp[0].stbTiles===2&&G.stb.phase==='over');
+      stbAdvanceTurn();
+      check('the next player then gets a fresh full box',G.lcur===1&&G.stb.open.length===9&&G.stb.phase==='roll');
+      // Anna shuts the whole box.
+      G.stb.open=[3];G.stb.dice=[3];G.stb.target=3;G.stb.phase='pick';
+      stbShut([3]);
+      check('shutting the last tile is a perfect 0 and ends the turn',G.lp[1].stbScore===0&&G.lp[1].stbTiles===0&&G.stb.phase==='over');
+      stbAdvanceTurn();
+      check('the bot is up next',G.lcur===2&&G.stb.phase==='roll');
+      // The bot plays its whole turn by itself.
+      let guard=0;while(G.stb.phase!=='over'&&guard++<80)botShutBoxAct(G.lp[2]);
+      check('a bot plays its turn to the end',G.stb.phase==='over'&&G.lp[2].stbScore!=null);
+      const before=F('getHistory')().length;
+      stbAdvanceTurn();
+      check('once everybody has played, the game ends on the results screen',G.scr==='matchend');
+      const rows=new DOMParser().parseFromString(W.eval('rMatchEnd')(),'text/html');
+      const names=[...rows.querySelectorAll('.sr .sr-name')].map(e=>e.textContent);
+      check('the perfect 0 is ranked first, with its tiles-left line',names[0]==='Anna'&&/shut the box/i.test(rows.querySelector('.sr').textContent));
+      check('the result is recorded in the family history',F('getHistory')().some(h=>h.game==='shutbox'&&h.winner==='Anna'));
+      // The table itself.
+      G.scr='table';lStartMatch();G.lstart=0;G.lcur=0;G.stb.open=[1,2,4,5,7,9];G.stb.dice=[3,4];G.stb.target=7;G.stb.phase='pick';G.stbSel=[2,5];
+      const d=new DOMParser().parseFromString(rShutBoxTable(),'text/html');
+      check('the table shows nine tiles, three of them shut',d.querySelectorAll('.stb-tile').length===9&&d.querySelectorAll('.stb-tile.shut').length===3);
+      check('only tiles that can help glow (1, 2, 4, 5 and 7 can make a 7); the 9 is dimmed',d.querySelectorAll('.stb-tile.can,.stb-tile.picked').length===5&&d.querySelectorAll('.stb-tile.dim').length===1);
+      check('the Shut button is live exactly when the pick adds up',!d.querySelector('[data-a="stbshut"]').disabled);
+      G.stbSel=[2];
+      check('and disabled when it does not',new DOMParser().parseFromString(rShutBoxTable(),'text/html').querySelector('[data-a="stbshut"]').disabled);
+    } finally {
+      W.eval('setTimeout=window.__origSetTimeout;');
+      G.scr='home';
+    }
+  });
+
   /* —— Le Pouilleux: deck, auto-discard, and turn rotation —————— */
   suite('Le Pouilleux\'s deck, auto-discard, and turn order are all correct',()=>{
     const deck=A.bpBuildDeck();
