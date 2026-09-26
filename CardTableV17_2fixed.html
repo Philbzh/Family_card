@@ -3238,6 +3238,23 @@ window.onunhandledrejection=function(e){
 const SB_URL='https://bibxhrqxbecaukmschbe.supabase.co';
 const SB_KEY='sb_publishable_2ZKsf4Yozk4v-QjXfCixMQ_0WpbjJ_h';
 let _sb=null,_ch=null,_poll=null,_awayTick=null,_lts=0,_onlineBusy=false;
+/* Never step backwards. Every room state carries the _ts it was written with. The 1.5 s poll can already be
+   in flight when WE write, and hand back the PREVIOUS snapshot after we applied ours -- the table rolled
+   back, your own move vanished, and it "carried out" only when the next poll landed. A _ts we have already
+   applied and moved past is stale by definition, whatever the device clocks say, so it is ignored. */
+let _seenTs=[];
+function dbNoteTs(ts){
+  if(ts===_lts)return;
+  if(_lts)_seenTs.push(_lts);
+  if(_seenTs.length>40)_seenTs.shift();
+  _lts=ts;
+}
+// true = apply this snapshot (it is new to us), false = skip it (it is the current one, or an older one arriving late)
+function dbAcceptTs(ts){
+  if(ts==null||ts===_lts||_seenTs.includes(ts))return false;
+  dbNoteTs(ts);return true;
+}
+function dbResetTs(){_seenTs=[];_lts=0;}
 const _seenTalk=new Set(); // ids of table-talk entries (reactions/messages) already animated, so onSrv diffing never replays one twice
 const SB=()=>{
   if(typeof supabase==='undefined')return null;
@@ -3325,7 +3342,8 @@ function _onPresenceSync(){
 }
 function dbSub(id,cb){
   const sb=SB();
-  const onState=s=>{if(s&&s._ts!==_lts){_lts=s._ts;cb(s);}};
+  _seenTs=[];
+  const onState=s=>{if(s&&dbAcceptTs(s._ts))cb(s);};
   _presentPids=new Set();_absentSince={};
   if(sb){
     if(_ch)sb.removeChannel(_ch);
@@ -7285,6 +7303,8 @@ async function oStbRoll(){
   _onlineBusy=true;
   try{
     const state=await dbRead(G.roomId);if(!state||!state.stb)return;
+    const mover=(state.players||[])[state.curIdx||0];
+    if(!mover||mover.id!==G.myPid){toast('Not your turn');onSrv(state);return;}
     const b=state.stb;if(b.phase!=='roll')return;
     b.dice=stbRollDice(b.open);b.target=stbTarget(b.dice);G.stbSel=[];
     SFX.diceRoll();haptic([10,20,10]);
@@ -7310,6 +7330,8 @@ async function oStbShut(sel){
   _onlineBusy=true;
   try{
     const state=await dbRead(G.roomId);if(!state||!state.stb)return;
+    const mover=(state.players||[])[state.curIdx||0];
+    if(!mover||mover.id!==G.myPid){toast('Not your turn');onSrv(state);return;}
     const b=state.stb;if(b.phase!=='pick')return;
     const next=stbApplyShut(b.open,sel,b.target);
     if(!next){toast('Those tiles must add up to '+b.target);SFX.illegal();return;}
@@ -7643,6 +7665,8 @@ async function oC4Drop(c,kind){
   _onlineBusy=true;
   try{
     const state=await dbRead(G.roomId);if(!state||!state.c4)return;
+    const mover=(state.players||[])[state.curIdx||0];
+    if(!mover||mover.id!==G.myPid){toast('Not your turn');onSrv(state);return;}
     const f=state.c4;if(f.over)return;
     kind=kind||'drop';
     const idx=state.curIdx||0,who=idx===0?1:2;
@@ -15414,7 +15438,7 @@ function onSrv(state){
   const prevYScores=state.gameId==='yahtzee'?(G.srv?.players||[]).map(p=>({fullHouse:p.scorecard?.fullHouse,largeStraight:p.scorecard?.largeStraight})):null;
   const prevDw=state.gameId==='drawit'?{rid:G.srv?.dw?.rid,gn:(G.srv?.dw?.guesses||[]).length,winner:prevWinner,matchOver:!!G.srv?.matchOver}:null;
   stageOnSrv(G.srv,state);
-  G.srv=state;_lts=state._ts||0;
+  G.srv=state;dbNoteTs(state._ts||0);
   if(state.mauPend&&state.mauPend.pid===G.myPid){
     const sig=state.mauPend.pid+'|'+state.mauPend.deadline;
     if(_oMauSig!==sig){

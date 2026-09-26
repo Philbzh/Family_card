@@ -5283,6 +5283,65 @@ async function runPresentation(A,W,frame){
     }
   });
 
+  /* —— Online sync: never step backwards —————— */
+  suite('Online sync never rolls the table back to an older snapshot',()=>{
+    const F=n=>W.eval(n);
+    const dbAcceptTs=F('dbAcceptTs'),dbNoteTs=F('dbNoteTs'),dbResetTs=F('dbResetTs');
+    const keep=W.eval('_lts');
+    try{
+      dbResetTs();
+      check('the first snapshot is applied',dbAcceptTs(100)===true);
+      check('a newer snapshot is applied',dbAcceptTs(200)===true);
+      check('the same snapshot again is skipped',dbAcceptTs(200)===false);
+      // The bug: we wrote 300 ourselves (applied at once), then a poll that was already in flight returns 200.
+      dbNoteTs(300);
+      check('a poll that was already in flight hands back the PREVIOUS snapshot after our own write -- it is skipped, not applied',dbAcceptTs(200)===false&&dbAcceptTs(100)===false);
+      check('the next genuinely new snapshot still goes through',dbAcceptTs(400)===true);
+      check('a snapshot from a device whose clock runs behind is still applied if we have never seen it',dbAcceptTs(350)===true);
+      check('but the older one it replaced is not brought back',dbAcceptTs(400)===false);
+      dbResetTs();
+      check('after a reset (a new room) an old value counts as new again',dbAcceptTs(200)===true);
+    } finally { W.eval('_seenTs=[];_lts='+(+keep||0)+';'); }
+  });
+
+  /* The awaits live here at the top level (suite() callbacks are never awaited -- see the slot section). */
+  {
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const oC4Drop=F('oC4Drop'),c4NewGame=F('c4NewGame');
+    W.__keepSb=W.eval('_sb');
+    let DB=null;const clone=o=>JSON.parse(JSON.stringify(o));
+    W.__fakeSb={from:()=>({
+      select:()=>({eq:()=>({single:()=>Promise.resolve({data:DB?{state:clone(DB)}:null,error:DB?null:{message:'none'}})})}),
+      upsert:row=>{DB=clone(row.state);return Promise.resolve({error:null});},
+      update:row=>({eq:()=>({eq:()=>({select:()=>{DB=clone(row.state);return Promise.resolve({data:[{id:'T'}],error:null});}})})})})};
+    const seen={};
+    try{
+      W.eval('_sb=window.__fakeSb');
+      const P=(id,n,i)=>({id,name:n,avatar:A.AVATARS[i],totalScore:0,c4Result:null});
+      // The room says it is Ben's turn; Anna's screen still (wrongly) believes it is hers.
+      DB={phase:'game',gameId:'fourrow',host:'a',players:[P('a','Anna',0),P('b','Ben',1)],curIdx:1,c4:c4NewGame(),winner:null,lastAct:'',round:1,_ts:Date.now()};
+      const stale=clone(DB);stale.curIdx=0;
+      G.isOnline=true;G.selGame='fourrow';G.roomId='T';G.myPid='a';G.srv=stale;G.scr='table';
+      const before=JSON.stringify(DB);
+      await oC4Drop(3,'drop');
+      seen.untouched=JSON.stringify(DB)===before;
+      seen.resynced=!!(G.srv&&G.srv.curIdx===1);
+      G.myPid='b';G.srv=clone(DB);
+      await oC4Drop(3,'drop');
+      seen.benMoved=DB.c4.board[5][3]===2&&DB.curIdx===0&&DB.c4.moves===1;
+    } finally {
+      W.eval('_sb=window.__keepSb');
+      G.isOnline=false;G.srv=null;G.scr='home';
+      // a saved online seat would make the NEXT page load try to rejoin this fake room
+      try{W.localStorage.removeItem('ct_online_session');W.localStorage.removeItem('ct_resume');}catch(e){}
+    }
+    suite('Online moves are made on the fresh state, never on a stale local one',()=>{
+      check('Anna tapping on a stale screen does NOT play Ben\'s turn for him: the room is untouched',seen.untouched);
+      check('...and her screen is brought up to date instead',seen.resynced);
+      check('Ben\'s own move on a fresh screen goes through and passes the turn to Anna',seen.benMoved);
+    });
+  }
+
   /* —— Le Pouilleux: deck, auto-discard, and turn rotation —————— */
   suite('Le Pouilleux\'s deck, auto-discard, and turn order are all correct',()=>{
     const deck=A.bpBuildDeck();
