@@ -5069,6 +5069,113 @@ async function runPresentation(A,W,frame){
     }
   });
 
+  /* —— 4 in a Row: the pure rules —————— */
+  suite('4 in a Row — gravity, and a four in every direction',()=>{
+    const F=n=>W.eval(n);
+    const c4NewBoard=F('c4NewBoard'),c4DropRow=F('c4DropRow'),c4Place=F('c4Place'),c4Winner=F('c4Winner'),c4Full=F('c4Full'),c4Moves=F('c4Moves');
+    let b=c4NewBoard();
+    check('the board is 7 columns by 6 rows and empty',b.length===6&&b.every(r=>r.length===7&&r.every(v=>v===0)));
+    check('a disc falls to the bottom of an empty column',c4DropRow(b,3)===5);
+    b=c4Place(b,3,1);
+    check('and the next one lands on top of it',c4DropRow(b,3)===4&&b[5][3]===1);
+    check('placing never changes the board it was given (pure)',c4NewBoard()[5][3]===0&&c4Place(c4NewBoard(),0,1)!==null);
+    let full=c4NewBoard();for(let i=0;i<6;i++)full=c4Place(full,2,1+(i%2));
+    check('a full column refuses another disc',c4DropRow(full,2)===-1&&c4Place(full,2,1)===null&&!c4Moves(full).includes(2));
+    check('columns outside the board are refused',c4DropRow(b,-1)===-1&&c4DropRow(b,7)===-1);
+    const line=(cells,who=1)=>{const x=c4NewBoard();cells.forEach(([r,c])=>{x[r][c]=who;});return x;};
+    check('four across is a win',c4Winner(line([[5,0],[5,1],[5,2],[5,3]])).who===1);
+    check('four up and down is a win',c4Winner(line([[2,4],[3,4],[4,4],[5,4]],2)).who===2);
+    check('a rising diagonal is a win',c4Winner(line([[5,0],[4,1],[3,2],[2,3]])).cells.length===4);
+    check('a falling diagonal is a win',c4Winner(line([[2,3],[3,4],[4,5],[5,6]])).cells.length===4);
+    check('three in a row is not a win',c4Winner(line([[5,0],[5,1],[5,2]]))===null);
+    check('four in a row split by the other colour is not a win',c4Winner((()=>{const x=line([[5,0],[5,1],[5,3],[5,4]]);x[5][2]=2;return x;})())===null);
+    check('the winning cells are reported so they can glow',JSON.stringify(c4Winner(line([[5,0],[5,1],[5,2],[5,3]])).cells)==='[[5,0],[5,1],[5,2],[5,3]]');
+    const draw=[[1,2,1,2,1,2,1],[1,2,1,2,1,2,1],[2,1,2,1,2,1,2],[2,1,2,1,2,1,2],[1,2,1,2,1,2,1],[1,2,1,2,1,2,1]];
+    check('a full board with no four is a draw',c4Full(draw)&&c4Winner(draw)===null);
+    check('an empty board is not full',!c4Full(c4NewBoard()));
+  });
+
+  suite('4 in a Row — the bot wins when it can, blocks when it must, and Sharp out-plays Gentle',()=>{
+    const F=n=>W.eval(n);
+    const c4NewBoard=F('c4NewBoard'),c4Place=F('c4Place'),c4Winner=F('c4Winner'),c4Full=F('c4Full'),c4BotMove=F('c4BotMove'),c4Moves=F('c4Moves');
+    const put=(b,c,who)=>c4Place(b,c,who);
+    // three of player 1's along the bottom, open on the right: 1 wins at column 3
+    let win=c4NewBoard();[0,1,2].forEach(c=>{win=put(win,c,1);});
+    check('with a win available, both levels take it',c4BotMove(win,1,'gentle')===3&&c4BotMove(win,1,'sharp')===3);
+    // player 2 (the bot) must stop player 1 at column 3
+    let block=c4NewBoard();[0,1,2].forEach(c=>{block=put(block,c,1);});block=put(block,6,2);
+    check('a sharp bot blocks the opponent\'s four',c4BotMove(block,2,'sharp')===3);
+    let blockedG=0;for(let i=0;i<60;i++)if(c4BotMove(block,2,'gentle')===3)blockedG++;
+    check('a gentle bot usually blocks (it can miss)',blockedG>=25);
+    check('a bot always returns a playable column',(()=>{
+      for(let i=0;i<150;i++){let b=c4NewBoard(),turn=1;const n=Math.floor(Math.random()*30);
+        for(let k=0;k<n;k++){const m=c4Moves(b);if(!m.length||c4Winner(b))break;b=put(b,m[Math.floor(Math.random()*m.length)],turn);turn=turn===1?2:1;}
+        if(c4Winner(b)||c4Full(b))continue;
+        const c=c4BotMove(b,turn,i%2?'sharp':'gentle');if(!c4Moves(b).includes(c))return false;}
+      return true;})());
+    let sharpWins=0;
+    for(let g=0;g<8;g++){let b=c4NewBoard(),turn=g%2?2:1;
+      for(let k=0;k<45;k++){const c=c4BotMove(b,turn,turn===1?'sharp':'gentle');b=put(b,c,turn);const w=c4Winner(b);if(w){if(w.who===1)sharpWins++;break;}if(c4Full(b))break;turn=turn===1?2:1;}}
+    check('Sharp beats Gentle in most games ('+sharpWins+' of 8)',sharpWins>=5);
+  });
+
+  suite('4 in a Row — is on the roster',()=>{
+    const g=A.GAMES.find(x=>x.id==='fourrow');
+    check('it is a playable classic for exactly 2 players',!!g&&g.cat==='classic'&&!g.locked&&g.minP===2&&g.maxP===2);
+    check('it has bots and online play',A.BOT_GAMES.has('fourrow')&&A.ONLINE_GAMES.includes('fourrow'));
+    check('it has an intro tagline',!!W.eval('STAGE_TAGS').fourrow);
+  });
+
+  suite('4 in a Row plays through the real local engine',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const lStartMatch=F('lStartMatch'),c4Drop=F('c4Drop'),rFourRowTable=F('rFourRowTable');
+    W.eval('window.__origSetTimeout=setTimeout; setTimeout=(fn)=>0;');
+    try{
+      const mk=(id,n,bot)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false,...(bot?{bot}:{})});
+      G.isOnline=false;G.srv=null;G.selGame='fourrow';
+      G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;lStartMatch();G.lstart=0;G.lcur=0;G.scr='table';
+      check('dealing opens an empty board',G.c4.moves===0&&!G.c4.over&&G.lp.every(p=>p.c4Result==null));
+      c4Drop(3);
+      check('the first player drops a red disc and the turn passes',G.c4.board[5][3]===1&&G.lcur===1&&G.c4.moves===1);
+      c4Drop(3);
+      check('the second player\'s disc stacks on top',G.c4.board[4][3]===2&&G.lcur===0);
+      // fill a column: the 7th disc must be refused without changing whose turn it is
+      G.c4.board=W.eval('c4NewBoard')();for(let i=0;i<6;i++)G.c4.board[i][0]=(i%2)+1;G.lcur=0;const before=G.lcur;
+      c4Drop(0);
+      check('dropping in a full column is refused and keeps the turn',G.lcur===before&&G.c4.moves===2);
+      // Phil connects four along the bottom
+      G.c4=F('c4NewGame')();G.lcur=0;
+      [0,0,1,1,2,2].forEach(c=>c4Drop(c));
+      check('no winner after three each in a row of two',!G.c4.over);
+      c4Drop(3);
+      check('the fourth in a row ends the game with the winning cells recorded',G.c4.over&&G.c4.win&&G.c4.win.who===1&&G.c4.win.cells.length===4);
+      check('the winner is recorded, the loser is not',G.lp[0].c4Result==='win'&&G.lp[1].c4Result==='loss'&&G.lp[0].totalScore===1);
+      check('no more moves are accepted once it is over',(()=>{const m=G.c4.moves;c4Drop(5);return G.c4.moves===m;})());
+      check('the win is in the family history',F('getHistory')().some(h=>h.game==='fourrow'&&h.winner==='Phil'));
+      G.scr='matchend';
+      const rows=new DOMParser().parseFromString(W.eval('rMatchEnd')(),'text/html');
+      check('the results screen names the winner first',/Phil won/.test(rows.querySelector('.wb-title').textContent)&&rows.querySelectorAll('.sr .sr-name')[0].textContent==='Phil');
+      // a draw: almost-full board whose last disc completes a draw
+      G.scr='table';G.c4=F('c4NewGame')();
+      G.c4.board=[[1,2,1,2,1,2,0],[1,2,1,2,1,2,1],[2,1,2,1,2,1,2],[2,1,2,1,2,1,2],[1,2,1,2,1,2,1],[1,2,1,2,1,2,1]];
+      G.lcur=0;G.lp.forEach(p=>{p.c4Result=null;});
+      c4Drop(6);
+      check('a disc that fills the board with no four is a draw',G.c4.over&&!G.c4.win&&G.lp.every(p=>p.c4Result==='draw'));
+      G.scr='matchend';
+      check('and the results screen says so',/draw/i.test(new DOMParser().parseFromString(W.eval('rMatchEnd')(),'text/html').querySelector('.wb-title').textContent));
+      // the table
+      G.scr='table';G.c4=F('c4NewGame')();G.lcur=0;
+      let d=new DOMParser().parseFromString(rFourRowTable(),'text/html');
+      check('the table shows seven columns of six cells, every column tappable on a human turn',d.querySelectorAll('.c4-col').length===7&&d.querySelectorAll('.c4-cell').length===42&&d.querySelectorAll('.c4-col[data-a="c4drop"]').length===7);
+      G.lp[1].bot='sharp';G.lcur=1;
+      d=new DOMParser().parseFromString(rFourRowTable(),'text/html');
+      check('columns are locked while the bot is thinking',d.querySelectorAll('.c4-col[data-a="c4drop"]').length===0);
+    } finally {
+      W.eval('setTimeout=window.__origSetTimeout;');
+      G.lp.forEach(p=>{delete p.bot;});G.scr='home';
+    }
+  });
+
   /* —— Le Pouilleux: deck, auto-discard, and turn rotation —————— */
   suite('Le Pouilleux\'s deck, auto-discard, and turn order are all correct',()=>{
     const deck=A.bpBuildDeck();

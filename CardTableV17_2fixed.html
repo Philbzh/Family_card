@@ -1329,6 +1329,27 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 .v10-gc--shutbox:hover{border-color:rgba(217,163,92,.45);}
 .v10-main .v10-gc--shutbox{background:linear-gradient(180deg,rgba(92,60,20,.85),rgba(26,16,4,.93));border-top-color:rgba(217,163,92,.6);--tile-glow:rgba(217,163,92,.6);}
 @media(prefers-reduced-motion:reduce){.stb-tile.can{animation:none;}}
+.game-fourrow .felt-table,.c4-felt{background:
+  radial-gradient(circle 340px at 50% 18%,rgba(242,194,48,.08),transparent 70%),
+  radial-gradient(ellipse 90% 75% at 50% 40%,#1c2a44 0%,#101828 50%,#080c14 100%);}
+.c4-board{display:grid;grid-template-columns:repeat(7,1fr);gap:.22rem;width:100%;max-width:26rem;padding:.5rem;border-radius:16px;background:linear-gradient(180deg,#1f4fbf,#163a91);border:2px solid #2d64d8;box-shadow:inset 0 3px 10px rgba(0,0,0,.45),0 10px 26px rgba(0,0,0,.5);}
+.c4-col{display:flex;flex-direction:column;gap:.22rem;padding:0;background:transparent;border:0;border-radius:10px;cursor:default;font:inherit;}
+.c4-col.can{cursor:pointer;}
+.c4-col.can:hover,.c4-col.can:focus-visible{background:rgba(255,255,255,.14);outline:none;}
+.c4-cell{aspect-ratio:1;border-radius:50%;background:#0a1226;box-shadow:inset 0 3px 6px rgba(0,0,0,.7);display:block;}
+.c4-cell.d1{background:radial-gradient(circle at 35% 30%,#ff8a80,#e5322d 60%,#a31612);box-shadow:inset 0 -3px 5px rgba(0,0,0,.35),0 1px 2px rgba(0,0,0,.4);}
+.c4-cell.d2{background:radial-gradient(circle at 35% 30%,#fff3a0,#f2c230 60%,#b88a08);box-shadow:inset 0 -3px 5px rgba(0,0,0,.3),0 1px 2px rgba(0,0,0,.4);}
+.c4-cell.drop{animation:c4-fall calc(.12s + var(--fall,1)*.05s) cubic-bezier(.5,0,.9,.6) both;}
+@keyframes c4-fall{0%{transform:translateY(calc(var(--fall,1)*-108% - 90%));}82%{transform:translateY(0);}90%{transform:translateY(-9%);}100%{transform:translateY(0);}}
+.c4-cell.win{animation:c4-win .7s ease-in-out infinite;box-shadow:0 0 0 3px #fff,0 0 16px 4px rgba(255,255,255,.85);}
+@keyframes c4-win{0%,100%{transform:scale(1);}50%{transform:scale(1.12);}}
+.c4-pill{display:inline-flex;align-items:center;gap:.35rem;}
+.c4-dot{width:.85rem;height:.85rem;border-radius:50%;display:inline-block;}
+.c4-d1{background:#e5322d;}.c4-d2{background:#f2c230;}
+.v10-gc--fourrow{background:linear-gradient(160deg,rgba(242,194,48,.30),rgba(20,30,60,.3));border-top-color:#f2c230;box-shadow:0 10px 28px -12px rgba(242,194,48,.4);}
+.v10-gc--fourrow:hover{border-color:rgba(242,194,48,.45);}
+.v10-main .v10-gc--fourrow{background:linear-gradient(180deg,rgba(28,48,96,.85),rgba(8,12,26,.93));border-top-color:rgba(242,194,48,.6);--tile-glow:rgba(242,194,48,.6);}
+@media(prefers-reduced-motion:reduce){.c4-cell.drop,.c4-cell.win{animation:none;}}
 .pig-die{width:6.5rem;height:6.5rem;border-radius:1.3rem;cursor:default;}
 .pig-die .pip{width:1rem;height:1rem;}
 .pig-danger-banner{text-align:center;font-size:.76rem;font-weight:700;color:#f2a0b4;background:rgba(242,160,180,.12);border:1px solid rgba(242,160,180,.35);border-radius:999px;padding:.35rem .8rem;margin:0 .85rem;flex-shrink:0;animation:pig-danger-pulse 1.3s ease-in-out infinite;}
@@ -3537,6 +3558,12 @@ const GAMES=[
      'Full house pauses the table with a big BINGO banner so everyone can check the winning ticket before the round ends.',
      'First to claim a stage wins it — claims are checked instantly, so nobody can call it early.',
      'Deal again for as many rounds as you like — points carry over across the table.']},
+  {id:'fourrow',cat:'classic',icon:'🔴',name:'4 in a Row',players:'2',dur:'5–10 min',diff:'easy',deal:0,minP:2,maxP:2,
+   rules:['A tall board of <b>7 columns and 6 rows</b>. Take turns dropping a disc into a column — it falls to the lowest free spot.',
+     'Be the first to line up <b>four of your discs</b> in a row: across, up and down, or on either diagonal.',
+     'Watch the other side just as closely as your own — when they have three in a line, <b>block the end</b>.',
+     'If the board fills up with no four in a row, it is a <b>draw</b>.',
+     'Against the bot, <b>Gentle</b> plays sensibly but sometimes misses a trap; <b>Sharp</b> looks several moves ahead.']},
   {id:'lepouilleux',cat:'cards',icon:'🂫',name:'Old Maid',players:'2–8',dur:'5–15 min',diff:'easy',deal:0,cover:'assets/games/lepouilleux.jpg',
    rules:['A standard 52-card deck, minus the <b>Jack of Clubs</b> — 51 cards dealt out to everyone.',
      'A pair is two cards of the <b>same rank and same color</b> — K♥+K♦, or 8♠+8♣ (not just any same rank).',
@@ -3608,7 +3635,7 @@ const GAMES=[
 ];
 // Single source of truth for which unlocked games have online-multiplayer support, so the "online"
 // gate and the local-only badge on a game's card can never drift out of sync with each other.
-const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice','summit','hotbomb','vault','bust','escape','shutbox'];
+const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice','summit','hotbomb','vault','bust','escape','shutbox','fourrow'];
 // The Games tab groups its (growing) roster into these, rather than one long scroll -- every GAMES
 // entry's `cat` must be one of these ids. Order here is the order the category tiles are shown in.
 const GAME_CATEGORIES=[
@@ -4729,6 +4756,7 @@ function lDeal(){
   if(game.id==='bust'){lDealBust();return;}
   if(game.id==='pig'){lDealPig();return;}
   if(game.id==='shutbox'){lDealShutBox();return;}
+  if(game.id==='fourrow'){lDealFourRow();return;}
   if(game.id==='bingo'){lDealBingo();return;}
   if(game.id==='lepouilleux'){lDealBlackPeter();return;}
   if(game.id==='dicedual'){lDealDiceDuel();return;}
@@ -6439,7 +6467,7 @@ function rTourOv(){
    waits its turn behind a bigger moment, and it stays still for anyone who asked their device for less motion.
    For online games stageOnSrv() spots the same moments in the room state, so EVERY device sees them, not only
    the one that rolled. */
-const STAGE_TAGS={maumau:'Match, shed, shout Mau!',texas:'Read the table.',fivecard:'Draw to the best hand.',blackjack:'Beat the dealer to 21.',battle:'Flip. Win. Repeat.',yahtzee:'Five dice. Thirteen chances.',roulette:'Place your bets.',dicedual:'Roll. Strike. Survive.',uno:'Match the colour. Shout UNO!',farkle:'How much will you risk?',bingo:'Keep your eyes on your card.',lepouilleux:'Don’t get stuck with the Old Maid.',slots:'Pull the lever.',pig:'One roll too many…',drawit:'Draw. Guess. Laugh.',liarsdice:'Trust nobody.',summit:'How far will you go?',hotbomb:'Pass it. Don’t hold it.',vault:'Nobody cracks it alone.',bust:'One more!',escape:'Enter. Explore. Solve.',shutbox:'Close them all.'};
+const STAGE_TAGS={maumau:'Match, shed, shout Mau!',texas:'Read the table.',fivecard:'Draw to the best hand.',blackjack:'Beat the dealer to 21.',battle:'Flip. Win. Repeat.',yahtzee:'Five dice. Thirteen chances.',roulette:'Place your bets.',dicedual:'Roll. Strike. Survive.',uno:'Match the colour. Shout UNO!',farkle:'How much will you risk?',bingo:'Keep your eyes on your card.',lepouilleux:'Don’t get stuck with the Old Maid.',slots:'Pull the lever.',pig:'One roll too many…',drawit:'Draw. Guess. Laugh.',liarsdice:'Trust nobody.',summit:'How far will you go?',hotbomb:'Pass it. Don’t hold it.',vault:'Nobody cracks it alone.',bust:'One more!',escape:'Enter. Explore. Solve.',shutbox:'Close them all.',fourrow:'Four. In. A. Row.'};
 const STAGE_TONES={
   good:{c:'95,214,138',buzz:[20,40,20]},bad:{c:'255,90,78',buzz:[40,50,40]},gold:{c:'244,201,93',buzz:[20,30,60]},
   hot:{c:'255,138,47',buzz:[15,30,15]},cool:{c:'126,200,242',buzz:[15]}
@@ -6532,6 +6560,10 @@ function stageOnSrv(prev,state){
       stageEmit('FARKLE',{who:cur,points:state.fk.turnTotal});
     else if(g==='pig'&&prev.pig&&state.pig&&state.pig.busted&&!prev.pig.busted)
       stageEmit('PIG_OUT',{who:cur,points:state.pig.turnTotal});
+    else if(g==='fourrow'&&prev.c4&&state.c4&&state.c4.over&&!prev.c4.over){
+      if(state.c4.win)stageEmit('BIG_WIN',{who:cur,text:'FOUR IN A ROW!',sub:'Connected',icon:'🔴'});
+      else stageEmit('STUCK',{who:cur,sub:'The board is full — a draw'});
+    }
     else if(g==='shutbox'&&prev.stb&&state.stb&&state.stb.phase==='over'&&prev.stb.phase!=='over'){
       if(state.stb.open.length===0)stageEmit('BIG_WIN',{who:cur,text:'SHUT THE BOX!',sub:'Every tile down — a perfect 0',icon:'📦'});
       else stageEmit('STUCK',{who:cur,sub:state.stb.open.reduce((a,b)=>a+b,0)+' points left standing'});
@@ -7344,6 +7376,232 @@ function rShutBoxTable(){
       ${!mine&&online?awayIndicatorHTML(p.id,p.name):''}
     </div>
     ${actionBar}
+    ${talkStripHTML()}
+  </div>`;
+}
+
+/* ═══════ 4 IN A ROW ═══════
+   Two players, a 7x6 board, gravity. The rules are a handful of pure functions over a plain 2-D array
+   (0 empty, 1 = first player, 2 = second) so every one of them can be tested point-blank: dropping,
+   finding a four in every direction, and the bot. The bot is a small alpha-beta search -- Gentle only
+   looks for an immediate win/block (and sometimes misses), Sharp searches several moves ahead. Turn-gated
+   like Pig/Shut the Box: G.lcur locally, isMyTurn() online, no hidden information. */
+let _c4EndAt=0;
+const C4_ROWS=6,C4_COLS=7,C4_ORDER=[3,2,4,1,5,0,6]; // centre columns first: both nicer for search and for the bot's taste
+function c4NewBoard(){return Array.from({length:C4_ROWS},()=>new Array(C4_COLS).fill(0));}
+function c4NewGame(){return{board:c4NewBoard(),moves:0,last:null,win:null,over:false};}
+// The lowest empty row in a column, or -1 when the column is full.
+function c4DropRow(board,c){
+  if(c<0||c>=C4_COLS)return -1;
+  for(let r=C4_ROWS-1;r>=0;r--)if(!board[r][c])return r;
+  return -1;
+}
+function c4Moves(board){return C4_ORDER.filter(c=>c4DropRow(board,c)>=0);}
+// Pure: a NEW board with `who` dropped into column c, or null if the column is full/invalid.
+function c4Place(board,c,who){
+  const r=c4DropRow(board,c);if(r<0)return null;
+  const nb=board.map(row=>row.slice());nb[r][c]=who;return nb;
+}
+// The four (or more) cells a player has connected, or null.
+function c4Winner(board){
+  const dirs=[[0,1],[1,0],[1,1],[1,-1]];
+  for(let r=0;r<C4_ROWS;r++)for(let c=0;c<C4_COLS;c++){
+    const who=board[r][c];if(!who)continue;
+    for(const[dr,dc]of dirs){
+      const cells=[[r,c]];
+      for(let k=1;k<4;k++){
+        const rr=r+dr*k,cc=c+dc*k;
+        if(rr<0||rr>=C4_ROWS||cc<0||cc>=C4_COLS||board[rr][cc]!==who)break;
+        cells.push([rr,cc]);
+      }
+      if(cells.length===4)return{who,cells};
+    }
+  }
+  return null;
+}
+function c4Full(board){return board[0].every(v=>v!==0);}
+// Heuristic for the search: how good is this board for `me`? Counts open windows of four.
+function c4Score(board,me){
+  const opp=me===1?2:1;let score=0;
+  const win=(a,b,c,d)=>{
+    const cells=[a,b,c,d],m=cells.filter(x=>x===me).length,o=cells.filter(x=>x===opp).length,e=4-m-o;
+    if(m===4)score+=100000;else if(m===3&&e===1)score+=60;else if(m===2&&e===2)score+=8;
+    if(o===4)score-=100000;else if(o===3&&e===1)score-=70;else if(o===2&&e===2)score-=6;
+  };
+  for(let r=0;r<C4_ROWS;r++)for(let c=0;c<C4_COLS;c++){
+    if(c+3<C4_COLS)win(board[r][c],board[r][c+1],board[r][c+2],board[r][c+3]);
+    if(r+3<C4_ROWS)win(board[r][c],board[r+1][c],board[r+2][c],board[r+3][c]);
+    if(r+3<C4_ROWS&&c+3<C4_COLS)win(board[r][c],board[r+1][c+1],board[r+2][c+2],board[r+3][c+3]);
+    if(r+3<C4_ROWS&&c-3>=0)win(board[r][c],board[r+1][c-1],board[r+2][c-2],board[r+3][c-3]);
+  }
+  for(let r=0;r<C4_ROWS;r++)if(board[r][3]===me)score+=3; // the centre column is worth having
+  return score;
+}
+function c4Search(board,depth,alpha,beta,turn,me){
+  const w=c4Winner(board);
+  if(w)return(w.who===me?1:-1)*(1000000+depth);
+  if(c4Full(board))return 0;
+  if(depth===0)return c4Score(board,me);
+  const opp=me===1?2:1,moves=c4Moves(board);
+  if(turn===me){
+    let best=-Infinity;
+    for(const c of moves){best=Math.max(best,c4Search(c4Place(board,c,turn),depth-1,alpha,beta,opp,me));alpha=Math.max(alpha,best);if(alpha>=beta)break;}
+    return best;
+  }
+  let best=Infinity;
+  for(const c of moves){best=Math.min(best,c4Search(c4Place(board,c,turn),depth-1,alpha,beta,me,me));beta=Math.min(beta,best);if(alpha>=beta)break;}
+  return best;
+}
+// Which column the bot drops into. Everyone takes a win when one is there; Gentle only sometimes sees the
+// block and otherwise plays a centre-leaning move; Sharp searches 5 plies.
+function c4BotMove(board,who,level){
+  const moves=c4Moves(board);if(!moves.length)return -1;
+  const opp=who===1?2:1;
+  for(const c of moves){if(c4Winner(c4Place(board,c,who)))return c;}
+  if(level==='sharp'||Math.random()<.7){
+    for(const c of moves){if(c4Winner(c4Place(board,c,opp)))return c;}
+  }
+  if(level==='sharp'){
+    let bestC=moves[0],bestV=-Infinity;
+    for(const c of moves){
+      const v=c4Search(c4Place(board,c,who),4,-Infinity,Infinity,opp,who);
+      if(v>bestV){bestV=v;bestC=c;}
+    }
+    return bestC;
+  }
+  // Gentle: avoid handing over a win, prefer the centre, add some randomness.
+  const safe=moves.filter(c=>{const nb=c4Place(board,c,who);return!c4Moves(nb).some(o=>c4Winner(c4Place(nb,o,opp)));});
+  const pool=safe.length?safe:moves;
+  return Math.random()<.5?pool[0]:pool[rnd(0,pool.length-1)];
+}
+
+/* ── 4 in a Row: local ── */
+function lDealFourRow(){
+  G.lp.forEach(p=>{p.totalScore=0;p.c4Result=null;});
+  G.lcur=G.lstart;
+  G.c4=c4NewGame();
+  G.lres=null;
+  SFX.deal();
+  G.scr='table';
+}
+function c4Drop(c){
+  const f=G.c4;if(!f||f.over)return;
+  const who=G.lcur%2===0?1:2;
+  const r=c4DropRow(f.board,c);
+  if(r<0){SFX.illegal();toast('That column is full');return;}
+  f.board=c4Place(f.board,c,who);f.last={r,c};f.moves++;
+  SFX.chip();haptic([8]);
+  const w=c4Winner(f.board);
+  if(w){f.win=w;f.over=true;c4EndGame(w.who-1);return;}
+  if(c4Full(f.board)){f.over=true;c4EndGame(-1);return;}
+  G.lcur=mod(G.lcur+1,2);
+  render();
+}
+function c4EndGame(winnerIdx){
+  const f=G.c4;
+  if(winnerIdx<0){
+    G.lp.forEach(p=>{p.c4Result='draw';});
+    addHistory({game:'fourrow',winner:'Nobody',winnerAvatar:null,date:new Date().toISOString(),players:G.lp.map(p=>p.name),moment:'A draw — the board filled up.',
+      stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
+    stageEmit('STUCK',{who:null,sub:'The board is full — a draw'});
+  } else {
+    const winner=G.lp[winnerIdx];
+    G.lp.forEach((p,i)=>{p.c4Result=i===winnerIdx?'win':'loss';p.totalScore=i===winnerIdx?1:0;});
+    G.tw++;localStorage.setItem('ct_tw',G.tw);
+    SFX.win();v14WinnerBurst();celebrateWin(winner.name,winner.avatar);fxPulse('gold');fxSeatGlow(winnerIdx,'gold');
+    stageEmit('BIG_WIN',{who:winner,text:'FOUR IN A ROW!',sub:'Connected',icon:'🔴'});
+    addHistory({game:'fourrow',winner:winner.name,winnerAvatar:winner.avatar,date:new Date().toISOString(),players:G.lp.map(p=>p.name),
+      moment:`${winner.name} connects four!`,
+      stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
+  }
+  render();
+  // Let the winning four glow for a moment before the results screen.
+  setTimeout(()=>{if(G.selGame==='fourrow'&&G.c4===f&&G.scr==='table'){G.scr='matchend';render();}},1900);
+}
+function botFourRowAct(p){
+  const f=G.c4;if(!f||f.over)return;
+  const who=G.lcur%2===0?1:2;
+  const c=c4BotMove(f.board,who,p.bot);
+  if(c>=0)c4Drop(c);
+}
+
+/* ── 4 in a Row: online -- turn-gated, only the current player's device writes ── */
+async function oC4Drop(c){
+  if(_onlineBusy)return;
+  if(!isMyTurn()){toast('Not your turn');return;}
+  _onlineBusy=true;
+  try{
+    const state=await dbRead(G.roomId);if(!state||!state.c4)return;
+    const f=state.c4;if(f.over)return;
+    const idx=state.curIdx||0,who=idx===0?1:2;
+    const r=c4DropRow(f.board,c);
+    if(r<0){SFX.illegal();toast('That column is full');return;}
+    f.board=c4Place(f.board,c,who);f.last={r,c};f.moves++;
+    SFX.chip();haptic([8]);
+    const w=c4Winner(f.board);
+    const me=state.players[idx];
+    if(w){
+      f.win=w;f.over=true;
+      state.players.forEach((p,i)=>{p.c4Result=i===idx?'win':'loss';p.totalScore=i===idx?1:0;});
+      state.winner=me.id;state.winnerName=me.name;state.winnerAv=me.avatar;
+      state.lastAct=esc(me.name)+' connects four!';
+    } else if(c4Full(f.board)){
+      f.over=true;state.players.forEach(p=>{p.c4Result='draw';});
+      state.winner='draw';state.winnerName='Nobody';state.winnerAv=null;
+      state.lastAct='A draw.';
+    } else {
+      state.curIdx=mod(idx+1,2);
+    }
+    state._ts=Date.now();onSrv(state);
+    await dbWrite(G.roomId,state);
+  } finally { _onlineBusy=false; }
+}
+
+/* ── 4 in a Row: the table ── */
+function rFourRowTable(){
+  const online=G.isOnline,state=online?G.srv:null;
+  const players=online?(state?.players||[]):G.lp;
+  const p=curPlayer();
+  const mine=isMyTurn();
+  const f=(online?state?.c4:G.c4)||c4NewGame();
+  const botTurn=!online&&isBotPlayer(p);
+  const acts=mine&&!botTurn&&!f.over;
+  const idx=online?(state?.curIdx||0):G.lcur;
+  const winCells=new Set((f.win?f.win.cells:[]).map(([r,c])=>r+','+c));
+  const seat=i=>players[i]||{name:'—',avatar:null};
+  const pills=[0,1].map(i=>`<span class="y-standing-pill c4-pill c4-p${i+1}${i===idx&&!f.over?' active':''}"><i class="c4-dot c4-d${i+1}"></i>${esc(seat(i).name)}</span>`).join('');
+  const colHTML=Array.from({length:C4_COLS},(_,c)=>{
+    const full=c4DropRow(f.board,c)<0;
+    let cells='';
+    for(let r=0;r<C4_ROWS;r++){
+      const v=f.board[r][c];
+      const isLast=f.last&&f.last.r===r&&f.last.c===c;
+      const cls=['c4-cell'];
+      if(v)cls.push('d'+v);
+      if(isLast)cls.push('drop');
+      if(winCells.has(r+','+c))cls.push('win');
+      cells+=`<span class="${cls.join(' ')}" ${isLast?`style="--fall:${r+1}"`:''}></span>`;
+    }
+    const can=acts&&!full;
+    return`<button class="c4-col${can?' can':''}" ${can?`data-a="c4drop" data-c="${c}"`:'disabled'} aria-label="Drop in column ${c+1}${full?' (full)':''}">${cells}</button>`;
+  }).join('');
+  let hint;
+  if(f.over)hint=f.win?`🔴 ${esc(seat(f.win.who-1).name)} connects four!`:'It’s a draw — the board is full.';
+  else if(botTurn)hint=esc(p.name)+' is thinking…';
+  else if(!mine&&online)hint='Waiting for '+esc(p.name)+'…';
+  else hint='Tap a column to drop your disc.';
+  return`<div id="s-table" class="scr on game-fourrow">
+    <div class="game-bar">
+      <div class="gb-game">🔴 4 in a Row</div>
+      <div class="gb-turn${mine&&!f.over?' mine':''}">${avChar(p.avatar)} ${esc(p.name)}’s turn</div>
+      <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
+    </div>
+    <div class="y-standings-strip">${pills}</div>
+    <div class="felt-table c4-felt${mine&&!f.over?' my-turn':''}" style="flex:0 0 auto;min-height:0;max-height:none;padding:1rem .6rem;gap:.8rem;">
+      <div class="c4-board" role="group" aria-label="The board, seven columns">${colHTML}</div>
+      <div class="y-hint">${hint}</div>
+      ${!mine&&online&&!f.over?awayIndicatorHTML(p.id,p.name):''}
+    </div>
     ${talkStripHTML()}
   </div>`;
 }
@@ -14317,7 +14575,7 @@ function runCountUps(){
    and against what state", and botAct() dispatches to the one per-game function that makes it. */
 // Every game listed here can seat a bot. Anything not here (there is nothing, currently) simply
 // never offers the button, and the driver below stays dormant for it.
-const BOT_GAMES=new Set(['maumau','uno','texas','fivecard','blackjack','yahtzee','battle','roulette','dicedual','farkle','bingo','lepouilleux','slots','pig','liarsdice','summit','hotbomb','bust','shutbox']);
+const BOT_GAMES=new Set(['maumau','uno','texas','fivecard','blackjack','yahtzee','battle','roulette','dicedual','farkle','bingo','lepouilleux','slots','pig','liarsdice','summit','hotbomb','bust','shutbox','fourrow']);
 let _botTimer=null,_botSig=null;
 function isBotPlayer(p){return!!(p&&p.bot);}
 // A full table can still gain a bot by converting an empty seat — Battle seats exactly two, so
@@ -14420,6 +14678,10 @@ function botPendingSig(){
     const pg=G.pig;if(!pg||pg.busted)return null; // the bust-advance timer is already running
     return['pig',G.lcur,pg.hasRolled?1:0,pg.die,pg.turnTotal].join('|');
   }
+  if(g==='fourrow'){
+    const f=G.c4;if(!f||f.over)return null;
+    return['c4',G.lcur,f.moves].join('|');
+  }
   if(g==='shutbox'){
     const b=G.stb;if(!b||b.phase==='over')return null; // the turn-advance timer is already running
     return['stb',G.lcur,b.phase,b.open.join(''),b.dice.join('')].join('|');
@@ -14486,6 +14748,7 @@ function botAct(){
   if(g==='bust')return botBustAct(p);
   if(g==='pig')return botPigAct(p);
   if(g==='shutbox')return botShutBoxAct(p);
+  if(g==='fourrow')return botFourRowAct(p);
   if(g==='liarsdice')return botLiarsDiceAct(p);
   if(g==='summit')return botSummitAct(p);
 }
@@ -15201,6 +15464,22 @@ function onSrv(state){
         }
         G.scr='matchend';render();return;
       }
+      if(state.gameId==='fourrow'){
+        if(state.winner!==prevWinner){
+          const draw=state.winner==='draw';
+          if(!draw){SFX.win();v14WinnerBurst();celebrateWin(state.winnerName,state.winnerAv);fxPulse('gold');
+            const wIdx=(state.players||[]).findIndex(p=>p.id===state.winner);if(wIdx>=0)fxSeatGlow(wIdx,'gold');
+            if(state.winner===G.myPid){G.tw++;localStorage.setItem('ct_tw',G.tw);}}
+          addHistory({game:'fourrow',winner:draw?'Nobody':state.winnerName,winnerAvatar:draw?null:state.winnerAv,date:new Date().toISOString(),players:(state.players||[]).map(p=>p.name),mode:'online',
+            moment:draw?'A draw — the board filled up.':`${state.winnerName} connects four!`,
+            stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
+          // Keep the board on screen for a moment so both players see the winning four glow.
+          _c4EndAt=Date.now()+1900;
+          setTimeout(()=>{if(G.isOnline&&G.srv&&G.srv.gameId==='fourrow'&&G.srv.winner){G.scr='matchend';render();}},1950);
+        }
+        if(Date.now()<_c4EndAt){G.scr='table';render();return;}
+        G.scr='matchend';render();return;
+      }
       if(state.gameId==='shutbox'){
         if(state.winner!==prevWinner){
           const winnerP=state.players.find(p=>p.id===state.winner);
@@ -15469,7 +15748,7 @@ function hasActiveTable(){
 }
 // One accent color per game, echoing the home-screen game-card border colors, so a portrait's
 // frame and plaque tie back to whichever game it was won at.
-const MOMENT_ACCENT={maumau:'#5fd68a',texas:'#eac976',fivecard:'#eac976',blackjack:'#ef7688',battle:'#7ec2f2',romme:'#a8e0a0',hearts:'#f2a0b4',bridge:'#a8c8e0',uno:'#e0a8d8',yahtzee:'#f2c94c',roulette:'#e0637a',dicedual:'#e8843e',farkle:'#4fd6c9',bingo:'#b98af0',lepouilleux:'#6b6b7a',slots:'#f0cc60',pig:'#f2a0b4',drawit:'#f2954c',liarsdice:'#e0594a',summit:'#7ec2f2',hotbomb:'#ff7a45',vault:'#e0b040',bust:'#ff5a4e',escape:'#45c4b0',shutbox:'#d9a35c'};
+const MOMENT_ACCENT={maumau:'#5fd68a',texas:'#eac976',fivecard:'#eac976',blackjack:'#ef7688',battle:'#7ec2f2',romme:'#a8e0a0',hearts:'#f2a0b4',bridge:'#a8c8e0',uno:'#e0a8d8',yahtzee:'#f2c94c',roulette:'#e0637a',dicedual:'#e8843e',farkle:'#4fd6c9',bingo:'#b98af0',lepouilleux:'#6b6b7a',slots:'#f0cc60',pig:'#f2a0b4',drawit:'#f2954c',liarsdice:'#e0594a',summit:'#7ec2f2',hotbomb:'#ff7a45',vault:'#e0b040',bust:'#ff5a4e',escape:'#45c4b0',shutbox:'#d9a35c',fourrow:'#f2c230'};
 function rMoments(){
   const history=getHistory();
   const frames=history.map(h=>{
@@ -16087,6 +16366,7 @@ function rTable(){
   if(_tblGameId==='bust')return rBustTable();
   if(_tblGameId==='pig')return rPigTable();
   if(_tblGameId==='shutbox')return rShutBoxTable();
+  if(_tblGameId==='fourrow')return rFourRowTable();
   if(_tblGameId==='bingo')return rBingoTable();
   if(_tblGameId==='lepouilleux')return rBlackPeterTable();
   if(_tblGameId==='dicedual')return rDiceDuelTable();
@@ -17691,9 +17971,11 @@ function rMatchEnd(){
   const isSM=(G.isOnline?G.srv?.gameId:G.selGame)==='summit';
   const isHB=(G.isOnline?G.srv?.gameId:G.selGame)==='hotbomb';
   const isSB=(G.isOnline?G.srv?.gameId:G.selGame)==='shutbox';
+  const isC4=(G.isOnline?G.srv?.gameId:G.selGame)==='fourrow';
+  const c4Draw=isC4&&players.every(p=>p.c4Result==='draw');
   const chipGame=isPoker()||G.selGame==='blackjack'||G.selGame==='roulette'||G.selGame==='slots';
   const sorted=[...players].sort((a,b)=>isSB?stbRankKey(a)-stbRankKey(b):isHB?hbRankKey(b)-hbRankKey(a):isSM?smRank(b)-smRank(a):isLD?((b.dice?.length||0)-(a.dice?.length||0)||(b.ldOutAt||0)-(a.ldOutAt||0)):isBattle?((b.hand?.length||0)-(a.hand?.length||0)):chipGame?((b.chips||0)-(a.chips||0)):((b.totalScore||0)-(a.totalScore||0)));
-  const rows=sorted.map((p,i)=>`<div class="sr${i===0?' win':''}"><span class="sr-rank">${['🥇','🥈','🥉','④','⑤','⑥','⑦','⑧'][i]||i+1}</span><span class="sr-av">${avHTML(p.avatar)}</span><span class="sr-name">${esc(p.name)}</span><span class="sr-delta" style="color:var(--paper3);">${isSB?(p.stbTiles===0?'shut the box!':(p.stbTiles||0)+' tile'+((p.stbTiles||0)!==1?'s':'')+' up'):(p.roundsWon||0)+' win'+((p.roundsWon||0)!==1?'s':'')}</span><span class="sr-pts" data-count="${isSB?(p.stbScore||0):isHB?(p.strikes||0):isSM?(p.order||[]).length:isLD?(p.dice?.length||0):isBattle?(p.hand?.length||0):chipGame?p.chips:(p.totalScore||0)}" data-count-suffix="${isSB?' pts':isHB?' 💥':isSM?' 🚩 · '+(p.cr||0)+' 💎':isLD?' 🎲':isBattle?' cards':chipGame?'c':''}">${isSB?(p.stbScore||0)+' pts':isHB?(p.strikes||0)+' 💥':isSM?(p.order||[]).length+' 🚩 · '+(p.cr||0)+' 💎':isLD?(p.dice?.length||0)+' 🎲':isBattle?(p.hand?.length||0)+' cards':chipGame?p.chips+'c':p.totalScore||0}</span></div>`).join('');
+  const rows=sorted.map((p,i)=>`<div class="sr${i===0?' win':''}"><span class="sr-rank">${['🥇','🥈','🥉','④','⑤','⑥','⑦','⑧'][i]||i+1}</span><span class="sr-av">${avHTML(p.avatar)}</span><span class="sr-name">${esc(p.name)}</span><span class="sr-delta" style="color:var(--paper3);">${isSB?(p.stbTiles===0?'shut the box!':(p.stbTiles||0)+' tile'+((p.stbTiles||0)!==1?'s':'')+' up'):(p.roundsWon||0)+' win'+((p.roundsWon||0)!==1?'s':'')}</span>${isC4?'<span class="sr-pts">'+(p.c4Result==='win'?'🏆':p.c4Result==='draw'?'½':'—')+'</span>':''}<span class="sr-pts"${isC4?' hidden':''} data-count="${isSB?(p.stbScore||0):isHB?(p.strikes||0):isSM?(p.order||[]).length:isLD?(p.dice?.length||0):isBattle?(p.hand?.length||0):chipGame?p.chips:(p.totalScore||0)}" data-count-suffix="${isSB?' pts':isHB?' 💥':isSM?' 🚩 · '+(p.cr||0)+' 💎':isLD?' 🎲':isBattle?' cards':chipGame?'c':''}">${isSB?(p.stbScore||0)+' pts':isHB?(p.strikes||0)+' 💥':isSM?(p.order||[]).length+' 🚩 · '+(p.cr||0)+' 💎':isLD?(p.dice?.length||0)+' 🎲':isBattle?(p.hand?.length||0)+' cards':chipGame?p.chips+'c':p.totalScore||0}</span></div>`).join('');
   const ms=G.matchStats;
   const statChips=`<div class="tonight-stats">
     <div class="tonight-stat"><div class="ts-val">${sorted[0]?.roundsWon||0}</div><div class="ts-lbl">🏆 Rounds Won</div></div>
@@ -17705,7 +17987,7 @@ function rMatchEnd(){
   return`<div id="s-matchend" class="scr on">
     <div class="topbar"><span class="top-title" style="font-family:var(--serif);">Tonight at Our Table</span><div class="top-right">${sndBtn()}</div></div>
     <div class="res-body">
-      <div class="winner-banner" style="--acc:${MOMENT_ACCENT[G.isOnline?G.srv?.gameId:G.selGame]||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${avChar(sorted[0]?.avatar)} ${esc(sorted[0]?.name||'')} won!</div><button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div>
+      <div class="winner-banner" style="--acc:${MOMENT_ACCENT[G.isOnline?G.srv?.gameId:G.selGame]||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${avChar(sorted[0]?.avatar)} ${c4Draw?'A draw!':esc(sorted[0]?.name||'')+' won!'}</div><button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div>
       ${statChips}
       <div class="panel" style="text-align:center;margin-bottom:.8rem;"><div class="panel-lbl">TABLE MOMENT</div><div style="font-family:var(--serif);font-size:1.1rem;color:var(--paper);margin:.2rem 0;">${matchMoment(sorted)}</div></div>
       <div class="standings">${rows}</div>
@@ -17735,7 +18017,7 @@ function rYahtzeeEnd(){
 /* ════════ ROUTER ════════ */
 
 /* ═══ V14 CINEMATIC LAYER ═══ */
-function v14GameLabel(id){return ({maumau:'Mau Mau',texas:"Texas Hold'em",fivecard:'Five Card Draw',blackjack:'Blackjack',battle:'Battle',romme:'Rommé',hearts:'Hearts',bridge:'Bridge',yahtzee:'Yahtzee',roulette:'Roulette',dicedual:'Dice Duel',uno:'Uno',farkle:'Farkle',bingo:'Bingo',lepouilleux:'Old Maid',slots:'Slot Machine',pig:'Pig',drawit:'Draw-it',liarsdice:"Liar's Dice",summit:'Summit',hotbomb:'Hot Bomb',vault:'The Vault',bust:'BUST',escape:'Escape',shutbox:'Shut the Box'})[id]||id||'Card Game'}
+function v14GameLabel(id){return ({maumau:'Mau Mau',texas:"Texas Hold'em",fivecard:'Five Card Draw',blackjack:'Blackjack',battle:'Battle',romme:'Rommé',hearts:'Hearts',bridge:'Bridge',yahtzee:'Yahtzee',roulette:'Roulette',dicedual:'Dice Duel',uno:'Uno',farkle:'Farkle',bingo:'Bingo',lepouilleux:'Old Maid',slots:'Slot Machine',pig:'Pig',drawit:'Draw-it',liarsdice:"Liar's Dice",summit:'Summit',hotbomb:'Hot Bomb',vault:'The Vault',bust:'BUST',escape:'Escape',shutbox:'Shut the Box',fourrow:'4 in a Row'})[id]||id||'Card Game'}
 function stageIsCards(id){const g=GAMES.find(x=>x.id===id);return!!g&&(g.cat==='cards'||g.cat==='casino');}
 function v14Intro(id,dealerName,dealerAvatar){
   const old=document.querySelector('.game-intro');if(old)old.remove();
@@ -18622,6 +18904,7 @@ document.addEventListener('click',e=>{
   else if(a==='es-fuse'){esFuse();}
   else if(a==='pigroll'){G.isOnline?oPigRoll():pigRoll();}
   else if(a==='pigbank'){G.isOnline?oPigBank():pigBank();}
+  else if(a==='c4drop'){G.isOnline?oC4Drop(+t.getAttribute('data-c')):c4Drop(+t.getAttribute('data-c'));}
   else if(a==='stbroll'){G.isOnline?oStbRoll():stbRoll();}
   else if(a==='stbtile'){stbToggleTile(+t.getAttribute('data-t'));}
   else if(a==='stbshut'){G.isOnline?oStbShut(G.stbSel||[]):stbShut(G.stbSel||[]);}
@@ -18802,6 +19085,13 @@ document.addEventListener('click',e=>{
         const gs={phase:'game',gameId:'pig',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
           pig:{die:1,turnTotal:0,hasRolled:false,busted:false},
           winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='fourrow'){
+        const players=rs.players.slice(0,2).map(p=>({...p,totalScore:0,c4Result:null}));
+        const gs={phase:'game',gameId:'fourrow',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
+          c4:c4NewGame(),winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
         G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }
