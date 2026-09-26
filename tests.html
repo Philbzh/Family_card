@@ -5531,9 +5531,23 @@ async function runPresentation(A,W,frame){
     check('150 random games (3 to 6 players, both versions) all reach a winner, with nobody ever stuck ('+finished+' finished)',finished===150&&stuck===0);
   });
 
-  suite('Flower or Skull — is on the roster, online only, 3 to 6 players',()=>{
+  suite('Flower or Skull — a two-player duel plays to a winner',()=>{
+    const F=n=>W.eval(n);
+    const skBuildStart=F('skBuildStart'),skAutoMove=F('skAutoMove');
+    let fin=0,bad=0;
+    for(let g=0;g<200;g++){
+      const ps=[0,1].map(i=>({id:'p'+i,name:'P'+i,avatar:A.AVATARS[i]}));
+      const st=skBuildStart({players:ps},ps,g%2?'fun':'classic');
+      let guard=0;
+      while(!st.winner&&guard++<3000){if(skAutoMove(st)===false){bad++;break;}}
+      if(st.winner)fin++;
+    }
+    check('200 two-player games (Classic and Fun) all reach a winner without a stuck or illegal move',fin===200&&bad===0);
+  });
+
+  suite('Flower or Skull — is on the roster, online only, 2 to 6 players',()=>{
     const g=A.GAMES.find(x=>x.id==='skull');
-    check('it is a playable party game, online only, for 3 to 6',!!g&&g.cat==='party'&&!g.locked&&g.onlineOnly===true&&g.minP===3&&g.maxP===6&&A.ONLINE_GAMES.includes('skull'));
+    check('it is a playable party game, online only, for 2 to 6',!!g&&g.cat==='party'&&!g.locked&&g.onlineOnly===true&&g.minP===2&&g.maxP===6&&A.ONLINE_GAMES.includes('skull'));
     check('it has no bots (a bot cannot hold secret discs and bluff)',!A.BOT_GAMES.has('skull'));
     check('it has an intro tagline',!!W.eval('STAGE_TAGS').skull);
     check('its rules explain the discs, the bid and how to win',/flower/i.test(g.rules.join(' '))&&/bid/i.test(g.rules.join(' '))&&/two challenges/i.test(g.rules.join(' ')));
@@ -5606,8 +5620,10 @@ async function runPresentation(A,W,frame){
       DB.sk.phase='over';DB.winner='p0';DB.winnerName='Anna';DB._ts=Date.now()-9000;
       as('p0');await oRematch();
       seen.rematch=clone(DB);
-      // lobby needs three players for this game
+      // lobby needs two players for this game
       G.myPid='p0';G.isHost=true;G.scr='lobby';
+      G.srv={phase:'lobby',gameId:'skull',host:'p0',players:P.slice(0,1)};
+      seen.lobby1=rLobby();
       G.srv={phase:'lobby',gameId:'skull',host:'p0',players:P.slice(0,2)};
       seen.lobby2=rLobby();
       G.srv={phase:'lobby',gameId:'skull',host:'p0',players:P};
@@ -5623,7 +5639,7 @@ async function runPresentation(A,W,frame){
       check('a bid, two passes and the challenger is decided in the room',seen.bidBy===0&&seen.phase==='flip'&&seen.challenger===0);
       check('flipping your own skull sends you to choose what to lose',seen.afterOwnSkull==='discard');
       check('a Rematch restarts the same game with the same players, everyone back to four discs',seen.rematch.phase==='game'&&seen.rematch.gameId==='skull'&&seen.rematch.sk.phase==='place'&&seen.rematch.players.length===3&&seen.rematch.players.every(p=>p.sk.hand.length===4&&p.sk.stack.length===0&&p.sk.pts===0)&&!seen.rematch.winner&&!!seen.rematch.rematchId);
-      check('the lobby will not start Flower or Skull with two players, and does with three',/data-a="start"[^>]*disabled/.test(seen.lobby2)&&!/data-a="start"[^>]*disabled/.test(seen.lobby3));
+      check('the lobby will not start Flower or Skull with one player, and does with two (a duel) or three',/data-a="start"[^>]*disabled/.test(seen.lobby1)&&!/data-a="start"[^>]*disabled/.test(seen.lobby2)&&!/data-a="start"[^>]*disabled/.test(seen.lobby3));
       check('the host can choose Classic or Fun in the lobby',/data-a="sk-mode"/.test(seen.lobby3));
     });
   }
