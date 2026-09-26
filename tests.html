@@ -5628,6 +5628,288 @@ async function runPresentation(A,W,frame){
     });
   }
 
+  /* —— Tension: the pure machine rules —————— */
+  suite('Tension — a fresh machine: twelve mechanisms, hidden rules that are a smooth/strained/grinding shuffle',()=>{
+    const F=n=>W.eval(n);
+    const tnNew=F('tnNew');
+    const tn=tnNew('classic');
+    check('twelve mechanisms, 100 stability, nothing seen yet',tn.mech.length===12&&tn.stab===100&&tn.mech.every(m=>m.k.every(x=>x===null)&&m.w===0));
+    check('four green, three yellow, three orange, two red',[0,1,2,3].map(k=>tn.mech.filter(m=>m.tier===k).length).join()==='4,3,3,2');
+    let perms=true,shuffled=false,tiersMove=false;
+    const first=tnNew('classic');
+    for(let i=0;i<60;i++){
+      const x=tnNew('classic');
+      if(!x.mech.every(m=>JSON.stringify([...m.f].sort())===JSON.stringify([0.5,1,2])))perms=false;
+      if(x.mech.some((m,j)=>JSON.stringify(m.f)!==JSON.stringify(first.mech[j].f)))shuffled=true;
+      if(x.mech.some((m,j)=>m.tier!==first.mech[j].tier))tiersMove=true;
+    }
+    check('every mechanism has exactly one smooth, one strained and one grinding action (60 machines)',perms);
+    check('the secrets and the tier layout differ from game to game',shuffled&&tiersMove);
+    check('Classic has no Red Lever, Fun has an unused one',tn.red===null&&tnNew('fun').red&&tnNew('fun').red.used===false);
+    check('four collapses end a game',tn.maxC===4&&tn.collapses===0&&tn.phase==='play');
+  });
+
+  suite('Tension — working a mechanism',()=>{
+    const F=n=>W.eval(n);
+    const tnNew=F('tnNew'),tnAct=F('tnAct'),tnCost=F('tnCost'),tnCostRange=F('tnCostRange'),tnFactorsFor=F('tnFactorsFor');
+    const setup=()=>{
+      const tn=tnNew('classic');
+      // make mechanism 0 a known red: push smooth, pull strained, rotate grinding
+      tn.mech.forEach((m,i)=>{m.tier=i%4;m.f=[0.5,1,2];});
+      const ps=[{name:'A',totalScore:0,tnCol:0},{name:'B',totalScore:0,tnCol:0}];
+      return{tn,ps};
+    };
+    let {tn,ps}=setup();
+    check('the cost is tier stress x factor, rounded (green 3: smooth 2, strained 3, grinding 6)',[0,1,2].map(ai=>tnCost(tn.mech[0],ai)).join()==='2,3,6');
+    check('a red mechanism costs 15 x factor (8, 15, 30)',[0,1,2].map(ai=>tnCost(tn.mech[3],ai)).join()==='8,15,30');
+    let r=tnAct(tn,ps,0,3,0);
+    check('a smooth push on a red mechanism costs 8 plus the 2 strain, and scores 8',r&&tn.stab===90&&ps[0].totalScore===8&&r.cost===10&&!r.collapsed);
+    check('the action is now known to everybody, the others are still a secret',tn.mech[3].k[0]===0.5&&tn.mech[3].k[1]===null&&tn.mech[3].k[2]===null);
+    check('the mechanism is worn: it now costs 25% more',tn.mech[3].w===1&&tnCost(tn.mech[3],1)===Math.round(15*1.25));
+    check('the last move is remembered for everyone to see',tn.last&&tn.last.mi===3&&tn.last.ai===0&&tn.turns===1);
+    check('what is known narrows the rest: after smooth is seen, the others are strained or grinding',JSON.stringify(tnFactorsFor(tn.mech[3],1))==='[1,2]'&&tnFactorsFor(tn.mech[3],0).join()==='0.5');
+    tnAct(tn,ps,1,3,1);
+    check('once two are seen the third is certain',JSON.stringify(tnFactorsFor(tn.mech[3],2))==='[2]');
+    check('the shown range is exact when known and a spread when not',(()=>{const x=tnCostRange(tn.mech[3],0),y=tnCostRange(tn.mech[0],0);return x.known&&x.min===x.max&&!y.known&&y.min<y.max;})());
+    check('invalid moves are refused (no such mechanism, no such action)',tnAct(tn,ps,0,99,0)===null&&tnAct(tn,ps,0,0,3)===null&&tnAct(tn,ps,0,0,-1)===null&&tnAct(tn,ps,9,0,0)===null);
+    // critical zone: points double
+    ({tn,ps}=setup());tn.stab=40;
+    r=tnAct(tn,ps,0,3,0); // 8+2 = 10 -> 30 = critical
+    check('crossing into the critical zone is flagged, and that move still scores normally',r.critNow===true&&r.crit===false&&ps[0].totalScore===8&&tn.stab===30);
+    r=tnAct(tn,ps,1,2,1); // orange strained: 10+2=12 -> 18, doubled 5 -> 10
+    check('below 30 every point counts double',r.crit===true&&r.pts===10&&ps[1].totalScore===10&&tn.stab===18);
+    // collapse
+    ({tn,ps}=setup());tn.stab=5;
+    r=tnAct(tn,ps,0,0,0); // green smooth: 2+2 = 4 -> 1, survives
+    check('a move that leaves the machine standing does not collapse it',!r.collapsed&&tn.stab===1&&tn.phase==='play');
+    r=tnAct(tn,ps,1,0,2);
+    check('taking stability to zero collapses it: -10, no points, one collapse recorded',r.collapsed&&tn.phase==='collapsed'&&tn.stab===0&&ps[1].totalScore===-10&&ps[1].tnCol===1&&tn.collapses===1&&r.pts===0);
+    check('a collapsed machine accepts no more moves until it is rebuilt',tnAct(tn,ps,0,0,0)===null);
+  });
+
+  suite('Tension — the Red Lever, rebuilding and the winner',()=>{
+    const F=n=>W.eval(n);
+    const tnNew=F('tnNew'),tnRed=F('tnRed'),tnAct=F('tnAct'),tnEndCycle=F('tnEndCycle'),tnWinners=F('tnWinners'),tnRankKey=F('tnRankKey'),tnMoment=F('tnMoment');
+    const mk=()=>[{name:'A',totalScore:0,tnCol:0},{name:'B',totalScore:0,tnCol:0},{name:'C',totalScore:0,tnCol:0}];
+    let tn=tnNew('classic'),ps=mk();
+    check('Classic has no Red Lever to pull',tnRed(tn,ps,0,1)===null);
+    tn=tnNew('fun');
+    let r=tnRed(tn,ps,0,1);
+    check('mend: +10 points and the machine heals, capped at 100',r.red==='mend'&&ps[0].totalScore===10&&tn.stab===100);
+    check('the lever can only be pulled once per machine',tnRed(tn,ps,1,2)===null&&tn.red.used);
+    tn=tnNew('fun');ps=mk();tn.stab=60;r=tnRed(tn,ps,0,2);
+    check('shock: +10 points but -30 stability',r.red==='shock'&&tn.stab===30&&ps[0].totalScore===10);
+    tn=tnNew('fun');ps=mk();tn.stab=60;r=tnRed(tn,ps,0,3);
+    check('jackpot: +20 points for a little stress',r.red==='jackpot'&&ps[0].totalScore===20&&tn.stab===55);
+    tn=tnNew('fun');ps=mk();tn.stab=60;r=tnRed(tn,ps,0,4);
+    check('dud: +10 points and nothing else',r.red==='dud'&&ps[0].totalScore===10&&tn.stab===60);
+    tn=tnNew('fun');ps=mk();tn.stab=20;r=tnRed(tn,ps,0,2);
+    check('a shock that empties the meter collapses the machine (-10, no points)',r.collapsed&&ps[0].totalScore===-10&&ps[0].tnCol===1&&tn.phase==='collapsed');
+    // rebuilding
+    tn=tnNew('fun');ps=mk();tn.mech[0].f=[0.5,1,2];tn.mech[0].w=3;tn.mech[0].k=[0.5,null,null];tn.red.used=true;tn.stab=1;
+    tnAct(tn,ps,1,0,0);
+    check('setup: the machine collapsed on player B',tn.phase==='collapsed'&&tn.last.pi===1);
+    const nx=tnEndCycle(tn,ps);
+    check('rebuilding restores 100, clears the wear and the Red Lever, and hands the turn to the player AFTER the one who broke it',tn.phase==='play'&&tn.stab===100&&tn.mech[0].w===0&&tn.red.used===false&&nx===2&&tn.cycle===2);
+    check('what the table has learnt survives a collapse',tn.mech[0].k[0]===0.5);
+    tn.collapses=4;tn.phase='collapsed';tn.last={pi:2};
+    check('the fourth collapse ends the game instead of rebuilding',tnEndCycle(tn,ps)===-1&&tn.phase==='over');
+    // winner
+    const P=(name,sc,col)=>({name,totalScore:sc,tnCol:col});
+    check('most points wins',tnWinners([P('a',10,0),P('b',25,3),P('c',-4,1)]).map(p=>p.name).join()==='b');
+    check('a tie on points goes to whoever broke the machine less',tnWinners([P('a',10,2),P('b',10,0)]).map(p=>p.name).join()==='b');
+    check('an exact tie is shared',tnWinners([P('a',10,1),P('b',10,1),P('c',3,0)]).map(p=>p.name).sort().join()==='a,b');
+    check('the moment line tells a steady hand from a rough one',/steady hand/.test(tnMoment(P('Ann',20,0)))&&/2 times/.test(tnMoment(P('Ben',30,2)))&&tnRankKey(P('a',5,0))>tnRankKey(P('a',5,1)));
+  });
+
+  suite('Tension — the bots only use what has been seen, and always finish the game',()=>{
+    const F=n=>W.eval(n);
+    const tnNew=F('tnNew'),tnAct=F('tnAct'),tnRed=F('tnRed'),tnBotPick=F('tnBotPick'),tnEndCycle=F('tnEndCycle'),tnWinners=F('tnWinners'),
+      tnCostRange=F('tnCostRange'),tnSafeCount=F('tnSafeCount'),rnd=F('rnd');
+    let finished=0,errors=0,safeAlways=true,maxTurns=0,seats=[0,0,0];
+    for(let g=0;g<160;g++){
+      const levels=g%2?['sharp','gentle','sharp']:['gentle','gentle','sharp'];
+      const ps=levels.map((l,i)=>({name:'P'+i,totalScore:0,tnCol:0,bot:l}));
+      const tn=tnNew(g%4<2?'fun':'classic');let cur=0,guard=0,turns=0;
+      while(tn.phase!=='over'&&guard++<3000){
+        if(tn.phase==='collapsed'){const nx=tnEndCycle(tn,ps);if(nx<0)break;cur=nx;continue;}
+        const pk=tnBotPick(tn,ps[cur].bot);
+        if(!pk){errors++;break;}
+        if(!pk.red&&tnSafeCount(tn,tn.stab)>0){
+          const r=tnCostRange(tn.mech[pk.mi],pk.ai);
+          if(ps[cur].bot==='gentle'&&r.max+2>=tn.stab)safeAlways=false;
+        }
+        const res=pk.red?tnRed(tn,ps,cur,rnd(1,4)):tnAct(tn,ps,cur,pk.mi,pk.ai);
+        if(!res){errors++;break;}
+        turns++;
+        if(!res.collapsed)cur=(cur+1)%ps.length;
+      }
+      if(tn.phase==='over'){finished++;seats[ps.indexOf(tnWinners(ps)[0])]++;}
+      maxTurns=Math.max(maxTurns,turns);
+    }
+    check('160 bot-only games (Classic and Fun) all reach a winner without a single illegal move',finished===160&&errors===0);
+    check('games stay a sensible length (well under 150 turns even for careful bots)',maxTurns>10&&maxTurns<150);
+    check('a gentle bot never walks into a possible collapse while a guaranteed-safe move exists',safeAlways);
+    // the bot must not peek at the hidden rules: two machines that differ only in hidden factors get the same options
+    const a=tnNew('classic');const b=JSON.parse(JSON.stringify(a));
+    b.mech.forEach(m=>{m.f=[m.f[1],m.f[2],m.f[0]];});
+    check('the bot\'s view of every action is identical whatever the hidden rules are',a.mech.every((m,i)=>[0,1,2].every(ai=>JSON.stringify(tnCostRange(m,ai).cs)===JSON.stringify(tnCostRange(b.mech[i],ai).cs))));
+  });
+
+  suite('Tension — is on the roster',()=>{
+    const g=A.GAMES.find(x=>x.id==='tension');
+    check('it is a playable party game for 2 to 6',!!g&&g.cat==='party'&&!g.locked&&g.minP===2&&g.maxP===6);
+    check('it has bots, and it can be played online',A.BOT_GAMES.has('tension')&&A.ONLINE_GAMES.includes('tension'));
+    check('it has an intro tagline, an accent colour and a label',!!W.eval('STAGE_TAGS').tension&&!!W.eval('MOMENT_ACCENT').tension&&W.eval('v14GameLabel')('tension')==='Tension');
+    check('its rules explain the secret actions, collapse and the Fun version',/smooth/i.test(g.rules.join(' '))&&/collapse/i.test(g.rules.join(' '))&&/Red Lever/.test(g.rules.join(' ')));
+  });
+
+  /* —— Tension: a whole game through the real local engine and its table —————— */
+  suite('Tension plays through the real local engine and draws a proper table',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const lStartMatch=F('lStartMatch'),tnPlay=F('tnPlay'),tnPick=F('tnPick'),tnDoAct=F('tnDoAct'),tnLocalReset=F('tnLocalReset'),rTensionTable=F('rTensionTable'),botTensionAct=F('botTensionAct');
+    W.eval('window.__origSetTimeout=setTimeout; setTimeout=(fn)=>0;');
+    try{
+      const mk=(id,n,bot)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false,...(bot?{bot}:{})});
+      G.isOnline=false;G.srv=null;G.selGame='tension';
+      try{W.localStorage.setItem('ct_tn_mode','classic');}catch(e){}
+      G.lp=[mk(1,'Phil'),mk(2,'Anna'),mk(3,'Robo','sharp')];G.lstart=0;lStartMatch();
+      G.lstart=0;G.lcur=0;
+      check('dealing builds a machine, clears scores and shows the table',G.scr==='table'&&G.tn&&G.tn.mech.length===12&&G.lp.every(p=>p.totalScore===0&&p.tnCol===0));
+      G.tn.mech.forEach((m,i)=>{m.tier=i%4;m.f=[0.5,1,2];});G.tn.stab=100;
+      let d=new DOMParser().parseFromString(rTensionTable(),'text/html');
+      check('the table shows the gauge, twelve tappable mechanisms and the standings',d.querySelector('.tn-gauge')&&d.querySelectorAll('.tn-mech').length===12&&d.querySelectorAll('.tn-mech[data-a="tnpick"]').length===12&&d.querySelectorAll('.y-standing-pill').length===3);
+      check('Classic has no Red Lever button',!d.querySelector('.tn-red'));
+      tnPick(3);
+      check('tapping a mechanism selects it',G.tnSel===3);
+      d=new DOMParser().parseFromString(rTensionTable(),'text/html');
+      check('the action bar offers Push, Pull and Rotate with the stress to expect',d.querySelectorAll('.tn-act').length===3&&/−10…32/.test(d.querySelector('.tn-acts').textContent));
+      G.tn.stab=20;d=new DOMParser().parseFromString(rTensionTable(),'text/html');
+      check('an action that could break the machine is marked risky',d.querySelectorAll('.tn-act.risk').length===3);
+      G.tn.stab=9;d=new DOMParser().parseFromString(rTensionTable(),'text/html');
+      check('an action that surely would break it is marked doomed',d.querySelectorAll('.tn-act.doom').length===3);
+      G.tn.stab=100;
+      tnDoAct(0);
+      check('working it scores, drains the meter, hands over to the next player and clears the selection',G.lp[0].totalScore===8&&G.tn.stab===90&&G.lcur===1&&G.tnSel===null);
+      d=new DOMParser().parseFromString(rTensionTable(),'text/html');
+      check('the seen action now shows on the mechanism, and the last move is described',d.querySelectorAll('.tn-k.g').length===1&&/smooth/.test(d.querySelector('.tn-last').textContent));
+      check('the next human player (Anna) gets live mechanisms',d.querySelectorAll('.tn-mech[data-a="tnpick"]').length===12);
+      G.lcur=2;d=new DOMParser().parseFromString(rTensionTable(),'text/html');
+      check('while a bot is up, nothing on the table can be tapped',d.querySelectorAll('.tn-mech[data-a]').length===0&&/thinking/.test(d.querySelector('.y-hint').textContent));
+      // the bot works the machine by itself
+      const before=G.tn.turns;botTensionAct(G.lp[2]);
+      check('the bot takes a move and play passes on',G.tn.turns===before+1&&G.lcur===0);
+      // critical warning
+      G.lcur=0;G.tn.stab=25;d=new DOMParser().parseFromString(rTensionTable(),'text/html');
+      check('below 30 the gauge goes critical and says points count double',d.querySelector('.tn-gauge.crit')&&/×2/.test(d.querySelector('.tn-g-sub').textContent));
+      // collapse and rebuild
+      G.tn.stab=3;const ph=G.lp[0].totalScore;tnPlay(0,2);
+      check('a collapse costs the player 10 and freezes the machine',G.tn.phase==='collapsed'&&G.lp[0].totalScore===ph-10&&G.lp[0].tnCol===1&&G.tn.collapses===1);
+      d=new DOMParser().parseFromString(rTensionTable(),'text/html');
+      check('the broken machine is shown down, with nothing tappable',d.querySelector('.tn-machine.down')&&d.querySelectorAll('.tn-mech[data-a]').length===0&&/COLLAPSED/.test(d.querySelector('.tn-g-sub').textContent));
+      tnLocalReset();
+      check('it is then rebuilt to 100 and the NEXT player starts',G.tn.phase==='play'&&G.tn.stab===100&&G.lcur===1&&G.tn.cycle===2);
+      // to the end
+      G.tn.collapses=3;G.tn.stab=2;G.lcur=1;const hist=F('getHistory')().length;
+      tnPlay(0,0);tnLocalReset();
+      check('the fourth collapse ends the game on the results screen',G.scr==='matchend'&&G.tn.phase==='over');
+      const rows=new DOMParser().parseFromString(F('rMatchEnd')(),'text/html');
+      check('the results list every player with their collapses, best first',rows.querySelectorAll('.sr').length===3&&/collapse/.test(rows.querySelector('.sr').textContent)&&/steady|wins with/.test(rows.querySelector('.res-body').textContent));
+      check('the result is recorded in the family history',F('getHistory')().some(h=>h.game==='tension'&&h.winner===rows.querySelector('.sr .sr-name').textContent));
+      // Fun: the red lever
+      try{W.localStorage.setItem('ct_tn_mode','fun');}catch(e){}
+      G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;lStartMatch();G.lstart=0;G.lcur=0;
+      d=new DOMParser().parseFromString(rTensionTable(),'text/html');
+      check('Fun shows the mystery Red Lever',d.querySelector('.tn-red[data-a="tnred"]')&&/\+10/.test(d.querySelector('.tn-red').textContent));
+      tnPick('red');
+      d=new DOMParser().parseFromString(rTensionTable(),'text/html');
+      check('picking it asks for confirmation before pulling',/Pull the Red Lever/.test(d.querySelector('.poker-actions').textContent));
+      tnDoAct(0);
+      check('pulling it scores at least the 10 points and uses it up for this machine',G.lp[0].totalScore>=10&&G.tn.red.used===true);
+      d=new DOMParser().parseFromString(rTensionTable(),'text/html');
+      check('a used lever can no longer be pulled',d.querySelector('.tn-red.used')&&!d.querySelector('.tn-red[data-a]'));
+    } finally {
+      W.eval('setTimeout=window.__origSetTimeout');
+      try{W.localStorage.setItem('ct_tn_mode','classic');}catch(e){}
+      W.eval('bgClearCaller')();
+      G.scr='home';G.tn=null;
+    }
+  });
+
+  /* —— Tension online: turn gating, collapse, rebuilding, rematch and away players (awaits live at the top level) —————— */
+  {
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const oTnDo=F('oTnDo'),oTnAdvance=F('oTnAdvance'),oTnAuto=F('oTnAuto'),oRematch=F('oRematch'),tnNew=F('tnNew'),stageOnSrv=F('stageOnSrv');
+    W.__keepSb2=W.eval('_sb');
+    W.eval('window.__origSetTimeout=setTimeout; setTimeout=(fn)=>0;');
+    let DB=null;const clone=o=>JSON.parse(JSON.stringify(o));
+    W.__fakeSb={from:()=>({
+      select:()=>({eq:()=>({single:()=>Promise.resolve({data:DB?{state:clone(DB)}:null,error:DB?null:{message:'none'}})})}),
+      upsert:row=>{DB=clone(row.state);return Promise.resolve({error:null});},
+      update:row=>({eq:()=>({eq:()=>({select:()=>{DB=clone(row.state);return Promise.resolve({data:[{id:'T'}],error:null});}})})})})};
+    const seen={};
+    const P=(id,n,i)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,tnCol:0,roundsWon:0,chips:900});
+    const room=(cur,extra)=>{const tn=tnNew('classic');tn.mech.forEach((m,i)=>{m.tier=i%4;m.f=[0.5,1,2];});return{phase:'game',gameId:'tension',host:'a',players:[P('a','Anna',0),P('b','Ben',1),P('c','Cleo',2)],curIdx:cur,tn,winner:null,winnerName:null,winnerAv:null,round:1,_ts:Date.now()-5000,...extra};};
+    try{
+      G.isOnline=true;G.roomId='T';G.myPid='a';G.isHost=true;G.scr='table';G.selGame='tension';
+      W.eval('_sb=window.__fakeSb');
+      // a normal move by the player whose turn it is
+      DB=room(0);G.srv=clone(DB);
+      await oTnDo(3,0);
+      seen.move=clone(DB);
+      // not your turn (the device believes it is not)
+      G.myPid='c';G.srv=clone(DB);const before1=JSON.stringify(DB);await oTnDo(0,0);seen.wrongTurnSame=JSON.stringify(DB)===before1;
+      // stale device: thinks it is Anna's turn, but the room already moved on to Ben
+      G.myPid='a';G.srv=room(0);DB=room(1);const before2=JSON.stringify(DB);await oTnDo(0,0);seen.staleSame=JSON.stringify(DB)===before2;
+      // an illegal move (no such mechanism) changes nothing
+      DB=room(0);G.srv=clone(DB);G.myPid='a';const before3=JSON.stringify(DB);await oTnDo(99,0);seen.illegalSame=JSON.stringify(DB)===before3;
+      // collapse: turn does not move on, then the same device rebuilds
+      DB=room(0);DB.tn.stab=3;G.srv=clone(DB);await oTnDo(0,0);
+      seen.collapsed=clone(DB);
+      await oTnAdvance();
+      seen.rebuilt=clone(DB);
+      // last collapse -> winner
+      DB=room(1);DB.tn.stab=3;DB.tn.collapses=3;DB.players[0].totalScore=30;G.srv=clone(DB);G.myPid='b';await oTnDo(0,0);
+      seen.lastBreak=clone(DB);await oTnAdvance();seen.over=clone(DB);
+      // an away player is played for
+      DB=room(1);G.srv=clone(DB);G.myPid='a';await oTnAuto();seen.auto=clone(DB);
+      DB=room(1);DB.tn.stab=1;G.srv=clone(DB);await oTnAuto();seen.autoBreak=clone(DB);await oTnAuto();seen.autoRebuild=clone(DB);
+      // starting a game from the lobby, and Rematch
+      DB={phase:'lobby',gameId:'tension',host:'a',players:[P('a','Anna',0),P('b','Ben',1),P('c','Cleo',2)],_ts:Date.now()-5000};G.srv=clone(DB);
+      W.eval('oStartGame')(clone(DB));seen.started=clone(DB);
+      DB=room(0,{winner:'a',winnerName:'Anna'});DB.tn.phase='over';DB.tn.collapses=4;DB.players[0].totalScore=44;DB.players[0].tnCol=2;G.srv=clone(DB);G.myPid='a';G.isHost=true;
+      await oRematch();seen.rematch=clone(DB);
+      // stage moments come from the room state, on every device
+      const prev=room(0),cur=clone(prev);cur.tn.stab=0;cur.tn.phase='collapsed';cur.tn.turns=1;cur.tn.last={pi:0,mi:0,ai:0,f:1,cost:5,pts:0,collapsed:true,red:null};
+      F('stageClear')();stageOnSrv(prev,cur);seen.stage=(W.document.querySelector('.stage-moment .stg-text')||{}).textContent;F('stageClear')();
+    } finally {
+      W.eval('setTimeout=window.__origSetTimeout');
+      W.eval('_sb=window.__keepSb2');
+      G.isOnline=false;G.srv=null;G.scr='home';G.isHost=false;G.tn=null;
+      try{W.localStorage.removeItem('ct_online_session');W.localStorage.removeItem('ct_resume');}catch(e){}
+    }
+    suite('Tension online — the turn-holder works the shared machine, nobody else can',()=>{
+      const s=seen.move;
+      check('a move is written to the room: stability down, points up, the action revealed, and the turn passes on',s.tn.stab===90&&s.players[0].totalScore===8&&s.tn.mech[3].k[0]===0.5&&s.curIdx===1);
+      check('the move is described for everybody',/Anna/.test(s.lastAct)&&/smooth/.test(s.lastAct));
+      check('a device that is not on turn changes nothing',seen.wrongTurnSame);
+      check('a stale device (the room already moved on) changes nothing either',seen.staleSame);
+      check('an illegal move changes nothing',seen.illegalSame);
+    });
+    suite('Tension online — a collapse, the rebuild and the end of the game',()=>{
+      check('a collapse costs the player 10 and the turn stays put while it shows',seen.collapsed.tn.phase==='collapsed'&&seen.collapsed.players[0].totalScore===-10&&seen.collapsed.curIdx===0);
+      check('the rebuild restores the machine and passes the turn to the NEXT player',seen.rebuilt.tn.phase==='play'&&seen.rebuilt.tn.stab===100&&seen.rebuilt.curIdx===1&&seen.rebuilt.tn.mech[0].k[0]===0.5);
+      check('the fourth collapse crowns the player with the most points',seen.over.winner==='a'&&seen.over.winnerName==='Anna'&&seen.over.tn.phase==='over');
+    });
+    suite('Tension online — away players, starting and Rematch',()=>{
+      check('an away player has a cheap safe move made for them and play moves on',seen.auto.curIdx===2&&seen.auto.tn.turns===1&&seen.auto.tn.stab<100);
+      check('an away player who cannot avoid breaking it does break it, then the machine is rebuilt',seen.autoBreak.tn.phase==='collapsed'&&seen.autoRebuild.tn.phase==='play'&&seen.autoRebuild.curIdx===2);
+      check('starting from the lobby builds a machine, zeroes the scores and picks the first player',seen.started.gameId==='tension'&&seen.started.phase==='game'&&seen.started.tn&&seen.started.tn.mech.length===12&&seen.started.players.every(p=>p.totalScore===0&&p.tnCol===0)&&seen.started.curIdx>=0&&seen.started.curIdx<3);
+      check('Rematch starts the same game again with a brand new machine and the same players',seen.rematch.gameId==='tension'&&seen.rematch.phase==='game'&&!seen.rematch.winner&&seen.rematch.tn.collapses===0&&seen.rematch.tn.stab===100&&seen.rematch.players.map(p=>p.id).join()==='a,b,c'&&seen.rematch.players.every(p=>p.totalScore===0&&p.tnCol===0)&&!!seen.rematch.rematchId);
+      check('every device gets the COLLAPSE moment from the room state',seen.stage==='COLLAPSE!');
+    });
+  }
+
   /* —— Le Pouilleux: deck, auto-discard, and turn rotation —————— */
   suite('Le Pouilleux\'s deck, auto-discard, and turn order are all correct',()=>{
     const deck=A.bpBuildDeck();
