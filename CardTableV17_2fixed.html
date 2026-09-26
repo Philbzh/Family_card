@@ -10770,7 +10770,7 @@ function bingoPowerDab(tickets,call){
 function lDealBingo(){
   const lucky=bingoPickLucky(),n=bingoTicketsWanted();
   G.lp.forEach(p=>{p.bgTickets=bingoGenerateTickets(n);p.bgTokens=0;p.bgLucky=[];});
-  G.bg={calledNumbers:[],currentCall:null,currentCallAt:0,stageWinners:{line:null,twoLines:null,house:null},phase:'calling',lucky};
+  G.bg={calledNumbers:[],currentCall:null,currentCallAt:0,stageWinners:{line:null,twoLines:null,house:null},phase:'calling',lucky,dealtAt:Date.now()};
   G.lres=null;_bgPendingClaims=new Set();G.bgViewSeat=0;G.bgViewTicket=0;G.bgPower=null;
   SFX.deal();
   G.scr='table';
@@ -10796,7 +10796,10 @@ function bgArmLocalCaller(){
 // current call sitting unmarked, up to BG_CALL_GRACE_MS total; otherwise (or once nobody's waiting
 // on it) the next call is due immediately.
 function bgNextCallDelay(bg,players){
-  const since=bg&&bg.currentCallAt?Date.now()-bg.currentCallAt:0;
+  // Before the very first call there is no currentCallAt yet, so the clock starts at the deal itself.
+  // (Counting it as "0 ms ago" forever meant the first number was never called in a local game.)
+  const ref=bg&&(bg.currentCallAt||bg.dealtAt);
+  const since=ref?Date.now()-ref:BG_CALL_MS;
   const floor=BG_CALL_MS-since;
   if(floor>0)return floor;
   if(since<BG_CALL_GRACE_MS&&bingoCallStillPending(bg,players))return 1000;

@@ -4741,6 +4741,18 @@ async function runPresentation(A,W,frame){
   });
 
   /* —— Bingo: the auto-caller must survive being re-armed by unrelated renders —————— */
+  suite('Bingo\'s first call actually arrives in a local game',()=>{
+    // Regression: right after the deal there is no currentCallAt, and the delay logic treated "time since the
+    // last call" as 0 forever -- so it re-armed a fresh 6s wait every time and the first number never came.
+    const bgNextCallDelay=W.eval('bgNextCallDelay'),BG_CALL_MS=W.eval('BG_CALL_MS'),G=W.eval('G'),lStartMatch=W.eval('lStartMatch');
+    check('a table dealt just now waits at most one call interval',(()=>{const d=bgNextCallDelay({currentCallAt:0,dealtAt:Date.now()},[]);return d>0&&d<=BG_CALL_MS;})());
+    check('once that interval has passed with nothing called, the first call is due immediately',bgNextCallDelay({currentCallAt:0,dealtAt:Date.now()-BG_CALL_MS-50},[])===0);
+    const mk=(id,n,bot)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false,...(bot?{bot}:{})});
+    G.isOnline=false;G.srv=null;G.selGame='bingo';G.lp=[mk(1,'Phil'),mk(2,'Robo','gentle')];G.lstart=0;lStartMatch();
+    check('a dealt local round records when it was dealt',typeof G.bg.dealtAt==='number'&&Math.abs(Date.now()-G.bg.dealtAt)<2000);
+    W.eval('bgClearCaller')();
+  });
+
   suite('Bingo\'s local caller is not reset by every render()',()=>{
     // Regression: bgArmLocalCaller() used to clear+restart its timer unconditionally every time it
     // ran, but it's called from render()'s own single-hook-point list -- meaning ANY unrelated
