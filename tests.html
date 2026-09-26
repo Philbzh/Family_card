@@ -5059,7 +5059,13 @@ async function runPresentation(A,W,frame){
       G.scr='table';lStartMatch();G.lstart=0;G.lcur=0;G.stb.open=[1,2,4,5,7,9];G.stb.dice=[3,4];G.stb.target=7;G.stb.phase='pick';G.stbSel=[2,5];
       const d=new DOMParser().parseFromString(rShutBoxTable(),'text/html');
       check('the table shows nine tiles, three of them shut',d.querySelectorAll('.stb-tile').length===9&&d.querySelectorAll('.stb-tile.shut').length===3);
-      check('only tiles that can help glow (1, 2, 4, 5 and 7 can make a 7); the 9 is dimmed',d.querySelectorAll('.stb-tile.can,.stb-tile.picked').length===5&&d.querySelectorAll('.stb-tile.dim').length===1);
+      check('with a 2 and a 5 picked for a 7, only those two stay lit -- nothing else can still finish it',d.querySelectorAll('.stb-tile.can,.stb-tile.picked').length===2&&d.querySelectorAll('.stb-tile.picked').length===2);
+      G.stbSel=[2];
+      const d2=new DOMParser().parseFromString(rShutBoxTable(),'text/html');
+      check('with just a 2 picked, only tiles that can still finish a 7 with it glow (1, 4, 5); 7 and 9 dim',d2.querySelectorAll('.stb-tile.can').length===3&&d2.querySelectorAll('.stb-tile.dim').length===2);
+      check('the hint says how much is still needed and suggests a way to finish',/need 5 more/.test(d2.querySelector('.y-hint').textContent)&&/try 5/.test(d2.querySelector('.y-hint').textContent));
+      check('a Clear button appears once something is picked, and not before',!!d2.querySelector('[data-a="stbclear"]')&&(G.stbSel=[],!new DOMParser().parseFromString(rShutBoxTable(),'text/html').querySelector('[data-a="stbclear"]')));
+      G.stbSel=[2,5];
       check('the Shut button is live exactly when the pick adds up',!d.querySelector('[data-a="stbshut"]').disabled);
       G.stbSel=[2];
       check('and disabled when it does not',new DOMParser().parseFromString(rShutBoxTable(),'text/html').querySelector('[data-a="stbshut"]').disabled);

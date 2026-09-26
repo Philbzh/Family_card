@@ -7335,7 +7335,10 @@ function rShutBoxTable(){
   const sel=(acts&&G.stbSel)||[];
   const selSum=sel.reduce((a,c)=>a+c,0);
   const subsets=b.phase==='pick'?stbSubsets(b.open,b.target):[];
-  const usable=new Set(subsets.flat());
+  // Only tiles that can STILL finish a legal set together with what is already picked stay lit, so a
+  // pick that leads nowhere (say a 6 for an 11, then a 3) can never be made by accident.
+  const compat=subsets.filter(sub=>sel.every(t=>sub.includes(t)));
+  const usable=new Set(compat.flat());
   const standings=players.map(pl=>{
     const sc=pl.stbScore==null?'—':(pl.stbTiles===0?'0 ✨':pl.stbScore);
     return`<span class="y-standing-pill${pl===p?' active':''}">${avHTML(pl.avatar)}${esc(pl.name)}: ${sc}</span>`;
@@ -7356,12 +7359,17 @@ function rShutBoxTable(){
   else if(botTurn)hint=esc(p.name)+' is thinking…';
   else if(!mine&&online)hint='Waiting for '+esc(p.name)+'…';
   else if(b.phase==='roll')hint=stbOneDie(b.open)?'7, 8 and 9 are shut — throw one die.':'Throw the dice.';
-  else hint=sel.length?`Picked ${selSum} of ${b.target}`+(selSum===b.target?' — shut them!':''):`Tap open tiles that add up to ${b.target}.`;
+  else if(!sel.length)hint=`Tap open tiles that add up to ${b.target}.`;
+  else if(selSum===b.target)hint=`Picked ${selSum} of ${b.target} — shut them!`;
+  else{
+    const rest=compat.map(sub=>sub.filter(t=>!sel.includes(t))).sort((x,y)=>x.length-y.length)[0]||[];
+    hint=`Picked ${selSum} of ${b.target} — you need ${b.target-selSum} more`+(rest.length?` (try ${rest.join(' + ')})`:'');
+  }
   let actionBar='';
   if(b.phase==='over'){/* the room moves on by itself in a moment */}
   else if(!acts)actionBar=`<div class="poker-actions"><div class="poker-action-row"><div class="dd-waiting">${botTurn?esc(p.name)+' is thinking…':'Watching '+esc(p.name)+' play live'}</div></div></div>`;
   else if(b.phase==='roll')actionBar=`<div class="poker-actions"><div class="poker-action-row"><button class="btn btn-gold btn-full" data-a="stbroll">🎲 ${b.dice.length?'Throw again':'Throw'}</button></div></div>`;
-  else actionBar=`<div class="poker-actions"><div class="poker-action-row"><button class="btn btn-gold btn-full" data-a="stbshut" ${selSum===b.target?'':'disabled'}>📦 Shut ${sel.length?sel.slice().sort((x,y)=>x-y).join(' + '):'them'}</button></div></div>`;
+  else actionBar=`<div class="poker-actions"><div class="poker-action-row"><button class="btn btn-gold btn-full" data-a="stbshut" ${selSum===b.target?'':'disabled'}>📦 Shut ${sel.length?sel.slice().sort((x,y)=>x-y).join(' + '):'them'}</button>${sel.length?'<button class="btn btn-ghost btn-sm" data-a="stbclear" aria-label="Clear my picks">↺ Clear</button>':''}</div></div>`;
   return`<div id="s-table" class="scr on game-shutbox">
     <div class="game-bar">
       <div class="gb-game">📦 Shut the Box</div>
@@ -18907,6 +18915,7 @@ document.addEventListener('click',e=>{
   else if(a==='c4drop'){G.isOnline?oC4Drop(+t.getAttribute('data-c')):c4Drop(+t.getAttribute('data-c'));}
   else if(a==='stbroll'){G.isOnline?oStbRoll():stbRoll();}
   else if(a==='stbtile'){stbToggleTile(+t.getAttribute('data-t'));}
+  else if(a==='stbclear'){G.stbSel=[];render();}
   else if(a==='stbshut'){G.isOnline?oStbShut(G.stbSel||[]):stbShut(G.stbSel||[]);}
   else if(a==='bg-claim'){G.isOnline?oBgClaim(t.getAttribute('data-stage')):bgClaim(+t.getAttribute('data-seat'),t.getAttribute('data-stage'));}
   else if(a==='bg-mark'){
