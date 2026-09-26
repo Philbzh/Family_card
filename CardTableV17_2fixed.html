@@ -1361,6 +1361,45 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 .o-another-grid{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;}
 .o-another-btn{justify-content:flex-start;gap:.4rem;font-size:.78rem;padding:.55rem .6rem;}
 .o-another-btn span{font-size:1.1rem;}
+.game-skull .felt-table,.sk-felt{background:
+  radial-gradient(circle 340px at 50% 15%,rgba(201,160,240,.10),transparent 70%),
+  radial-gradient(ellipse 90% 75% at 50% 40%,#2a1f3a 0%,#1a1226 50%,#0c0813 100%);}
+.sk-info{text-align:center;font-size:.72rem;color:var(--paper3);}
+.sk-info b{color:var(--gold2);}
+.sk-mats{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;width:100%;}
+@media(min-width:700px){.sk-mats{grid-template-columns:repeat(3,1fr);}}
+.sk-mat{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:.5rem .55rem;display:flex;flex-direction:column;gap:.35rem;}
+.sk-mat.turn{border-color:rgba(212,168,67,.7);box-shadow:0 0 14px rgba(212,168,67,.35);}
+.sk-mat.me{background:rgba(201,160,240,.08);}
+.sk-mat.dead{opacity:.4;}
+.sk-who{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;font-size:.72rem;font-weight:700;color:var(--paper);}
+.sk-who .av-img{width:1.4rem;height:1.4rem;border-radius:50%;object-fit:cover;}
+.sk-pts{font-size:.7rem;margin-left:auto;}
+.sk-tag{font-size:.56rem;letter-spacing:.06em;text-transform:uppercase;padding:.05rem .4rem;border-radius:999px;background:rgba(255,255,255,.1);color:var(--paper2);}
+.sk-tag.bid{background:rgba(212,168,67,.25);color:var(--gold2);}
+.sk-tag.out{background:rgba(255,80,70,.25);color:#ffb3aa;}
+.sk-stack{display:flex;gap:.2rem;flex-wrap:wrap;min-height:1.7rem;align-items:center;}
+.sk-empty{font-size:.62rem;color:var(--paper3);font-style:normal;opacity:.7;}
+.sk-disc{width:1.7rem;height:1.7rem;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-size:.95rem;box-shadow:0 2px 4px rgba(0,0,0,.5);}
+.sk-disc.down{background:radial-gradient(circle at 35% 30%,#5a4a78,#2c2140);border:1px solid #6d5c8c;}
+.sk-disc.down.mine{border-color:#c9a0f0;}
+.sk-disc.up.flower{background:radial-gradient(circle at 35% 30%,#fff2f6,#f2a0b4);}
+.sk-disc.up.skull{background:radial-gradient(circle at 35% 30%,#e8e8ee,#8a8a9a);}
+.sk-sub{font-size:.62rem;color:var(--paper3);display:flex;gap:.3rem;align-items:center;flex-wrap:wrap;}
+.sk-actions{width:100%;display:flex;flex-direction:column;gap:.5rem;}
+.sk-row{display:flex;gap:.5rem;flex-wrap:wrap;}
+.sk-btn{flex:1 1 9rem;}
+.sk-btn em{font-style:normal;opacity:.7;margin-left:.3rem;font-size:.7rem;}
+.sk-bid{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;justify-content:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:.5rem;}
+.sk-bid-lbl{font-size:.68rem;color:var(--paper3);width:100%;text-align:center;}
+.sk-bid-n{font-family:var(--serif);font-size:1.5rem;color:var(--gold2);min-width:2rem;text-align:center;}
+.sk-mine{width:100%;background:rgba(201,160,240,.08);border:1px dashed rgba(201,160,240,.4);border-radius:12px;padding:.5rem .6rem;display:flex;flex-direction:column;gap:.3rem;}
+.sk-mine-lbl{font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:#c9a0f0;}
+.sk-mine-row{display:flex;gap:.35rem;align-items:center;font-size:.72rem;color:var(--paper2);flex-wrap:wrap;}
+.sk-peek{font-size:.78rem;color:#e6d2ff;background:rgba(201,160,240,.18);border-radius:10px;padding:.35rem .6rem;}
+.v10-gc--skull{background:linear-gradient(160deg,rgba(201,160,240,.30),rgba(30,16,50,.3));border-top-color:#c9a0f0;box-shadow:0 10px 28px -12px rgba(201,160,240,.4);}
+.v10-gc--skull:hover{border-color:rgba(201,160,240,.45);}
+.v10-main .v10-gc--skull{background:linear-gradient(180deg,rgba(60,32,92,.85),rgba(18,8,30,.93));border-top-color:rgba(201,160,240,.6);--tile-glow:rgba(201,160,240,.6);}
 .c4-pill{display:inline-flex;align-items:center;gap:.35rem;}
 .c4-dot{width:.85rem;height:.85rem;border-radius:50%;display:inline-block;}
 .c4-d1{background:#e5322d;}.c4-d2{background:#f2c230;}
@@ -3437,6 +3476,8 @@ async function oForceSkipCurrentPlayer(){
     // Summit: an absent climber's whole turn is played for them, banking what is at stake.
     if(state.gameId==='summit'){await oSmMutate(st=>smAutoTurn(st,Date.now()));return;}
     // Hot Bomb has no turns to skip: a bomb in an absent player's hands simply goes off on them.
+    // Flower or Skull: an absent player's move is made for them (a flower, a pass, the next flip...).
+    if(state.gameId==='skull'){await oSkMutate(st=>skAutoMove(st));return;}
     if(state.gameId==='hotbomb'||state.gameId==='vault'||state.gameId==='escape'){return;}
     state.lastAct=esc(p.name)+' was skipped (away too long).';
     let runout=false,allDone=false;
@@ -3655,6 +3696,14 @@ const GAMES=[
    rules:['<b>Explore the room together.</b> Everyone joins on their <b>own device</b> and stands in the same room. Tap objects to inspect them — but <b>each of you reads different clues</b> on the very same object, so nobody can do it alone.','Tell the others what <i>you</i> see, in your own words. Compare, combine, argue — clues from different objects (and different rooms) fit together.','Locks come in many kinds: <b>combination wheels</b>, <b>keypads</b> (three wrong codes lock the pad for 15 seconds), <b>arrow sequences</b>, <b>keys</b> (pick an item in the shared inventory, then tap the door), a <b>cipher wheel</b>, and <b>cooperative locks</b> where every player must press their own button at the same moment.','Items you find go into a <b>shared inventory</b>. Opening a lock, taking a key or moving a gear helps the whole team.','You can ask for a <b>hint</b> (three levels per lock, a few in total) — everyone sees it, and it costs points and stars. On harder levels the house <b>chimes</b> and steals time.','Open every lock before the clock runs out. Every game has new codes and new clues, so a second visit is a fresh mystery.']},
   {id:'hotbomb',cat:'party',icon:'💣',name:'Hot Bomb',players:'2–8',dur:'5–15 min',diff:'easy',deal:0,minP:2,maxP:8,cover:'assets/games/hotbomb.jpg',
    rules:['<b>Pass it. Don’t hold it.</b> A bomb with a <b>secret fuse</b> starts with one player. Tap another player to pass it — and do it fast!','When the bomb explodes, whoever is holding it takes a <b>strike</b>. <b>Three strikes</b> and you’re out. The last player standing wins.','You can’t hand the bomb <b>straight back</b> to the person who just passed it to you (unless only two of you are left).','Every round the fuse gets shorter. Later rounds bring a countdown that goes dark (<b>???</b>), <b>two bombs at once</b>, and bombs that <b>jump on their own</b>.','Power cards appear during the game: 🔄 <b>Reverse</b> sends the bomb back, 🛡️ <b>Shield</b> survives one explosion, 🧲 <b>Magnet</b> passes it and freezes the receiver’s hands, ⏱️ <b>Freeze</b> stops the fuse for 2 seconds, 💣 <b>Double Bomb</b> adds a second bomb, 🎯 <b>Target</b> picks who starts the next round.','On one shared screen, whoever is holding the bomb taps the player who gets it. Online, everyone plays on their own phone.']},
+  {id:'skull',cat:'party',icon:'💀',name:'Flower or Skull',players:'3–6',dur:'10–20 min',diff:'medium',deal:0,minP:3,maxP:6,onlineOnly:true,
+   rules:['Everyone has <b>four discs</b>: <b>three 🌸 flowers and one 💀 skull</b>. Only <b>you</b> know which is which.',
+     'Each round, everybody secretly puts <b>one disc face down</b> on their mat. Then, in turn, you may <b>add another disc</b> to your stack — or <b>start the bidding</b>.',
+     'A bid is a number: <b>“I can flip this many flowers.”</b> Each player in turn <b>raises the bid or passes</b> (once you pass, you are out of this round\'s bidding). The last one left is the <b>challenger</b>.',
+     'The challenger must flip discs: <b>all of their own first</b>, then any of the others\' (always from the top of a stack). Reach your bid in flowers and you <b>win the challenge</b> — but hit a 💀 and you <b>lose a disc</b> for good.',
+     'Win <b>two challenges</b> to win the game — or be the last player with discs. If you flip your OWN skull you choose which disc to lose; if it was someone else\'s, you lose one at random.',
+     '<b>Fun version</b> (the host picks it in the lobby): everyone also has a one-time <b>🔮 Peek</b> — before bidding, secretly look at the top disc of one opponent\'s stack.',
+     'The trick is bluffing: do you dare to bid — or does someone else have a skull on top?']},
   {id:'shutbox',cat:'dice',icon:'📦',name:'Shut the Box',players:'1–8',dur:'5–15 min',diff:'easy',deal:0,minP:1,maxP:8,
    rules:['Nine numbered tiles, <b>1 to 9</b>, all standing up. On your turn you throw <b>two dice</b>.',
      'Add the dice, then <b>shut any tiles that add up to that total</b> — for a 9 you could shut the 9, or 4+5, or 2+3+4, or 1+8 … whatever is still open.',
@@ -3673,7 +3722,7 @@ const GAMES=[
 ];
 // Single source of truth for which unlocked games have online-multiplayer support, so the "online"
 // gate and the local-only badge on a game's card can never drift out of sync with each other.
-const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice','summit','hotbomb','vault','bust','escape','shutbox','fourrow'];
+const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice','summit','hotbomb','vault','bust','escape','shutbox','fourrow','skull'];
 // The Games tab groups its (growing) roster into these, rather than one long scroll -- every GAMES
 // entry's `cat` must be one of these ids. Order here is the order the category tiles are shown in.
 const GAME_CATEGORIES=[
@@ -6505,7 +6554,7 @@ function rTourOv(){
    waits its turn behind a bigger moment, and it stays still for anyone who asked their device for less motion.
    For online games stageOnSrv() spots the same moments in the room state, so EVERY device sees them, not only
    the one that rolled. */
-const STAGE_TAGS={maumau:'Match, shed, shout Mau!',texas:'Read the table.',fivecard:'Draw to the best hand.',blackjack:'Beat the dealer to 21.',battle:'Flip. Win. Repeat.',yahtzee:'Five dice. Thirteen chances.',roulette:'Place your bets.',dicedual:'Roll. Strike. Survive.',uno:'Match the colour. Shout UNO!',farkle:'How much will you risk?',bingo:'Keep your eyes on your card.',lepouilleux:'Don’t get stuck with the Old Maid.',slots:'Pull the lever.',pig:'One roll too many…',drawit:'Draw. Guess. Laugh.',liarsdice:'Trust nobody.',summit:'How far will you go?',hotbomb:'Pass it. Don’t hold it.',vault:'Nobody cracks it alone.',bust:'One more!',escape:'Enter. Explore. Solve.',shutbox:'Close them all.',fourrow:'Four. In. A. Row.'};
+const STAGE_TAGS={maumau:'Match, shed, shout Mau!',texas:'Read the table.',fivecard:'Draw to the best hand.',blackjack:'Beat the dealer to 21.',battle:'Flip. Win. Repeat.',yahtzee:'Five dice. Thirteen chances.',roulette:'Place your bets.',dicedual:'Roll. Strike. Survive.',uno:'Match the colour. Shout UNO!',farkle:'How much will you risk?',bingo:'Keep your eyes on your card.',lepouilleux:'Don’t get stuck with the Old Maid.',slots:'Pull the lever.',pig:'One roll too many…',drawit:'Draw. Guess. Laugh.',liarsdice:'Trust nobody.',summit:'How far will you go?',hotbomb:'Pass it. Don’t hold it.',vault:'Nobody cracks it alone.',bust:'One more!',escape:'Enter. Explore. Solve.',shutbox:'Close them all.',fourrow:'Four. In. A. Row.',skull:'Flower or skull?'};
 const STAGE_TONES={
   good:{c:'95,214,138',buzz:[20,40,20]},bad:{c:'255,90,78',buzz:[40,50,40]},gold:{c:'244,201,93',buzz:[20,30,60]},
   hot:{c:'255,138,47',buzz:[15,30,15]},cool:{c:'126,200,242',buzz:[15]}
@@ -6551,6 +6600,7 @@ const STAGE_EVENTS={
   FARKLE:d=>({text:'FARKLE!',sub:(d.points||0)+' points lost',tone:'bad',icon:'😬',who:d.who}),
   PIG_OUT:d=>({text:'PIG OUT!',sub:(d.points||0)+' points lost',tone:'bad',icon:'🐷',who:d.who}),
   POWER:d=>({text:d.text,sub:d.sub,tone:'hot',icon:d.icon,who:d.who,ms:1100,pri:1}),
+  SKULL:d=>({text:'SKULL!',sub:d.sub||'Bad luck',tone:'bad',icon:'💀',who:d.who,pri:2,ms:1500}),
   STUCK:d=>({text:'STUCK!',sub:d.sub||'No tiles fit the throw',tone:'bad',icon:'📦',who:d.who}),
   BUST:d=>({text:'BUST!',sub:d.sub!=null?d.sub:(d.points!=null?d.points+' points gone':''),tone:'bad',icon:'💥',who:d.who,pri:2}),
   SHIELD:d=>({text:'SHIELD!',sub:'The turn is saved',tone:'cool',icon:'🛡️',who:d.who,pri:2}),
@@ -7770,6 +7820,322 @@ function c4OptionsHTML(){
   const m=c4Mode();
   const opts=[['classic','Classic','Plain 4 in a Row. Pure and simple.'],['fun','Fun','Each player gets 3 one-shot power discs: 💣 Bomb, 🪄 Wild, 🫧 Pop — and a warning when you are one disc from losing.']];
   return`<div class="panel"><div class="panel-lbl">Which version?</div><div class="hr-grid">${opts.map(([k,n,d])=>`<div class="hr-tog${m===k?' on':''}" data-a="c4-mode" data-m="${k}"><div class="hr-row"><span class="hr-nm">${n}</span><span class="hr-chk">${m===k?'✓':''}</span></div><span class="hr-desc">${d}</span></div>`).join('')}</div></div>`;
+}
+
+/* ═══════ FLOWER OR SKULL ═══════
+   A bluffing game for 3-6 people, each on their own device. Everyone holds four discs -- three 🌸 flowers and one
+   💀 skull -- and only they know which is which. Each round everybody puts a disc face down; then people either add
+   more discs or start a BID: "I can flip this many flowers". Bids rise round the table until everybody else has
+   passed; the last bidder is the challenger and must flip that many flowers -- their own discs first, then anyone's
+   (from the top of a stack). A skull ends it: the challenger loses a disc. Two won challenges (or being the last
+   player standing) win the game.
+   PRIVACY: hands and stacks live in the shared room row (players[i].sk) and are hidden at render time, the same
+   trust level as Liar's Dice's dice; the table draws only counts, the viewer's OWN discs, and discs that have been
+   flipped in public (a stack is flipped from the top: stack[len-1-k] for k < fl). Every rule is a pure function on
+   the room state that returns false when a move is not allowed, so a compare-and-swap retry from any device is safe.
+   FUN version adds one 🔮 Peek per player: look at the top disc of one opponent's stack, once, before bidding. */
+const SK_START_HAND=['F','F','F','S'];
+const SK_WIN_POINTS=2;
+function skMode(){let m='classic';try{m=localStorage.getItem('ct_sk_mode')||'classic';}catch(e){}return m==='fun'?'fun':'classic';}
+function skSetMode(m){try{localStorage.setItem('ct_sk_mode',m==='fun'?'fun':'classic');}catch(e){}}
+function skNewSeat(mode){return{hand:SK_START_HAND.slice(),stack:[],fl:0,pts:0,out:false,peek:mode==='fun'?1:0};}
+function skBuildStart(rs,players,mode){
+  const ps=players.map(p=>({id:p.id,name:p.name,avatar:p.avatar,sk:skNewSeat(mode)}));
+  const starter=rnd(0,ps.length-1);
+  return{phase:'game',gameId:'skull',host:rs.host,hr:rs.hr||G.hr,players:ps,curIdx:starter,
+    sk:{mode:mode==='fun'?'fun':'classic',round:1,phase:'place',starter,bid:null,passed:[],challenger:null,flowers:0,last:null,result:null,peek:null},
+    winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
+}
+function skAlive(state){return state.players.map((p,i)=>i).filter(i=>!state.players[i].sk.out);}
+function skNextAlive(state,from,pred){
+  const n=state.players.length;
+  for(let k=1;k<=n;k++){const i=(from+k)%n;if(!state.players[i].sk.out&&(!pred||pred(i)))return i;}
+  return from;
+}
+function skDiscs(p){return p.sk.hand.length+p.sk.stack.length;}
+function skPlacedTotal(state){return skAlive(state).reduce((a,i)=>a+state.players[i].sk.stack.length,0);}
+function skReadyToBid(state){return skAlive(state).every(i=>state.players[i].sk.stack.length>=1);}
+function skRankKey(p){return((p.sk&&p.sk.pts)||0)*10+((p.sk&&(p.sk.hand.length+p.sk.stack.length))||0);}
+// Place a disc face down on your own stack (kind 'F' flower / 'S' skull).
+function skPlace(state,idx,kind){
+  const s=state.sk;if(!s||s.phase!=='place'||state.curIdx!==idx)return false;
+  const p=state.players[idx].sk;if(p.out||!p.hand.includes(kind))return false;
+  p.hand.splice(p.hand.indexOf(kind),1);p.stack.push(kind);
+  state.curIdx=skNextAlive(state,idx);
+  return true;
+}
+function skBeginFlip(state,challenger){
+  const s=state.sk;s.phase='flip';s.challenger=challenger;s.flowers=0;s.last=null;state.curIdx=challenger;
+}
+// Start the bidding (from the placing phase) or raise it.
+function skBid(state,idx,n){
+  const s=state.sk;if(!s||state.curIdx!==idx||!Number.isInteger(n))return false;
+  const total=skPlacedTotal(state);
+  if(s.phase==='place'){
+    if(!skReadyToBid(state)||n<1||n>total)return false;
+    s.phase='bid';s.bid={n,by:idx};s.passed=[];
+  } else if(s.phase==='bid'){
+    if(s.passed.includes(idx)||n<=s.bid.n||n>total)return false;
+    s.bid={n,by:idx};
+  } else return false;
+  if(n===total){skBeginFlip(state,idx);return true;} // nobody can top "every disc on the table"
+  state.curIdx=skNextAlive(state,idx,i=>!s.passed.includes(i)&&i!==idx);
+  return true;
+}
+function skPass(state,idx){
+  const s=state.sk;if(!s||s.phase!=='bid'||state.curIdx!==idx||idx===s.bid.by||s.passed.includes(idx))return false;
+  s.passed.push(idx);
+  const left=skAlive(state).filter(i=>!s.passed.includes(i));
+  if(left.length<=1){skBeginFlip(state,s.bid.by);return true;}
+  state.curIdx=skNextAlive(state,idx,i=>!s.passed.includes(i)&&i!==s.bid.by);
+  return true;
+}
+// The challenger flips the top unflipped disc of a stack. Their own stack has to be finished first.
+function skFlip(state,idx,target){
+  const s=state.sk;if(!s||s.phase!=='flip'||state.curIdx!==idx||s.challenger!==idx)return false;
+  const me=state.players[idx].sk,t=state.players[target]&&state.players[target].sk;
+  if(!t||t.out||t.stack.length-t.fl<=0)return false;
+  if(me.stack.length-me.fl>0&&target!==idx)return false;
+  const kind=t.stack[t.stack.length-1-t.fl];t.fl++;
+  s.last={p:target,kind};
+  if(kind==='F'){s.flowers++;if(s.flowers>=s.bid.n)skResolve(state,true,target);}
+  else skResolve(state,false,target);
+  return true;
+}
+function skResolve(state,ok,target){
+  const s=state.sk,ch=s.challenger,cp=state.players[ch];
+  s.result={ok,challenger:ch,skullOwner:ok?null:target,needed:s.bid.n,flowers:s.flowers,lose:null};
+  if(ok){
+    cp.sk.pts++;
+    if(cp.sk.pts>=SK_WIN_POINTS){s.phase='over';state.winner=cp.id;state.winnerName=cp.name;state.winnerAv=cp.avatar;return;}
+    s.phase='result';return;
+  }
+  if(target===ch){s.phase='discard';state.curIdx=ch;return;} // your own skull: YOU choose what to lose
+  s.result.lose={idx:ch,kind:null};s.phase='result';       // someone else's: a random disc goes
+}
+function skDiscard(state,idx,kind){
+  const s=state.sk;if(!s||s.phase!=='discard'||state.curIdx!==idx||s.challenger!==idx)return false;
+  const p=state.players[idx].sk,all=[...p.hand,...p.stack];
+  if(!all.includes(kind))return false;
+  s.result.lose={idx,kind};s.phase='result';return true;
+}
+// Everyone takes their discs back; the loss (if any) is applied; the next round opens.
+function skNextRound(state){
+  const s=state.sk;if(!s||s.phase!=='result')return false;
+  state.players.forEach(pl=>{const p=pl.sk;if(p.out)return;p.hand=[...p.hand,...p.stack];p.stack=[];p.fl=0;});
+  const res=s.result;
+  if(res&&res.lose){
+    const p=state.players[res.lose.idx].sk;
+    const at=res.lose.kind?p.hand.indexOf(res.lose.kind):rnd(0,p.hand.length-1);
+    if(at>=0)p.hand.splice(at,1);
+    if(!p.hand.length)p.out=true;
+    res.eliminated=p.out;
+  }
+  const alive=skAlive(state);
+  if(alive.length<=1){
+    const w=state.players[alive[0]];s.phase='over';state.winner=w.id;state.winnerName=w.name;state.winnerAv=w.avatar;return true;
+  }
+  const ch=res?res.challenger:s.starter;
+  let starter=ch;
+  if(state.players[ch].sk.out)starter=(res&&res.skullOwner!=null&&res.skullOwner!==ch&&!state.players[res.skullOwner].sk.out)?res.skullOwner:skNextAlive(state,ch);
+  s.round++;state.round=(state.round||1);s.phase='place';s.bid=null;s.passed=[];s.challenger=null;s.flowers=0;s.last=null;s.result=null;s.peek=null;s.starter=starter;
+  state.curIdx=starter;
+  return true;
+}
+// FUN: once per game, before bidding, look at the top disc of one opponent's stack (only the peeker will ever see it).
+function skPeek(state,idx,target){
+  const s=state.sk;if(!s||s.mode!=='fun'||s.phase!=='place'||state.curIdx!==idx)return false;
+  const me=state.players[idx].sk,t=state.players[target]&&state.players[target].sk;
+  if(!t||target===idx||t.out||!t.stack.length||me.peek<1||me.stack.length<1)return false;
+  me.peek--;s.peek={by:idx,target,kind:t.stack[t.stack.length-1]};return true;
+}
+// Play for a player who has gone away: a flower, a pass, the next flip, a flower to lose, on to the next round.
+function skAutoMove(state){
+  const s=state.sk;if(!s||s.phase==='over')return false;
+  const idx=state.curIdx,p=state.players[idx]&&state.players[idx].sk;if(!p)return false;
+  if(s.phase==='place'){
+    if(p.hand.length)return skPlace(state,idx,p.hand.includes('F')?'F':'S');
+    return skBid(state,idx,1);
+  }
+  if(s.phase==='bid')return idx===s.bid.by?false:skPass(state,idx);
+  if(s.phase==='flip'){
+    if(p.stack.length-p.fl>0)return skFlip(state,idx,idx);
+    const t=skAlive(state).find(i=>i!==idx&&state.players[i].sk.stack.length-state.players[i].sk.fl>0);
+    return t!=null?skFlip(state,idx,t):false;
+  }
+  if(s.phase==='discard'){const all=[...p.hand,...p.stack];return skDiscard(state,idx,all.includes('F')?'F':'S');}
+  if(s.phase==='result')return skNextRound(state);
+  return false;
+}
+
+/* ── Flower or Skull: online ── */
+async function oSkMutate(mutate){
+  for(let i=0;i<6;i++){
+    const state=await dbRead(G.roomId);if(!state||!state.sk||state.gameId!=='skull')return false;
+    const expectedTs=state._ts;
+    if(!mutate(state))return false;
+    onSrv(state); // optimistic; the next real sync corrects us if this write lost the race
+    if(await dbWriteIfUnchanged(G.roomId,expectedTs,state))return true;
+  }
+  toast('⚠️ Connection hiccup — try that again');
+  return false;
+}
+function oSkMyIdx(state){return(state.players||[]).findIndex(p=>p.id===G.myPid);}
+async function oSkPlace(kind){
+  if(!isMyTurn()){toast('Not your turn');return;}
+  if(await oSkMutate(st=>{const i=oSkMyIdx(st);return i>=0&&skPlace(st,i,kind);})){SFX.chip();haptic(10);}
+}
+async function oSkBid(n){
+  if(!isMyTurn()){toast('Not your turn');return;}
+  if(await oSkMutate(st=>{const i=oSkMyIdx(st);return i>=0&&skBid(st,i,n);})){SFX.win();haptic([12,20,12]);G.skBid=null;}
+}
+async function oSkPass(){
+  if(!isMyTurn()){toast('Not your turn');return;}
+  if(await oSkMutate(st=>{const i=oSkMyIdx(st);return i>=0&&skPass(st,i);})){SFX.fold&&SFX.fold();G.skBid=null;}
+}
+async function oSkFlip(target){
+  if(!isMyTurn()){toast('Not your turn');return;}
+  if(await oSkMutate(st=>{const i=oSkMyIdx(st);return i>=0&&skFlip(st,i,target);})){SFX.chip();haptic(12);}
+}
+async function oSkDiscard(kind){
+  if(!isMyTurn()){toast('Not your turn');return;}
+  await oSkMutate(st=>{const i=oSkMyIdx(st);return i>=0&&skDiscard(st,i,kind);});
+}
+async function oSkNext(){await oSkMutate(st=>skNextRound(st));G.skBid=null;}
+async function oSkPeek(target){
+  if(!isMyTurn()){toast('Not your turn');return;}
+  await oSkMutate(st=>{const i=oSkMyIdx(st);return i>=0&&skPeek(st,i,target);});
+}
+let _skStageSig={};
+// Everything onSrv does for a Flower or Skull room.
+function oSkOnSrv(state,wasLobby){
+  const s=state.sk;
+  G.lres=null;
+  if(s.phase==='result'||s.phase==='discard'||s.phase==='over'){
+    const res=s.result;
+    if(res&&!res.ok&&s.last&&s.last.kind==='S'&&_skStageSig.skull!==s.round+'|'+state.round){
+      _skStageSig.skull=s.round+'|'+state.round;
+      const owner=state.players[s.last.p],ch=state.players[res.challenger];
+      stageEmit('SKULL',{who:ch,sub:(owner?esc(owner.name)+'’s skull':'A skull')+' — '+(ch?esc(ch.name):'')+' loses a disc'});
+    }
+    if(res&&res.ok&&_skStageSig.win!==s.round+'|'+state.round){
+      _skStageSig.win=s.round+'|'+state.round;
+      stageEmit('BIG_WIN',{who:state.players[res.challenger],text:'CHALLENGE WON!',sub:res.needed+' flowers, no skull',icon:'🌸'});
+    }
+  }
+  if(s.phase==='over'){
+    if(_skStageSig.over!==state.winner+'|'+s.round){
+      _skStageSig.over=state.winner+'|'+s.round;
+      SFX.win();v14WinnerBurst();celebrateWin(state.winnerName,state.winnerAv);fxPulse('gold');
+      addHistory({game:'skull',winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),
+        players:state.players.map(p=>p.name),mode:'online',moment:`${state.winnerName} bluffed their way to victory at Flower or Skull.`,
+        stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats.reactions}});
+      if(state.winner===G.myPid){G.tw++;localStorage.setItem('ct_tw',G.tw);}
+    }
+    G.scr='matchend';render();return;
+  }
+  G.scr='table';
+  if(wasLobby){const opener=state.players[state.curIdx||0];v14Intro('skull',opener&&opener.name,opener&&opener.avatar);G.gp++;localStorage.setItem('ct_gp',G.gp);G.skBid=null;_skStageSig={};}
+  render();
+}
+// Host's version picker in the lobby.
+function skOptionsHTML(){
+  const m=skMode();
+  const opts=[['classic','Classic','Flowers, skulls, bids and bluffs — nothing else.'],['fun','Fun','Everyone also gets a one-time 🔮 Peek at an opponent\'s top disc.']];
+  return`<div class="panel"><div class="panel-lbl">Which version?</div><div class="hr-grid">${opts.map(([k,n,d])=>`<div class="hr-tog${m===k?' on':''}" data-a="sk-mode" data-m="${k}"><div class="hr-row"><span class="hr-nm">${n}</span><span class="hr-chk">${m===k?'✓':''}</span></div><span class="hr-desc">${d}</span></div>`).join('')}</div></div>`;
+}
+
+/* ── Flower or Skull: the table ── everything drawn is public, except the viewer's own discs */
+function rSkullTable(){
+  const state=G.srv,s=state&&state.sk;
+  if(!state||!s)return`<div class="scr on"><p style="padding:2rem;text-align:center;">Setting up the table…</p></div>`;
+  const players=state.players,myIdx=players.findIndex(p=>p.id===G.myPid),me=players[myIdx]&&players[myIdx].sk;
+  const cur=players[state.curIdx||0],mine=isMyTurn(),total=skPlacedTotal(state);
+  const G_=(k)=>k==='F'?'🌸':'💀';
+  const bidder=s.bid?players[s.bid.by]:null;
+  // A player's mat: their discs as face-down chips, with the flipped ones (top first) turned over for everybody.
+  const mat=(pl,i)=>{
+    const sk=pl.sk,n=sk.stack.length,chips=[];
+    for(let k=0;k<n;k++){ // k = position counted from the TOP of the stack
+      const idxFromBottom=n-1-k,flipped=k<sk.fl;
+      chips.push(flipped?`<i class="sk-disc up ${sk.stack[idxFromBottom]==='S'?'skull':'flower'}">${G_(sk.stack[idxFromBottom])}</i>`
+        :`<i class="sk-disc down${i===myIdx?' mine':''}">${i===myIdx?G_(sk.stack[idxFromBottom]):''}</i>`);
+    }
+    chips.reverse(); // bottom -> top, left to right
+    const canFlip=s.phase==='flip'&&mine&&s.challenger===myIdx&&sk.stack.length-sk.fl>0&&!sk.out&&(i===myIdx||me.stack.length-me.fl===0);
+    const tag=sk.out?'<b class="sk-tag out">out</b>':s.phase==='bid'&&s.passed.includes(i)?'<b class="sk-tag">passed</b>':s.bid&&s.bid.by===i&&(s.phase==='bid'||s.phase==='flip')?`<b class="sk-tag bid">bid ${s.bid.n}</b>`:'';
+    const canPeek=s.mode==='fun'&&s.phase==='place'&&mine&&me&&me.peek>0&&me.stack.length>=1&&i!==myIdx&&!sk.out&&sk.stack.length>0;
+    return`<div class="sk-mat${i===state.curIdx?' turn':''}${sk.out?' dead':''}${i===myIdx?' me':''}">
+      <div class="sk-who">${avHTML(pl.avatar)}<span class="sk-name">${esc(pl.name)}${i===myIdx?' (you)':''}</span><span class="sk-pts" title="Challenges won">${'⭐'.repeat(sk.pts)||'·'}</span>${tag}</div>
+      <div class="sk-stack">${chips.join('')||'<em class="sk-empty">no discs down</em>'}</div>
+      <div class="sk-sub">${sk.out?'':`${sk.hand.length+sk.stack.length} disc${sk.hand.length+sk.stack.length!==1?'s':''}`}${canFlip?` <button class="btn btn-gold btn-sm" data-a="sk-flip" data-p="${i}">Flip ${i===myIdx?'mine':'top disc'}</button>`:''}${canPeek?` <button class="btn btn-ghost btn-sm" data-a="sk-peek" data-p="${i}">🔮 Peek</button>`:''}</div>
+    </div>`;
+  };
+  const mats=players.map(mat).join('');
+  // What I may do right now
+  let actions='',hint='';
+  const myTurn=mine&&me&&!me.out;
+  if(s.phase==='place'){
+    const mustPlace=me&&me.stack.length===0,canBid=skReadyToBid(state);
+    if(myTurn){
+      hint=mustPlace?'Put one disc face down on your mat.':'Add another disc — or start the bidding.';
+      const fl=me.hand.filter(k=>k==='F').length,sk_=me.hand.filter(k=>k==='S').length;
+      actions=`<div class="sk-actions"><div class="sk-row">
+        ${fl?`<button class="btn btn-green sk-btn" data-a="sk-place" data-k="F">🌸 Place a flower <em>×${fl}</em></button>`:''}
+        ${sk_?`<button class="btn btn-ghost sk-btn" data-a="sk-place" data-k="S">💀 Place the skull</button>`:''}
+      </div>${!mustPlace&&canBid?skBidControls(s,total,false):''}</div>`;
+    } else hint=`${esc(cur.name)} is placing a disc…`;
+  } else if(s.phase==='bid'){
+    if(myTurn){
+      hint=`${esc(bidder.name)} bids ${s.bid.n}. Raise it, or pass.`;
+      actions=`<div class="sk-actions">${skBidControls(s,total,true)}</div>`;
+    } else hint=`${esc(cur.name)} is deciding (bid: ${s.bid.n} by ${esc(bidder.name)})…`;
+  } else if(s.phase==='flip'){
+    const ch=players[s.challenger];
+    hint=mine&&s.challenger===myIdx?(me.stack.length-me.fl>0?`Flip YOUR OWN discs first. Need ${s.bid.n} flowers — ${s.flowers} so far.`:`Now flip someone else's top disc. ${s.flowers} of ${s.bid.n} flowers so far.`)
+      :`${esc(ch.name)} must flip ${s.bid.n} flowers — ${s.flowers} so far…`;
+  } else if(s.phase==='discard'){
+    const all=me?[...me.hand,...me.stack]:[];
+    if(myTurn){
+      hint='You flipped your OWN skull! Choose a disc to lose.';
+      actions=`<div class="sk-actions"><div class="sk-row">${all.includes('F')?'<button class="btn btn-green sk-btn" data-a="sk-discard" data-k="F">Lose a 🌸 flower</button>':''}${all.includes('S')?'<button class="btn btn-ghost sk-btn" data-a="sk-discard" data-k="S">Lose the 💀 skull</button>':''}</div></div>`;
+    } else hint=`${esc(cur.name)} flipped their own skull and is choosing what to lose…`;
+  } else if(s.phase==='result'){
+    const r=s.result,ch=players[r.challenger];
+    hint=r.ok?`✅ ${esc(ch.name)} flipped ${r.needed} flowers — a point!`
+      :`💀 ${esc(ch.name)} hit ${r.skullOwner===r.challenger?'their own':esc(players[r.skullOwner].name)+'’s'} skull and loses a disc.`;
+    actions=`<div class="sk-actions"><button class="btn btn-gold btn-full" data-a="sk-next">▶ Next round</button></div>`;
+  }
+  // My private discs, and the private Peek result (only its owner ever sees it)
+  const peek=s.peek&&s.peek.by===myIdx&&s.phase==='place'?`<div class="sk-peek">🔮 ${esc(players[s.peek.target].name)}’s top disc is a <b>${s.peek.kind==='F'?'🌸 flower':'💀 skull'}</b></div>`:'';
+  const mineHTML=me&&!me.out?`<div class="sk-mine"><div class="sk-mine-lbl">Your discs (only you can see these)</div>
+      <div class="sk-mine-row"><span>In hand:</span>${me.hand.map(k=>`<i class="sk-disc up ${k==='S'?'skull':'flower'}">${G_(k)}</i>`).join('')||'<em class="sk-empty">none</em>'}</div>
+      ${s.mode==='fun'?`<div class="sk-mine-row"><span>🔮 Peek:</span>${me.peek>0?'ready':'used'}</div>`:''}${peek}</div>`:(me&&me.out?'<div class="sk-mine"><div class="sk-mine-lbl">You are out — watch the rest play it out.</div></div>':'');
+  return`<div id="s-table" class="scr on game-skull">
+    <div class="game-bar">
+      <div class="gb-game">💀 Flower or Skull</div>
+      <div class="gb-turn${mine?' mine':''}">${avChar(cur.avatar)} ${esc(cur.name)}${s.phase==='result'?'':'’s move'}</div>
+      <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
+    </div>
+    <div class="felt-table sk-felt${mine?' my-turn':''}" style="flex:0 0 auto;min-height:0;max-height:none;padding:.9rem .7rem;gap:.7rem;">
+      <div class="sk-info">${s.mode==='fun'?'Fun version · ':''}Round ${s.round} · <b>${total}</b> disc${total!==1?'s':''} on the table${s.bid?` · bid <b>${s.bid.n}</b> by ${esc(bidder.name)}`:''}</div>
+      <div class="sk-mats">${mats}</div>
+      <div class="y-hint">${hint}</div>
+      ${actions}
+      ${mineHTML}
+      ${!mine&&cur?awayIndicatorHTML(cur.id,cur.name):''}
+    </div>
+    ${talkStripHTML()}
+  </div>`;
+}
+// Bid controls: a stepper and the Bid button (and Pass while bidding).
+function skBidControls(s,total,canPass){
+  const lo=(s.bid?s.bid.n:0)+1;
+  if(lo>total)return canPass?'<div class="sk-row"><button class="btn btn-ghost sk-btn" data-a="sk-pass">Pass</button></div>':'';
+  const n=Math.max(lo,Math.min(total,G.skBid||lo));
+  return`<div class="sk-bid"><span class="sk-bid-lbl">${canPass?'Raise to':'Start the bidding at'}</span>
+    <button class="btn btn-ghost btn-sm" data-a="sk-bidset" data-d="-1" aria-label="Lower">−</button><b class="sk-bid-n">${n}</b><button class="btn btn-ghost btn-sm" data-a="sk-bidset" data-d="1" aria-label="Higher">+</button>
+    <button class="btn btn-gold sk-btn" data-a="sk-bid" data-n="${n}">🎯 Bid ${n}</button>${canPass?'<button class="btn btn-ghost sk-btn" data-a="sk-pass">Pass</button>':''}</div>`;
 }
 
 /* ═══════ DICE: face flicker ═══════
@@ -15588,6 +15954,7 @@ function onSrv(state){
     if(state.gameId==='hotbomb'&&state.hb){oHbOnSrv(state,wasLobby);return;}
     if(state.gameId==='vault'&&state.vt){oVtOnSrv(state,wasLobby);return;}
     if(state.gameId==='escape'&&state.es){oEsOnSrv(state,wasLobby);return;}
+    if(state.gameId==='skull'&&state.sk){oSkOnSrv(state,wasLobby);return;}
     if(state.winner){
       if(state.gameId==='yahtzee'){
         const ySorted=[...(state.players||[])].sort((a,b)=>yTotalScore(b.scorecard)-yTotalScore(a.scorecard));
@@ -15918,7 +16285,7 @@ function hasActiveTable(){
 }
 // One accent color per game, echoing the home-screen game-card border colors, so a portrait's
 // frame and plaque tie back to whichever game it was won at.
-const MOMENT_ACCENT={maumau:'#5fd68a',texas:'#eac976',fivecard:'#eac976',blackjack:'#ef7688',battle:'#7ec2f2',romme:'#a8e0a0',hearts:'#f2a0b4',bridge:'#a8c8e0',uno:'#e0a8d8',yahtzee:'#f2c94c',roulette:'#e0637a',dicedual:'#e8843e',farkle:'#4fd6c9',bingo:'#b98af0',lepouilleux:'#6b6b7a',slots:'#f0cc60',pig:'#f2a0b4',drawit:'#f2954c',liarsdice:'#e0594a',summit:'#7ec2f2',hotbomb:'#ff7a45',vault:'#e0b040',bust:'#ff5a4e',escape:'#45c4b0',shutbox:'#d9a35c',fourrow:'#f2c230'};
+const MOMENT_ACCENT={maumau:'#5fd68a',texas:'#eac976',fivecard:'#eac976',blackjack:'#ef7688',battle:'#7ec2f2',romme:'#a8e0a0',hearts:'#f2a0b4',bridge:'#a8c8e0',uno:'#e0a8d8',yahtzee:'#f2c94c',roulette:'#e0637a',dicedual:'#e8843e',farkle:'#4fd6c9',bingo:'#b98af0',lepouilleux:'#6b6b7a',slots:'#f0cc60',pig:'#f2a0b4',drawit:'#f2954c',liarsdice:'#e0594a',summit:'#7ec2f2',hotbomb:'#ff7a45',vault:'#e0b040',bust:'#ff5a4e',escape:'#45c4b0',shutbox:'#d9a35c',fourrow:'#f2c230',skull:'#c9a0f0'};
 function rMoments(){
   const history=getHistory();
   const frames=history.map(h=>{
@@ -16470,7 +16837,13 @@ function resButtonsHTML(){
 }
 /* ── Online: start a game from a room state (the lobby's Start button, and Rematch / Play another game) ── */
 function oStartGame(rs){
-  if(!rs||!rs.players||rs.players.length<2){toast('Need at least 2 players');return;}
+  const minP=((GAMES.find(g=>g.id===(rs&&rs.gameId))||{}).minP)||2;
+  if(!rs||!rs.players||rs.players.length<minP){toast('Need at least '+minP+' players');return;}
+  if(rs.gameId==='skull'){
+    const gs=skBuildStart(rs,rs.players.slice(0,6),skMode());
+    G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+    return;
+  }
       if(rs.gameId==='uno'){
         const players=rs.players.map(p=>({...p,hand:[],totalScore:p.totalScore||0,roundsWon:p.roundsWon||0}));
         const deck=shuffle(buildUnoDeck());
@@ -16688,7 +17061,7 @@ function rLobby(){
   const state=G.srv||{},players=state.players||[];
   const game=GAMES.find(g=>g.id===(state.gameId||G.selGame))||GAMES[0];
   const seats=Array.from({length:Math.min(8,Math.max(6,players.length+1))},(_,i)=>{const p=players[i];if(p){const isMe=p.id===G.myPid;return`<div class="seat-card filled${isMe?' me':''}"><div class="seat-av">${avHTML(p.avatar)}</div><div><div class="seat-nm">${esc(p.name)}</div><div class="seat-tag">${p.id===players[0]?.id?'Host ':''} ${isMe?'· You':''}</div></div></div>`;}return`<div class="seat-card"><div class="seat-empty">Waiting…</div></div>`;}).join('');
-  const canStart=G.isHost&&players.length>=2;
+  const minStart=game.minP||2,canStart=G.isHost&&players.length>=minStart;
   return`<div id="s-lobby" class="scr on">
     <div class="topbar"><button class="back-btn" data-a="home">← Leave</button><span class="top-title">${game.icon} ${game.name}</span><div class="top-right">${sndBtn()}</div></div>
     <div class="lobby-body">
@@ -16702,9 +17075,10 @@ function rLobby(){
       ${game.id==='liarsdice'&&G.isHost?ldOptionsHTML():''}
       ${game.id==='bingo'&&G.isHost?bgOptionsHTML():''}
       ${game.id==='fourrow'&&G.isHost?c4OptionsHTML():''}
+      ${game.id==='skull'&&G.isHost?skOptionsHTML():''}
       ${game.id==='vault'&&G.isHost?vtOptionsHTML():''}
       ${game.id==='escape'&&G.isHost?esOptionsHTML():''}
-      ${G.isHost?`<button class="btn btn-gold btn-full" data-a="start" ${canStart?'':'disabled'}>${canStart?`▶ Start Game — ${players.length} players`:'Waiting for at least 2 players…'}</button>`:
+      ${G.isHost?`<button class="btn btn-gold btn-full" data-a="start" ${canStart?'':'disabled'}>${canStart?`▶ Start Game — ${players.length} players`:'Waiting for at least '+minStart+' players…'}</button>`:
       `<p style="text-align:center;padding:.8rem;color:var(--paper3);font-size:.85rem;">Waiting for the host to start…</p>`}
     </div>
   </div>`;
@@ -16751,6 +17125,7 @@ function rTable(){
   if(_tblGameId==='pig')return rPigTable();
   if(_tblGameId==='shutbox')return rShutBoxTable();
   if(_tblGameId==='fourrow')return rFourRowTable();
+  if(_tblGameId==='skull')return rSkullTable();
   if(_tblGameId==='bingo')return rBingoTable();
   if(_tblGameId==='lepouilleux')return rBlackPeterTable();
   if(_tblGameId==='dicedual')return rDiceDuelTable();
@@ -18356,10 +18731,11 @@ function rMatchEnd(){
   const isHB=(G.isOnline?G.srv?.gameId:G.selGame)==='hotbomb';
   const isSB=(G.isOnline?G.srv?.gameId:G.selGame)==='shutbox';
   const isC4=(G.isOnline?G.srv?.gameId:G.selGame)==='fourrow';
+  const isSK=(G.isOnline?G.srv?.gameId:G.selGame)==='skull';
   const c4Draw=isC4&&players.every(p=>p.c4Result==='draw');
   const chipGame=isPoker()||G.selGame==='blackjack'||G.selGame==='roulette'||G.selGame==='slots';
-  const sorted=[...players].sort((a,b)=>isSB?stbRankKey(a)-stbRankKey(b):isHB?hbRankKey(b)-hbRankKey(a):isSM?smRank(b)-smRank(a):isLD?((b.dice?.length||0)-(a.dice?.length||0)||(b.ldOutAt||0)-(a.ldOutAt||0)):isBattle?((b.hand?.length||0)-(a.hand?.length||0)):chipGame?((b.chips||0)-(a.chips||0)):((b.totalScore||0)-(a.totalScore||0)));
-  const rows=sorted.map((p,i)=>`<div class="sr${i===0?' win':''}"><span class="sr-rank">${['🥇','🥈','🥉','④','⑤','⑥','⑦','⑧'][i]||i+1}</span><span class="sr-av">${avHTML(p.avatar)}</span><span class="sr-name">${esc(p.name)}</span><span class="sr-delta" style="color:var(--paper3);">${isSB?(p.stbTiles===0?'shut the box!':(p.stbTiles||0)+' tile'+((p.stbTiles||0)!==1?'s':'')+' up'):(p.roundsWon||0)+' win'+((p.roundsWon||0)!==1?'s':'')}</span>${isC4?'<span class="sr-pts">'+(p.c4Result==='win'?'🏆':p.c4Result==='draw'?'½':'—')+'</span>':''}<span class="sr-pts"${isC4?' hidden':''} data-count="${isSB?(p.stbScore||0):isHB?(p.strikes||0):isSM?(p.order||[]).length:isLD?(p.dice?.length||0):isBattle?(p.hand?.length||0):chipGame?p.chips:(p.totalScore||0)}" data-count-suffix="${isSB?' pts':isHB?' 💥':isSM?' 🚩 · '+(p.cr||0)+' 💎':isLD?' 🎲':isBattle?' cards':chipGame?'c':''}">${isSB?(p.stbScore||0)+' pts':isHB?(p.strikes||0)+' 💥':isSM?(p.order||[]).length+' 🚩 · '+(p.cr||0)+' 💎':isLD?(p.dice?.length||0)+' 🎲':isBattle?(p.hand?.length||0)+' cards':chipGame?p.chips+'c':p.totalScore||0}</span></div>`).join('');
+  const sorted=[...players].sort((a,b)=>isSK?skRankKey(b)-skRankKey(a):isSB?stbRankKey(a)-stbRankKey(b):isHB?hbRankKey(b)-hbRankKey(a):isSM?smRank(b)-smRank(a):isLD?((b.dice?.length||0)-(a.dice?.length||0)||(b.ldOutAt||0)-(a.ldOutAt||0)):isBattle?((b.hand?.length||0)-(a.hand?.length||0)):chipGame?((b.chips||0)-(a.chips||0)):((b.totalScore||0)-(a.totalScore||0)));
+  const rows=sorted.map((p,i)=>`<div class="sr${i===0?' win':''}"><span class="sr-rank">${['🥇','🥈','🥉','④','⑤','⑥','⑦','⑧'][i]||i+1}</span><span class="sr-av">${avHTML(p.avatar)}</span><span class="sr-name">${esc(p.name)}</span><span class="sr-delta" style="color:var(--paper3);">${isSK?(p.sk&&p.sk.out?'out of discs':((p.sk&&(p.sk.hand.length+p.sk.stack.length))||0)+' discs left'):isSB?(p.stbTiles===0?'shut the box!':(p.stbTiles||0)+' tile'+((p.stbTiles||0)!==1?'s':'')+' up'):(p.roundsWon||0)+' win'+((p.roundsWon||0)!==1?'s':'')}</span>${isC4?'<span class="sr-pts">'+(p.c4Result==='win'?'🏆':p.c4Result==='draw'?'½':'—')+'</span>':''}<span class="sr-pts"${isC4?' hidden':''} data-count="${isSK?((p.sk&&p.sk.pts)||0):isSB?(p.stbScore||0):isHB?(p.strikes||0):isSM?(p.order||[]).length:isLD?(p.dice?.length||0):isBattle?(p.hand?.length||0):chipGame?p.chips:(p.totalScore||0)}" data-count-suffix="${isSK?' ⭐':isSB?' pts':isHB?' 💥':isSM?' 🚩 · '+(p.cr||0)+' 💎':isLD?' 🎲':isBattle?' cards':chipGame?'c':''}">${isSK?((p.sk&&p.sk.pts)||0)+' ⭐':isSB?(p.stbScore||0)+' pts':isHB?(p.strikes||0)+' 💥':isSM?(p.order||[]).length+' 🚩 · '+(p.cr||0)+' 💎':isLD?(p.dice?.length||0)+' 🎲':isBattle?(p.hand?.length||0)+' cards':chipGame?p.chips+'c':p.totalScore||0}</span></div>`).join('');
   const ms=G.matchStats;
   const statChips=`<div class="tonight-stats">
     <div class="tonight-stat"><div class="ts-val">${sorted[0]?.roundsWon||0}</div><div class="ts-lbl">🏆 Rounds Won</div></div>
@@ -18401,7 +18777,7 @@ function rYahtzeeEnd(){
 /* ════════ ROUTER ════════ */
 
 /* ═══ V14 CINEMATIC LAYER ═══ */
-function v14GameLabel(id){return ({maumau:'Mau Mau',texas:"Texas Hold'em",fivecard:'Five Card Draw',blackjack:'Blackjack',battle:'Battle',romme:'Rommé',hearts:'Hearts',bridge:'Bridge',yahtzee:'Yahtzee',roulette:'Roulette',dicedual:'Dice Duel',uno:'Uno',farkle:'Farkle',bingo:'Bingo',lepouilleux:'Old Maid',slots:'Slot Machine',pig:'Pig',drawit:'Draw-it',liarsdice:"Liar's Dice",summit:'Summit',hotbomb:'Hot Bomb',vault:'The Vault',bust:'BUST',escape:'Escape',shutbox:'Shut the Box',fourrow:'4 in a Row'})[id]||id||'Card Game'}
+function v14GameLabel(id){return ({maumau:'Mau Mau',texas:"Texas Hold'em",fivecard:'Five Card Draw',blackjack:'Blackjack',battle:'Battle',romme:'Rommé',hearts:'Hearts',bridge:'Bridge',yahtzee:'Yahtzee',roulette:'Roulette',dicedual:'Dice Duel',uno:'Uno',farkle:'Farkle',bingo:'Bingo',lepouilleux:'Old Maid',slots:'Slot Machine',pig:'Pig',drawit:'Draw-it',liarsdice:"Liar's Dice",summit:'Summit',hotbomb:'Hot Bomb',vault:'The Vault',bust:'BUST',escape:'Escape',shutbox:'Shut the Box',fourrow:'4 in a Row',skull:'Flower or Skull'})[id]||id||'Card Game'}
 function stageIsCards(id){const g=GAMES.find(x=>x.id===id);return!!g&&(g.cat==='cards'||g.cat==='casino');}
 function v14Intro(id,dealerName,dealerAvatar){
   const old=document.querySelector('.game-intro');if(old)old.remove();
@@ -19289,6 +19665,15 @@ document.addEventListener('click',e=>{
   else if(a==='pigroll'){G.isOnline?oPigRoll():pigRoll();}
   else if(a==='pigbank'){G.isOnline?oPigBank():pigBank();}
   else if(a==='c4drop'){const c=+t.getAttribute('data-c'),k=G.c4Armed||'drop';G.isOnline?oC4Drop(c,k):c4Play(c,k);}
+  else if(a==='sk-place'){oSkPlace(t.getAttribute('data-k'));}
+  else if(a==='sk-bidset'){const st=G.srv&&G.srv.sk;if(st){const tot=skPlacedTotal(G.srv),lo=(st.bid?st.bid.n:0)+1,cur=Math.max(lo,Math.min(tot,(G.skBid||lo)+(+t.getAttribute('data-d'))));G.skBid=Math.max(lo,Math.min(tot,cur));render();}}
+  else if(a==='sk-bid'){oSkBid(+t.getAttribute('data-n'));}
+  else if(a==='sk-pass'){oSkPass();}
+  else if(a==='sk-flip'){oSkFlip(+t.getAttribute('data-p'));}
+  else if(a==='sk-discard'){oSkDiscard(t.getAttribute('data-k'));}
+  else if(a==='sk-next'){oSkNext();}
+  else if(a==='sk-peek'){oSkPeek(+t.getAttribute('data-p'));}
+  else if(a==='sk-mode'){skSetMode(t.getAttribute('data-m'));render();}
   else if(a==='c4arm'){const k=t.getAttribute('data-p');G.c4Armed=G.c4Armed===k?null:k;render();}
   else if(a==='c4-mode'){c4SetMode(t.getAttribute('data-m'));render();}
   else if(a==='stbroll'){G.isOnline?oStbRoll():stbRoll();}
