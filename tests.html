@@ -5342,6 +5342,83 @@ async function runPresentation(A,W,frame){
     });
   }
 
+  /* —— Online Rematch and "Play another game" (awaits live at the top level: suite() callbacks are never awaited) —————— */
+  {
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const oRematch=F('oRematch'),oSwitchGame=F('oSwitchGame'),oAnotherGames=F('oAnotherGames'),onSrv=F('onSrv'),resButtonsHTML=F('resButtonsHTML'),c4NewGame=F('c4NewGame');
+    W.__keepSb=W.eval('_sb');
+    let DB=null;const clone=o=>JSON.parse(JSON.stringify(o));
+    W.__fakeSb={from:()=>({
+      select:()=>({eq:()=>({single:()=>Promise.resolve({data:DB?{state:clone(DB)}:null,error:DB?null:{message:'none'}})})}),
+      upsert:row=>{DB=clone(row.state);return Promise.resolve({error:null});},
+      update:row=>({eq:()=>({eq:()=>({select:()=>{DB=clone(row.state);return Promise.resolve({data:[{id:'T'}],error:null});}})})})})};
+    const seen={};
+    const P=(id,n,i,extra)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:3,roundsWon:2,chips:900,...extra});
+    try{
+      W.eval('_sb=window.__fakeSb');
+      G.isOnline=true;G.roomId='T';G.myPid='a';G.isHost=true;G.scr='matchend';
+      // 4 in a Row, finished
+      DB={phase:'game',gameId:'fourrow',host:'a',players:[P('a','Anna',0,{c4Result:'win'}),P('b','Ben',1,{c4Result:'loss'})],curIdx:0,c4:{...c4NewGame('classic'),over:true,moves:9},winner:'a',winnerName:'Anna',winnerAv:null,round:1,_ts:Date.now()-5000};
+      G.srv=clone(DB);
+      await oRematch();
+      seen.c4=clone(DB);
+      // Shut the Box, finished
+      DB={phase:'game',gameId:'shutbox',host:'a',players:[P('a','Anna',0,{stbScore:5,stbTiles:2}),P('b','Ben',1,{stbScore:9,stbTiles:3})],curIdx:1,stb:{open:[1],dice:[2],target:2,phase:'over'},winner:'a',winnerName:'Anna',winnerAv:null,round:1,_ts:Date.now()-5000};
+      G.srv=clone(DB);await oRematch();seen.stb=clone(DB);
+      // Pig, finished
+      DB={phase:'game',gameId:'pig',host:'a',players:[P('a','Anna',0,{totalScore:104}),P('b','Ben',1,{totalScore:60})],curIdx:0,pig:{die:3,turnTotal:0,hasRolled:true,busted:false},winner:'a',winnerName:'Anna',winnerAv:null,round:1,_ts:Date.now()-5000};
+      G.srv=clone(DB);await oRematch();seen.pig=clone(DB);
+      // Only the host may rematch
+      DB={phase:'game',gameId:'fourrow',host:'a',players:[P('a','Anna',0),P('b','Ben',1)],curIdx:0,c4:{...c4NewGame('classic'),over:true,moves:9},winner:'a',_ts:Date.now()-5000};
+      G.srv=clone(DB);G.isHost=false;G.myPid='b';const before=JSON.stringify(DB);await oRematch();seen.nonHostUntouched=JSON.stringify(DB)===before;G.isHost=true;G.myPid='a';
+      // Everyone's screen leaves the results when the rematch state arrives
+      G.isHost=false;G.myPid='b';G.scr='matchend';G.selGame='fourrow';
+      onSrv(clone(seen.c4));
+      seen.guestScr=G.scr;
+      // Play another game with the same people
+      G.isHost=true;G.myPid='a';G.scr='matchend';
+      DB={phase:'game',gameId:'fourrow',host:'a',players:[P('a','Anna',0),P('b','Ben',1)],curIdx:0,c4:c4NewGame('classic'),winner:'a',_ts:Date.now()-5000};
+      G.srv=clone(DB);
+      seen.twoSeats=oAnotherGames().map(g=>g.id);
+      await oSwitchGame('shutbox');
+      seen.switched=clone(DB);seen.hostScr=G.scr;seen.hostGame=G.selGame;
+      DB={phase:'game',gameId:'fourrow',host:'a',players:[P('a','Anna',0),P('b','Ben',1),P('c','Cleo',2)],curIdx:0,c4:c4NewGame('classic'),winner:'a',_ts:Date.now()-5000};
+      G.srv=clone(DB);seen.threeSeats=oAnotherGames().map(g=>g.id);
+      // buttons
+      G.isOnline=true;G.isHost=true;G.anotherOpen=false;seen.hostBtns=resButtonsHTML();
+      G.anotherOpen=true;seen.hostPicker=resButtonsHTML();G.anotherOpen=false;
+      G.isHost=false;seen.guestBtns=resButtonsHTML();
+      G.isOnline=false;seen.localBtns=resButtonsHTML();
+    } finally {
+      W.eval('_sb=window.__keepSb');
+      G.isOnline=false;G.srv=null;G.scr='home';G.isHost=false;G.anotherOpen=false;
+      try{W.localStorage.removeItem('ct_online_session');W.localStorage.removeItem('ct_resume');}catch(e){}
+    }
+    suite('Online Rematch restarts the same game with the same players, in the same room',()=>{
+      const ok=(s,g)=>s.phase==='game'&&s.gameId===g&&!s.winner&&s.round===1&&!!s.rematchId;
+      check('4 in a Row: a fresh empty board, nobody has won, and the rematch is marked',ok(seen.c4,'fourrow')&&seen.c4.c4.moves===0&&!seen.c4.c4.over&&seen.c4.players.every(p=>p.c4Result==null));
+      check('4 in a Row: the very same two players are still seated',seen.c4.players.map(p=>p.id).join()==='a,b'&&seen.c4.host==='a');
+      check('Shut the Box: everyone\'s score is cleared and a full box is open',ok(seen.stb,'shutbox')&&seen.stb.players.every(p=>p.stbScore==null)&&seen.stb.stb.open.length===9);
+      check('Pig (an older game) restarts too, with scores back to zero',ok(seen.pig,'pig')&&seen.pig.players.every(p=>p.totalScore===0));
+      check('old scores, cards and chips never leak into the new game',seen.pig.players.every(p=>p.roundsWon===0||p.roundsWon===undefined));
+      check('only the host can start a rematch: anyone else changes nothing',seen.nonHostUntouched);
+      check('a guest sitting on the results screen is taken into the new game when it starts',seen.guestScr!=='matchend');
+    });
+    suite('Online "Play another game" sends the same people back to the lobby',()=>{
+      check('the room goes back to a lobby for the new game with the same players and host',seen.switched.phase==='lobby'&&seen.switched.gameId==='shutbox'&&seen.switched.players.map(p=>p.id).join()==='a,b'&&seen.switched.host==='a');
+      check('the lobby carries no leftovers of the last game (no winner, no board)',!seen.switched.winner&&!seen.switched.c4);
+      check('the host lands on that lobby, with the new game selected',seen.hostScr==='lobby'&&seen.hostGame==='shutbox');
+      check('the picker offers other online games for two players (Shut the Box, Pig...) but never the game just played',seen.twoSeats.includes('shutbox')&&seen.twoSeats.includes('pig')&&!seen.twoSeats.includes('fourrow'));
+      check('with three seats, two-player games are not offered',!seen.threeSeats.includes('dicedual')&&!seen.threeSeats.includes('battle')&&seen.threeSeats.includes('pig'));
+    });
+    suite('The results screen offers the right buttons to the right people',()=>{
+      check('the host gets Rematch, Play another game and Leave',/data-a="o-rematch"/.test(seen.hostBtns)&&/data-a="o-another"/.test(seen.hostBtns)&&/newgame/.test(seen.hostBtns));
+      check('tapping "Play another game" opens a list of games to pick from',/data-a="o-switch"/.test(seen.hostPicker)&&!/data-a="o-switch"/.test(seen.hostBtns));
+      check('everyone else sees who they are waiting for, and can only leave',/Waiting for/.test(seen.guestBtns)&&!/o-rematch/.test(seen.guestBtns)&&/newgame/.test(seen.guestBtns));
+      check('a local game keeps its plain Rematch',/data-a="rematch"/.test(seen.localBtns)&&!/o-rematch/.test(seen.localBtns));
+    });
+  }
+
   /* —— Le Pouilleux: deck, auto-discard, and turn rotation —————— */
   suite('Le Pouilleux\'s deck, auto-discard, and turn order are all correct',()=>{
     const deck=A.bpBuildDeck();

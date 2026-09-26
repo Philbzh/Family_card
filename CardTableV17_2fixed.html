@@ -1358,6 +1358,9 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 .c4-power.armed{background:linear-gradient(155deg,#ffd36a,#f29a2e);color:#2a1600;border-color:transparent;box-shadow:0 0 14px rgba(255,190,80,.7);}
 .c4-pw{font-style:normal;margin-left:.3rem;letter-spacing:.05em;}
 @media(prefers-reduced-motion:reduce){.c4-cell.boom,.c4-col.warn{animation:none;}}
+.o-another-grid{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;}
+.o-another-btn{justify-content:flex-start;gap:.4rem;font-size:.78rem;padding:.55rem .6rem;}
+.o-another-btn span{font-size:1.1rem;}
 .c4-pill{display:inline-flex;align-items:center;gap:.35rem;}
 .c4-dot{width:.85rem;height:.85rem;border-radius:50%;display:inline-block;}
 .c4-d1{background:#e5322d;}.c4-d2{background:#f2c230;}
@@ -3298,6 +3301,7 @@ const dbRead=async id=>{
 const dbWrite=async(id,s)=>{
   const sb=SB();if(!sb){toast('⚠️ Online mode unavailable');return false;}
   s._ts=s._ts||Date.now();
+  if(_rematchStamp&&s.phase==='game'&&s.gameId){s.rematchId=_rematchStamp;_rematchStamp=0;}
   try{const{error}=await sb.from('card_rooms').upsert({id,state:s,updated_at:new Date().toISOString()});if(error){toast('⚠️ Sync error');return false;}return true;}
   catch(e){toast('⚠️ Network error');return false;}
 };
@@ -15425,6 +15429,10 @@ function onSrv(state){
   // and by the realtime payload path, so guard here too rather than trusting every caller.
   state=sanitiseState(state);
   if(!state)return;
+  // A rematch: everybody sitting on the results screen re-enters through the same fresh-start path as the lobby's Start.
+  if(state.rematchId&&state.phase==='game'&&state.rematchId!==_rematchSeen&&G.scr==='matchend'){_rematchSeen=state.rematchId;G.scr='lobby';G.anotherOpen=false;}
+  // The host picked a different game for the same table: the lobby (and rules, options...) must follow.
+  if(G.isOnline&&state.gameId&&state.gameId!==G.selGame)G.selGame=state.gameId;
   const prevWinner=G.srv?.winner,wasLobby=G.scr==='lobby';
   const wasMine=G.srv?.players?.[G.srv?.curIdx||0]?.id===G.myPid;
   const prevTop=state.gameId==='maumau'?G.srv?.discard?.[(G.srv.discard.length||1)-1]:null;
@@ -16447,6 +16455,218 @@ function rSetup(){
       <button class="btn btn-gold btn-full" data-a="deal" style="padding:1rem;">${game.id==='yahtzee'?'🎲 Start Rolling':game.id==='roulette'?'🎡 Open the Table':game.id==='slots'?'🎰 Power Up the Machine':game.id==='drawit'?'🎨 Start Drawing':game.id==='liarsdice'?'🎲 Roll the Dice':game.id==='summit'?'🏔️ Start the Climb':game.id==='shutbox'?'📦 Open the Box':game.id==='hotbomb'?'💣 Light the Fuse':'🃏 Deal the Cards'}</button>
     </div>
   </div>`;
+}
+
+// The buttons under every final result. Local: Rematch / New Game. Online host: Rematch (same players), pick another
+// game (same players, same room) or leave. Everybody else waits for the host.
+function resButtonsHTML(){
+  if(!G.isOnline)return'<div class="res-btns"><button class="btn btn-gold btn-full" data-a="rematch">🔥 Rematch</button><button class="btn btn-ghost btn-full" data-a="newgame">New Game</button></div>';
+  if(!G.isHost){
+    const host=((G.srv&&G.srv.players||[]).find(p=>p.id===(G.srv&&G.srv.host))||{}).name||'the host';
+    return`<div class="res-btns"><div class="slot-result" style="padding:.6rem;">Waiting for ${esc(host)} to start the next game…</div><button class="btn btn-ghost btn-full" data-a="newgame">Leave the table</button></div>`;
+  }
+  const picker=G.anotherOpen?`<div class="panel" style="margin-top:.8rem;"><div class="panel-lbl">Pick the next game — same players, same room</div><div class="o-another-grid">${oAnotherGames().map(g=>`<button class="btn btn-ghost o-another-btn" data-a="o-switch" data-gid="${g.id}"><span>${g.icon}</span> ${esc(g.name)}</button>`).join('')||'<div class="hr-desc">No other game fits this many players.</div>'}</div></div>`:'';
+  return'<div class="res-btns"><button class="btn btn-gold btn-full" data-a="o-rematch">🔥 Rematch — same players</button><button class="btn btn-ghost btn-full" data-a="o-another">🎲 Play another game'+(G.anotherOpen?' ▴':' ▾')+'</button><button class="btn btn-ghost btn-full" data-a="newgame">Leave the table</button></div>'+picker;
+}
+/* ── Online: start a game from a room state (the lobby's Start button, and Rematch / Play another game) ── */
+function oStartGame(rs){
+  if(!rs||!rs.players||rs.players.length<2){toast('Need at least 2 players');return;}
+      if(rs.gameId==='uno'){
+        const players=rs.players.map(p=>({...p,hand:[],totalScore:p.totalScore||0,roundsWon:p.roundsWon||0}));
+        const deck=shuffle(buildUnoDeck());
+        for(let r=0;r<7;r++)players.forEach(p=>{if(deck.length)p.hand.push(deck.pop());});
+        let first=null;
+        for(let i=0;i<500;i++){first=deck.pop();if(!first)break;if(unoIsAction(first)){deck.unshift(first);continue;}break;}
+        if(deck.length)shuffle(deck);
+        const gs={phase:'game',gameId:'uno',host:rs.host,hr:rs.hr||G.hr,players,deck,discard:first?[first]:[],curSuit:first?first.color:UNO_COLORS[0],curIdx:rnd(0,players.length-1),dir:1,drawPend:0,skip8Pend:false,round:1,winner:null,needsSuit:false,lastAct:'',_ts:Date.now()};
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='dicedual'){
+        const players=rs.players.slice(0,2).map(p=>({...p,totalScore:0,roundsWon:0,hand:[]}));
+        const gs=oDdBuildStart(rs,players);
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='blackjack'){
+        const players=rs.players.map(p=>({...p,chips:p.chips||DEFAULT_CHIPS,roundsWon:p.roundsWon||0}));
+        const d=oBjBuildDeal(rs,players);
+        const gs={phase:'game',gameId:'blackjack',host:rs.host,hr:rs.hr||G.hr,bjBetAmount:rs.bjBetAmount||50,players,deck:d.deck,dealerHand:d.dealerHand,dealerHoleHidden:true,curIdx:d.curIdx,winner:null,lastAct:'',round:1,_ts:Date.now()};
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);if(d.allDoneAtDeal)setTimeout(()=>oBjDealerPlay(),900);});
+        return;
+      }
+      if(rs.gameId==='battle'){
+        const players=rs.players.map(p=>({...p,hand:[]}));
+        const deck=shuffle(buildDeck(1,'battle'));
+        const dc=(GAMES.find(g=>g.id==='battle')||{}).deal||26;
+        for(let r=0;r<dc;r++)players.forEach(p=>{if(deck.length)p.hand.push(deck.pop());});
+        const gs={phase:'game',gameId:'battle',host:rs.host,hr:rs.hr||G.hr,players,deck:[],battleLast:null,winner:null,lastAct:'',round:1,_ts:Date.now()};
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='yahtzee'){
+        const players=rs.players.map(p=>({...p,scorecard:yFreshScorecard()}));
+        const gs={phase:'game',gameId:'yahtzee',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,ydice:[1,1,1,1,1],yheld:[false,false,false,false,false],yrolls:0,yLastRolled:[],winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='farkle'){
+        const players=rs.players.map(p=>({...p,totalScore:0,fkOnBoard:false}));
+        const gs={phase:'game',gameId:'farkle',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
+          fk:{dice:fkFreshDiceArr(),selected:new Array(6).fill(false),turnTotal:0,hasRolled:false,
+            lastRolled:[],busted:false,finalRoundActive:false,finalRoundEndSeat:null},
+          winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='bust'){
+        const players=rs.players.map(p=>({...p,totalScore:0,bstOnBoard:false}));
+        const gs={phase:'game',gameId:'bust',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
+          bst:bstFreshTurnState(),
+          winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='liarsdice'){
+        const players=rs.players.slice(0,6).map(p=>({...p,totalScore:0,roundsWon:0}));
+        const gs=oLdNewRound(rs,players,1,rnd(0,players.length-1),ldWildRule(),true);
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='summit'){
+        const players=rs.players.slice(0,6).map(p=>({...p,totalScore:0,roundsWon:0}));
+        const gs=oSmNewGame(rs,players,rnd(0,players.length-1));
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='vault'){
+        const players=rs.players.slice(0,6).map(p=>({...p,totalScore:0,roundsWon:0}));
+        const o=vtOptions(),gs=oVtNewGame(rs,players,o.adv,o.diff,(Math.random()*4294967295)>>>0);
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='escape'){
+        const players=rs.players.slice(0,6).map(p=>({...p,totalScore:0,roundsWon:0}));
+        const o=esOptions(),day=o.daily?esTodayStr():null,gs=oEsNewGame(rs,players,o.adv,o.diff,day?esDailySeed(day,o.adv):(Math.random()*4294967295)>>>0,day);
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='hotbomb'){
+        const players=rs.players.slice(0,8).map(p=>hbNewPlayer({...p,totalScore:0,roundsWon:0,hbWin:false}));
+        const gs=oHbNewGame(rs,players);
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='drawit'){
+        const players=rs.players.slice(0,6).map(p=>({...p,totalScore:0,roundsWon:0}));
+        dwReadOptions();
+        const gs=oDwNewRound({...rs,dwLevel:dwLevel(),dwCustom:dwCustomList(dwCustomText()),dwMatch:dwMatchMode()},players,1,rnd(0,players.length-1),[],dwLang());
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='pig'){
+        const players=rs.players.map(p=>({...p,totalScore:0}));
+        const gs={phase:'game',gameId:'pig',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
+          pig:{die:1,turnTotal:0,hasRolled:false,busted:false},
+          winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='fourrow'){
+        const players=rs.players.slice(0,2).map(p=>({...p,totalScore:0,c4Result:null}));
+        const gs={phase:'game',gameId:'fourrow',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
+          c4:c4NewGame(c4Mode()),winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='shutbox'){
+        const players=rs.players.map(p=>({...p,totalScore:0,stbScore:null,stbTiles:null}));
+        const gs={phase:'game',gameId:'shutbox',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
+          stb:stbNewTurn(),winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='bingo'){
+        const players=rs.players.map(p=>({...p,totalScore:p.totalScore||0}));
+        const gs=oBgBuildStart(rs,players);
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='lepouilleux'){
+        const players=rs.players.map(p=>({...p,totalScore:p.totalScore||0}));
+        const gs=oBpBuildStart(rs,players);
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='texas'||rs.gameId==='fivecard'){
+        const players=rs.players.map(p=>({...p,chips:p.chips||DEFAULT_CHIPS,roundsWon:p.roundsWon||0}));
+        const dealerIdx=0;
+        const d=oPokerBuildDeal(rs,players,dealerIdx);
+        const gs={phase:'game',gameId:rs.gameId,host:rs.host,hr:rs.hr||G.hr,bigBlind:d.bigBlind,smallBlind:d.smallBlind,
+          players,deck:d.deck,community:[],communityRevealAnim:null,pokerPhase:'preflop',pot:d.pot,currentBet:d.currentBet,
+          dealer:dealerIdx,curIdx:d.curIdx,lstart:d.curIdx,winner:null,winnerName:null,winnerAv:null,roundResult:null,lastAct:'',round:1,_ts:Date.now()};
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='roulette'){
+        const players=rs.players.map(p=>({...p,chips:p.chips||DEFAULT_CHIPS,roundsWon:p.roundsWon||0,roulBets:{},roulBetLog:[]}));
+        const gs={phase:'game',gameId:'roulette',host:rs.host,hr:rs.hr||G.hr,players,roulSpinning:false,roulHighlight:null,roulHistory:[],winner:null,winnerName:null,winnerAv:null,roundResult:null,lastAct:'',round:1,_ts:Date.now()};
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='slots'){
+        const players=rs.players.map(p=>({...p,chips:p.chips||DEFAULT_CHIPS}));
+        const gs=oSlotBuildStart(rs,players);
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      const game=GAMES.find(g=>g.id===(rs.gameId||'maumau'))||GAMES[0];
+      const deck=shuffle(buildDeck(1,rs.gameId||G.selGame));
+      const players=rs.players.map(p=>({...p,hand:[],totalScore:p.totalScore||0,roundsWon:p.roundsWon||0}));
+      const dc=game.deal||7;
+      for(let r=0;r<dc;r++)players.forEach(p=>{if(deck.length)p.hand.push(deck.pop());});
+      let first=null;
+      if(game.id==='maumau'){const jks=[];for(let i=0;i<500;i++){first=deck.pop();if(!first)break;if(first.rank==='J'){jks.push(first);continue;}break;}if(jks.length){deck.push(...jks);shuffle(deck);}}
+      const openDrawPend=first&&first.rank==='7'?2:0;
+      const openSkip8=!!(first&&first.rank==='8');
+      const gs={phase:'game',gameId:rs.gameId,host:rs.host,hr:rs.hr||G.hr,players,deck,discard:first?[first]:[],curSuit:first?first.suit:SUITS[0],curIdx:rnd(0,players.length-1),dir:1,drawPend:openDrawPend,skip8Pend:openSkip8,round:1,winner:null,needsSuit:false,lastAct:openSkip8?'8 revealed — first player must play an 8 or pass!':'',_ts:Date.now()};
+      G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+}
+// Rematch: the host restarts the SAME game with the SAME players in the SAME room -- nobody is invited again.
+// Everyone's screen leaves the results and enters the fresh game through the normal start path (intro and all):
+// the new state carries a rematchId (stamped onto the very next 'game' write, see dbWrite) that onSrv recognises.
+let _rematchStamp=0,_rematchSeen=0;
+async function oRematch(){
+  if(!G.isOnline||!G.isHost){toast('Only the host can start the rematch');return;}
+  if(_onlineBusy)return;_onlineBusy=true;
+  try{
+    const rs=await dbRead(G.roomId);if(!rs||!rs.players||rs.players.length<2)return;
+    const clean={phase:'lobby',gameId:rs.gameId,host:rs.host,hr:rs.hr,bjBetAmount:rs.bjBetAmount,bigBlind:rs.bigBlind,smallBlind:rs.smallBlind,
+      players:rs.players.map(p=>({id:p.id,name:p.name,avatar:p.avatar})),_ts:Date.now()};
+    _rematchStamp=Date.now();setTimeout(()=>{_rematchStamp=0;},4000);
+    oStartGame(clean);
+  } finally { _onlineBusy=false; }
+}
+// Which online games can this table play next? Playable, online, and the right number of seats.
+function oAnotherGames(){
+  const n=(G.srv&&G.srv.players||[]).length;
+  return GAMES.filter(g=>!g.locked&&ONLINE_GAMES.includes(g.id)&&g.id!==(G.srv&&G.srv.gameId)&&(()=>{
+    const nums=String(g.players||'2').match(/\d+/g).map(Number);return n>=nums[0]&&n<=nums[nums.length-1];})());
+}
+// Play a different game with the same people: the room goes back to its lobby (same players, same code)
+// with the new game picked -- the host only has to press Start.
+async function oSwitchGame(id){
+  if(!G.isOnline||!G.isHost){toast('Only the host can pick the next game');return;}
+  if(_onlineBusy)return;_onlineBusy=true;
+  try{
+    const rs=await dbRead(G.roomId);if(!rs||!rs.players)return;
+    const g=GAMES.find(x=>x.id===id);if(!g||g.locked||!ONLINE_GAMES.includes(id))return;
+    const lobby={phase:'lobby',gameId:id,host:rs.host,hr:rs.hr,bjBetAmount:rs.bjBetAmount,bigBlind:rs.bigBlind,smallBlind:rs.smallBlind,
+      players:rs.players.map(p=>({id:p.id,name:p.name,avatar:p.avatar,hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS})),_ts:Date.now()};
+    G.selGame=id;G.anotherOpen=false;G.srv=lobby;
+    const ok=await dbWrite(G.roomId,lobby);
+    if(ok){G.scr='lobby';render();}
+  } finally { _onlineBusy=false; }
 }
 
 /* ════════ ONLINE ════════ */
@@ -18155,7 +18375,7 @@ function rMatchEnd(){
       ${statChips}
       <div class="panel" style="text-align:center;margin-bottom:.8rem;"><div class="panel-lbl">TABLE MOMENT</div><div style="font-family:var(--serif);font-size:1.1rem;color:var(--paper);margin:.2rem 0;">${matchMoment(sorted)}</div></div>
       <div class="standings">${rows}</div>
-      <div class="res-btns">${G.isOnline?'':'<button class="btn btn-gold btn-full" data-a="rematch">🔥 Rematch</button>'}<button class="btn ${G.isOnline?'btn-gold':'btn-ghost'} btn-full" data-a="newgame">New Game</button></div>
+      ${resButtonsHTML()}
     </div>
   </div>`;
 }
@@ -18173,7 +18393,7 @@ function rYahtzeeEnd(){
     <div class="res-body">
       <div class="winner-banner" style="--acc:${MOMENT_ACCENT.yahtzee||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${avChar(winner.avatar)} ${esc(winner.name)} wins with ${winner.score}!</div>${marginSub?`<div class="wb-sub">${marginSub}</div>`:''}<button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div>
       <div class="standings">${rows}</div>
-      <div class="res-btns">${G.isOnline?'':'<button class="btn btn-gold btn-full" data-a="rematch">🔥 Rematch</button>'}<button class="btn ${G.isOnline?'btn-gold':'btn-ghost'} btn-full" data-a="newgame">New Game</button></div>
+      ${resButtonsHTML()}
     </div>
   </div>`;
 }
@@ -19152,169 +19372,7 @@ document.addEventListener('click',e=>{
       rs.players.push({id:G.myPid,name,avatar:G.myAvatar,hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS});rs._ts=Date.now();G.selGame=rs.gameId||G.selGame;G.srv=rs;dbWrite(code,rs).then(ok=>{if(!ok){toast('Failed to join');return;}(rs.talk||[]).forEach(en=>_seenTalk.add(en.id));dbSub(code,onSrv);saveOnlineSession();SFX.join();G.scr='lobby';render();});});
   }
   else if(a==='start'){
-    dbRead(G.roomId).then(rs=>{
-      if(!rs||rs.players.length<2){toast('Need at least 2 players');return;}
-      if(rs.gameId==='uno'){
-        const players=rs.players.map(p=>({...p,hand:[],totalScore:p.totalScore||0,roundsWon:p.roundsWon||0}));
-        const deck=shuffle(buildUnoDeck());
-        for(let r=0;r<7;r++)players.forEach(p=>{if(deck.length)p.hand.push(deck.pop());});
-        let first=null;
-        for(let i=0;i<500;i++){first=deck.pop();if(!first)break;if(unoIsAction(first)){deck.unshift(first);continue;}break;}
-        if(deck.length)shuffle(deck);
-        const gs={phase:'game',gameId:'uno',host:rs.host,hr:rs.hr||G.hr,players,deck,discard:first?[first]:[],curSuit:first?first.color:UNO_COLORS[0],curIdx:rnd(0,players.length-1),dir:1,drawPend:0,skip8Pend:false,round:1,winner:null,needsSuit:false,lastAct:'',_ts:Date.now()};
-        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
-        return;
-      }
-      if(rs.gameId==='dicedual'){
-        const players=rs.players.slice(0,2).map(p=>({...p,totalScore:0,roundsWon:0,hand:[]}));
-        const gs=oDdBuildStart(rs,players);
-        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
-        return;
-      }
-      if(rs.gameId==='blackjack'){
-        const players=rs.players.map(p=>({...p,chips:p.chips||DEFAULT_CHIPS,roundsWon:p.roundsWon||0}));
-        const d=oBjBuildDeal(rs,players);
-        const gs={phase:'game',gameId:'blackjack',host:rs.host,hr:rs.hr||G.hr,bjBetAmount:rs.bjBetAmount||50,players,deck:d.deck,dealerHand:d.dealerHand,dealerHoleHidden:true,curIdx:d.curIdx,winner:null,lastAct:'',round:1,_ts:Date.now()};
-        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);if(d.allDoneAtDeal)setTimeout(()=>oBjDealerPlay(),900);});
-        return;
-      }
-      if(rs.gameId==='battle'){
-        const players=rs.players.map(p=>({...p,hand:[]}));
-        const deck=shuffle(buildDeck(1,'battle'));
-        const dc=(GAMES.find(g=>g.id==='battle')||{}).deal||26;
-        for(let r=0;r<dc;r++)players.forEach(p=>{if(deck.length)p.hand.push(deck.pop());});
-        const gs={phase:'game',gameId:'battle',host:rs.host,hr:rs.hr||G.hr,players,deck:[],battleLast:null,winner:null,lastAct:'',round:1,_ts:Date.now()};
-        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
-        return;
-      }
-      if(rs.gameId==='yahtzee'){
-        const players=rs.players.map(p=>({...p,scorecard:yFreshScorecard()}));
-        const gs={phase:'game',gameId:'yahtzee',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,ydice:[1,1,1,1,1],yheld:[false,false,false,false,false],yrolls:0,yLastRolled:[],winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
-        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
-        return;
-      }
-      if(rs.gameId==='farkle'){
-        const players=rs.players.map(p=>({...p,totalScore:0,fkOnBoard:false}));
-        const gs={phase:'game',gameId:'farkle',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
-          fk:{dice:fkFreshDiceArr(),selected:new Array(6).fill(false),turnTotal:0,hasRolled:false,
-            lastRolled:[],busted:false,finalRoundActive:false,finalRoundEndSeat:null},
-          winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
-        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
-        return;
-      }
-      if(rs.gameId==='bust'){
-        const players=rs.players.map(p=>({...p,totalScore:0,bstOnBoard:false}));
-        const gs={phase:'game',gameId:'bust',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
-          bst:bstFreshTurnState(),
-          winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
-        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
-        return;
-      }
-      if(rs.gameId==='liarsdice'){
-        const players=rs.players.slice(0,6).map(p=>({...p,totalScore:0,roundsWon:0}));
-        const gs=oLdNewRound(rs,players,1,rnd(0,players.length-1),ldWildRule(),true);
-        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
-        return;
-      }
-      if(rs.gameId==='summit'){
-        const players=rs.players.slice(0,6).map(p=>({...p,totalScore:0,roundsWon:0}));
-        const gs=oSmNewGame(rs,players,rnd(0,players.length-1));
-        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
-        return;
-      }
-      if(rs.gameId==='vault'){
-        const players=rs.players.slice(0,6).map(p=>({...p,totalScore:0,roundsWon:0}));
-        const o=vtOptions(),gs=oVtNewGame(rs,players,o.adv,o.diff,(Math.random()*4294967295)>>>0);
-        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
-        return;
-      }
-      if(rs.gameId==='escape'){
-        const players=rs.players.slice(0,6).map(p=>({...p,totalScore:0,roundsWon:0}));
-        const o=esOptions(),day=o.daily?esTodayStr():null,gs=oEsNewGame(rs,players,o.adv,o.diff,day?esDailySeed(day,o.adv):(Math.random()*4294967295)>>>0,day);
-        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
-        return;
-      }
-      if(rs.gameId==='hotbomb'){
-        const players=rs.players.slice(0,8).map(p=>hbNewPlayer({...p,totalScore:0,roundsWon:0,hbWin:false}));
-        const gs=oHbNewGame(rs,players);
-        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
-        return;
-      }
-      if(rs.gameId==='drawit'){
-        const players=rs.players.slice(0,6).map(p=>({...p,totalScore:0,roundsWon:0}));
-        dwReadOptions();
-        const gs=oDwNewRound({...rs,dwLevel:dwLevel(),dwCustom:dwCustomList(dwCustomText()),dwMatch:dwMatchMode()},players,1,rnd(0,players.length-1),[],dwLang());
-        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
-        return;
-      }
-      if(rs.gameId==='pig'){
-        const players=rs.players.map(p=>({...p,totalScore:0}));
-        const gs={phase:'game',gameId:'pig',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
-          pig:{die:1,turnTotal:0,hasRolled:false,busted:false},
-          winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
-        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
-        return;
-      }
-      if(rs.gameId==='fourrow'){
-        const players=rs.players.slice(0,2).map(p=>({...p,totalScore:0,c4Result:null}));
-        const gs={phase:'game',gameId:'fourrow',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
-          c4:c4NewGame(c4Mode()),winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
-        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
-        return;
-      }
-      if(rs.gameId==='shutbox'){
-        const players=rs.players.map(p=>({...p,totalScore:0,stbScore:null,stbTiles:null}));
-        const gs={phase:'game',gameId:'shutbox',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
-          stb:stbNewTurn(),winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
-        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
-        return;
-      }
-      if(rs.gameId==='bingo'){
-        const players=rs.players.map(p=>({...p,totalScore:p.totalScore||0}));
-        const gs=oBgBuildStart(rs,players);
-        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
-        return;
-      }
-      if(rs.gameId==='lepouilleux'){
-        const players=rs.players.map(p=>({...p,totalScore:p.totalScore||0}));
-        const gs=oBpBuildStart(rs,players);
-        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
-        return;
-      }
-      if(rs.gameId==='texas'||rs.gameId==='fivecard'){
-        const players=rs.players.map(p=>({...p,chips:p.chips||DEFAULT_CHIPS,roundsWon:p.roundsWon||0}));
-        const dealerIdx=0;
-        const d=oPokerBuildDeal(rs,players,dealerIdx);
-        const gs={phase:'game',gameId:rs.gameId,host:rs.host,hr:rs.hr||G.hr,bigBlind:d.bigBlind,smallBlind:d.smallBlind,
-          players,deck:d.deck,community:[],communityRevealAnim:null,pokerPhase:'preflop',pot:d.pot,currentBet:d.currentBet,
-          dealer:dealerIdx,curIdx:d.curIdx,lstart:d.curIdx,winner:null,winnerName:null,winnerAv:null,roundResult:null,lastAct:'',round:1,_ts:Date.now()};
-        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
-        return;
-      }
-      if(rs.gameId==='roulette'){
-        const players=rs.players.map(p=>({...p,chips:p.chips||DEFAULT_CHIPS,roundsWon:p.roundsWon||0,roulBets:{},roulBetLog:[]}));
-        const gs={phase:'game',gameId:'roulette',host:rs.host,hr:rs.hr||G.hr,players,roulSpinning:false,roulHighlight:null,roulHistory:[],winner:null,winnerName:null,winnerAv:null,roundResult:null,lastAct:'',round:1,_ts:Date.now()};
-        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
-        return;
-      }
-      if(rs.gameId==='slots'){
-        const players=rs.players.map(p=>({...p,chips:p.chips||DEFAULT_CHIPS}));
-        const gs=oSlotBuildStart(rs,players);
-        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
-        return;
-      }
-      const game=GAMES.find(g=>g.id===(rs.gameId||'maumau'))||GAMES[0];
-      const deck=shuffle(buildDeck(1,rs.gameId||G.selGame));
-      const players=rs.players.map(p=>({...p,hand:[],totalScore:p.totalScore||0,roundsWon:p.roundsWon||0}));
-      const dc=game.deal||7;
-      for(let r=0;r<dc;r++)players.forEach(p=>{if(deck.length)p.hand.push(deck.pop());});
-      let first=null;
-      if(game.id==='maumau'){const jks=[];for(let i=0;i<500;i++){first=deck.pop();if(!first)break;if(first.rank==='J'){jks.push(first);continue;}break;}if(jks.length){deck.push(...jks);shuffle(deck);}}
-      const openDrawPend=first&&first.rank==='7'?2:0;
-      const openSkip8=!!(first&&first.rank==='8');
-      const gs={phase:'game',gameId:rs.gameId,host:rs.host,hr:rs.hr||G.hr,players,deck,discard:first?[first]:[],curSuit:first?first.suit:SUITS[0],curIdx:rnd(0,players.length-1),dir:1,drawPend:openDrawPend,skip8Pend:openSkip8,round:1,winner:null,needsSuit:false,lastAct:openSkip8?'8 revealed — first player must play an 8 or pass!':'',_ts:Date.now()};
-      G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
-    });
+    dbRead(G.roomId).then(rs=>oStartGame(rs));
   }
   else if(a==='copy'){const url=new URL(location.href);url.searchParams.set('room',G.roomId);navigator.clipboard.writeText(url.toString()).then(()=>toast('🔗 Link copied!')).catch(()=>toast('Code: '+G.roomId));}
   else if(a==='ready'){G.scr='table';G.lpass2='';G.lDealIn=true;render();setTimeout(()=>{G.lDealIn=false;render();},1100);}
@@ -19574,6 +19632,9 @@ document.addEventListener('click',e=>{
   // already populated from the match that just ended. Local pass-and-play only: online would need
   // to reset the shared room state for every seated player, which is a bigger, separate change.
   else if(a==='rematch'){lStartMatch();render();}
+  else if(a==='o-rematch'){oRematch();}
+  else if(a==='o-another'){G.anotherOpen=!G.anotherOpen;render();}
+  else if(a==='o-switch'){oSwitchGame(t.getAttribute('data-gid'));}
   else if(a==='newgame'){
     ldClearReveal();ldStopOnline();smClearTimers();hbStop();vtStop();esStop();
     const keep={snd:G.snd,gp:G.gp,tw:G.tw,selGame:G.selGame,myName:G.myName,myAvatar:G.myAvatar,beginnerMode:G.beginnerMode,hr:G.hr};
