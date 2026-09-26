@@ -1343,6 +1343,21 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 @keyframes c4-fall{0%{transform:translateY(calc(var(--fall,1)*-108% - 90%));}82%{transform:translateY(0);}90%{transform:translateY(-9%);}100%{transform:translateY(0);}}
 .c4-cell.win{animation:c4-win .7s ease-in-out infinite;box-shadow:0 0 0 3px #fff,0 0 16px 4px rgba(255,255,255,.85);}
 @keyframes c4-win{0%,100%{transform:scale(1);}50%{transform:scale(1.12);}}
+.c4-cell.dw{background:conic-gradient(from 20deg,#ff5a4e,#f2c230,#5fd68a,#4fa6f2,#b98af0,#ff5a4e);box-shadow:inset 0 -3px 5px rgba(0,0,0,.3),0 0 10px rgba(255,255,255,.55);}
+.c4-cell.boom{animation:c4-boom .9s ease-out both;}
+@keyframes c4-boom{0%{box-shadow:0 0 0 0 rgba(255,140,60,.95),inset 0 3px 6px rgba(0,0,0,.7);background:#ff8a3c;}100%{box-shadow:0 0 0 14px rgba(255,140,60,0),inset 0 3px 6px rgba(0,0,0,.7);background:#0a1226;}}
+.c4-col.warn{background:rgba(255,80,70,.13);animation:c4-warn 1s ease-in-out infinite;}
+@keyframes c4-warn{0%,100%{box-shadow:inset 0 0 0 1px rgba(255,90,78,.25);}50%{box-shadow:inset 0 0 0 2px rgba(255,90,78,.85);}}
+.c4-warn-hint{color:#ffb3aa;font-weight:700;}
+.c4-powers{display:grid;grid-template-columns:repeat(3,1fr);gap:.45rem;width:100%;max-width:26rem;}
+.c4-power{display:flex;flex-direction:column;align-items:center;gap:.05rem;padding:.4rem .2rem;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:var(--paper2);font:inherit;cursor:pointer;}
+.c4-power span{font-size:1.3rem;line-height:1;}
+.c4-power b{font-size:.62rem;letter-spacing:.06em;text-transform:uppercase;}
+.c4-power em{font-style:normal;font-size:.6rem;opacity:.75;}
+.c4-power:disabled{opacity:.35;cursor:not-allowed;}
+.c4-power.armed{background:linear-gradient(155deg,#ffd36a,#f29a2e);color:#2a1600;border-color:transparent;box-shadow:0 0 14px rgba(255,190,80,.7);}
+.c4-pw{font-style:normal;margin-left:.3rem;letter-spacing:.05em;}
+@media(prefers-reduced-motion:reduce){.c4-cell.boom,.c4-col.warn{animation:none;}}
 .c4-pill{display:inline-flex;align-items:center;gap:.35rem;}
 .c4-dot{width:.85rem;height:.85rem;border-radius:50%;display:inline-block;}
 .c4-d1{background:#e5322d;}.c4-d2{background:#f2c230;}
@@ -3563,7 +3578,8 @@ const GAMES=[
      'Be the first to line up <b>four of your discs</b> in a row: across, up and down, or on either diagonal.',
      'Watch the other side just as closely as your own — when they have three in a line, <b>block the end</b>.',
      'If the board fills up with no four in a row, it is a <b>draw</b>.',
-     'Against the bot, <b>Gentle</b> plays sensibly but sometimes misses a trap; <b>Sharp</b> looks several moves ahead.']},
+     'Against the bot, <b>Gentle</b> plays sensibly but sometimes misses a trap; <b>Sharp</b> looks several moves ahead.',
+     '<b>Fun version</b> (pick it before you start): each player gets one of each power disc for the whole game — <b>💣 Bomb</b> lands and blows away every disc touching it (the rest fall), <b>🪄 Wild</b> counts as both colours and can finish anyone\'s four, <b>🫧 Pop</b> pulls out one of your own bottom discs. You also get a warning when the other player is one disc from four.']},
   {id:'lepouilleux',cat:'cards',icon:'🂫',name:'Old Maid',players:'2–8',dur:'5–15 min',diff:'easy',deal:0,cover:'assets/games/lepouilleux.jpg',
    rules:['A standard 52-card deck, minus the <b>Jack of Clubs</b> — 51 cards dealt out to everyone.',
      'A pair is two cards of the <b>same rank and same color</b> — K♥+K♦, or 8♠+8♣ (not just any same rank).',
@@ -6512,6 +6528,7 @@ function stageSeatsHTML(){
 const STAGE_EVENTS={
   FARKLE:d=>({text:'FARKLE!',sub:(d.points||0)+' points lost',tone:'bad',icon:'😬',who:d.who}),
   PIG_OUT:d=>({text:'PIG OUT!',sub:(d.points||0)+' points lost',tone:'bad',icon:'🐷',who:d.who}),
+  POWER:d=>({text:d.text,sub:d.sub,tone:'hot',icon:d.icon,who:d.who,ms:1100,pri:1}),
   STUCK:d=>({text:'STUCK!',sub:d.sub||'No tiles fit the throw',tone:'bad',icon:'📦',who:d.who}),
   BUST:d=>({text:'BUST!',sub:d.sub!=null?d.sub:(d.points!=null?d.points+' points gone':''),tone:'bad',icon:'💥',who:d.who,pri:2}),
   SHIELD:d=>({text:'SHIELD!',sub:'The turn is saved',tone:'cool',icon:'🛡️',who:d.who,pri:2}),
@@ -6560,6 +6577,8 @@ function stageOnSrv(prev,state){
       stageEmit('FARKLE',{who:cur,points:state.fk.turnTotal});
     else if(g==='pig'&&prev.pig&&state.pig&&state.pig.busted&&!prev.pig.busted)
       stageEmit('PIG_OUT',{who:cur,points:state.pig.turnTotal});
+    else if(g==='fourrow'&&prev.c4&&state.c4&&state.c4.moves>prev.c4.moves&&!state.c4.over&&state.c4.kind&&state.c4.kind!=='drop'&&C4_POWER_MOMENT[state.c4.kind])
+      stageEmit('POWER',{who:(state.players||[])[(state.curIdx||0)===0?1:0],icon:C4_POWER_INFO[state.c4.kind].icon,...C4_POWER_MOMENT[state.c4.kind]});
     else if(g==='fourrow'&&prev.c4&&state.c4&&state.c4.over&&!prev.c4.over){
       if(state.c4.win)stageEmit('BIG_WIN',{who:cur,text:'FOUR IN A ROW!',sub:'Connected',icon:'🔴'});
       else stageEmit('STUCK',{who:cur,sub:'The board is full — a draw'});
@@ -7389,15 +7408,33 @@ function rShutBoxTable(){
 }
 
 /* ═══════ 4 IN A ROW ═══════
-   Two players, a 7x6 board, gravity. The rules are a handful of pure functions over a plain 2-D array
-   (0 empty, 1 = first player, 2 = second) so every one of them can be tested point-blank: dropping,
-   finding a four in every direction, and the bot. The bot is a small alpha-beta search -- Gentle only
-   looks for an immediate win/block (and sometimes misses), Sharp searches several moves ahead. Turn-gated
-   like Pig/Shut the Box: G.lcur locally, isMyTurn() online, no hidden information. */
+   Two players, a 7x6 board, gravity. The rules are pure functions over a plain 2-D array (0 empty,
+   1 = first player, 2 = second, 3 = a Wild disc that counts as both colours) so each can be tested
+   point-blank: dropping, finding a four in every direction, the three power discs, and the bot.
+   TWO WAYS TO PLAY, chosen on the setup screen: CLASSIC (plain 4 in a Row) and FUN, where each player
+   also holds one of each power disc for the whole game -- 💣 Bomb (lands, then blows away the discs
+   around it; the rest fall), 🪄 Wild (counts as either colour, so it can finish EITHER player's four),
+   and 🫧 Pop (pull out your own bottom disc; everything above falls). Each is single-use, so the
+   decision is WHEN. Fun mode also warns you when the other player is one disc from four. The bot is a
+   small alpha-beta search: Gentle only looks for an immediate win/block (and sometimes misses), Sharp
+   searches several moves ahead; in Fun mode both also use a power disc when it wins on the spot.
+   Turn-gated like Pig/Shut the Box: G.lcur locally, isMyTurn() online, no hidden information. */
 let _c4EndAt=0;
 const C4_ROWS=6,C4_COLS=7,C4_ORDER=[3,2,4,1,5,0,6]; // centre columns first: both nicer for search and for the bot's taste
+const C4_WILD=3,C4_POWERS=['bomb','wild','pop'];
+const C4_POWER_INFO={
+  bomb:{icon:'💣',name:'Bomb',tip:'Drops here, then blows away every disc touching it — the ones above fall.'},
+  wild:{icon:'🪄',name:'Wild',tip:'A disc that counts as BOTH colours — it can finish anyone’s four.'},
+  pop:{icon:'🫧',name:'Pop',tip:'Pull out one of YOUR discs from the bottom of a column — the ones above fall.'}
+};
+function c4Mode(){let m='classic';try{m=localStorage.getItem('ct_c4_mode')||'classic';}catch(e){}return m==='fun'?'fun':'classic';}
+function c4SetMode(m){try{localStorage.setItem('ct_c4_mode',m==='fun'?'fun':'classic');}catch(e){}}
 function c4NewBoard(){return Array.from({length:C4_ROWS},()=>new Array(C4_COLS).fill(0));}
-function c4NewGame(){return{board:c4NewBoard(),moves:0,last:null,win:null,over:false};}
+function c4NewGame(mode){
+  const fun=mode==='fun';
+  return{board:c4NewBoard(),moves:0,last:null,win:null,over:false,kind:null,fx:null,mode:fun?'fun':'classic',
+    powers:fun?[{bomb:1,wild:1,pop:1},{bomb:1,wild:1,pop:1}]:null};
+}
 // The lowest empty row in a column, or -1 when the column is full.
 function c4DropRow(board,c){
   if(c<0||c>=C4_COLS)return -1;
@@ -7410,24 +7447,65 @@ function c4Place(board,c,who){
   const r=c4DropRow(board,c);if(r<0)return null;
   const nb=board.map(row=>row.slice());nb[r][c]=who;return nb;
 }
-// The four (or more) cells a player has connected, or null.
-function c4Winner(board){
-  const dirs=[[0,1],[1,0],[1,1],[1,-1]];
-  for(let r=0;r<C4_ROWS;r++)for(let c=0;c<C4_COLS;c++){
-    const who=board[r][c];if(!who)continue;
-    for(const[dr,dc]of dirs){
-      const cells=[[r,c]];
-      for(let k=1;k<4;k++){
-        const rr=r+dr*k,cc=c+dc*k;
-        if(rr<0||rr>=C4_ROWS||cc<0||cc>=C4_COLS||board[rr][cc]!==who)break;
-        cells.push([rr,cc]);
+// Pure: let every disc fall as far as it can (after a bomb or a pop pulled discs out).
+function c4Gravity(board){
+  const nb=c4NewBoard();
+  for(let c=0;c<C4_COLS;c++){
+    let r=C4_ROWS-1;
+    for(let k=C4_ROWS-1;k>=0;k--)if(board[k][c]){nb[r][c]=board[k][c];r--;}
+  }
+  return nb;
+}
+// The four cells a player has connected, or null. A Wild disc counts for whoever is being checked; if
+// both players end up with a four at once (a Bomb or Wild can do that), `prefer` -- the player who just
+// moved -- gets it.
+function c4Winner(board,prefer){
+  const order=prefer===2?[2,1]:[1,2],dirs=[[0,1],[1,0],[1,1],[1,-1]];
+  for(const who of order){
+    for(let r=0;r<C4_ROWS;r++)for(let c=0;c<C4_COLS;c++){
+      for(const[dr,dc]of dirs){
+        const cells=[];
+        for(let k=0;k<4;k++){
+          const rr=r+dr*k,cc=c+dc*k;
+          if(rr<0||rr>=C4_ROWS||cc<0||cc>=C4_COLS)break;
+          const v=board[rr][cc];
+          if(v!==who&&v!==C4_WILD)break;
+          cells.push([rr,cc]);
+        }
+        if(cells.length===4)return{who,cells};
       }
-      if(cells.length===4)return{who,cells};
     }
   }
   return null;
 }
 function c4Full(board){return board[0].every(v=>v!==0);}
+// Pure: play one move -- {kind:'drop'|'wild'|'bomb'|'pop', c} -- for `who`. Returns
+// {board, last:{r,c}|null, boom:[cells]|null, popped:{r,c}|null} or null when it is not allowed.
+function c4ApplyMove(board,move,who){
+  const c=move.c,kind=move.kind||'drop';
+  if(kind==='pop'){
+    if(c<0||c>=C4_COLS||board[C4_ROWS-1][c]!==who)return null; // only your own bottom disc
+    const nb=board.map(row=>row.slice());nb[C4_ROWS-1][c]=0;
+    return{board:c4Gravity(nb),last:null,boom:null,popped:{r:C4_ROWS-1,c}};
+  }
+  const r=c4DropRow(board,c);if(r<0)return null;
+  if(kind==='drop')return{board:c4Place(board,c,who),last:{r,c},boom:null,popped:null};
+  if(kind==='wild')return{board:c4Place(board,c,C4_WILD),last:{r,c},boom:null,popped:null};
+  if(kind==='bomb'){
+    const nb=c4Place(board,c,who),boom=[];
+    for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+      if(!dr&&!dc)continue;
+      const rr=r+dr,cc=c+dc;
+      if(rr>=0&&rr<C4_ROWS&&cc>=0&&cc<C4_COLS&&nb[rr][cc]){nb[rr][cc]=0;boom.push([rr,cc]);}
+    }
+    return{board:c4Gravity(nb),last:null,boom,popped:null,bombAt:{r,c}};
+  }
+  return null;
+}
+// Columns where `who` would win with an ordinary drop right now.
+function c4ThreatCols(board,who){
+  return c4Moves(board).filter(c=>{const w=c4Winner(c4Place(board,c,who),who);return !!(w&&w.who===who);});
+}
 // Heuristic for the search: how good is this board for `me`? Counts open windows of four.
 function c4Score(board,me){
   const opp=me===1?2:1;let score=0;
@@ -7446,7 +7524,7 @@ function c4Score(board,me){
   return score;
 }
 function c4Search(board,depth,alpha,beta,turn,me){
-  const w=c4Winner(board);
+  const w=c4Winner(board,turn===me?(me===1?2:1):me);
   if(w)return(w.who===me?1:-1)*(1000000+depth);
   if(c4Full(board))return 0;
   if(depth===0)return c4Score(board,me);
@@ -7460,14 +7538,15 @@ function c4Search(board,depth,alpha,beta,turn,me){
   for(const c of moves){best=Math.min(best,c4Search(c4Place(board,c,turn),depth-1,alpha,beta,me,me));beta=Math.min(beta,best);if(alpha>=beta)break;}
   return best;
 }
-// Which column the bot drops into. Everyone takes a win when one is there; Gentle only sometimes sees the
-// block and otherwise plays a centre-leaning move; Sharp searches 5 plies.
+const c4Wins=(board,who)=>{const w=c4Winner(board,who);return !!(w&&w.who===who);};
+// Which column the bot drops into (an ordinary disc). Everyone takes a win when one is there; Gentle
+// only sometimes sees the block and otherwise plays a centre-leaning move; Sharp searches 5 plies.
 function c4BotMove(board,who,level){
   const moves=c4Moves(board);if(!moves.length)return -1;
   const opp=who===1?2:1;
-  for(const c of moves){if(c4Winner(c4Place(board,c,who)))return c;}
+  for(const c of moves){if(c4Wins(c4Place(board,c,who),who))return c;}
   if(level==='sharp'||Math.random()<.7){
-    for(const c of moves){if(c4Winner(c4Place(board,c,opp)))return c;}
+    for(const c of moves){if(c4Wins(c4Place(board,c,opp),opp))return c;}
   }
   if(level==='sharp'){
     let bestC=moves[0],bestV=-Infinity;
@@ -7478,33 +7557,57 @@ function c4BotMove(board,who,level){
     return bestC;
   }
   // Gentle: avoid handing over a win, prefer the centre, add some randomness.
-  const safe=moves.filter(c=>{const nb=c4Place(board,c,who);return!c4Moves(nb).some(o=>c4Winner(c4Place(nb,o,opp)));});
+  const safe=moves.filter(c=>{const nb=c4Place(board,c,who);return!c4Moves(nb).some(o=>c4Wins(c4Place(nb,o,opp),opp));});
   const pool=safe.length?safe:moves;
   return Math.random()<.5?pool[0]:pool[rnd(0,pool.length-1)];
+}
+// The bot's whole choice for a game: {kind,c}. In Fun mode a power disc is used when it wins on the spot.
+function c4BotChoice(f,who,level){
+  if(f.mode==='fun'&&f.powers){
+    const mine=f.powers[who-1]||{};
+    for(const c of c4Moves(f.board))if(c4Wins(c4Place(f.board,c,who),who))return{kind:'drop',c};
+    for(const kind of ['pop','bomb','wild'])if(mine[kind]>0)for(let c=0;c<C4_COLS;c++){
+      const res=c4ApplyMove(f.board,{kind,c},who);
+      if(res&&c4Wins(res.board,who))return{kind,c};
+    }
+  }
+  return{kind:'drop',c:c4BotMove(f.board,who,level)};
 }
 
 /* ── 4 in a Row: local ── */
 function lDealFourRow(){
   G.lp.forEach(p=>{p.totalScore=0;p.c4Result=null;});
   G.lcur=G.lstart;
-  G.c4=c4NewGame();
+  G.c4=c4NewGame(c4Mode());G.c4Armed=null;
   G.lres=null;
   SFX.deal();
   G.scr='table';
 }
-function c4Drop(c){
+const C4_POWER_MOMENT={
+  bomb:{text:'BOOM!',sub:'Bomb — the neighbours are gone'},
+  wild:{text:'WILD DISC!',sub:'It counts as both colours'},
+  pop:{text:'POP!',sub:'A disc pulled from the bottom'}
+};
+function c4Play(c,kind){
   const f=G.c4;if(!f||f.over)return;
-  const who=G.lcur%2===0?1:2;
-  const r=c4DropRow(f.board,c);
-  if(r<0){SFX.illegal();toast('That column is full');return;}
-  f.board=c4Place(f.board,c,who);f.last={r,c};f.moves++;
-  SFX.chip();haptic([8]);
-  const w=c4Winner(f.board);
+  kind=kind||'drop';
+  const idx=G.lcur%2,who=idx+1;
+  if(kind!=='drop'&&!(f.powers&&f.powers[idx][kind]>0)){toast('No '+kind+' disc left');SFX.illegal();return;}
+  const res=c4ApplyMove(f.board,{kind,c},who);
+  if(!res){SFX.illegal();toast(kind==='pop'?'You can only pop your own bottom disc':'That column is full');return;}
+  if(kind!=='drop')f.powers[idx][kind]--;
+  f.board=res.board;f.last=res.last;f.kind=kind;f.moves++;G.c4Armed=null;
+  f.fx=res.boom?{boom:res.boom,at:res.bombAt}:res.popped?{pop:res.popped}:null;
+  if(kind==='bomb'){SFX.bust();fxPulse('red');haptic([30,40,30]);}else if(kind!=='drop')SFX.win();else SFX.chip();
+  if(kind!=='drop')stageEmit('POWER',{who:G.lp[idx],icon:C4_POWER_INFO[kind].icon,...C4_POWER_MOMENT[kind]});
+  haptic([8]);
+  const w=c4Winner(f.board,who);
   if(w){f.win=w;f.over=true;c4EndGame(w.who-1);return;}
   if(c4Full(f.board)){f.over=true;c4EndGame(-1);return;}
   G.lcur=mod(G.lcur+1,2);
   render();
 }
+function c4Drop(c){c4Play(c,'drop');}
 function c4EndGame(winnerIdx){
   const f=G.c4;
   if(winnerIdx<0){
@@ -7529,30 +7632,35 @@ function c4EndGame(winnerIdx){
 function botFourRowAct(p){
   const f=G.c4;if(!f||f.over)return;
   const who=G.lcur%2===0?1:2;
-  const c=c4BotMove(f.board,who,p.bot);
-  if(c>=0)c4Drop(c);
+  const m=c4BotChoice(f,who,p.bot);
+  if(m.c>=0)c4Play(m.c,m.kind);
 }
 
 /* ── 4 in a Row: online -- turn-gated, only the current player's device writes ── */
-async function oC4Drop(c){
+async function oC4Drop(c,kind){
   if(_onlineBusy)return;
   if(!isMyTurn()){toast('Not your turn');return;}
   _onlineBusy=true;
   try{
     const state=await dbRead(G.roomId);if(!state||!state.c4)return;
     const f=state.c4;if(f.over)return;
+    kind=kind||'drop';
     const idx=state.curIdx||0,who=idx===0?1:2;
-    const r=c4DropRow(f.board,c);
-    if(r<0){SFX.illegal();toast('That column is full');return;}
-    f.board=c4Place(f.board,c,who);f.last={r,c};f.moves++;
+    if(kind!=='drop'&&!(f.powers&&f.powers[idx]&&f.powers[idx][kind]>0)){toast('No '+kind+' disc left');SFX.illegal();return;}
+    const res=c4ApplyMove(f.board,{kind,c},who);
+    if(!res){SFX.illegal();toast(kind==='pop'?'You can only pop your own bottom disc':'That column is full');return;}
+    if(kind!=='drop')f.powers[idx][kind]--;
+    f.board=res.board;f.last=res.last;f.kind=kind;f.moves++;G.c4Armed=null;
+    f.fx=res.boom?{boom:res.boom,at:res.bombAt}:res.popped?{pop:res.popped}:null;
     SFX.chip();haptic([8]);
-    const w=c4Winner(f.board);
+    const w=c4Winner(f.board,who);
     const me=state.players[idx];
     if(w){
       f.win=w;f.over=true;
-      state.players.forEach((p,i)=>{p.c4Result=i===idx?'win':'loss';p.totalScore=i===idx?1:0;});
-      state.winner=me.id;state.winnerName=me.name;state.winnerAv=me.avatar;
-      state.lastAct=esc(me.name)+' connects four!';
+      state.players.forEach((p,i)=>{p.c4Result=i===w.who-1?'win':'loss';p.totalScore=i===w.who-1?1:0;});
+      const wp=state.players[w.who-1];
+      state.winner=wp.id;state.winnerName=wp.name;state.winnerAv=wp.avatar;
+      state.lastAct=esc(wp.name)+' connects four!';
     } else if(c4Full(f.board)){
       f.over=true;state.players.forEach(p=>{p.c4Result='draw';});
       state.winner='draw';state.winnerName='Nobody';state.winnerAv=null;
@@ -7572,12 +7680,19 @@ function rFourRowTable(){
   const p=curPlayer();
   const mine=isMyTurn();
   const f=(online?state?.c4:G.c4)||c4NewGame();
+  const fun=f.mode==='fun'&&!!f.powers;
   const botTurn=!online&&isBotPlayer(p);
   const acts=mine&&!botTurn&&!f.over;
-  const idx=online?(state?.curIdx||0):G.lcur;
+  const idx=online?(state?.curIdx||0):G.lcur%2,who=idx+1,opp=who===1?2:1;
+  const armed=acts&&fun&&f.powers[idx]&&G.c4Armed&&f.powers[idx][G.c4Armed]>0?G.c4Armed:null;
   const winCells=new Set((f.win?f.win.cells:[]).map(([r,c])=>r+','+c));
+  const boomCells=new Set(((f.fx&&f.fx.boom)||[]).map(([r,c])=>r+','+c));
+  const popCell=f.fx&&f.fx.pop?f.fx.pop.r+','+f.fx.pop.c:null;
   const seat=i=>players[i]||{name:'—',avatar:null};
-  const pills=[0,1].map(i=>`<span class="y-standing-pill c4-pill c4-p${i+1}${i===idx&&!f.over?' active':''}"><i class="c4-dot c4-d${i+1}"></i>${esc(seat(i).name)}</span>`).join('');
+  const pw=i=>fun&&f.powers?`<i class="c4-pw">${C4_POWERS.map(k=>f.powers[i][k]>0?C4_POWER_INFO[k].icon:'').join('')||'·'}</i>`:'';
+  const pills=[0,1].map(i=>`<span class="y-standing-pill c4-pill c4-p${i+1}${i===idx&&!f.over?' active':''}"><i class="c4-dot c4-d${i+1}"></i>${esc(seat(i).name)}${pw(i)}</span>`).join('');
+  // Near-win warning (Fun mode): the columns where the OTHER player would win with their next disc.
+  const threats=fun&&acts&&!armed?c4ThreatCols(f.board,opp):[];
   const colHTML=Array.from({length:C4_COLS},(_,c)=>{
     const full=c4DropRow(f.board,c)<0;
     let cells='';
@@ -7585,33 +7700,48 @@ function rFourRowTable(){
       const v=f.board[r][c];
       const isLast=f.last&&f.last.r===r&&f.last.c===c;
       const cls=['c4-cell'];
-      if(v)cls.push('d'+v);
+      if(v)cls.push(v===C4_WILD?'dw':'d'+v);
       if(isLast)cls.push('drop');
       if(winCells.has(r+','+c))cls.push('win');
+      if(boomCells.has(r+','+c)||popCell===r+','+c)cls.push('boom');
       cells+=`<span class="${cls.join(' ')}" ${isLast?`style="--fall:${r+1}"`:''}></span>`;
     }
-    const can=acts&&!full;
-    return`<button class="c4-col${can?' can':''}" ${can?`data-a="c4drop" data-c="${c}"`:'disabled'} aria-label="Drop in column ${c+1}${full?' (full)':''}">${cells}</button>`;
+    const can=acts&&(armed==='pop'?f.board[C4_ROWS-1][c]===who:!full);
+    const warn=threats.includes(c);
+    return`<button class="c4-col${can?' can':''}${warn?' warn':''}" ${can?`data-a="c4drop" data-c="${c}"`:'disabled'} aria-label="${armed==='pop'?'Pop':'Drop in'} column ${c+1}${full&&armed!=='pop'?' (full)':''}">${cells}</button>`;
   }).join('');
+  const powerBar=fun&&acts?`<div class="c4-powers" role="group" aria-label="Your power discs">${C4_POWERS.map(k=>{
+    const n=f.powers[idx][k]||0;
+    return`<button class="c4-power${armed===k?' armed':''}" data-a="c4arm" data-p="${k}" ${n?'':'disabled'} aria-pressed="${armed===k}"><span>${C4_POWER_INFO[k].icon}</span><b>${C4_POWER_INFO[k].name}</b><em>${n?'×'+n:'used'}</em></button>`;
+  }).join('')}</div>`:'';
   let hint;
   if(f.over)hint=f.win?`🔴 ${esc(seat(f.win.who-1).name)} connects four!`:'It’s a draw — the board is full.';
   else if(botTurn)hint=esc(p.name)+' is thinking…';
   else if(!mine&&online)hint='Waiting for '+esc(p.name)+'…';
-  else hint='Tap a column to drop your disc.';
-  return`<div id="s-table" class="scr on game-fourrow">
+  else if(armed)hint=`${C4_POWER_INFO[armed].icon} ${C4_POWER_INFO[armed].tip} `+(armed==='pop'?'Tap a column whose bottom disc is yours.':'Tap a column.');
+  else if(threats.length)hint=`⚠️ Careful — ${esc(seat(opp-1).name)} is one disc from four!`;
+  else hint=fun?'Tap a column — or arm a power disc first.':'Tap a column to drop your disc.';
+  return`<div id="s-table" class="scr on game-fourrow${fun?' c4-fun':''}">
     <div class="game-bar">
-      <div class="gb-game">🔴 4 in a Row</div>
+      <div class="gb-game">🔴 4 in a Row${fun?' · Fun':''}</div>
       <div class="gb-turn${mine&&!f.over?' mine':''}">${avChar(p.avatar)} ${esc(p.name)}’s turn</div>
       <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
     </div>
     <div class="y-standings-strip">${pills}</div>
     <div class="felt-table c4-felt${mine&&!f.over?' my-turn':''}" style="flex:0 0 auto;min-height:0;max-height:none;padding:1rem .6rem;gap:.8rem;">
       <div class="c4-board" role="group" aria-label="The board, seven columns">${colHTML}</div>
-      <div class="y-hint">${hint}</div>
+      ${powerBar}
+      <div class="y-hint${threats.length?' c4-warn-hint':''}">${hint}</div>
       ${!mine&&online&&!f.over?awayIndicatorHTML(p.id,p.name):''}
     </div>
     ${talkStripHTML()}
   </div>`;
+}
+// The mode picker on the setup screen and in the online lobby (host).
+function c4OptionsHTML(){
+  const m=c4Mode();
+  const opts=[['classic','Classic','Plain 4 in a Row. Pure and simple.'],['fun','Fun','Each player gets 3 one-shot power discs: 💣 Bomb, 🪄 Wild, 🫧 Pop — and a warning when you are one disc from losing.']];
+  return`<div class="panel"><div class="panel-lbl">Which version?</div><div class="hr-grid">${opts.map(([k,n,d])=>`<div class="hr-tog${m===k?' on':''}" data-a="c4-mode" data-m="${k}"><div class="hr-row"><span class="hr-nm">${n}</span><span class="hr-chk">${m===k?'✓':''}</span></div><span class="hr-desc">${d}</span></div>`).join('')}</div></div>`;
 }
 
 /* ═══════ DICE: face flicker ═══════
@@ -16289,6 +16419,7 @@ function rSetup(){
       ${game.id==='drawit'?dwOptionsHTML():''}
       ${game.id==='liarsdice'?ldOptionsHTML():''}
       ${game.id==='bingo'?bgOptionsHTML():''}
+      ${game.id==='fourrow'?c4OptionsHTML():''}
       <button class="btn btn-gold btn-full" data-a="deal" style="padding:1rem;">${game.id==='yahtzee'?'🎲 Start Rolling':game.id==='roulette'?'🎡 Open the Table':game.id==='slots'?'🎰 Power Up the Machine':game.id==='drawit'?'🎨 Start Drawing':game.id==='liarsdice'?'🎲 Roll the Dice':game.id==='summit'?'🏔️ Start the Climb':game.id==='shutbox'?'📦 Open the Box':game.id==='hotbomb'?'💣 Light the Fuse':'🃏 Deal the Cards'}</button>
     </div>
   </div>`;
@@ -16326,6 +16457,7 @@ function rLobby(){
       ${game.id==='drawit'&&G.isHost?dwOptionsHTML():''}
       ${game.id==='liarsdice'&&G.isHost?ldOptionsHTML():''}
       ${game.id==='bingo'&&G.isHost?bgOptionsHTML():''}
+      ${game.id==='fourrow'&&G.isHost?c4OptionsHTML():''}
       ${game.id==='vault'&&G.isHost?vtOptionsHTML():''}
       ${game.id==='escape'&&G.isHost?esOptionsHTML():''}
       ${G.isHost?`<button class="btn btn-gold btn-full" data-a="start" ${canStart?'':'disabled'}>${canStart?`▶ Start Game — ${players.length} players`:'Waiting for at least 2 players…'}</button>`:
@@ -18912,7 +19044,9 @@ document.addEventListener('click',e=>{
   else if(a==='es-fuse'){esFuse();}
   else if(a==='pigroll'){G.isOnline?oPigRoll():pigRoll();}
   else if(a==='pigbank'){G.isOnline?oPigBank():pigBank();}
-  else if(a==='c4drop'){G.isOnline?oC4Drop(+t.getAttribute('data-c')):c4Drop(+t.getAttribute('data-c'));}
+  else if(a==='c4drop'){const c=+t.getAttribute('data-c'),k=G.c4Armed||'drop';G.isOnline?oC4Drop(c,k):c4Play(c,k);}
+  else if(a==='c4arm'){const k=t.getAttribute('data-p');G.c4Armed=G.c4Armed===k?null:k;render();}
+  else if(a==='c4-mode'){c4SetMode(t.getAttribute('data-m'));render();}
   else if(a==='stbroll'){G.isOnline?oStbRoll():stbRoll();}
   else if(a==='stbtile'){stbToggleTile(+t.getAttribute('data-t'));}
   else if(a==='stbclear'){G.stbSel=[];render();}
@@ -19100,7 +19234,7 @@ document.addEventListener('click',e=>{
       if(rs.gameId==='fourrow'){
         const players=rs.players.slice(0,2).map(p=>({...p,totalScore:0,c4Result:null}));
         const gs={phase:'game',gameId:'fourrow',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
-          c4:c4NewGame(),winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
+          c4:c4NewGame(c4Mode()),winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
         G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }

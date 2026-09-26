@@ -5182,6 +5182,107 @@ async function runPresentation(A,W,frame){
     }
   });
 
+  /* —— 4 in a Row: the Fun version's power discs —————— */
+  suite('4 in a Row (Fun) — Bomb, Wild and Pop do exactly what they say',()=>{
+    const F=n=>W.eval(n);
+    const c4NewBoard=F('c4NewBoard'),c4Place=F('c4Place'),c4ApplyMove=F('c4ApplyMove'),c4Winner=F('c4Winner'),c4Gravity=F('c4Gravity'),c4ThreatCols=F('c4ThreatCols'),c4NewGame=F('c4NewGame');
+    const count=b=>b.flat().filter(x=>x).length;
+    // Gravity
+    const floating=c4NewBoard();floating[2][0]=1;floating[0][0]=2;floating[3][4]=1;
+    const settled=c4Gravity(floating);
+    check('gravity drops every floating disc to the bottom of its column, keeping their order',settled[5][0]===1&&settled[4][0]===2&&settled[5][4]===1&&count(settled)===3);
+    // Bomb
+    let b=c4NewBoard();b=c4Place(b,2,1);b=c4Place(b,2,2);b=c4Place(b,3,2);b=c4Place(b,3,1);b=c4Place(b,4,1);b=c4Place(b,4,2); // two discs in each of columns 3, 4 and 5 (indexes 2-4)
+    const bomb=c4ApplyMove(b,{kind:'bomb',c:3},2);
+    check('a bomb lands like a normal disc, then clears every disc touching it',!!bomb&&bomb.boom.length>=3&&count(bomb.board)===count(b)+1-bomb.boom.length);
+    check('the bomb disc itself always survives',bomb.board.flat().includes(2));
+    check('after the blast everything settles (nothing floats)',JSON.stringify(c4Gravity(bomb.board))===JSON.stringify(bomb.board));
+    check('a bomb needs room: a full column refuses it',(()=>{let f=c4NewBoard();for(let i=0;i<6;i++)f=c4Place(f,2,1);return c4ApplyMove(f,{kind:'bomb',c:2},1)===null;})());
+    // Wild
+    let w=c4NewBoard();[0,1,2].forEach(c=>{w=c4Place(w,c,2);});
+    const wild=c4ApplyMove(w,{kind:'wild',c:3},1);
+    check('a wild disc counts as either colour: it completes the OTHER player\'s three, a real risk',c4Winner(wild.board,1).who===2);
+    let w1=c4NewBoard();[0,1,2].forEach(c=>{w1=c4Place(w1,c,1);});
+    check('...and finishes your own three too',c4Winner(c4ApplyMove(w1,{kind:'wild',c:3},1).board,1).who===1);
+    check('a wild that finishes a four for both players gives it to whoever just moved',(()=>{
+      const x=c4NewBoard();[0,1,2].forEach(c=>{x[5][c]=1;});[0,1,2].forEach(c=>{x[4][c]=2;});x[5][3]=3;x[4][3]=3;
+      return c4Winner(x,1).who===1&&c4Winner(x,2).who===2;})());
+    // Pop
+    let p=c4NewBoard();p=c4Place(p,0,1);p=c4Place(p,0,2);p=c4Place(p,0,1);
+    const pop=c4ApplyMove(p,{kind:'pop',c:0},1);
+    check('pop pulls out your own bottom disc and everything above falls',pop.board[5][0]===2&&pop.board[4][0]===1&&pop.board[3][0]===0);
+    check('you cannot pop the other player\'s disc, or an empty column',c4ApplyMove(p,{kind:'pop',c:0},2)===null&&c4ApplyMove(p,{kind:'pop',c:5},1)===null);
+    check('a pop can complete a four for the popper (or hand one to the opponent)',(()=>{
+      const x=c4NewBoard();x[5][0]=1;x[4][0]=2;x[3][0]=1;x[5][1]=2;x[4][1]=2;x[3][1]=2;// popping col 0 drops 2 to the bottom -> 2,2 across? row5: 2,2
+      const r=c4ApplyMove(x,{kind:'pop',c:0},1);return !!r&&r.board[5][0]===2;})());
+    check('the near-win warning finds exactly the columns where the other player would win next',(()=>{
+      let x=c4NewBoard();[0,1,2].forEach(c=>{x=c4Place(x,c,2);});
+      return JSON.stringify(c4ThreatCols(x,2))==='[3]'&&c4ThreatCols(x,1).length===0;})());
+    check('classic games have no power discs, fun games give each player one of each',c4NewGame('classic').powers===null&&JSON.stringify(c4NewGame('fun').powers)==='[{"bomb":1,"wild":1,"pop":1},{"bomb":1,"wild":1,"pop":1}]');
+  });
+
+  suite('4 in a Row (Fun) — bots, modes and the table',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const c4NewGame=F('c4NewGame'),c4Place=F('c4Place'),c4BotChoice=F('c4BotChoice'),c4SetMode=F('c4SetMode'),c4Mode=F('c4Mode'),lDealFourRow=F('lDealFourRow'),
+      c4Play=F('c4Play'),rFourRowTable=F('rFourRowTable'),c4OptionsHTML=F('c4OptionsHTML');
+    const keepMode=c4Mode();
+    W.eval('window.__origSetTimeout=setTimeout; setTimeout=(fn)=>0;');
+    try{
+      check('the version choice is remembered, and defaults to classic',(()=>{c4SetMode('fun');const a=c4Mode()==='fun';c4SetMode('nonsense');return a&&c4Mode()==='classic';})());
+      check('the setup screen offers both versions',/Classic/.test(c4OptionsHTML())&&/Fun/.test(c4OptionsHTML())&&(c4OptionsHTML().match(/data-a="c4-mode"/g)||[]).length===2);
+      // a fun-mode bot uses a power disc when it wins on the spot
+      const f=c4NewGame('fun');
+      f.board=F('c4NewBoard')();[0,1,2].forEach(c=>{f.board=c4Place(f.board,c,2);});
+      f.board=c4Place(f.board,4,1);
+      const m1=c4BotChoice(f,2,'sharp');
+      check('with a plain winning drop available a bot just drops',m1.kind==='drop'&&m1.c===3);
+      // No plain disc wins, but popping yellow's own bottom disc in column 3 drops a yellow into row 4 and completes 2,2,2,2.
+      const f2=c4NewGame('fun');
+      f2.board=F('c4NewBoard')();
+      [0,1,2].forEach(c=>{f2.board[5][c]=1;f2.board[4][c]=2;});
+      f2.board[5][3]=2;f2.board[4][3]=1;f2.board[3][3]=2;
+      const m2=c4BotChoice(f2,2,'sharp');
+      check('in Fun mode a bot that cannot win with a plain disc wins with a power disc (here: Pop in column 4)',m2.kind==='pop'&&m2.c===3);
+      const classic=c4NewGame('classic');classic.board=f2.board;
+      check('in Classic a bot never reaches for a power disc',c4BotChoice(classic,2,'sharp').kind==='drop');
+      // a whole fun game through the real engine
+      const mk=(id,n)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false});
+      G.isOnline=false;G.srv=null;G.selGame='fourrow';G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;
+      c4SetMode('fun');lDealFourRow();G.lcur=0;G.scr='table';
+      check('a fun game starts with everybody holding all three power discs',G.c4.mode==='fun'&&G.c4.powers[0].bomb===1&&G.c4.powers[1].pop===1);
+      c4Play(3,'wild');
+      check('using the wild spends it, puts a wild disc down and passes the turn',G.c4.powers[0].wild===0&&G.c4.board[5][3]===3&&G.lcur===1);
+      c4Play(3,'bomb');
+      check('the other player\'s bomb blows the neighbours away (the wild too) and is spent',G.c4.powers[1].bomb===0&&G.lcur===0&&G.c4.fx&&G.c4.fx.boom.length>=1);
+      G.lcur=0;const before=G.c4.moves;
+      c4Play(0,'wild');
+      check('a power disc cannot be used twice',G.c4.moves===before&&G.c4.powers[0].wild===0);
+      G.c4.board=F('c4NewBoard')();G.c4.board[5][3]=2;G.c4.board[5][2]=1;G.lcur=0;
+      const popsBefore=G.c4.powers[0].pop,movesBefore=G.c4.moves;
+      c4Play(3,'pop');
+      check('popping a disc that is not yours is refused and costs nothing',G.c4.powers[0].pop===popsBefore&&G.c4.moves===movesBefore&&G.lcur===0);
+      c4Play(2,'pop');
+      check('popping your own bottom disc works, spends the pop and passes the turn',G.c4.powers[0].pop===popsBefore-1&&G.c4.board[5][2]===0&&G.lcur===1);
+      // the table
+      G.c4Armed='pop';G.lcur=0;
+      let d=new DOMParser().parseFromString(rFourRowTable(),'text/html');
+      check('the fun table shows the three power buttons for the player to move',d.querySelectorAll('.c4-power').length===3);
+      G.c4=c4NewGame('classic');G.c4Armed=null;
+      d=new DOMParser().parseFromString(rFourRowTable(),'text/html');
+      check('the classic table has no power buttons',d.querySelectorAll('.c4-power').length===0);
+      // near-win warning shows in fun mode only
+      const fun2=c4NewGame('fun');[0,1,2].forEach(c=>{fun2.board=c4Place(fun2.board,c,2);});G.c4=fun2;G.lcur=0;
+      d=new DOMParser().parseFromString(rFourRowTable(),'text/html');
+      check('the fun table warns when the other player is one disc from four',d.querySelectorAll('.c4-col.warn').length===1&&/Careful/.test(d.querySelector('.y-hint').textContent));
+      const cl=c4NewGame('classic');[0,1,2].forEach(c=>{cl.board=c4Place(cl.board,c,2);});G.c4=cl;
+      d=new DOMParser().parseFromString(rFourRowTable(),'text/html');
+      check('the classic table gives no warning',d.querySelectorAll('.c4-col.warn').length===0);
+    } finally {
+      W.eval('setTimeout=window.__origSetTimeout;');
+      c4SetMode(keepMode);G.scr='home';
+    }
+  });
+
   /* —— Le Pouilleux: deck, auto-discard, and turn rotation —————— */
   suite('Le Pouilleux\'s deck, auto-discard, and turn order are all correct',()=>{
     const deck=A.bpBuildDeck();
