@@ -5926,6 +5926,92 @@ async function runPresentation(A,W,frame){
     });
   }
 
+  /* —— Online dice games re-check whose turn it is on the FRESH room state; co-op end screens offer "Play a different game" —————— */
+  {
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const oPigRoll=F('oPigRoll'),oPigBank=F('oPigBank'),oFkRoll=F('oFkRoll'),oFkBank=F('oFkBank'),oFkSelect=F('oFkSelect'),oFkContinue=F('oFkContinue'),
+      oBstRoll=F('oBstRoll'),oBstBank=F('oBstBank'),oBstSelect=F('oBstSelect'),oBstContinue=F('oBstContinue'),oStartGame=F('oStartGame'),oNotMyTurnNow=F('oNotMyTurnNow'),
+      oSwitchGame=F('oSwitchGame'),vtResultHTML=F('vtResultHTML'),vtView=F('vtView'),esResultHTML=F('esResultHTML'),esView=F('esView'),VT_ADV_IDS=F('VT_ADV_IDS'),ES_ADV_IDS=F('ES_ADV_IDS');
+    W.__keepSb3=W.eval('_sb');
+    W.eval('window.__origSetTimeout=setTimeout; setTimeout=(fn)=>0;');
+    let DB=null;const clone=o=>JSON.parse(JSON.stringify(o));
+    W.__fakeSb={from:()=>({
+      select:()=>({eq:()=>({single:()=>Promise.resolve({data:DB?{state:clone(DB)}:null,error:DB?null:{message:'none'}})})}),
+      upsert:row=>{DB=clone(row.state);return Promise.resolve({error:null});},
+      update:row=>({eq:()=>({eq:()=>({select:()=>{DB=clone(row.state);return Promise.resolve({data:[{id:'T'}],error:null});}})})})})};
+    const P=(id,n,i)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,roundsWon:0,chips:900});
+    const seen={guards:[],moves:[]};
+    const lobby=g=>({phase:'lobby',gameId:g,host:'a',players:[P('a','Anna',0),P('b','Ben',1)],_ts:Date.now()-5000});
+    try{
+      G.isOnline=true;G.roomId='T';G.isHost=true;G.scr='table';
+      W.eval('_sb=window.__fakeSb');
+      for(const [gid,ops] of [['pig',[oPigRoll,oPigBank]],['farkle',[oFkRoll,oFkBank,oFkSelect,oFkContinue]],['bust',[oBstRoll,oBstBank,oBstSelect,oBstContinue]]]){
+        // start a real game through the real start path, and put "a" on turn in the room
+        G.myPid='a';DB=lobby(gid);G.srv=clone(DB);G.selGame=gid;
+        oStartGame(clone(DB));DB=clone(G.srv);
+        DB.curIdx=0;DB._ts=Date.now()-4000;
+        // a stale device: "b" still believes it is b's turn locally, while the room says a is on turn
+        for(const op of ops){
+          G.myPid='b';G.srv=clone(DB);G.srv.curIdx=1;
+          const before=JSON.stringify(DB);
+          await op(0);
+          seen.guards.push(gid+':'+op.name+':'+(JSON.stringify(DB)===before));
+        }
+        // the player really on turn still plays normally
+        G.myPid='a';G.srv=clone(DB);
+        const b0=JSON.stringify(DB);
+        await (gid==='pig'?oPigRoll:gid==='farkle'?oFkRoll:oBstRoll)();
+        seen.moves.push(gid+':'+(JSON.stringify(DB)!==b0));
+      }
+      // the helper itself
+      G.myPid='a';
+      seen.helperMine=oNotMyTurnNow({players:[P('a','Anna',0),P('b','Ben',1)],curIdx:0,phase:'game',gameId:'pig'});
+      seen.helperOther=oNotMyTurnNow({players:[P('a','Anna',0),P('b','Ben',1)],curIdx:1,phase:'game',gameId:'pig'});
+      // co-op end screens
+      const ps=[P('a','Anna',0),P('b','Ben',1),P('c','Cleo',2)];
+      const vk=VT_ADV_IDS[0],ek=ES_ADV_IDS[0];
+      const states=[
+        ['vaultDone',{gameId:'vault',vt:{adv:vk,diff:0,phase:'done',seed:1,solved:[0,1,2,3,4],result:{stars:3,remaining:60000,hints:0,mistakes:0,score:900,chapters:5}}},vtResultHTML,vtView],
+        ['vaultFail',{gameId:'vault',vt:{adv:vk,diff:0,phase:'failed',seed:1,solved:[0,1],result:{stars:0,remaining:0,hints:0,mistakes:3,score:0,chapters:2}}},vtResultHTML,vtView],
+        ['escDone',{gameId:'escape',es:{adv:ek,diff:0,phase:'done',seed:1,result:{stars:3,remaining:60000,hints:0,mistakes:0,score:900,locks:5,total:5}}},esResultHTML,esView],
+        ['escFail',{gameId:'escape',es:{adv:ek,diff:0,phase:'failed',seed:1,result:{stars:0,remaining:0,hints:0,mistakes:3,score:0,locks:2,total:5}}},esResultHTML,esView]];
+      seen.end={};
+      for(const [k,st,render,view] of states){
+        G.srv={phase:'game',host:'a',players:ps,...clone(st)};
+        G.myPid='a';G.isHost=true;G.anotherOpen=false;
+        const host=render(view()),dh=new DOMParser().parseFromString('<div>'+host+'</div>','text/html');
+        G.anotherOpen=true;const open=render(view());G.anotherOpen=false;
+        G.myPid='b';G.isHost=false;const guest=render(view());
+        seen.end[k]={hostBtn:/data-a="o-another"/.test(host),hostClosed:!/data-a="o-switch"/.test(host),hostOpen:/data-a="o-switch"/.test(open),guestNone:!/o-another/.test(guest)&&!/o-switch/.test(guest),
+          keepsOwn:/-again/.test(host)&&/-leave/.test(host)};
+      }
+      // "Play a different game" from a finished Vault: same people, back to a lobby for the new game
+      G.myPid='a';G.isHost=true;G.anotherOpen=true;
+      DB={phase:'game',gameId:'vault',host:'a',players:ps,vt:{adv:vk,phase:'done'},_ts:Date.now()-5000};G.srv=clone(DB);
+      await oSwitchGame('pig');
+      seen.switched=clone(DB);seen.scrAfter=G.scr;seen.openAfter=G.anotherOpen;
+    } finally {
+      W.eval('setTimeout=window.__origSetTimeout');
+      W.eval('_sb=window.__keepSb3');
+      G.isOnline=false;G.srv=null;G.scr='home';G.isHost=false;G.anotherOpen=false;
+      try{W.localStorage.removeItem('ct_online_session');W.localStorage.removeItem('ct_resume');}catch(e){}
+      try{W.eval('bgClearCaller')();}catch(e){}
+    }
+    suite('Online Pig, Farkle and BUST re-check whose turn it is on the fresh room state',()=>{
+      check('a stale device that believes it is on turn changes nothing in the room (every action of all three games)',seen.guards.length===10&&seen.guards.every(x=>/:true$/.test(x)));
+      check('the player who really is on turn still plays normally in all three games',seen.moves.length===3&&seen.moves.every(x=>/:true$/.test(x)));
+      check('the check itself: true (and refuse) when somebody else is on turn, false for the player on turn',seen.helperMine===false&&seen.helperOther===true);
+    });
+    suite('Vault and Escape end screens offer "Play a different game" to the host',()=>{
+      const ks=['vaultDone','vaultFail','escDone','escFail'];
+      check('the host gets a "Play a different game" button on all four end screens',ks.every(k=>seen.end[k].hostBtn));
+      check('the picker stays closed until asked for, then lists games to switch to',ks.every(k=>seen.end[k].hostClosed&&seen.end[k].hostOpen));
+      check('other players never see it (only the host picks the next game)',ks.every(k=>seen.end[k].guestNone));
+      check('the existing Play again / Try another adventure / Leave buttons are all still there',ks.every(k=>seen.end[k].keepsOwn));
+      check('picking a game takes the same three players back to a lobby for it',seen.switched&&seen.switched.phase==='lobby'&&seen.switched.gameId==='pig'&&seen.switched.players.map(p=>p.id).join()==='a,b,c'&&!seen.switched.vt&&seen.scrAfter==='lobby'&&seen.openAfter===false);
+    });
+  }
+
   /* —— Le Pouilleux: deck, auto-discard, and turn rotation —————— */
   suite('Le Pouilleux\'s deck, auto-discard, and turn order are all correct',()=>{
     const deck=A.bpBuildDeck();

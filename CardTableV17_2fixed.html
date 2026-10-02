@@ -5412,12 +5412,21 @@ function oFkAdvanceTurn(state){
   f.dice=fkFreshDiceArr();f.selected=new Array(6).fill(false);
   f.turnTotal=0;f.hasRolled=false;f.lastRolled=[];f.busted=false;
 }
+// Online turn-gated writers trust isMyTurn() (the local view) only to decide whether to try. The ROOM is the authority:
+// once the fresh state is read, the player on turn there must still be this device's player, or nothing is changed
+// (the fresh state is applied instead, so the screen catches up).
+function oNotMyTurnNow(state){
+  const m=(state.players||[])[state.curIdx||0];
+  if(m&&m.id===G.myPid)return false;
+  toast('Not your turn');onSrv(state);return true;
+}
 async function oFkRoll(){
   if(_onlineBusy)return;
   if(!isMyTurn()){toast('Not your turn');return;}
   _onlineBusy=true;
   try{
     const state=await dbRead(G.roomId);if(!state||!state.fk)return;
+    if(oNotMyTurnNow(state))return;
     const f=state.fk;if(f.busted)return;
     const n=f.dice.length||6;
     const newDice=[];for(let i=0;i<n;i++)newDice.push(rnd(1,6));
@@ -5451,6 +5460,7 @@ async function oFkSelect(idx){
   _onlineBusy=true;
   try{
     const state=await dbRead(G.roomId);if(!state||!state.fk)return;
+    if(oNotMyTurnNow(state))return;
     const f=state.fk;if(!f.hasRolled||f.busted)return;
     f.selected[idx]=!f.selected[idx];
     state._ts=Date.now();onSrv(state);
@@ -5463,6 +5473,7 @@ async function oFkContinue(){
   _onlineBusy=true;
   try{
     const state=await dbRead(G.roomId);if(!state||!state.fk)return;
+    if(oNotMyTurnNow(state))return;
     const f=state.fk;
     const score=fkSelectedScore(f.dice,f.selected);
     if(score===null)return;
@@ -5484,6 +5495,7 @@ async function oFkBank(){
   _onlineBusy=true;
   try{
     const state=await dbRead(G.roomId);if(!state||!state.fk)return;
+    if(oNotMyTurnNow(state))return;
     const f=state.fk;
     const score=fkSelectedScore(f.dice,f.selected);
     const total=f.turnTotal+(score||0);
@@ -6483,11 +6495,11 @@ function esResultHTML(v){
       <div class="vt-stars" aria-label="${r.stars} stars">${esStars(r.stars)}</div>
       <div class="vt-stats"><div><b>${vtFmtTime(r.remaining)}</b><small>time left</small></div><div><b>${r.hints}</b><small>hints used</small></div><div><b>${r.mistakes}</b><small>wrong tries</small></div><div><b>${r.score}</b><small>score</small></div></div>
       ${_esNew?`<div class="vt-record">🏆 New best time ${es.daily?'for today’s Daily Escape':'for this adventure'}!</div>`:best?`<div class="vt-record dim">${es.daily?'Best today':'Best on this level'}: ${vtFmtTime(best.used)} used</div>`:''}
-      <div class="vt-endbtns"><button class="btn btn-gold btn-full" data-a="es-again" data-adv="${es.adv}" data-diff="${es.diff}">🔁 Play again — new codes, new clues</button>${ES_ADV_IDS.filter(o=>o!==es.adv).map(o=>`<button class="btn btn-ghost btn-full" data-a="es-again" data-adv="${o}" data-diff="${es.diff}">${ES_ADV[o].icon} Try ${esc(ES_ADV[o].title)}</button>`).join('')}<button class="btn btn-ghost btn-full" data-a="es-leave">Leave the table</button></div></div>`;
+      <div class="vt-endbtns"><button class="btn btn-gold btn-full" data-a="es-again" data-adv="${es.adv}" data-diff="${es.diff}">🔁 Play again — new codes, new clues</button>${ES_ADV_IDS.filter(o=>o!==es.adv).map(o=>`<button class="btn btn-ghost btn-full" data-a="es-again" data-adv="${o}" data-diff="${es.diff}">${ES_ADV[o].icon} Try ${esc(ES_ADV[o].title)}</button>`).join('')}${oAnotherBtnHTML()}<button class="btn btn-ghost btn-full" data-a="es-leave">Leave the table</button></div>${oAnotherPickerHTML()}</div>`;
   }
   return`<div class="es-scenewrap es-result"><div class="es-kicker">${adv.kickers.lost}</div>${esBigArt(es,'sealed',0)}<h2 class="es-bigtitle">Not this time…</h2>
     <p class="vt-failnote">You opened ${r.locks} of ${r.total} locks. Every attempt has different codes and different clues, so a fresh try is a fresh chance.</p>
-    <div class="vt-endbtns"><button class="btn btn-gold btn-full" data-a="es-again" data-adv="${es.adv}" data-diff="${es.diff}">🔁 Try again</button>${es.diff>0?`<button class="btn btn-ghost btn-full" data-a="es-again" data-adv="${es.adv}" data-diff="${es.diff-1}">Try an easier level</button>`:''}<button class="btn btn-ghost btn-full" data-a="es-leave">Leave the table</button></div></div>`;
+    <div class="vt-endbtns"><button class="btn btn-gold btn-full" data-a="es-again" data-adv="${es.adv}" data-diff="${es.diff}">🔁 Try again</button>${es.diff>0?`<button class="btn btn-ghost btn-full" data-a="es-again" data-adv="${es.adv}" data-diff="${es.diff-1}">Try an easier level</button>`:''}${oAnotherBtnHTML()}<button class="btn btn-ghost btn-full" data-a="es-leave">Leave the table</button></div>${oAnotherPickerHTML()}</div>`;
 }
 function rEscapeTable(){
   const v=esView(),es=v.es;
@@ -7100,6 +7112,7 @@ async function oBstRoll(){
   _onlineBusy=true;
   try{
     const state=await dbRead(G.roomId);if(!state||!state.bst)return;
+    if(oNotMyTurnNow(state))return;
     const f=state.bst;if(f.busted)return;
     const count=f.dice.length||6;
     const kinds=shuffle(bstDiceKinds(f.level,count));
@@ -7153,6 +7166,7 @@ async function oBstSelect(idx){
   _onlineBusy=true;
   try{
     const state=await dbRead(G.roomId);if(!state||!state.bst)return;
+    if(oNotMyTurnNow(state))return;
     const f=state.bst;if(!f.hasRolled||f.busted)return;
     const d=f.dice[idx];if(!d||d.face==='skull'||d.face==='boom')return;
     f.selected[idx]=!f.selected[idx];
@@ -7166,6 +7180,7 @@ async function oBstContinue(){
   _onlineBusy=true;
   try{
     const state=await dbRead(G.roomId);if(!state||!state.bst)return;
+    if(oNotMyTurnNow(state))return;
     const f=state.bst;
     const sel=bstEvaluateSelection(f.dice,f.selected);
     if(sel===null)return;
@@ -7189,6 +7204,7 @@ async function oBstBank(){
   _onlineBusy=true;
   try{
     const state=await dbRead(G.roomId);if(!state||!state.bst)return;
+    if(oNotMyTurnNow(state))return;
     const f=state.bst;
     const sel=bstEvaluateSelection(f.dice,f.selected);
     const total=f.turnTotal+(sel?sel.score:0);
@@ -7291,6 +7307,7 @@ async function oPigRoll(){
   _onlineBusy=true;
   try{
     const state=await dbRead(G.roomId);if(!state||!state.pig)return;
+    if(oNotMyTurnNow(state))return;
     const g=state.pig;if(g.busted)return;
     const v=rnd(1,6);
     g.die=v;g.hasRolled=true;
@@ -7325,6 +7342,7 @@ async function oPigBank(){
   _onlineBusy=true;
   try{
     const state=await dbRead(G.roomId);if(!state||!state.pig)return;
+    if(oNotMyTurnNow(state))return;
     const g=state.pig;if(g.busted||!g.hasRolled||g.turnTotal<=0)return;
     const p=state.players[state.curIdx||0];
     p.totalScore=(p.totalScore||0)+g.turnTotal;
@@ -11432,8 +11450,9 @@ function vtResultHTML(v){
       <div class="vt-endbtns">
         <button class="btn btn-gold btn-full" data-a="vt-again" data-adv="${vt.adv}" data-diff="${vt.diff}">🔁 Play again — new puzzles, new twist</button>
         ${others.map(o=>`<button class="btn btn-ghost btn-full" data-a="vt-again" data-adv="${o}" data-diff="${vt.diff}">${VT_ADV[o].icon} Try ${esc(VT_ADV[o].title)}</button>`).join('')}
+        ${oAnotherBtnHTML()}
         <button class="btn btn-ghost btn-full" data-a="vt-leave">Leave the table</button>
-      </div></div>`;
+      </div>${oAnotherPickerHTML()}</div>`;
   }
   return`<div class="vt-scenewrap vt-result">
     <div class="vt-kicker">THE VAULT REMAINS SEALED</div>
@@ -11443,8 +11462,9 @@ function vtResultHTML(v){
     <div class="vt-endbtns">
       <button class="btn btn-gold btn-full" data-a="vt-again" data-adv="${vt.adv}" data-diff="${vt.diff}">🔁 Try again</button>
       ${vt.diff>0?`<button class="btn btn-ghost btn-full" data-a="vt-again" data-adv="${vt.adv}" data-diff="${vt.diff-1}">Try an easier level</button>`:''}
+      ${oAnotherBtnHTML()}
       <button class="btn btn-ghost btn-full" data-a="vt-leave">Leave the table</button>
-    </div></div>`;
+    </div>${oAnotherPickerHTML()}</div>`;
 }
 function rVaultTable(){
   const v=vtView(),vt=v.vt;
@@ -17364,6 +17384,16 @@ function rSetup(){
   </div>`;
 }
 
+// The "pick the next game" list, shared by every results screen (only shown to the host, once asked for).
+function oAnotherPickerHTML(){
+  if(!G.isOnline||!G.isHost||!G.anotherOpen)return'';
+  return`<div class="panel" style="margin-top:.8rem;"><div class="panel-lbl">Pick the next game — same players, same room</div><div class="o-another-grid">${oAnotherGames().map(g=>`<button class="btn btn-ghost o-another-btn" data-a="o-switch" data-gid="${g.id}"><span>${g.icon}</span> ${esc(g.name)}</button>`).join('')||'<div class="hr-desc">No other game fits this many players.</div>'}</div></div>`;
+}
+// The host's button on the co-op end screens (Vault, Escape), which have their own Play again / Try another adventure rows.
+function oAnotherBtnHTML(){
+  if(!G.isOnline||!G.isHost)return'';
+  return`<button class="btn btn-ghost btn-full" data-a="o-another">🎲 Play a different game${G.anotherOpen?' ▴':' ▾'}</button>`;
+}
 // The buttons under every final result. Local: Rematch / New Game. Online host: Rematch (same players), pick another
 // game (same players, same room) or leave. Everybody else waits for the host.
 function resButtonsHTML(){
@@ -17372,7 +17402,7 @@ function resButtonsHTML(){
     const host=((G.srv&&G.srv.players||[]).find(p=>p.id===(G.srv&&G.srv.host))||{}).name||'the host';
     return`<div class="res-btns"><div class="slot-result" style="padding:.6rem;">Waiting for ${esc(host)} to start the next game…</div><button class="btn btn-ghost btn-full" data-a="newgame">Leave the table</button></div>`;
   }
-  const picker=G.anotherOpen?`<div class="panel" style="margin-top:.8rem;"><div class="panel-lbl">Pick the next game — same players, same room</div><div class="o-another-grid">${oAnotherGames().map(g=>`<button class="btn btn-ghost o-another-btn" data-a="o-switch" data-gid="${g.id}"><span>${g.icon}</span> ${esc(g.name)}</button>`).join('')||'<div class="hr-desc">No other game fits this many players.</div>'}</div></div>`:'';
+  const picker=oAnotherPickerHTML();
   return'<div class="res-btns"><button class="btn btn-gold btn-full" data-a="o-rematch">🔥 Rematch — same players</button><button class="btn btn-ghost btn-full" data-a="o-another">🎲 Play another game'+(G.anotherOpen?' ▴':' ▾')+'</button><button class="btn btn-ghost btn-full" data-a="newgame">Leave the table</button></div>'+picker;
 }
 /* ── Online: start a game from a room state (the lobby's Start button, and Rematch / Play another game) ── */
