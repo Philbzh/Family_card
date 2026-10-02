@@ -6093,6 +6093,232 @@ async function runPresentation(A,W,frame){
     });
   }
 
+  /* —— Mayhem: the six special moves, exactly —————— */
+  suite('Mayhem — every player is dealt three different special moves out of six',()=>{
+    const F=n=>W.eval(n);
+    const mhDeal=F('mhDeal'),mhNew=F('mhNew'),MH=F('MH_POWERS');
+    let sizes=true,distinct=true,pool=true,differ=false;
+    for(let i=0;i<300;i++){const h=mhDeal();
+      if(h[0].length!==3||h[1].length!==3)sizes=false;
+      if(new Set(h[0]).size!==3||new Set(h[1]).size!==3)distinct=false;
+      if(!h.flat().every(k=>MH.includes(k)))pool=false;
+      if(h[0].join()!==h[1].join())differ=true;}
+    check('three each, never the same one twice in a hand (300 deals)',sizes&&distinct);
+    check('only the six powers exist: bomb, bubble, magnet, lightning, wild, chaos',pool&&MH.join()==='bomb,bubble,magnet,lightning,wild,chaos');
+    check('the two hands are not always identical',differ);
+    const m=mhNew();
+    check('a new game starts with an empty board, no bubbles, nothing played',m.board.flat().every(v=>v===0)&&m.bub.flat().every(v=>v===0)&&m.moves===0&&!m.over);
+  });
+  suite('Mayhem — each special does exactly what its sentence says',()=>{
+    const F=n=>W.eval(n);
+    const mhNew=F('mhNew'),mhApply=F('mhApply'),mhMoment=F('mhMoment');
+    const fresh=(h1,h2)=>{const m=mhNew();m.hands=[h1.slice(),h2.slice()];return m;};
+    const set=(m,rows)=>rows.forEach(([r,c,v])=>{m.board[r][c]=v;});
+    const other=['chaos','magnet','lightning'];
+    let m=fresh(['bomb','bubble','wild'],other);
+    check('a plain drop lands on the bottom of the column',!!mhApply(m,1,{kind:'drop',c:3})&&m.board[5][3]===1&&m.moves===1);
+    check('a power you were not dealt is refused and changes nothing',mhApply(m,1,{kind:'lightning',axis:'col',i:3})===null&&m.moves===1);
+    check('a full column refuses a drop',(()=>{const f=fresh(['bomb','bubble','wild'],other);for(let r=0;r<6;r++)f.board[r][2]=(r%2)+1;return mhApply(f,1,{kind:'drop',c:2})===null;})());
+    // bomb
+    m=fresh(['bomb','bubble','wild'],other);set(m,[[5,2,2],[4,2,2],[5,4,2],[4,4,2],[5,3,1],[4,3,2]]);m.bub[4][4]=1;
+    let fx=mhApply(m,1,{kind:'bomb',c:3});
+    check('bomb: lands on the stack, blows away the unprotected discs touching it',!!fx&&fx.at[0]===3&&fx.killed.length===2&&m.board[4][2]===0);
+    check('bomb: a bubbled disc survives, and its bubble pops',fx.popped.length===1&&m.board[5][4]===2&&m.bub[4][4]===0&&m.board.flat().filter(v=>v).length===5);
+    check('a used power is gone from the hand',!m.hands[0].includes('bomb')&&m.hands[0].length===2);
+    // bubble
+    m=fresh(['bubble','bomb','wild'],other);set(m,[[5,0,1],[5,1,2]]);
+    check('bubble: only on one of YOUR OWN discs',mhApply(m,1,{kind:'bubble',r:5,c:1})===null&&!!mhApply(m,1,{kind:'bubble',r:5,c:0})&&m.bub[5][0]===1);
+    check('bubble: not on a disc that already has one',(()=>{const f=fresh(['bubble','bomb','wild'],other);set(f,[[5,0,1]]);f.bub[5][0]=1;return mhApply(f,1,{kind:'bubble',r:5,c:0})===null;})());
+    // lightning
+    m=fresh(['lightning','bomb','wild'],['chaos','magnet','bubble']);set(m,[[5,2,1],[4,2,2],[3,2,1],[5,3,2],[5,4,1]]);m.bub[4][2]=1;
+    fx=mhApply(m,1,{kind:'lightning',axis:'col',i:2});
+    check('lightning (column): destroys everything in it except a bubbled disc, which then falls down',!!fx&&fx.n===2&&m.board[5][2]===2&&m.bub[5][2]===0&&m.board.flat().filter(v=>v).length===3);
+    m=fresh(['lightning','bomb','wild'],['chaos','magnet','bubble']);set(m,[[5,0,1],[5,1,2],[5,2,1],[4,0,2]]);
+    fx=mhApply(m,1,{kind:'lightning',axis:'row',i:5});
+    check('lightning (row): the whole row goes, what was above falls into it',!!fx&&fx.n===3&&m.board[5][0]===2&&m.board[4][0]===0);
+    check('lightning on an empty line is refused',mhApply(fresh(['lightning','bomb','wild'],['chaos','magnet','bubble']),1,{kind:'lightning',axis:'col',i:0})===null);
+    // magnet
+    m=fresh(['magnet','bomb','wild'],['chaos','lightning','bubble']);set(m,[[5,1,2],[4,1,1],[5,3,2],[5,2,1]]);
+    fx=mhApply(m,1,{kind:'magnet',c:2});
+    check('magnet: the top disc of each neighbouring column hops into the chosen one',!!fx&&fx.moved.length===2&&m.board[4][2]!==0&&m.board[3][2]!==0&&m.board[4][1]===0&&m.board[5][1]===2);
+    check('magnet with nothing to pull is refused',mhApply(fresh(['magnet','bomb','wild'],['chaos','lightning','bubble']),1,{kind:'magnet',c:3})===null);
+    // chaos
+    m=fresh(['chaos','bomb','wild'],['magnet','lightning','bubble']);set(m,[[5,3,1],[5,5,2],[4,5,1]]);
+    fx=mhApply(m,1,{kind:'chaos',dir:-1});
+    check('chaos left: every row slides left, then everything falls',!!fx&&m.board[5][0]===1&&m.board[5][1]===2&&m.board[4][0]===1&&m.board.flat().filter(v=>v).length===3);
+    m=fresh(['chaos','bomb','wild'],['magnet','lightning','bubble']);set(m,[[5,3,1],[5,5,2]]);
+    mhApply(m,1,{kind:'chaos',dir:1});
+    check('chaos right: they slide to the right edge',m.board[5][6]===2&&m.board[5][5]===1);
+    check('chaos on an empty board is refused',mhApply(fresh(['chaos','bomb','wild'],other),1,{kind:'chaos',dir:1})===null);
+    // wild
+    m=fresh(['wild','bomb','bubble'],['chaos','lightning','magnet']);set(m,[[5,0,1],[5,1,1],[5,2,1]]);
+    mhApply(m,1,{kind:'wild',c:3});
+    check('wild: counts as the mover\'s colour and completes four',m.over&&!!m.win&&m.win.who===1);
+    m=fresh(['wild','bomb','bubble'],['chaos','lightning','magnet']);set(m,[[5,0,2],[5,1,2],[5,2,2]]);
+    mhApply(m,1,{kind:'wild',c:3});
+    check('wild: it counts for BOTH colours, so it can also finish the other player\'s four (the mover wins ties, the other player here)',m.over&&!!m.win&&m.win.who===2);
+    // a bubbled disc rides along when a magnet moves it
+    m=fresh(['magnet','bomb','wild'],['chaos','lightning','bubble']);set(m,[[5,1,1]]);m.bub[5][1]=1;
+    mhApply(m,1,{kind:'magnet',c:2});
+    check('a bubble stays with its disc when it is pulled sideways',m.board[5][2]===1&&m.bub[5][2]===1&&m.bub[5][1]===0);
+    // the last-second save
+    m=fresh(['lightning','bubble','wild'],['chaos','bomb','magnet']);set(m,[[5,0,2],[5,1,2],[5,2,2],[5,6,1]]);
+    fx=mhApply(m,1,{kind:'lightning',axis:'row',i:5});
+    check('a special that removes the other player\'s winning move is recorded as a last-second save',!!fx&&fx.saved&&m.stats.save.who===1);
+    check('...and it becomes the game\'s Table Moment',/Anna stopped a winning move with a last-second Lightning/.test(mhMoment(m,['Anna','Ben'])));
+    m=fresh(['bomb','bubble','wild'],other);m.stats.max={who:2,kind:'bomb',n:6};
+    check('a big bomb becomes the moment when nothing was saved',/Ben destroyed 6 discs with one Bomb/.test(mhMoment(m,['Anna','Ben'])));
+  });
+  suite('Mayhem — the bot plays only legal moves, always finishes, and rescues itself',()=>{
+    const F=n=>W.eval(n);
+    const mhNew=F('mhNew'),mhApply=F('mhApply'),mhBotMove=F('mhBotMove');
+    let fin=0,bad=0,specials=0,saves=0;
+    for(let g=0;g<24;g++){
+      const m=mhNew();let who=1,guard=0;
+      while(!m.over&&guard++<120){const mv=mhBotMove(m,who,g%4===0?'sharp':'gentle');const f=mhApply(m,who,mv);if(!f){bad++;break;}if(f.kind!=='drop')specials++;who=who===1?2:1;}
+      if(m.over){fin++;if(m.stats.save)saves++;}
+    }
+    check('24 bot-vs-bot games all finish without a single illegal move',fin===24&&bad===0);
+    check('the bots really use their special moves',specials>10);
+    // it takes a win with a power when a drop cannot
+    const m=mhNew();m.hands=[['wild','bomb','bubble'],['chaos','lightning','magnet']];
+    [[5,0,1],[5,1,1],[5,2,1]].forEach(([r,c,v])=>m.board[r][c]=v);
+    const mv=mhBotMove(m,1,'gentle');
+    check('a bot with three in a row wins straight away',mv.kind==='drop'&&mv.c===3);
+    // it removes a threat it cannot block with a single drop
+    const t=mhNew();t.hands=[['lightning','bomb','bubble'],['chaos','magnet','wild']];
+    // yellow threatens at both ends of a bottom-row three
+    [[5,2,2],[5,3,2],[5,4,2]].forEach(([r,c,v])=>t.board[r][c]=v);
+    const mv2=mhBotMove(t,1,'sharp');
+    const t2=JSON.parse(JSON.stringify(t));const ok=mhApply(t2,1,mv2);
+    check('facing two winning columns it cannot both block, the bot uses a power that removes the danger',!!ok&&mv2.kind!=='drop'&&!t2.over);
+  });
+  suite('Mayhem — is on the roster',()=>{
+    const g=A.GAMES.find(x=>x.id==='mayhem');
+    check('it is a playable 2-player classic, with bots and online',!!g&&g.cat==='classic'&&!g.locked&&g.minP===2&&g.maxP===2&&A.BOT_GAMES.has('mayhem')&&A.ONLINE_GAMES.includes('mayhem'));
+    check('it has an intro tagline, an accent colour and a label',!!W.eval('STAGE_TAGS').mayhem&&!!W.eval('MOMENT_ACCENT').mayhem&&W.eval('v14GameLabel')('mayhem')==='Mayhem');
+    check('its rules name all six powers and explain the confirm step',['Bomb','Bubble','Magnet','Lightning','Wild','Chaos'].every(n=>g.rules.join(' ').includes(n))&&/confirm/i.test(g.rules.join(' ')));
+    check('the original 4 in a Row is untouched',!!A.GAMES.find(x=>x.id==='fourrow')&&A.GAMES.find(x=>x.id==='fourrow').cat==='classic');
+  });
+  /* —— Mayhem: a whole local game through the real engine and the real table (timers run instantly) —————— */
+  suite('Mayhem plays through the real local engine and draws a proper table',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const lStartMatch=F('lStartMatch'),mhTap=F('mhTap'),mhPlay=F('mhPlay'),rMayhemTable=F('rMayhemTable'),botMayhemAct=F('botMayhemAct');
+    try{
+      const mk=(id,n,bot)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false,...(bot?{bot}:{})});
+      G.isOnline=false;G.srv=null;G.selGame='mayhem';
+      G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;lStartMatch();G.lstart=0;G.lcur=0;G.scr='table';G.mhInstant=true;
+      G.mh.hands[0]=['bomb','lightning','bubble'];G.mh.hands[1]=['chaos','magnet','wild'];
+      let d=new DOMParser().parseFromString(rMayhemTable(),'text/html');
+      check('the table shows the brass board with 42 cells in 7 columns and the player\'s three powers',d.querySelectorAll('.mh-cell').length===42&&d.querySelectorAll('button.mh-col.can').length===7&&d.querySelectorAll('.mh-pw').length===3);
+      check('the standings show each player with a count of how many powers are left (✦✦✦)',d.querySelectorAll('.y-standing-pill').length===2&&/✦✦✦/.test(d.querySelector('.y-standing-pill').textContent));
+      mhTap('mhcol',{getAttribute:k=>({'data-c':'2'})[k]});
+      check('tapping a column drops a disc straight away and passes the turn',G.mh.board[5][2]===1&&G.lcur===1&&G.mh.moves===1);
+      botMayhemAct({bot:'gentle'});
+      check('a bot plays the second seat turn',G.mh.moves===2&&G.lcur===0);
+      // arm the bomb, pick a column, the confirm row appears, nothing happens until Confirm
+      mhTap('mhpw',{getAttribute:k=>({'data-k':'bomb'})[k]});
+      check('arming a power lights the targeting hint',G.mhArm==='bomb'&&/Tap a column/.test(new DOMParser().parseFromString(rMayhemTable(),'text/html').querySelector('.y-hint').textContent));
+      mhTap('mhcol',{getAttribute:k=>({'data-c':'2'})[k]});
+      d=new DOMParser().parseFromString(rMayhemTable(),'text/html');
+      check('picking a target shows what will be hit and asks for confirmation — and nothing has happened yet',G.mhPend&&G.mhPend.kind==='bomb'&&d.querySelectorAll('.mh-cell.tgt').length>=3&&/Confirm/.test(d.querySelector('.mh-confirm').textContent)&&G.mh.moves===2);
+      mhTap('mhno',{getAttribute:()=>null});
+      check('Cancel backs out without spending the power',G.mhPend===null&&G.mh.hands[0].includes('bomb')&&G.mh.moves===2);
+      mhTap('mhcol',{getAttribute:k=>({'data-c':'2'})[k]});mhTap('mhgo',{getAttribute:()=>null});
+      check('Confirm plays it: the bomb is spent and the turn passes on',!G.mh.hands[0].includes('bomb')&&G.mh.moves===3&&G.lcur===1&&G.mhSeq===null);
+      check('the table keeps what the move did for the effect sequence (a record of what was destroyed)',G.mh.fx&&G.mh.fx.kind==='bomb'&&!!G.mh.prev);
+      // a chaos shake needs a direction first
+      G.lcur=0;G.mh.hands[0]=['chaos','lightning','bubble'];mhTap('mhpw',{getAttribute:k=>({'data-k':'chaos'})[k]});
+      d=new DOMParser().parseFromString(rMayhemTable(),'text/html');
+      check('Chaos asks left or right instead of a column',d.querySelectorAll('[data-a="mhdir"]').length===2);
+      // lightning: choose Row, then a cell
+      G.mhArm=null;G.mhPend=null;mhTap('mhpw',{getAttribute:k=>({'data-k':'lightning'})[k]});mhTap('mhaxis',{getAttribute:k=>({'data-x':'row'})[k]});
+      d=new DOMParser().parseFromString(rMayhemTable(),'text/html');
+      check('Lightning on a row makes the occupied cells tappable',d.querySelectorAll('button.mh-cell[data-a="mhcell"]').length===G.mh.board.flat().filter(v=>v).length);
+      // play a game out against the bot to the results screen
+      G.mhArm=null;G.mhPend=null;G.lcur=0;
+      let guard=0;
+      while(!G.mh.over&&guard++<100){const who=G.lcur%2;const mv=F('mhBotMove')(G.mh,who+1,'gentle');mhPlay(mv);}
+      check('a game played out ends with a winner or a draw, and both players get a result',G.mh.over&&G.lp.every(p=>['win','loss','draw'].includes(p.c4Result)));
+      G.scr='matchend'; // the app shows the results after a short glow of the winning four
+
+      const rows=new DOMParser().parseFromString(F('rMatchEnd')(),'text/html');
+      check('the results list both players and a Table Moment line',rows.querySelectorAll('.sr').length===2&&rows.querySelector('.res-body').textContent.length>50);
+      check('the result is recorded in the family history',F('getHistory')().some(h=>h.game==='mayhem'));
+    } finally {
+      G.mhInstant=false;
+      try{W.eval('bgClearCaller')();}catch(e){}
+      G.scr='home';G.mh=null;G.mhSeq=null;G.mhArm=null;G.mhPend=null;
+    }
+  });
+
+  /* —— Mayhem online: privacy, turn gating, the sequence on every device, rematch, away players (awaits live at the top level) —————— */
+  {
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const oMhPlay=F('oMhPlay'),oMhAuto=F('oMhAuto'),oRematch=F('oRematch'),mhNew=F('mhNew'),mhApply=F('mhApply'),onSrv=F('onSrv'),rMayhemTable=F('rMayhemTable');
+    W.__keepSb5=W.eval('_sb');
+    W.eval('window.__origSetTimeout=setTimeout; setTimeout=(fn)=>0;');
+    let DB=null;const clone=o=>JSON.parse(JSON.stringify(o));
+    W.__fakeSb={from:()=>({
+      select:()=>({eq:()=>({single:()=>Promise.resolve({data:DB?{state:clone(DB)}:null,error:DB?null:{message:'none'}})})}),
+      upsert:row=>{DB=clone(row.state);return Promise.resolve({error:null});},
+      update:row=>({eq:()=>({eq:()=>({select:()=>{DB=clone(row.state);return Promise.resolve({data:[{id:'T'}],error:null});}})})})})};
+    const P=(id,n,i)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,roundsWon:0,chips:900,c4Result:null});
+    const room=cur=>{const mh=mhNew();mh.hands=[['bomb','bubble','lightning'],['magnet','chaos','wild']];return{phase:'game',gameId:'mayhem',host:'a',players:[P('a','Anna',0),P('b','Ben',1)],curIdx:cur,mh,winner:null,winnerName:null,winnerAv:null,round:1,_ts:Date.now()-5000};};
+    const seen={};
+    try{
+      G.isOnline=true;G.roomId='T';G.myPid='a';G.isHost=true;G.scr='table';G.selGame='mayhem';
+      W.eval('_sb=window.__fakeSb');
+      // privacy: each device draws only its own powers
+      DB=room(0);G.srv=clone(DB);G.myPid='a';seen.htmlA=rMayhemTable();
+      G.myPid='b';G.srv=clone(DB);seen.htmlB=rMayhemTable();
+      // a plain drop by the player on turn
+      G.myPid='a';G.srv=clone(DB);await oMhPlay({kind:'drop',c:3});seen.drop=clone(DB);
+      // somebody else's turn: nothing changes (also with a stale local view)
+      DB=room(0);G.myPid='b';G.srv=clone(DB);G.srv.curIdx=1;const b1=JSON.stringify(DB);await oMhPlay({kind:'drop',c:0});seen.staleSame=JSON.stringify(DB)===b1;
+      // a power you do not hold changes nothing
+      DB=room(0);G.myPid='a';G.srv=clone(DB);const b2=JSON.stringify(DB);await oMhPlay({kind:'wild',c:1});seen.noPowerSame=JSON.stringify(DB)===b2;
+      // a bomb: written to the room, with what it destroyed and the board before
+      DB=room(0);DB.mh.board[5][2]=2;DB.mh.board[5][4]=2;DB.mh.board[5][3]=1;G.myPid='a';G.srv=clone(DB);
+      await oMhPlay({kind:'bomb',c:3});seen.bomb=clone(DB);
+      // the OTHER device sees the effect sequence start the moment the state arrives
+      G.myPid='b';G.srv=room(0);G.srv.curIdx=0;G.mhSeq=null;
+      onSrv(clone(seen.bomb));seen.seqOther=G.mhSeq?G.mhSeq.stage:null;seen.seqKind=G.mhSeq&&G.mhSeq.fx.kind;
+      G.mhSeq=null;
+      // a win ends the game and records the moment
+      DB=room(0);[[5,0,1],[5,1,1],[5,2,1]].forEach(([r,c,v])=>DB.mh.board[r][c]=v);G.myPid='a';G.srv=clone(DB);
+      await oMhPlay({kind:'drop',c:3});seen.win=clone(DB);
+      // an away player gets a plain drop
+      DB=room(1);G.myPid='a';G.srv=clone(DB);await oMhAuto();seen.auto=clone(DB);
+      // rematch: same players, fresh board and fresh hands
+      DB=seen.win?clone(seen.win):room(0);G.myPid='a';G.isHost=true;G.srv=clone(DB);
+      await oRematch();seen.rematch=clone(DB);
+    } finally {
+      W.eval('setTimeout=window.__origSetTimeout');
+      W.eval('_sb=window.__keepSb5');
+      G.isOnline=false;G.srv=null;G.scr='home';G.isHost=false;G.mh=null;G.mhSeq=null;
+      try{W.localStorage.removeItem('ct_online_session');W.localStorage.removeItem('ct_resume');}catch(e){}
+    }
+    suite('Mayhem online — each device sees only its own powers',()=>{
+      const hasChips=h=>new DOMParser().parseFromString(h,'text/html').querySelectorAll('.mh-pw').length;
+      const dA=new DOMParser().parseFromString(seen.htmlA,'text/html');
+      check('the player on turn gets the control console with their three powers',hasChips(seen.htmlA)===3&&/Bomb/.test(seen.htmlA)&&/Lightning/.test(seen.htmlA));
+      check('their opponent\'s powers (magnet, chaos, wild) appear nowhere on that screen',!/Magnet|Chaos|🧲|🌪️/.test(seen.htmlA)&&!/data-k="(magnet|chaos|wild)"/.test(seen.htmlA));
+      check('the opponent is shown only as a count of powers left',/✦✦✦/.test(dA.querySelectorAll('.y-standing-pill')[1].textContent));
+      check('a player waiting for their turn gets no powers to arm (and sees no one else\'s either)',hasChips(seen.htmlB)===0&&!/Bomb|Bubble|Lightning/.test(new DOMParser().parseFromString(seen.htmlB,'text/html').querySelector('.mh-felt').textContent));
+    });
+    suite('Mayhem online — the room, the turn and the effect sequence',()=>{
+      check('a drop is written to the room and the turn passes',seen.drop.mh.board[5][3]===1&&seen.drop.curIdx===1&&seen.drop.mh.moves===1);
+      check('a device that is not on turn changes nothing, even with a stale view',seen.staleSame);
+      check('a power the player does not hold changes nothing',seen.noPowerSame);
+      check('a bomb is stored with what it destroyed, the board before it, and the power is spent',seen.bomb.mh.fx.kind==='bomb'&&seen.bomb.mh.fx.killed.length>=2&&!!seen.bomb.mh.prev&&!seen.bomb.mh.hands[0].includes('bomb')&&seen.bomb.curIdx===1);
+      check('the other device starts the announce-then-blast sequence the moment the state arrives',seen.seqOther==='announce'&&seen.seqKind==='bomb');
+      check('a winning drop ends the game: winner, results and Table Moment all in the room',seen.win.winner==='a'&&seen.win.mh.over&&seen.win.players[0].c4Result==='win'&&/connects four/.test(seen.win.moment));
+      check('an away player has a plain drop made for them',seen.auto.mh.moves===1&&seen.auto.curIdx===0&&seen.auto.mh.fx.kind==='drop');
+      check('Rematch: same players, a brand-new board, brand-new hands of three',seen.rematch.gameId==='mayhem'&&seen.rematch.phase==='game'&&!seen.rematch.winner&&seen.rematch.mh.moves===0&&seen.rematch.mh.hands.every(h=>h.length===3)&&seen.rematch.players.map(p=>p.id).join()==='a,b'&&!!seen.rematch.rematchId);
+    });
+  }
+
   /* —— Le Pouilleux: deck, auto-discard, and turn rotation —————— */
   suite('Le Pouilleux\'s deck, auto-discard, and turn order are all correct',()=>{
     const deck=A.bpBuildDeck();

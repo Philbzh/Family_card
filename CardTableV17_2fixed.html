@@ -1407,6 +1407,94 @@ body[data-table-age="3"] .felt-table{filter:sepia(.18) saturate(1.2) contrast(1.
 .v10-gc--fourrow:hover{border-color:rgba(242,194,48,.45);}
 .v10-main .v10-gc--fourrow{background:linear-gradient(180deg,rgba(28,48,96,.85),rgba(8,12,26,.93));border-top-color:rgba(242,194,48,.6);--tile-glow:rgba(242,194,48,.6);}
 @media(prefers-reduced-motion:reduce){.c4-cell.drop,.c4-cell.win{animation:none;}}
+/* ════════ MAYHEM ════════ */
+.game-mayhem .felt-table,.mh-felt{background:
+  radial-gradient(circle 380px at 50% 8%,rgba(230,195,106,.13),transparent 70%),
+  radial-gradient(ellipse 95% 80% at 50% 42%,#10301f 0%,#0a1c13 55%,#040a07 100%);transition:filter .4s;}
+.mh-felt.dim{filter:brightness(.82) saturate(.9);}
+.mh-cam{width:100%;display:flex;flex-direction:column;align-items:center;gap:.7rem;transition:transform .8s cubic-bezier(.2,.8,.2,1);}
+.mh-cam.zoom{transform:scale(1.05);}
+.mh-cam.shake{animation:mh-shake .55s cubic-bezier(.36,.07,.19,.97) both;}
+@keyframes mh-shake{0%,100%{transform:translate(0,0);}15%{transform:translate(-7px,3px) rotate(-.4deg);}30%{transform:translate(6px,-4px) rotate(.4deg);}45%{transform:translate(-5px,2px);}60%{transform:translate(4px,-2px);}80%{transform:translate(-2px,1px);}}
+/* the board: a brass frame around a recessed green well */
+.mh-board{position:relative;width:100%;max-width:27rem;padding:.65rem;border-radius:22px;
+  background:linear-gradient(155deg,#f3dc92 0%,#c79a3a 28%,#8a6420 60%,#c79a3a 85%,#f3dc92);
+  box-shadow:inset 0 2px 3px rgba(255,255,255,.55),inset 0 -3px 5px rgba(60,35,5,.6),0 14px 34px rgba(0,0,0,.65),0 0 0 1px #3a2810;}
+.mh-board.live{box-shadow:inset 0 2px 3px rgba(255,255,255,.55),inset 0 -3px 5px rgba(60,35,5,.6),0 14px 34px rgba(0,0,0,.65),0 0 0 1px #3a2810,0 0 36px rgba(255,200,90,.35);}
+.mh-well{position:relative;display:grid;grid-template-columns:repeat(7,1fr);gap:.26rem;padding:.42rem;border-radius:15px;
+  background:linear-gradient(180deg,#0e2b20,#06150f);
+  box-shadow:inset 0 5px 16px rgba(0,0,0,.9),inset 0 0 0 2px rgba(0,0,0,.55);}
+.mh-col{display:flex;flex-direction:column;gap:.26rem;padding:0;background:transparent;border:0;border-radius:11px;font:inherit;cursor:default;}
+button.mh-col.can{cursor:pointer;}
+button.mh-col.can:hover,button.mh-col.can:focus-visible{background:rgba(255,235,170,.13);outline:none;}
+.mh-col.warn{background:rgba(255,80,70,.12);animation:c4-warn 1s ease-in-out infinite;}
+.mh-cell{position:relative;display:block;aspect-ratio:1;border-radius:50%;padding:0;border:0;font:inherit;
+  background:radial-gradient(circle at 50% 38%,#020d08,#010604);
+  box-shadow:inset 0 3px 7px rgba(0,0,0,.95),0 1px 0 rgba(255,255,255,.07);}
+button.mh-cell{cursor:pointer;}
+.mh-cell.d1,.mh-cell.d2,.mh-cell.dw{box-shadow:inset 0 -5px 7px rgba(0,0,0,.42),inset 0 2px 3px rgba(255,255,255,.4),0 4px 6px rgba(0,0,0,.65);}
+.mh-cell.d1{background:radial-gradient(circle at 34% 27%,#ffd0c7 0 7%,#ff5a4e 30%,#b6221b 72%,#6b0e0a);outline:2px solid #6b0e0a;outline-offset:-2px;}
+.mh-cell.d2{background:radial-gradient(circle at 34% 27%,#fff7cf 0 7%,#f4c93a 32%,#b8860b 74%,#6b4d05);outline:2px solid #6b4d05;outline-offset:-2px;}
+.mh-cell.dw{background:radial-gradient(circle at 34% 27%,#fff 0 6%,transparent 30%),conic-gradient(from 20deg,#ff5a4e,#f4c93a,#5fd68a,#4fa6f2,#b98af0,#ff5a4e);outline:2px solid #3a2810;outline-offset:-2px;}
+/* a mark on each colour (a ring, a dot) so the two players never depend on colour alone */
+.mh-cell.d1:before,.mh-cell.d2:before{content:'';position:absolute;border-radius:50%;pointer-events:none;}
+.mh-cell.d1:before{inset:27%;border:2px solid rgba(70,8,5,.55);box-shadow:inset 0 1px 1px rgba(255,255,255,.25);}
+.mh-cell.d2:before{inset:39%;background:rgba(88,60,4,.55);box-shadow:inset 0 1px 1px rgba(0,0,0,.35);}
+/* the bubble: a glass sphere over the disc */
+.mh-cell.bub:after{content:'';position:absolute;inset:-5%;border-radius:50%;border:2px solid rgba(200,238,255,.85);
+  background:radial-gradient(circle at 30% 24%,rgba(255,255,255,.85) 0 9%,rgba(190,235,255,.28) 38%,rgba(120,200,255,.1) 70%);
+  box-shadow:0 0 10px rgba(150,220,255,.85),inset 0 0 8px rgba(190,235,255,.5);animation:mh-bub 2.2s ease-in-out infinite;}
+@keyframes mh-bub{0%,100%{transform:scale(1);}50%{transform:scale(1.05);}}
+.mh-cell.drop{animation:mh-fall calc(.14s + var(--fall,1)*.05s) cubic-bezier(.5,0,.9,.6) both,mh-land .22s ease-out calc(.14s + var(--fall,1)*.05s);}
+@keyframes mh-fall{from{transform:translateY(-420%);}to{transform:translateY(0);}}
+@keyframes mh-land{0%{transform:scale(1,1);}35%{transform:scale(1.08,.9);}70%{transform:scale(.97,1.04);}100%{transform:scale(1,1);}}
+.mh-cell.settle{animation:mh-fall .3s cubic-bezier(.4,0,.9,.7) both,mh-land .24s ease-out .3s;--fall:2;}
+.mh-cell.win{animation:c4-win .7s ease-in-out infinite;box-shadow:0 0 0 3px #fff,0 0 16px 4px rgba(255,255,255,.85);}
+.mh-cell.tgt{box-shadow:0 0 0 3px #f3dc92,0 0 14px 3px rgba(243,220,146,.9);animation:mh-tgt .8s ease-in-out infinite;}
+@keyframes mh-tgt{0%,100%{filter:brightness(1);}50%{filter:brightness(1.35);}}
+.mh-cell.arm{animation:mh-arm .3s ease-in-out infinite;}
+@keyframes mh-arm{0%,100%{transform:scale(1);filter:brightness(1);}50%{transform:scale(1.12);filter:brightness(1.7);}}
+.mh-cell.boom{animation:mh-boom .7s ease-out both;}
+.mh-cell.boom.zap{animation:mh-zap .7s ease-out both;}
+@keyframes mh-boom{0%{transform:scale(1);filter:brightness(1);}25%{transform:scale(1.45);filter:brightness(3) saturate(2);box-shadow:0 0 22px 8px rgba(255,170,60,.95);}100%{transform:scale(.2) translateY(-30%);opacity:0;}}
+@keyframes mh-zap{0%{filter:brightness(1);}20%{filter:brightness(4);box-shadow:0 0 20px 8px rgba(190,230,255,.95);}100%{transform:scale(.4);opacity:0;}}
+.mh-cell.popped{animation:mh-popped .6s ease-out both;}
+@keyframes mh-popped{0%{transform:scale(1);}30%{transform:scale(1.12);}100%{transform:scale(1);}}
+.mh-cell.shl{animation:mh-shl .8s cubic-bezier(.4,0,.2,1) both;}
+.mh-cell.shr{animation:mh-shr .8s cubic-bezier(.4,0,.2,1) both;}
+@keyframes mh-shl{0%,100%{transform:translateX(0);}30%{transform:translateX(-45%);}60%{transform:translateX(18%);}}
+@keyframes mh-shr{0%,100%{transform:translateX(0);}30%{transform:translateX(45%);}60%{transform:translateX(-18%);}}
+.mh-cell.pulled{animation:mh-pulled .8s ease-in-out both;}
+@keyframes mh-pulled{0%{filter:brightness(1);}40%{filter:brightness(2.4);transform:scale(1.2);}100%{filter:brightness(1);}}
+.mh-spark{position:absolute;width:.42rem;height:.42rem;margin:-.21rem 0 0 -.21rem;border-radius:50%;pointer-events:none;animation:mh-spark .65s ease-out forwards;}
+.mh-spark.bm{background:radial-gradient(circle,#fff,#ffb23c 60%,transparent);}
+.mh-spark.zp{background:radial-gradient(circle,#fff,#9fd8ff 60%,transparent);}
+@keyframes mh-spark{from{transform:translate(0,0) scale(1);opacity:1;}to{transform:translate(var(--dx),var(--dy)) scale(.2);opacity:0;}}
+/* the announcement: a beat of silence before the effect */
+.mh-announce{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.1rem;border-radius:22px;pointer-events:none;
+  background:radial-gradient(circle,rgba(0,0,0,.2),rgba(0,0,0,.62));animation:mh-ann .9s ease-out both;}
+.mh-announce span{font-size:3.6rem;filter:drop-shadow(0 0 18px rgba(255,200,90,.9));animation:mh-annpulse .3s ease-in-out infinite;}
+.mh-announce b{font-family:var(--serif);font-size:1.7rem;letter-spacing:.18em;color:#f6e1a0;text-shadow:0 0 16px rgba(255,190,70,.9);}
+.mh-announce small{font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:#cfd8c8;}
+@keyframes mh-ann{from{opacity:0;transform:scale(.92);}to{opacity:1;transform:scale(1);}}
+@keyframes mh-annpulse{0%,100%{transform:scale(1);}50%{transform:scale(1.12);}}
+/* the console: your three powers and the confirm row */
+.mh-console{display:flex;flex-direction:column;gap:.45rem;padding:.55rem .85rem .35rem;flex-shrink:0;}
+.mh-lbl{font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:#c9b27a;text-align:center;}
+.mh-chips{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;}
+.mh-pw{display:flex;flex-direction:column;align-items:center;gap:.05rem;padding:.55rem .2rem;border-radius:14px;color:#3a2508;font:inherit;cursor:pointer;
+  background:linear-gradient(180deg,#f6dc9c,#d9a548 50%,#a8741f);border:1px solid #6b4812;box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 4px 0 #4a3008,0 8px 12px rgba(0,0,0,.4);transition:transform .1s;}
+.mh-pw span{font-size:1.5rem;line-height:1.1;}
+.mh-pw b{font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;}
+.mh-pw.armed{transform:translateY(-3px);filter:brightness(1.15);box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 4px 0 #4a3008,0 0 0 2px #fff6cc,0 0 20px rgba(255,214,120,.95);}
+.mh-sub{display:flex;gap:.5rem;justify-content:center;}
+.mh-sub .btn.on{outline:2px solid var(--gold2);}
+.mh-confirm{display:flex;align-items:center;justify-content:center;gap:.6rem;flex-wrap:wrap;padding:.45rem .6rem;border-radius:12px;background:rgba(0,0,0,.35);border:1px solid rgba(230,195,106,.45);}
+.mh-confirm b{font-family:var(--serif);font-size:.95rem;color:#f6e1a0;}
+.v10-gc--mayhem{background:linear-gradient(160deg,rgba(255,150,60,.30),rgba(40,16,6,.3));border-top-color:#ff9a3c;box-shadow:0 10px 28px -12px rgba(255,150,60,.42);}
+.v10-gc--mayhem:hover{border-color:rgba(255,150,60,.45);}
+.v10-main .v10-gc--mayhem{background:linear-gradient(180deg,rgba(96,48,16,.85),rgba(24,10,4,.93));border-top-color:rgba(255,150,60,.6);--tile-glow:rgba(255,150,60,.6);}
+@media(prefers-reduced-motion:reduce){.mh-cam,.mh-cam.shake,.mh-cell,.mh-announce,.mh-announce span,.mh-col.warn,.mh-cell.bub:after{animation:none!important;transition:none!important;}.mh-cam.zoom{transform:none;}}
 /* ════════ TENSION ════════ */
 .game-tension .felt-table,.tn-felt{background:
   radial-gradient(circle 420px at 50% 0%,rgba(255,176,80,.16),transparent 70%),
@@ -3635,6 +3723,7 @@ async function oForceSkipCurrentPlayer(){
     // Flower or Skull: an absent player's move is made for them (a flower, a pass, the next flip...).
     if(state.gameId==='skull'){await oSkMutate(st=>skAutoMove(st));return;}
     if(state.gameId==='tension'){await oTnAuto();return;}
+    if(state.gameId==='mayhem'){await oMhAuto();return;}
     if(state.gameId==='hotbomb'||state.gameId==='vault'||state.gameId==='escape'){return;}
     state.lastAct=esc(p.name)+' was skipped (away too long).';
     let runout=false,allDone=false;
@@ -3800,6 +3889,13 @@ const GAMES=[
      'If the board fills up with no four in a row, it is a <b>draw</b>.',
      'Against the bot, <b>Gentle</b> plays sensibly but sometimes misses a trap; <b>Sharp</b> looks several moves ahead.',
      '<b>Fun version</b> (pick it before you start): each player gets one of each power disc for the whole game — <b>💣 Bomb</b> lands and blows away every disc touching it (the rest fall), <b>🪄 Wild</b> counts as both colours and can finish anyone\'s four, <b>🫧 Pop</b> pulls out one of your own bottom discs. You also get a warning when the other player is one disc from four.']},
+  {id:'mayhem',cat:'classic',icon:'💥',name:'Mayhem',players:'2',dur:'5–10 min',diff:'medium',deal:0,minP:2,maxP:2,
+   rules:['<b>4 in a Row — with no mercy.</b> Take turns dropping a disc into one of seven columns; the first to line up <b>four</b> (across, up and down, or on a diagonal) wins.',
+     'But in Mayhem each player is secretly dealt <b>three special moves</b> out of six. Only <b>you</b> see yours; your opponent just sees how many you have left.',
+     '💣 <b>Bomb</b> drops a disc and blows away every disc touching it. 🫧 <b>Bubble</b> encases one of your discs — it survives the next destruction. 🧲 <b>Magnet</b> pulls the top disc of each neighbouring column across into the column you pick. ⚡ <b>Lightning</b> destroys a whole column or row. 🃏 <b>Wild</b> is a disc that counts as both colours. 🌪️ <b>Chaos</b> shakes the whole board left or right, then everything falls.',
+     'A special is never instant: pick it, pick where, <b>confirm</b> — and everybody watches it happen. Use one to save yourself: a four that was one move away can simply vanish.',
+     'Careful — destruction can help the other side too. A bomb or a shake can drop somebody else\'s four into place.',
+     'Play online, on one device, or against a bot.']},
   {id:'lepouilleux',cat:'cards',icon:'🂫',name:'Old Maid',players:'2–8',dur:'5–15 min',diff:'easy',deal:0,cover:'assets/games/lepouilleux.jpg',
    rules:['A standard 52-card deck, minus the <b>Jack of Clubs</b> — 51 cards dealt out to everyone.',
      'A pair is two cards of the <b>same rank and same color</b> — K♥+K♦, or 8♠+8♣ (not just any same rank).',
@@ -3889,7 +3985,7 @@ const GAMES=[
 ];
 // Single source of truth for which unlocked games have online-multiplayer support, so the "online"
 // gate and the local-only badge on a game's card can never drift out of sync with each other.
-const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice','summit','hotbomb','vault','bust','escape','shutbox','fourrow','skull','tension'];
+const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice','summit','hotbomb','vault','bust','escape','shutbox','fourrow','skull','tension','mayhem'];
 // The Games tab groups its (growing) roster into these, rather than one long scroll -- every GAMES
 // entry's `cat` must be one of these ids. Order here is the order the category tiles are shown in.
 const GAME_CATEGORIES=[
@@ -3990,6 +4086,13 @@ const SFX={
   // collapse and a two-tone alarm for the critical zone.
   tnClank(f){if(f>1){tone(140,.12,'sawtooth');setTimeout(()=>tone(95,.16,'square'),70);haptic([30,20,30]);}else if(f<1){tone(300,.06,'triangle');setTimeout(()=>tone(430,.05,'sine'),50);haptic(8);}else{tone(220,.08,'square');setTimeout(()=>tone(270,.06,'triangle'),60);haptic(12);}},
   tnCollapse(){[300,230,170,120,80].forEach((f,i)=>setTimeout(()=>tone(f,.22,'sawtooth'),i*95));haptic([60,40,60,40,120]);},
+  // Mayhem: fuse ticks, a deep boom, a crackle for lightning, a sweep for chaos and a soft pop for a bubble
+  mhTick(){tone(1200,.03,'square');setTimeout(()=>tone(900,.03,'square'),40);haptic(6);},
+  mhBoom(){[160,120,90,60].forEach((f,i)=>setTimeout(()=>tone(f,.2,'sawtooth'),i*45));setTimeout(()=>tone(500,.06,'square'),20);},
+  mhZap(){for(let i=0;i<7;i++)setTimeout(()=>tone(900+Math.random()*1800,.03,'square'),i*22);setTimeout(()=>tone(140,.2,'sawtooth'),120);},
+  mhPull(){[300,360,430,520].forEach((f,i)=>setTimeout(()=>tone(f,.07,'triangle'),i*55));},
+  mhWhoosh(){for(let i=0;i<9;i++)setTimeout(()=>tone(300-i*22+Math.random()*30,.05,'sawtooth'),i*50);},
+  mhPop(){tone(700,.05,'sine');setTimeout(()=>tone(1100,.06,'sine'),45);haptic(8);},
   tnAlarm(){tone(880,.1,'square');setTimeout(()=>tone(660,.1,'square'),140);setTimeout(()=>tone(880,.1,'square'),300);haptic([20,30,20]);},
 };
 
@@ -5017,6 +5120,7 @@ function lDeal(){
   if(game.id==='shutbox'){lDealShutBox();return;}
   if(game.id==='tension'){lDealTension();return;}
   if(game.id==='fourrow'){lDealFourRow();return;}
+  if(game.id==='mayhem'){lDealMayhem();return;}
   if(game.id==='bingo'){lDealBingo();return;}
   if(game.id==='lepouilleux'){lDealBlackPeter();return;}
   if(game.id==='dicedual'){lDealDiceDuel();return;}
@@ -6739,7 +6843,7 @@ function rTourOv(){
    waits its turn behind a bigger moment, and it stays still for anyone who asked their device for less motion.
    For online games stageOnSrv() spots the same moments in the room state, so EVERY device sees them, not only
    the one that rolled. */
-const STAGE_TAGS={maumau:'Match, shed, shout Mau!',texas:'Read the table.',fivecard:'Draw to the best hand.',blackjack:'Beat the dealer to 21.',battle:'Flip. Win. Repeat.',yahtzee:'Five dice. Thirteen chances.',roulette:'Place your bets.',dicedual:'Roll. Strike. Survive.',uno:'Match the colour. Shout UNO!',farkle:'How much will you risk?',bingo:'Keep your eyes on your card.',lepouilleux:'Don’t get stuck with the Old Maid.',slots:'Pull the lever.',pig:'One roll too many…',drawit:'Draw. Guess. Laugh.',liarsdice:'Trust nobody.',summit:'How far will you go?',hotbomb:'Pass it. Don’t hold it.',vault:'Nobody cracks it alone.',bust:'One more!',escape:'Enter. Explore. Solve.',shutbox:'Close them all.',fourrow:'Four. In. A. Row.',skull:'Flower or skull?',tension:'Pull. Push. Survive.'};
+const STAGE_TAGS={maumau:'Match, shed, shout Mau!',texas:'Read the table.',fivecard:'Draw to the best hand.',blackjack:'Beat the dealer to 21.',battle:'Flip. Win. Repeat.',yahtzee:'Five dice. Thirteen chances.',roulette:'Place your bets.',dicedual:'Roll. Strike. Survive.',uno:'Match the colour. Shout UNO!',farkle:'How much will you risk?',bingo:'Keep your eyes on your card.',lepouilleux:'Don’t get stuck with the Old Maid.',slots:'Pull the lever.',pig:'One roll too many…',drawit:'Draw. Guess. Laugh.',liarsdice:'Trust nobody.',summit:'How far will you go?',hotbomb:'Pass it. Don’t hold it.',vault:'Nobody cracks it alone.',bust:'One more!',escape:'Enter. Explore. Solve.',shutbox:'Close them all.',fourrow:'Four. In. A. Row.',skull:'Flower or skull?',tension:'Pull. Push. Survive.',mayhem:'Four in a row. No mercy.'};
 const STAGE_TONES={
   good:{c:'95,214,138',buzz:[20,40,20]},bad:{c:'255,90,78',buzz:[40,50,40]},gold:{c:'244,201,93',buzz:[20,30,60]},
   hot:{c:'255,138,47',buzz:[15,30,15]},cool:{c:'126,200,242',buzz:[15]}
@@ -6785,6 +6889,7 @@ const STAGE_EVENTS={
   FARKLE:d=>({text:'FARKLE!',sub:(d.points||0)+' points lost',tone:'bad',icon:'😬',who:d.who}),
   PIG_OUT:d=>({text:'PIG OUT!',sub:(d.points||0)+' points lost',tone:'bad',icon:'🐷',who:d.who}),
   POWER:d=>({text:d.text,sub:d.sub,tone:'hot',icon:d.icon,who:d.who,ms:1100,pri:1}),
+  SAVE:d=>({text:'LAST-SECOND SAVE!',sub:d.sub||'Disaster avoided',tone:'cool',icon:'😮',who:d.who,pri:2,ms:1500,shake:false}),
   COLLAPSE:d=>({text:'COLLAPSE!',sub:d.sub||'The machine gives way',tone:'bad',icon:'💥',who:d.who,pri:3,ms:1900}),
   CRITICAL:d=>({text:'CRITICAL',sub:d.sub||'Points count double now',tone:'hot',icon:'🔥',pri:2,ms:1200,shake:false}),
   SKULL:d=>({text:'SKULL!',sub:d.sub||'Bad luck',tone:'bad',icon:'💀',who:d.who,pri:2,ms:1500}),
@@ -6836,6 +6941,9 @@ function stageOnSrv(prev,state){
       stageEmit('FARKLE',{who:cur,points:state.fk.turnTotal});
     else if(g==='pig'&&prev.pig&&state.pig&&state.pig.busted&&!prev.pig.busted)
       stageEmit('PIG_OUT',{who:cur,points:state.pig.turnTotal});
+    else if(g==='mayhem'&&prev.mh&&state.mh&&state.mh.moves>prev.mh.moves&&state.mh.fx){
+      mhFeel(state.mh.fx,(state.players||[])[state.mh.fx.who-1]);mhRunSeq(state.mh,false,null);
+    }
     else if(g==='fourrow'&&prev.c4&&state.c4&&state.c4.moves>prev.c4.moves&&!state.c4.over&&state.c4.kind&&state.c4.kind!=='drop'&&C4_POWER_MOMENT[state.c4.kind])
       stageEmit('POWER',{who:(state.players||[])[(state.curIdx||0)===0?1:0],icon:C4_POWER_INFO[state.c4.kind].icon,...C4_POWER_MOMENT[state.c4.kind]});
     else if(g==='fourrow'&&prev.c4&&state.c4&&state.c4.over&&!prev.c4.over){
@@ -8716,6 +8824,479 @@ function tnOptionsHTML(){
   const m=tnMode();
   const opts=[['classic','Classic','Twelve mechanisms, a shared stability meter, four collapses. Learn the machine, then survive it.'],['fun','Fun','Adds one mystery 🔴 Red Lever each cycle: +10 points and a random effect — mend, shock, jackpot or nothing.']];
   return`<div class="panel"><div class="panel-lbl">Which version?</div><div class="hr-grid">${opts.map(([k,n,d])=>`<div class="hr-tog${m===k?' on':''}" data-a="tn-mode" data-m="${k}"><div class="hr-row"><span class="hr-nm">${n}</span><span class="hr-chk">${m===k?'✓':''}</span></div><span class="hr-desc">${d}</span></div>`).join('')}</div></div>`;
+}
+
+/* ═══════ MAYHEM ═══════
+   Four in a row, no mercy. The rules are exactly as simple as 4 in a Row -- drop a disc, connect four -- but every
+   player is dealt THREE of six special moves at the start, and nobody else sees which. A special is never instant:
+   you pick it, pick its target, CONFIRM, and then everybody at the table watches it happen (an announcement, a
+   tense pause, the effect, the board settling). The six, each with one clear sentence:
+     💣 Bomb      lands, then blows away every disc touching it
+     🫧 Bubble    encases one of YOUR discs: it survives the next thing that would destroy it
+     🧲 Magnet    pulls the top disc of each neighbouring column across into the chosen column
+     ⚡ Lightning destroys a whole column or a whole row
+     🃏 Wild      a disc that counts as BOTH colours
+     🌪️ Chaos     the whole board is shaken sideways (left or right), then everything falls
+   Bubbles, bombs and gravity meet naturally (a bubbled disc survives a bomb; a magnet can pull the disc that
+   completes somebody's four) -- there is no combo table to learn. Comebacks are the point: a four that was one move
+   away can simply stop existing. Every rule below is a pure function over the room's `mh` object that returns null when a
+   move is not allowed, so the local table, the bots and the online room all share it. Hands live in the shared
+   room row and are hidden at render time (like Skull's discs): you see your own three, the other seat only a count. */
+const MH_POWERS=['bomb','bubble','magnet','lightning','wild','chaos'];
+const MH_INFO={
+  bomb:{icon:'💣',name:'Bomb',tip:'Drops a disc and blows away every disc touching it.'},
+  bubble:{icon:'🫧',name:'Bubble',tip:'Encase one of YOUR discs: it survives the next destruction.'},
+  magnet:{icon:'🧲',name:'Magnet',tip:'Pulls the top disc of each neighbouring column across into the chosen column.'},
+  lightning:{icon:'⚡',name:'Lightning',tip:'Destroys a whole column or a whole row.'},
+  wild:{icon:'🃏',name:'Wild',tip:'A disc that counts as BOTH colours.'},
+  chaos:{icon:'🌪️',name:'Chaos',tip:'Shakes the whole board sideways, then everything falls.'}
+};
+const MH_HAND=3,MH_ANNOUNCE_MS=900,MH_BLAST_MS=800;
+const mhClone=o=>JSON.parse(JSON.stringify(o));
+function mhShuffled(a){const r=a.slice();for(let i=r.length-1;i>0;i--){const j=rnd(0,i);const t=r[i];r[i]=r[j];r[j]=t;}return r;}
+function mhDeal(){return[mhShuffled(MH_POWERS).slice(0,MH_HAND),mhShuffled(MH_POWERS).slice(0,MH_HAND)];}
+function mhNew(){
+  return{board:c4NewBoard(),bub:c4NewBoard(),hands:mhDeal(),moves:0,over:false,win:null,draw:false,last:null,fx:null,prev:null,stats:{max:null,save:null}};
+}
+// Drop gravity for the disc board AND the bubble flags that ride on the discs.
+function mhGravity(mh){
+  for(let c=0;c<C4_COLS;c++){
+    const vals=[],bubs=[];
+    for(let r=C4_ROWS-1;r>=0;r--)if(mh.board[r][c]){vals.push(mh.board[r][c]);bubs.push(mh.bub[r][c]);}
+    for(let r=C4_ROWS-1,k=0;r>=0;r--,k++){mh.board[r][c]=vals[k]||0;mh.bub[r][c]=vals[k]?bubs[k]:0;}
+  }
+}
+// Destroy discs: a bubbled disc survives (and the bubble pops) instead of being destroyed.
+function mhKill(mh,cells,fx){
+  let n=0;
+  for(const[r,c]of cells){
+    if(r<0||r>=C4_ROWS||c<0||c>=C4_COLS||!mh.board[r][c])continue;
+    if(mh.bub[r][c]){mh.bub[r][c]=0;fx.popped.push([r,c]);}
+    else{mh.board[r][c]=0;fx.killed.push([r,c]);n++;}
+  }
+  return n;
+}
+function mhTopRow(board,c){for(let r=0;r<C4_ROWS;r++)if(board[r][c])return r;return -1;}
+function mhOwn(mh,who){return mh.hands[who-1];}
+// Every legal SPECIAL move for `who` (drops are always c4Moves). Used by the bot and by the tests.
+function mhSpecialMoves(mh,who){
+  const out=[],hand=mhOwn(mh,who),b=mh.board;
+  const cols=c4Moves(b);
+  hand.forEach(k=>{
+    if(k==='bomb'||k==='wild')cols.forEach(c=>out.push({kind:k,c}));
+    else if(k==='bubble'){for(let r=0;r<C4_ROWS;r++)for(let c=0;c<C4_COLS;c++)if(b[r][c]===who&&!mh.bub[r][c])out.push({kind:k,r,c});}
+    else if(k==='magnet'){for(let c=0;c<C4_COLS;c++){const l=c>0&&mhTopRow(b,c-1)>=0,r2=c<C4_COLS-1&&mhTopRow(b,c+1)>=0;if((l||r2)&&c4DropRow(b,c)>=0)out.push({kind:k,c});}}
+    else if(k==='lightning'){
+      for(let c=0;c<C4_COLS;c++)if(mhTopRow(b,c)>=0)out.push({kind:k,axis:'col',i:c});
+      for(let r=0;r<C4_ROWS;r++)if(b[r].some(v=>v))out.push({kind:k,axis:'row',i:r});
+    }
+    else if(k==='chaos'&&b.some(row=>row.some(v=>v))){out.push({kind:k,dir:-1});out.push({kind:k,dir:1});}
+  });
+  return out;
+}
+// Pure-ish: plays one move for `who` (1 or 2) on `mh`, or returns null (and changes nothing) if it is not allowed.
+// Returns the effect record (also stored as mh.fx) describing what to show: where, what died, what moved.
+function mhApply(mh,who,move){
+  if(!mh||mh.over||!move)return null;
+  const kind=move.kind||'drop',opp=who===1?2:1,hand=mhOwn(mh,who);
+  if(kind!=='drop'&&!hand.includes(kind))return null;
+  const b=mh.board,snap={board:mhClone(mh.board),bub:mhClone(mh.bub)};
+  const threatsBefore=c4ThreatCols(b,opp);
+  const fx={kind,who,killed:[],popped:[],moved:[],at:null,n:0,axis:move.axis||null,i:move.i==null?null:move.i,dir:move.dir||0,c:move.c==null?null:move.c,saved:false};
+  let last=null;
+  if(kind==='drop'||kind==='wild'||kind==='bomb'){
+    const c=move.c,r=c4DropRow(b,c);if(r<0)return null;
+    b[r][c]=kind==='wild'?C4_WILD:who;fx.at=[r,c];
+    if(kind==='bomb'){
+      const cells=[];for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)if(dr||dc)cells.push([r+dr,c+dc]);
+      fx.n=mhKill(mh,cells,fx);mhGravity(mh);
+    } else last={r,c};
+  } else if(kind==='bubble'){
+    const{r,c}=move;if(!(r>=0&&r<C4_ROWS&&c>=0&&c<C4_COLS)||b[r][c]!==who||mh.bub[r][c])return null;
+    mh.bub[r][c]=1;fx.at=[r,c];
+  } else if(kind==='magnet'){
+    const c=move.c;if(!(c>=0&&c<C4_COLS))return null;
+    for(const dc of[-1,1]){
+      const nc=c+dc;if(nc<0||nc>=C4_COLS)continue;
+      const tr=mhTopRow(b,nc),lr=c4DropRow(b,c);
+      if(tr<0||lr<0)continue;
+      const val=b[tr][nc],bubl=mh.bub[tr][nc];
+      b[tr][nc]=0;mh.bub[tr][nc]=0;b[lr][c]=val;mh.bub[lr][c]=bubl;
+      fx.moved.push({fr:tr,fc:nc,tr:lr,tc:c});
+    }
+    if(!fx.moved.length)return null;
+    fx.at=[mhTopRow(b,c),c];
+  } else if(kind==='lightning'){
+    const axis=move.axis,i=move.i,cells=[];
+    if(axis==='col'&&i>=0&&i<C4_COLS)for(let r=0;r<C4_ROWS;r++)cells.push([r,i]);
+    else if(axis==='row'&&i>=0&&i<C4_ROWS)for(let c=0;c<C4_COLS;c++)cells.push([i,c]);
+    else return null;
+    if(!cells.some(([r,c])=>b[r][c]))return null;
+    fx.n=mhKill(mh,cells,fx);mhGravity(mh);
+  } else if(kind==='chaos'){
+    const dir=move.dir===-1?-1:move.dir===1?1:0;if(!dir||!b.some(row=>row.some(v=>v)))return null;
+    for(let r=0;r<C4_ROWS;r++){
+      const items=[];for(let c=0;c<C4_COLS;c++)if(b[r][c])items.push([b[r][c],mh.bub[r][c]]);
+      for(let c=0;c<C4_COLS;c++){b[r][c]=0;mh.bub[r][c]=0;}
+      items.forEach((it,k)=>{const c=dir===-1?k:C4_COLS-items.length+k;b[r][c]=it[0];mh.bub[r][c]=it[1];});
+    }
+    mhGravity(mh);
+  } else return null;
+  if(kind!=='drop')hand.splice(hand.indexOf(kind),1);
+  mh.prev=snap;mh.last=last;mh.fx=fx;mh.moves++;
+  // A last-second save: the other player had a winning drop waiting and now has none.
+  if(kind!=='drop'&&kind!=='wild'&&threatsBefore.length&&!c4ThreatCols(mh.board,opp).length&&!c4Winner(mh.board,opp)){fx.saved=true;mh.stats.save={who,kind};}
+  if(fx.n>0&&(!mh.stats.max||fx.n>mh.stats.max.n))mh.stats.max={who,kind,n:fx.n};
+  const w=c4Winner(mh.board,who);
+  if(w){mh.win=w;mh.over=true;}
+  else if(c4Full(mh.board)){mh.over=true;mh.draw=true;}
+  return fx;
+}
+// The sentence recorded as this game's Table Moment.
+function mhMoment(mh,names){
+  const nm=i=>(names&&names[i])||'Someone';
+  if(!mh)return'A good game.';
+  if(mh.draw)return'A draw — the board filled up.';
+  const wi=mh.win?mh.win.who-1:-1;
+  if(mh.stats.save)return`${nm(mh.stats.save.who-1)} stopped a winning move with a last-second ${MH_INFO[mh.stats.save.kind].name}.`;
+  if(mh.stats.max&&mh.stats.max.n>=4)return`${nm(mh.stats.max.who-1)} destroyed ${mh.stats.max.n} discs with one ${MH_INFO[mh.stats.max.kind].name}.`;
+  return wi>=0?`${nm(wi)} connects four!`:'A good game.';
+}
+// How long the table spends on a move (the effect sequence for specials, a short beat for a plain drop).
+function mhSeqMs(fx){return fx&&fx.kind!=='drop'&&fx.kind!=='wild'?MH_ANNOUNCE_MS+MH_BLAST_MS:420;}
+// ── the bot: takes a win, saves itself when the other side has one waiting, otherwise plays like 4 in a Row ──
+function mhBotMove(mh,who,level){
+  const opp=who===1?2:1,b=mh.board;
+  for(const c of c4Moves(b))if(c4Wins(c4Place(b,c,who),who))return{kind:'drop',c};
+  const specials=mhSpecialMoves(mh,who);
+  const tryMove=m=>{const t=mhClone(mh);const fx=mhApply(t,who,m);return fx?t:null;};
+  // a special that wins on the spot
+  for(const m of specials){const t=tryMove(m);if(t&&t.win&&t.win.who===who)return m;}
+  // the other side is about to win: a plain drop blocks one column; if it cannot, burn a special that removes the threat
+  const threats=c4ThreatCols(b,opp);
+  if(threats.length&&(threats.length>1||c4Moves(b).indexOf(threats[0])<0)){
+    let best=null;
+    for(const m of specials){const t=tryMove(m);if(t&&!t.over&&!c4ThreatCols(t.board,opp).length&&!c4Winner(t.board,opp)){best=best||m;if(m.kind==='bubble')continue;}}
+    if(best)return best;
+  }
+  // otherwise sometimes use a special that clearly improves the board
+  const eager=level==='sharp'?.3:.1;
+  if(specials.length&&Math.random()<eager){
+    const base=c4Score(b,who);let best=null,bestGain=60;
+    for(const m of specials){
+      const t=tryMove(m);if(!t||(t.win&&t.win.who!==who))continue;
+      const gain=c4Score(t.board,who)-base;
+      if(gain>bestGain){best=m;bestGain=gain;}
+    }
+    if(best)return best;
+  }
+  return{kind:'drop',c:c4BotMove(b,who,level)};
+}
+
+/* ── Mayhem: local ── */
+function lDealMayhem(){
+  G.lp.forEach(p=>{p.totalScore=0;p.c4Result=null;});
+  G.lcur=G.lstart;
+  G.mh=mhNew();G.mhArm=null;G.mhPend=null;G.mhSeq=null;G.mhAxis='col';G.mhMoment='';
+  G.lres=null;
+  SFX.deal();
+  G.scr='table';
+}
+function mhWho(){return(G.isOnline?(G.srv&&G.srv.curIdx||0):G.lcur%2)+1;}
+function mhPlay(move){
+  const mh=G.mh;if(!mh||mh.over||G.mhSeq)return;
+  const idx=G.lcur%2,who=idx+1;
+  const fx=mhApply(mh,who,move);
+  if(!fx){SFX.illegal();toast(move.kind==='drop'?'That column is full':'That is not possible');return;}
+  G.mhArm=null;G.mhPend=null;
+  mhFeel(fx,G.lp[idx]);
+  if(!mh.over)G.lcur=mod(G.lcur+1,2); // the turn passes at once; the bots and taps simply wait for the sequence
+  mhRunSeq(mh,true,()=>{if(mh.over)mhEndLocal();});
+  if(!G.mhSeq)render(); // a plain drop shows at once
+}
+function mhEndLocal(){
+  const mh=G.mh;
+  const names=G.lp.map(p=>p.name);
+  if(mh.draw){
+    G.lp.forEach(p=>{p.c4Result='draw';});
+    G.mhMoment=mhMoment(mh,names);
+    addHistory({game:'mayhem',winner:'Nobody',winnerAvatar:null,date:new Date().toISOString(),players:names,moment:G.mhMoment,
+      stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
+    stageEmit('STUCK',{who:null,sub:'The board is full — a draw'});
+  } else {
+    const wi=mh.win.who-1,winner=G.lp[wi];
+    G.lp.forEach((p,i)=>{p.c4Result=i===wi?'win':'loss';p.totalScore=i===wi?1:0;});
+    G.tw++;localStorage.setItem('ct_tw',G.tw);
+    G.mhMoment=mhMoment(mh,names);
+    SFX.win();v14WinnerBurst();celebrateWin(winner.name,winner.avatar);fxPulse('gold');fxSeatGlow(wi,'gold');
+    stageEmit('BIG_WIN',{who:winner,text:'FOUR IN A ROW!',sub:'No mercy',icon:'💥'});
+    addHistory({game:'mayhem',winner:winner.name,winnerAvatar:winner.avatar,date:new Date().toISOString(),players:names,moment:G.mhMoment,
+      stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
+  }
+  render();
+  const mhRef=G.mh;
+  setTimeout(()=>{if(G.selGame==='mayhem'&&G.mh===mhRef&&G.scr==='table'){G.scr='matchend';render();}},1900);
+}
+function botMayhemAct(p){
+  const mh=G.mh;if(!mh||mh.over||G.mhSeq)return;
+  const who=G.lcur%2+1;
+  mhPlay(mhBotMove(mh,who,p.bot));
+}
+// Sound, haptics and the stage moment for a move just made (local tables call it directly, online devices via stageOnSrv).
+function mhFeel(fx,p){
+  if(!fx)return;
+  if(fx.kind==='drop'){SFX.chip();return;}
+  if(fx.kind==='wild'){SFX.win();stageEmit('POWER',{who:p,icon:'🃏',text:'WILD DISC!',sub:'It counts as both colours'});return;}
+}
+/* ── the effect sequence: announce (a tense beat, the board dims, the target is marked) → blast → settle ── */
+function mhRunSeq(mh,renderNow,done){
+  const fx=mh&&mh.fx;
+  // Reduced motion (or the tests): no pause, no announcement, no shake -- the move simply happens.
+  let reduced=false;try{reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
+  if(fx&&fx.kind!=='drop'&&fx.kind!=='wild'&&(G.mhInstant||reduced)){
+    G.mhSeq=null;G.mhSettle=0;
+    if(!G.mhInstant){const p=(G.isOnline?(G.srv&&G.srv.players):G.lp)||[];stageEmit('POWER',{who:p[fx.who-1],icon:MH_INFO[fx.kind].icon,text:MH_INFO[fx.kind].name.toUpperCase()+'!',sub:fx.n?fx.n+' disc'+(fx.n!==1?'s':'')+' destroyed':MH_INFO[fx.kind].tip,ms:1100});}
+    if(done&&mh.over)done();
+    return;
+  }
+  if(!fx||fx.kind==='drop'||fx.kind==='wild'||!mh.prev){G.mhSeq=null;G.mhSettle=Date.now()+700;if(done&&mh.over)setTimeout(done,420);return;}
+  const seq={stage:'announce',fx,prev:mh.prev,id:mh.moves};
+  G.mhSeq=seq;
+  SFX.mhTick();setTimeout(()=>{if(G.mhSeq===seq)SFX.mhTick();},300);setTimeout(()=>{if(G.mhSeq===seq)SFX.mhTick();},600);
+  haptic([10]);
+  if(renderNow)render();
+  setTimeout(()=>{
+    if(G.mhSeq!==seq)return;
+    seq.stage='blast';
+    if(fx.kind==='bomb'){SFX.mhBoom();haptic([40,30,60]);fxPulse('red');}
+    else if(fx.kind==='lightning'){SFX.mhZap();haptic([30,20,50]);fxPulse('blue');}
+    else if(fx.kind==='magnet'){SFX.mhPull();haptic([20,30,20]);}
+    else if(fx.kind==='chaos'){SFX.mhWhoosh();haptic([20,40,20,40]);}
+    else if(fx.kind==='bubble'){SFX.mhPop();haptic([12]);}
+    const p=(G.isOnline?(G.srv&&G.srv.players):G.lp)||[];
+    stageEmit('POWER',{who:p[fx.who-1],icon:MH_INFO[fx.kind].icon,text:MH_INFO[fx.kind].name.toUpperCase()+'!',sub:fx.n?fx.n+' disc'+(fx.n!==1?'s':'')+' destroyed':MH_INFO[fx.kind].tip,ms:1100});
+    if(fx.saved)setTimeout(()=>stageEmit('SAVE',{who:p[fx.who-1],sub:'Their winning move is gone'}),700);
+    render();
+    setTimeout(()=>{mhBurst(fx);},30);
+    setTimeout(()=>{
+      if(G.mhSeq!==seq)return;
+      G.mhSeq=null;G.mhSettle=Date.now()+700;
+      render();if(done)done();
+    },MH_BLAST_MS);
+  },MH_ANNOUNCE_MS);
+}
+// A handful of sparks flung from the cells that were destroyed (DOM only, removed after a moment).
+function mhBurst(fx){
+  const board=document.querySelector('.mh-well');if(!board||!fx)return;
+  const cells=(fx.killed||[]).concat(fx.popped||[]).slice(0,14);
+  if(!cells.length&&fx.at)cells.push(fx.at);
+  const wr=board.getBoundingClientRect();
+  cells.forEach(([r,c])=>{
+    const el=board.querySelector(`[data-rc="${r}-${c}"]`);if(!el)return;
+    const rect=el.getBoundingClientRect(),cx=rect.left-wr.left+rect.width/2,cy=rect.top-wr.top+rect.height/2;
+    for(let k=0;k<5;k++){
+      const s=document.createElement('i');s.className='mh-spark '+(fx.kind==='lightning'?'zp':'bm');
+      const a=Math.random()*Math.PI*2,d=22+Math.random()*34;
+      s.style.cssText=`left:${cx}px;top:${cy}px;--dx:${Math.cos(a)*d}px;--dy:${Math.sin(a)*d}px`;
+      board.appendChild(s);setTimeout(()=>s.remove(),700);
+    }
+  });
+}
+
+/* ── Mayhem: online ── turn-gated: only the player on turn writes the room */
+async function oMhPlay(move){
+  if(_onlineBusy)return;
+  if(!isMyTurn()){toast('Not your turn');return;}
+  _onlineBusy=true;
+  try{
+    const state=await dbRead(G.roomId);if(!state||!state.mh)return;
+    if(oNotMyTurnNow(state))return;
+    const idx=state.curIdx||0,res=mhApply(state.mh,idx+1,move);
+    if(!res){SFX.illegal();toast(move.kind==='drop'?'That column is full':'That is not possible');return;}
+    G.mhArm=null;G.mhPend=null;
+    if(state.mh.over)oMhFinish(state);
+    else state.curIdx=mod(idx+1,2);
+    state._ts=Date.now();onSrv(state);
+    await dbWrite(G.roomId,state);
+  } finally { _onlineBusy=false; }
+}
+function oMhFinish(state){
+  const mh=state.mh,names=(state.players||[]).map(p=>p.name);
+  state.moment=mhMoment(mh,names);
+  if(mh.draw){
+    state.players.forEach(p=>{p.c4Result='draw';});
+    state.winner='draw';state.winnerName='Nobody';state.winnerAv=null;state.lastAct='A draw.';
+  } else {
+    const wi=mh.win.who-1;
+    state.players.forEach((p,i)=>{p.c4Result=i===wi?'win':'loss';p.totalScore=i===wi?1:0;});
+    const wp=state.players[wi];state.winner=wp.id;state.winnerName=wp.name;state.winnerAv=wp.avatar;
+    state.lastAct=esc(wp.name)+' connects four!';
+  }
+}
+// An away player: a plain drop is made for them.
+async function oMhAuto(){
+  const state=await dbRead(G.roomId);if(!state||!state.mh||state.winner)return;
+  const idx=state.curIdx||0,res=mhApply(state.mh,idx+1,{kind:'drop',c:c4BotMove(state.mh.board,idx+1,'gentle')});
+  if(!res)return;
+  state.lastAct=esc(state.players[idx].name)+' was skipped (away too long).';
+  if(state.mh.over)oMhFinish(state);else state.curIdx=mod(idx+1,2);
+  state._ts=Date.now();onSrv(state);
+  await dbWrite(G.roomId,state);
+}
+
+/* ── Mayhem: the table ── */
+let _mhEndAt=0;
+function mhMyHand(mh){
+  if(G.isOnline){const i=(G.srv&&G.srv.players||[]).findIndex(p=>p.id===G.myPid);return i>=0?{i,hand:mh.hands[i]||[]}:{i:-1,hand:[]};}
+  const i=G.lcur%2;return{i,hand:mh.hands[i]||[]};
+}
+function mhTargetCells(mh,pend){
+  const set=new Set();if(!pend)return set;
+  const b=mh.board;
+  if(pend.kind==='bomb'){const r=c4DropRow(b,pend.c);if(r>=0)for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)set.add((r+dr)+','+(pend.c+dc));}
+  else if(pend.kind==='wild'){const r=c4DropRow(b,pend.c);if(r>=0)set.add(r+','+pend.c);}
+  else if(pend.kind==='bubble')set.add(pend.r+','+pend.c);
+  else if(pend.kind==='magnet'){for(const dc of[-1,1]){const nc=pend.c+dc;if(nc>=0&&nc<C4_COLS){const tr=mhTopRow(b,nc);if(tr>=0)set.add(tr+','+nc);}}}
+  else if(pend.kind==='lightning'){if(pend.axis==='col')for(let r=0;r<C4_ROWS;r++)set.add(r+','+pend.i);else for(let c=0;c<C4_COLS;c++)set.add(pend.i+','+c);}
+  else if(pend.kind==='chaos')for(let r=0;r<C4_ROWS;r++)for(let c=0;c<C4_COLS;c++)if(b[r][c])set.add(r+','+c);
+  return set;
+}
+function mhPendText(pend){
+  if(!pend)return'';
+  const I=MH_INFO[pend.kind];
+  if(pend.kind==='lightning')return`${I.icon} Strike ${pend.axis==='col'?'column '+(pend.i+1):'row '+(pend.i+1)}?`;
+  if(pend.kind==='chaos')return`${I.icon} Shake the board ${pend.dir<0?'left':'right'}?`;
+  if(pend.kind==='bubble')return`${I.icon} Encase this disc?`;
+  return`${I.icon} ${I.name} in column ${pend.c+1}?`;
+}
+function mhArmedHint(armed){
+  const I=MH_INFO[armed];
+  if(armed==='bubble')return`${I.icon} Tap one of YOUR discs to encase it.`;
+  if(armed==='lightning')return`${I.icon} Choose column or row, then tap where to strike.`;
+  if(armed==='chaos')return`${I.icon} Pick a direction.`;
+  return`${I.icon} ${I.tip} Tap a column.`;
+}
+function rMayhemTable(){
+  const online=G.isOnline,state=online?G.srv:null;
+  const players=online?(state?.players||[]):G.lp;
+  const mh=(online?state?.mh:G.mh)||mhNew();
+  const p=curPlayer(),mine=isMyTurn();
+  const idx=online?(state?.curIdx||0):G.lcur%2,who=idx+1,opp=who===1?2:1;
+  const botTurn=!online&&isBotPlayer(p);
+  const seq=G.mhSeq,busy=!!seq;
+  const acts=mine&&!botTurn&&!mh.over&&!busy;
+  const view=seq?seq.prev:{board:mh.board,bub:mh.bub};
+  const myHand=mhMyHand(mh).hand;
+  const armed=acts&&G.mhArm&&myHand.includes(G.mhArm)?G.mhArm:null;
+  const pend=acts&&G.mhPend&&armed===G.mhPend.kind?G.mhPend:null;
+  const tgt=pend?mhTargetCells(mh,pend):new Set();
+  const settle=!seq&&G.mhSettle&&Date.now()<G.mhSettle&&mh.prev;
+  const fx=seq?seq.fx:null,blast=seq&&seq.stage==='blast';
+  const killed=new Set(((fx&&fx.killed)||[]).map(([r,c])=>r+','+c)),popped=new Set(((fx&&fx.popped)||[]).map(([r,c])=>r+','+c));
+  const winCells=new Set((mh.win?mh.win.cells:[]).map(([r,c])=>r+','+c));
+  const cellMode=armed==='bubble'||(armed==='lightning'&&G.mhAxis==='row');
+  const threats=acts&&!armed?c4ThreatCols(mh.board,opp):[];
+  const seat=i=>players[i]||{name:'—',avatar:null};
+  const left=i=>(mh.hands[i]||[]).length;
+  const pills=[0,1].map(i=>`<span class="y-standing-pill c4-pill c4-p${i+1}${i===idx&&!mh.over?' active':''}"><i class="c4-dot c4-d${i+1}"></i>${esc(seat(i).name)}<i class="c4-pw">${'✦'.repeat(left(i))||'·'}</i></span>`).join('');
+  const colHTML=Array.from({length:C4_COLS},(_,c)=>{
+    const full=c4DropRow(mh.board,c)<0;
+    let cells='';
+    for(let r=0;r<C4_ROWS;r++){
+      const v=view.board[r][c],k=r+','+c;
+      const cls=['mh-cell'];
+      if(v)cls.push(v===C4_WILD?'dw':'d'+v);
+      if(v&&view.bub[r][c]&&!(blast&&popped.has(k)))cls.push('bub');
+      if(!seq&&mh.last&&mh.last.r===r&&mh.last.c===c)cls.push('drop');
+      else if(settle&&v&&mh.prev.board[r][c]!==mh.board[r][c])cls.push('settle');
+      if(winCells.has(k)&&!seq)cls.push('win');
+      if(tgt.has(k))cls.push('tgt');
+      if(seq&&fx&&fx.at&&fx.at[0]===r&&fx.at[1]===c&&!blast)cls.push('arm');
+      if(blast&&killed.has(k))cls.push('boom'+(fx.kind==='lightning'?' zap':''));
+      if(blast&&popped.has(k))cls.push('popped');
+      if(blast&&fx.kind==='chaos'&&v)cls.push(fx.dir<0?'shl':'shr');
+      if(blast&&fx.kind==='magnet'&&(fx.moved||[]).some(m=>m.tr===r&&m.tc===c))cls.push('pulled');
+      let attr=`data-rc="${r}-${c}"`;
+      let tag='span';
+      if(cellMode&&acts){
+        const ok=armed==='bubble'?(v===who&&!view.bub[r][c]):v;
+        if(ok){tag='button';attr+=` data-a="mhcell" data-r="${r}" data-c="${c}" aria-label="Row ${r+1}, column ${c+1}"`;}
+      }
+      cells+=`<${tag} class="${cls.join(' ')}" ${attr}></${tag}>`;
+    }
+    const can=acts&&!cellMode&&!(armed==='chaos')&&(armed==='lightning'?mhTopRow(mh.board,c)>=0:armed==='magnet'?(mhTopRow(mh.board,c-1)>=0||mhTopRow(mh.board,c+1)>=0)&&!full:!full);
+    const warn=threats.includes(c);
+    if(cellMode)return`<div class="mh-col${warn?' warn':''}">${cells}</div>`;
+    return`<button class="mh-col${can?' can':''}${warn?' warn':''}" ${can?`data-a="mhcol" data-c="${c}"`:'disabled'} aria-label="Column ${c+1}${full?' (full)':''}">${cells}</button>`;
+  }).join('');
+  // the control console: my three powers, then the target / confirm row
+  const chips=acts?myHand.map(k=>`<button class="mh-pw${armed===k?' armed':''}" data-a="mhpw" data-k="${k}" aria-pressed="${armed===k}"><span>${MH_INFO[k].icon}</span><b>${MH_INFO[k].name}</b></button>`).join(''):'';
+  let consoleHTML='';
+  if(acts&&myHand.length){
+    let sub='';
+    if(armed==='chaos'&&!pend)sub=`<div class="mh-sub"><button class="btn btn-ghost btn-sm" data-a="mhdir" data-d="-1">◀ Shake left</button><button class="btn btn-ghost btn-sm" data-a="mhdir" data-d="1">Shake right ▶</button></div>`;
+    else if(armed==='lightning'&&!pend)sub=`<div class="mh-sub"><button class="btn btn-ghost btn-sm${G.mhAxis==='col'?' on':''}" data-a="mhaxis" data-x="col">║ Column</button><button class="btn btn-ghost btn-sm${G.mhAxis==='row'?' on':''}" data-a="mhaxis" data-x="row">═ Row</button></div>`;
+    if(pend)sub=`<div class="mh-confirm"><b>${mhPendText(pend)}</b><button class="btn btn-gold btn-sm" data-a="mhgo">Confirm</button><button class="btn btn-ghost btn-sm" data-a="mhno">Cancel</button></div>`;
+    consoleHTML=`<div class="mh-console"><div class="mh-lbl">YOUR POWERS${armed?' · '+MH_INFO[armed].name:''}</div><div class="mh-chips">${chips}</div>${sub}</div>`;
+  } else if(acts)consoleHTML=`<div class="mh-console"><div class="mh-lbl">No powers left — drop to win</div></div>`;
+  let hint;
+  if(mh.over)hint=mh.draw?'It’s a draw — the board is full.':`🔴 ${esc(seat(mh.win.who-1).name)} connects four!`;
+  else if(seq)hint=`${MH_INFO[seq.fx.kind].icon} ${esc(seat(seq.fx.who-1).name)} plays ${MH_INFO[seq.fx.kind].name}…`;
+  else if(botTurn)hint=esc(p.name)+' is thinking…';
+  else if(!mine&&online)hint='Waiting for '+esc(p.name)+'…';
+  else if(armed)hint=mhArmedHint(armed);
+  else if(threats.length)hint=`⚠️ Careful — ${esc(seat(opp-1).name)} is one disc from four! Block it… or use a power.`;
+  else hint=myHand.length?'Tap a column — or arm one of your powers first.':'Tap a column to drop your disc.';
+  const announce=seq&&!blast?`<div class="mh-announce"><span>${MH_INFO[fx.kind].icon}</span><b>${MH_INFO[fx.kind].name.toUpperCase()}</b><small>${esc(seat(fx.who-1).name)}</small></div>`:'';
+  const camCls='mh-cam'+(seq&&!blast?' zoom':'')+(blast&&(fx.kind==='bomb'||fx.kind==='lightning')?' shake':'');
+  return`<div id="s-table" class="scr on game-mayhem">
+    <div class="game-bar">
+      <div class="gb-game">💥 Mayhem</div>
+      <div class="gb-turn${mine&&!mh.over?' mine':''}">${avChar(p.avatar)} ${esc(p.name)}’s turn</div>
+      <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
+    </div>
+    <div class="y-standings-strip">${pills}</div>
+    <div class="felt-table mh-felt${mine&&!mh.over?' my-turn':''}${seq?' dim':''}" style="flex:0 0 auto;min-height:0;max-height:none;padding:1rem .6rem;gap:.7rem;">
+      <div class="${camCls}">
+        <div class="mh-board${seq?' live':''}"><div class="mh-well" role="group" aria-label="The board, seven columns">${colHTML}</div>${announce}</div>
+        <div class="y-hint${threats.length?' c4-warn-hint':''}">${hint}</div>
+      </div>
+      ${!mine&&online&&!mh.over?awayIndicatorHTML(p.id,p.name):''}
+    </div>
+    ${consoleHTML}
+    ${talkStripHTML()}
+  </div>`;
+}
+// Taps on the Mayhem table (arming a power, picking its target, confirming).
+function mhTap(a,t){
+  const mh=G.isOnline?(G.srv&&G.srv.mh):G.mh;if(!mh||mh.over||G.mhSeq)return;
+  if(G.isOnline&&!isMyTurn())return;
+  const who=mhWho(),myHand=mhMyHand(mh).hand;
+  const send=m=>{G.isOnline?oMhPlay(m):mhPlay(m);};
+  if(a==='mhpw'){const k=t.getAttribute('data-k');if(!myHand.includes(k))return;G.mhArm=G.mhArm===k?null:k;G.mhPend=null;SFX.chip();render();return;}
+  if(a==='mhaxis'){G.mhAxis=t.getAttribute('data-x')==='row'?'row':'col';G.mhPend=null;render();return;}
+  if(a==='mhdir'){G.mhPend={kind:'chaos',dir:+t.getAttribute('data-d')};SFX.chip();render();return;}
+  if(a==='mhno'){G.mhPend=null;render();return;}
+  if(a==='mhgo'){const pend=G.mhPend;if(!pend)return;const m={kind:pend.kind};
+    if(pend.c!=null)m.c=pend.c;if(pend.r!=null)m.r=pend.r;if(pend.axis){m.axis=pend.axis;m.i=pend.i;}if(pend.dir)m.dir=pend.dir;send(m);return;}
+  if(a==='mhcol'){
+    const c=+t.getAttribute('data-c'),k=G.mhArm;
+    if(!k){send({kind:'drop',c});return;}
+    if(k==='lightning'){G.mhPend={kind:k,axis:'col',i:c};}
+    else G.mhPend={kind:k,c};
+    SFX.chip();haptic([8]);render();return;
+  }
+  if(a==='mhcell'){
+    const r=+t.getAttribute('data-r'),c=+t.getAttribute('data-c'),k=G.mhArm;
+    if(k==='bubble')G.mhPend={kind:k,r,c};
+    else if(k==='lightning')G.mhPend={kind:k,axis:'row',i:r};
+    else return;
+    SFX.chip();render();return;
+  }
+}
+// The mode of play shown in the lobby: nothing to pick, just a line about what makes Mayhem different.
+function mhOptionsHTML(){
+  return`<div class="panel"><div class="panel-lbl">Mayhem</div><div class="hr-desc">Classic 4 in a Row, plus <b>three secret special moves each</b> — 💣 Bomb, 🫧 Bubble, 🧲 Magnet, ⚡ Lightning, 🃏 Wild, 🌪️ Chaos. Your opponent only sees how many you have left.</div></div>`;
 }
 
 /* ═══════ DICE: face flicker ═══════
@@ -15689,7 +16270,7 @@ function runCountUps(){
    and against what state", and botAct() dispatches to the one per-game function that makes it. */
 // Every game listed here can seat a bot. Anything not here (there is nothing, currently) simply
 // never offers the button, and the driver below stays dormant for it.
-const BOT_GAMES=new Set(['maumau','uno','texas','fivecard','blackjack','yahtzee','battle','roulette','dicedual','farkle','bingo','lepouilleux','slots','pig','liarsdice','summit','hotbomb','bust','shutbox','fourrow','tension']);
+const BOT_GAMES=new Set(['maumau','uno','texas','fivecard','blackjack','yahtzee','battle','roulette','dicedual','farkle','bingo','lepouilleux','slots','pig','liarsdice','summit','hotbomb','bust','shutbox','fourrow','tension','mayhem']);
 let _botTimer=null,_botSig=null;
 function isBotPlayer(p){return!!(p&&p.bot);}
 // A full table can still gain a bot by converting an empty seat — Battle seats exactly two, so
@@ -15796,6 +16377,10 @@ function botPendingSig(){
     const f=G.c4;if(!f||f.over)return null;
     return['c4',G.lcur,f.moves].join('|');
   }
+  if(g==='mayhem'){
+    const m=G.mh;if(!m||m.over||G.mhSeq)return null; // the effect sequence is still playing
+    return['mh',G.lcur,m.moves].join('|');
+  }
   if(g==='shutbox'){
     const b=G.stb;if(!b||b.phase==='over')return null; // the turn-advance timer is already running
     return['stb',G.lcur,b.phase,b.open.join(''),b.dice.join('')].join('|');
@@ -15868,6 +16453,7 @@ function botAct(){
   if(g==='shutbox')return botShutBoxAct(p);
   if(g==='tension')return botTensionAct(p);
   if(g==='fourrow')return botFourRowAct(p);
+  if(g==='mayhem')return botMayhemAct(p);
   if(g==='liarsdice')return botLiarsDiceAct(p);
   if(g==='summit')return botSummitAct(p);
 }
@@ -16588,6 +17174,22 @@ function onSrv(state){
         }
         G.scr='matchend';render();return;
       }
+      if(state.gameId==='mayhem'){
+        if(state.winner!==prevWinner){
+          const draw=state.winner==='draw';
+          if(!draw){SFX.win();v14WinnerBurst();celebrateWin(state.winnerName,state.winnerAv);fxPulse('gold');
+            const wIdx=(state.players||[]).findIndex(p=>p.id===state.winner);if(wIdx>=0)fxSeatGlow(wIdx,'gold');
+            if(state.winner===G.myPid){G.tw++;localStorage.setItem('ct_tw',G.tw);}}
+          addHistory({game:'mayhem',winner:draw?'Nobody':state.winnerName,winnerAvatar:draw?null:state.winnerAv,date:new Date().toISOString(),players:(state.players||[]).map(p=>p.name),mode:'online',
+            moment:state.moment||(draw?'A draw — the board filled up.':`${state.winnerName} connects four!`),
+            stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
+          // Let the last effect play out and the winning four glow before the results.
+          _mhEndAt=Date.now()+mhSeqMs(state.mh&&state.mh.fx)+1900;
+          setTimeout(()=>{if(G.isOnline&&G.srv&&G.srv.gameId==='mayhem'&&G.srv.winner){G.scr='matchend';render();}},mhSeqMs(state.mh&&state.mh.fx)+1950);
+        }
+        if(Date.now()<_mhEndAt){G.scr='table';render();return;}
+        G.scr='matchend';render();return;
+      }
       if(state.gameId==='fourrow'){
         if(state.winner!==prevWinner){
           const draw=state.winner==='draw';
@@ -16884,7 +17486,7 @@ function hasActiveTable(){
 }
 // One accent color per game, echoing the home-screen game-card border colors, so a portrait's
 // frame and plaque tie back to whichever game it was won at.
-const MOMENT_ACCENT={maumau:'#5fd68a',texas:'#eac976',fivecard:'#eac976',blackjack:'#ef7688',battle:'#7ec2f2',romme:'#a8e0a0',hearts:'#f2a0b4',bridge:'#a8c8e0',uno:'#e0a8d8',yahtzee:'#f2c94c',roulette:'#e0637a',dicedual:'#e8843e',farkle:'#4fd6c9',bingo:'#b98af0',lepouilleux:'#6b6b7a',slots:'#f0cc60',pig:'#f2a0b4',drawit:'#f2954c',liarsdice:'#e0594a',summit:'#7ec2f2',hotbomb:'#ff7a45',vault:'#e0b040',bust:'#ff5a4e',escape:'#45c4b0',shutbox:'#d9a35c',fourrow:'#f2c230',skull:'#c9a0f0',tension:'#e8a24a'};
+const MOMENT_ACCENT={maumau:'#5fd68a',texas:'#eac976',fivecard:'#eac976',blackjack:'#ef7688',battle:'#7ec2f2',romme:'#a8e0a0',hearts:'#f2a0b4',bridge:'#a8c8e0',uno:'#e0a8d8',yahtzee:'#f2c94c',roulette:'#e0637a',dicedual:'#e8843e',farkle:'#4fd6c9',bingo:'#b98af0',lepouilleux:'#6b6b7a',slots:'#f0cc60',pig:'#f2a0b4',drawit:'#f2954c',liarsdice:'#e0594a',summit:'#7ec2f2',hotbomb:'#ff7a45',vault:'#e0b040',bust:'#ff5a4e',escape:'#45c4b0',shutbox:'#d9a35c',fourrow:'#f2c230',skull:'#c9a0f0',tension:'#e8a24a',mayhem:'#ff9a3c'};
 function rMoments(){
   const history=getHistory();
   const frames=history.map(h=>{
@@ -17418,8 +18020,9 @@ function rSetup(){
       ${game.id==='liarsdice'?ldOptionsHTML():''}
       ${game.id==='bingo'?bgOptionsHTML():''}
       ${game.id==='fourrow'?c4OptionsHTML():''}
+      ${game.id==='mayhem'?mhOptionsHTML():''}
       ${game.id==='tension'?tnOptionsHTML():''}
-      <button class="btn btn-gold btn-full" data-a="deal" style="padding:1rem;">${game.id==='yahtzee'?'🎲 Start Rolling':game.id==='roulette'?'🎡 Open the Table':game.id==='slots'?'🎰 Power Up the Machine':game.id==='drawit'?'🎨 Start Drawing':game.id==='liarsdice'?'🎲 Roll the Dice':game.id==='summit'?'🏔️ Start the Climb':game.id==='shutbox'?'📦 Open the Box':game.id==='tension'?'⚙️ Start the Machine':game.id==='hotbomb'?'💣 Light the Fuse':'🃏 Deal the Cards'}</button>
+      <button class="btn btn-gold btn-full" data-a="deal" style="padding:1rem;">${game.id==='yahtzee'?'🎲 Start Rolling':game.id==='roulette'?'🎡 Open the Table':game.id==='slots'?'🎰 Power Up the Machine':game.id==='drawit'?'🎨 Start Drawing':game.id==='liarsdice'?'🎲 Roll the Dice':game.id==='summit'?'🏔️ Start the Climb':game.id==='shutbox'?'📦 Open the Box':game.id==='tension'?'⚙️ Start the Machine':game.id==='mayhem'?'💥 Let it Rip':game.id==='hotbomb'?'💣 Light the Fuse':'🃏 Deal the Cards'}</button>
     </div>
   </div>`;
 }
@@ -17552,6 +18155,13 @@ function oStartGame(rs){
         const gs={phase:'game',gameId:'pig',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
           pig:{die:1,turnTotal:0,hasRolled:false,busted:false},
           winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
+        G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='mayhem'){
+        const players=rs.players.slice(0,2).map(p=>({...p,totalScore:0,c4Result:null}));
+        const gs={phase:'game',gameId:'mayhem',host:rs.host,hr:rs.hr||G.hr,players,curIdx:rnd(0,1),
+          mh:mhNew(),winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
         G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }
@@ -17692,6 +18302,7 @@ function rLobby(){
       ${game.id==='liarsdice'&&G.isHost?ldOptionsHTML():''}
       ${game.id==='bingo'&&G.isHost?bgOptionsHTML():''}
       ${game.id==='fourrow'&&G.isHost?c4OptionsHTML():''}
+      ${game.id==='mayhem'&&G.isHost?mhOptionsHTML():''}
       ${game.id==='tension'&&G.isHost?tnOptionsHTML():''}
       ${game.id==='skull'&&G.isHost?skOptionsHTML():''}
       ${game.id==='vault'&&G.isHost?vtOptionsHTML():''}
@@ -17743,6 +18354,7 @@ function rTable(){
   if(_tblGameId==='pig')return rPigTable();
   if(_tblGameId==='shutbox')return rShutBoxTable();
   if(_tblGameId==='fourrow')return rFourRowTable();
+  if(_tblGameId==='mayhem')return rMayhemTable();
   if(_tblGameId==='skull')return rSkullTable();
   if(_tblGameId==='tension')return rTensionTable();
   if(_tblGameId==='bingo')return rBingoTable();
@@ -19337,6 +19949,7 @@ window.addEventListener('orientationchange',()=>{_lastVw=window.innerWidth;updat
 
 function matchMoment(sorted){
   const winner=sorted[0];
+  if((G.isOnline?G.srv?.gameId:G.selGame)==='mayhem'){const mm=G.isOnline?(G.srv&&G.srv.moment):G.mhMoment;if(mm)return esc(mm);}
   if((G.isOnline?G.srv?.gameId:G.selGame)==='tension'&&winner)return esc(tnMoment(winner));
   const ms=G.matchStats;
   if(ms.comebacks>0)return `${esc(winner?.name||'')} came back to win the table.`;
@@ -19350,7 +19963,7 @@ function rMatchEnd(){
   const isSM=(G.isOnline?G.srv?.gameId:G.selGame)==='summit';
   const isHB=(G.isOnline?G.srv?.gameId:G.selGame)==='hotbomb';
   const isSB=(G.isOnline?G.srv?.gameId:G.selGame)==='shutbox';
-  const isC4=(G.isOnline?G.srv?.gameId:G.selGame)==='fourrow';
+  const isC4=['fourrow','mayhem'].includes(G.isOnline?G.srv?.gameId:G.selGame);
   const isSK=(G.isOnline?G.srv?.gameId:G.selGame)==='skull';
   const isTN=(G.isOnline?G.srv?.gameId:G.selGame)==='tension';
   const c4Draw=isC4&&players.every(p=>p.c4Result==='draw');
@@ -19398,7 +20011,7 @@ function rYahtzeeEnd(){
 /* ════════ ROUTER ════════ */
 
 /* ═══ V14 CINEMATIC LAYER ═══ */
-function v14GameLabel(id){return ({maumau:'Mau Mau',texas:"Texas Hold'em",fivecard:'Five Card Draw',blackjack:'Blackjack',battle:'Battle',romme:'Rommé',hearts:'Hearts',bridge:'Bridge',yahtzee:'Yahtzee',roulette:'Roulette',dicedual:'Dice Duel',uno:'Uno',farkle:'Farkle',bingo:'Bingo',lepouilleux:'Old Maid',slots:'Slot Machine',pig:'Pig',drawit:'Draw-it',liarsdice:"Liar's Dice",summit:'Summit',hotbomb:'Hot Bomb',vault:'The Vault',bust:'BUST',escape:'Escape',shutbox:'Shut the Box',fourrow:'4 in a Row',skull:'Flower or Skull',tension:'Tension'})[id]||id||'Card Game'}
+function v14GameLabel(id){return ({maumau:'Mau Mau',texas:"Texas Hold'em",fivecard:'Five Card Draw',blackjack:'Blackjack',battle:'Battle',romme:'Rommé',hearts:'Hearts',bridge:'Bridge',yahtzee:'Yahtzee',roulette:'Roulette',dicedual:'Dice Duel',uno:'Uno',farkle:'Farkle',bingo:'Bingo',lepouilleux:'Old Maid',slots:'Slot Machine',pig:'Pig',drawit:'Draw-it',liarsdice:"Liar's Dice",summit:'Summit',hotbomb:'Hot Bomb',vault:'The Vault',bust:'BUST',escape:'Escape',shutbox:'Shut the Box',fourrow:'4 in a Row',skull:'Flower or Skull',tension:'Tension',mayhem:'Mayhem'})[id]||id||'Card Game'}
 function stageIsCards(id){const g=GAMES.find(x=>x.id===id);return!!g&&(g.cat==='cards'||g.cat==='casino');}
 function v14Intro(id,dealerName,dealerAvatar){
   const old=document.querySelector('.game-intro');if(old)old.remove();
@@ -20300,6 +20913,7 @@ document.addEventListener('click',e=>{
   else if(a==='stbroll'){G.isOnline?oStbRoll():stbRoll();}
   else if(a==='stbtile'){stbToggleTile(+t.getAttribute('data-t'));}
   else if(a==='stbclear'){G.stbSel=[];render();}
+  else if(a==='mhpw'||a==='mhaxis'||a==='mhdir'||a==='mhno'||a==='mhgo'||a==='mhcol'||a==='mhcell'){mhTap(a,t);}
   else if(a==='tnpick'){tnPick(+t.getAttribute('data-i'));}
   else if(a==='tnred'){tnPick('red');}
   else if(a==='tnact'){tnDoAct(+t.getAttribute('data-ai'));}
