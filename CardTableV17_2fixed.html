@@ -3453,13 +3453,36 @@ const dbRead=async id=>{
   try{const{data,error}=await sb.from('card_rooms').select('state').eq('id',id).single();return error?null:sanitiseState(data?.state||null);}
   catch(e){return null;}
 };
+// A move is shown on the mover's own screen the instant it is made (onSrv before the write), so a write that never
+// lands used to leave the two devices disagreeing for good: the mover saw their move and "waiting for the other
+// player", everyone else still saw the mover's turn, and the poll could not repair it (it ignores any snapshot this
+// device has already seen). So: a failed write is retried twice (a connection hiccup is usually over in a second),
+// and if it still fails the player is told and the screen is put back to what the room really holds.
 const dbWrite=async(id,s)=>{
   const sb=SB();if(!sb){toast('⚠️ Online mode unavailable');return false;}
   s._ts=s._ts||Date.now();
   if(_rematchStamp&&s.phase==='game'&&s.gameId){s.rematchId=_rematchStamp;_rematchStamp=0;}
-  try{const{error}=await sb.from('card_rooms').upsert({id,state:s,updated_at:new Date().toISOString()});if(error){toast('⚠️ Sync error');return false;}return true;}
-  catch(e){toast('⚠️ Network error');return false;}
+  for(let attempt=0;attempt<3;attempt++){
+    try{const{error}=await sb.from('card_rooms').upsert({id,state:s,updated_at:new Date().toISOString()});if(!error)return true;}
+    catch(e){}
+    if(attempt<2)await new Promise(r=>setTimeout(r,attempt?900:350));
+  }
+  toast('⚠️ Connection problem — that move was not sent. Please tap again.');
+  oResyncSoon(s._ts);
+  return false;
 };
+// Re-reads the room and shows exactly that, bypassing the "already seen" guard on purpose: the screen is the
+// thing that is wrong here, not the room. `failedTs` is the timestamp of the move that did not land: the screen is
+// only put back if it is STILL showing that move. If the player has already tapped again, or a newer state has
+// arrived, this read is older than what is on screen and must not be applied.
+function oResyncSoon(failedTs){
+  if(!G.isOnline||!G.roomId||!(G.srv&&G.srv.phase==='game'))return;
+  setTimeout(async()=>{
+    if(!G.isOnline||!G.roomId)return;
+    const fresh=await dbRead(G.roomId);
+    if(fresh&&G.isOnline&&G.roomId&&G.srv&&G.srv._ts===failedTs)onSrv(fresh);
+  },500);
+}
 // Optimistic-concurrency write: only lands if the row's state._ts still matches what this client
 // read before mutating. Every other online game is turn-gated (only the current player ever
 // writes), so a plain read-mutate-write is safe there — Roulette is the one exception, where any
@@ -3499,10 +3522,27 @@ function _onPresenceSync(){
   });
   render();
 }
+// What to do with each snapshot the poll / realtime channel hands back. A snapshot this device has not seen is
+// applied. One it HAS seen is normally either the state already on screen or an old read arriving late, and is
+// ignored -- but two reads can cross on the way back, an old one landing after a newer one and putting the screen
+// back in time; the newer state is then "already seen" and would be ignored for ever. So: if the room keeps
+// answering with the same seen snapshot, three polls in a row, while the screen shows something else, the room
+// is right and the screen is wrong. (Not while a move of ours is being sent: the room is legitimately behind then.)
+function dbMakeOnState(cb){
+  let cand={ts:null,n:0};
+  return s=>{
+    if(!s)return;
+    if(dbAcceptTs(s._ts)){cand={ts:null,n:0};cb(s);return;}
+    if(s._ts!==_lts&&!_onlineBusy){
+      if(cand.ts===s._ts)cand.n++;else cand={ts:s._ts,n:1};
+      if(cand.n>=3){cand={ts:null,n:0};cb(s);}
+    } else cand={ts:null,n:0};
+  };
+}
 function dbSub(id,cb){
   const sb=SB();
   _seenTs=[];
-  const onState=s=>{if(s&&dbAcceptTs(s._ts))cb(s);};
+  const onState=dbMakeOnState(cb);
   _presentPids=new Set();_absentSince={};
   if(sb){
     if(_ch)sb.removeChannel(_ch);
@@ -20714,7 +20754,11 @@ async function sendTalk(entry){
       const state=await dbRead(G.roomId);if(!state)return;
       const expectedTs=state._ts;
       state.talk=[...(state.talk||[]),full].slice(-8);
-      if(await dbWriteIfUnchanged(G.roomId,expectedTs,state)){G.srv=state;return;}
+      // Only the reaction list is taken from what was just written. Assigning the whole `state` here replaced the
+      // screen with a copy read a moment EARLIER: if a move had landed in the meantime, the board went back in time
+      // (the mover's own chip vanished) and, because that move's timestamp had already been seen, the poll refused to
+      // repair it until the next move by somebody else.
+      if(await dbWriteIfUnchanged(G.roomId,expectedTs,state)){if(G.srv)G.srv.talk=state.talk;return;}
     }
   }
 }
