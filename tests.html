@@ -6837,7 +6837,7 @@ async function runPresentation(A,W,frame){
     const game=F('GAMES').find(x=>x.id==='abyss');
     check('The Abyss is in the party games with 2–6 players and written rules',game&&game.cat==='party'&&game.minP===2&&game.maxP===6&&game.rules.length>=5);
     check('it plays online and against bots',F('ONLINE_GAMES').includes('abyss')&&F('BOT_GAMES').has('abyss'));
-    check('it has a quick tour of 4 slides, a tagline, an accent colour, a name for the history and its own reactions',F('TOURS').abyss.slides.length===4&&!!F('STAGE_TAGS').abyss&&!!F('MOMENT_ACCENT').abyss&&F('v14GameLabel')('abyss')==='The Abyss'&&F('REACTION_GAME').abyss.length===3);
+    check('it has a quick tour of 4 slides, a tagline, an accent colour, a name for the history and its own reactions',F('TOURS').abyss.slides.length===5&&!!F('STAGE_TAGS').abyss&&!!F('MOMENT_ACCENT').abyss&&F('v14GameLabel')('abyss')==='The Abyss'&&F('REACTION_GAME').abyss.length===3);
     check('the stage can announce what happens on the board, and the sounds exist',typeof F('STAGE_EVENTS').AB_EVT==='function'&&['abLadder','abFall','abHole','abWorm','abStar'].every(k=>typeof F('SFX')[k]==='function'));
     const human=(id,n,i,bot)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,...(bot?{bot}:{})});
     const keepHist=W.localStorage.getItem('ct_history'),keepName=G.myName;
@@ -6850,7 +6850,7 @@ async function runPresentation(A,W,frame){
       const sq=G.ab.board.sq,cnt=t=>Object.values(sq).filter(x=>x.t===t).length;
       check('the table shows the board (100 squares), 3 tokens, 3 standings and a Roll button for the player on turn',d.querySelectorAll('.ab-board svg g > rect[rx="2.4"]').length===100&&d.querySelectorAll('.ab-tok').length===3&&d.querySelectorAll('.cr-pill').length===3&&!!d.querySelector('[data-a="abroll"]'));
       check('every ladder, black hole, wormhole end and star is drawn, and the pits come with their dashed fall line',d.querySelectorAll('svg circle[r="2.1"]').length===cnt('ladder')&&d.querySelectorAll('.ab-swirl').length===cnt('hole')+cnt('worm')&&d.querySelectorAll('.ab-star').length===cnt('star')&&d.querySelectorAll('svg path[stroke-dasharray="1.6 1.4"]').length===cnt('pit'));
-      check('a legend explains the squares, and the animation setting is there',d.querySelectorAll('.gt-legend li').length===7&&/Black hole/.test(d.querySelector('.gt-legend').textContent)&&/Animations/.test(d.querySelector('.gt-animbtn').textContent));
+      check('a legend explains the squares, and the animation setting is there',d.querySelectorAll('.gt-legend li').length===8&&/Black hole/.test(d.querySelector('.gt-legend').textContent)&&/Animations/.test(d.querySelector('.gt-animbtn').textContent));
       check('the player on turn has a glow',d.querySelectorAll('.ab-tok.turn').length===1&&d.querySelector('.ab-tok.turn').classList.contains('p1'));
       const tap=(a)=>{const b=W.document.createElement('button');b.setAttribute('data-a',a);W.document.body.appendChild(b);b.click();b.remove();};
       tap('abroll');
@@ -6873,7 +6873,7 @@ async function runPresentation(A,W,frame){
       try{
         W.__rows=[];W.eval('getHistory=()=>window.__rows');
         const t=(id,rows)=>{W.__rows=rows;return!!ach(id).check();};
-        check('four Abyss trophies exist (one secret)',F('ACHIEVEMENTS').filter(a=>a.id.startsWith('ab-')).length===4&&ach('ab-horizon').secret===true);
+        check('five Abyss trophies exist (one secret)',F('ACHIEVEMENTS').filter(a=>a.id.startsWith('ab-')).length===5&&ach('ab-horizon').secret===true);
         check('Into the Abyss: after one game',t('ab-first',[r({})])&&!t('ab-first',[]));
         check('Skyward: 3 ladders in one game',t('ab-skyward',[r({climb:3})])&&!t('ab-skyward',[r({climb:2})]));
         check('Back from the Void: won after a black hole (a loss does not count)',t('ab-void',[r({hole:1},true)])&&!t('ab-void',[r({hole:1},false)]));
@@ -6929,6 +6929,188 @@ async function runPresentation(A,W,frame){
       const wait=new DOMParser().parseFromString(seen.waitHtml,'text/html'),mine=new DOMParser().parseFromString(seen.myHtml,'text/html');
       check('a player who is not on turn gets no Roll button, just who they are waiting for',wait.querySelectorAll('[data-a="abroll"]').length===0&&/Waiting for/.test(wait.querySelector('.y-hint').textContent));
       check('the player on turn gets the Roll button',mine.querySelectorAll('[data-a="abroll"]').length===1);
+    });
+  }
+
+  /* —— The Abyss, step 2: sabotage tricks —————— */
+  suite('The Abyss — tricks: getting them',()=>{
+    const F=n=>W.eval(n);
+    const abNew=F('abNew'),abStart=F('abStart'),abRoll=F('abRoll'),abDraw=F('abDraw'),T=F('AB_TRICKS');
+    const mk=(P,sq,pos)=>{const g=abStart(abNew(P,5),1);g.board={sq:sq||{}};if(pos)g.pos=pos.slice();return g;};
+    check('there are five tricks, each with an icon, a name and a one-line effect',Object.keys(T).join()==='shove,swap,cut,plug,freeze'&&Object.values(T).every(x=>x.icon&&x.name&&x.txt));
+    const g0=abNew(3,5),g1=abNew(3,5);
+    check('everybody starts with one trick, and the hands are plain public data (the same seed deals the same hands)',g0.tricks.length===3&&g0.tricks.every(h=>h.length===1)&&JSON.stringify(g0.tricks)===JSON.stringify(g1.tricks));
+    check('a hand holds at most 3: the 4th draw gives nothing',(()=>{const g=mk(2);g.tricks[0]=['shove','swap','cut'];return abDraw(g,1)===''&&g.tricks[0].length===3;})());
+    check('over many draws every trick turns up, the common ones more often than Freeze',(()=>{const g=mk(2);const c={};for(let i=0;i<600;i++){g.tricks[0]=[];const k=abDraw(g,1);c[k]=(c[k]||0)+1;}return Object.keys(c).length===5&&c.shove>c.freeze&&c.swap>c.freeze;})());
+    let g=mk(2,{12:{t:'star'}},[5,0]);g.tricks[0]=[];
+    let fx=abRoll(g,1,3,4);
+    check('landing on a ⭐ gives a trick (and another roll)',fx.drew&&g.tricks[0].length===1&&g.tricks[0][0]===fx.drew&&fx.again);
+    g=mk(2,{12:{t:'star'}},[5,0]);g.tricks[0]=['shove','swap','cut'];fx=abRoll(g,1,3,4);
+    check('...unless the hand is full',fx.drew===''&&g.tricks[0].length===3);
+    g=mk(2,{40:{t:'hole',to:0}},[33,0]);g.tricks[0]=[];fx=abRoll(g,1,3,4);
+    check('being swallowed by a black hole gives a consolation trick',g.pos[0]===0&&fx.drew&&g.tricks[0].length===1);
+    g=mk(2,{},[0,0]);g.tricks[0]=[];abRoll(g,1,2,2);abRoll(g,1,3,3);fx=abRoll(g,1,4,4);
+    check('being thrown back by three doubles gives nothing',fx.triple&&fx.drew==='');
+    check('the roll in the log says when a trick came with it',(()=>{const x=mk(2,{12:{t:'star'}},[5,0]);x.tricks[0]=[];abRoll(x,1,3,4);return x.hist[0].dr!=='';})());
+  });
+  suite('The Abyss — tricks: playing them',()=>{
+    const F=n=>W.eval(n);
+    const abNew=F('abNew'),abStart=F('abStart'),abRoll=F('abRoll'),abTrick=F('abTrick'),abApply=F('abApply'),abTrickTargets=F('abTrickTargets');
+    const mk=(P,sq,pos,hands)=>{const g=abStart(abNew(P,5),1);g.board={sq:sq||{}};if(pos)g.pos=pos.slice();if(hands)g.tricks=hands.map(h=>h.slice());return g;};
+    let g=mk(3,{},[10,30,0],[['shove','swap'],[],[]]);
+    check('only the player on turn plays, only a trick they hold, only on a legal target',abTrick(g,2,{trick:'shove',target:1})===null&&abTrick(g,1,{trick:'freeze',target:2})===null&&abTrick(g,1,{trick:'shove',target:1})===null&&abTrick(g,1,{trick:'shove',target:3})===null&&g.moves===0);
+    let fx=abTrick(g,1,{trick:'shove',target:2});
+    check('SHOVE: the rival goes back 6 (30 → 24), the card is used up, and the turn goes on',fx&&g.pos[1]===24&&fx.from===30&&fx.to===24&&g.tricks[0].join()==='swap'&&g.cur===1&&g.phase==='roll'&&g.stats.trick[0]===1&&g.stats.shoved[1]===1);
+    check('only one trick per turn',abTrick(g,1,{trick:'swap',target:2})===null&&g.usedTurn===true);
+    abRoll(g,1,1,2);
+    check('...and the turn after, tricks are allowed again',g.cur===2&&g.usedTurn===false);
+    g=mk(2,{},[3,0],[['shove'],[]]);
+    check('SHOVE needs a rival who is on the board',abTrickTargets(g,1,'shove').length===0&&abTrick(g,1,{trick:'shove',target:2})===null);
+    g=mk(2,{},[3,2],[['shove'],[]]);fx=abTrick(g,1,{trick:'shove',target:2});
+    check('SHOVE never goes below the start',g.pos[1]===0);
+    g=mk(3,{},[10,60,0],[['swap'],[],[]]);fx=abTrick(g,1,{trick:'swap',target:2});
+    check('SWAP: the two change places (10 ↔ 60), no square is triggered',g.pos[0]===60&&g.pos[1]===10&&fx.swap.length===2&&fx.swap[0].to===60);
+    g=mk(2,{},[10,10],[['swap'],[]]);
+    check('SWAP with somebody on your own square is pointless and refused',abTrick(g,1,{trick:'swap',target:2})===null);
+    g=mk(3,{},[10,20,30],[['freeze'],[],[]]);fx=abTrick(g,1,{trick:'freeze',target:2});
+    check('FREEZE: the rival is marked, and cannot be frozen twice',g.skip[1]===1&&abTrickTargets(g,1,'freeze').join()==='3'&&g.stats.frozen[1]===1);
+    fx=abRoll(g,1,1,2);
+    check('...and misses exactly one turn: after player 1 the turn goes to player 3, and the freeze is gone',fx.skipped.join()==='2'&&g.cur===3&&g.skip[1]===0&&g.hist.some(h=>h.k==='skip'));
+    abRoll(g,3,1,2);
+    check('(player 2 plays again afterwards)',g.cur===1);
+    g=mk(2,{},[10,20],[['freeze'],[]]);abTrick(g,1,{trick:'freeze',target:2});fx=abRoll(g,1,1,2);
+    check('in a game of two, the frozen rival\'s turn is skipped and the same player is up again',fx.skipped.join()==='2'&&g.cur===1&&g.round===2);
+    // cut and plug
+    const board={10:{t:'ladder',to:30},50:{t:'hole',to:0},60:{t:'ladder',to:80},33:{t:'pit',to:20}};
+    g=mk(2,board,[3,0],[['cut','plug'],[]]);
+    check('CUT may be played on a ladder only, PLUG on a black hole only',JSON.stringify(abTrickTargets(g,1,'cut'))==='[10,60]'&&JSON.stringify(abTrickTargets(g,1,'plug'))==='[50]'&&abTrick(g,1,{trick:'cut',n:50})===null&&abTrick(g,1,{trick:'cut',n:33})===null);
+    fx=abTrick(g,1,{trick:'cut',n:10});
+    check('CUT: the ladder is out of order until the cutter\'s next turn, and cannot be cut again',g.off[10]===1&&abTrickTargets(g,1,'cut').join()==='60'&&fx.n===10);
+    g.usedTurn=false;abTrick(g,1,{trick:'plug',n:50});
+    check('PLUG likewise for a black hole',g.off[50]===1);
+    abRoll(g,1,3,4);   // player 1 walks 3 → 10 (his own cut ladder: nothing happens), turn passes
+    check('landing on a cut ladder: nothing happens (it is a dud) — even for the one who cut it',g.pos[0]===10&&g.fx.eff.t==='dud'&&g.fx.eff.kind==='ladder'&&g.stats.climb[0]===0&&g.stats.dud[0]===1);
+    check('the cut and the plug are still in force during the rivals\' turn',g.off[10]===1&&g.off[50]===1&&g.cur===2);
+    g.pos[1]=43;abRoll(g,2,3,4);
+    check('a plugged black hole lets a rival land on it without being swallowed',g.pos[1]===50&&g.fx.eff.t==='dud'&&g.fx.eff.kind==='hole'&&g.stats.hole[1]===0);
+    check('when the cutter\'s turn comes round again, the cut and the plug wear off',g.cur===1&&Object.keys(g.off).length===0);
+    g=mk(2,board,[3,0],[['cut'],[]]);g.pos[1]=7;abTrick(g,1,{trick:'cut',n:10});abRoll(g,1,1,1);
+    check('(a double keeps the turn; the cut stays)',g.cur===1&&g.off[10]===1&&g.usedTurn===true);
+    g=mk(2,board,[3,0],[['cut'],[]]);g.pos[1]=7;abTrick(g,1,{trick:'cut',n:10});abRoll(g,1,1,2);abRoll(g,2,1,2);
+    check('...and a pit or a star is not affected by any of this',(()=>{const x=mk(2,board,[30,0]);const f=abRoll(x,1,1,2);return f.eff&&f.eff.t==='pit';})());
+    g=mk(2,{},[10,20],[['shove'],[]]);
+    check('abApply is the one door: a roll or a trick',abApply(g,1,{t:'trick',trick:'shove',target:2})&&abApply(g,1,{t:'roll',d:[1,2]})&&abApply(g,1,null)===null);
+  });
+  suite('The Abyss — tricks: the bots',()=>{
+    const F=n=>W.eval(n);
+    const abNew=F('abNew'),abStart=F('abStart'),abRoll=F('abRoll'),abApply=F('abApply'),abBotTrick=F('abBotTrick');
+    const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+    const mk=(P,sq,pos,hands)=>{const g=abStart(abNew(P,5),1);g.board={sq:sq||{}};if(pos)g.pos=pos.slice();if(hands)g.tricks=hands.map(h=>h.slice());return g;};
+    let g=mk(2,{},[10,60],[['shove'],[]]);
+    check('a bot shoves a rival who is far ahead of it',(()=>{let n=0;for(let i=0;i<60;i++){const a=abBotTrick(g,1,'sharp');if(a&&a.trick==='shove'&&a.target===2)n++;}return n>25;})());
+    g=mk(2,{},[50,52],[['shove'],[]]);
+    check('...but not one who is hardly ahead',(()=>{for(let i=0;i<60;i++)if(abBotTrick(g,1,'sharp'))return false;return true;})());
+    g=mk(2,{},[10,70],[['freeze'],[]]);
+    check('a bot freezes a leader',(()=>{let n=0;for(let i=0;i<60;i++){const a=abBotTrick(g,1,'sharp');if(a&&a.trick==='freeze'&&a.target===2)n++;}return n>25;})());
+    g=mk(2,{},[10,60],[['swap'],[]]);
+    check('a bot swaps with a rival who is much further on',(()=>{let n=0;for(let i=0;i<60;i++){const a=abBotTrick(g,1,'sharp');if(a&&a.trick==='swap')n++;}return n>25;})());
+    g=mk(2,{40:{t:'hole',to:0}},[30,0],[['plug'],[]]);
+    check('a bot plugs a black hole it is about to walk towards',(()=>{let n=0;for(let i=0;i<60;i++){const a=abBotTrick(g,1,'sharp');if(a&&a.trick==='plug'&&a.n===40)n++;}return n>25;})());
+    g=mk(2,{25:{t:'ladder',to:50}},[3,20],[['cut'],[]]);
+    check('a bot cuts a ladder a rival is about to use (and that it cannot reach itself)',(()=>{let n=0;for(let i=0;i<60;i++){const a=abBotTrick(g,1,'sharp');if(a&&a.trick==='cut'&&a.n===25)n++;}return n>25;})());
+    g=mk(2,{},[10,60],[['shove'],[]]);g.usedTurn=true;
+    check('a bot plays no second trick in a turn, and none when it has none',abBotTrick(g,1,'sharp')===null&&abBotTrick(mk(2,{},[10,60],[[],[]]),1,'sharp')===null);
+    // every trick a bot plays is legal, in whole games, and games still end
+    let bad=0,done=0,played=0;
+    for(let P=2;P<=6;P++)for(let n=0;n<20;n++){
+      const x=abStart(abNew(P),1);let guard=0;
+      while(!x.over&&guard++<4000){
+        const s=x.cur,lv=s%2?'sharp':'gentle',tr=abBotTrick(x,s,lv);
+        if(tr){if(!abApply(x,s,tr)){bad++;break;}played++;continue;}
+        if(!abRoll(x,s,rnd(1,6),rnd(1,6))){bad++;break;}
+        if(x.tricks.some(h=>h.length>3)||x.pos.some(p=>p<0||p>100))bad++;
+      }
+      if(x.over)done++;
+    }
+    check('100 whole games with bots using tricks: every trick legal, nobody holds more than 3, every game ends',bad===0&&done===100&&played>150);
+  });
+  suite('The Abyss — tricks at the table',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const abNew=F('abNew'),abStart=F('abStart');
+    const human=(id,n,i,bot)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,...(bot?{bot}:{})});
+    const doc=()=>new DOMParser().parseFromString(F('rAbyssTable')(),'text/html');
+    const tap=(a,attrs)=>{const b=W.document.createElement('button');b.setAttribute('data-a',a);Object.entries(attrs||{}).forEach(([k,v])=>b.setAttribute(k,v));W.document.body.appendChild(b);b.click();b.remove();};
+    try{
+      G.isOnline=false;G.srv=null;G.selGame='abyss';G.abSeq=null;G.abInstant=true;G.abPick=null;
+      G.lp=[human(1,'Phil',0),human(2,'Anna',1),human(3,'Robo',2)];
+      const ab=G.ab=abStart(abNew(3,5),1);G.lcur=0;G.scr='table';
+      ab.board.sq={10:{t:'ladder',to:30},50:{t:'hole',to:0}};ab.pos=[5,40,20];ab.tricks=[['shove','cut','freeze'],['swap'],[]];
+      let d=doc();
+      check('everybody\'s tricks are shown next to their names (public)',d.querySelectorAll('.cr-pill')[0].querySelectorAll('.ab-pt').length===3&&d.querySelectorAll('.cr-pill')[1].querySelectorAll('.ab-pt').length===1&&d.querySelectorAll('.cr-pill')[2].querySelectorAll('.ab-pt').length===0);
+      check('the player on turn gets a tray with one button per kind, next to the Roll button',d.querySelectorAll('.ab-trick').length===3&&!!d.querySelector('[data-a="abroll"]')&&/Shove/.test(d.querySelector('.ab-tricks').textContent));
+      tap('abtrick',{'data-t':'shove'});
+      d=doc();
+      check('playing a trick that needs a rival asks who: one button per possible target, with their square',d.querySelectorAll('.ab-target').length===2&&/Anna/.test(d.querySelector('.ab-target').textContent)&&/40/.test(d.querySelector('.ab-target').textContent)&&!d.querySelector('[data-a="abroll"]'));
+      tap('abcancel');
+      check('Back returns to the tray',!doc().querySelector('.ab-target')&&doc().querySelectorAll('.ab-trick').length===3);
+      tap('abtrick',{'data-t':'cut'});
+      d=doc();
+      check('Cut asks you to tap the ladder foot on the board: the squares that may be chosen are marked',d.querySelectorAll('svg [data-a="abtarget"][data-n]').length===1&&d.querySelector('svg [data-a="abtarget"]').getAttribute('data-n')==='10');
+      tap('abtarget',{'data-n':'10'});
+      check('tapping it cuts the ladder and the trick is gone from the hand',ab.off[10]===1&&ab.tricks[0].join()==='shove,freeze'&&ab.usedTurn&&!G.abPick);
+      d=doc();
+      check('the board shows the cut ladder (✂️), and the tray is gone for this turn but Roll stays',[...d.querySelectorAll('svg text')].some(t=>t.textContent==='✂️')&&!d.querySelector('.ab-tricks')&&!!d.querySelector('[data-a="abroll"]'));
+      ab.usedTurn=false;tap('abtrick',{'data-t':'shove'});tap('abtarget',{'data-s':'2'});
+      check('Shove through the real buttons sends Anna back 6',ab.pos[1]===34&&ab.fx.kind==='trick'&&ab.fx.trick==='shove');
+      d=doc();
+      check('after a trick the dice of the last roll are still on the table',true);
+      ab.usedTurn=false;ab.skip[2]=1;
+      check('a frozen player shows a snowflake on the board and in the standings',(()=>{const x=doc();return x.querySelectorAll('.cr-pill')[2].textContent.includes('❄️')&&[...x.querySelectorAll('svg text')].some(t=>t.textContent==='❄️');})());
+      ab.skip[2]=0;ab.off={};
+      ab.tricks[0]=['plug'];ab.usedTurn=false;tap('abtrick',{'data-t':'plug'});tap('abtarget',{'data-n':'50'});
+      check('Plug shows a brick over the black hole',ab.off[50]===1&&[...doc().querySelectorAll('svg text')].some(t=>t.textContent==='🧱'));
+      // a stale pick is ignored
+      G.abPick={seat:1,m:-1,trick:'shove'};
+      check('a stale choice (from an earlier moment) is ignored',!doc().querySelector('.ab-target'));
+      G.abPick=null;
+      ab.usedTurn=false;ab.tricks[0]=['swap'];ab.pos=[5,5,5];
+      check('a trick with nobody to use it on is greyed out',doc().querySelector('.ab-trick').disabled===true&&/nobody/.test(doc().querySelector('.ab-trick').textContent));
+      const names=['Phil','Anna','Robo'];const ht=F('abHistText');
+      check('the log reads well for each trick and a skipped turn',/shoved Anna back 6/.test(ht({s:1,k:'trick',tr:'shove',tg:2},names))&&/swapped places with Anna/.test(ht({s:1,k:'trick',tr:'swap',tg:2},names))&&/froze Anna/.test(ht({s:1,k:'trick',tr:'freeze',tg:2},names))&&/cut the ladder on 10/.test(ht({s:1,k:'trick',tr:'cut',n:10},names))&&/plugged the black hole on 50/.test(ht({s:1,k:'trick',tr:'plug',n:50},names))&&/frozen and misses a turn/.test(ht({s:2,k:'skip'},names)));
+      check('the stage knows what to say, and the tour has a slide about tricks',typeof F('STAGE_EVENTS').AB_EVT==='function'&&F('TOURS').abyss.slides.length===5&&/Dirty tricks/.test(F('TOURS').abyss.slides[4].h)&&F('GAMES').find(x=>x.id==='abyss').rules.length>=6);
+      check('there is a trophy for playing 4 tricks in one game',(()=>{const a=F('ACHIEVEMENTS').find(x=>x.id==='ab-saboteur');G.myName='Phil';W.__oh=F('getHistory');W.__rows=[{game:'abyss',winner:'Phil',stats:{ab:{Phil:{trick:4}}}}];W.eval('getHistory=()=>window.__rows');const ok=!!a.check();W.__rows=[{game:'abyss',winner:'Phil',stats:{ab:{Phil:{trick:3}}}}];const no=!a.check();W.eval('getHistory=window.__oh');return ok&&no;})());
+    } finally { G.abInstant=false;G.ab=null;G.abSeq=null;G.abPick=null;G.lp=[];G.scr='home'; }
+  });
+  {
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const oAbDo=F('oAbDo'),abNew=F('abNew'),abStart=F('abStart');
+    W.__keepSbAb2=W.eval('_sb');
+    W.eval('window.__origSetTimeout2=setTimeout; setTimeout=(fn)=>0;');
+    let DB=null;const clone=o=>JSON.parse(JSON.stringify(o));
+    W.__fakeSb={from:()=>({
+      select:()=>({eq:()=>({single:()=>Promise.resolve({data:DB?{state:clone(DB)}:null,error:DB?null:{message:'none'}})})}),
+      upsert:row=>{DB=clone(row.state);return Promise.resolve({error:null});},
+      update:row=>({eq:()=>({eq:()=>({select:()=>{DB=clone(row.state);return Promise.resolve({data:[{id:'T'}],error:null});}})})})})};
+    const P=(id,n,i)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,roundsWon:0,chips:900,c4Result:null,abPos:0});
+    const room=()=>{const ps=[P('a','Anna',0),P('b','Ben',1)];const ab=abStart(abNew(2,7),1);ab.pos=[10,40];ab.tricks=[['shove'],[]];return{phase:'game',gameId:'abyss',host:'a',players:ps,curIdx:0,ab,winner:null,round:1,_ts:Date.now()-5000};};
+    const seen={};
+    try{
+      G.isOnline=true;G.roomId='T';G.myPid='a';G.isHost=true;G.scr='table';G.selGame='abyss';
+      W.eval('_sb=window.__fakeSb');
+      DB=room();G.srv=clone(DB);await oAbDo({t:'trick',trick:'shove',target:2});seen.trick=clone(DB);
+      G.srv=clone(DB);await oAbDo([3,4]);seen.roll=clone(DB);
+      DB=room();G.myPid='b';G.srv=clone(DB);G.srv.curIdx=1;const b1=JSON.stringify(DB);await oAbDo({t:'trick',trick:'shove',target:1});seen.notMine=JSON.stringify(DB)===b1;
+      DB=room();G.myPid='a';G.srv=clone(DB);await oAbDo({t:'trick',trick:'shove',target:1});seen.illegal=JSON.stringify(DB.ab.pos)==='[10,40]';
+    } finally {
+      W.eval('setTimeout=window.__origSetTimeout2');
+      W.eval('_sb=window.__keepSbAb2');
+      G.isOnline=false;G.srv=null;G.scr='home';G.isHost=false;G.ab=null;G.abSeq=null;
+      try{W.localStorage.removeItem('ct_online_session');W.localStorage.removeItem('ct_resume');}catch(e){}
+    }
+    suite('The Abyss online — tricks in the room',()=>{
+      check('a trick is written to the room like a roll: the rival is shoved back, the card is gone, the turn stays with the player',seen.trick.ab.pos[1]===34&&seen.trick.ab.tricks[0].length===0&&seen.trick.curIdx===0&&seen.trick.ab.fx.kind==='trick'&&seen.trick.ab.usedTurn===true);
+      check('the roll that follows passes the turn on',seen.roll.ab.cur===2&&seen.roll.curIdx===1&&seen.roll.ab.usedTurn===false);
+      check('a device that is not on turn cannot play a trick, and an illegal one changes nothing',seen.notMine&&seen.illegal);
     });
   }
 

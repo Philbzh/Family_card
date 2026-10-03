@@ -1753,6 +1753,14 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 @keyframes gt-pull{from{transform:scale(1.5);opacity:0;}40%{opacity:1;}to{transform:scale(.7);opacity:0;}}
 .gt-dl{font-size:1.6rem;}
 /* The Abyss */
+.ab-pt{font-style:normal;margin-left:.1rem;font-size:.85em;}
+.ab-tricks{width:100%;max-width:26rem;display:flex;flex-direction:column;gap:.35rem;align-items:center;font-size:.72rem;color:var(--paper3);}
+.ab-tricks>div{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;}
+.ab-trick{display:flex;flex-direction:column;align-items:flex-start;gap:.05rem;padding:.35rem .7rem;border-radius:12px;font:inherit;color:var(--paper);cursor:pointer;background:rgba(0,0,0,.35);border:1px solid rgba(255,179,71,.45);}
+.ab-trick b{font-size:.82rem;}
+.ab-trick small{font-size:.62rem;color:var(--paper3);max-width:9rem;text-align:left;line-height:1.25;}
+.ab-trick:disabled{opacity:.4;cursor:default;}
+.ab-trick:not(:disabled):hover{border-color:#ffb347;box-shadow:0 0 12px rgba(255,179,71,.35);}
 .ab-board{--pc:#8f9bff;position:relative;aspect-ratio:200/232;width:min(100%,34rem,max(17rem,calc((100vh - 26rem)*.862)));padding:.45rem;border-radius:20px;
   background:linear-gradient(155deg,#aab4ff 0%,#5a64c8 28%,#2a3180 60%,#5a64c8 85%,#aab4ff);
   box-shadow:inset 0 2px 3px rgba(255,255,255,.45),inset 0 -3px 5px rgba(10,12,60,.6),0 14px 34px rgba(0,0,0,.65),0 0 0 1px #141a4a,0 0 26px -4px var(--pc);transition:box-shadow .4s;}
@@ -1770,6 +1778,7 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 .lg-ab-hole{background:radial-gradient(circle,#000 40%,#5b2aa8 100%);border-color:#b98af0;}
 .lg-ab-worm{background:rgba(185,138,240,.18);border-color:#b98af0;}
 .lg-ab-star{background:rgba(255,225,74,.14);border-color:#ffe14a;}
+.lg-ab-trick{background:rgba(255,255,255,.08);border-color:#ffb347;}
 .lg-ab-bump{background:rgba(255,255,255,.1);border-color:#fff;}
 .lg-ab-dbl{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.5);font-size:.6rem;}
 .gt-dare-d{filter:hue-rotate(-30deg) saturate(1.5);box-shadow:0 0 18px rgba(255,80,60,.7);}
@@ -4294,7 +4303,8 @@ const GAMES=[
      '<b>🪜 Ladders</b> carry you up (a <b>🚀</b> is a long one). <b>🕳️ Pits</b> drop you down the dashed red line. A <b>🌑 black hole</b> swallows you — straight back to the start.',
      '<b>🌀 Wormholes</b> come in pairs: step on one and you come out of the other — which may be ahead of you or behind. <b>⭐ Stars</b> let you roll again.',
      'Land on another player and you <b>💥 bump</b> them back 3 squares. A <b>double</b> rolls again — but <b>three doubles in a row</b> throws you back to the start.',
-     'The board is built fresh for every game, so you cannot rely on knowing it. Play online with friends, together on one device, or against bots. <i>More arrives soon: tricks to play on your rivals.</i>']},
+     '<b>🃏 Tricks</b> are single-use cards everybody can see next to your name. You start with one, win another on a ⭐, and get a consolation one when a black hole swallows you (3 at most). Once per turn, <i>before</i> you roll: <b>💨 Shove</b> a rival back 6 · <b>🔄 Swap</b> places with a rival · <b>✂️ Cut</b> a ladder · <b>🧱 Plug</b> a black hole · <b>❄️ Freeze</b> a rival for a turn. A cut or plug lasts until your next turn.',
+     'The board is built fresh for every game, so you cannot rely on knowing it. Play online with friends, together on one device, or against bots.']},
   {id:'lepouilleux',cat:'cards',icon:'🂫',name:'Old Maid',players:'2–8',dur:'5–15 min',diff:'easy',deal:0,cover:'assets/games/lepouilleux.jpg',
    rules:['A standard 52-card deck, minus the <b>Jack of Clubs</b> — 51 cards dealt out to everyone.',
      'A pair is two cards of the <b>same rank and same color</b> — K♥+K♦, or 8♠+8♣ (not just any same rank).',
@@ -4500,6 +4510,7 @@ const SFX={
   abFall(){[440,330,247,165].forEach((f,i)=>setTimeout(()=>tone(f,.1,'sawtooth'),i*80));haptic([20,20,40]);},
   abHole(){[300,240,180,120,70].forEach((f,i)=>setTimeout(()=>tone(f,.14,'sine'),i*110));haptic([40,30,60]);},
   abWorm(){[500,700,420,820].forEach((f,i)=>setTimeout(()=>tone(f,.09,'triangle'),i*80));},
+  abFreeze(){[1568,1318,1568,2093].forEach((f,i)=>setTimeout(()=>tone(f,.07,'sine'),i*60));},
   abStar(){[784,988,1318].forEach((f,i)=>setTimeout(()=>tone(f,.1,'triangle'),i*90));},
   gtDrop(){tone(190,.07,'sine');setTimeout(()=>tone(120,.1,'sine'),70);haptic([8]);},
   gtHome(){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,.13,'triangle'),i*95));},
@@ -4716,6 +4727,7 @@ const ACHIEVEMENTS=[
   {id:'ab-first',icon:'🌌',name:'Into the Abyss',desc:'Played a game of The Abyss',check:()=>getHistory().some(h=>h.game==='abyss')},
   {id:'ab-skyward',icon:'🚀',name:'Skyward',desc:'Climbed 3 ladders in one Abyss game',check:()=>getHistory().some(h=>{const s=abMine(h);return s&&s.climb>=3;})},
   {id:'ab-void',icon:'🌑',name:'Back from the Void',desc:'Won an Abyss game after being swallowed by a black hole',check:()=>getHistory().some(h=>{const s=abMine(h);return s&&h.winner===G.myName&&s.hole>=1;})},
+  {id:'ab-saboteur',icon:'🃏',name:'Saboteur',desc:'Played 4 tricks in one Abyss game',check:()=>getHistory().some(h=>{const s=abMine(h);return s&&s.trick>=4;})},
   {id:'ab-horizon',icon:'🕳️',secret:true,name:'Event Horizon',desc:'Swallowed by black holes twice in one game',check:()=>getHistory().some(h=>{const s=abMine(h);return s&&s.hole>=2;})},
   {id:'vault-open',icon:'🔐',name:'Safecracker',desc:'Opened a vault with the crew',check:()=>getHistory().some(h=>h.game==='vault')},
   {id:'first-escape',icon:'🗝️',name:'First Escape',desc:'Escaped a room with your team',check:()=>getHistory().some(h=>h.game==='escape')},
@@ -7304,7 +7316,8 @@ const TOURS={
     {ic:'🎲',h:'Roll and race to the top',t:'Roll <b>two dice</b> and walk the total. The first to reach <b>square 100</b> wins — you do not need an exact roll. A <b>double</b> rolls again; three in a row throws you back to the start.'},
     {ic:'🪜',h:'Ladders, rockets and stars',t:'Land on the foot of a <b>ladder</b> and climb it. A <b>🚀</b> is a long one. A <b>⭐ star</b> means roll again.'},
     {ic:'🌑',h:'Pits and black holes',t:'A <b>🕳️ pit</b> drops you down its dashed red line. A <b>🌑 black hole</b> swallows you — back to the very start. They are spread over the whole board, so nobody is ever safe.'},
-    {ic:'🌀',h:'Wormholes and bumps',t:'<b>Wormholes</b> come in pairs: step on one, come out of the other — ahead of you or behind. Land on another player and they <b>slide back 3</b>. The board is different in every game.'}]},
+    {ic:'🌀',h:'Wormholes and bumps',t:'<b>Wormholes</b> come in pairs: step on one, come out of the other — ahead of you or behind. Land on another player and they <b>slide back 3</b>. The board is different in every game.'},
+    {ic:'🃏',h:'Dirty tricks',t:'Next to every name you see that player’s <b>tricks</b>: <b>💨 Shove</b>, <b>🔄 Swap</b>, <b>✂️ Cut</b> a ladder, <b>🧱 Plug</b> a black hole, <b>❄️ Freeze</b>. Play one per turn <i>before</i> you roll. You get new ones from a ⭐ — and when a black hole swallows you.'}]},
   chainreaction:{title:'How to play Chain Reaction',slides:[
     {ic:'⚛️',h:'Put one orb down',t:'On your turn tap an <b>empty cell</b> or one that is already <b>yours</b>. Every player has a colour <i>and</i> a shape: ● red, ◆ gold, ▲ green, ■ blue.'},
     {ic:'🔢',h:'Every cell has a limit',t:'Corners hold <b>2</b> orbs, edges <b>3</b>, the middle <b>4</b>. The little empty circles in a cell show how many fit before it blows.'},
@@ -12160,7 +12173,7 @@ function abBoard(seed){
   const b=abGen(seed+999331);   // a board that is a little off is better than none
   return{board:b||{sq:{}},seed:seed+999331,len:0};
 }
-function abNew(P,seed){
+function abNew0(P,seed){
   P=Math.max(2,Math.min(6,P|0||2));
   const made=abBoard(seed||Math.floor(Math.random()*2147483000)+1);
   return{P,seed:made.seed,board:made.board,pos:new Array(P).fill(0),cur:1,round:1,phase:'roll',dbl:0,moves:0,fx:null,hist:[],
@@ -12168,24 +12181,61 @@ function abNew(P,seed){
     stats:{climb:new Array(P).fill(0),fall:new Array(P).fill(0),hole:new Array(P).fill(0),worm:new Array(P).fill(0),star:new Array(P).fill(0),
       bump:new Array(P).fill(0),bumped:new Array(P).fill(0),dbl:new Array(P).fill(0),triple:new Array(P).fill(0),bounce:new Array(P).fill(0),turns:new Array(P).fill(0)}};
 }
+/* ── Tricks (step 2): single-use cards, always PUBLIC (everyone sees what everybody holds). One per turn, played before the roll.
+   They come from the start (one each), from a star, and as a consolation for a player swallowed by a black hole. A hand holds 3. ── */
+const AB_TRICKS={
+  shove:{icon:'💨',name:'Shove',txt:'Send a rival back 6 squares',w:3},
+  swap:{icon:'🔄',name:'Swap',txt:'Change places with a rival',w:2},
+  cut:{icon:'✂️',name:'Cut',txt:'Put a ladder out of order until your next turn',w:2},
+  plug:{icon:'🧱',name:'Plug',txt:'Plug a black hole until your next turn',w:2},
+  freeze:{icon:'❄️',name:'Freeze',txt:'A rival misses their next turn',w:1}};
+const AB_HAND=3;
+// Draws a trick for `seat` from the game's own random stream (so every device and every replay agrees). '' if the hand is full.
+function abDraw(ab,seat){
+  const hand=ab.tricks[seat-1];
+  if(hand.length>=AB_HAND)return'';
+  const st={s:ab.rng};const x=abRand(st)*10;ab.rng=st.s;
+  let acc=0,pick='shove';
+  for(const k of Object.keys(AB_TRICKS)){acc+=AB_TRICKS[k].w;if(x<acc){pick=k;break;}}
+  hand.push(pick);
+  return pick;
+}
+function abNew(P,seed){
+  const ab=abNew0(P,seed);
+  ab.tricks=Array.from({length:ab.P},()=>[]);ab.skip=new Array(ab.P).fill(0);ab.off={};ab.usedTurn=false;ab.lastDice=null;
+  ab.rng=(ab.seed*7+13)%2147483646+1;
+  ['trick','shoved','frozen','dud'].forEach(k=>{ab.stats[k]=new Array(ab.P).fill(0);});
+  for(let s=1;s<=ab.P;s++)abDraw(ab,s);
+  return ab;
+}
 function abStart(ab,first){ab.cur=first||1;return ab;}
 function abLog(ab,e){ab.hist.push(e);if(ab.hist.length>8)ab.hist.shift();}
+// Passes the turn on. A frozen player is skipped (the list of those who missed a turn is returned).
 function abNext(ab){
-  ab.dbl=0;ab.cur=ab.cur%ab.P+1;if(ab.cur===1)ab.round++;ab.phase='roll';
+  ab.dbl=0;const skipped=[];
+  for(let g=0;g<ab.P*2;g++){
+    ab.cur=ab.cur%ab.P+1;if(ab.cur===1)ab.round++;
+    if(ab.skip[ab.cur-1]>0){ab.skip[ab.cur-1]--;skipped.push(ab.cur);abLog(ab,{s:ab.cur,k:'skip'});}
+    else break;
+  }
+  ab.phase='roll';ab.usedTurn=false;
+  // the cuts and plugs this player made last time round wear off now
+  Object.keys(ab.off).forEach(n=>{if(ab.off[n]===ab.cur)delete ab.off[n];});
+  return skipped;
 }
 // Plays one roll for `seat`. Returns the record ab.fx, or null if it is not that seat's turn / the dice are not dice.
 function abRoll(ab,seat,d1,d2){
   if(!ab||ab.over||seat!==ab.cur||ab.phase!=='roll')return null;
   if(!(d1>=1&&d1<=6&&d2>=1&&d2<=6))return null;
   const i=seat-1,from=ab.pos[i];
-  const fx={seat,kind:'roll',dice:[d1,d2],from,steps:[],eff:null,landed:from,to:from,bumps:[],dbl:d1===d2,bounce:false,again:false,triple:false,win:false};
-  ab.moves++;ab.stats.turns[i]++;
+  const fx={seat,kind:'roll',dice:[d1,d2],from,steps:[],eff:null,landed:from,to:from,bumps:[],dbl:d1===d2,bounce:false,again:false,triple:false,win:false,drew:'',skipped:[]};
+  ab.moves++;ab.stats.turns[i]++;ab.lastDice=[d1,d2];
   if(fx.dbl){ab.dbl++;ab.stats.dbl[i]++;}else ab.dbl=0;
   if(ab.dbl>=3){
     // the third double in a row throws you back to the start
     fx.triple=true;fx.eff={t:'triple',from,to:0};ab.pos[i]=0;fx.to=0;ab.stats.triple[i]++;
     abLog(ab,{s:seat,k:'triple'});
-    fx.again=false;abNext(ab);ab.fx=fx;return fx;
+    fx.again=false;fx.skipped=abNext(ab);ab.fx=fx;return fx;
   }
   let p=from;
   for(let k=0;k<d1+d2&&p<AB_N;k++){p++;fx.steps.push(p);}
@@ -12196,12 +12246,15 @@ function abRoll(ab,seat,d1,d2){
   }
   let q=p;
   const sq=ab.board.sq[p];
-  if(sq){
+  if(sq&&ab.off[p]&&(sq.t==='ladder'||sq.t==='hole')){
+    // cut or plugged: nothing happens
+    fx.eff={t:'dud',from:p,to:p,kind:sq.t,by:ab.off[p]};ab.stats.dud[i]++;
+  } else if(sq){
     if(sq.t==='ladder'){fx.eff={t:'ladder',from:p,to:sq.to};q=sq.to;ab.stats.climb[i]++;}
     else if(sq.t==='pit'){fx.eff={t:'pit',from:p,to:sq.to};q=sq.to;ab.stats.fall[i]++;}
-    else if(sq.t==='hole'){fx.eff={t:'hole',from:p,to:0};q=0;ab.stats.hole[i]++;}
+    else if(sq.t==='hole'){fx.eff={t:'hole',from:p,to:0};q=0;ab.stats.hole[i]++;fx.drew=abDraw(ab,seat);}
     else if(sq.t==='worm'){fx.eff={t:'worm',from:p,to:sq.to,pair:sq.pair};q=sq.to;ab.stats.worm[i]++;}
-    else if(sq.t==='star'){fx.eff={t:'star',from:p,to:p};ab.stats.star[i]++;fx.again=true;}
+    else if(sq.t==='star'){fx.eff={t:'star',from:p,to:p};ab.stats.star[i]++;fx.again=true;fx.drew=abDraw(ab,seat);}
   }
   // landing on somebody bumps them back 3 (not at the start, not on the finish)
   if(q>0&&q<AB_N){
@@ -12213,15 +12266,88 @@ function abRoll(ab,seat,d1,d2){
   }
   ab.pos[i]=q;fx.to=q;
   if(fx.dbl)fx.again=true;
-  abLog(ab,{s:seat,k:'roll',d:[d1,d2],f:from,e:fx.eff?fx.eff.t:'',t:q,b:fx.bumps.map(b=>b.seat),bn:fx.bounce?1:0,dbl:fx.dbl?1:0});
-  if(!fx.again)abNext(ab);
+  abLog(ab,{s:seat,k:'roll',d:[d1,d2],f:from,e:fx.eff?fx.eff.t:'',t:q,b:fx.bumps.map(b=>b.seat),bn:fx.bounce?1:0,dbl:fx.dbl?1:0,dr:fx.drew||''});
+  if(!fx.again)fx.skipped=abNext(ab);
   ab.fx=fx;
   return fx;
+}
+// Which seats (or squares) can this trick be played on right now?
+function abTrickTargets(ab,seat,trick){
+  const out=[];
+  if(trick==='shove'||trick==='swap'||trick==='freeze'){
+    for(let s=1;s<=ab.P;s++){
+      if(s===seat)continue;
+      const p=ab.pos[s-1];
+      if(trick==='shove'&&p>0)out.push(s);
+      else if(trick==='swap'&&p!==ab.pos[seat-1])out.push(s);
+      else if(trick==='freeze'&&!ab.skip[s-1])out.push(s);
+    }
+  } else if(trick==='cut'||trick==='plug'){
+    Object.keys(ab.board.sq).map(Number).forEach(n=>{const x=ab.board.sq[n];if(x.t===(trick==='cut'?'ladder':'hole')&&!ab.off[n])out.push(n);});
+  }
+  return out;
+}
+// Plays a trick: {trick, target (a seat) | n (a square)}. Free action: the turn goes on, but only one per turn, and only before the roll.
+function abTrick(ab,seat,act){
+  if(!ab||ab.over||seat!==ab.cur||ab.phase!=='roll'||ab.usedTurn||!act)return null;
+  const hand=ab.tricks[seat-1],tr=act.trick,hi=hand.indexOf(tr);
+  if(hi<0||!AB_TRICKS[tr])return null;
+  const key=(tr==='cut'||tr==='plug')?act.n:act.target;
+  if(!abTrickTargets(ab,seat,tr).includes(key))return null;
+  const fx={seat,kind:'trick',trick:tr,target:0,n:0,from:0,to:0,swap:null};
+  if(tr==='shove'){
+    const t=key,from=ab.pos[t-1],to=Math.max(0,from-6);
+    ab.pos[t-1]=to;fx.target=t;fx.from=from;fx.to=to;ab.stats.shoved[t-1]++;
+  } else if(tr==='swap'){
+    const t=key,a=ab.pos[seat-1],b=ab.pos[t-1];
+    ab.pos[seat-1]=b;ab.pos[t-1]=a;fx.target=t;fx.swap=[{seat,from:a,to:b},{seat:t,from:b,to:a}];
+  } else if(tr==='freeze'){
+    ab.skip[key-1]=1;fx.target=key;ab.stats.frozen[key-1]++;
+  } else {
+    ab.off[key]=seat;fx.n=key;
+  }
+  hand.splice(hi,1);ab.usedTurn=true;ab.moves++;ab.stats.trick[seat-1]++;
+  abLog(ab,{s:seat,k:'trick',tr,tg:fx.target,n:fx.n});
+  ab.fx=fx;
+  return fx;
+}
+// One entry point for a player's action: {t:'roll',d:[a,b]} or {t:'trick',trick,target|n}
+function abApply(ab,seat,act){
+  if(!act)return null;
+  if(act.t==='trick')return abTrick(ab,seat,act);
+  return abRoll(ab,seat,act.d[0],act.d[1]);
+}
+// A bot plays a trick when it makes sense (it knows the whole board, as everything is public). Returns an action or null.
+function abBotTrick(ab,seat,level){
+  if(ab.over||seat!==ab.cur||ab.phase!=='roll'||ab.usedTurn)return null;
+  const hand=ab.tricks[seat-1];if(!hand.length)return null;
+  const sharp=level==='sharp',me=ab.pos[seat-1],gate=sharp?.8:.5;
+  if(Math.random()>gate)return null;
+  const opp=[];for(let s=1;s<=ab.P;s++)if(s!==seat)opp.push({s,p:ab.pos[s-1]});
+  const lead=opp.slice().sort((a,b)=>b.p-a.p)[0];
+  const sq=ab.board.sq;
+  for(const tr of hand){
+    const tg=abTrickTargets(ab,seat,tr);if(!tg.length)continue;
+    if(tr==='freeze'&&lead&&lead.p>=40&&lead.p>=me&&tg.includes(lead.s))return{t:'trick',trick:tr,target:lead.s};
+    if(tr==='shove'&&lead&&lead.p>=25&&lead.p>=me+8&&tg.includes(lead.s))return{t:'trick',trick:tr,target:lead.s};
+    if(tr==='swap'){const far=opp.filter(o=>tg.includes(o.s)&&o.p>=me+20).sort((a,b)=>b.p-a.p)[0];if(far&&far.p<95)return{t:'trick',trick:tr,target:far.s};}
+    if(tr==='cut'){
+      // a ladder a rival could reach next turn (foot 2-12 ahead of them) and I could not
+      const best=tg.map(n=>({n,threat:opp.filter(o=>n-o.p>=2&&n-o.p<=12).length,mine:n-me>=2&&n-me<=12,len:sq[n].to-n})).filter(x=>x.threat>0&&!x.mine&&x.len>=10).sort((a,b)=>b.threat*b.len-a.threat*a.len)[0];
+      if(best)return{t:'trick',trick:tr,n:best.n};
+    }
+    if(tr==='plug'){
+      const best=tg.map(n=>({n,d:n-me})).filter(x=>x.d>=2&&x.d<=12).sort((a,b)=>a.d-b.d)[0];
+      if(best)return{t:'trick',trick:tr,n:best.n};
+    }
+  }
+  return null;
 }
 function abMoment(ab,names){
   const nm=s=>(names&&names[s-1])||'Someone';
   if(!ab||!ab.win)return'A good game.';
   const w=ab.win,s=ab.stats;
+  if(s.trick&&s.trick[w-1]>=3)return`${nm(w)} won with ${s.trick[w-1]} dirty tricks.`;
   if(s.hole[w-1]>=2)return`${nm(w)} was swallowed by a black hole ${s.hole[w-1]} times and still reached the top.`;
   if(s.hole[w-1]>=1)return`${nm(w)} came back from a black hole to win.`;
   if(s.climb[w-1]>=3)return`${nm(w)} climbed ${s.climb[w-1]} ladders on the way to the top.`;
@@ -12294,6 +12420,25 @@ function abDrawXY(ab,seat,seq){
   if(seq&&seq.xy&&seq.xy[seat])return seq.xy[seat];
   return abXY(ab,seat,n);
 }
+// Things that change during a game: ladders that are out of order, black holes that are plugged, and the squares you may tap to pick one.
+function abOverlaySVG(ab,o){
+  const out=[];
+  Object.keys(ab.off||{}).forEach(k=>{
+    const n=+k,s=ab.board.sq[n];if(!s)return;
+    const[x,y]=abCell(n);
+    if(s.t==='ladder'){
+      const[x2,y2]=abCell(s.to);
+      out.push(`<line x1="${x.toFixed(1)}" y1="${y.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="rgba(8,10,30,.72)" stroke-width="7" stroke-linecap="round" pointer-events="none"/><line x1="${x.toFixed(1)}" y1="${y.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#ff7a5e" stroke-width=".8" stroke-dasharray="2 2" pointer-events="none"/><text x="${x.toFixed(1)}" y="${(y+.6).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="8" pointer-events="none">✂️</text>`);
+    } else {
+      out.push(`<circle cx="${x}" cy="${y}" r="8.6" fill="rgba(40,48,80,.9)" stroke="#9aa7c7" stroke-width=".8" pointer-events="none"/><text x="${x}" y="${(y+.6).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="8" pointer-events="none">🧱</text>`);
+    }
+  });
+  (o.pick||[]).forEach(n=>{
+    const[x,y]=abCell(n);
+    out.push(`<g data-a="abtarget" data-n="${n}" style="cursor:pointer"><circle cx="${x}" cy="${y}" r="10" fill="rgba(255,225,74,.18)" stroke="#ffe14a" stroke-width="1.2" stroke-dasharray="2 1.4" class="gt-ghost"/></g>`);
+  });
+  return out.join('');
+}
 function abBoardSVG(ab,o){
   const seq=o.seq,groups={},drawn=[];
   for(let s=1;s<=ab.P;s++){
@@ -12313,7 +12458,7 @@ function abBoardSVG(ab,o){
   });
   const cur=!ab.over?(seq&&seq.fx?seq.fx.seat:ab.cur):0;
   const toks=drawn.sort((a,b)=>a.y-b.y).map(d=>{
-    const col=GT_COLORS[d.s-1];
+    const col=GT_COLORS[d.s-1],frozen=ab.skip&&ab.skip[d.s-1]?'<text y="-8" text-anchor="middle" font-size="7">❄️</text><circle r="8.6" fill="rgba(150,220,255,.12)" stroke="#9fe3ff" stroke-width=".7" stroke-dasharray="1.5 1"/>':'';
     return`<g class="gt-run ab-tok p${d.s}${d.s===cur?' turn':''}" data-k="${d.s}" transform="translate(${d.x.toFixed(2)} ${d.y.toFixed(2)})">
       <g transform="scale(${d.pair?.62:.82})">
         <ellipse class="gt-sh" cx=".5" cy="2.6" rx="4.7" ry="2.2" fill="rgba(0,0,0,.6)" opacity=".7"/>
@@ -12324,21 +12469,24 @@ function abBoardSVG(ab,o){
           <ellipse cx="-1.8" cy="-2.4" rx="2.2" ry="1.1" transform="rotate(-32 -1.8 -2.4)" fill="#fff" opacity=".6"/>
           <text x=".3" y="1.1" text-anchor="middle" dominant-baseline="middle" font-size="6" fill="rgba(255,255,255,.35)">${GT_SHAPES[d.s-1]}</text>
           <text y=".5" text-anchor="middle" dominant-baseline="middle" font-size="6" font-weight="700" fill="rgba(10,4,0,.85)">${GT_SHAPES[d.s-1]}</text>
-        </g>
+        </g>${frozen}
       </g>
     </g>`;
   }).join('');
   const st=abStaticSVG(ab);
-  return`<svg viewBox="0 0 200 ${AB_VH}" role="img" aria-label="The Abyss: a board of 100 squares with ladders, rockets, pits, black holes, wormholes and stars" xmlns="http://www.w3.org/2000/svg"><defs>${st.defs}</defs>${st.body}${toks}</svg>`;
+  return`<svg viewBox="0 0 200 ${AB_VH}" role="img" aria-label="The Abyss: a board of 100 squares with ladders, rockets, pits, black holes, wormholes and stars" xmlns="http://www.w3.org/2000/svg"><defs>${st.defs}</defs>${st.body}${abOverlaySVG(ab,o)}${toks}</svg>`;
 }
 // One readable line for an entry of ab.hist.
 function abHistText(h,names){
   const nm=s=>esc((names&&names[s-1])||'Someone');
   if(h.k==='win')return`🏆 ${nm(h.s)} reached the top`;
   if(h.k==='triple')return`🎲 ${nm(h.s)} rolled three doubles — back to the start`;
-  const eff=h.e==='ladder'?`🪜 climbed to ${h.t}`:h.e==='pit'?`🕳️ fell into a pit, down to ${h.t}`:h.e==='hole'?`🌑 was swallowed by a black hole`:h.e==='worm'?`🌀 came out of a wormhole on ${h.t}`:h.e==='star'?`⭐ landed on a star`:`reached ${h.t}`;
+  if(h.k==='skip')return`❄️ ${nm(h.s)} is frozen and misses a turn`;
+  if(h.k==='trick'){const tt=AB_TRICKS[h.tr];return h.tr==='shove'?`${tt.icon} ${nm(h.s)} shoved ${nm(h.tg)} back 6`:h.tr==='swap'?`${tt.icon} ${nm(h.s)} swapped places with ${nm(h.tg)}`:h.tr==='freeze'?`${tt.icon} ${nm(h.s)} froze ${nm(h.tg)}`:h.tr==='cut'?`${tt.icon} ${nm(h.s)} cut the ladder on ${h.n}`:`${tt.icon} ${nm(h.s)} plugged the black hole on ${h.n}`;}
+  const eff=h.e==='dud'?`${'✂️'} nothing happened here (out of order)`:h.e==='ladder'?`🪜 climbed to ${h.t}`:h.e==='pit'?`🕳️ fell into a pit, down to ${h.t}`:h.e==='hole'?`🌑 was swallowed by a black hole`:h.e==='worm'?`🌀 came out of a wormhole on ${h.t}`:h.e==='star'?`⭐ landed on a star`:`reached ${h.t}`;
   let s=`🎲 ${nm(h.s)} rolled ${h.d[0]} + ${h.d[1]}${h.dbl?' (double)':''} — ${eff}`;
   if(h.b&&h.b.length)s+=` · 💥 bumped ${h.b.map(nm).join(', ')}`;
+  if(h.dr)s+=` · new trick ${AB_TRICKS[h.dr].icon}`;
   return s;
 }
 function abLegendHTML(){
@@ -12350,7 +12498,8 @@ function abLegendHTML(){
     [sw('lg-ab-worm','🌀'),'<b>Wormhole:</b> step on one end, come out of the other (it may be ahead or behind).'],
     [sw('lg-ab-star','⭐'),'<b>Star:</b> roll again.'],
     [sw('lg-ab-bump','💥'),'<b>Bump:</b> land on another player and they slide back 3.'],
-    [sw('lg-ab-dbl','⚀⚀'),'<b>Doubles</b> roll again. Three in a row sends you back to the start.']];
+    [sw('lg-ab-dbl','⚀⚀'),'<b>Doubles</b> roll again. Three in a row sends you back to the start.'],
+    [sw('lg-ab-trick','🃏'),'<b>Tricks</b> (shown next to each name) are single-use: one per turn, before you roll. 💨 Shove · 🔄 Swap · ✂️ Cut · 🧱 Plug · ❄️ Freeze. You get one at the start, from a ⭐, and a consolation one when a black hole swallows you.']];
   return`<details class="gt-legend"><summary>❔ What is what on the board?</summary><ul>${rows.map(r=>`<li>${r[0]}<span>${r[1]}</span></li>`).join('')}</ul></details>`;
 }
 function rAbyssTable(){
@@ -12366,18 +12515,35 @@ function rAbyssTable(){
   const mover=seq?seatOf(seq.fx.seat-1):p;
   const pills=Array.from({length:ab.P},(_,i)=>{
     const cur=!ab.over&&i+1===(seq?seq.fx.seat:seat),pos=(seq&&seq.pos&&seq.pos[i+1]!=null)?seq.pos[i+1]:ab.pos[i];
-    return`<span class="y-standing-pill cr-pill p${i+1}${cur?' active':''}"><i class="cr-dot p${i+1}">${GT_SHAPES[i]}</i>${esc(seatOf(i).name)}<i class="gt-home" title="Square">${pos?pos:'start'}</i></span>`;
+    return`<span class="y-standing-pill cr-pill p${i+1}${cur?' active':''}"><i class="cr-dot p${i+1}">${GT_SHAPES[i]}</i>${esc(seatOf(i).name)}<i class="gt-home" title="Square">${pos?pos:'start'}</i>${(ab.tricks&&ab.tricks[i]||[]).map(k=>`<i class="ab-pt" title="${AB_TRICKS[k].name}">${AB_TRICKS[k].icon}</i>`).join('')}${ab.skip&&ab.skip[i]?'<i class="ab-pt" title="Frozen: misses the next turn">❄️</i>':''}</span>`;
   }).join('');
-  const rolling=!!(seq&&seq.rolling),dice=ab.fx&&ab.fx.dice;
+  const rolling=!!(seq&&seq.rolling),dice=ab.lastDice||null;
   const diceHTML=dice?`<div class="gt-dice">${[0,1].map(i=>`<button class="die gt-d${rolling?' just-rolled':''}" disabled aria-label="Die showing ${dice[i]}">${ldPipsHTML(dice[i])}</button>`).join('')}</div>`:'';
   let prompt='',controls='';
+  const hand=ab.tricks&&ab.tricks[seat-1]||[];
+  const pick=G.abPick&&G.abPick.seat===seat&&G.abPick.m===ab.moves&&acts&&!ab.usedTurn?G.abPick:null;
+  let pickSquares=null;
   if(ab.over)prompt=`🏆 ${esc(seatOf(ab.win-1).name)} reaches the top!`;
-  else if(seq)prompt=seq.rolling?`🎲 ${esc(mover.name)} rolls…`:`${esc(mover.name)} moves…`;
+  else if(seq)prompt=seq.fx.kind==='trick'?`${AB_TRICKS[seq.fx.trick].icon} ${esc(mover.name)} plays ${AB_TRICKS[seq.fx.trick].name}…`:seq.rolling?`🎲 ${esc(mover.name)} rolls…`:`${esc(mover.name)} moves…`;
   else if(botTurn)prompt=esc(p.name)+' is rolling…';
   else if(!mine)prompt='Waiting for '+esc(p.name)+'…';
+  else if(pick){
+    const tg=abTrickTargets(ab,seat,pick.trick),tt=AB_TRICKS[pick.trick];
+    if(pick.trick==='cut'||pick.trick==='plug'){
+      pickSquares=tg;
+      prompt=`${tt.icon} ${tt.name}: tap the ${pick.trick==='cut'?'ladder foot':'black hole'} on the board.`;
+      controls=`<button class="btn btn-ghost btn-sm" data-a="abcancel">Back</button>`;
+    } else {
+      prompt=`${tt.icon} ${tt.name}: ${tt.txt.toLowerCase()} — who?`;
+      controls=`<div class="gt-dare">${tg.map(s=>`<button class="btn btn-gold ab-target" data-a="abtarget" data-s="${s}">${GT_SHAPES[s-1]} ${esc(seatOf(s-1).name)} · ${ab.pos[s-1]||'start'}</button>`).join('')}</div><button class="btn btn-ghost btn-sm" data-a="abcancel">Back</button>`;
+    }
+  }
   else{
-    prompt=ab.dbl>0||(ab.fx&&ab.fx.again&&ab.fx.seat===seat)?(ab.fx&&ab.fx.eff&&ab.fx.eff.t==='star'?'⭐ Star! Roll again.':'🎲 Doubles! Roll again.'):'Your turn — roll the dice.';
+    prompt=ab.dbl>0||(ab.fx&&ab.fx.kind==='roll'&&ab.fx.again&&ab.fx.seat===seat)?(ab.fx&&ab.fx.eff&&ab.fx.eff.t==='star'?'⭐ Star! Roll again.':'🎲 Doubles! Roll again.'):'Your turn — roll the dice.';
     controls=`<button class="btn btn-gold gt-roll" data-a="abroll">🎲 Roll the dice</button>`;
+    if(hand.length&&!ab.usedTurn){
+      controls+=`<div class="ab-tricks"><span>🃏 Play a trick first? (one per turn)</span><div>${[...new Set(hand)].map(k=>{const tt=AB_TRICKS[k],n=hand.filter(x=>x===k).length,ok=abTrickTargets(ab,seat,k).length>0;return`<button class="ab-trick" data-a="abtrick" data-t="${k}" ${ok?'':'disabled'}><b>${tt.icon} ${tt.name}${n>1?' ×'+n:''}</b><small>${ok?tt.txt:'nobody to use it on'}</small></button>`;}).join('')}</div></div>`;
+    }
   }
   const names=players.map(q=>q.name);
   const logHTML=ab.hist&&ab.hist.length?`<ul class="gt-log" aria-label="Last moves">${ab.hist.slice(-3).reverse().map((h,i)=>`<li class="${i===0?'new':''}">${abHistText(h,names)}</li>`).join('')}</ul>`:'';
@@ -12390,7 +12556,7 @@ function rAbyssTable(){
     <div class="y-standings-strip">${pills}</div>
     <div class="felt-table gt-felt${mine&&!ab.over?' my-turn':''}" style="flex:0 0 auto;min-height:0;max-height:none;padding:.55rem .6rem;gap:.5rem;">
       <div class="gt-cam">
-        <div class="ab-board an-${gtAnim()}${seq?' live':''}" style="--pc:${GT_COLORS[(seq?seq.fx.seat:seat)-1]||GT_COLORS[0]}">${abBoardSVG(ab,{seq})}</div>
+        <div class="ab-board an-${gtAnim()}${seq?' live':''}" style="--pc:${GT_COLORS[(seq?seq.fx.seat:seat)-1]||GT_COLORS[0]}">${abBoardSVG(ab,{seq,pick:pickSquares})}</div>
         <div class="gt-panel">
           <div class="y-hint">${prompt}</div>
           ${diceHTML}
@@ -12405,11 +12571,23 @@ function rAbyssTable(){
     ${talkStripHTML()}
   </div>`;
 }
-function abTap(){
+function abTap(a,t){
   const ab=G.isOnline?(G.srv&&G.srv.ab):G.ab;if(!ab||ab.over||G.abSeq)return;
   if(G.isOnline&&!isMyTurn())return;
-  const d=[rnd(1,6),rnd(1,6)];
-  G.isOnline?oAbDo(d):abDoLocal(d);
+  const send=act=>{G.abPick=null;G.isOnline?oAbDo(act):abDoLocal(act);};
+  if(a==='abroll'||!a){send([rnd(1,6),rnd(1,6)]);return;}
+  if(a==='abtrick'){
+    const k=t.getAttribute('data-t');
+    if(!ab.tricks[ab.cur-1].includes(k)||ab.usedTurn||!abTrickTargets(ab,ab.cur,k).length)return;
+    G.abPick={seat:ab.cur,m:ab.moves,trick:k};SFX.chip();render();return;
+  }
+  if(a==='abcancel'){G.abPick=null;SFX.chip();render();return;}
+  if(a==='abtarget'){
+    const pk=G.abPick;if(!pk||pk.seat!==ab.cur||pk.m!==ab.moves)return;
+    const act={t:'trick',trick:pk.trick};
+    if(pk.trick==='cut'||pk.trick==='plug')act.n=+t.getAttribute('data-n');else act.target=+t.getAttribute('data-s');
+    send(act);
+  }
 }
 /* ── The Abyss: local (Play Together: one device, humans and/or bots) ── */
 function lDealAbyss(){
@@ -12422,7 +12600,7 @@ function lDealAbyss(){
 }
 function abDoLocal(d){
   const ab=G.ab;if(!ab||ab.over||G.abSeq)return;
-  const fx=abRoll(ab,ab.cur,d[0],d[1]);
+  const fx=abApply(ab,ab.cur,Array.isArray(d)?{t:'roll',d}:d);
   if(!fx){SFX.illegal();return;}
   G.lcur=ab.cur-1;
   abRunSeq(ab,true,()=>{if(ab.over)abEndLocal(ab);});
@@ -12430,7 +12608,7 @@ function abDoLocal(d){
 }
 function abStatsFor(ab,names){
   const o={};
-  names.forEach((nm,i)=>{const s=ab.stats;o[nm]={climb:s.climb[i],fall:s.fall[i],hole:s.hole[i],worm:s.worm[i],star:s.star[i],bump:s.bump[i],bumped:s.bumped[i],dbl:s.dbl[i],triple:s.triple[i],turns:s.turns[i]};});
+  names.forEach((nm,i)=>{const s=ab.stats;o[nm]={climb:s.climb[i],fall:s.fall[i],hole:s.hole[i],worm:s.worm[i],star:s.star[i],bump:s.bump[i],bumped:s.bumped[i],dbl:s.dbl[i],triple:s.triple[i],turns:s.turns[i],trick:s.trick?s.trick[i]:0,shoved:s.shoved?s.shoved[i]:0,frozen:s.frozen?s.frozen[i]:0};});
   return o;
 }
 function abEndLocal(abArg){
@@ -12449,6 +12627,8 @@ function abEndLocal(abArg){
 }
 function botAbyssAct(p){
   const ab=G.ab;if(!ab||ab.over||G.abSeq)return;
+  const tr=abBotTrick(ab,ab.cur,p.bot);
+  if(tr){abDoLocal(tr);return;}
   abDoLocal([rnd(1,6),rnd(1,6)]);
 }
 /* ── The Abyss: online -- turn-gated, only the player on turn writes the room ── */
@@ -12460,7 +12640,7 @@ async function oAbDo(d){
     const state=await dbRead(G.roomId);if(!state||!state.ab)return;
     if(oNotMyTurnNow(state))return;
     const ab=state.ab;
-    if(!abRoll(ab,ab.cur,d[0],d[1])){SFX.illegal();return;}
+    if(!abApply(ab,ab.cur,Array.isArray(d)?{t:'roll',d}:d)){SFX.illegal();return;}
     state.curIdx=ab.cur-1;
     if(ab.over)oAbFinish(state);
     state._ts=Date.now();onSrv(state);
@@ -12489,6 +12669,7 @@ async function oAbAuto(){
 /* ── The Abyss: the move, shown in real time ── */
 function abTokEl(seat){return document.querySelector('.ab-board svg [data-k="'+seat+'"]');}
 const AB_EVT_TXT={
+  dud:(fx,nm)=>({text:'OUT OF ORDER',sub:fx.eff.kind==='ladder'?'The ladder has been cut':'The black hole is plugged',icon:fx.eff.kind==='ladder'?'✂️':'🧱',tone:'cool'}),
   ladder:(fx,nm)=>({text:Math.abs(fx.eff.to-fx.eff.from)>=30?'ROCKET!':'LADDER!',sub:`${nm(fx.seat)} climbs from ${fx.eff.from} to ${fx.eff.to}`,icon:Math.abs(fx.eff.to-fx.eff.from)>=30?'🚀':'🪜',tone:'good'}),
   pit:(fx,nm)=>({text:'PIT!',sub:`${nm(fx.seat)} falls from ${fx.eff.from} to ${fx.eff.to}`,icon:'🕳️',tone:'bad'}),
   hole:(fx,nm)=>({text:'BLACK HOLE!',sub:`${nm(fx.seat)} is swallowed — back to the start`,icon:'🌑',tone:'bad',pri:3,ms:1800}),
@@ -12503,6 +12684,13 @@ function abRunSeq(ab,renderNow,done){
   const stages=()=>{
     if(G.abInstant||!fx)return;
     const w=players[fx.seat-1];
+    if(fx.kind==='trick'){
+      const tt=AB_TRICKS[fx.trick];
+      const sub=fx.trick==='shove'?`${nm(fx.seat)} shoves ${nm(fx.target)} back 6`:fx.trick==='swap'?`${nm(fx.seat)} swaps places with ${nm(fx.target)}`:fx.trick==='freeze'?`${nm(fx.target)} misses the next turn`:fx.trick==='cut'?`${nm(fx.seat)} cuts the ladder on ${fx.n}`:`${nm(fx.seat)} plugs the black hole on ${fx.n}`;
+      stageEmit('AB_EVT',{who:w,text:tt.name.toUpperCase()+'!',sub,icon:tt.icon,tone:'hot'});return;
+    }
+    if(fx.skipped&&fx.skipped.length)stageEmit('AB_EVT',{text:'FROZEN!',sub:`${fx.skipped.map(nm).join(' and ')} miss${fx.skipped.length>1?'':'es'} a turn`,icon:'❄️',tone:'cool',pri:1});
+    if(fx.drew)stageEmit('AB_EVT',{who:w,text:'NEW TRICK!',sub:`${nm(fx.seat)} gets ${AB_TRICKS[fx.drew].name}`,icon:AB_TRICKS[fx.drew].icon,tone:'good',pri:0,ms:900});
     if(fx.eff&&AB_EVT_TXT[fx.eff.t])stageEmit('AB_EVT',Object.assign({who:w},AB_EVT_TXT[fx.eff.t](fx,nm)));
     else if(fx.dbl&&!fx.win)stageEmit('AB_EVT',{who:w,text:'DOUBLES!',sub:'Roll again',icon:'🎲',tone:'good',pri:0,ms:900});
     if(fx.bumps&&fx.bumps.length)stageEmit('AB_EVT',{who:w,text:'BUMP!',sub:`${nm(fx.seat)} knocks ${fx.bumps.map(b=>nm(b.seat)).join(' and ')} back 3`,icon:'💥',tone:'hot'});
@@ -12512,13 +12700,17 @@ function abRunSeq(ab,renderNow,done){
     if(done){if(G.abInstant)done();else setTimeout(done,ab.over?500:0);}
     return;
   }
-  const seq={fx,pos:{},xy:{},rolling:true,id:ab.moves};
-  seq.pos[fx.seat]=fx.from;(fx.bumps||[]).forEach(b=>{seq.pos[b.seat]=b.from;});
+  const seq={fx,pos:{},xy:{},rolling:fx.kind!=='trick',id:ab.moves};
+  if(fx.kind==='trick'){
+    if(fx.trick==='shove')seq.pos[fx.target]=fx.from;
+    if(fx.trick==='swap')fx.swap.forEach(x=>{seq.pos[x.seat]=x.from;});
+  } else {seq.pos[fx.seat]=fx.from;(fx.bumps||[]).forEach(b=>{seq.pos[b.seat]=b.from;});}
   G.abSeq=seq;
   let finished=false;
   const fin=()=>{if(G.abSeq!==seq||finished)return;finished=true;G.abSeq=null;stages();render();gtRunPost();if(done)done();};
   const after=(fn,ms)=>setTimeout(()=>{if(G.abSeq===seq)fn();},ms);
-  SFX.gtRoll();_dieIntent=Date.now();render();
+  if(fx.kind!=='trick'){SFX.gtRoll();_dieIntent=Date.now();}
+  render();
   const svg0=()=>document.querySelector('.ab-board svg');
   // frame-by-frame helper: u runs 0..1 over `dur` ms, then cont()
   const tween=(dur,fn,cont)=>{
@@ -12538,7 +12730,10 @@ function abRunSeq(ab,renderNow,done){
     const list=(fx.bumps||[]).slice();
     const next=()=>{
       const b=list.shift();
-      if(!b){after(fin,fx.win?500:200);return;}
+      if(!b){
+        if(fx.drew&&svg){const p=abXY(ab,fx.seat,fx.to);SFX.abStar();gtSpray(svg,p,{n:8,col:['#ffe14a','#fff'],spread:9,life:600,size:.7});gtEl(svg,'text',{x:p[0].toFixed(1),y:(p[1]-9).toFixed(1),'text-anchor':'middle','font-size':8,class:'gt-pop','pointer-events':'none'},800).textContent='+'+AB_TRICKS[fx.drew].icon;}
+        after(fin,fx.win?500:fx.drew?750:200);return;
+      }
       const el=abTokEl(b.seat);
       if(!el||!svg){next();return;}
       svg.appendChild(el);
@@ -12590,7 +12785,45 @@ function abRunSeq(ab,renderNow,done){
       SFX.abStar();
       gtWave(svg,here,'#ffe14a',1.6,6,800);gtSpray(svg,here,{n:16,col:['#ffe14a','#fff'],spread:15,life:700,size:.9});
       after(()=>bumpsThenFin(here),500);
+    } else if(e.t==='dud'){
+      SFX.gtStep();gtWave(svg,here,'#9aa7c7',1.4,4,600);gtSpray(svg,here,{n:8,col:['#9aa7c7','#fff'],spread:8,life:500,size:.7});
+      after(()=>bumpsThenFin(here),500);
     } else bumpsThenFin(here);
+  };
+  // a trick being played
+  const trickShow=()=>{
+    const svg=svg0(),tr=fx.trick;
+    if(!svg){after(fin,200);return;}
+    const col={shove:'#ff9a5e',swap:'#7fe6ff',cut:'#ff7a5e',plug:'#9aa7c7',freeze:'#9fe3ff'}[tr];
+    if(tr==='shove'){
+      const el=abTokEl(fx.target);if(!el){after(fin,300);return;}
+      svg.appendChild(el);SFX.gtHit();haptic([30,20,40]);
+      const from=abXY(ab,fx.target,fx.from),to=abXY(ab,fx.target,fx.to);
+      gtWave(svg,from,col,1.6,5,600);gtSpray(svg,from,{n:12,col:[col,'#fff'],spread:11,life:500,size:.8});
+      tween(650,u=>{const e=1-Math.pow(1-u,3);gtPlaceRunner(el,from[0]+(to[0]-from[0])*e,from[1]+(to[1]-from[1])*e,Math.sin(Math.PI*u)*10,1,1,u*540);},()=>{
+        gtPlaceRunner(el,to[0],to[1],0,1,1,0);seq.pos[fx.target]=fx.to;gtShakeBoard(300);after(fin,250);});
+    } else if(tr==='swap'){
+      SFX.abWorm();
+      const A=fx.swap[0],B=fx.swap[1],ea=abTokEl(A.seat),eb=abTokEl(B.seat);
+      if(!ea||!eb){after(fin,300);return;}
+      svg.appendChild(ea);svg.appendChild(eb);
+      const pa0=abXY(ab,A.seat,A.from),pa1=abXY(ab,A.seat,A.to),pb0=abXY(ab,B.seat,B.from),pb1=abXY(ab,B.seat,B.to);
+      gtWave(svg,pa0,col,1.4,5,700);gtWave(svg,pb0,col,1.4,5,700);
+      tween(900,u=>{const e=u*u*(3-2*u);
+        gtPlaceRunner(ea,pa0[0]+(pa1[0]-pa0[0])*e,pa0[1]+(pa1[1]-pa0[1])*e,Math.sin(Math.PI*u)*9,1,1,u*360);
+        gtPlaceRunner(eb,pb0[0]+(pb1[0]-pb0[0])*e,pb0[1]+(pb1[1]-pb0[1])*e,Math.sin(Math.PI*u)*9,1,1,-u*360);},()=>{
+        gtPlaceRunner(ea,pa1[0],pa1[1],0,1,1,0);gtPlaceRunner(eb,pb1[0],pb1[1],0,1,1,0);
+        gtSpray(svg,pa1,{n:8,col:[col,'#fff'],spread:8,life:500,size:.7});gtSpray(svg,pb1,{n:8,col:[col,'#fff'],spread:8,life:500,size:.7});after(fin,250);});
+    } else if(tr==='cut'||tr==='plug'){
+      const s=ab.board.sq[fx.n],p=abCell(fx.n);
+      SFX.abFall();gtWave(svg,p,col,1.8,6,700);gtSpray(svg,p,{n:16,col:[col,'#fff','#4a2f1c'],spread:13,life:700,size:.9,grav:4});
+      if(tr==='cut'&&s){const q=abCell(s.to);gtWave(svg,q,col,1.4,5,700);gtSpray(svg,q,{n:8,col:[col,'#fff'],spread:9,life:500,size:.7});}
+      gtShakeBoard(260);after(fin,900);
+    } else { // freeze
+      const p=abXY(ab,fx.target,ab.pos[fx.target-1]);
+      SFX.abFreeze();gtWave(svg,p,col,1.8,6,800);gtSpray(svg,p,{n:20,col:[col,'#fff','#d6f3ff'],spread:15,life:900,size:1});
+      after(fin,950);
+    }
   };
   const walk=()=>{
     const svg=svg0(),el=abTokEl(fx.seat);
@@ -12605,7 +12838,8 @@ function abRunSeq(ab,renderNow,done){
       effect();
     });
   };
-  after(()=>{seq.rolling=false;render();walk();},1150+(fx.dbl?150:0));
+  if(fx.kind==='trick')after(trickShow,150);
+  else after(()=>{seq.rolling=false;render();walk();},1150+(fx.dbl?150:0));
 }
 
 
@@ -24352,7 +24586,7 @@ document.addEventListener('click',e=>{
   else if(a==='cr-mode'){crSetMode(t.getAttribute('data-m'));render();}
   else if(a==='gt-mode'){gtSetMode(t.getAttribute('data-m'));render();}
   else if(a==='gt-anim'){gtAnimNext();SFX.chip();render();}
-  else if(a==='abroll'){abTap();}
+  else if(a==='abroll'||a==='abtrick'||a==='abtarget'||a==='abcancel'){abTap(a,t);}
   else if(a==='c4drop'){const c=+t.getAttribute('data-c');G.isOnline?oC4Drop(c):c4Play(c);}
   else if(a==='sk-place'){oSkPlace(t.getAttribute('data-k'));}
   else if(a==='sk-bidset'){const st=G.srv&&G.srv.sk;if(st){const tot=skPlacedTotal(G.srv),lo=(st.bid?st.bid.n:0)+1,cur=Math.max(lo,Math.min(tot,(G.skBid||lo)+(+t.getAttribute('data-d'))));G.skBid=Math.max(lo,Math.min(tot,cur));render();}}
