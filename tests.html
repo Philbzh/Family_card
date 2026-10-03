@@ -5309,6 +5309,7 @@ async function runPresentation(A,W,frame){
   suite('Chain Reaction — a local game: turns, the table, and the results',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);
     const lStartMatch=F('lStartMatch'),crTap=F('crTap'),rChainTable=F('rChainTable'),botChainAct=F('botChainAct');
+    const keepCrMode=F('crMode')();F('crSetMode')('classic'); // this suite is about the plain version, whatever was left selected on this browser
     try{
       const mk=(id,n,bot)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false,...(bot?{bot}:{})});
       G.isOnline=false;G.srv=null;G.selGame='chainreaction';G.lp=[mk(1,'Phil'),mk(2,'Anna'),mk(3,'Robo','gentle')];G.lstart=0;lStartMatch();G.lstart=0;G.lcur=0;G.scr='table';G.crInstant=true;
@@ -5342,7 +5343,7 @@ async function runPresentation(A,W,frame){
       check('the results list all three players, winner first, with why each one finished where they did',res.querySelectorAll('.sr').length===3&&/won!/.test(res.querySelector('.wb-title').textContent)&&/last one standing/.test(res.querySelectorAll('.sr-delta')[0].textContent)&&/knocked out on move/.test(res.querySelectorAll('.sr-delta')[1].textContent));
       check('and a Table Moment line',res.querySelector('.res-body').textContent.length>80);
     } finally {
-      G.crInstant=false;G.lp.forEach(p=>{delete p.bot;});G.scr='home';G.cr=null;G.crSeq=null;
+      F('crSetMode')(keepCrMode);G.crInstant=false;G.lp.forEach(p=>{delete p.bot;});G.scr='home';G.cr=null;G.crSeq=null;
     }
   });
   /* —— Chain Reaction online: turns, the room, knock-outs, the chain shown on the other device, rematch (awaits live at the top level) —————— */
@@ -5776,7 +5777,16 @@ async function runPresentation(A,W,frame){
       const btn=W.document.createElement('button');btn.setAttribute('data-a','gtroll');W.document.body.appendChild(btn);btn.click();btn.remove();
       check('rolling through the real button gives two dice and the move phase',G.gt.phase==='move'&&G.gt.dice.length===2);
       d=new DOMParser().parseFromString(rGauntletTable(),'text/html');
-      check('after the roll the dice are shown, and the prompt asks what to do',d.querySelectorAll('.gt-die').length===2&&d.querySelector('.y-hint').textContent.length>5);
+      check('the dice are the ivory dice of the other dice games (same .die, same pips)',d.querySelectorAll('.die.gt-d .pip').length===G.gt.dice[0]+G.gt.dice[1]);
+      // the throw animation: while a roll is being shown the dice carry the shared "just-rolled" throw
+      G.gtSeq={fx:{kind:'roll',seat:1},rolling:true,pos:{},xy:{}};
+      const thrown=new DOMParser().parseFromString(rGauntletTable(),'text/html').querySelectorAll('.die.gt-d.just-rolled').length;
+      G.gtSeq=null;
+      check('while a roll is shown both dice are thrown with the shared "just-rolled" animation, and then settle',thrown===2&&new DOMParser().parseFromString(rGauntletTable(),'text/html').querySelectorAll('.die.gt-d.just-rolled').length===0);
+      const svgHtml=new DOMParser().parseFromString(rGauntletTable(),'text/html');
+      check('every runner is a jewel token with a lift group and a key, so the move animation can glide it',svgHtml.querySelectorAll('.gt-run[data-k] .gt-lift').length===9&&!!svgHtml.querySelector('#gtbez'));
+      check('the gliding helpers exist and place a token (position, lift, squash)',(()=>{const el=W.document.createElementNS('http://www.w3.org/2000/svg','g');el.innerHTML='<ellipse class="gt-sh" rx="4"/><g class="gt-lift"></g>';F('gtPlaceRunner')(el,10,20,3,1.1,.9,0);return /translate\(10\.00 20\.00\)/.test(el.getAttribute('transform'))&&/translate\(0 -3\.00\)/.test(el.querySelector('.gt-lift').getAttribute('transform'));})());
+      check('after the roll the dice are shown, and the prompt asks what to do',d.querySelectorAll('.die.gt-d').length===2&&d.querySelector('.die.gt-d .pip')&&d.querySelector('.y-hint').textContent.length>5);
       // stage a position where a capture is possible, then play it through the real taps
       const gt=G.gt;gt.phase='move';gt.cur=1;G.lcur=0;gt.run[0][0].rel=25;gt.run[1][0].rel=12;F('gtSyncPairs')(gt);gt.dice=[3,6];gt.used=[false,false];gt.bonus=0;G.gtSel=null;
       d=new DOMParser().parseFromString(rGauntletTable(),'text/html');
