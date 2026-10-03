@@ -5185,6 +5185,43 @@ async function runPresentation(A,W,frame){
     }
   });
 
+  /* —— Table talk: a richer set of reactions, ordered per game, with a ⋯ panel and a little motion —————— */
+  suite('Reactions — 12 on the strip, every one behind ⋯, ordered per game',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const def=F('REACTION_DEFAULT'),groups=F('REACTION_GROUPS'),perGame=F('REACTION_GAME'),forGame=F('reactionsFor');
+    const pool=groups.flatMap(g=>g[1]);
+    const uniq=a=>new Set(a).size===a.length;
+    check('the usual strip has 12 different reactions, including the new 👀 😏 😈 💀',def.length===12&&uniq(def)&&['👀','😏','😈','💀'].every(e=>def.includes(e)));
+    check('the ⋯ panel holds 24 different reactions in 6 groups, and the strip is a subset of it',pool.length===24&&uniq(pool)&&groups.length===6&&def.every(e=>pool.includes(e)));
+    check('every game\'s favourites are real reactions from that set',Object.values(perGame).every(l=>l.length===3&&l.every(e=>pool.includes(e))));
+    const fr=forGame('mayhem');
+    check('a game puts its own three first and never repeats a reaction',fr.slice(0,3).join()===perGame.mayhem.join()&&uniq(fr)&&fr.length===12);
+    check('a game without favourites gets the usual order',forGame('nosuchgame').join()===def.join());
+    const keep={on:G.isOnline,sel:G.selGame,more:G.reactMore,talk:G.talkOpen};
+    try{
+      G.isOnline=false;G.selGame='liarsdice';G.reactMore=false;G.talkOpen=false;
+      let d=new DOMParser().parseFromString(F('talkStripHTML')(),'text/html');
+      const btns=[...d.querySelectorAll('.react-strip .rb')];
+      check('the strip shows 12 reactions, then ⋯, then 💬 (the way into typing)',btns.length===14&&btns[12].getAttribute('data-a')==='react-more'&&btns[13].getAttribute('data-a')==='talk-toggle'&&btns.slice(0,12).every(b=>b.getAttribute('data-a')==='react'));
+      check('on a phone only the first 7 are shown (the rest appear on wider screens and in ⋯)',btns.slice(0,7).every(b=>!/rb-mid|rb-wide/.test(b.className))&&btns.slice(7,10).every(b=>/rb-mid/.test(b.className))&&btns.slice(10,12).every(b=>/rb-wide/.test(b.className)));
+      check('Liar\'s Dice leads with 👀 😏 😈',btns.slice(0,3).map(b=>b.textContent).join('')==='👀😏😈');
+      check('the ⋯ panel is closed to begin with',!d.querySelector('.react-more'));
+      G.reactMore=true;
+      d=new DOMParser().parseFromString(F('talkStripHTML')(),'text/html');
+      check('opened, the panel offers all 24 reactions in 6 labelled groups',d.querySelectorAll('.react-more .rb[data-a="react"]').length===24&&d.querySelectorAll('.react-more .rm-grp').length===6);
+      check('the ⋯ button shows it is open',/on/.test(d.querySelector('.react-more-toggle').className)&&d.querySelector('.react-more-toggle').getAttribute('aria-expanded')==='true');
+      // motion
+      const felt=W.document.createElement('div');felt.className='felt-table';W.document.body.appendChild(felt);
+      const old=new Set(W.document.querySelectorAll('.float-r'));
+      F('spawnFloatEmoji')('💀');F('spawnFloatEmoji')('👏');
+      const fl=[...W.document.querySelectorAll('.float-r')].filter(e=>!old.has(e));
+      check('💀 floats with its own wobble, and still reads as 💀',!!fl[0].querySelector('.fr-in.fr-skull')&&fl[0].textContent==='💀');
+      check('a reaction without its own motion floats plainly',!fl[1].querySelector('.fr-in')&&fl[1].textContent==='👏');
+      check('every animated reaction has a keyframe animation that resolves',Object.entries(F('REACTION_MOTION')).every(([e,cls])=>{const el=W.document.createElement('span');el.className='fr-in '+cls;felt.appendChild(el);return W.getComputedStyle(el).animationName!=='none';}));
+      fl.forEach(e=>e.remove());felt.remove();
+    } finally { G.isOnline=keep.on;G.selGame=keep.sel;G.reactMore=keep.more;G.talkOpen=keep.talk; }
+  });
+
   /* —— 4 in a Row is one tile with two ways to play: Classic and Mayhem —————— */
   suite('4 in a Row — one tile, Classic or Mayhem',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);
