@@ -6234,7 +6234,22 @@ async function runPresentation(A,W,frame){
       // lightning: choose Row, then a cell
       G.mhArm=null;G.mhPend=null;mhTap('mhpw',{getAttribute:k=>({'data-k':'lightning'})[k]});mhTap('mhaxis',{getAttribute:k=>({'data-x':'row'})[k]});
       d=new DOMParser().parseFromString(rMayhemTable(),'text/html');
-      check('Lightning on a row makes the occupied cells tappable',d.querySelectorAll('button.mh-cell[data-a="mhcell"]').length===G.mh.board.flat().filter(v=>v).length);
+      check('Lightning on a row makes every cell of a row that has discs tappable (not only the discs)',d.querySelectorAll('button.mh-cell[data-a="mhcell"]').length===G.mh.board.filter(row=>row.some(x=>x)).length*7);
+      check('Lightning shows two big switches, Column and Row, and says which one is chosen',d.querySelectorAll('.mh-axis .mh-ax').length===2&&d.querySelectorAll('.mh-ax.on').length===1&&/ROW/.test(d.querySelector('.y-hint').textContent));
+      const lastRow=G.mh.board.findIndex(row=>row.some(x=>x));
+      mhTap('mhcell',{getAttribute:k=>({'data-r':String(lastRow),'data-c':'0'})[k]});
+      check('the confirm line counts rows from the bottom, like a person would',new DOMParser().parseFromString(rMayhemTable(),'text/html').querySelector('.mh-confirm').textContent.includes('row '+(6-lastRow)+' (from the bottom)'));
+      // an armed power that cannot be aimed at a column says why instead of doing nothing
+      G.mhArm=null;G.mhPend=null;G.mh.hands[0]=['magnet','lightning','bubble'];mhTap('mhpw',{getAttribute:k=>({'data-k':'magnet'})[k]});
+      const emptyCol=[0,1,2,3,4,5,6].find(c=>!G.mh.board[5][c]&&!G.mh.board[5][c-1]&&!G.mh.board[5][c+1]);
+      const html0=rMayhemTable(),dd=new DOMParser().parseFromString(html0,'text/html');
+      check('with the magnet armed, columns it cannot use are marked (not silently dead)',emptyCol===undefined||dd.querySelectorAll('button.mh-col.no').length>0);
+      const movesBefore=G.mh.moves;
+      if(emptyCol!==undefined){mhTap('mhcol',{getAttribute:k=>({'data-c':String(emptyCol)})[k]});}
+      check('tapping such a column spends nothing and the power stays armed',G.mh.moves===movesBefore&&G.mhArm==='magnet'&&G.mhPend===null);
+      check('the reason is given for the column problem',F('mhColProblem')(G.mh,'lightning',emptyCol===undefined?0:emptyCol)!==null||emptyCol===undefined);
+      check('a late end-of-game timer from an old game does nothing instead of crashing',(()=>{try{const old=F('mhNew')();old.over=true;F('mhEndLocal')(old);return true;}catch(e){return false;}})());
+      G.mhArm=null;G.mhPend=null;
       // play a game out against the bot to the results screen
       G.mhArm=null;G.mhPend=null;G.lcur=0;
       let guard=0;

@@ -1489,6 +1489,13 @@ button.mh-cell{cursor:pointer;}
 .mh-pw.armed{transform:translateY(-3px);filter:brightness(1.15);box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 4px 0 #4a3008,0 0 0 2px #fff6cc,0 0 20px rgba(255,214,120,.95);}
 .mh-sub{display:flex;gap:.5rem;justify-content:center;}
 .mh-sub .btn.on{outline:2px solid var(--gold2);}
+.mh-axis{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;}
+.mh-ax{display:flex;flex-direction:column;align-items:center;gap:.05rem;padding:.5rem .3rem;border-radius:12px;font:inherit;color:#f0e6c8;cursor:pointer;background:rgba(0,0,0,.35);border:1.5px solid rgba(230,195,106,.35);}
+.mh-ax span{font-size:1.4rem;line-height:1;color:#ffcf6b;}
+.mh-ax b{font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;}
+.mh-ax small{font-size:.6rem;color:#b9c4b2;}
+.mh-ax.on{border-color:#f6e1a0;background:rgba(230,195,106,.22);box-shadow:0 0 14px rgba(255,214,120,.45);}
+button.mh-col.no{cursor:not-allowed;opacity:.55;}
 .mh-confirm{display:flex;align-items:center;justify-content:center;gap:.6rem;flex-wrap:wrap;padding:.45rem .6rem;border-radius:12px;background:rgba(0,0,0,.35);border:1px solid rgba(230,195,106,.45);}
 .mh-confirm b{font-family:var(--serif);font-size:.95rem;color:#f6e1a0;}
 .v10-gc--mayhem{background:linear-gradient(160deg,rgba(255,150,60,.30),rgba(40,16,6,.3));border-top-color:#ff9a3c;box-shadow:0 10px 28px -12px rgba(255,150,60,.42);}
@@ -9011,11 +9018,11 @@ function mhPlay(move){
   G.mhArm=null;G.mhPend=null;
   mhFeel(fx,G.lp[idx]);
   if(!mh.over)G.lcur=mod(G.lcur+1,2); // the turn passes at once; the bots and taps simply wait for the sequence
-  mhRunSeq(mh,true,()=>{if(mh.over)mhEndLocal();});
+  mhRunSeq(mh,true,()=>{if(mh.over)mhEndLocal(mh);});
   if(!G.mhSeq)render(); // a plain drop shows at once
 }
-function mhEndLocal(){
-  const mh=G.mh;
+function mhEndLocal(mhArg){
+  const mh=mhArg||G.mh;if(!mh||!mh.over||G.mh!==mh)return; // a late timer from a game that was already replaced does nothing
   const names=G.lp.map(p=>p.name);
   if(mh.draw){
     G.lp.forEach(p=>{p.c4Result='draw';});
@@ -9059,7 +9066,7 @@ function mhRunSeq(mh,renderNow,done){
     if(done&&mh.over)done();
     return;
   }
-  if(!fx||fx.kind==='drop'||fx.kind==='wild'||!mh.prev){G.mhSeq=null;G.mhSettle=Date.now()+700;if(done&&mh.over)setTimeout(done,420);return;}
+  if(!fx||fx.kind==='drop'||fx.kind==='wild'||!mh.prev){G.mhSeq=null;G.mhSettle=Date.now()+700;if(done&&mh.over){if(G.mhInstant)done();else setTimeout(done,420);}return;}
   const seq={stage:'announce',fx,prev:mh.prev,id:mh.moves};
   G.mhSeq=seq;
   SFX.mhTick();setTimeout(()=>{if(G.mhSeq===seq)SFX.mhTick();},300);setTimeout(()=>{if(G.mhSeq===seq)SFX.mhTick();},600);
@@ -9164,17 +9171,27 @@ function mhTargetCells(mh,pend){
 function mhPendText(pend){
   if(!pend)return'';
   const I=MH_INFO[pend.kind];
-  if(pend.kind==='lightning')return`${I.icon} Strike ${pend.axis==='col'?'column '+(pend.i+1):'row '+(pend.i+1)}?`;
+  if(pend.kind==='lightning')return`${I.icon} Strike ${pend.axis==='col'?'column '+(pend.i+1):'row '+(C4_ROWS-pend.i)+' (from the bottom)'}?`;
   if(pend.kind==='chaos')return`${I.icon} Shake the board ${pend.dir<0?'left':'right'}?`;
   if(pend.kind==='bubble')return`${I.icon} Encase this disc?`;
   return`${I.icon} ${I.name} in column ${pend.c+1}?`;
 }
+// Why a power cannot be aimed at this column (null when it can).
+function mhColProblem(mh,k,c){
+  const b=mh.board,full=c4DropRow(b,c)<0;
+  if(k==='lightning')return mhTopRow(b,c)>=0?null:'Nothing to strike in that column.';
+  if(k==='magnet'){
+    if(full)return'That column is full.';
+    return(mhTopRow(b,c-1)>=0&&c>0)||(mhTopRow(b,c+1)>=0&&c<C4_COLS-1)?null:'The magnet needs a disc in a column right next to it.';
+  }
+  return full?'That column is full.':null;
+}
 function mhArmedHint(armed){
   const I=MH_INFO[armed];
   if(armed==='bubble')return`${I.icon} Tap one of YOUR discs to encase it.`;
-  if(armed==='lightning')return`${I.icon} Choose column or row, then tap where to strike.`;
-  if(armed==='chaos')return`${I.icon} Pick a direction.`;
-  return`${I.icon} ${I.tip} Tap a column.`;
+  if(armed==='lightning')return G.mhAxis==='row'?`${I.icon} ROW: tap any row that has discs. (Tap the glowing power to cancel.)`:`${I.icon} COLUMN: tap a column to strike it — or switch to Row below. (Tap the glowing power to cancel.)`;
+  if(armed==='chaos')return`${I.icon} Pick a direction. (Tap the glowing power to cancel.)`;
+  return`${I.icon} ${I.tip} Tap a column. (Tap the glowing power to cancel.)`;
 }
 function rMayhemTable(){
   const online=G.isOnline,state=online?G.srv:null;
@@ -9219,7 +9236,7 @@ function rMayhemTable(){
       let attr=`data-rc="${r}-${c}"`;
       let tag='span';
       if(cellMode&&acts){
-        const ok=armed==='bubble'?(v===who&&!view.bub[r][c]):v;
+        const ok=armed==='bubble'?(v===who&&!view.bub[r][c]):view.board[r].some(x=>x);
         if(ok){tag='button';attr+=` data-a="mhcell" data-r="${r}" data-c="${c}" aria-label="Row ${r+1}, column ${c+1}"`;}
       }
       cells+=`<${tag} class="${cls.join(' ')}" ${attr}></${tag}>`;
@@ -9227,6 +9244,7 @@ function rMayhemTable(){
     const can=acts&&!cellMode&&!(armed==='chaos')&&(armed==='lightning'?mhTopRow(mh.board,c)>=0:armed==='magnet'?(mhTopRow(mh.board,c-1)>=0||mhTopRow(mh.board,c+1)>=0)&&!full:!full);
     const warn=threats.includes(c);
     if(cellMode)return`<div class="mh-col${warn?' warn':''}">${cells}</div>`;
+    if(acts&&armed&&armed!=='chaos'&&!can)return`<button class="mh-col no" data-a="mhcol" data-c="${c}" aria-label="Column ${c+1}, not possible with ${MH_INFO[armed].name}">${cells}</button>`;
     return`<button class="mh-col${can?' can':''}${warn?' warn':''}" ${can?`data-a="mhcol" data-c="${c}"`:'disabled'} aria-label="Column ${c+1}${full?' (full)':''}">${cells}</button>`;
   }).join('');
   // the control console: my three powers, then the target / confirm row
@@ -9235,7 +9253,7 @@ function rMayhemTable(){
   if(acts&&myHand.length){
     let sub='';
     if(armed==='chaos'&&!pend)sub=`<div class="mh-sub"><button class="btn btn-ghost btn-sm" data-a="mhdir" data-d="-1">◀ Shake left</button><button class="btn btn-ghost btn-sm" data-a="mhdir" data-d="1">Shake right ▶</button></div>`;
-    else if(armed==='lightning'&&!pend)sub=`<div class="mh-sub"><button class="btn btn-ghost btn-sm${G.mhAxis==='col'?' on':''}" data-a="mhaxis" data-x="col">║ Column</button><button class="btn btn-ghost btn-sm${G.mhAxis==='row'?' on':''}" data-a="mhaxis" data-x="row">═ Row</button></div>`;
+    else if(armed==='lightning'&&!pend)sub=`<div class="mh-axis"><button class="mh-ax${G.mhAxis==='col'?' on':''}" data-a="mhaxis" data-x="col" aria-pressed="${G.mhAxis==='col'}"><span>║</span><b>Column</b><small>everything in one column</small></button><button class="mh-ax${G.mhAxis==='row'?' on':''}" data-a="mhaxis" data-x="row" aria-pressed="${G.mhAxis==='row'}"><span>═</span><b>Row</b><small>everything in one row</small></button></div>`;
     if(pend)sub=`<div class="mh-confirm"><b>${mhPendText(pend)}</b><button class="btn btn-gold btn-sm" data-a="mhgo">Confirm</button><button class="btn btn-ghost btn-sm" data-a="mhno">Cancel</button></div>`;
     consoleHTML=`<div class="mh-console"><div class="mh-lbl">YOUR POWERS${armed?' · '+MH_INFO[armed].name:''}</div><div class="mh-chips">${chips}</div>${sub}</div>`;
   } else if(acts)consoleHTML=`<div class="mh-console"><div class="mh-lbl">No powers left — drop to win</div></div>`;
@@ -9252,7 +9270,7 @@ function rMayhemTable(){
   return`<div id="s-table" class="scr on game-mayhem">
     <div class="game-bar">
       <div class="gb-game">💥 Mayhem</div>
-      <div class="gb-turn${mine&&!mh.over?' mine':''}">${avChar(p.avatar)} ${esc(p.name)}’s turn</div>
+      <div class="gb-turn${mine&&!mh.over&&!seq?' mine':''}">${seq?`${avChar(seat(fx.who-1).avatar)} ${esc(seat(fx.who-1).name)} plays ${MH_INFO[fx.kind].name}…`:`${avChar(p.avatar)} ${esc(p.name)}’s turn`}</div>
       <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
     </div>
     <div class="y-standings-strip">${pills}</div>
@@ -9282,6 +9300,8 @@ function mhTap(a,t){
   if(a==='mhcol'){
     const c=+t.getAttribute('data-c'),k=G.mhArm;
     if(!k){send({kind:'drop',c});return;}
+    const why=mhColProblem(mh,k,c);
+    if(why){SFX.illegal();toast(why);return;}
     if(k==='lightning'){G.mhPend={kind:k,axis:'col',i:c};}
     else G.mhPend={kind:k,c};
     SFX.chip();haptic([8]);render();return;
