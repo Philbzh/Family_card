@@ -6317,6 +6317,185 @@ async function runPresentation(A,W,frame){
     const S=F('GT_TRAP_INFO');
     check('each kind has a name, an icon, a tell (except the decoy) and a one-line effect',['shock','slip','detour','blast','magnet','decoy'].every(k=>S[k].name&&S[k].icon&&S[k].txt&&(k==='decoy'?S[k].tell==='':!!S[k].tell)));
   });
+  /* —— The Gauntlet, Phase D: board events, modes, stats and trophies —————— */
+  suite('The Gauntlet — modes and the schedule of board events',()=>{
+    const F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart'),gtTickEvents=F('gtTickEvents'),EV=F('GT_EVENTS'),L=F('GT_EV_LIST');
+    check('three modes: Classic (3 traps), Mayhem (5 traps, Rooftops traps too), Chaos; an unknown mode means Classic',gtNew(2,'classic').tmax===3&&gtNew(2,'mayhem').tmax===5&&gtNew(2,'chaos').tmax===3&&gtNew(2,'nonsense').mode==='classic');
+    check('Mayhem adds the 4 Rooftops spaces to the trap-capable ones (20 instead of 16); the others do not',gtNew(3,'mayhem').tcap.length===20&&gtNew(3,'mayhem').tcap.includes(122)&&gtNew(3,'classic').tcap.length===16&&gtNew(3,'chaos').tcap.length===16);
+    check('the regions of the Bridge, the Tunnel and the Rooftops each have a public name',F('gtRegionName')(F('gtRegion')(101))==='the Bridge'&&F('gtRegionName')(F('gtRegion')(113))==='the Tunnel'&&F('gtRegionName')(F('gtRegion')(122))==='the Rooftops');
+    check('six events exist, each with a name, an icon, a duration of 1–2 rounds and a one-line effect',Object.keys(EV).length===6&&Object.values(EV).every(e=>e.name&&e.icon&&e.txt&&(e.dur===1||e.dur===2)));
+    check('Classic uses four events, Mayhem and Chaos all six',L.classic.length===4&&!L.classic.includes('collapse')&&!L.classic.includes('overcharge')&&L.mayhem.length===6&&L.chaos.length===6);
+    check('the first event is scheduled at the start: Classic after 5–6 rounds, Mayhem after 4–5, Chaos after 3',(()=>{let ok=true;for(let s=1;s<60;s++){const c=gtNew(2,'classic',s).evNext.r,m=gtNew(2,'mayhem',s).evNext.r,x=gtNew(2,'chaos',s).evNext.r;ok=ok&&(c===6||c===7)&&(m===5||m===6)&&x===4;}return ok;})());
+    check('the order comes from the seed: the same seed gives the same schedule, and Classic never picks Overcharge or Collapse',(()=>{let ok=true;for(let s=1;s<200;s++){const a=gtNew(3,'classic',s),b=gtNew(3,'classic',s);ok=ok&&JSON.stringify(a.evNext)===JSON.stringify(b.evNext)&&L.classic.includes(a.evNext.n);}return ok;})());
+    // the timeline of one event
+    const g=gtStart(gtNew(2,'classic',777),1);
+    const r0=g.evNext.r,n0=g.evNext.n,dur=EV[n0].dur;
+    const adv=()=>{g.fx={moves:[]};g.round++;gtTickEvents(g);return g.fx.ev||[];};
+    let quiet=true;while(g.round<r0-2)quiet=quiet&&adv().length===0;
+    check('nothing happens before the warning',quiet&&!g.ev);
+    let ev=adv();
+    check('one round before: exactly one warning, naming the event',g.round===r0-1&&ev.length===1&&ev[0].k==='warn'&&ev[0].n===n0&&!g.ev);
+    check('the warning is in the log, and it is not repeated',/in 1 round/.test(F('gtHistText')(g.hist[g.hist.length-1],[])));
+    ev=adv();
+    check('then the event starts, and lasts its full duration',g.round===r0&&ev.length===1&&ev[0].k==='start'&&g.ev&&g.ev.n===n0&&g.ev.left===dur);
+    let ticks=0,ended=false;while(!ended&&ticks<5){ticks++;ended=adv().some(e=>e.k==='end');}
+    check('it ends after '+dur+' round(s) and the next one is scheduled 5–6 rounds later with a different event',ended&&ticks===dur&&!g.ev&&g.evNext&&g.evNext.r-g.round>=5&&g.evNext.r-g.round<=6&&g.evNext.n!==n0);
+    check('while an event runs the matching rule counter is on, and off again afterwards',(()=>{const x=gtStart(gtNew(2,'classic',5),1);x.ev={n:'storm',left:2};F('gtEvSync')(x);const on=x.storm===2;x.ev=null;F('gtEvSync')(x);return on&&x.storm===0&&x.gate===0&&x.blackout===0&&x.lock===null;})());
+    check('a round change inside the real turn flow ticks the events (the second player\'s turn ending starts round 2)',(()=>{const x=gtStart(gtNew(2,'chaos',9),1);x.evNext={r:2,n:'blackout',w:false};x.fx={moves:[]};F('gtEndTurn')(x);const a=x.round===1;F('gtEndTurn')(x);return a&&x.round===2&&x.ev&&x.ev.n==='blackout'&&x.blackout===1&&x.fx.ev&&x.fx.ev.some(e=>e.k==='start');})());
+  });
+  suite('The Gauntlet — what each event does',()=>{
+    const F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart'),gtRoll=F('gtRoll'),gtAct=F('gtAct'),gtActions=F('gtActions'),gtPlans=F('gtPlans'),gtSyncPairs=F('gtSyncPairs'),gtTells=F('gtTells');
+    const mk=(P,list,dice,mode)=>{const g=gtStart(gtNew(P,mode||'classic',11),1);list.forEach(([s,r,rel,sc])=>{g.run[s-1][r].rel=rel;if(sc)g.run[s-1][r].sc=sc;});gtSyncPairs(g);if(dice)gtRoll(g,1,dice[0],dice[1]);return g;};
+    // 2 players: hazards 3,11,19,27,35,43
+    let g=mk(2,[[1,0,8]],[3,2]);
+    let fx=gtAct(g,1,{t:'die',i:0,r:0});
+    check('(no storm) stopping on a hazard space does nothing',g.run[0][0].rel===11&&!fx.storm);
+    g=mk(2,[[1,0,8]],[3,2]);g.storm=2;fx=gtAct(g,1,{t:'die',i:0,r:0});
+    check('STORM: stopping on a hazard space throws the runner back 2 (11 → 9)',g.run[0][0].rel===9&&fx.storm&&fx.storm.slot===11&&fx.moves.length===2&&fx.moves[0].storm===true&&fx.moves[1].back===true);
+    g=mk(2,[[1,0,8]]);g.storm=2;gtAct(g,1,{t:'shield',r:0});gtRoll(g,1,3,2);gtAct(g,1,{t:'die',i:0,r:0});
+    check('a storm is weather, not a trap: a shield does not stop it and is not used up',g.run[0][0].rel===9&&g.sh[0].s===1);
+    g=mk(2,[[1,0,7]],[3,2]);g.storm=2;gtAct(g,1,{t:'die',i:0,r:0});
+    check('only a runner that STOPS on a hazard is hit: landing next to it (rel 10) is fine',g.run[0][0].rel===10);
+    g=mk(2,[[1,0,0]],[3,2]);g.storm=2;gtAct(g,1,{t:'die',i:0,r:0});
+    check('a runner on the entry space...is only moved if it lands on a hazard (rel 3 is the first hazard: back 2 to rel 1)',g.run[0][0].rel===1);
+    // lockdown
+    g=mk(2,[[1,0,7]],[5,2]);g.lock={id:1,left:2};
+    check('LOCKDOWN: the closed shortcut cannot be entered (the Tunnel entrance is on rel 10), the main route still works',!gtPlans(g,1,0,5).some(p=>p.key==='1')&&gtPlans(g,1,0,5).length===1);
+    g=mk(2,[[1,0,0]],[3,2]);g.lock={id:1,left:2};
+    check('...the other shortcuts stay open (the Bridge)',gtPlans(g,1,0,3).some(p=>p.key==='0'));
+    g=mk(2,[[1,0,10,{id:1,k:1}]],[2,1]);g.lock={id:1,left:2};
+    check('...and a runner already inside the closed lane may go on and leave it',gtPlans(g,1,0,2).length===1&&gtPlans(g,1,0,2)[0].nsc.k===3);
+    // open gate
+    g=mk(2,[[1,0,22]]);
+    check('(no event) passing the Rooftops entrance does not open the gate',!gtPlans(g,1,0,5).some(p=>p.key==='2'));
+    g.ev={n:'opengate',left:2};F('gtEvSync')(g);
+    check('OPEN GATE: the Rooftops are open even to a runner that is only passing',gtPlans(g,1,0,5).some(p=>p.key==='2'));
+    // blackout
+    g=mk(2,[[1,0,11]]);g.traps.push({o:2,t:'shock',s:13,st:0});
+    check('(no event) the tell shows',gtTells(g).length===1);
+    g.ev={n:'blackout',left:1};F('gtEvSync')(g);
+    check('BLACKOUT: no tells',gtTells(g).length===0);
+    // overcharge and chaos
+    const dare=(g0,v)=>{gtAct(g0,1,{t:'die',i:0,r:0});return gtAct(g0,1,{t:'dare',v});};
+    g=mk(2,[[1,0,0]],[2,1]);g.charge=2;fx=dare(g,5);
+    check('OVERCHARGE: a dare that rolls 5 is a jackpot (to the next shortcut exit); the die still shows 5',fx.res==='jackpot'&&fx.v===5&&fx.charged===true&&g.run[0][0].rel===20);
+    g=mk(2,[[1,0,0]],[2,1]);g.charge=2;fx=dare(g,4);
+    check('...a 4 stays a 4',fx.res==='forward');
+    g=mk(2,[[1,0,0]],[2,1]);fx=dare(g,2);
+    check('(Classic) a 2 does nothing',fx.res==='nothing');
+    g=mk(2,[[1,0,0]],[2,1],'chaos');fx=dare(g,2);
+    check('CHAOS: riskier dares — a 2 backfires too (back to the entry space)',fx.res==='back'&&g.run[0][0].rel===0&&fx.v===2);
+    // collapse
+    g=gtNew(2,'mayhem',5);const bad=new Set([...g.risk,...g.entries,...g.tcap.filter(x=>x<100),...g.haz]);g.sc.forEach(s=>{bad.add(s.a);bad.add(s.b);});
+    const before=F('gtStaticSVG')(g),nh=g.haz.length;
+    F('gtCollapse')(g);
+    check('COLLAPSE: two ordinary spaces become hazards for good — never a safe, entry, risk, trap-capable or shortcut-end space',g.haz.length===nh+2&&g.collapsed.length===2&&g.collapsed.every(a=>!g.safe[a]&&!bad.has(a)));
+    check('the cached board art follows the change (the collapsed spaces are drawn as hazards)',F('gtStaticSVG')(g)!==before);
+    g=mk(2,[[1,0,6]],[3,2]);g.haz.push(9);g.storm=2;gtAct(g,1,{t:'die',i:0,r:0});
+    check('a storm after a collapse also hits the new hazards (rel 9, thrown back to 7)',g.run[0][0].rel===7);
+  });
+  suite('The Gauntlet — bot games in every mode',()=>{
+    const F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart'),gtRoll=F('gtRoll'),gtAct=F('gtAct'),gtBotPick=F('gtBotPick'),gtBotShield=F('gtBotShield'),gtBotTrap=F('gtBotTrap'),gtBotDisarm=F('gtBotDisarm'),gtRunnersAt=F('gtRunnersAt');
+    const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+    let games=0,finished=0,stuck=0,bad=0,started=0,warned=0,ended=0;const names=new Set();
+    ['classic','mayhem','chaos'].forEach(mode=>[2,3,4,5,6].forEach(P=>{
+      for(let n=0;n<3;n++){
+        const gt=gtStart(gtNew(P,mode),1);let guard=0;games++;
+        while(!gt.over&&guard++<9000){
+          const s=gt.cur,lv=s%2?'sharp':'gentle';
+          if(gt.phase==='roll'){
+            const sr=gtBotShield(gt,s,lv);if(sr>=0){gtAct(gt,s,{t:'shield',r:sr});continue;}
+            const tp=gtBotTrap(gt,s,lv);if(tp){gtAct(gt,s,tp);continue;}
+            const dz=gtBotDisarm(gt,s,lv);if(dz){gtAct(gt,s,dz);continue;}
+            gtRoll(gt,s,rnd(1,6),rnd(1,6));
+          } else {
+            const a=gtBotPick(gt,s,lv);const fx=a?gtAct(gt,s,a):gtAct(gt,s,{t:'bank'});if(!fx){stuck++;break;}
+            if(fx.ev)fx.ev.forEach(e=>{if(e.k==='start'){started++;names.add(e.n);}else if(e.k==='warn')warned++;else ended++;});
+          }
+          for(let abs=0;abs<48&&!bad;abs++){if(gtRunnersAt(gt,abs).length>2&&!gt.safe[abs])bad++;}
+        }
+        if(gt.over)finished++;
+      }
+    }));
+    check('45 bot games (Classic, Mayhem, Chaos × 2–6 players) all finish and never get stuck',finished===games&&stuck===0&&bad===0);
+    check('events really happen: warned, started and ended, and all six kinds turn up',started>40&&warned>=started-games&&ended>20&&names.size===6);
+  });
+  suite('The Gauntlet — the table: mode choice, event banner, stats and trophies',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart'),gtRoll=F('gtRoll'),gtSyncPairs=F('gtSyncPairs'),rGauntletTable=F('rGauntletTable');
+    const doc=()=>new DOMParser().parseFromString(rGauntletTable(),'text/html');
+    const tap=(a,attrs)=>{const b=W.document.createElement('button');b.setAttribute('data-a',a);Object.entries(attrs||{}).forEach(([k,v])=>b.setAttribute(k,v));W.document.body.appendChild(b);b.click();b.remove();};
+    const human=(id,n,i,bot)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,...(bot?{bot}:{})});
+    let keepMode=null;try{keepMode=W.localStorage.getItem('ct_gt_mode');}catch(e){}
+    const keepHist=W.localStorage.getItem('ct_history'),keepName=G.myName;
+    try{
+      // the choice
+      F('gtSetMode')('classic');
+      let d=new DOMParser().parseFromString(F('gtOptionsHTML')(),'text/html');
+      check('the mode picker offers Classic, Mayhem and Chaos with their descriptions, the current one ticked',d.querySelectorAll('.hr-tog').length===3&&d.querySelector('.hr-tog.on').getAttribute('data-m')==='classic'&&/five traps/i.test(d.body.textContent)&&/every 3 rounds/.test(d.body.textContent));
+      tap('gt-mode',{'data-m':'chaos'});
+      check('tapping a mode chooses it, and an invalid value falls back to Classic',F('gtMode')()==='chaos'&&(F('gtSetMode')('weird'),F('gtMode')()==='classic'));
+      F('gtSetMode')('mayhem');
+      G.isOnline=false;G.srv=null;G.selGame='gauntlet';G.gtSeq=null;G.gtSel=null;G.gtInstant=true;
+      G.lp=[human(1,'Phil',0),human(2,'Anna',1,'gentle'),human(3,'Robo',2,'gentle')];G.lstart=0;
+      F('lDealGauntlet')();
+      check('a new local game takes the chosen mode',G.gt.mode==='mayhem'&&G.gt.tmax===5);
+      d=doc();
+      check('the game bar names a non-Classic mode',/The Gauntlet · Mayhem/.test(d.querySelector('.cr-gbn').textContent));
+      // banners
+      let gt=G.gt;gt.round=gt.evNext.r-1;gt.evNext.w=true;
+      d=doc();
+      check('one round before an event the panel shows a SYSTEM EVENT IN 1 ROUND warning that names it',/SYSTEM EVENT IN 1 ROUND/.test(d.querySelector('.gt-event.warn').textContent)&&d.querySelector('.gt-event.warn').textContent.includes(F('GT_EVENTS')[gt.evNext.n].name));
+      gt.ev={n:'lockdown',left:2,id:0};gt.evNext=null;F('gtEvSync')(gt);
+      d=doc();
+      check('while it runs, a banner names the event, the closed shortcut and the rounds left',/Lockdown — The Bridge is closed/.test(d.querySelector('.gt-event.on').textContent)&&/2 rounds left/.test(d.querySelector('.gt-event.on').textContent));
+      check('the board shows the closed shortcut with a lock',[...d.querySelectorAll('svg text')].some(t=>t.textContent==='🔒')&&true);
+      gt.ev={n:'storm',left:1};F('gtEvSync')(gt);d=doc();
+      check('a storm rings every hazard space on the board',d.querySelectorAll('svg .gt-evring').length===gt.haz.length);
+      gt.ev={n:'blackout',left:1};F('gtEvSync')(gt);d=doc();
+      check('a blackout dims the board',!!d.querySelector('svg circle[fill="rgba(0,0,12,.42)"]'));
+      gt.ev={n:'overcharge',left:2};F('gtEvSync')(gt);d=doc();
+      check('overcharge rings the four risk spaces',d.querySelectorAll('svg .gt-evring').length===4);
+      gt.ev=null;F('gtEvSync')(gt);gt.collapsed=[9];gt.haz.push(9);d=doc();
+      check('a collapsed space is drawn cracked and counts as a hazard',d.querySelectorAll('svg path[stroke="rgba(0,0,0,.75)"]').length===1&&d.querySelectorAll('svg path[d="M-3.6 3.6 L3.6 -3.6 M-3.6 .6 L.6 -3.6 M-.6 3.6 L3.6 -.6"]').length===gt.haz.length);
+      check('the stage knows how to announce an event, and the sound exists',typeof F('STAGE_EVENTS').GT_EVENT==='function'&&F('STAGE_EVENTS').GT_EVENT({text:'STORM!'}).text==='STORM!'&&typeof F('SFX').gtEvent==='function');
+      // a whole game with three bots: history, stats, results
+      G.lp.forEach(p=>{p.bot='gentle';});F('lDealGauntlet')();G.gtInstant=true;
+      let guard=0;while(!G.gt.over&&guard++<6000){F('botGauntletAct')(G.lp[G.lcur]);}
+      check('the bots finish a Mayhem game',G.gt.over);
+      const row=F('getHistory')()[0];
+      check('the history row carries what each player did (by name) and the mode',row&&row.game==='gauntlet'&&row.stats.gtMode==='mayhem'&&Object.keys(row.stats.gt).join()==='Phil,Anna,Robo'&&['cap','hit','trig','tby','oops','sc','dare','blk','rev','dis','set'].every(k=>typeof row.stats.gt.Phil[k]==='number'));
+      G.scr='matchend';
+      const res=new DOMParser().parseFromString(F('rMatchEnd')(),'text/html');
+      check('the results screen has a table of the game: one row per player, with captures, shortcuts, dares, traps set and runners caught',res.querySelectorAll('.gt-res tbody tr').length===3&&/MAYHEM/.test(res.querySelector('.gt-res .panel-lbl').textContent)&&res.querySelectorAll('.gt-res th').length===6);
+      // trophies
+      const ach=id=>F('ACHIEVEMENTS').find(a=>a.id===id);
+      const row2=(me,extra,win)=>({game:'gauntlet',winner:win?me:'Other',players:[me,'Other'],stats:{gt:{[me]:Object.assign({cap:0,hit:0,trig:0,tby:0,oops:0,sc:0,dare:0,blk:0,rev:0,dis:0,set:0},extra)}}});
+      G.myName='Phil';
+      W.__origH=F('getHistory');
+      try{
+        W.__rows=[];W.eval('getHistory=()=>window.__rows');
+        const t=(id,rows)=>{W.__rows=rows;return!!ach(id).check();};
+        check('the Gauntlet trophies exist (7 open, 1 secret)',F('ACHIEVEMENTS').filter(a=>a.id.startsWith('gt-')).length===8&&ach('gt-oops').secret===true);
+        check('Off the Starting Pad: after playing one',t('gt-first',[row2('Phil',{})])&&!t('gt-first',[]));
+        check('Trap Master: 3 runners caught by your traps in one game',t('gt-trap-master',[row2('Phil',{tby:3})])&&!t('gt-trap-master',[row2('Phil',{tby:2})]));
+        check('No Mercy: 4 captures in one game',t('gt-no-mercy',[row2('Phil',{cap:4})])&&!t('gt-no-mercy',[row2('Phil',{cap:3})]));
+        check('Survivor: won after being captured 3 times (a loss does not count)',t('gt-survivor',[row2('Phil',{hit:3},true)])&&!t('gt-survivor',[row2('Phil',{hit:3},false)]));
+        check('Revenge Is Mine: 2 revenges in one game',t('gt-revenge',[row2('Phil',{rev:2})])&&!t('gt-revenge',[row2('Phil',{rev:1})]));
+        check('High Roller: 4 dares and a win',t('gt-high-roller',[row2('Phil',{dare:4},true)])&&!t('gt-high-roller',[row2('Phil',{dare:4},false)]));
+        check('Dangerous Route: 4 shortcuts in one game',t('gt-route',[row2('Phil',{sc:4})])&&!t('gt-route',[row2('Phil',{sc:3})]));
+        check('Oops (secret): stepped on your own trap',t('gt-oops',[row2('Phil',{oops:1})])&&!t('gt-oops',[row2('Phil',{oops:0})]));
+        check('someone else\'s feats do not unlock your trophies',!t('gt-no-mercy',[row2('Anna',{cap:9})]));
+      } finally { W.eval('getHistory=window.__origH'); }
+    } finally {
+      G.myName=keepName;G.gtInstant=false;G.gt=null;G.gtSeq=null;G.lp=[];G.scr='home';
+      if(keepMode==null)W.localStorage.removeItem('ct_gt_mode');else W.localStorage.setItem('ct_gt_mode',keepMode);
+      if(keepHist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keepHist);
+    }
+  });
   /* —— The Gauntlet: Play Together (one device, humans and bots), the table and the results —————— */
   suite('The Gauntlet — Play Together on one device',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);

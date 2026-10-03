@@ -1662,6 +1662,16 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 .gt-type em{font-size:.6rem;font-style:normal;color:#9fb;opacity:.8;}
 .gt-type.on{border-color:#ffe14a;background:rgba(255,225,74,.14);box-shadow:0 0 14px rgba(255,225,74,.35);}
 .gt-mytraps{list-style:none;margin:0;padding:.4rem .8rem;width:100%;max-width:26rem;border-radius:12px;background:rgba(0,0,0,.3);font-size:.74rem;display:flex;flex-direction:column;gap:.2rem;}
+.gt-event{display:flex;flex-direction:column;gap:.1rem;align-items:center;text-align:center;font-size:.72rem;border-radius:12px;padding:.35rem .8rem;max-width:26rem;}
+.gt-event b{font-size:.8rem;}
+.gt-event span{color:var(--paper3);}
+.gt-event.warn{background:rgba(255,160,40,.14);border:1px solid rgba(255,190,80,.6);color:#ffd68a;animation:gt-pulse 1.2s ease-in-out infinite;}
+.gt-event.on{background:rgba(255,90,78,.12);border:1px solid rgba(255,120,100,.55);color:#ffb0a5;}
+.gt-evring{animation:gt-pulse 1s ease-in-out infinite;}
+.gt-res{text-align:center;margin-bottom:.8rem;}
+.gt-res table{width:100%;border-collapse:collapse;font-size:.8rem;}
+.gt-res th,.gt-res td{padding:.25rem .3rem;}
+.gt-res td:first-child,.gt-res th:first-child{text-align:left;}
 .gt-dl{font-size:1.6rem;}
 .gt-dare-d{filter:hue-rotate(-30deg) saturate(1.5);box-shadow:0 0 18px rgba(255,80,60,.7);}
 .gt-dare{display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;}
@@ -1698,7 +1708,7 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
   .gt-felt{position:relative;}
 }
 @media(max-width:480px){.game-gauntlet .y-standings-strip{flex-wrap:wrap;gap:.3rem;padding-left:.3rem;padding-right:.3rem;}.game-gauntlet .cr-pill{padding:.28rem .5rem!important;font-size:.72rem!important;}.gt-felt{margin-left:.3rem!important;margin-right:.3rem!important;padding-left:.3rem!important;padding-right:.3rem!important;}.gt-board{padding:.5rem;}.gt-die{width:3.3rem;height:3.3rem;}}
-@media(prefers-reduced-motion:reduce){.gt-halo,.gt-ghost,.gt-burst,.gt-final,.gt-board.shake,.gt-run.can .gt-lift,.gt-trail{animation:none!important;}}
+@media(prefers-reduced-motion:reduce){.gt-event.warn,.gt-evring,.gt-halo,.gt-ghost,.gt-burst,.gt-final,.gt-board.shake,.gt-run.can .gt-lift,.gt-trail{animation:none!important;}}
 /* ════════ TENSION ════════ */
 .game-tension .felt-table,.tn-felt{background:
   radial-gradient(circle 420px at 50% 0%,rgba(255,176,80,.16),transparent 70%),
@@ -4173,7 +4183,9 @@ const GAMES=[
      'Once per game, <b>before you roll</b>, raise a <b>🛡️ shield</b> on one runner (everybody sees it). It blocks one capture, then breaks. A runner that is captured earns you <b>😡 revenge</b> against that player: capture one of their runners within 4 rounds and pick +2 steps or your shield back.',
      '<b>Secret traps.</b> Each player has <b>3 traps</b> (🔒 Set a trap, one per turn, before or after rolling). Pick a kind and a marked ⚙ space — nobody sees which kind or where; the table only shows <i>how many</i> traps lie in each part of the board. The first runner that <b>stops exactly</b> on a trap sets it off — yours too. <b>🪤 Shock</b> back 3 · <b>🌀 Slip</b> forward to the next hazard · <b>🔀 Detour</b> back to the previous junction · <b>💣 Blast</b> back to a safe space · <b>🧲 Magnet</b> pulled toward the nearest runner · <b>🎭 Decoy</b> nothing.',
      'Read the board: when a runner is within 2 spaces behind a trap, its <b>tell</b> shows (sparks, shimmer, a seam, a vibration, a hum) — a decoy shows nothing. Spend a 🪙 Risk Token to <b>🔧 defuse</b> a trap with a tell right ahead of your runner. A fired trap stays on the board. A shield absorbs a trap too. Doubles can give a used trap back instead of the +1 step.',
-     'Play online with friends (each on their own device), together on one device (traps are set behind a hand-over cover), or against bots. <i>More arrives soon: board events.</i>']},
+     '<b>The living board.</b> Every few rounds an event changes the board — a warning appears one round before. <b>🌪️ Storm</b>: stopping on a hazard throws you back 2. <b>🚪 Open Gate</b>: the Rooftops are open to everybody. <b>🔒 Lockdown</b>: one shortcut closes. <b>🌑 Blackout</b>: no tells. Mayhem and Chaos add <b>⚡ Overcharge</b> (a dare of 5 or 6 is a jackpot) and <b>💥 Collapse</b> (two spaces become hazards for good).',
+     'Pick a mode before you start: <b>Classic</b> (3 traps, an event every 5–6 rounds), <b>Mayhem</b> (5 traps, traps allowed on the Rooftops, events every 4–5 rounds) or <b>Chaos</b> (an event every 3 rounds, and a 2 on a dare backfires).',
+     'Play online with friends (each on their own device), together on one device (traps are set behind a hand-over cover), or against bots.']},
   {id:'lepouilleux',cat:'cards',icon:'🂫',name:'Old Maid',players:'2–8',dur:'5–15 min',diff:'easy',deal:0,cover:'assets/games/lepouilleux.jpg',
    rules:['A standard 52-card deck, minus the <b>Jack of Clubs</b> — 51 cards dealt out to everyone.',
      'A pair is two cards of the <b>same rank and same color</b> — K♥+K♦, or 8♠+8♣ (not just any same rank).',
@@ -4375,6 +4387,7 @@ const SFX={
   // The Gauntlet: dice rattle, a click for every hop, a deep thud for a capture
   gtRoll(){for(let i=0;i<6;i++)setTimeout(()=>tone(300+Math.random()*500,.03,'square'),i*55);},
   gtStep(){tone(430,.035,'triangle');haptic(4);},
+  gtEvent(){[330,262,196].forEach((f,i)=>setTimeout(()=>tone(f,.16,'sawtooth'),i*150));haptic([40,60,40]);},
   gtTrap(tp){const f={shock:[900,700,500],slip:[500,420,330],detour:[300,340,300],blast:[120,90,60],magnet:[600,500,650],decoy:[800,820]}[tp]||[400];f.forEach((x,i)=>setTimeout(()=>tone(x,.11,tp==='blast'||tp==='shock'?'sawtooth':'triangle'),i*75));},
   gtHit(){[150,110,80].forEach((f,i)=>setTimeout(()=>tone(f,.18,'sawtooth'),i*50));},
   crPlace(){tone(520,.04,'sine');setTimeout(()=>tone(700,.05,'sine'),30);haptic(6);},
@@ -4574,6 +4587,15 @@ const ACHIEVEMENTS=[
   {id:'photo-finish',icon:'📷',secret:true,name:'Photo Finish',desc:'Won a game by the narrowest of margins',check:()=>getHistory().some(h=>momentIs(h,'nailbiter'))},
   {id:'yahtzee-first-try',icon:'🎯',secret:true,name:'First Try',desc:'Rolled a Yahtzee on the very first roll of a turn',check:()=>getHistory().some(h=>h.stats?.firstTryYahtzee)},
   // — Escape rooms —
+  // — The Gauntlet —
+  {id:'gt-first',icon:'🏁',name:'Off the Starting Pad',desc:'Played a game of The Gauntlet',check:()=>getHistory().some(h=>h.game==='gauntlet')},
+  {id:'gt-trap-master',icon:'🪤',name:'Trap Master',desc:'Your traps caught 3 runners in one Gauntlet',check:()=>getHistory().some(h=>{const s=gtMine(h);return s&&s.tby>=3;})},
+  {id:'gt-no-mercy',icon:'💥',name:'No Mercy',desc:'Captured 4 runners in one Gauntlet',check:()=>getHistory().some(h=>{const s=gtMine(h);return s&&s.cap>=4;})},
+  {id:'gt-survivor',icon:'🛡️',name:'Survivor',desc:'Won a Gauntlet after being captured 3 times',check:()=>getHistory().some(h=>{const s=gtMine(h);return s&&h.winner===G.myName&&s.hit>=3;})},
+  {id:'gt-revenge',icon:'😡',name:'Revenge Is Mine',desc:'Took revenge twice in one Gauntlet',check:()=>getHistory().some(h=>{const s=gtMine(h);return s&&s.rev>=2;})},
+  {id:'gt-high-roller',icon:'😈',name:'High Roller',desc:'Dared 4 times in one Gauntlet and won',check:()=>getHistory().some(h=>{const s=gtMine(h);return s&&h.winner===G.myName&&s.dare>=4;})},
+  {id:'gt-route',icon:'🚇',name:'Dangerous Route',desc:'Took 4 shortcuts in one Gauntlet',check:()=>getHistory().some(h=>{const s=gtMine(h);return s&&s.sc>=4;})},
+  {id:'gt-oops',icon:'🙈',secret:true,name:'Oops',desc:'Stepped on your own trap',check:()=>getHistory().some(h=>{const s=gtMine(h);return s&&s.oops>=1;})},
   {id:'vault-open',icon:'🔐',name:'Safecracker',desc:'Opened a vault with the crew',check:()=>getHistory().some(h=>h.game==='vault')},
   {id:'first-escape',icon:'🗝️',name:'First Escape',desc:'Escaped a room with your team',check:()=>getHistory().some(h=>h.game==='escape')},
   {id:'escape-mastermind',icon:'🧠',name:'Mastermind',desc:'Escaped without using a single hint',check:()=>getHistory().some(h=>h.game==='escape'&&h.stats&&h.stats.escapeHints===0)},
@@ -4586,6 +4608,8 @@ const ACHIEVEMENTS=[
   {id:'deep-diver',icon:'🌊',name:'Deep Diver',desc:'Escaped the Deep Blue station',check:()=>getHistory().some(h=>h.game==='escape'&&h.stats&&h.stats.escapeAdv==='deepblue')},
   {id:'two-worlds',icon:'🗺️',name:'Two Worlds',desc:'Escaped both the Clockmaker’s Estate and Deep Blue',check:()=>{const a=new Set(getHistory().filter(h=>h.game==='escape'&&h.stats).map(h=>h.stats.escapeAdv||'clockmaker'));return a.has('clockmaker')&&a.has('deepblue');}},
 ];
+// This device's player in a Gauntlet history row (by name).
+function gtMine(h){return h&&h.game==='gauntlet'&&h.stats&&h.stats.gt?h.stats.gt[G.myName]||null:null;}
 function dailyEscapeDays(){return new Set(getHistory().filter(h=>h.game==='escape'&&h.stats&&h.stats.escapeDaily).map(h=>h.stats.escapeDaily)).size;}
 // Shared by both the check() and the progress() of the streak achievements, so the bar can never
 // disagree with the unlock condition it's counting toward.
@@ -7150,6 +7174,7 @@ const TOURS={
     {ic:'🛡️',h:'Shield and revenge',t:'Once per game, <b>before you roll</b>, shield one runner — it blocks one capture. When you are captured you earn <b>😡 revenge</b>: capture that player back within 4 rounds for +2 steps or your shield back.'},
     {ic:'🪤',h:'Secret traps',t:'Tap <b>🔒 Set a trap</b>: choose one of six kinds and a marked space. Nobody sees which or where — only how many lie in each part of the board. The first runner that <b>stops exactly</b> on it sets it off, even yours.'},
     {ic:'👀',h:'Watch for the tells',t:'Within 2 spaces behind a trap you may see <b>sparks, a shimmer, a seam, a vibration or a hum</b>. A <b>Decoy</b> shows nothing at all. Spend a 🪙 token to <b>🔧 defuse</b> a trap with a tell, or walk round it.'},
+    {ic:'⚠️',h:'The board changes',t:'Every few rounds an <b>event</b> hits — you get a warning one round before. <b>🌪️ Storm</b> (hazards throw you back 2), <b>🚪 Open Gate</b>, <b>🔒 Lockdown</b> (a shortcut closes), <b>🌑 Blackout</b> (no tells). Mayhem and Chaos add <b>⚡ Overcharge</b> and <b>💥 Collapse</b>.'},
     {ic:'🪙',h:'Stuck? Bank a token',t:'If nothing can move, <b>bank</b> a Risk Token (max 3). Spend one to <b>reroll a die</b> or to defuse a trap. Doubles give a free +1 step — or a used trap back.'}]},
   chainreaction:{title:'How to play Chain Reaction',slides:[
     {ic:'⚛️',h:'Put one orb down',t:'On your turn tap an <b>empty cell</b> or one that is already <b>yours</b>. Every player has a colour <i>and</i> a shape: ● red, ◆ gold, ▲ green, ■ blue.'},
@@ -7258,6 +7283,7 @@ const STAGE_EVENTS={
   PIG_OUT:d=>({text:'PIG OUT!',sub:(d.points||0)+' points lost',tone:'bad',icon:'🐷',who:d.who}),
   POWER:d=>({text:d.text,sub:d.sub,tone:'hot',icon:d.icon,who:d.who,ms:1100,pri:1}),
   CAPTURE:d=>({text:'CAPTURE!',sub:d.sub||'',tone:'bad',icon:'💥',who:d.who,pri:2,ms:1500}),
+  GT_EVENT:d=>({text:d.text,sub:d.sub||'',tone:d.tone||'hot',icon:d.icon||'⚠️',who:d.who,pri:1,ms:1800,shake:false}),
   GT_TRAP:d=>({text:d.text,sub:d.sub||'',tone:d.tone||'bad',icon:d.icon||'🪤',who:d.who,pri:2,ms:1500,shake:d.tone==='bad'}),
   GT_SHORTCUT:d=>({text:d.name,sub:d.sub||'',tone:'hot',icon:d.icon||'🛤️',who:d.who,pri:1,ms:1100,shake:false}),
   GT_DARE:d=>({text:d.text,sub:d.sub||'',tone:d.tone||'hot',icon:'😈',who:d.who,pri:2,ms:1400,shake:d.tone==='bad'}),
@@ -10060,6 +10086,13 @@ function crOptionsHTML(){
   const opts=[['classic','Classic','Plain Chain Reaction. Orbs, explosions, last one standing.'],['fun','Fun','Everyone also holds two single-use powers: ⚡ Surge drops an orb on an ENEMY cell and takes it, 💥 Overload sets off one of your own cells at once.']];
   return`<div class="panel"><div class="panel-lbl">Which version?</div><div class="hr-grid">${opts.map(([k,n,d])=>`<div class="hr-tog${m===k?' on':''}" data-a="cr-mode" data-m="${k}"><div class="hr-row"><span class="hr-nm">${n}</span><span class="hr-chk">${m===k?'✓':''}</span></div><span class="hr-desc">${d}</span></div>`).join('')}</div></div>`;
 }
+// The Gauntlet's mode (Classic / Mayhem / Chaos): chosen before the game, by the host online.
+function gtMode(){let m='classic';try{m=localStorage.getItem('ct_gt_mode')||'classic';}catch(e){}return GT_MODES[m]?m:'classic';}
+function gtSetMode(m){try{localStorage.setItem('ct_gt_mode',GT_MODES[m]?m:'classic');}catch(e){}}
+function gtOptionsHTML(){
+  const m=gtMode();
+  return`<div class="panel"><div class="panel-lbl">Which mode?</div><div class="hr-grid">${Object.entries(GT_MODES).map(([k,o])=>`<div class="hr-tog${m===k?' on':''}" data-a="gt-mode" data-m="${k}"><div class="hr-row"><span class="hr-nm">${o.name}</span><span class="hr-chk">${m===k?'✓':''}</span></div><span class="hr-desc">${o.txt}</span></div>`).join('')}</div></div>`;
+}
 function crTap(i){
   const cr=G.isOnline?(G.srv&&G.srv.cr):G.cr;if(!cr||cr.over||G.crSeq)return;
   if(G.isOnline&&!isMyTurn())return;
@@ -10102,14 +10135,75 @@ const GT_SC_AT={2:[1,10,25],3:[1,17,33],4:[1,13,25],5:[1,11,31],6:[1,17,33]};
 const GT_RISK={2:[2,14,26,38],3:[2,18,25,38],4:[2,14,26,38],5:[2,12,22,33],6:[2,11,25,35]};
 const GT_COLORS=['#ff5a4e','#f4c93a','#5fd68a','#4fa6f2','#e9e6dc','#b98af0'];
 const GT_SHAPES=['●','◆','▲','■','★','⬢'];
-function gtNew(P,mode){
+/* ── Board events (Phase D): every few rounds the board changes for a round or two. A warning comes one round before.
+   Order and timing come from the game's seed (stored in the state), so every device and every replay agrees. ── */
+const GT_EVENTS={
+  storm:{icon:'🌪️',name:'Storm',dur:2,txt:'A runner that stops on a hazard space is thrown back 2'},
+  opengate:{icon:'🚪',name:'Open Gate',dur:2,txt:'The Rooftops gate is open to everybody, even runners that only pass'},
+  lockdown:{icon:'🔒',name:'Lockdown',dur:2,txt:'One shortcut is closed — runners already inside may finish it'},
+  blackout:{icon:'🌑',name:'Blackout',dur:1,txt:'Every tell goes dark'},
+  overcharge:{icon:'⚡',name:'Overcharge',dur:2,txt:'A dare that rolls 5 or 6 is a jackpot'},
+  collapse:{icon:'💥',name:'Collapse',dur:1,txt:'Two ordinary spaces turn into hazards for good'}};
+const GT_EV_LIST={classic:['storm','opengate','lockdown','blackout'],mayhem:['storm','opengate','lockdown','blackout','overcharge','collapse'],chaos:['storm','opengate','lockdown','blackout','overcharge','collapse']};
+const GT_MODES={classic:{name:'Classic',txt:'Three traps each. A board event every 5–6 rounds: Storm, Open Gate, Lockdown, Blackout.'},
+  mayhem:{name:'Mayhem',txt:'Five traps each, traps allowed on the Rooftops too, events every 4–5 rounds — plus Overcharge and Collapse.'},
+  chaos:{name:'Chaos',txt:'An event every 3 rounds, riskier dares (a 2 backfires too). For experienced players.'}};
+function gtRand(gt){gt.seed=(gt.seed*48271)%2147483647;return gt.seed/2147483647;}
+function gtInterval(gt){return gt.mode==='chaos'?3:gt.mode==='mayhem'?4+Math.floor(gtRand(gt)*2):5+Math.floor(gtRand(gt)*2);}
+function gtSchedule(gt,from){
+  const list=(GT_EV_LIST[gt.mode]||GT_EV_LIST.classic).filter(n=>n!==gt.lastEv);
+  const n=list[Math.floor(gtRand(gt)*list.length)];
+  gt.evNext={r:from+gtInterval(gt),n,w:false};
+}
+// Makes the counters the rules look at (gt.storm, gt.gate, gt.blackout, gt.charge, gt.lock) follow the running event.
+function gtEvSync(gt){
+  gt.storm=0;gt.gate=0;gt.blackout=0;gt.charge=0;gt.lock=null;
+  if(!gt.ev)return;
+  const l=gt.ev.left,n=gt.ev.n;
+  if(n==='storm')gt.storm=l;else if(n==='opengate')gt.gate=l;else if(n==='blackout')gt.blackout=l;
+  else if(n==='overcharge')gt.charge=l;else if(n==='lockdown')gt.lock={id:gt.ev.id,left:l};
+}
+// Two ordinary ring spaces become hazard spaces for good.
+function gtCollapse(gt){
+  const bad=new Set(gt.risk.concat(gt.haz,gt.tcap.filter(x=>x<100),gt.entries));
+  gt.sc.forEach(s=>{bad.add(s.a);bad.add(s.b);});
+  gt.traps.forEach(x=>bad.add(x.s));
+  const cand=[];for(let i=0;i<GT_RING;i++)if(!gt.safe[i]&&!bad.has(i))cand.push(i);
+  for(let k=0;k<2&&cand.length;k++){
+    const i=Math.floor(gtRand(gt)*cand.length),abs=cand.splice(i,1)[0];
+    gt.haz.push(abs);gt.collapsed.push(abs);
+  }
+}
+// Called when a new round begins.
+function gtTickEvents(gt){
+  const evs=[];
+  if(gt.ev){
+    gt.ev.left--;
+    if(gt.ev.left<=0){evs.push({k:'end',n:gt.ev.n});gt.ev=null;gtEvSync(gt);gtSchedule(gt,gt.round);}
+    else gtEvSync(gt);
+  }
+  if(!gt.ev&&gt.evNext){
+    if(gt.round>=gt.evNext.r){
+      const n=gt.evNext.n;
+      gt.ev={n,left:GT_EVENTS[n].dur};
+      if(n==='lockdown')gt.ev.id=Math.floor(gtRand(gt)*3);
+      if(n==='collapse')gtCollapse(gt);
+      gt.evNext=null;gt.lastEv=n;gtEvSync(gt);
+      evs.push({k:'start',n,id:gt.ev.id});
+    } else if(gt.round===gt.evNext.r-1&&!gt.evNext.w){gt.evNext.w=true;evs.push({k:'warn',n:gt.evNext.n});}
+  }
+  evs.forEach(e=>gtLog(gt,{k:'ev',e:e.k,n:e.n,i:e.id}));
+  if(evs.length&&gt.fx)gt.fx.ev=(gt.fx.ev||[]).concat(evs);
+}
+function gtNew(P,mode,seed){
   P=Math.max(2,Math.min(6,P|0||2));
   const entries=GT_ENTRIES[P].slice(),safe=new Array(GT_RING).fill(false);
   gtSafeSpaces(P,entries).forEach(e=>{safe[e]=true;});
-  return{P,mode:mode||'classic',entries,safe,
+  mode=GT_MODES[mode]?mode:'classic';
+  const gt0={P,mode,entries,safe,seed:seed||Math.floor(Math.random()*2147483000)+1,ev:null,evNext:null,lastEv:'',storm:0,charge:0,lock:null,collapsed:[],
     sc:GT_SC.map((s,i)=>({id:i,a:GT_SC_AT[P][i],b:(GT_SC_AT[P][i]+s.main)%GT_RING,main:s.main})),
     risk:GT_RISK[P].slice(),gate:0,blackout:0,
-    haz:GT_HAZ[P].slice(),tcap:GT_TCAP[P].concat([111,112,113,114]),traps:[],placed:false,
+    haz:GT_HAZ[P].slice(),tcap:GT_TCAP[P].concat([111,112,113,114],mode==='mayhem'?[121,122,123,124]:[]),traps:[],placed:false,
     tmax:mode==='mayhem'?5:3,tleft:new Array(P).fill(mode==='mayhem'?5:3),
     run:Array.from({length:P},()=>[{rel:-1},{rel:-1},{rel:-1}]),
     tok:new Array(P).fill(0),idle:new Array(P).fill(0),tc:new Array(P).fill(0),
@@ -10119,6 +10213,8 @@ function gtNew(P,mode){
     stats:{cap:new Array(P).fill(0),hit:new Array(P).fill(0),dbl:new Array(P).fill(0),bank:new Array(P).fill(0),
       sc:new Array(P).fill(0),dare:new Array(P).fill(0),blk:new Array(P).fill(0),rev:new Array(P).fill(0),
       set:new Array(P).fill(0),trig:new Array(P).fill(0),oops:new Array(P).fill(0),tby:new Array(P).fill(0),dis:new Array(P).fill(0),maxCap:null}};
+  gtSchedule(gt0,1);
+  return gt0;
 }
 function gtLog(gt,e){gt.hist.push(e);if(gt.hist.length>8)gt.hist.shift();}
 function gtBeginTurn(gt){
@@ -10222,7 +10318,7 @@ function gtPlans(gt,seat,r,dist){
     if(rel<GT_LAP){
       const s=gtScAtRel(gt,seat,rel);
       // the Rooftops gate only opens for a runner that STANDS on the entrance (it landed there on an earlier move), or while the gate event is on
-      if(s&&(!GT_SC[s.id].gate||taken===0||gt.gate>0))walk(rel,{id:s.id,k:1},taken+1,path.concat(100+s.id*10+1),via.concat(s.id));
+      if(s&&(!GT_SC[s.id].gate||taken===0||gt.gate>0)&&!(gt.lock&&gt.lock.id===s.id))walk(rel,{id:s.id,k:1},taken+1,path.concat(100+s.id*10+1),via.concat(s.id));
     }
   };
   walk(rn.rel,rn.sc||null,0,[],[]);
@@ -10296,7 +10392,7 @@ function gtEndTurn(gt){
   const onBoard=gt.run[s-1].some(rn=>rn.rel>=0&&rn.rel<GT_HOME),hasStart=gt.run[s-1].some(rn=>rn.rel===-1);
   gt.idle[s-1]=(!onBoard&&hasStart)?gt.idle[s-1]+1:0;
   if(gt.fin){gt.fin.left=gt.fin.left.filter(x=>x!==s);if(!gt.fin.left.length){gtResolve(gt);return;}}
-  gt.cur=s%gt.P+1;if(gt.cur===1)gt.round++;
+  gt.cur=s%gt.P+1;if(gt.cur===1){gt.round++;gtTickEvents(gt);}
   gtBeginTurn(gt);
 }
 function gtScore(gt,seat){
@@ -10330,6 +10426,12 @@ function gtMoveRunner(gt,seat,plan,fx,o){
     const slot=plan.nsc?100+plan.nsc.id*10+plan.nsc.k:plan.nrel<GT_LAP?gtAbs(gt,seat,plan.nrel):-1;
     const trap=slot>=0?gtTrapAt(gt,slot):null;
     if(trap)displaced=gtTrapFire(gt,seat,plan.r,trap,fx,mv);
+  }
+  // a storm throws back a runner that stops on a hazard space
+  if(!displaced&&!o.noTrap&&gt.storm>0&&!plan.home&&!plan.nsc&&plan.nrel<GT_LAP&&gt.haz.includes(gtAbs(gt,seat,plan.nrel))){
+    const d=gtTrapDest(gt,seat,plan.r,'shock',2);
+    fx.storm={slot:gtAbs(gt,seat,plan.nrel),seat,r:plan.r};mv.storm=true;
+    if(d){gtDisplace(gt,seat,plan.r,d,fx);displaced=true;}
   }
   // a risk space offers a dare to a runner that stopped there (a dare's own movement never starts another dare)
   if(!o.noDare&&!displaced&&!plan.home&&!plan.nsc&&plan.nrel<GT_LAP){
@@ -10484,7 +10586,11 @@ function gtAnswer(gt,seat,act){
     return gt.fx;
   }
   if(act.t!=='dare'||!(act.v>=1&&act.v<=6))return null;
-  const v=act.v,fx={seat,kind:'dare',r:h.r,v,res:'',moves:[],cap:null,final:false,finalRun:false,shield:null};
+  // the die as rolled is shown; the event / mode may change what it means
+  let v=act.v;const rolled=act.v;
+  if(gt.charge>0&&v>=5)v=6;
+  if(gt.mode==='chaos'&&v===2)v=1;
+  const fx={seat,kind:'dare',r:h.r,v:rolled,res:'',moves:[],cap:null,final:false,finalRun:false,shield:null,charged:gt.charge>0&&rolled>=5};
   gt.pq.shift();
   rn.dr=(rn.dr||[]).concat(h.abs);gt.stats.dare[seat-1]++;
   if(v===1){
@@ -10502,7 +10608,7 @@ function gtAnswer(gt,seat,act){
   }
   if(!fx.cap){const c=fx.moves.find(m=>m.cap);if(c)fx.cap=c.cap;}
   gt.moves++;gt.fx=fx;
-  gtLog(gt,{s:seat,k:'dare',v,x:fx.res,c:fx.cap?fx.cap.seat:0});
+  gtLog(gt,{s:seat,k:'dare',v:rolled,x:fx.res,c:fx.cap?fx.cap.seat:0});
   gtLogTrap(gt,seat,fx);
   gtSyncPairs(gt);gtCheckFinal(gt,seat,fx);
   if(!gtHasMoves(gt,seat))gtEndTurn(gt);
@@ -10526,8 +10632,8 @@ const GT_TRAP_INFO={
   decoy:{name:'Decoy',icon:'🎭',tell:'',txt:'Nothing happens',clue:'no sign at all'}};
 const GT_SECTORS=['north-east','south-east','south-west','north-west'];
 // The public region of a slot: 'tunnel' or 's0'..'s3' (the four quarters of the ring, clockwise from the top).
-function gtRegion(slot){return slot>=100?'tunnel':'s'+Math.floor(slot/12);}
-function gtRegionName(key){return key==='tunnel'?'the Tunnel':'the '+GT_SECTORS[+key.slice(1)]+' quarter';}
+function gtRegion(slot){return slot>=100?['bridge','tunnel','rooftops'][Math.floor((slot-100)/10)]:'s'+Math.floor(slot/12);}
+function gtRegionName(key){return key==='bridge'?'the Bridge':key==='tunnel'?'the Tunnel':key==='rooftops'?'the Rooftops':'the '+GT_SECTORS[+key.slice(1)]+' quarter';}
 function gtSlotOf(gt,seat,rn){
   if(rn.sc)return 100+rn.sc.id*10+rn.sc.k;
   return rn.rel>=0&&rn.rel<GT_LAP?gtAbs(gt,seat,rn.rel):-1;
@@ -10612,7 +10718,7 @@ function gtJunctionRels(gt,seat){
   return set;
 }
 // The place and path of a trap's displacement, or null (nothing moves).
-function gtTrapDest(gt,seat,r,type){
+function gtTrapDest(gt,seat,r,type,n){
   const rn=gt.run[seat-1][r];
   const backTo=(locs,idx)=>{
     while(idx<locs.length&&!gtLocFree(gt,seat,r,locs[idx]))idx++;
@@ -10620,7 +10726,7 @@ function gtTrapDest(gt,seat,r,type){
     return{loc:locs[idx],path:locs.slice(0,idx+1).map(gtLocCode),back:true};
   };
   if(type==='decoy')return null;
-  if(type==='shock'){const l=gtBackLocs(gt,seat,rn);return l.length?backTo(l,Math.min(2,l.length-1)):null;}
+  if(type==='shock'){const l=gtBackLocs(gt,seat,rn);return l.length?backTo(l,Math.min((n||3)-1,l.length-1)):null;}
   if(type==='detour'){
     const l=gtBackLocs(gt,seat,rn),j=gtJunctionRels(gt,seat);
     const i=l.findIndex(x=>!x.sc&&j.has(x.rel));
@@ -10687,7 +10793,12 @@ function gtTrapFire(gt,seat,r,tr,fx,mv){
   }
   const d=gtTrapDest(gt,seat,r,tr.t);
   if(!d)return false;
-  const from=gtCode(rn);
+  gtDisplace(gt,seat,r,d,fx);info.moved=true;
+  return true;
+}
+// Moves a runner away by the order of a trap or a storm (d = {loc,path,back,cap}).
+function gtDisplace(gt,seat,r,d,fx){
+  const rn=gt.run[seat-1][r],from=gtCode(rn);
   const m2={r,from,to:gtLocCode(d.loc),path:d.path.slice(),cap:null,shieldHit:null,via:[],leap:false,back:d.back,trapMove:true};
   const wasRing=rn.rel>=0&&rn.rel<GT_LAP||!!rn.sc;
   rn.rel=d.loc.rel;rn.sc=d.loc.sc||null;
@@ -10697,8 +10808,7 @@ function gtTrapFire(gt,seat,r,tr,fx,mv){
     gtApplyCap(gt,seat,{seat:d.cap.seat,r:d.cap.r,rel:gtCode(gt.run[d.cap.seat-1][d.cap.r])},gtAbs(gt,seat,rn.rel),m2);
     if(!fx.cap&&m2.cap)fx.cap=m2.cap;
   }
-  fx.moves.push(m2);info.moved=true;
-  return true;
+  fx.moves.push(m2);
 }
 // The log line of a trap that has just gone off (written after the line of the move that triggered it).
 function gtLogTrap(gt,seat,fx){if(fx&&fx.trap)gtLog(gt,{s:seat,k:'trap',t:fx.trap.type,o:fx.trap.owner,x:fx.trap.absorbed?1:0});}
@@ -10817,7 +10927,7 @@ function gtMoment(gt,names){
 /* ── The Gauntlet: local (Play Together: one device, humans and/or bots) ── */
 function lDealGauntlet(){
   G.lp.forEach(p=>{p.totalScore=0;p.c4Result=null;p.gtHome=0;});
-  G.gt=gtStart(gtNew(G.lp.length),(G.lstart%G.lp.length)+1);
+  G.gt=gtStart(gtNew(G.lp.length,gtMode()),(G.lstart%G.lp.length)+1);
   G.lcur=G.gt.cur-1;G.gtSeq=null;G.gtSel=null;G.gtChoose=null;G.gtSecret=null;G.gtDisarm=false;G.gtMoment='';
   G.lres=null;
   SFX.deal();
@@ -10845,9 +10955,15 @@ function gtEndLocal(gtArg){
   SFX.win();v14WinnerBurst();celebrateWin(winner.name,winner.avatar);fxPulse('gold');fxSeatGlow(gt.win-1,'gold');
   stageEmit('BIG_WIN',{who:winner,text:'VICTORY!',sub:G.gtMoment,icon:'🏁'});
   addHistory({game:'gauntlet',winner:winner.name,winnerAvatar:winner.avatar,date:new Date().toISOString(),players:names,moment:G.gtMoment,
-    stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
+    stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions,gt:gtStatsFor(gt,names),gtMode:gt.mode}});
   render();
   setTimeout(()=>{if(G.selGame==='gauntlet'&&G.gt===gt&&G.scr==='table'){G.scr='matchend';render();}},2600);
+}
+// What each player did in a Gauntlet game, by name (stored with the history row; the trophies read it).
+function gtStatsFor(gt,names){
+  const o={};
+  names.forEach((nm,i)=>{const s=gt.stats;o[nm]={cap:s.cap[i],hit:s.hit[i],trig:s.trig[i],tby:s.tby[i],oops:s.oops[i],sc:s.sc[i],dare:s.dare[i],blk:s.blk[i],rev:s.rev[i],dis:s.dis[i],set:s.set[i],dbl:s.dbl[i]};});
+  return o;
 }
 function botGauntletAct(p){
   const gt=G.gt;if(!gt||gt.over||G.gtSeq)return;
@@ -10923,6 +11039,13 @@ function gtRunSeq(gt,renderNow,done){
   const stages=()=>{
     if(G.gtInstant||!fx)return;
     const w=players[fx.seat-1];
+    if(fx.ev&&fx.ev.some(e=>e.k!=='end'))SFX.gtEvent();
+    if(fx.ev)fx.ev.forEach(e=>{
+      if(e.k==='end')return;
+      const ev=GT_EVENTS[e.n];
+      stageEmit('GT_EVENT',{text:e.k==='warn'?'EVENT IN 1 ROUND':ev.name.toUpperCase()+'!',icon:e.k==='warn'?'⚠️':ev.icon,tone:e.k==='warn'?'hot':'bad',sub:e.k==='warn'?ev.icon+' '+ev.name+': '+ev.txt:ev.txt+(e.n==='lockdown'?' ('+GT_SC[e.id].name+')':'')});
+    });
+    if(fx.storm)stageEmit('GT_EVENT',{who:players[fx.storm.seat-1],text:'STORM!',icon:'🌪️',tone:'bad',sub:`${nm(fx.storm.seat)} is thrown back 2 from the hazard`});
     if(fx.kind==='disarm'){const ti=GT_TRAP_INFO[fx.trap.type];stageEmit('GT_TRAP',{who:w,text:'DEFUSED!',icon:'🔧',tone:'cool',sub:`${nm(fx.seat)} defused ${nm(fx.trap.owner)}’s ${ti.name}`});return;}
     if(fx.trap){const ti=GT_TRAP_INFO[fx.trap.type];stageEmit('GT_TRAP',{who:players[fx.trap.seat-1],text:ti.name.toUpperCase()+'!',icon:ti.icon,tone:fx.trap.absorbed?'cool':'bad',sub:fx.trap.absorbed?`${nm(fx.trap.seat)}’s shield took it`:`${ti.txt} — ${fx.trap.owner===fx.trap.seat?'their own trap':nm(fx.trap.owner)+'’s trap'}`});}
     if(fx.kind==='dare'){const d=GT_DARE_TXT[fx.res]||GT_DARE_TXT.nothing;stageEmit('GT_DARE',{who:w,text:d[0],sub:d[1],tone:d[2]});}
@@ -10989,18 +11112,19 @@ function gtRunSeq(gt,renderNow,done){
   // what happens when a runner has arrived: a capture (thud, burst ring, shudder, the victim is flung home), a shield breaking, or nothing
   // a trap is revealed where the runner stopped: its icon pops up, a coloured burst, a sound
   const reveal=(tp,p,cont)=>{
-    SFX.gtTrap(tp.type);haptic([30,20,50]);
+    if(tp.type==='storm')SFX.gtEvent();else SFX.gtTrap(tp.type);
+    haptic([30,20,50]);
     burst(p,GT_TRAP_COL[tp.type],'1.6');
     const g=document.createElementNS('http://www.w3.org/2000/svg','text');
     g.setAttribute('x',p[0].toFixed(2));g.setAttribute('y',p[1].toFixed(2));g.setAttribute('text-anchor','middle');g.setAttribute('dominant-baseline','middle');
-    g.setAttribute('font-size','10');g.setAttribute('class','gt-reveal');g.textContent=GT_TRAP_INFO[tp.type].icon;
+    g.setAttribute('font-size','10');g.setAttribute('class','gt-reveal');g.textContent=tp.type==='storm'?'🌪️':GT_TRAP_INFO[tp.type].icon;
     svg.appendChild(g);setTimeout(()=>g.remove(),1000);
     after(cont,tp.absorbed?950:850);
   };
   const land=(mv,i,pts)=>{
     if(G.gtSeq!==seq)return;
     const p=pts[pts.length-1];
-    if(mv.trap){reveal(mv.trap,p,()=>land2(mv,i,pts));return;}
+    if(mv.trap||mv.storm){reveal(mv.trap||{type:'storm',absorbed:false},p,()=>land2(mv,i,pts));return;}
     land2(mv,i,pts);
   };
   const land2=(mv,i,pts)=>{
@@ -11123,7 +11247,7 @@ function gtScStatic(gt,s){
     <path d="${d}" fill="none" stroke="${L.g}" stroke-opacity=".55" stroke-width=".6" stroke-dasharray="1.1 2.1" stroke-linecap="round"/>`];
   for(let k=1;k<GT_SC_STEPS;k++){
     const[x,y]=gtScXY(gt,s.id,k),hz=GT_SC[s.id].hz===k;
-    out.push(`<g transform="translate(${x.toFixed(2)} ${y.toFixed(2)})"><rect x="-3.7" y="-3.7" width="7.4" height="7.4" rx="1.6" fill="url(#gttileL)" stroke="${hz?'#f4c93a':L.c}" stroke-width="${hz?1:.8}"/><rect x="-3.2" y="-3.2" width="6.4" height="2.5" rx="1" fill="#fff" opacity=".08"/>${hz?`<path d="M-2.6 2.6 L2.6 -2.6 M-2.6 .4 L.4 -2.6 M-.4 2.6 L2.6 -.4" stroke="#f4c93a" stroke-width=".8" stroke-linecap="round"/>`:''}${s.id===1?`<circle r="2.3" fill="none" stroke="rgba(230,195,106,.6)" stroke-width=".4"/><circle cx="-1.2" cy="-1.2" r=".33" fill="#e6c36a"/><circle cx="1.2" cy="-1.2" r=".33" fill="#e6c36a"/><circle cx="-1.2" cy="1.2" r=".33" fill="#e6c36a"/><circle cx="1.2" cy="1.2" r=".33" fill="#e6c36a"/>`:''}</g>`);
+    out.push(`<g transform="translate(${x.toFixed(2)} ${y.toFixed(2)})"><rect x="-3.7" y="-3.7" width="7.4" height="7.4" rx="1.6" fill="url(#gttileL)" stroke="${hz?'#f4c93a':L.c}" stroke-width="${hz?1:.8}"/><rect x="-3.2" y="-3.2" width="6.4" height="2.5" rx="1" fill="#fff" opacity=".08"/>${hz?`<path d="M-2.6 2.6 L2.6 -2.6 M-2.6 .4 L.4 -2.6 M-.4 2.6 L2.6 -.4" stroke="#f4c93a" stroke-width=".8" stroke-linecap="round"/>`:''}${gt.tcap.includes(100+s.id*10+k)?`<circle r="2.3" fill="none" stroke="rgba(230,195,106,.6)" stroke-width=".4"/><circle cx="-1.2" cy="-1.2" r=".33" fill="#e6c36a"/><circle cx="1.2" cy="-1.2" r=".33" fill="#e6c36a"/><circle cx="-1.2" cy="1.2" r=".33" fill="#e6c36a"/><circle cx="1.2" cy="1.2" r=".33" fill="#e6c36a"/>`:''}</g>`);
   }
   const[ex,ey]=gtPolar(gtAng(s.a),71.6),[ox,oy]=gtPolar(gtAng(s.b),71.6);
   out.push(`<circle cx="${ex.toFixed(2)}" cy="${ey.toFixed(2)}" r="3.5" fill="#12171c" stroke="${L.c}" stroke-width=".8"/><text x="${ex.toFixed(2)}" y="${(ey+.4).toFixed(2)}" text-anchor="middle" dominant-baseline="middle" font-size="4.1">${GT_SC[s.id].icon}</text>
@@ -11133,7 +11257,8 @@ function gtScStatic(gt,s){
 const GT_STATIC={};
 // Everything that never changes during a game: wood, brass, felt, tiles, lanes, pads, hub. Built once per player count.
 function gtStaticSVG(gt){
-  if(GT_STATIC[gt.P])return GT_STATIC[gt.P];
+  const ck=gt.P+':'+gt.haz.join(',')+':'+gt.tcap.length;
+  if(GT_STATIC[ck])return GT_STATIC[ck];
   const defs=[],body=[];
   for(let s=1;s<=gt.P;s++){
     const c=GT_COLORS[s-1];
@@ -11212,9 +11337,33 @@ function gtStaticSVG(gt){
     body.push(`<g transform="translate(${px.toFixed(2)} ${py.toFixed(2)}) rotate(${deg.toFixed(1)})"><rect x="-12.6" y="-5.7" width="25.2" height="11.4" rx="5.7" fill="rgba(0,0,0,.45)" stroke="url(#gtbez)" stroke-width=".9"/><rect x="-12.6" y="-5.7" width="25.2" height="11.4" rx="5.7" fill="none" stroke="${c}" stroke-opacity=".5" stroke-width=".35" transform="scale(.93 .9)"/>${[-7.2,0,7.2].map(dx=>`<circle cx="${dx}" cy="0" r="4.35" fill="url(#gtwell)" stroke="${c}" stroke-width=".8"/>`).join('')}</g>`);
   }
   body.push(`<circle cx="100" cy="100" r="86.5" fill="url(#gtsheen)" pointer-events="none"/><circle cx="100" cy="100" r="99.6" fill="url(#gtvig)" pointer-events="none"/>`);
-  return GT_STATIC[gt.P]={defs:defs.join(''),body:body.join('')};
+  return GT_STATIC[ck]={defs:defs.join(''),body:body.join('')};
 }
-const GT_TRAP_COL={shock:'#ffe14a',slip:'#7fe0ff',detour:'#d9d9d9',blast:'#ff8a3a',magnet:'#c58cff',decoy:'#ffffff'};
+// What a board event looks like on the board: rings round the hazards in a storm, a lock on a closed shortcut, a glowing gate,
+// gold rings on the risk spaces under Overcharge, a veil in a blackout, cracks where the board collapsed.
+function gtEventLayer(gt){
+  const out=[];
+  if(gt.storm>0)gt.haz.forEach(a=>{const[x,y]=gtPolar(gtAng(a),GT_R);out.push(`<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="5.6" fill="rgba(90,150,255,.14)" stroke="#7fb4ff" stroke-width=".8" class="gt-evring" pointer-events="none"/>`);});
+  if(gt.lock&&gt.lock.left>0){
+    const s=gt.sc[gt.lock.id],pts=[];for(let q=0;q<=40;q++)pts.push(gtScXY(gt,s.id,q/8));
+    const d='M'+pts.map(p=>p[0].toFixed(2)+' '+p[1].toFixed(2)).join(' L');
+    const[bx,by]=gtPolar(gtAng(s.a),71.6);
+    out.push(`<path d="${d}" fill="none" stroke="rgba(0,0,0,.6)" stroke-width="8.6" stroke-linecap="round" pointer-events="none"/><path d="${d}" fill="none" stroke="#c0392b" stroke-opacity=".5" stroke-width=".8" stroke-dasharray="1.4 1.4" pointer-events="none"/><g pointer-events="none"><circle cx="${bx.toFixed(2)}" cy="${by.toFixed(2)}" r="3.8" fill="#3b0f0a" stroke="#ff6a5a" stroke-width=".8"/><text x="${bx.toFixed(2)}" y="${(by+.4).toFixed(2)}" text-anchor="middle" dominant-baseline="middle" font-size="4.2">🔒</text></g>`);
+  }
+  if(gt.gate>0){const s=gt.sc[2],[bx,by]=gtPolar(gtAng(s.a),71.6);out.push(`<circle cx="${bx.toFixed(2)}" cy="${by.toFixed(2)}" r="5" fill="rgba(255,225,120,.2)" stroke="#ffe178" stroke-width=".9" class="gt-evring" pointer-events="none"/>`);}
+  if(gt.charge>0)gt.risk.forEach(a=>{const[x,y]=gtPolar(gtAng(a),GT_R);out.push(`<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="5.6" fill="rgba(255,225,74,.15)" stroke="#ffe14a" stroke-width=".9" class="gt-evring" pointer-events="none"/>`);});
+  (gt.collapsed||[]).forEach(a=>{const[x,y]=gtPolar(gtAng(a),GT_R);out.push(`<path d="M${(x-2.6).toFixed(2)} ${(y-1.2).toFixed(2)} l1.6 1.3 l-.8 1.2 l1.7 1.4 l.7 -1.5 l1.6 .9" fill="none" stroke="rgba(0,0,0,.75)" stroke-width=".55" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>`);});
+  if(gt.blackout>0)out.push(`<circle cx="100" cy="100" r="86.5" fill="rgba(0,0,12,.42)" pointer-events="none"/>`);
+  return out.join('');
+}
+// The banner above the board: a running event, or the warning one round before the next.
+function gtEventBannerHTML(gt){
+  if(gt.over)return'';
+  if(gt.ev){const e=GT_EVENTS[gt.ev.n],lock=gt.ev.n==='lockdown'?' — '+GT_SC[gt.ev.id].name+' is closed':'';return`<div class="gt-event on" role="status"><b>${e.icon} ${e.name}${lock}</b><span>${e.txt} · ${gt.ev.left} round${gt.ev.left!==1?'s':''} left</span></div>`;}
+  if(gt.evNext&&gt.evNext.w&&gt.round===gt.evNext.r-1){const e=GT_EVENTS[gt.evNext.n];return`<div class="gt-event warn" role="status"><b>⚠️ SYSTEM EVENT IN 1 ROUND</b><span>${e.icon} ${e.name}: ${e.txt}</span></div>`;}
+  return'';
+}
+const GT_TRAP_COL={storm:'#7fb4ff',shock:'#ffe14a',slip:'#7fe0ff',detour:'#d9d9d9',blast:'#ff8a3a',magnet:'#c58cff',decoy:'#ffffff'};
 function gtSlotXY(gt,slot){return slot>=100?gtScXY(gt,Math.floor((slot-100)/10),(slot-100)%10):gtPolar(gtAng(slot),GT_R);}
 // Everything about traps that is drawn on the board: what has been revealed (board memory), the tells everybody can see, and -- only
 // on a private screen -- the player's own armed traps, the spaces where one may be placed, and the spaces that may be defused.
@@ -11289,13 +11438,14 @@ function gtBoardSVG(gt,o){
   }).join('');
   const burst=fl?(()=>{const p=gtDrawXY(gt,fl.s,fl.r,seq);return`<circle cx="${p[0].toFixed(2)}" cy="${p[1].toFixed(2)}" r="3" fill="none" stroke="#fff" stroke-width="1.4" class="gt-burst"/>`;})():'';
   const st=gtStaticSVG(gt);
-  return`<svg viewBox="0 0 200 200" role="img" aria-label="The Gauntlet board: a ring of 48 spaces with three shortcuts, four risk spaces, six hazards and a final run for every player" xmlns="http://www.w3.org/2000/svg"><defs>${st.defs}</defs>${st.body}${gtTrapLayer(gt,o)}${ghosts}${runnersSVG}${burst}</svg>`;
+  return`<svg viewBox="0 0 200 200" role="img" aria-label="The Gauntlet board: a ring of 48 spaces with three shortcuts, four risk spaces, six hazards and a final run for every player" xmlns="http://www.w3.org/2000/svg"><defs>${st.defs}</defs>${st.body}${gtEventLayer(gt)}${gtTrapLayer(gt,o)}${ghosts}${runnersSVG}${burst}</svg>`;
 }
 // One readable line for an entry of gt.hist.
 function gtHistText(h,names){
   const nm=s=>esc((names&&names[s-1])||'Someone');
   if(h.k==='roll')return`🎲 ${nm(h.s)} rolled ${h.d[0]} + ${h.d[1]}${h.d[0]===h.d[1]?' — doubles!':''}`;
   if(h.k==='bank')return`🪙 ${nm(h.s)} banked a Risk Token`;
+  if(h.k==='ev'){const e=GT_EVENTS[h.n];return h.e==='warn'?`⚠️ ${e.name} in 1 round`:h.e==='start'?`${e.icon} ${e.name} begins${h.n==='lockdown'&&h.i!=null?' — '+GT_SC[h.i].name+' closed':''}`:`${e.icon} ${e.name} is over`;}
   if(h.k==='shield')return`🛡️ ${nm(h.s)} raised a shield`;
   if(h.k==='trapset')return`🪤 ${nm(h.s)} set a trap`;
   if(h.k==='recover')return`🪤 ${nm(h.s)} got a used trap back`;
@@ -11336,7 +11486,7 @@ function gtNeedsCover(){return!G.isOnline&&G.lp.filter(q=>!isBotPlayer(q)).lengt
 function gtSecretScreen(gt,players,sec,seat,p,seq){
   const mover=p,myTraps=gt.traps.filter(x=>x.o===seat&&x.st===0);
   const head=`<div class="game-bar">
-      <div class="gb-game">🏁 <span class="cr-gbn">The Gauntlet</span></div>
+      <div class="gb-game">🏁 <span class="cr-gbn">The Gauntlet${gt.mode&&gt.mode!=='classic'?' · '+GT_MODES[gt.mode].name:''}</span></div>
       <div class="gb-turn p${seat}">${avChar(mover.avatar)} ${esc(mover.name)}’s secret panel</div>
       <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
     </div>`;
@@ -11503,7 +11653,7 @@ function rGauntletTable(){
   const boardHTML=gtBoardSVG(gt,{seq,can,sel:null,ghosts,own:mySeat||0,disarm:disarming?disT:null});
   return`<div id="s-table" class="scr on game-gauntlet">
     <div class="game-bar">
-      <div class="gb-game">🏁 <span class="cr-gbn">The Gauntlet</span></div>
+      <div class="gb-game">🏁 <span class="cr-gbn">The Gauntlet${gt.mode&&gt.mode!=='classic'?' · '+GT_MODES[gt.mode].name:''}</span></div>
       <div class="gb-turn p${seq?seq.fx.seat:seat}${mine&&!gt.over&&!seq?' mine':''}">${turnTxt}</div>
       <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
     </div>
@@ -11514,6 +11664,7 @@ function rGauntletTable(){
         <div class="gt-board${seq?' live':''}" style="--pc:${GT_COLORS[(seq?seq.fx.seat:seat)-1]||GT_COLORS[0]}">${boardHTML}</div>
         <div class="gt-panel">
           <div class="y-hint">${prompt}</div>
+          ${gtEventBannerHTML(gt)}
           ${gtTrapStripHTML(gt)}
           ${diceHTML}
           ${controls}
@@ -19488,7 +19639,7 @@ function onSrv(state){
           if(state.winner===G.myPid){G.tw++;localStorage.setItem('ct_tw',G.tw);}
           addHistory({game:'gauntlet',winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),players:(state.players||[]).map(p=>p.name),mode:'online',
             moment:state.moment||`${state.winnerName} brought two runners home first.`,
-            stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions}});
+            stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions,gt:gtStatsFor(state.gt,(state.players||[]).map(p=>p.name)),gtMode:state.gt.mode}});
           _gtEndAt=Date.now()+2600;
           setTimeout(()=>{if(G.isOnline&&G.srv&&G.srv.gameId==='gauntlet'&&G.srv.winner){G.scr='matchend';render();}},2650);
         }
@@ -20350,6 +20501,7 @@ function rSetup(){
       ${guestToggleHTML()}
       ${game.id==='fourrow'?c4OptionsHTML():''}
       ${game.id==='chainreaction'?crOptionsHTML():''}
+      ${game.id==='gauntlet'?gtOptionsHTML():''}
       ${game.id==='mayhem'?mhOptionsHTML():''}
       ${game.id==='tension'?tnOptionsHTML():''}
       <button class="btn btn-gold btn-full" data-a="deal" style="padding:1rem;">${game.id==='yahtzee'?'🎲 Start Rolling':game.id==='roulette'?'🎡 Open the Table':game.id==='slots'?'🎰 Power Up the Machine':game.id==='drawit'?'🎨 Start Drawing':game.id==='liarsdice'?'🎲 Roll the Dice':game.id==='summit'?'🏔️ Start the Climb':game.id==='shutbox'?'📦 Open the Box':game.id==='tension'?'⚙️ Start the Machine':game.id==='mayhem'?'💥 Let it Rip':game.id==='hotbomb'?'💣 Light the Fuse':'🃏 Deal the Cards'}</button>
@@ -20492,7 +20644,7 @@ function oStartGame(rs){
         const players=rs.players.slice(0,6).map(p=>({...p,totalScore:0,c4Result:null,gtHome:0}));
         const first=rnd(1,players.length);
         const gs={phase:'game',gameId:'gauntlet',host:rs.host,hr:rs.hr||G.hr,players,curIdx:first-1,
-          gt:gtStart(gtNew(players.length),first),winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
+          gt:gtStart(gtNew(players.length,gtMode()),first),winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
         G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }
@@ -20649,6 +20801,7 @@ function rLobby(){
       ${game.id==='bingo'&&G.isHost?bgOptionsHTML():''}
       ${game.id==='fourrow'&&G.isHost?c4OptionsHTML():''}
       ${game.id==='chainreaction'&&G.isHost?crOptionsHTML():''}
+      ${game.id==='gauntlet'&&G.isHost?gtOptionsHTML():''}
       ${game.id==='mayhem'&&G.isHost?mhOptionsHTML():''}
       ${game.id==='tension'&&G.isHost?tnOptionsHTML():''}
       ${game.id==='skull'&&G.isHost?skOptionsHTML():''}
@@ -22317,6 +22470,14 @@ function matchMoment(sorted){
   if(winner&&(winner.roundsWon||0)>=3)return `${esc(winner?.name||'')} was unstoppable tonight.`;
   return `A great night at the table.`;
 }
+// A small table of what happened in a Gauntlet game, one row per player.
+function gtResultsHTML(){
+  const gt=G.isOnline?(G.srv&&G.srv.gt):G.gt,players=G.isOnline?(G.srv&&G.srv.players)||[]:G.lp;
+  if(!gt||!gt.stats)return'';
+  const s=gt.stats;
+  const rows=players.map((p,i)=>`<tr><td>${GT_SHAPES[i]} ${esc(p.name)}</td><td>${s.cap[i]}</td><td>${s.sc[i]}</td><td>${s.dare[i]}</td><td>${s.set[i]}</td><td>${s.tby[i]}</td></tr>`).join('');
+  return`<div class="panel gt-res"><div class="panel-lbl">THE GAUNTLET · ${esc(GT_MODES[gt.mode]?GT_MODES[gt.mode].name.toUpperCase():'')} · ${gt.round} ROUNDS</div><table><thead><tr><th></th><th title="Captures">💥</th><th title="Shortcuts taken">🛤️</th><th title="Dares">😈</th><th title="Traps set">🔒</th><th title="Runners caught by this player's traps">🪤</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
 function rMatchEnd(){
   const players=G.isOnline?(G.srv?.players||[]):G.lp;
   const isBattle=G.selGame==='battle';
@@ -22347,6 +22508,7 @@ function rMatchEnd(){
       <div class="winner-banner" style="--acc:${MOMENT_ACCENT[G.isOnline?G.srv?.gameId:G.selGame]||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${avChar(sorted[0]?.avatar)} ${c4Draw?'A draw!':esc(sorted[0]?.name||'')+' won!'}</div><button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div>
       ${statChips}
       <div class="panel" style="text-align:center;margin-bottom:.8rem;"><div class="panel-lbl">TABLE MOMENT</div><div style="font-family:var(--serif);font-size:1.1rem;color:var(--paper);margin:.2rem 0;">${matchMoment(sorted)}</div></div>
+      ${isGT?gtResultsHTML():''}
       <div class="standings">${rows}</div>
       ${resButtonsHTML()}
     </div>
@@ -23279,6 +23441,7 @@ document.addEventListener('click',e=>{
     const k=t.getAttribute('data-k');G.crArm=G.crArm===k?null:k;SFX.chip();render();
   }
   else if(a==='cr-mode'){crSetMode(t.getAttribute('data-m'));render();}
+  else if(a==='gt-mode'){gtSetMode(t.getAttribute('data-m'));render();}
   else if(a==='c4drop'){const c=+t.getAttribute('data-c');G.isOnline?oC4Drop(c):c4Play(c);}
   else if(a==='sk-place'){oSkPlace(t.getAttribute('data-k'));}
   else if(a==='sk-bidset'){const st=G.srv&&G.srv.sk;if(st){const tot=skPlacedTotal(G.srv),lo=(st.bid?st.bid.n:0)+1,cur=Math.max(lo,Math.min(tot,(G.skBid||lo)+(+t.getAttribute('data-d'))));G.skBid=Math.max(lo,Math.min(tot,cur));render();}}
