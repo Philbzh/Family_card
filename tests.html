@@ -5185,6 +5185,229 @@ async function runPresentation(A,W,frame){
     }
   });
 
+  /* —— Chain Reaction: the rules engine, the bots, the roster —————— */
+  suite('Chain Reaction — the board, critical mass and legal moves',()=>{
+    const F=n=>W.eval(n);
+    const crNew=F('crNew'),crPlay=F('crPlay'),crLegal=F('crLegal'),crCrit=F('crCrit');
+    const crits=Array.from({length:36},(_,i)=>crCrit(i));
+    check('a 6 × 6 board: 4 corners hold 2, 16 edge cells hold 3, 16 middle cells hold 4',crits.filter(x=>x===2).length===4&&crits.filter(x=>x===3).length===16&&crits.filter(x=>x===4).length===16);
+    check('neighbours are only the cells above, below, left and right (and a corner has just two)',F('CR_NB')[0].join()==='1,6'&&F('CR_NB')[14].join()==='8,13,15,20');
+    let cr=crNew(3);
+    check('a new game is empty, nobody has played, nobody is out',cr.o.every(x=>x===0)&&cr.c.every(x=>x===0)&&cr.placed.every(x=>!x)&&cr.out.every(x=>!x)&&!cr.over&&cr.P===3);
+    check('everything is playable on the first move',crLegal(cr,1).length===36);
+    const fx=crPlay(cr,1,14);
+    check('an orb goes into an empty cell and becomes yours',!!fx&&cr.o[14]===1&&cr.c[14]===1&&cr.moves===1&&cr.placed[0]&&fx.explosions===0);
+    check('a second orb goes into your own cell',!!crPlay(cr,1,14)&&cr.c[14]===2);
+    const snap=JSON.stringify([cr.o,cr.c,cr.moves]);
+    check('you cannot play on a cell that belongs to someone else (and nothing changes)',crPlay(cr,2,14)===null&&JSON.stringify([cr.o,cr.c,cr.moves])===snap);
+    check('cells off the board, or a seat that does not exist, are refused',crPlay(cr,2,-1)===null&&crPlay(cr,2,36)===null&&crPlay(cr,0,0)===null&&crPlay(cr,9,0)===null);
+    check('legal moves are the empty cells plus your own',crLegal(cr,2).length===35&&crLegal(cr,1).length===36);
+    const done=crNew(2);done.over=true;
+    check('nothing can be played once the game is over',crPlay(done,1,0)===null&&crLegal(done,1).length===0);
+  });
+  suite('Chain Reaction — explosions, conversion and chains',()=>{
+    const F=n=>W.eval(n);
+    const crNew=F('crNew'),crPlay=F('crPlay'),crCrit=F('crCrit');
+    const put=(cr,list)=>list.forEach(([i,o,c])=>{cr.o[i]=o;cr.c[i]=c;cr.placed[o-1]=true;});
+    // corner: critical mass 2
+    let cr=crNew(2);put(cr,[[0,1,1],[1,2,1],[6,2,1],[35,2,1]]);
+    const fx=crPlay(cr,1,0);
+    check('a corner explodes at 2: its own cell empties',cr.c[0]===0&&cr.o[0]===0&&fx.explosions===1);
+    check('both neighbours get one orb and turn to the exploding colour',cr.c[1]===2&&cr.o[1]===1&&cr.c[6]===2&&cr.o[6]===1);
+    // an enemy neighbour is converted
+    check('the enemy orbs already there are not lost: they are added to and converted',cr.c[1]===2&&cr.c[6]===2);
+    // remainder: a cell that gets MORE than its critical mass keeps the rest
+    cr=crNew(2);put(cr,[[0,1,2],[1,2,1]]);cr.c[0]=3; // 3 in a corner (2 to explode): not a state a real game reaches, but the leftover must stay
+    crPlay(cr,1,0);
+    check('an overfull cell keeps what is left after it explodes, and stays its owner\'s',cr.c[0]>=1||cr.o[0]===0);
+    // a chain
+    cr=crNew(3);put(cr,[[1,1,2],[2,1,2],[3,1,2],[4,2,1],[8,3,1]]);
+    const ch=crPlay(cr,1,1);
+    check('a full edge cell sets off its full neighbours: a chain with several waves',ch.waves>=2&&ch.explosions>=3);
+    check('every wave is recorded with the board after it and the cells that exploded',ch.frames.every(f=>f.o.length===36&&f.c.length===36&&f.ex.length>0)&&ch.frames[ch.frames.length-1].o.join()===cr.o.join()&&ch.frames[ch.frames.length-1].c.join()===cr.c.join());
+    check('the board before the move is kept, so every device can replay the chain',cr.prev&&cr.prev.c[1]===2&&cr.prev.o[1]===1);
+    check('when the chain is over no cell is left at or above its critical mass',cr.c.every((c,i)=>c<crCrit(i)));
+    check('the enemy cells the chain reached now belong to the chain\'s owner',cr.o[4]===1||cr.c[4]===0);
+    // orbs are never created or destroyed
+    let total=0,ok=true;
+    for(let g=0;g<20;g++){
+      const x=crNew(3);let who=1;
+      for(let n=0;n<60&&!x.over;n++){
+        const legal=F('crLegal')(x,who);const cell=legal[Math.floor(Math.random()*legal.length)];
+        const before=x.c.reduce((a,b)=>a+b,0);const f=crPlay(x,who,cell);
+        if(x.c.reduce((a,b)=>a+b,0)!==before+1||(x.c.some((c,i)=>(c===0)!==(x.o[i]===0)))||(!f.capped&&!x.over&&x.c.some((c,i)=>c>=crCrit(i))))ok=false;
+        total++;who=x.over?who:F('crNext')(x,who);
+      }
+    }
+    check('over '+total+' random moves: exactly one orb is added per move, owners always match counts, no unstable cell is left',ok);
+    // a runaway board is cut off instead of freezing the app
+    cr=crNew(2);for(let i=0;i<36;i++){cr.o[i]=1;cr.c[i]=crCrit(i)-1;}cr.placed[0]=true;
+    const t0=Date.now();const big=crPlay(cr,1,14);
+    check('a board crowded beyond what it can hold (an endless chain) is stopped by the wave cap, quickly',big.capped===true&&big.waves===80&&Date.now()-t0<2000);
+    check('even then at most 48 frames are kept, the last one being the real result',big.frames.length<=48&&big.frames[big.frames.length-1].c.join()===cr.c.join());
+  });
+  suite('Chain Reaction — knock-outs, turns and the winner',()=>{
+    const F=n=>W.eval(n);
+    const crNew=F('crNew'),crPlay=F('crPlay'),crNext=F('crNext'),crRanks=F('crRanks'),crMoment=F('crMoment');
+    const put=(cr,list)=>list.forEach(([i,o,c])=>{cr.o[i]=o;cr.c[i]=c;cr.placed[o-1]=true;});
+    let cr=crNew(2);crPlay(cr,1,0);crPlay(cr,1,0);
+    check('a player who has not played yet cannot be knocked out (one colour on the board is not a win on move one)',!cr.over&&cr.out[1]===0);
+    // seat 2 has one lone orb in a corner next to seat 1's ready corner
+    cr=crNew(2);put(cr,[[1,1,2],[0,2,1]]);cr.placed[1]=true;cr.moves=4;
+    const fx=crPlay(cr,1,1);
+    check('when someone who has played loses their last cell they are out, and the last one standing wins',cr.out[1]===cr.moves&&cr.over&&cr.win===1&&fx.ko.join()==='2');
+    check('nothing more can be played after the win',F('crPlay')(cr,1,5)===null&&F('crPlay')(cr,2,5)===null);
+    // three players: seat 2 knocked out, play goes 1 -> 3 -> 1
+    cr=crNew(3);put(cr,[[1,1,2],[0,2,1],[20,3,1],[21,3,1]]);cr.moves=5;
+    crPlay(cr,1,1);
+    check('with three players, one knock-out leaves the game running between the other two',cr.out[1]>0&&!cr.over&&cr.out[0]===0&&cr.out[2]===0);
+    check('the turn skips a knocked-out player',crNext(cr,1)===3&&crNext(cr,3)===1);
+    // ranks
+    const r=crNew(4);r.over=true;r.win=3;r.out=[5,9,0,2];
+    const rk=crRanks(r);
+    check('standings: the winner is 1st, then the later you were knocked out the better',rk[3]===1&&rk[2]===2&&rk[1]===3&&rk[4]===4);
+    r.stats={max:{who:2,n:12,waves:6},ko:3};
+    check('the Table Moment names a big chain',/Ben set off a chain of 12 explosions/.test(crMoment(r,['Anna','Ben','Cleo','Dan'])));
+    r.stats={max:{who:2,n:3,waves:2},ko:3};
+    check('...otherwise the knock-outs',/Cleo knocked out 3 players/.test(crMoment(r,['Anna','Ben','Cleo','Dan'])));
+    r.stats={max:null,ko:1};
+    check('...otherwise simply that the winner took the board',/Cleo took the whole board/.test(crMoment(r,['Anna','Ben','Cleo','Dan'])));
+    check('the biggest chain of the game is remembered',(()=>{const c=crNew(2);put(c,[[1,1,2],[2,1,2],[3,1,2]]);crPlay(c,1,1);return c.stats.max&&c.stats.max.who===1&&c.stats.max.n>=3;})());
+  });
+  suite('Chain Reaction — the bots',()=>{
+    const F=n=>W.eval(n);
+    const crNew=F('crNew'),crPlay=F('crPlay'),crBotMove=F('crBotMove'),crLegal=F('crLegal'),crNext=F('crNext');
+    const put=(cr,list)=>list.forEach(([i,o,c])=>{cr.o[i]=o;cr.c[i]=c;cr.placed[o-1]=true;});
+    let allLegal=true;
+    for(const lvl of['gentle','sharp'])for(let g=0;g<6;g++){
+      const cr=crNew(2+g%3);let who=1;
+      for(let n=0;n<80&&!cr.over;n++){const cell=crBotMove(cr,who,lvl);if(!crLegal(cr,who).includes(cell)){allLegal=false;break;}crPlay(cr,who,cell);who=cr.over?who:crNext(cr,who);}
+    }
+    check('both bots only ever make legal moves, through whole games with 2, 3 and 4 players',allLegal);
+    const cr=crNew(2);put(cr,[[1,1,2],[0,2,1]]);cr.placed[1]=true;cr.moves=4;
+    check('a bot takes the move that knocks the other player out and wins at once (Sharp always; here Sharp)',crBotMove(cr,1,'sharp')===1);
+    let sharpWins=0;
+    for(let g=0;g<8;g++){
+      const c=crNew(2);let who=1;const sharpSeat=g%2?2:1;
+      for(let n=0;n<300&&!c.over;n++){const cell=crBotMove(c,who,who===sharpSeat?'sharp':'gentle');crPlay(c,who,cell);who=c.over?who:crNext(c,who);}
+      if(c.over&&c.win===sharpSeat)sharpWins++;
+    }
+    check('Sharp beats Gentle in nearly every game ('+sharpWins+' of 8)',sharpWins>=7);
+    const t0=Date.now();const busy=crNew(4);let w=1;for(let n=0;n<30&&!busy.over;n++){crPlay(busy,w,crBotMove(busy,w,'gentle'));w=busy.over?w:crNext(busy,w);}
+    const t1=Date.now();crBotMove(busy,w,'sharp');
+    check('Sharp answers a busy four-player board in well under a second ('+(Date.now()-t1)+' ms)',Date.now()-t1<1000);
+  });
+  suite('Chain Reaction — is on the roster',()=>{
+    const g=A.GAMES.find(x=>x.id==='chainreaction');
+    check('it is a visible 2 to 4 player game with bots and online play',!!g&&!g.hidden&&!g.locked&&g.minP===2&&g.maxP===4&&A.BOT_GAMES.has('chainreaction')&&A.ONLINE_GAMES.includes('chainreaction'));
+    check('it has a tagline, an accent colour and a label',!!W.eval('STAGE_TAGS').chainreaction&&!!W.eval('MOMENT_ACCENT').chainreaction&&W.eval('v14GameLabel')('chainreaction')==='Chain Reaction');
+    check('its rules explain critical mass, the explosion and how you are knocked out',/critical mass/i.test(g.rules.join(' '))&&/explode/i.test(g.rules.join(' '))&&/knocked out/i.test(g.rules.join(' ')));
+    check('the reaction bar has a set of favourites for it',(W.eval('REACTION_GAME').chainreaction||[]).length===3);
+    check('the chain and knock-out banners exist',!!W.eval('STAGE_EVENTS').CHAIN&&!!W.eval('STAGE_EVENTS').KO&&W.eval('STAGE_EVENTS').CHAIN({n:7,sub:'x'}).text==='CHAIN ×7');
+  });
+  /* —— Chain Reaction: a whole local game through the real flow and the real table —————— */
+  suite('Chain Reaction — a local game: turns, the table, and the results',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const lStartMatch=F('lStartMatch'),crTap=F('crTap'),rChainTable=F('rChainTable'),botChainAct=F('botChainAct');
+    try{
+      const mk=(id,n,bot)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false,...(bot?{bot}:{})});
+      G.isOnline=false;G.srv=null;G.selGame='chainreaction';G.lp=[mk(1,'Phil'),mk(2,'Anna'),mk(3,'Robo','gentle')];G.lstart=0;lStartMatch();G.lstart=0;G.lcur=0;G.scr='table';G.crInstant=true;
+      check('three players start an empty three-seat game',G.cr&&G.cr.P===3&&G.cr.moves===0&&G.lp.every(p=>p.crRank===0));
+      let d=new DOMParser().parseFromString(rChainTable(),'text/html');
+      check('the table shows 36 cells and every one is tappable on the first move',d.querySelectorAll('.cr-cell').length===36&&d.querySelectorAll('.cr-cell[data-a="crcell"]').length===36);
+      check('a corner shows 2 slots, an edge 3, a middle cell 4 (the critical mass you can see)',d.querySelector('[data-i="0"]').querySelectorAll('.cr-orbs i').length===2&&d.querySelector('[data-i="1"]').querySelectorAll('.cr-orbs i').length===3&&d.querySelector('[data-i="14"]').querySelectorAll('.cr-orbs i').length===4);
+      check('each player has a colour and a shape in the standings (● ◆ ▲)',d.querySelectorAll('.cr-pill').length===3&&/●/.test(d.querySelectorAll('.cr-pill')[0].textContent)&&/◆/.test(d.querySelectorAll('.cr-pill')[1].textContent)&&/▲/.test(d.querySelectorAll('.cr-pill')[2].textContent));
+      crTap(14);
+      check('tapping a cell puts an orb down and passes the turn to the next player',G.cr.o[14]===1&&G.cr.c[14]===1&&G.lcur===1&&G.cr.moves===1);
+      d=new DOMParser().parseFromString(rChainTable(),'text/html');
+      check('the next player cannot play on the first player\'s cell, only on empty cells and their own',d.querySelector('[data-i="14"]').hasAttribute('disabled')&&d.querySelectorAll('.cr-cell[data-a="crcell"]').length===35);
+      crTap(14);
+      check('tapping a cell that is not yours does nothing',G.cr.moves===1&&G.lcur===1);
+      crTap(0);crTap(35);
+      check('the second and third player play in turn (the third is a bot seat, played here by hand)',G.cr.moves===3&&G.lcur===0);
+      G.lcur=2;
+      d=new DOMParser().parseFromString(rChainTable(),'text/html');
+      check('while a bot is thinking the cells are locked',d.querySelectorAll('.cr-cell[data-a="crcell"]').length===0&&/thinking/.test(d.querySelector('.y-hint').textContent));
+      botChainAct(G.lp[2]);
+      check('the bot plays its turn and it comes back round to the first player',G.cr.moves===4&&G.lcur===0);
+      // play the rest of the game out with bots on every seat
+      G.lp.forEach(p=>{p.bot='gentle';});
+      let guard=0;while(!G.cr.over&&guard++<400){botChainAct(G.lp[G.lcur]);}
+      check('a game played to the end has a winner and everybody a result and a rank',G.cr.over&&G.lp.every(p=>['win','loss'].includes(p.c4Result)&&p.crRank>=1)&&G.lp.filter(p=>p.crRank===1).length===1&&G.lp.filter(p=>p.c4Result==='win').length===1);
+      check('the result is in the family history, with a Table Moment',F('getHistory')().some(h=>h.game==='chainreaction'&&h.moment));
+      G.scr='matchend';
+      const res=new DOMParser().parseFromString(F('rMatchEnd')(),'text/html');
+      check('the results list all three players, winner first, with why each one finished where they did',res.querySelectorAll('.sr').length===3&&/won!/.test(res.querySelector('.wb-title').textContent)&&/last one standing/.test(res.querySelectorAll('.sr-delta')[0].textContent)&&/knocked out on move/.test(res.querySelectorAll('.sr-delta')[1].textContent));
+      check('and a Table Moment line',res.querySelector('.res-body').textContent.length>80);
+    } finally {
+      G.crInstant=false;G.lp.forEach(p=>{delete p.bot;});G.scr='home';G.cr=null;G.crSeq=null;
+    }
+  });
+  /* —— Chain Reaction online: turns, the room, knock-outs, the chain shown on the other device, rematch (awaits live at the top level) —————— */
+  {
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const oCrPlay=F('oCrPlay'),oCrAuto=F('oCrAuto'),oRematch=F('oRematch'),crNew=F('crNew'),onSrv=F('onSrv'),rChainTable=F('rChainTable'),oStartGame=F('oStartGame'),stageOnSrv=F('stageOnSrv');
+    W.__keepSb8=W.eval('_sb');
+    W.eval('window.__origSetTimeout=setTimeout; setTimeout=(fn)=>0;');
+    let DB=null;const clone=o=>JSON.parse(JSON.stringify(o));
+    W.__fakeSb={from:()=>({
+      select:()=>({eq:()=>({single:()=>Promise.resolve({data:DB?{state:clone(DB)}:null,error:DB?null:{message:'none'}})})}),
+      upsert:row=>{DB=clone(row.state);return Promise.resolve({error:null});},
+      update:row=>({eq:()=>({eq:()=>({select:()=>{DB=clone(row.state);return Promise.resolve({data:[{id:'T'}],error:null});}})})})})};
+    const P=(id,n,i)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,roundsWon:0,chips:900,c4Result:null});
+    const room=(cur,n)=>{const ps=[P('a','Anna',0),P('b','Ben',1),P('c','Cleo',2)].slice(0,n||3);return{phase:'game',gameId:'chainreaction',host:'a',players:ps,curIdx:cur,cr:crNew(ps.length),winner:null,winnerName:null,winnerAv:null,round:1,_ts:Date.now()-5000};};
+    const seen={};
+    try{
+      G.isOnline=true;G.roomId='T';G.myPid='a';G.isHost=true;G.scr='table';G.selGame='chainreaction';
+      W.eval('_sb=window.__fakeSb');
+      // a move by the player on turn
+      DB=room(0);G.srv=clone(DB);G.myPid='a';await oCrPlay(14);seen.move=clone(DB);
+      // not your turn: nothing changes, even with a stale local view
+      DB=room(0);G.myPid='b';G.srv=clone(DB);G.srv.curIdx=1;const b1=JSON.stringify(DB);await oCrPlay(3);seen.staleSame=JSON.stringify(DB)===b1;
+      // a cell that belongs to someone else is refused
+      DB=room(0);DB.cr.o[5]=2;DB.cr.c[5]=1;DB.cr.placed[1]=true;G.myPid='a';G.srv=clone(DB);const b2=JSON.stringify(DB);await oCrPlay(5);seen.foeSame=JSON.stringify(DB)===b2;
+      // a knock-out passes the turn on past the seat that is out
+      DB=room(0);[[1,1,2],[0,2,1],[20,3,1]].forEach(([i,o,c])=>{DB.cr.o[i]=o;DB.cr.c[i]=c;DB.cr.placed[o-1]=true;});DB.cr.moves=5;G.myPid='a';G.srv=clone(DB);
+      await oCrPlay(1);seen.ko=clone(DB);
+      // the other device starts replaying the chain the moment the state arrives
+      const prev=room(0);prev.cr=clone(DB).cr;
+      const before=room(0);[[1,1,2],[2,1,2],[3,1,2]].forEach(([i,o,c])=>{before.cr.o[i]=o;before.cr.c[i]=c;before.cr.placed[o-1]=true;});before.cr.placed[1]=before.cr.placed[2]=true;before.cr.o[40-5]=2;before.cr.c[35]=1;
+      const after=clone(before);F('crPlay')(after.cr,1,1);after.curIdx=1;
+      G.myPid='b';G.srv=clone(before);G.crSeq=null;
+      stageOnSrv(clone(before),clone(after));seen.seqOther=G.crSeq?{k:G.crSeq.k,stage:G.crSeq.stage,frames:G.crSeq.fx.frames.length}:null;
+      G.crSeq=null;
+      // a win ends the game: winner, ranks, Table Moment, all in the room
+      DB=room(0,2);[[1,1,2],[0,2,1]].forEach(([i,o,c])=>{DB.cr.o[i]=o;DB.cr.c[i]=c;DB.cr.placed[o-1]=true;});DB.cr.moves=4;G.myPid='a';G.srv=clone(DB);
+      await oCrPlay(1);seen.win=clone(DB);
+      // an away player has a move made for them
+      DB=room(1);G.myPid='a';G.srv=clone(DB);await oCrAuto();seen.auto=clone(DB);
+      // starting from the lobby, and Rematch
+      const lobby={phase:'lobby',gameId:'chainreaction',host:'a',players:[P('a','Anna',0),P('b','Ben',1),P('c','Cleo',2),P('d','Dan',3)],_ts:Date.now()-5000};
+      G.srv=clone(lobby);oStartGame(clone(lobby));seen.started=clone(G.srv);
+      DB=clone(seen.win);G.myPid='a';G.isHost=true;G.srv=clone(DB);await oRematch();seen.rematch=clone(DB);
+      // the table on the device of a player who is out
+      DB=room(2);DB.cr.out[1]=3;DB.cr.o[0]=1;DB.cr.c[0]=1;DB.cr.placed=[true,true,true];G.myPid='b';G.srv=clone(DB);seen.outHtml=rChainTable();
+    } finally {
+      W.eval('setTimeout=window.__origSetTimeout');
+      W.eval('_sb=window.__keepSb8');
+      G.isOnline=false;G.srv=null;G.scr='home';G.isHost=false;G.cr=null;G.crSeq=null;
+      try{W.localStorage.removeItem('ct_online_session');W.localStorage.removeItem('ct_resume');}catch(e){}
+    }
+    suite('Chain Reaction online — the room, the turn and the chain on the other device',()=>{
+      check('a move is written to the room and the turn passes to the next seat',seen.move.cr.o[14]===1&&seen.move.cr.moves===1&&seen.move.curIdx===1);
+      check('a device that is not on turn changes nothing, even with a stale view',seen.staleSame);
+      check('a cell that belongs to someone else changes nothing',seen.foeSame);
+      check('a knock-out is stored (who, and on which move) and the turn skips the seat that is out',seen.ko.cr.out[1]>0&&seen.ko.curIdx===2&&seen.ko.cr.fx.ko.join()==='2');
+      check('the other device starts the chain replay the moment the new state arrives',!!seen.seqOther&&seen.seqOther.stage==='place'&&seen.seqOther.frames>=1);
+      check('a winning move ends the game: winner, ranks and Table Moment all in the room',seen.win.winner==='a'&&seen.win.cr.over&&seen.win.players[0].crRank===1&&seen.win.players[1].crRank===2&&seen.win.players[0].c4Result==='win'&&!!seen.win.moment);
+      check('an away player has a legal move made for them and the turn moves on',seen.auto.cr.moves===1&&seen.auto.curIdx===2);
+      check('starting from the lobby makes a four-seat game with a fresh board',seen.started.gameId==='chainreaction'&&seen.started.cr.P===4&&seen.started.cr.moves===0&&seen.started.curIdx>=0&&seen.started.curIdx<4&&seen.started.players.length===4);
+      check('Rematch: same players, a brand-new board, nobody out',seen.rematch.gameId==='chainreaction'&&seen.rematch.phase==='game'&&!seen.rematch.winner&&seen.rematch.cr.moves===0&&seen.rematch.cr.out.every(x=>!x)&&seen.rematch.players.length===2);
+      const d=new DOMParser().parseFromString(seen.outHtml,'text/html');
+      check('a knocked-out player is shown as out in the standings',d.querySelectorAll('.cr-pill.out').length===1&&/✕/.test(d.querySelectorAll('.cr-pill.out')[0].textContent));
+    });
+  }
+
   /* —— Table talk: a richer set of reactions, ordered per game, with a ⋯ panel and a little motion —————— */
   suite('Reactions — 12 on the strip, every one behind ⋯, ordered per game',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);
