@@ -6850,7 +6850,7 @@ async function runPresentation(A,W,frame){
       const sq=G.ab.board.sq,cnt=t=>Object.values(sq).filter(x=>x.t===t).length;
       check('the table shows the board (100 squares), 3 tokens, 3 standings and a Roll button for the player on turn',d.querySelectorAll('.ab-board svg g > rect[rx="2.4"]').length===100&&d.querySelectorAll('.ab-tok').length===3&&d.querySelectorAll('.cr-pill').length===3&&!!d.querySelector('[data-a="abroll"]'));
       check('every ladder, black hole, wormhole end and star is drawn, and the pits come with their dashed fall line',d.querySelectorAll('svg circle[r="2.1"]').length===cnt('ladder')&&d.querySelectorAll('.ab-swirl').length===cnt('hole')+cnt('worm')&&d.querySelectorAll('.ab-star').length===cnt('star')&&d.querySelectorAll('svg path[stroke-dasharray="1.6 1.4"]').length===cnt('pit'));
-      check('a legend explains the squares, and the animation setting is there',d.querySelectorAll('.gt-legend li').length===8&&/Black hole/.test(d.querySelector('.gt-legend').textContent)&&/Animations/.test(d.querySelector('.gt-animbtn').textContent));
+      check('a legend explains the squares, and the animation setting is there',d.querySelectorAll('.gt-legend li').length===9&&/Black hole/.test(d.querySelector('.gt-legend').textContent)&&[...d.querySelectorAll('.gt-animbtn')].some(b=>/Animations/.test(b.textContent)));
       check('the player on turn has a glow',d.querySelectorAll('.ab-tok.turn').length===1&&d.querySelector('.ab-tok.turn').classList.contains('p1'));
       const tap=(a)=>{const b=W.document.createElement('button');b.setAttribute('data-a',a);W.document.body.appendChild(b);b.click();b.remove();};
       tap('abroll');
@@ -7113,6 +7113,96 @@ async function runPresentation(A,W,frame){
       check('a device that is not on turn cannot play a trick, and an illegal one changes nothing',seen.notMine&&seen.illegal);
     });
   }
+
+  /* —— The Abyss: easier to read —————— */
+  suite('The Abyss — where could I land, and what is tied to what',()=>{
+    const F=n=>W.eval(n);
+    const abNew=F('abNew'),abStart=F('abStart'),abReach=F('abReach'),abRelated=F('abRelated');
+    const mk=(sq,pos)=>{const g=abStart(abNew(3,5),1);g.board={sq};g.pos=pos.slice();g.off={};return g;};
+    let g=mk({},[20,0,0]);
+    let r=abReach(g,1);
+    check('from square 20 a roll can land on 22 … 32; the chances add up to 1 and 7 → 27 is the likeliest (6 of 36)',r[0].n===22&&r[r.length-1].n===32&&Math.abs(r.reduce((a,e)=>a+e.p,0)-1)<1e-9&&Math.abs(r.find(e=>e.n===27).p-6/36)<1e-9&&Math.abs(r[0].p-1/36)<1e-9);
+    check('on square 99 every roll reaches 100 or goes past it: one "win" square',(()=>{const x=mk({},[99,0,0]);const e=abReach(x,1);const w=e.find(q=>q.n===100);return w.k==='win'&&Math.abs(w.p-1)<1e-9&&e.length===1;})());
+    g=mk({24:{t:'ladder',to:40},25:{t:'pit',to:12},26:{t:'hole',to:0},27:{t:'star'},28:{t:'worm',to:60,pair:0},60:{t:'worm',to:28,pair:0},29:{t:'worm',to:5,pair:1},5:{t:'worm',to:29,pair:1}},[20,0,0]);
+    r=abReach(g,1);const by=n=>r.find(e=>e.n===n);
+    check('a ladder or a star is good, a pit or a black hole is bad (and says where you would end up)',by(24).k==='good'&&by(24).to===40&&by(27).k==='good'&&by(25).k==='bad'&&by(25).to===12&&by(26).k==='bad'&&by(26).to===0);
+    check('a wormhole is a portal: good when it throws you ahead, bad when it throws you back',by(28).portal&&by(28).k==='good'&&by(28).to===60&&by(29).portal&&by(29).k==='bad');
+    check('a cut ladder or a plugged hole is a dud, and a square with a rival on it is a bump',(()=>{const x=mk({24:{t:'ladder',to:40}},[20,30,0]);x.off[24]=2;const q=abReach(x,1);return q.find(e=>e.n===24).k==='dud'&&q.find(e=>e.n===30).k==='bump'&&q.find(e=>e.n===22).k==='plain';})());
+    g=mk({10:{t:'ladder',to:30},40:{t:'pit',to:25},50:{t:'worm',to:70,pair:0},70:{t:'worm',to:50,pair:0},60:{t:'hole',to:0}},[0,0,0]);
+    check('squares tied together: a ladder\'s foot and top, a pit and where it lands, both ends of a wormhole; plain squares are tied to nothing',JSON.stringify(abRelated(g,10))==='[[10,30,"ladder"]]'&&JSON.stringify(abRelated(g,30))==='[[10,30,"ladder"]]'&&JSON.stringify(abRelated(g,40))==='[[40,25,"pit"]]'&&JSON.stringify(abRelated(g,25))==='[[40,25,"pit"]]'&&JSON.stringify(abRelated(g,70))==='[[70,50,"worm"]]'&&abRelated(g,60).length===0&&abRelated(g,3).length===0);
+  });
+  suite('The Abyss — the board is easier to read',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const abNew=F('abNew'),abStart=F('abStart');
+    const human=(id,n,i,bot)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,...(bot?{bot}:{})});
+    const doc=()=>new DOMParser().parseFromString(F('rAbyssTable')(),'text/html');
+    const tap=(a,attrs)=>{const b=W.document.createElement('button');b.setAttribute('data-a',a);Object.entries(attrs||{}).forEach(([k,v])=>b.setAttribute(k,v));W.document.body.appendChild(b);b.click();b.remove();};
+    const keepReach=W.localStorage.getItem('ct_ab_reach');
+    try{
+      W.localStorage.removeItem('ct_ab_reach');
+      G.isOnline=false;G.srv=null;G.selGame='abyss';G.abSeq=null;G.abInstant=true;G.abPick=null;G.abInfo=null;
+      G.lp=[human(1,'Phil',0),human(2,'Anna',1,'gentle'),human(3,'Robo',2,'gentle')];
+      const ab=G.ab=abStart(abNew(3,5),1);G.lcur=0;G.scr='table';
+      ab.board.sq={10:{t:'ladder',to:30},20:{t:'pit',to:8},50:{t:'hole',to:0},40:{t:'worm',to:70,pair:0},70:{t:'worm',to:40,pair:0},15:{t:'star'}};
+      ab.pos=[12,30,0];ab.tricks=[[],[],[]];
+      F('abStaticSVG');Object.keys(F('AB_STATIC')).forEach(k=>delete F('AB_STATIC')[k]);
+      let d=doc();
+      // 1: squares that do something look different
+      const tinted=d.querySelectorAll('svg g > rect[rx="2.5"]').length;
+      check('every special square has its own tint, and so do the other end of each ladder and pit: 6 specials + 1 ladder top + 1 pit end = 8',tinted===8);
+      check('the ladder top and the pit landing carry a small marker (🔝 and 📍), the foot an arrow',[...d.querySelectorAll('svg g > text')].some(t=>t.textContent==='🔝')&&[...d.querySelectorAll('svg g > text')].some(t=>t.textContent==='📍')&&[...d.querySelectorAll('svg g > text')].some(t=>t.textContent==='⬆'));
+      const html=F('rAbyssTable')();
+      check('the 100 numbers are drawn on top of the ladders and the icons, larger and with a dark outline',(html.match(/font-size="4\.6"/g)||[]).length===100&&html.indexOf('font-size="4.6"')>html.indexOf('stroke="#7fe6ff" stroke-width="1.5"')&&/paint-order="stroke"/.test(html));
+      // 2: where am I
+      check('the player on turn has a name tag over the token with the square (or "start"), and a pulsing frame round the square',[...d.querySelectorAll('svg text')].some(t=>/^Phil · 12$/.test(t.textContent))&&d.querySelectorAll('svg rect.gt-halo').length===1);
+      check('the prompt says where you are',/you are on square 12/.test(d.querySelector('.y-hint').textContent));
+      check('tokens never get in the way of a tap',[...d.querySelectorAll('.ab-tok')].every(g=>g.getAttribute('pointer-events')==='none'));
+      // 3: the reach map
+      const dots=d.querySelectorAll('svg circle[r="1.15"]').length;
+      check('on your turn the squares you could land on (14 … 24) show dots for how likely they are, and the interesting ones a coloured edge',dots>=11&&d.querySelectorAll('svg rect[stroke="#5be37d"][fill="none"]').length>=1);
+      check('the pit on 20 gets a red edge, the star on 15 a green one',d.querySelectorAll('svg rect[stroke="#ff5e55"][fill="none"]').length>=1);
+      tap('ab-reach');
+      check('the reach map can be switched off (and the choice is remembered)',doc().querySelectorAll('svg circle[r="1.15"]').length===0&&W.localStorage.getItem('ct_ab_reach')==='off'&&/Where I could land: Off/.test(doc().body.textContent));
+      tap('ab-reach');
+      check('...and on again',doc().querySelectorAll('svg circle[r="1.15"]').length>=11);
+      ab.cur=2;G.lcur=1;
+      check('when it is a bot\'s turn the reach map is not shown',doc().querySelectorAll('svg circle[r="1.15"]').length===0);
+      ab.cur=1;G.lcur=0;
+      // 5: tap a square
+      check('every square can be tapped (100 invisible tap targets)',d.querySelectorAll('svg rect[data-a="abcell"]').length===100);
+      tap('abcell',{'data-n':'10'});
+      d=doc();
+      check('tapping a ladder foot opens a card: what it is, where it leads and how likely you are to land there',/Square 10/.test(d.querySelector('.ab-info').textContent)&&/climb from 10 up to 30 \(\+20\)/.test(d.querySelector('.ab-info').textContent));
+      check('the board marks the square and draws a line to the other end (squares 10 and 30 framed in white)',d.querySelectorAll('svg line[stroke="#fff"][stroke-dasharray="3 2"]').length===1&&d.querySelectorAll('svg rect[stroke="#fff"]').length>=3);
+      tap('abcell',{'data-n':'20'});
+      check('a pit says where you fall to, with the chance to land there',/fall from 20 down to 8 \(−12\)/.test(doc().querySelector('.ab-info').textContent)&&/chance to land here next turn: about 14%/.test(doc().querySelector('.ab-info').textContent));
+      tap('abcell',{'data-n':'50'});
+      check('a black hole says what it does',/swallowed — back to the very start/.test(doc().querySelector('.ab-info').textContent));
+      tap('abcell',{'data-n':'40'});
+      check('a wormhole says where it leads and how far',/come out on 70, 30 squares ahead/.test(doc().querySelector('.ab-info').textContent));
+      tap('abcell',{'data-n':'15'});
+      check('a star promises a roll and a trick',/roll again/.test(doc().querySelector('.ab-info').textContent));
+      tap('abcell',{'data-n':'30'});
+      check('the top of a ladder is explained too, and who stands there',/top of the ladder from 10/.test(doc().querySelector('.ab-info').textContent)&&/Standing here: Anna/.test(doc().querySelector('.ab-info').textContent));
+      tap('abcell',{'data-n':'8'});
+      check('so is the landing of a pit',/the pit from 20/.test(doc().querySelector('.ab-info').textContent));
+      tap('abcell',{'data-n':'3'});
+      check('a plain square says there is nothing special',/Nothing special/.test(doc().querySelector('.ab-info').textContent));
+      tap('abcell',{'data-n':'3'});
+      check('tapping the same square again closes the card',!doc().querySelector('.ab-info'));
+      tap('abcell',{'data-n':'100'});
+      check('square 100 is the top',/The top!/.test(doc().querySelector('.ab-info').textContent));
+      ab.off[10]=2;tap('abcell',{'data-n':'10'});
+      check('a cut ladder says so, and until when',/cut — out of order until Anna’s next turn/.test(doc().querySelector('.ab-info').textContent));
+      ab.off={};
+      tap('abroll');
+      check('rolling closes the card',!G.abInfo);
+      check('the legend explains the tap and the dots',/Tap any square/.test(doc().querySelector('.gt-legend').textContent));
+    } finally {
+      if(keepReach==null)W.localStorage.removeItem('ct_ab_reach');else W.localStorage.setItem('ct_ab_reach',keepReach);
+      G.abInstant=false;G.ab=null;G.abSeq=null;G.abPick=null;G.abInfo=null;G.lp=[];G.scr='home';
+    }
+  });
 
   /* —— Table talk: a richer set of reactions, ordered per game, with a ⋯ panel and a little motion —————— */
   suite('Reactions — 12 on the strip, every one behind ⋯, ordered per game',()=>{

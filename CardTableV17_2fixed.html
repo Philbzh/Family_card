@@ -1753,6 +1753,9 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 @keyframes gt-pull{from{transform:scale(1.5);opacity:0;}40%{opacity:1;}to{transform:scale(.7);opacity:0;}}
 .gt-dl{font-size:1.6rem;}
 /* The Abyss */
+.ab-info{position:relative;width:100%;max-width:26rem;display:flex;flex-direction:column;gap:.15rem;padding:.5rem 2rem .5rem .8rem;border-radius:12px;background:rgba(20,26,70,.75);border:1px solid rgba(143,155,255,.5);font-size:.74rem;color:var(--paper3);text-align:left;}
+.ab-info b{color:var(--paper);font-size:.82rem;}
+.ab-info-x{position:absolute;top:.3rem;right:.4rem;border:0;background:transparent;color:var(--paper3);font-size:.9rem;cursor:pointer;}
 .ab-pt{font-style:normal;margin-left:.1rem;font-size:.85em;}
 .ab-tricks{width:100%;max-width:26rem;display:flex;flex-direction:column;gap:.35rem;align-items:center;font-size:.72rem;color:var(--paper3);}
 .ab-tricks>div{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;}
@@ -1778,6 +1781,7 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 .lg-ab-hole{background:radial-gradient(circle,#000 40%,#5b2aa8 100%);border-color:#b98af0;}
 .lg-ab-worm{background:rgba(185,138,240,.18);border-color:#b98af0;}
 .lg-ab-star{background:rgba(255,225,74,.14);border-color:#ffe14a;}
+.lg-ab-tap{background:rgba(255,255,255,.08);border-color:#fff;}
 .lg-ab-trick{background:rgba(255,255,255,.08);border-color:#ffb347;}
 .lg-ab-bump{background:rgba(255,255,255,.1);border-color:#fff;}
 .lg-ab-dbl{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.5);font-size:.6rem;}
@@ -12271,6 +12275,37 @@ function abRoll(ab,seat,d1,d2){
   ab.fx=fx;
   return fx;
 }
+// Where could `seat` land with its next roll (two dice, 2..12)? [{n:square it lands on, p:chance 0..1, k:'win'|'good'|'bad'|'bump'|'dud'|'plain', to:where it ends up, portal}]
+function abReach(ab,seat){
+  const from=ab.pos[seat-1],out={};
+  for(let a=1;a<=6;a++)for(let b=1;b<=6;b++){
+    const L=Math.min(AB_N,from+a+b);
+    const e=out[L]||(out[L]={n:L,p:0,k:'plain',to:L,portal:false});
+    e.p+=1/36;
+  }
+  Object.values(out).forEach(e=>{
+    const L=e.n;
+    if(L>=AB_N){e.k='win';return;}
+    const s=ab.board.sq[L];
+    if(s&&ab.off[L]&&(s.t==='ladder'||s.t==='hole')){e.k='dud';return;}
+    if(s){
+      if(s.t==='ladder'){e.k='good';e.to=s.to;}
+      else if(s.t==='star'){e.k='good';}
+      else if(s.t==='pit'){e.k='bad';e.to=s.to;}
+      else if(s.t==='hole'){e.k='bad';e.to=0;}
+      else if(s.t==='worm'){e.to=s.to;e.k=s.to>L?'good':'bad';e.portal=true;}
+    }
+    if(e.k==='plain'&&ab.pos.some((p,i)=>i!==seat-1&&p===L))e.k='bump';
+  });
+  return Object.values(out).sort((a,b)=>a.n-b.n);
+}
+// The squares a given square is tied to (the other end of a ladder, pit or wormhole).
+function abRelated(ab,n){
+  const sq=ab.board.sq,s=sq[n];
+  if(s&&(s.t==='ladder'||s.t==='pit'||s.t==='worm'))return[[n,s.to,s.t]];
+  const from=Object.keys(sq).map(Number).find(k=>sq[k].to===n&&(sq[k].t==='ladder'||sq[k].t==='pit'));
+  return from?[[from,n,sq[from].t]]:[];
+}
 // Which seats (or squares) can this trick be played on right now?
 function abTrickTargets(ab,seat,trick){
   const out=[];
@@ -12378,10 +12413,21 @@ function abStaticSVG(ab){
     <radialGradient id="abfin" cx=".5" cy=".5" r=".6"><stop offset="0" stop-color="#ffe9a0"/><stop offset="1" stop-color="#b8861c"/></radialGradient>`);
   body.push(`<rect x="0" y="0" width="200" height="${AB_VH}" rx="6" fill="url(#abbg)"/>`);
   for(let k=0;k<46;k++){const x=(k*53+17)%197+1.5,y=(k*91+29)%228+1.5,r=.35+((k*7)%5)*.12;body.push(`<circle cx="${x}" cy="${y}" r="${r.toFixed(2)}" fill="#fff" opacity="${(.15+((k*11)%6)*.07).toFixed(2)}"/>`);}
+  // every square that does something has its own colour, and the ends of ladders and pits are marked too
+  const sq0=ab.board.sq,tint={},badge={},nums=[];
+  Object.keys(sq0).forEach(k=>{
+    const n=+k,s=sq0[k];
+    if(s.t==='ladder'){tint[n]=['#3ddc84',.3];badge[n]='⬆';if(!tint[s.to]){tint[s.to]=['#5aa9ff',.26];badge[s.to]='🔝';}}
+    else if(s.t==='pit'){tint[n]=['#ff5a4e',.32];if(!tint[s.to]){tint[s.to]=['#ff8a5e',.16];badge[s.to]='📍';}}
+    else if(s.t==='hole')tint[n]=['#8f5ae0',.36];
+    else if(s.t==='worm')tint[n]=[s.pair===0?'#b98af0':'#ff9a3c',.32];
+    else if(s.t==='star')tint[n]=['#ffd84a',.28];
+  });
   for(let n=1;n<=AB_N;n++){
     const[x,y]=abCell(n),i=n-1,row=Math.floor(i/10),odd=(row+i%10)%2;
-    const fin=n===AB_N;
-    body.push(`<g transform="translate(${x} ${y})"><rect x="-9.4" y="-9.4" width="18.8" height="18.8" rx="2.4" fill="${fin?'url(#abfin)':odd?'url(#abc1)':'url(#abc0)'}" stroke="${fin?'#ffe9a0':'rgba(150,170,255,.22)'}" stroke-width="${fin?.9:.4}"/><text x="-8.2" y="8" font-size="3.5" fill="${fin?'#5a3a00':'rgba(200,215,255,.42)'}" font-family="Jost,sans-serif">${n}</text>${fin?'<text y="1.5" text-anchor="middle" dominant-baseline="middle" font-size="9">🏁</text>':''}</g>`);
+    const fin=n===AB_N,ti=tint[n];
+    body.push(`<g transform="translate(${x} ${y})"><rect x="-9.4" y="-9.4" width="18.8" height="18.8" rx="2.4" fill="${fin?'url(#abfin)':odd?'url(#abc1)':'url(#abc0)'}" stroke="${fin?'#ffe9a0':'rgba(150,170,255,.22)'}" stroke-width="${fin?.9:.4}"/>${ti?`<rect x="-9.4" y="-9.4" width="18.8" height="18.8" rx="2.5" fill="${ti[0]}" fill-opacity="${ti[1]}" stroke="${ti[0]}" stroke-opacity=".75" stroke-width=".7"/>`:''}${badge[n]?`<text x="6.4" y="-5.6" text-anchor="middle" font-size="5.2">${badge[n]}</text>`:''}${fin?'<text y="1.5" text-anchor="middle" dominant-baseline="middle" font-size="9">🏁</text>':''}</g>`);
+    nums.push(`<text x="${(x-8.6).toFixed(1)}" y="${(y+8.4).toFixed(1)}" font-size="4.6" font-weight="600" fill="${fin?'#5a3a00':'rgba(236,242,255,.92)'}"${fin?'':' stroke="#070b24" stroke-width="1" paint-order="stroke"'} font-family="Jost,sans-serif" pointer-events="none">${n}</text>`);
   }
   body.push(`<rect x="22" y="205" width="156" height="24" rx="12" fill="rgba(0,0,0,.35)" stroke="rgba(150,170,255,.3)" stroke-width=".5"/><text x="100" y="209.5" text-anchor="middle" font-size="3.6" letter-spacing=".5" fill="rgba(200,215,255,.5)" font-family="Cinzel,serif">START</text>`);
   const sq=ab.board.sq,laddersSvg=[],pitsSvg=[],iconSvg=[];
@@ -12412,7 +12458,7 @@ function abStaticSVG(ab){
       iconSvg.push(`<text class="ab-star" x="${x}" y="${(y+.4).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="9.5">⭐</text>`);
     }
   });
-  body.push(laddersSvg.join(''),pitsSvg.join(''),iconSvg.join(''));
+  body.push(laddersSvg.join(''),pitsSvg.join(''),iconSvg.join(''),nums.join(''));
   return AB_STATIC[key]={defs:defs.join(''),body:body.join('')};
 }
 function abDrawXY(ab,seat,seq){
@@ -12433,6 +12479,26 @@ function abOverlaySVG(ab,o){
       out.push(`<circle cx="${x}" cy="${y}" r="8.6" fill="rgba(40,48,80,.9)" stroke="#9aa7c7" stroke-width=".8" pointer-events="none"/><text x="${x}" y="${(y+.6).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="8" pointer-events="none">🧱</text>`);
     }
   });
+  // every square can be tapped for a small explanation
+  for(let n=1;n<=AB_N;n++){const[x,y]=abCell(n);out.push(`<rect data-a="abcell" data-n="${n}" x="${x-10}" y="${y-10}" width="20" height="20" fill="transparent" style="cursor:pointer"/>`);}
+  // where the player on turn could land with the next roll: a coloured edge, and dots for how likely it is
+  (o.reach||[]).forEach(e=>{
+    const[x,y]=abCell(e.n),col=e.k==='win'?'#ffd84a':e.portal?'#c58cff':e.k==='good'?'#5be37d':e.k==='bad'?'#ff5e55':e.k==='bump'?'#ffffff':e.k==='dud'?'#9aa7c7':'rgba(255,255,255,.5)';
+    if(e.k!=='plain')out.push(`<rect x="${x-9.4}" y="${y-9.4}" width="18.8" height="18.8" rx="2.4" fill="none" stroke="${col}" stroke-width="1" opacity=".9" pointer-events="none"/>`);
+    const dn=e.p<.04?1:e.p<.09?2:3;
+    for(let i=0;i<dn;i++)out.push(`<circle cx="${(x+7.6-i*2.7).toFixed(1)}" cy="${(y+7.4).toFixed(1)}" r="1.15" fill="${col}" stroke="#070b24" stroke-width=".3" pointer-events="none"/>`);
+  });
+  // where the player on turn stands
+  if(o.here&&o.here.n>0){const[x,y]=abCell(o.here.n);out.push(`<rect class="gt-halo" x="${x-10}" y="${y-10}" width="20" height="20" rx="3" fill="none" stroke="${GT_COLORS[o.here.seat-1]}" stroke-width="1.7" pointer-events="none"/>`);}
+  // the square that was tapped, and what it is tied to
+  if(o.info){
+    const[x,y]=abCell(o.info);
+    abRelated(ab,o.info).forEach(([a,b,k])=>{
+      const[x1,y1]=abCell(a),[x2,y2]=abCell(b);
+      out.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#fff" stroke-width="1.4" stroke-dasharray="3 2" opacity=".9" pointer-events="none"/><rect x="${x1-10}" y="${y1-10}" width="20" height="20" rx="3" fill="none" stroke="#fff" stroke-width="1.2" pointer-events="none"/><rect x="${x2-10}" y="${y2-10}" width="20" height="20" rx="3" fill="none" stroke="#fff" stroke-width="1.2" pointer-events="none"/>`);
+    });
+    out.push(`<rect x="${x-10}" y="${y-10}" width="20" height="20" rx="3" fill="rgba(255,255,255,.1)" stroke="#fff" stroke-width="1.6" stroke-dasharray="2.5 1.5" pointer-events="none"/>`);
+  }
   (o.pick||[]).forEach(n=>{
     const[x,y]=abCell(n);
     out.push(`<g data-a="abtarget" data-n="${n}" style="cursor:pointer"><circle cx="${x}" cy="${y}" r="10" fill="rgba(255,225,74,.18)" stroke="#ffe14a" stroke-width="1.2" stroke-dasharray="2 1.4" class="gt-ghost"/></g>`);
@@ -12459,8 +12525,8 @@ function abBoardSVG(ab,o){
   const cur=!ab.over?(seq&&seq.fx?seq.fx.seat:ab.cur):0;
   const toks=drawn.sort((a,b)=>a.y-b.y).map(d=>{
     const col=GT_COLORS[d.s-1],frozen=ab.skip&&ab.skip[d.s-1]?'<text y="-8" text-anchor="middle" font-size="7">❄️</text><circle r="8.6" fill="rgba(150,220,255,.12)" stroke="#9fe3ff" stroke-width=".7" stroke-dasharray="1.5 1"/>':'';
-    return`<g class="gt-run ab-tok p${d.s}${d.s===cur?' turn':''}" data-k="${d.s}" transform="translate(${d.x.toFixed(2)} ${d.y.toFixed(2)})">
-      <g transform="scale(${d.pair?.62:.82})">
+    return`<g class="gt-run ab-tok p${d.s}${d.s===cur?' turn':''}" data-k="${d.s}" pointer-events="none" transform="translate(${d.x.toFixed(2)} ${d.y.toFixed(2)})">
+      <g transform="scale(${d.pair?.62:d.s===cur?.94:.82})">
         <ellipse class="gt-sh" cx=".5" cy="2.6" rx="4.7" ry="2.2" fill="rgba(0,0,0,.6)" opacity=".7"/>
         <g class="gt-lift" style="animation-delay:-${(d.s*.7).toFixed(2)}s">
           <circle r="7.6" fill="${col}" fill-opacity=".28"/>
@@ -12473,8 +12539,18 @@ function abBoardSVG(ab,o){
       </g>
     </g>`;
   }).join('');
+  // a name tag over the token of the player on turn: who, and where
+  let tags='';
+  if(cur&&o.names){
+    const d=drawn.find(x=>x.s===cur);
+    if(d){
+      const nm=String(o.names[cur-1]||'').slice(0,8),n=seq&&seq.pos&&seq.pos[cur]!=null?seq.pos[cur]:ab.pos[cur-1];
+      const label=nm+' · '+(n>0?n:'start'),w=Math.max(16,label.length*2.6+5),ty=d.y>=27?d.y-18:d.y+11;
+      tags=`<g pointer-events="none"><rect x="${(d.x-w/2).toFixed(1)}" y="${ty.toFixed(1)}" width="${w.toFixed(1)}" height="6.4" rx="3.2" fill="${GT_COLORS[cur-1]}" stroke="#fff" stroke-width=".45"/><text x="${d.x.toFixed(1)}" y="${(ty+4.5).toFixed(1)}" text-anchor="middle" font-size="3.8" font-weight="700" fill="#101010" font-family="Jost,sans-serif">${esc(label)}</text></g>`;
+    }
+  }
   const st=abStaticSVG(ab);
-  return`<svg viewBox="0 0 200 ${AB_VH}" role="img" aria-label="The Abyss: a board of 100 squares with ladders, rockets, pits, black holes, wormholes and stars" xmlns="http://www.w3.org/2000/svg"><defs>${st.defs}</defs>${st.body}${abOverlaySVG(ab,o)}${toks}</svg>`;
+  return`<svg viewBox="0 0 200 ${AB_VH}" role="img" aria-label="The Abyss: a board of 100 squares with ladders, rockets, pits, black holes, wormholes and stars" xmlns="http://www.w3.org/2000/svg"><defs>${st.defs}</defs>${st.body}${abOverlaySVG(ab,o)}${toks}${tags}</svg>`;
 }
 // One readable line for an entry of ab.hist.
 function abHistText(h,names){
@@ -12499,8 +12575,31 @@ function abLegendHTML(){
     [sw('lg-ab-star','⭐'),'<b>Star:</b> roll again.'],
     [sw('lg-ab-bump','💥'),'<b>Bump:</b> land on another player and they slide back 3.'],
     [sw('lg-ab-dbl','⚀⚀'),'<b>Doubles</b> roll again. Three in a row sends you back to the start.'],
+    [sw('lg-ab-tap','👆'),'<b>Tap any square</b> to see what it does and where it leads. On your turn the <b>dots</b> on the squares ahead show where you could land: <span style="color:#5be37d">green</span> good, <span style="color:#ff5e55">red</span> bad, <span style="color:#c58cff">violet</span> a wormhole, <span style="color:#ffd84a">gold</span> the top; more dots = more likely.'],
     [sw('lg-ab-trick','🃏'),'<b>Tricks</b> (shown next to each name) are single-use: one per turn, before you roll. 💨 Shove · 🔄 Swap · ✂️ Cut · 🧱 Plug · ❄️ Freeze. You get one at the start, from a ⭐, and a consolation one when a black hole swallows you.']];
   return`<details class="gt-legend"><summary>❔ What is what on the board?</summary><ul>${rows.map(r=>`<li>${r[0]}<span>${r[1]}</span></li>`).join('')}</ul></details>`;
+}
+function abReachOn(){try{return localStorage.getItem('ct_ab_reach')!=='off';}catch(e){return true;}}
+function abReachSet(on){try{localStorage.setItem('ct_ab_reach',on?'on':'off');}catch(e){}}
+// A small card explaining one square (tapped on the board): what it is, where it leads, who stands there, how likely you are to land on it.
+function abInfoHTML(ab,n,players,reach){
+  const sq=ab.board.sq,s=sq[n],nm=i=>esc((players[i]||{}).name||'Someone');
+  let icon='⬜',txt='Nothing special on this square.';
+  if(n===AB_N){icon='🏁';txt='The top! Reach it — or go past it — to win.';}
+  else if(s){
+    if(s.t==='ladder'){icon=s.to-n>=28?'🚀':'🪜';txt=`Ladder: climb from ${n} up to ${s.to} (+${s.to-n}).`;}
+    else if(s.t==='pit'){icon='🕳️';txt=`Pit: you fall from ${n} down to ${s.to} (−${n-s.to}).`;}
+    else if(s.t==='hole'){icon='🌑';txt='Black hole: swallowed — back to the very start. You get a consolation trick.';}
+    else if(s.t==='worm'){icon='🌀';txt=`Wormhole: step in and come out on ${s.to}, ${Math.abs(s.to-n)} squares ${s.to>n?'ahead of':'behind'} this one.`;}
+    else if(s.t==='star'){icon='⭐';txt='Star: roll again, and win a trick.';}
+    if(ab.off[n]&&(s.t==='ladder'||s.t==='hole'))txt+=` Right now it is ${s.t==='ladder'?'cut — out of order':'plugged'} until ${nm(ab.off[n]-1)}’s next turn.`;
+  } else {
+    const r=abRelated(ab,n)[0];
+    if(r){icon=r[2]==='ladder'?'🔝':'📍';txt=r[2]==='ladder'?`The top of the ladder from ${r[0]}.`:`Where the pit from ${r[0]} drops you.`;}
+  }
+  const here=ab.pos.map((p,i)=>p===n?nm(i):'').filter(Boolean);
+  const e=(reach||[]).find(x=>x.n===n);
+  return`<div class="ab-info" role="status"><b>${icon} Square ${n}</b><span>${txt}</span>${here.length?`<span>Standing here: ${here.join(', ')}.</span>`:''}${e?`<span>Your chance to land here next turn: about ${Math.max(1,Math.round(e.p*100))}%.</span>`:''}<button class="ab-info-x" data-a="abcell" data-n="${n}" aria-label="Close">✕</button></div>`;
 }
 function rAbyssTable(){
   const online=G.isOnline,state=online?G.srv:null;
@@ -12520,6 +12619,11 @@ function rAbyssTable(){
   const rolling=!!(seq&&seq.rolling),dice=ab.lastDice||null;
   const diceHTML=dice?`<div class="gt-dice">${[0,1].map(i=>`<button class="die gt-d${rolling?' just-rolled':''}" disabled aria-label="Die showing ${dice[i]}">${ldPipsHTML(dice[i])}</button>`).join('')}</div>`:'';
   let prompt='',controls='';
+  const names=players.map(q=>q.name);
+  const idle=!seq&&!ab.over;
+  const reachAll=idle?abReach(ab,seat):[];
+  const reachShow=acts&&abReachOn()&&!G.abPick?reachAll:[];
+  const infoN=idle&&G.abInfo>=1&&G.abInfo<=AB_N?G.abInfo:0;
   const hand=ab.tricks&&ab.tricks[seat-1]||[];
   const pick=G.abPick&&G.abPick.seat===seat&&G.abPick.m===ab.moves&&acts&&!ab.usedTurn?G.abPick:null;
   let pickSquares=null;
@@ -12539,13 +12643,12 @@ function rAbyssTable(){
     }
   }
   else{
-    prompt=ab.dbl>0||(ab.fx&&ab.fx.kind==='roll'&&ab.fx.again&&ab.fx.seat===seat)?(ab.fx&&ab.fx.eff&&ab.fx.eff.t==='star'?'⭐ Star! Roll again.':'🎲 Doubles! Roll again.'):'Your turn — roll the dice.';
+    prompt=ab.dbl>0||(ab.fx&&ab.fx.kind==='roll'&&ab.fx.again&&ab.fx.seat===seat)?(ab.fx&&ab.fx.eff&&ab.fx.eff.t==='star'?'⭐ Star! Roll again.':'🎲 Doubles! Roll again.'):`Your turn — you are on ${ab.pos[seat-1]?'square '+ab.pos[seat-1]:'the start'}. Roll the dice.`;
     controls=`<button class="btn btn-gold gt-roll" data-a="abroll">🎲 Roll the dice</button>`;
     if(hand.length&&!ab.usedTurn){
       controls+=`<div class="ab-tricks"><span>🃏 Play a trick first? (one per turn)</span><div>${[...new Set(hand)].map(k=>{const tt=AB_TRICKS[k],n=hand.filter(x=>x===k).length,ok=abTrickTargets(ab,seat,k).length>0;return`<button class="ab-trick" data-a="abtrick" data-t="${k}" ${ok?'':'disabled'}><b>${tt.icon} ${tt.name}${n>1?' ×'+n:''}</b><small>${ok?tt.txt:'nobody to use it on'}</small></button>`;}).join('')}</div></div>`;
     }
   }
-  const names=players.map(q=>q.name);
   const logHTML=ab.hist&&ab.hist.length?`<ul class="gt-log" aria-label="Last moves">${ab.hist.slice(-3).reverse().map((h,i)=>`<li class="${i===0?'new':''}">${abHistText(h,names)}</li>`).join('')}</ul>`:'';
   return`<div id="s-table" class="scr on game-gauntlet game-abyss">
     <div class="game-bar">
@@ -12556,13 +12659,15 @@ function rAbyssTable(){
     <div class="y-standings-strip">${pills}</div>
     <div class="felt-table gt-felt${mine&&!ab.over?' my-turn':''}" style="flex:0 0 auto;min-height:0;max-height:none;padding:.55rem .6rem;gap:.5rem;">
       <div class="gt-cam">
-        <div class="ab-board an-${gtAnim()}${seq?' live':''}" style="--pc:${GT_COLORS[(seq?seq.fx.seat:seat)-1]||GT_COLORS[0]}">${abBoardSVG(ab,{seq,pick:pickSquares})}</div>
+        <div class="ab-board an-${gtAnim()}${seq?' live':''}" style="--pc:${GT_COLORS[(seq?seq.fx.seat:seat)-1]||GT_COLORS[0]}">${abBoardSVG(ab,{seq,pick:pickSquares,names,reach:reachShow,here:idle?{n:ab.pos[seat-1],seat}:null,info:infoN})}</div>
         <div class="gt-panel">
           <div class="y-hint">${prompt}</div>
+          ${infoN?abInfoHTML(ab,infoN,players,reachAll):''}
           ${diceHTML}
           ${controls}
           ${logHTML}
           ${abLegendHTML()}
+          <button class="gt-animbtn" data-a="ab-reach" aria-label="Where I could land">🎯 Where I could land: ${abReachOn()?'On':'Off'}</button>
           <button class="gt-animbtn" data-a="gt-anim" aria-label="Animations">✨ Animations: ${{full:'Full',light:'Light',off:'Off'}[gtAnim()]}</button>
         </div>
       </div>
@@ -12573,8 +12678,9 @@ function rAbyssTable(){
 }
 function abTap(a,t){
   const ab=G.isOnline?(G.srv&&G.srv.ab):G.ab;if(!ab||ab.over||G.abSeq)return;
+  if(a==='abcell'){const n=+t.getAttribute('data-n');G.abInfo=G.abInfo===n?null:n;SFX.chip();render();return;}
   if(G.isOnline&&!isMyTurn())return;
-  const send=act=>{G.abPick=null;G.isOnline?oAbDo(act):abDoLocal(act);};
+  const send=act=>{G.abPick=null;G.abInfo=null;G.isOnline?oAbDo(act):abDoLocal(act);};
   if(a==='abroll'||!a){send([rnd(1,6),rnd(1,6)]);return;}
   if(a==='abtrick'){
     const k=t.getAttribute('data-t');
@@ -12700,6 +12806,7 @@ function abRunSeq(ab,renderNow,done){
     if(done){if(G.abInstant)done();else setTimeout(done,ab.over?500:0);}
     return;
   }
+  G.abInfo=null;
   const seq={fx,pos:{},xy:{},rolling:fx.kind!=='trick',id:ab.moves};
   if(fx.kind==='trick'){
     if(fx.trick==='shove')seq.pos[fx.target]=fx.from;
@@ -24586,7 +24693,8 @@ document.addEventListener('click',e=>{
   else if(a==='cr-mode'){crSetMode(t.getAttribute('data-m'));render();}
   else if(a==='gt-mode'){gtSetMode(t.getAttribute('data-m'));render();}
   else if(a==='gt-anim'){gtAnimNext();SFX.chip();render();}
-  else if(a==='abroll'||a==='abtrick'||a==='abtarget'||a==='abcancel'){abTap(a,t);}
+  else if(a==='abroll'||a==='abtrick'||a==='abtarget'||a==='abcancel'||a==='abcell'){abTap(a,t);}
+  else if(a==='ab-reach'){abReachSet(!abReachOn());SFX.chip();render();}
   else if(a==='c4drop'){const c=+t.getAttribute('data-c');G.isOnline?oC4Drop(c):c4Play(c);}
   else if(a==='sk-place'){oSkPlace(t.getAttribute('data-k'));}
   else if(a==='sk-bidset'){const st=G.srv&&G.srv.sk;if(st){const tot=skPlacedTotal(G.srv),lo=(st.bid?st.bid.n:0)+1,cur=Math.max(lo,Math.min(tot,(G.skBid||lo)+(+t.getAttribute('data-d'))));G.skBid=Math.max(lo,Math.min(tot,cur));render();}}
