@@ -4308,7 +4308,7 @@ async function runPresentation(A,W,frame){
       check('every room is drawn with its own picture',[...rooms.querySelectorAll('.home-room')].every((el,i)=>(el.getAttribute('style')||'').includes('assets/rooms/'+cats[i].id+'.jpg')));
       const gt=new DOMParser().parseFromString('<div>'+W.rGamesCategoryTiles()+'</div>','text/html');
       check('the Games tab shows the very same room tiles as the home page',gt.querySelectorAll('.home-room[data-a="games-cat"]').length===cats.length);
-      check('every room says how many games it holds',[...rooms.querySelectorAll('.home-room')].every((el,i)=>new RegExp(A.GAMES.filter(g=>g.cat===cats[i].id&&!g.locked).length+' game').test(el.textContent)));
+      check('every room says how many games it holds',[...rooms.querySelectorAll('.home-room')].every((el,i)=>new RegExp(A.GAMES.filter(g=>g.cat===cats[i].id&&!g.locked&&!g.hidden).length+' game').test(el.textContent)));
       check('“jump back in” starts with what was played, then the newest games, never more than four',(()=>{
         const j=W.homeJumpGames(hist).map(g=>g.id),e=W.homeJumpGames([]).map(g=>g.id);
         return j[0]==='farkle'&&j.includes('pig')&&j.includes('vault')&&j.length===4&&e.join(',')==='escape,vault,bust,summit';})());
@@ -5141,7 +5141,7 @@ async function runPresentation(A,W,frame){
     W.eval('window.__origSetTimeout=setTimeout; setTimeout=(fn)=>0;');
     try{
       const mk=(id,n,bot)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false,...(bot?{bot}:{})});
-      G.isOnline=false;G.srv=null;G.selGame='fourrow';
+      G.isOnline=false;G.srv=null;G.selGame='fourrow';F('c4SetMode')('classic');
       G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;lStartMatch();G.lstart=0;G.lcur=0;G.scr='table';
       check('dealing opens an empty board',G.c4.moves===0&&!G.c4.over&&G.lp.every(p=>p.c4Result==null));
       c4Drop(3);
@@ -5185,104 +5185,54 @@ async function runPresentation(A,W,frame){
     }
   });
 
-  /* —— 4 in a Row: the Fun version's power discs —————— */
-  suite('4 in a Row (Fun) — Bomb, Wild and Pop do exactly what they say',()=>{
-    const F=n=>W.eval(n);
-    const c4NewBoard=F('c4NewBoard'),c4Place=F('c4Place'),c4ApplyMove=F('c4ApplyMove'),c4Winner=F('c4Winner'),c4Gravity=F('c4Gravity'),c4ThreatCols=F('c4ThreatCols'),c4NewGame=F('c4NewGame');
-    const count=b=>b.flat().filter(x=>x).length;
-    // Gravity
-    const floating=c4NewBoard();floating[2][0]=1;floating[0][0]=2;floating[3][4]=1;
-    const settled=c4Gravity(floating);
-    check('gravity drops every floating disc to the bottom of its column, keeping their order',settled[5][0]===1&&settled[4][0]===2&&settled[5][4]===1&&count(settled)===3);
-    // Bomb
-    let b=c4NewBoard();b=c4Place(b,2,1);b=c4Place(b,2,2);b=c4Place(b,3,2);b=c4Place(b,3,1);b=c4Place(b,4,1);b=c4Place(b,4,2); // two discs in each of columns 3, 4 and 5 (indexes 2-4)
-    const bomb=c4ApplyMove(b,{kind:'bomb',c:3},2);
-    check('a bomb lands like a normal disc, then clears every disc touching it',!!bomb&&bomb.boom.length>=3&&count(bomb.board)===count(b)+1-bomb.boom.length);
-    check('the bomb disc itself always survives',bomb.board.flat().includes(2));
-    check('after the blast everything settles (nothing floats)',JSON.stringify(c4Gravity(bomb.board))===JSON.stringify(bomb.board));
-    check('a bomb needs room: a full column refuses it',(()=>{let f=c4NewBoard();for(let i=0;i<6;i++)f=c4Place(f,2,1);return c4ApplyMove(f,{kind:'bomb',c:2},1)===null;})());
-    // Wild
-    let w=c4NewBoard();[0,1,2].forEach(c=>{w=c4Place(w,c,2);});
-    const wild=c4ApplyMove(w,{kind:'wild',c:3},1);
-    check('a wild disc counts as either colour: it completes the OTHER player\'s three, a real risk',c4Winner(wild.board,1).who===2);
-    let w1=c4NewBoard();[0,1,2].forEach(c=>{w1=c4Place(w1,c,1);});
-    check('...and finishes your own three too',c4Winner(c4ApplyMove(w1,{kind:'wild',c:3},1).board,1).who===1);
-    check('a wild that finishes a four for both players gives it to whoever just moved',(()=>{
-      const x=c4NewBoard();[0,1,2].forEach(c=>{x[5][c]=1;});[0,1,2].forEach(c=>{x[4][c]=2;});x[5][3]=3;x[4][3]=3;
-      return c4Winner(x,1).who===1&&c4Winner(x,2).who===2;})());
-    // Pop
-    let p=c4NewBoard();p=c4Place(p,0,1);p=c4Place(p,0,2);p=c4Place(p,0,1);
-    const pop=c4ApplyMove(p,{kind:'pop',c:0},1);
-    check('pop pulls out your own bottom disc and everything above falls',pop.board[5][0]===2&&pop.board[4][0]===1&&pop.board[3][0]===0);
-    check('you cannot pop the other player\'s disc, or an empty column',c4ApplyMove(p,{kind:'pop',c:0},2)===null&&c4ApplyMove(p,{kind:'pop',c:5},1)===null);
-    check('a pop can complete a four for the popper (or hand one to the opponent)',(()=>{
-      const x=c4NewBoard();x[5][0]=1;x[4][0]=2;x[3][0]=1;x[5][1]=2;x[4][1]=2;x[3][1]=2;// popping col 0 drops 2 to the bottom -> 2,2 across? row5: 2,2
-      const r=c4ApplyMove(x,{kind:'pop',c:0},1);return !!r&&r.board[5][0]===2;})());
-    check('the near-win warning finds exactly the columns where the other player would win next',(()=>{
-      let x=c4NewBoard();[0,1,2].forEach(c=>{x=c4Place(x,c,2);});
-      return JSON.stringify(c4ThreatCols(x,2))==='[3]'&&c4ThreatCols(x,1).length===0;})());
-    check('classic games have no power discs, fun games give each player one of each',c4NewGame('classic').powers===null&&JSON.stringify(c4NewGame('fun').powers)==='[{"bomb":1,"wild":1,"pop":1},{"bomb":1,"wild":1,"pop":1}]');
-  });
-
-  suite('4 in a Row (Fun) — bots, modes and the table',()=>{
+  /* —— 4 in a Row is one tile with two ways to play: Classic and Mayhem —————— */
+  suite('4 in a Row — one tile, Classic or Mayhem',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);
-    const c4NewGame=F('c4NewGame'),c4Place=F('c4Place'),c4BotChoice=F('c4BotChoice'),c4SetMode=F('c4SetMode'),c4Mode=F('c4Mode'),lDealFourRow=F('lDealFourRow'),
-      c4Play=F('c4Play'),rFourRowTable=F('rFourRowTable'),c4OptionsHTML=F('c4OptionsHTML');
-    const keepMode=c4Mode();
+    const keepMode=F('c4Mode')();
+    W.__keepSb6=W.eval('_sb');let DB=null;
+    W.__fakeSb={from:()=>({select:()=>({eq:()=>({single:()=>Promise.resolve({data:DB?{state:JSON.parse(JSON.stringify(DB))}:null,error:DB?null:{message:'none'}})})}),upsert:row=>{DB=JSON.parse(JSON.stringify(row.state));return Promise.resolve({error:null});},update:row=>({eq:()=>({eq:()=>({select:()=>{DB=JSON.parse(JSON.stringify(row.state));return Promise.resolve({data:[{id:'T'}],error:null});}})})})})};
     W.eval('window.__origSetTimeout=setTimeout; setTimeout=(fn)=>0;');
+    const clone=o=>JSON.parse(JSON.stringify(o));
     try{
-      check('the version choice is remembered, and defaults to classic',(()=>{c4SetMode('fun');const a=c4Mode()==='fun';c4SetMode('nonsense');return a&&c4Mode()==='classic';})());
-      check('the setup screen offers both versions',/Classic/.test(c4OptionsHTML())&&/Fun/.test(c4OptionsHTML())&&(c4OptionsHTML().match(/data-a="c4-mode"/g)||[]).length===2);
-      // a fun-mode bot uses a power disc when it wins on the spot
-      const f=c4NewGame('fun');
-      f.board=F('c4NewBoard')();[0,1,2].forEach(c=>{f.board=c4Place(f.board,c,2);});
-      f.board=c4Place(f.board,4,1);
-      const m1=c4BotChoice(f,2,'sharp');
-      check('with a plain winning drop available a bot just drops',m1.kind==='drop'&&m1.c===3);
-      // No plain disc wins, but popping yellow's own bottom disc in column 3 drops a yellow into row 4 and completes 2,2,2,2.
-      const f2=c4NewGame('fun');
-      f2.board=F('c4NewBoard')();
-      [0,1,2].forEach(c=>{f2.board[5][c]=1;f2.board[4][c]=2;});
-      f2.board[5][3]=2;f2.board[4][3]=1;f2.board[3][3]=2;
-      const m2=c4BotChoice(f2,2,'sharp');
-      check('in Fun mode a bot that cannot win with a plain disc wins with a power disc (here: Pop in column 4)',m2.kind==='pop'&&m2.c===3);
-      const classic=c4NewGame('classic');classic.board=f2.board;
-      check('in Classic a bot never reaches for a power disc',c4BotChoice(classic,2,'sharp').kind==='drop');
-      // a whole fun game through the real engine
+      const set=F('c4SetMode'),mode=F('c4Mode');
+      check('the choice is remembered, defaults to Classic, and an old saved "fun" now means Mayhem',(()=>{set('mayhem');const a=mode()==='mayhem';set('fun');const b=mode()==='mayhem';set('nonsense');return a&&b&&mode()==='classic';})());
+      const html=F('c4OptionsHTML')();
+      check('the setup screen offers exactly Classic and Mayhem (no separate Fun version any more)',/Classic/.test(html)&&/Mayhem/.test(html)&&(html.match(/data-a="c4-mode"/g)||[]).length===2&&!/Fun/.test(html));
+      const g=A.GAMES.find(x=>x.id==='fourrow');
+      check('the tile\'s rules explain Mayhem and name all six powers',['Bomb','Bubble','Magnet','Lightning','Wild','Chaos'].every(n=>g.rules.join(' ').includes(n)));
+      check('Mayhem itself is hidden: no tile of its own, in the lists or the pickers',A.GAMES.find(x=>x.id==='mayhem').hidden===true);
+      check('the classic bot never reaches for a special: it only ever drops',F('c4BotChoice')(F('c4NewGame')(),2,'sharp').kind==='drop');
+      // local: the same tile starts either table
       const mk=(id,n)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false});
-      G.isOnline=false;G.srv=null;G.selGame='fourrow';G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;
-      c4SetMode('fun');lDealFourRow();G.lcur=0;G.scr='table';
-      check('a fun game starts with everybody holding all three power discs',G.c4.mode==='fun'&&G.c4.powers[0].bomb===1&&G.c4.powers[1].pop===1);
-      c4Play(3,'wild');
-      check('using the wild spends it, puts a wild disc down and passes the turn',G.c4.powers[0].wild===0&&G.c4.board[5][3]===3&&G.lcur===1);
-      c4Play(3,'bomb');
-      check('the other player\'s bomb blows the neighbours away (the wild too) and is spent',G.c4.powers[1].bomb===0&&G.lcur===0&&G.c4.fx&&G.c4.fx.boom.length>=1);
-      G.lcur=0;const before=G.c4.moves;
-      c4Play(0,'wild');
-      check('a power disc cannot be used twice',G.c4.moves===before&&G.c4.powers[0].wild===0);
-      G.c4.board=F('c4NewBoard')();G.c4.board[5][3]=2;G.c4.board[5][2]=1;G.lcur=0;
-      const popsBefore=G.c4.powers[0].pop,movesBefore=G.c4.moves;
-      c4Play(3,'pop');
-      check('popping a disc that is not yours is refused and costs nothing',G.c4.powers[0].pop===popsBefore&&G.c4.moves===movesBefore&&G.lcur===0);
-      c4Play(2,'pop');
-      check('popping your own bottom disc works, spends the pop and passes the turn',G.c4.powers[0].pop===popsBefore-1&&G.c4.board[5][2]===0&&G.lcur===1);
-      // the table
-      G.c4Armed='pop';G.lcur=0;
-      let d=new DOMParser().parseFromString(rFourRowTable(),'text/html');
-      check('the fun table shows the three power buttons for the player to move',d.querySelectorAll('.c4-power').length===3);
-      G.c4=c4NewGame('classic');G.c4Armed=null;
-      d=new DOMParser().parseFromString(rFourRowTable(),'text/html');
-      check('the classic table has no power buttons',d.querySelectorAll('.c4-power').length===0);
-      // near-win warning shows in fun mode only
-      const fun2=c4NewGame('fun');[0,1,2].forEach(c=>{fun2.board=c4Place(fun2.board,c,2);});G.c4=fun2;G.lcur=0;
-      d=new DOMParser().parseFromString(rFourRowTable(),'text/html');
-      check('the fun table warns when the other player is one disc from four',d.querySelectorAll('.c4-col.warn').length===1&&/Careful/.test(d.querySelector('.y-hint').textContent));
-      const cl=c4NewGame('classic');[0,1,2].forEach(c=>{cl.board=c4Place(cl.board,c,2);});G.c4=cl;
-      d=new DOMParser().parseFromString(rFourRowTable(),'text/html');
-      check('the classic table gives no warning',d.querySelectorAll('.c4-col.warn').length===0);
+      G.isOnline=false;G.srv=null;G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;
+      set('mayhem');G.selGame='fourrow';F('lStartMatch')();
+      check('Mayhem mode on the 4 in a Row tile starts the Mayhem table (three powers each)',G.selGame==='mayhem'&&G.mh&&G.mh.moves===0&&G.mh.hands[0].length===3);
+      G.mh=null;set('classic');G.selGame='fourrow';F('lStartMatch')();
+      check('Classic mode starts the plain table',G.selGame==='fourrow'&&G.c4&&G.c4.moves===0);
+      const d=new DOMParser().parseFromString(F('rFourRowTable')(),'text/html');
+      check('the classic table wears the same brass frame: 42 cells, 7 columns, no power buttons',d.querySelectorAll('.c4-cell').length===42&&d.querySelectorAll('.c4-col').length===7&&d.querySelectorAll('.c4-power').length===0);
+      // online: the host's choice decides which room is created
+      const P=(id,n,i)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,roundsWon:0,chips:900});
+      const lobby={phase:'lobby',gameId:'fourrow',host:'a',players:[P('a','Anna',0),P('b','Ben',1)],_ts:Date.now()-5000};
+      W.eval('_sb=window.__fakeSb');
+      G.isOnline=true;G.roomId='T';G.myPid='a';G.isHost=true;G.selGame='fourrow';
+      set('mayhem');F('oStartGame')(clone(lobby));
+      check('online, the host choosing Mayhem creates a Mayhem room with secret hands',G.srv&&G.srv.gameId==='mayhem'&&G.srv.mh&&G.srv.mh.moves===0&&!G.srv.c4);
+      G.srv=null;set('classic');F('oStartGame')(clone(lobby));
+      check('online, Classic creates the plain room',G.srv&&G.srv.gameId==='fourrow'&&G.srv.c4&&!G.srv.mh);
+      // "play another game" never offers the tile just played, whichever way it was played
+      G.srv=clone(lobby);G.srv.gameId='shutbox';
+      const fromOther=F('oAnotherGames')().map(x=>x.id);
+      G.srv.gameId='mayhem';
+      const fromMayhem=F('oAnotherGames')().map(x=>x.id);
+      check('another game: 4 in a Row is offered after a different game, never Mayhem as a tile',fromOther.includes('fourrow')&&!fromOther.includes('mayhem'));
+      check('another game: after a Mayhem game neither 4 in a Row nor Mayhem is offered again',!fromMayhem.includes('fourrow')&&!fromMayhem.includes('mayhem')&&fromMayhem.includes('shutbox'));
     } finally {
       W.eval('setTimeout=window.__origSetTimeout;');
-      c4SetMode(keepMode);G.scr='home';
+      W.eval('_sb=window.__keepSb6');
+      F('c4SetMode')(keepMode);
+      G.isOnline=false;G.srv=null;G.isHost=false;G.scr='home';G.mh=null;
+      try{W.localStorage.removeItem('ct_online_session');W.localStorage.removeItem('ct_resume');}catch(e){}
     }
   });
 
@@ -6195,10 +6145,10 @@ async function runPresentation(A,W,frame){
   });
   suite('Mayhem — is on the roster',()=>{
     const g=A.GAMES.find(x=>x.id==='mayhem');
-    check('it is a playable 2-player classic, with bots and online',!!g&&g.cat==='classic'&&!g.locked&&g.minP===2&&g.maxP===2&&A.BOT_GAMES.has('mayhem')&&A.ONLINE_GAMES.includes('mayhem'));
-    check('it has an intro tagline, an accent colour and a label',!!W.eval('STAGE_TAGS').mayhem&&!!W.eval('MOMENT_ACCENT').mayhem&&W.eval('v14GameLabel')('mayhem')==='Mayhem');
+    check('it is a 2-player table with bots and online (hidden: it is reached through the 4 in a Row tile)',!!g&&g.cat==='classic'&&!g.locked&&g.hidden===true&&g.minP===2&&g.maxP===2&&A.BOT_GAMES.has('mayhem')&&A.ONLINE_GAMES.includes('mayhem'));
+    check('it has an intro tagline, an accent colour and a label',!!W.eval('STAGE_TAGS').mayhem&&!!W.eval('MOMENT_ACCENT').mayhem&&W.eval('v14GameLabel')('mayhem')==='4 in a Row · Mayhem');
     check('its rules name all six powers and explain the confirm step',['Bomb','Bubble','Magnet','Lightning','Wild','Chaos'].every(n=>g.rules.join(' ').includes(n))&&/confirm/i.test(g.rules.join(' ')));
-    check('the original 4 in a Row is untouched',!!A.GAMES.find(x=>x.id==='fourrow')&&A.GAMES.find(x=>x.id==='fourrow').cat==='classic');
+    check('the 4 in a Row tile is still the one visible tile',!!A.GAMES.find(x=>x.id==='fourrow')&&A.GAMES.find(x=>x.id==='fourrow').cat==='classic'&&!A.GAMES.find(x=>x.id==='fourrow').hidden);
   });
   /* —— Mayhem: a whole local game through the real engine and the real table (timers run instantly) —————— */
   suite('Mayhem plays through the real local engine and draws a proper table',()=>{
