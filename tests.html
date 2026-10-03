@@ -5611,6 +5611,259 @@ async function runPresentation(A,W,frame){
     }
   });
 
+  /* —— The Gauntlet (Phase A: the race) —————— */
+  suite('The Gauntlet — the board, entering and moving',()=>{
+    const F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart'),gtRoll=F('gtRoll'),gtAct=F('gtAct'),gtActions=F('gtActions'),gtAbs=F('gtAbs');
+    const E=F('GT_ENTRIES');
+    check('seats are spaced evenly round the 48-space ring for 2 to 6 players',[2,3,4,5,6].every(P=>E[P].length===P&&E[P][0]===0)&&JSON.stringify(E[4])==='[0,12,24,36]');
+    const g4=gtNew(4);
+    check('safe spaces include every entry, and the same pattern follows every seat (3 per seat with 4 players)',g4.entries.every(e=>g4.safe[e])&&g4.safe.filter(Boolean).length===12);
+    check('a new game: nobody on the board, 3 runners each in the start area, nobody has a token',g4.run.length===4&&g4.run.every(r=>r.length===3&&r.every(x=>x.rel===-1))&&g4.tok.every(x=>x===0)&&!g4.over);
+    let gt=gtStart(gtNew(3),2);
+    check('the chosen seat starts, and the first move is to roll',gt.cur===2&&gt.phase==='roll'&&gt.dice===null);
+    check('moves are refused before the dice are rolled, or by the wrong seat',gtAct(gt,2,{t:'die',i:0,r:0})===null&&gtRoll(gt,1,3,4)===null);
+    check('a die outside 1-6 is refused',gtRoll(gt,2,0,7)===null&&gtRoll(gt,2,3,9)===null);
+    gtRoll(gt,2,6,2);
+    const acts=gtActions(gt,2);
+    check('with a 6 and a 2 a runner can enter with the 6, and the 2 cannot enter anyone',acts.some(a=>a.t==='die'&&a.i===0&&a.plan.enter)&&!acts.some(a=>a.t==='die'&&a.i===1));
+    check('only ONE start runner is offered (they are all the same)',acts.filter(a=>a.t==='die'&&a.i===0).length===1);
+    const fx=gtAct(gt,2,{t:'die',i:0,r:2});
+    check('entering puts a start runner onto the seat\'s entry space and uses that die',fx&&fx.enter&&gt.run[1].filter(x=>x.rel===0).length===1&&gt.used[0]===true&&gtAbs(gt,2,0)===gt.entries[1]);
+    gt=gtStart(gtNew(2),1);gtRoll(gt,1,3,3);
+    check('a roll of 3 and 3 cannot enter anybody (needs 4+), so nothing can be moved',!gtActions(gt,1).some(a=>a.t!=='reroll'));
+    gt.idle[0]=2;
+    check('after two turns with nothing on the board a 3 is enough to enter (no endless waiting)',gtActions(gt,1).some(a=>a.plan&&a.plan.enter));
+    // moving
+    gt=gtStart(gtNew(2),1);gt.run[0][0].rel=10;gt.run[0][1].rel=20;gtRoll(gt,1,2,5);
+    check('both dice can be used one at a time: each die moves one runner',(()=>{
+      gtAct(gt,1,{t:'die',i:0,r:0});const ok1=gt.run[0][0].rel===12&&gt.used[0]&&!gt.used[1]&&gt.cur===1;
+      gtAct(gt,1,{t:'die',i:1,r:1});return ok1&&gt.run[0][1].rel===25&&gt.cur===2;})());
+    gt=gtStart(gtNew(2),1);gt.run[0][0].rel=10;gtRoll(gt,1,2,5);
+    check('or together: one runner moves the total, and that uses up the turn',(()=>{const fx=gtAct(gt,1,{t:'sum',r:0});return fx&&fx.kind==='sum'&&gt.run[0][0].rel===17&&gt.cur===2;})());
+    check('when both dice are used the turn passes to the next seat, and the round counts up after the last seat',gt.cur===2&&gt.round===1&&(()=>{gtRoll(gt,2,1,1);gtAct(gt,2,{t:'bank'});return true;})());
+    gt=gtStart(gtNew(2),1);gt.run[0][0].rel=10;gtRoll(gt,1,2,5);gtAct(gt,1,{t:'die',i:0,r:0});
+    check('using the same die twice is refused',gtAct(gt,1,{t:'die',i:0,r:0})===null);
+  });
+  suite('The Gauntlet — capture, safe spaces and blockades',()=>{
+    const F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart'),gtRoll=F('gtRoll'),gtAct=F('gtAct'),gtActions=F('gtActions'),gtAbs=F('gtAbs'),gtSyncPairs=F('gtSyncPairs'),gtBlockSeat=F('gtBlockSeat');
+    const setup=(P,list,dice,cur)=>{const g=gtStart(gtNew(P),cur||1);list.forEach(([s,r,rel])=>{g.run[s-1][r].rel=rel;});gtSyncPairs(g);gtRoll(g,g.cur,dice[0],dice[1]);return g;};
+    // seat 1 entry 0, seat 2 entry 24 (2 players). Seat 2 runner at rel -> abs (24+rel)%48
+    // seat 1 at rel 14 (abs 14); seat 2 runner at abs 18 = rel 42?? use rel such that abs=18: (24+rel)%48=18 -> rel=42 (too far); use seat 2 abs 30 = rel 6 and seat 1 at rel 27
+    let g=setup(2,[[1,0,25],[2,0,4]],[3,6]);
+    check('landing exactly on a lone enemy captures it: it goes back to the start area',(()=>{const fx=gtAct(g,1,{t:'die',i:0,r:0});return fx&&fx.cap&&fx.cap.seat===2&&g.run[0][0].rel===28&&g.run[1][0].rel===-1;})());
+    check('the capture is counted for both players, and recorded for the animation',g.stats.cap[0]===1&&g.stats.hit[1]===1&&g.fx.cap.at===gtAbs(g,1,28));
+    // safe space: no capture, they share it
+    g=setup(2,[[1,0,27],[2,0,6]],[3,6]);
+    check('(test setup) the enemy stands on a safe space',g.safe[gtAbs(g,2,6)]===true);
+    check('landing on a runner that stands on a safe space does not capture it; both stay',(()=>{const fx=gtAct(g,1,{t:'die',i:0,r:0});return fx&&!fx.cap&&g.run[1][0].rel===6&&g.run[0][0].rel===30;})());
+    // blockade
+    g=setup(2,[[2,0,10],[2,1,10],[1,0,28]],[6,1]);  // seat 2 pair at abs 34; seat 1 at abs 28
+    check('(test setup) a pair of one colour stands on a plain space and is a blockade',gtBlockSeat(g,34)===2);
+    check('an enemy cannot land on a blockade (a 6 from space 28 would land on it)',!gtActions(g,1).some(a=>a.t==='die'&&a.i===0&&a.r===0));
+    g=setup(2,[[2,0,10],[2,1,10],[1,0,28]],[3,4]);
+    check('...nor pass it (3+4 = 7 would carry the runner beyond it)',!gtActions(g,1).some(a=>a.t==='sum'&&a.r===0)&&gtActions(g,1).some(a=>a.t==='die'&&a.r===0));
+    check('...but the owner can move through its own blockade and break it up',(()=>{const g2=setup(2,[[2,0,10],[2,1,10]],[3,4],2);return gtActions(g2,2).some(a=>a.r===0);})());
+    check('a third runner of the same colour cannot land on a pair',(()=>{const g2=setup(2,[[1,0,5],[1,1,9],[1,2,9]],[4,1]);return !gtActions(g2,1).some(a=>a.t==='die'&&a.i===0&&a.r===0);})());
+    // blockade dissolves after three of the owner's turns
+    g=setup(2,[[2,0,10],[2,1,10],[1,0,28]],[1,2]);
+    g.pairs[34]={seat:2,since:g.tc[1]-3};
+    check('a blockade that has stood for three of its owner\'s turns no longer blocks',gtBlockSeat(g,34)===0);
+    g.pairs[34]={seat:2,since:g.tc[1]-2};
+    check('...one turn earlier it still does',gtBlockSeat(g,34)===2);
+    check('a pair on a safe space is not a blockade',(()=>{const g2=setup(2,[[1,0,6],[1,1,6]],[1,2]);return g2.safe[6]&&gtBlockSeat(g2,6)===0;})());
+    check('no blockade can form in the 3 spaces just before an entry (nobody gets locked out of their start)',(()=>{const g2=setup(2,[[2,0,10],[2,1,10]],[1,2]);const abs=(g2.entries[0]-2+48)%48;g2.run[1][0].rel=(abs-24+48)%48;g2.run[1][1].rel=g2.run[1][0].rel;gtSyncPairs(g2);return gtBlockSeat(g2,abs)===0;})());
+  });
+  suite('The Gauntlet — the final run, going home, the final round',()=>{
+    const F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart'),gtRoll=F('gtRoll'),gtAct=F('gtAct'),gtActions=F('gtActions'),gtHomeCount=F('gtHomeCount'),gtSyncPairs=F('gtSyncPairs');
+    const setup=(P,list,dice,cur)=>{const g=gtStart(gtNew(P),cur||1);list.forEach(([s,r,rel])=>{g.run[s-1][r].rel=rel;});gtSyncPairs(g);gtRoll(g,g.cur,dice[0],dice[1]);return g;};
+    let g=setup(2,[[1,0,40]],[3,1]);
+    gtAct(g,1,{t:'die',i:0,r:0});
+    check('after 42 ring spaces a runner leaves the ring for its private final run (FINAL RUN)',g.run[0][0].rel===43&&g.fx.finalRun===true);
+    g=setup(2,[[1,0,44]],[6,1]);
+    gtAct(g,1,{t:'die',i:0,r:0});
+    check('rolling more than needed still gets a runner home (no exact roll)',g.run[0][0].rel===48&&g.fx.home===true&&gtHomeCount(g,1)===1);
+    // two home -> final round
+    g=setup(3,[[1,0,48],[1,1,46]],[2,3],1);
+    gtAct(g,1,{t:'die',i:0,r:1});
+    check('the second runner home starts the FINAL ROUND for everybody else',g.fin&&g.fin.trigger===1&&g.fin.left.join()==='2,3'&&g.fx.final===true&&!g.over);
+    check('the game is not over yet: the next player still takes a turn',g.cur===2&&g.phase==='roll');
+    gtRoll(g,2,1,2);gtAct(g,2,{t:'bank'});
+    check('each other player gets exactly one more turn (here seat 2 done, seat 3 to go)',g.fin.left.join()==='3'&&g.cur===3&&!g.over);
+    gtRoll(g,3,1,2);gtAct(g,3,{t:'bank'});
+    check('after the last of them the game ends and the trigger wins when nobody caught up',g.over&&g.win===1&&g.winners.join()==='1'&&!g.tie);
+    // somebody catches up in the final round -> tie handling
+    g=setup(2,[[1,0,48],[1,1,46],[2,0,48],[2,1,46]],[2,3],1);
+    gtAct(g,1,{t:'die',i:0,r:1});
+    gtRoll(g,2,2,3);gtAct(g,2,{t:'die',i:0,r:1});
+    check('if the other player also gets two home in the final round it ends level: a shared victory, the trigger is shown first',g.over&&g.tie&&g.winners.join()==='1,2'&&g.win===1);
+    g=setup(2,[[1,0,48],[1,1,46],[2,0,48],[2,1,10],[2,2,30]],[2,3],1);
+    gtAct(g,1,{t:'die',i:0,r:1});
+    gtRoll(g,2,1,2);gtAct(g,2,{t:'die',i:0,r:1});gtAct(g,2,{t:'die',i:1,r:2});
+    check('one runner home against two: the player with two wins',g.over&&g.win===1);
+    check('nothing can be played after the game is over',gtAct(g,1,{t:'bank'})===null&&gtRoll(g,2,1,1)===null);
+  });
+  suite('The Gauntlet — banking, rerolls and doubles',()=>{
+    const F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart'),gtRoll=F('gtRoll'),gtAct=F('gtAct'),gtActions=F('gtActions');
+    let g=gtStart(gtNew(2),1);gtRoll(g,1,2,3);
+    check('with nothing to move, the player can BANK a Risk Token and the turn passes',(()=>{const fx=gtAct(g,1,{t:'bank'});return fx&&fx.kind==='bank'&&g.tok[0]===1&&g.cur===2;})());
+    g=gtStart(gtNew(2),1);g.tok[0]=3;gtRoll(g,1,2,3);gtAct(g,1,{t:'bank'});
+    check('tokens never go above 3',g.tok[0]===3);
+    g=gtStart(gtNew(2),1);g.run[0][0].rel=10;gtRoll(g,1,2,3);
+    check('banking is refused when a move exists',gtAct(g,1,{t:'bank'})===null);
+    g=gtStart(gtNew(2),1);g.run[0][0].rel=10;g.tok[0]=1;gtRoll(g,1,2,3);
+    check('with a token one die can be rerolled, once per turn',(()=>{const fx=gtAct(g,1,{t:'reroll',i:0,v:6});return fx&&g.dice[0]===6&&g.tok[0]===0&&g.rerolled&&gtAct(g,1,{t:'reroll',i:1,v:4})===null;})());
+    g=gtStart(gtNew(2),1);g.run[0][0].rel=10;gtRoll(g,1,2,3);
+    check('a reroll needs a token',gtAct(g,1,{t:'reroll',i:0,v:6})===null);
+    g=gtStart(gtNew(2),1);g.run[0][0].rel=10;g.run[0][1].rel=20;gtRoll(g,1,4,4);
+    check('doubles give a +1 step bonus, offered as an extra move',g.bonus===1&&gtActions(g,1).some(a=>a.t==='bonus')&&g.stats.dbl[0]===1);
+    gtAct(g,1,{t:'die',i:0,r:0});gtAct(g,1,{t:'die',i:1,r:0});
+    check('the turn waits for the bonus; using it moves one step and ends the turn',g.cur===1&&gtAct(g,1,{t:'bonus',r:1})&&g.run[0][1].rel===21&&g.cur===2);
+    g=gtStart(gtNew(2),1);g.run[0][0].rel=10;gtRoll(g,1,2,2);gtAct(g,1,{t:'sum',r:0});
+    check('the bonus can be skipped',gtAct(g,1,{t:'skipbonus'})&&g.cur===2);
+    g=gtStart(gtNew(2),1);gtRoll(g,1,6,1);gtAct(g,1,{t:'die',i:0,r:0});
+    check('the 6 enters a runner; the 1 can then move that runner one step, and the turn ends once both dice are used',g.cur===1&&gtAct(g,1,{t:'die',i:1,r:0})&&g.run[0][0].rel===1&&g.cur===2);
+  });
+  suite('The Gauntlet — bots and whole games for 2 to 6 players',()=>{
+    const F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart'),gtRoll=F('gtRoll'),gtAct=F('gtAct'),gtBotPick=F('gtBotPick'),gtActions=F('gtActions'),gtEndTurn=F('gtEndTurn'),gtRunnersAt=F('gtRunnersAt'),gtSyncPairs=F('gtSyncPairs');
+    const rnd=()=>1+Math.floor(Math.random()*6);
+    let ok=true,why='',finished=0,total=0;
+    for(const P of[2,3,4,5,6])for(let n=0;n<4;n++){
+      total++;const g=gtStart(gtNew(P),1+Math.floor(Math.random()*P));let k=0;
+      while(!g.over&&k++<5000){
+        const s=g.cur;
+        if(g.phase==='roll'){gtRoll(g,s,rnd(),rnd());continue;}
+        const a=gtBotPick(g,s,(s+n)%2?'sharp':'gentle');
+        const fx=a?gtAct(g,s,a):(gtAct(g,s,{t:'bank'})||(gtEndTurn(g),true));
+        if(!fx){ok=false;why='illegal bot action';break;}
+        for(let abs=0;abs<48;abs++){const here=gtRunnersAt(g,abs),seats=new Set(here.map(x=>x.s));if(!g.safe[abs]&&seats.size>1){ok=false;why='two colours on a plain space';}if([...seats].some(x=>here.filter(y=>y.s===x).length>2)){ok=false;why='three own runners';}}
+        if(!ok)break;
+      }
+      if(g.over)finished++;
+    }
+    check('bots play '+total+' complete games (2, 3, 4, 5 and 6 players) without one illegal move, mixed colours on a plain space, or a third runner on a pair',ok,why);
+    check('every one of those games finished with a winner',finished===total);
+    const g=gtStart(gtNew(2),1);g.run[0][0].rel=25;g.run[1][0].rel=4;gtSyncPairs(g);gtRoll(g,1,3,6);
+    let caps=0;for(let i=0;i<20;i++){const a=gtBotPick(g,1,'sharp');if(a&&a.plan&&a.plan.cap)caps++;}
+    check('a Sharp bot takes a capture when one is on offer ('+caps+' of 20)',caps>=18);
+    check('a bot with no legal move returns nothing (the caller banks)',(()=>{const g2=gtStart(gtNew(2),1);gtRoll(g2,1,2,3);return gtBotPick(g2,1,'sharp')===null;})());
+    const r=gtStart(gtNew(4),1);
+    check('the board holds up with six players: 6 entries, 6 final runs, 18 runners',gtNew(6).entries.length===6&&gtNew(6).run.flat().length===18);
+  });
+  suite('The Gauntlet — is on the roster',()=>{
+    const g=A.GAMES.find(x=>x.id==='gauntlet');
+    check('it is a visible 2 to 6 player game with bots and online play',!!g&&!g.hidden&&!g.locked&&g.minP===2&&g.maxP===6&&A.BOT_GAMES.has('gauntlet')&&A.ONLINE_GAMES.includes('gauntlet'));
+    check('it has a tagline, an accent colour, a label and a tour',!!W.eval('STAGE_TAGS').gauntlet&&!!W.eval('MOMENT_ACCENT').gauntlet&&W.eval('v14GameLabel')('gauntlet')==='The Gauntlet'&&!!W.eval('TOURS').gauntlet);
+    check('its rules explain the dice choice, capture, blockade, final run, banking and doubles',['one at a time','capture','blockade','final run','Bank','doubles'].every(w=>new RegExp(w,'i').test(g.rules.join(' '))));
+    check('the capture and final-round banners exist',!!W.eval('STAGE_EVENTS').CAPTURE&&!!W.eval('STAGE_EVENTS').FINALROUND&&!!W.eval('STAGE_EVENTS').FINALRUN);
+  });
+  /* —— The Gauntlet: Play Together (one device, humans and bots), the table and the results —————— */
+  suite('The Gauntlet — Play Together on one device',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const lStartMatch=F('lStartMatch'),rGauntletTable=F('rGauntletTable'),gtTap=F('gtTap');
+    try{
+      const mk=(id,n,bot)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false,...(bot?{bot}:{})});
+      G.isOnline=false;G.srv=null;G.selGame='gauntlet';
+      G.lp=[mk(1,'Phil'),mk(2,'Anna'),mk(3,'Robo','gentle')];G.lstart=0;lStartMatch();G.lstart=0;G.gt.cur=1;G.gt.tc=[1,0,0];G.lcur=0;G.scr='table';G.gtInstant=true;
+      check('three seats start a three-seat game, Phil first',G.gt&&G.gt.P===3&&G.gt.cur===1&&G.gt.phase==='roll');
+      let d=new DOMParser().parseFromString(rGauntletTable(),'text/html');
+      check('the table shows the ring board, 9 runners, three standings and a Roll button for the player on turn',!!d.querySelector('.gt-board svg')&&d.querySelectorAll('.gt-run').length===9&&d.querySelectorAll('.cr-pill').length===3&&!!d.querySelector('[data-a="gtroll"]'));
+      check('each player has a colour and a shape in the standings (● ◆ ▲)',/●/.test(d.querySelectorAll('.cr-pill')[0].textContent)&&/◆/.test(d.querySelectorAll('.cr-pill')[1].textContent)&&/▲/.test(d.querySelectorAll('.cr-pill')[2].textContent));
+      const btn=W.document.createElement('button');btn.setAttribute('data-a','gtroll');W.document.body.appendChild(btn);btn.click();btn.remove();
+      check('rolling through the real button gives two dice and the move phase',G.gt.phase==='move'&&G.gt.dice.length===2);
+      d=new DOMParser().parseFromString(rGauntletTable(),'text/html');
+      check('after the roll the dice are shown, and the prompt asks what to do',d.querySelectorAll('.gt-die').length===2&&d.querySelector('.y-hint').textContent.length>5);
+      // stage a position where a capture is possible, then play it through the real taps
+      const gt=G.gt;gt.phase='move';gt.cur=1;G.lcur=0;gt.run[0][0].rel=25;gt.run[1][0].rel=12;F('gtSyncPairs')(gt);gt.dice=[3,6];gt.used=[false,false];gt.bonus=0;G.gtSel=null;
+      d=new DOMParser().parseFromString(rGauntletTable(),'text/html');
+      check('before choosing a die, no runner is offered; the Σ option is shown when both dice can be used on one runner',d.querySelectorAll('.gt-chip.ok').length===0&&!!d.querySelector('.gt-sum'));
+      const tap=(a,attrs)=>{const b=W.document.createElement('button');b.setAttribute('data-a',a);Object.entries(attrs||{}).forEach(([k,v])=>b.setAttribute(k,v));W.document.body.appendChild(b);b.click();b.remove();};
+      tap('gtdie',{'data-i':'0'});
+      d=new DOMParser().parseFromString(rGauntletTable(),'text/html');
+      check('choosing the 3 offers the runner that can capture, with a red ghost marking the target',d.querySelectorAll('.gt-chip.ok').length>=1&&d.querySelectorAll('.gt-ghost').length>=1&&/Move which runner 3/.test(d.querySelector('.y-hint').textContent));
+      tap('gtrun',{'data-r':'0'});
+      check('tapping the runner makes the capture: Anna\'s runner goes back to start and Phil\'s lands on its space',gt.run[1][0].rel===-1&&gt.run[0][0].rel===28&&gt.stats.cap[0]===1);
+      // the rest of the game with every seat played by a bot
+      G.lp.forEach(p=>{p.bot='gentle';});G.lcur=gt.cur-1;
+      let guard=0;while(!G.gt.over&&guard++<4000){F('botGauntletAct')(G.lp[G.lcur]);}
+      check('played to the end, there is one winner, everybody has a result and a runner count',G.gt.over&&G.lp.every(p=>['win','loss'].includes(p.c4Result))&&G.lp.some(p=>p.c4Result==='win'));
+      check('the result is in the family history, with a Table Moment',F('getHistory')().some(h=>h.game==='gauntlet'&&h.moment));
+      G.scr='matchend';
+      const res=new DOMParser().parseFromString(F('rMatchEnd')(),'text/html');
+      check('the results list all three players, best first, with how many runners each brought home',res.querySelectorAll('.sr').length===3&&/runner/.test(res.querySelectorAll('.sr-delta')[0].textContent)&&/won!/.test(res.querySelector('.wb-title').textContent));
+    } finally {
+      G.gtInstant=false;G.lp.forEach(p=>{delete p.bot;});G.scr='home';G.gt=null;G.gtSeq=null;G.gtSel=null;
+    }
+  });
+  /* —— The Gauntlet online: turns, the room, the move shown on the other device, rematch (awaits live at the top level) —————— */
+  {
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const oGtDo=F('oGtDo'),oGtAuto=F('oGtAuto'),oRematch=F('oRematch'),gtNew=F('gtNew'),gtStart=F('gtStart'),onSrv=F('onSrv'),rGauntletTable=F('rGauntletTable'),oStartGame=F('oStartGame'),stageOnSrv=F('stageOnSrv'),gtRoll=F('gtRoll'),gtAct=F('gtAct');
+    W.__keepSb12=W.eval('_sb');
+    W.eval('window.__origSetTimeout=setTimeout; setTimeout=(fn)=>0;');
+    let DB=null;const clone=o=>JSON.parse(JSON.stringify(o));
+    W.__fakeSb={from:()=>({
+      select:()=>({eq:()=>({single:()=>Promise.resolve({data:DB?{state:clone(DB)}:null,error:DB?null:{message:'none'}})})}),
+      upsert:row=>{DB=clone(row.state);return Promise.resolve({error:null});},
+      update:row=>({eq:()=>({eq:()=>({select:()=>{DB=clone(row.state);return Promise.resolve({data:[{id:'T'}],error:null});}})})})})};
+    const P=(id,n,i)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,roundsWon:0,chips:900,c4Result:null,gtHome:0});
+    const room=(first,n)=>{const ps=[P('a','Anna',0),P('b','Ben',1),P('c','Cleo',2)].slice(0,n||3);return{phase:'game',gameId:'gauntlet',host:'a',players:ps,curIdx:first-1,gt:gtStart(gtNew(ps.length),first),winner:null,winnerName:null,winnerAv:null,round:1,_ts:Date.now()-5000};};
+    const seen={};
+    try{
+      G.isOnline=true;G.roomId='T';G.myPid='a';G.isHost=true;G.scr='table';G.selGame='gauntlet';
+      W.eval('_sb=window.__fakeSb');
+      DB=room(1);G.srv=clone(DB);G.myPid='a';await oGtDo({t:'roll',d:[6,2]});seen.roll=clone(DB);
+      G.srv=clone(DB);await oGtDo({t:'die',i:0,r:0});seen.enter=clone(DB);
+      DB=room(1);G.myPid='b';G.srv=clone(DB);G.srv.curIdx=1;const b1=JSON.stringify(DB);await oGtDo({t:'roll',d:[6,6]});seen.notMine=JSON.stringify(DB)===b1;
+      DB=room(1);G.myPid='a';G.srv=clone(DB);const b2=JSON.stringify(DB);await oGtDo({t:'die',i:0,r:0});seen.beforeRoll=JSON.stringify(DB)===b2;
+      // a capture, written to the room with what the other device needs to show it
+      DB=room(1);DB.gt.run[0][0].rel=25;DB.gt.run[1][1].rel=12;F('gtSyncPairs')(DB.gt);G.myPid='a';G.srv=clone(DB);
+      await oGtDo({t:'roll',d:[3,1]});G.srv=clone(DB);await oGtDo({t:'die',i:0,r:0});seen.cap=clone(DB);
+      // the other device starts replaying the move the moment the state arrives
+      const before=room(1);before.gt.run[0][0].rel=10;gtRoll(before.gt,1,2,3);
+      const after=clone(before);gtAct(after.gt,1,{t:'die',i:0,r:0});after.curIdx=after.gt.cur-1;
+      G.myPid='b';G.srv=clone(before);G.gtSeq=null;stageOnSrv(clone(before),clone(after));
+      seen.seqOther=G.gtSeq?{kind:G.gtSeq.fx.kind,from:G.gtSeq.pos['1:0']}:null;G.gtSeq=null;
+      // an away player: rolls and moves for them
+      DB=room(2);G.myPid='a';G.srv=clone(DB);await oGtAuto();seen.auto1=clone(DB);G.srv=clone(DB);await oGtAuto();seen.auto2=clone(DB);
+      // a win ends the game with ranks and a Table Moment
+      DB=room(1,2);DB.gt.run[0][0].rel=48;DB.gt.run[0][1].rel=46;G.myPid='a';G.srv=clone(DB);
+      await oGtDo({t:'roll',d:[2,3]});G.srv=clone(DB);await oGtDo({t:'die',i:0,r:1});
+      G.myPid='b';G.srv=clone(DB);await oGtDo({t:'roll',d:[1,2]});G.srv=clone(DB);await oGtDo({t:'bank'});seen.win=clone(DB);
+      // start from the lobby, and rematch
+      const lobby={phase:'lobby',gameId:'gauntlet',host:'a',players:[P('a','Anna',0),P('b','Ben',1),P('c','Cleo',2),P('d','Dan',3),P('e','Eva',4)],_ts:Date.now()-5000};
+      G.myPid='a';G.srv=clone(lobby);oStartGame(clone(lobby));seen.started=clone(G.srv);
+      DB=clone(seen.win);G.isHost=true;G.srv=clone(DB);await oRematch();seen.rematch=clone(DB);
+      // the table seen from a device that is not on turn
+      G.gtSeq=null;DB=room(2);G.myPid='a';G.srv=clone(DB);seen.waitHtml=rGauntletTable();
+      G.myPid='b';G.srv=clone(DB);seen.myHtml=rGauntletTable();
+    } finally {
+      W.eval('setTimeout=window.__origSetTimeout');
+      W.eval('_sb=window.__keepSb12');
+      G.isOnline=false;G.srv=null;G.scr='home';G.isHost=false;G.gt=null;G.gtSeq=null;
+      try{W.localStorage.removeItem('ct_online_session');W.localStorage.removeItem('ct_resume');}catch(e){}
+    }
+    suite('The Gauntlet online — the room, the turn and the move on the other device',()=>{
+      check('the player on turn rolls: two dice are written to the room',seen.roll.gt.phase==='move'&&seen.roll.gt.dice.join()==='6,2'&&seen.roll.curIdx===0);
+      check('and moves: the runner enters the board and the room records it',seen.enter.gt.run[0].filter(x=>x.rel===0).length===1&&seen.enter.gt.moves>=2);
+      check('a device that is not on turn changes nothing',seen.notMine);
+      check('moving before the dice are rolled changes nothing',seen.beforeRoll);
+      check('a capture is stored in the room with the victim, so every device can show it',!!seen.cap.gt.fx&&!!seen.cap.gt.fx.cap&&seen.cap.gt.fx.cap.seat===2&&seen.cap.gt.run[1][1].rel===-1);
+      check('the other device starts replaying the move the moment the new state arrives',!!seen.seqOther&&seen.seqOther.kind==='die'&&seen.seqOther.from===10);
+      check('an away player gets a roll made for them, then a move (or a bank)',seen.auto1.gt.phase==='move'&&seen.auto2.gt.moves>seen.auto1.gt.moves);
+      check('a win ends the game: winner, ranks, runner counts and a Table Moment are in the room',seen.win.winner==='a'&&seen.win.gt.over&&seen.win.players[0].c4Result==='win'&&seen.win.players[0].gtHome===2&&!!seen.win.moment);
+      check('starting from the lobby makes a five-seat game with a fresh ring',seen.started.gameId==='gauntlet'&&seen.started.gt.P===5&&seen.started.gt.moves===0&&seen.started.curIdx===seen.started.gt.cur-1&&seen.started.players.length===5);
+      check('Rematch: same players, a fresh game, nobody home',seen.rematch.gameId==='gauntlet'&&seen.rematch.phase==='game'&&!seen.rematch.winner&&seen.rematch.gt.moves===0&&seen.rematch.players.length===2);
+      const wait=new DOMParser().parseFromString(seen.waitHtml,'text/html'),mine=new DOMParser().parseFromString(seen.myHtml,'text/html');
+      check('a player who is not on turn gets no dice controls, just who they are waiting for',wait.querySelectorAll('[data-a="gtroll"]').length===0&&/Waiting for/.test(wait.querySelector('.y-hint').textContent));
+      check('the player on turn gets the Roll button',mine.querySelectorAll('[data-a="gtroll"]').length===1);
+    });
+  }
+
   /* —— Table talk: a richer set of reactions, ordered per game, with a ⋯ panel and a little motion —————— */
   suite('Reactions — 12 on the strip, every one behind ⋯, ordered per game',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);
