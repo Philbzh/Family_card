@@ -5537,6 +5537,34 @@ async function runPresentation(A,W,frame){
     });
   }
 
+  /* —— Quick tours for the newer games, offered in the local setup screen too —————— */
+  suite('Quick tours — Chain Reaction, 4 in a Row (Mayhem), Tension and Flower or Skull',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const T=F('TOURS');
+    check('the four newer games have a tour of 4 or 5 slides, each with an icon, a heading and text',['chainreaction','fourrow','tension','skull'].every(id=>T[id]&&T[id].slides.length>=4&&T[id].slides.every(s=>s.ic&&s.h&&s.t)));
+    check('the Chain Reaction tour explains the limits, the explosion, the glowing cells, and mentions the Fun powers',/Corners hold <b>2/.test(T.chainreaction.slides[1].t)&&/explodes/i.test(T.chainreaction.slides[2].h)&&/glow/i.test(T.chainreaction.slides[3].h)&&/Surge/.test(T.chainreaction.slides[4].t)&&/Overload/.test(T.chainreaction.slides[4].t));
+    check('the 4 in a Row tour names all six Mayhem powers',['Bomb','Bubble','Magnet','Lightning','Wild','Chaos'].every(n=>T.fourrow.slides.map(s=>s.t).join(' ').includes(n)));
+    check('the Mayhem table uses the 4 in a Row tour, and one "seen" flag between them',F('tourKey')('mayhem')==='fourrow'&&F('tourKey')('chainreaction')==='chainreaction');
+    const keep=W.localStorage.getItem('ct_tours');
+    try{
+      W.localStorage.removeItem('ct_tours');
+      check('a tour nobody has watched is unseen',F('tourSeen')('chainreaction')===false&&F('tourSeen')('mayhem')===false);
+      F('tourOpen')('mayhem');
+      check('opening it from the Mayhem table marks the 4 in a Row tour as seen too, and shows the tour',F('tourSeen')('fourrow')===true&&F('tourSeen')('mayhem')===true&&G.tour&&G.tour.id==='fourrow');
+      F('tourClose')();
+      // the local setup screen offers the tour
+      G.isOnline=false;G.scr='setup';
+      for(const id of['chainreaction','fourrow','tension','skull']){
+        G.selGame=id;G.lp=G.lp.length>=A.GAMES.find(g=>g.id===id).minP?G.lp:G.lp;
+        const html=F('rSetup')();
+        check('the setup screen for '+id+' has the "Quick tour" button',/data-a="tour-open"/.test(html));
+      }
+    } finally {
+      if(keep==null)W.localStorage.removeItem('ct_tours');else W.localStorage.setItem('ct_tours',keep);
+      G.tour=null;G.scr='home';
+    }
+  });
+
   /* —— Table talk: a richer set of reactions, ordered per game, with a ⋯ panel and a little motion —————— */
   suite('Reactions — 12 on the strip, every one behind ⋯, ordered per game',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);

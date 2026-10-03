@@ -7004,22 +7004,46 @@ const TOURS={
     {ic:'🗣️',h:'Say “ONE MORE!”',t:'After setting dice aside you can roll the rest again — or <b>bank</b> your turn and keep the points safe.'},
     {ic:'🔥',h:'It gets more dangerous',t:'Every extra roll in a turn raises the danger level: dead 💀 dice, a ☠️ die that busts you instantly, a 🔥 ×2 die, then 💰 bonus and 🛡️ shield dice at Level 5.'},
     {ic:'🏁',h:'First to 20,000',t:'Your first banked turn needs 600 or more. Reach 20,000 and everyone else gets one last turn.'}]},
+  chainreaction:{title:'How to play Chain Reaction',slides:[
+    {ic:'⚛️',h:'Put one orb down',t:'On your turn tap an <b>empty cell</b> or one that is already <b>yours</b>. Every player has a colour <i>and</i> a shape: ● red, ◆ gold, ▲ green, ■ blue.'},
+    {ic:'🔢',h:'Every cell has a limit',t:'Corners hold <b>2</b> orbs, edges <b>3</b>, the middle <b>4</b>. The little empty circles in a cell show how many fit before it blows.'},
+    {ic:'💥',h:'Full? It explodes!',t:'A full cell sends one orb to each neighbour and they all turn <b>your colour</b>. If that fills a neighbour, it explodes too — a <b>chain reaction</b>, wave after wave.'},
+    {ic:'🔥',h:'Watch the glowing cells',t:'A cell one orb from its limit glows and wobbles. Yours are your weapons — but an enemy next to them can set them off and <b>take them</b>.'},
+    {ic:'🏆',h:'Last one standing',t:'Lose every cell (after you have played) and you are out. The <b>Fun</b> version, picked before the game, adds two single-use powers: <b>⚡ Surge</b> takes an enemy cell, <b>💥 Overload</b> sets off one of yours.'}]},
+  fourrow:{title:'How to play 4 in a Row',slides:[
+    {ic:'🔴',h:'Four in a row wins',t:'Take turns dropping a disc into a column. Line up <b>four of yours</b> — across, up and down, or diagonally — before the other player does.'},
+    {ic:'💥',h:'Classic or Mayhem',t:'Pick before you start. <b>Classic</b> is the plain game. In <b>Mayhem</b> each player is secretly dealt <b>three special moves</b> out of six; your opponent only sees <i>how many</i> you have left.'},
+    {ic:'🧰',h:'The six special moves',t:'💣 <b>Bomb</b> blows away the discs around it · 🫧 <b>Bubble</b> protects one of yours · 🧲 <b>Magnet</b> pulls the top discs from the next columns · ⚡ <b>Lightning</b> wipes a column or a row · 🃏 <b>Wild</b> counts as both colours · 🌪️ <b>Chaos</b> shakes the board sideways.'},
+    {ic:'✅',h:'Pick, aim, confirm',t:'Tap a power to arm it, choose where, then press <b>Confirm</b> — and everybody watches it happen. Use one to save yourself: a four that was one move away can simply vanish. Careful: destruction can help the other side too.'}]},
+  tension:{title:'How to play Tension',slides:[
+    {ic:'⚙️',h:'One machine, everyone’s hands on it',t:'Twelve mechanisms share one <b>stability meter</b> that starts at 100. On your turn pick a mechanism and <b>Push</b>, <b>Pull</b> or <b>Rotate</b> it: you score its points, and the machine loses stability.'},
+    {ic:'🔍',h:'Every mechanism has a secret',t:'One of its three actions runs <b>smooth</b> (half the stress), one <b>strained</b>, one <b>grinding</b> (double). Once somebody tries an action its square turns <b>green, amber or red</b> for everyone — watch, remember, use it.'},
+    {ic:'🔥',h:'Careful: it wears and it goes critical',t:'Each use wears a mechanism, and every turn adds strain. Below <b>30</b> the machine is CRITICAL: every point counts <b>double</b> — and one wrong move ends it.'},
+    {ic:'💥',h:'Collapse costs 10 points',t:'Take stability to zero and the machine <b>collapses</b>: you lose 10 points. It rebuilds, but everything you learnt stays. <b>Four collapses end the game</b>; most points wins.'}]},
+  skull:{title:'How to play Flower or Skull',slides:[
+    {ic:'🌸',h:'Three flowers and a skull',t:'Everyone holds four discs: <b>three 🌸 flowers and one 💀 skull</b>. Only you know which is which. Each round, put <b>one disc face down</b> on your mat.'},
+    {ic:'➕',h:'Add a disc, or start the bidding',t:'In turn you may <b>add another disc</b> to your stack — or <b>bid</b>: “I can flip this many flowers.” Everyone after you raises the bid or passes.'},
+    {ic:'🫵',h:'The challenger flips',t:'The last bidder must flip that many discs — <b>their own first</b>, then any stack (from the top). All flowers? You win the challenge. Hit a 💀? You lose a disc for good.'},
+    {ic:'🏆',h:'Bluff and win',t:'Win <b>two challenges</b>, or be the last player with discs. Is that quiet player really holding flowers…? The <b>Fun</b> version gives everyone one 🔮 Peek.'}]},
   hotbomb:{title:'How to play Hot Bomb',slides:[
     {ic:'💣',h:'Pass it. Don’t hold it.',t:'A bomb with a secret fuse starts with one player. Tap another player to pass it — fast!'},
     {ic:'💥',h:'Three strikes',t:'Whoever holds the bomb when it explodes takes a strike. Three strikes and you’re out; the last player standing wins.'},
     {ic:'🔄',h:'Power cards',t:'Reverse, shield, magnet, freeze, double bomb, target… use them at the right moment. Later rounds get faster and darker.'}]}
 };
-function tourOpen(id){if(!TOURS[id])return;G.tour={id,i:0};try{const s=JSON.parse(localStorage.getItem('ct_tours')||'{}');s[id]=1;localStorage.setItem('ct_tours',JSON.stringify(s));}catch(e){}G.rulesOpen=false;render();}
+const tourKey=id=>id==='mayhem'?'fourrow':id; // the Mayhem table is the same tile as 4 in a Row: one tour, one 'seen' flag
+function tourOpen(id){id=tourKey(id);if(!TOURS[id])return;G.tour={id,i:0};try{const s=JSON.parse(localStorage.getItem('ct_tours')||'{}');s[id]=1;localStorage.setItem('ct_tours',JSON.stringify(s));}catch(e){}G.rulesOpen=false;render();}
 function tourStep(d){if(!G.tour)return;const n=TOURS[G.tour.id].slides.length;G.tour.i=Math.max(0,Math.min(n-1,G.tour.i+d));render();}
 function tourClose(){G.tour=null;render();}
-function tourSeen(id){try{return!!JSON.parse(localStorage.getItem('ct_tours')||'{}')[id];}catch(e){return true;}}
+function tourSeen(id){id=tourKey(id);try{return!!JSON.parse(localStorage.getItem('ct_tours')||'{}')[id];}catch(e){return true;}}
 // The lobby opens the tour once, by itself, for a game nobody at this device has toured yet.
 function tourMaybeAuto(){
-  if(G.scr!=='lobby'||G.tour||G.tourAutoDone===(G.srv&&G.srv.gameId))return;
-  const id=G.srv&&G.srv.gameId;if(!TOURS[id]||tourSeen(id))return;
-  G.tourAutoDone=id;setTimeout(()=>{if(G.scr==='lobby'&&!G.tour)tourOpen(id);},600);
+  const where=G.scr;if(where!=='lobby'&&where!=='setup')return;
+  const id=tourKey(where==='lobby'?(G.srv&&G.srv.gameId):G.selGame);
+  if(!id||G.tour||G.tourAutoDone===where+id)return;
+  if(!TOURS[id]||tourSeen(id))return;
+  G.tourAutoDone=where+id;setTimeout(()=>{if(G.scr===where&&!G.tour)tourOpen(id);},600);
 }
-function tourBtnHTML(id){return TOURS[id]?`<button class="tour-btn" data-a="tour-open" data-id="${id}">▶ Quick tour — how to play</button>`:'';}
+function tourBtnHTML(id){id=tourKey(id);return TOURS[id]?`<button class="tour-btn" data-a="tour-open" data-id="${id}">▶ Quick tour — how to play</button>`:'';}
 function rTourOv(){
   const t=TOURS[G.tour.id],i=G.tour.i,n=t.slides.length,s=t.slides[i];
   const dots=t.slides.map((_,k)=>`<i class="${k===i?'on':''}"></i>`).join('');
@@ -18625,6 +18649,7 @@ function rSetup(){
       ${game.id==='drawit'?dwOptionsHTML():''}
       ${game.id==='liarsdice'?ldOptionsHTML():''}
       ${game.id==='bingo'?bgOptionsHTML():''}
+      ${tourBtnHTML(game.id)}
       ${game.id==='fourrow'?c4OptionsHTML():''}
       ${game.id==='chainreaction'?crOptionsHTML():''}
       ${game.id==='mayhem'?mhOptionsHTML():''}
