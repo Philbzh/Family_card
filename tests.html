@@ -6475,7 +6475,7 @@ async function runPresentation(A,W,frame){
       gt.ev={n:'storm',left:1};F('gtEvSync')(gt);d=doc();
       check('a storm rings every hazard space on the board',d.querySelectorAll('svg .gt-evring').length===gt.haz.length);
       gt.ev={n:'blackout',left:1};F('gtEvSync')(gt);d=doc();
-      check('a blackout dims the board',!!d.querySelector('svg circle[fill="rgba(0,0,12,.42)"]'));
+      check('a blackout dims the board',!!d.querySelector('svg circle[mask="url(#gtdark)"]')||!!d.querySelector('svg circle[fill="rgba(0,0,12,.42)"]'));
       gt.ev={n:'overcharge',left:2};F('gtEvSync')(gt);d=doc();
       check('overcharge rings the four risk spaces',d.querySelectorAll('svg .gt-evring').length===4);
       gt.ev=null;F('gtEvSync')(gt);gt.collapsed=[9];gt.haz.push(9);d=doc();
@@ -6513,6 +6513,123 @@ async function runPresentation(A,W,frame){
       G.myName=keepName;G.gtInstant=false;G.gt=null;G.gtSeq=null;G.lp=[];G.scr='home';
       if(keepMode==null)W.localStorage.removeItem('ct_gt_mode');else W.localStorage.setItem('ct_gt_mode',keepMode);
       if(keepHist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keepHist);
+    }
+  });
+  /* —— The Gauntlet: the board is alive —————— */
+  suite('The Gauntlet — animations: levels, glow, idle life, hub, weather',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart'),gtSyncPairs=F('gtSyncPairs'),gtBoardSVG=F('gtBoardSVG'),rGauntletTable=F('rGauntletTable');
+    const keep=(()=>{try{return W.localStorage.getItem('ct_gt_anim');}catch(e){return null;}})();
+    const lvl=l=>F('gtAnimSet')(l);
+    const doc=()=>new DOMParser().parseFromString(rGauntletTable(),'text/html');
+    const tap=(a,attrs)=>{const b=W.document.createElement('button');b.setAttribute('data-a',a);Object.entries(attrs||{}).forEach(([k,v])=>b.setAttribute(k,v));W.document.body.appendChild(b);b.click();b.remove();};
+    try{
+      W.localStorage.removeItem('ct_gt_anim');
+      check('animations are Full by default, and the choice cycles Full → Light → Off → Full',F('gtAnim')()==='full'&&(F('gtAnimNext')(),F('gtAnim')()==='light')&&(F('gtAnimNext')(),F('gtAnim')()==='off')&&(F('gtAnimNext')(),F('gtAnim')()==='full'));
+      check('an invalid stored value means Full',(W.localStorage.setItem('ct_gt_anim','wild'),F('gtAnim')()==='full'));
+      check('light effects play in Light and Full, heavy ones only in Full, nothing in Off',(()=>{lvl('full');const a=F('gtFxOn')('light')&&F('gtFxOn')('full');lvl('light');const b=F('gtFxOn')('light')&&!F('gtFxOn')('full');lvl('off');const c=!F('gtFxOn')('light')&&!F('gtFxOn')('full');lvl('full');return a&&b&&c;})());
+      G.isOnline=false;G.srv=null;G.selGame='gauntlet';G.gtSeq=null;G.gtInstant=true;G.gtSecret=null;
+      G.lp=[{id:1,name:'Phil',avatar:A.AVATARS[0],hand:[],totalScore:0},{id:2,name:'Anna',avatar:A.AVATARS[1],hand:[],totalScore:0},{id:3,name:'Robo',avatar:A.AVATARS[2],hand:[],totalScore:0}];
+      const gt=G.gt=gtStart(gtNew(3),2);G.lcur=1;G.scr='table';
+      gt.run[0][0].rel=5;gt.run[1][0].rel=8;gt.run[1][1].rel=48;gtSyncPairs(gt);
+      let d=doc();
+      check('the board carries the animation level and a marker for whose turn it is (round and seat)',d.querySelector('.gt-board.an-full')&&d.querySelector('.gt-board').getAttribute('data-turn')==='1-2');
+      check('only the runners of the player on turn glow (a pulsing halo): Anna has 3, nobody else any',d.querySelectorAll('.gt-run.turn').length===3&&[...d.querySelectorAll('.gt-run.turn')].every(g=>g.classList.contains('p2')));
+      check('every runner has its own idle phase, so they do not bob in step',new Set([...d.querySelectorAll('.gt-run .gt-lift')].map(g=>g.getAttribute('style'))).size>=6);
+      check('the hub gears sit in a group that can turn, the 😈 tiles blink, the safe tiles shimmer',d.querySelectorAll('.gt-gear rect').length===18&&d.querySelectorAll('.gt-imp').length===4&&d.querySelectorAll('.gt-safe').length>=6);
+      check('the hub rim has a segment for every runner of every player (3 × 3 = 9), one lit in Anna\'s colour for her runner that is home',d.querySelectorAll('.gt-hubseg').length===9&&d.querySelectorAll('.gt-hubseg.lit').length===1&&d.querySelector('.gt-hubseg.lit').getAttribute('data-s')==='2'&&d.querySelector('.gt-hubseg.lit').getAttribute('stroke')===F('GT_COLORS')[1]);
+      // while a move into Home is being shown, that segment is not lit yet
+      G.gtSeq={fx:{kind:'die',seat:2,moves:[{r:1,from:47,to:48,path:[48]}]},pos:{},xy:{},homeLit:false};
+      check('during the flight home the new segment waits (lit when the runner arrives)',doc().querySelectorAll('.gt-hubseg.lit').length===0);
+      G.gtSeq.homeLit=true;
+      check('...and it is lit afterwards',doc().querySelectorAll('.gt-hubseg.lit').length===1);
+      G.gtSeq=null;
+      // weather
+      gt.ev={n:'storm',left:2};F('gtEvSync')(gt);d=doc();
+      check('STORM in Full: rain falls and lightning flickers, on top of the rings round the hazards',d.querySelectorAll('.gt-rain').length===34&&d.querySelectorAll('.gt-lightning').length===1&&d.querySelectorAll('.gt-evring').length===gt.haz.length);
+      lvl('light');d=doc();
+      check('in Light the rain is left out (the rings stay); in Off the animation classes are off',d.querySelectorAll('.gt-rain').length===0&&d.querySelectorAll('.gt-evring').length===gt.haz.length&&d.querySelector('.gt-board.an-light'));
+      lvl('full');gt.ev={n:'blackout',left:1};F('gtEvSync')(gt);d=doc();
+      check('BLACKOUT in Full: a dark veil with a soft flashlight round every runner',!!d.querySelector('svg mask#gtdark')&&d.querySelectorAll('svg mask#gtdark circle').length===9&&!!d.querySelector('svg circle[mask="url(#gtdark)"]'));
+      lvl('light');d=doc();
+      check('in Light it is a plain veil',!d.querySelector('svg mask#gtdark')&&!!d.querySelector('svg circle[fill="rgba(0,0,12,.42)"]'));
+      lvl('full');gt.ev=null;F('gtEvSync')(gt);
+      // the setting
+      d=doc();
+      check('a button at the bottom of the panel names the level',/Animations: Full/.test(d.querySelector('.gt-animbtn').textContent));
+      tap('gt-anim');
+      check('tapping it moves to the next level',F('gtAnim')()==='light'&&/Animations: Light/.test(doc().querySelector('.gt-animbtn').textContent));
+      lvl('full');
+      // the sweep when the turn passes
+      F('render')();
+      F('gtAfterRender')();
+      gt.cur=3;F('render')();
+      F('gtAfterRender')();
+      check('when the turn passes to somebody else a ring of their colour sweeps across the board',W.document.querySelector('.gt-board').classList.contains('sweep'));
+      lvl('off');gt.cur=1;F('render')();F('gtAfterRender')();
+      check('...but not with animations off',!W.document.querySelector('.gt-board').classList.contains('sweep'));
+      lvl('full');
+    } finally {
+      if(keep==null)W.localStorage.removeItem('ct_gt_anim');else W.localStorage.setItem('ct_gt_anim',keep);
+      G.gtInstant=false;G.gtSeq=null;G.gt=null;G.lp=[];G.scr='home';
+    }
+  });
+  suite('The Gauntlet — animations: effects drawn by script',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const keep=(()=>{try{return W.localStorage.getItem('ct_gt_anim');}catch(e){return null;}})();
+    const lvl=l=>F('gtAnimSet')(l);
+    const mkSvg=()=>{const s=W.document.createElementNS('http://www.w3.org/2000/svg','svg');W.document.body.appendChild(s);return s;};
+    const gtSpray=F('gtSpray'),gtWave=F('gtWave'),gtTrapShow=F('gtTrapShow'),gtBolts=F('gtBolts');
+    try{
+      lvl('full');
+      let s=mkSvg();
+      gtSpray(s,[100,100],{n:12,col:'#fff'});
+      check('a spray makes the requested number of particles, each with its own direction',s.querySelectorAll('.gt-part').length===12&&s.querySelector('.gt-part').style.getPropertyValue('--dx')!==''&&s.querySelector('.gt-part').style.getPropertyValue('--dy')!=='');
+      gtSpray(s,[100,100],{n:5,col:'#fff',inward:true});
+      check('an inward spray (the magnet) uses particles that fly towards the centre',s.querySelectorAll('.gt-part-in').length===5);
+      gtWave(s,[50,50],'#fff',1,5,500);gtWave(s,[50,50],'#fff',1,5,500,true);
+      check('rings expand (or, for the magnet, contract)',s.querySelectorAll('.gt-wave').length===1&&s.querySelectorAll('.gt-suck').length===1);
+      gtBolts(s,[100,100],'#fff',2,4);
+      check('lightning bolts are drawn as zig-zag lines',s.querySelectorAll('polyline.gt-bolt').length===2&&s.querySelector('polyline.gt-bolt').getAttribute('points').split(' ').length===5);
+      s.remove();
+      // each kind of trap has its own show
+      const shows={};
+      ['shock','slip','detour','blast','magnet','decoy','storm'].forEach(tp=>{const x=mkSvg();gtTrapShow(x,tp,[100,100],false);shows[tp]={n:x.childNodes.length,html:x.innerHTML};x.remove();});
+      check('every kind of trap (and the storm) puts something on the board',Object.values(shows).every(v=>v.n>=5));
+      check('they differ: sparks and bolts for a shock, ripples for a slip, a turning seam for a detour, a shockwave with debris for a blast, a pull for a magnet, a pop for a decoy',/gt-bolt/.test(shows.shock.html)&&(shows.slip.html.match(/gt-wave/g)||[]).length>=1&&/gt-spin90/.test(shows.detour.html)&&/gt-wave/.test(shows.blast.html)&&shows.blast.n>=20&&/gt-suck/.test(shows.magnet.html)&&/gt-part-in/.test(shows.magnet.html)&&/gt-pop/.test(shows.decoy.html)&&/gt-bolt/.test(shows.storm.html));
+      const xa=mkSvg();gtTrapShow(xa,'blast',[100,100],true);
+      check('a trap absorbed by a shield shows a blue ring instead of its own show',/8fe4ff/.test(xa.innerHTML)&&!/ff8a3a/.test(xa.innerHTML));xa.remove();
+      lvl('off');
+      const xo=mkSvg();gtSpray(xo,[1,1],{n:10});gtWave(xo,[1,1],'#fff',1,5,300);gtTrapShow(xo,'blast',[100,100],false);gtBolts(xo,[1,1],'#fff',2);
+      check('with animations Off none of these draw anything',xo.childNodes.length===0);xo.remove();
+      lvl('light');
+      const xl=mkSvg();gtTrapShow(xl,'shock',[100,100],false);
+      check('Light still draws the trap shows',xl.childNodes.length>=5);xl.remove();
+      lvl('full');
+      // the drop-in
+      const el=W.document.createElementNS('http://www.w3.org/2000/svg','g');el.innerHTML='<ellipse class="gt-sh" rx="4"/><g class="gt-lift"></g>';W.document.body.appendChild(el);
+      F('gtDrop')(el,[20,30],()=>{});
+      check('a runner entering the board starts high above its space, enlarged (it then falls)',/translate\(0 -26\.00\)/.test(el.querySelector('.gt-lift').getAttribute('transform'))&&/scale\(1\.250 1\.250\)/.test(el.querySelector('.gt-lift').getAttribute('transform')));
+      el.remove();
+      // lane and event shows
+      const gt=F('gtStart')(F('gtNew')(2),1);
+      const sl=mkSvg();F('gtLaneFx')(sl,gt,1);
+      check('a lane lights up in its own colour',sl.querySelector('path.gt-lanefx')&&sl.querySelector('path.gt-lanefx').getAttribute('stroke')===F('GT_SC_LOOK')[1].g);sl.remove();
+      const board=W.document.createElement('div');board.className='gt-board';board.innerHTML='<svg></svg>';W.document.body.insertBefore(board,W.document.body.firstChild);
+      const bs=board.querySelector('svg');
+      const count=()=>bs.childNodes.length;
+      ['storm','opengate','lockdown','overcharge'].forEach(n=>{const c0=count();F('gtEventStartFx')(gt,{k:'start',n,id:0});check('board event '+n+' starts with a show on the board',count()>c0);});
+      gt.collapsed=[9,31];const c1=count();F('gtEventStartFx')(gt,{k:'start',n:'collapse'});
+      check('a collapse sends debris flying from the fallen spaces and shakes the board',count()>c1+10&&board.classList.contains('shake'));
+      F('gtEventStartFx')(gt,{k:'warn',n:'storm'});
+      check('a warning flashes the board edge in amber',board.classList.contains('warnflash'));
+      board.remove();
+      // the queue that runs after the board has been redrawn
+      let ran=0;G.gtPost=[()=>ran++,()=>{throw new Error('x');},()=>ran++];F('gtRunPost')();
+      check('effects queued during a move run after the redraw, and one failing does not stop the others',ran===2&&G.gtPost.length===0);
+    } finally {
+      if(keep==null)W.localStorage.removeItem('ct_gt_anim');else W.localStorage.setItem('ct_gt_anim',keep);
+      G.gtPost=[];
     }
   });
   /* —— The Gauntlet: Play Together (one device, humans and bots), the table and the results —————— */
