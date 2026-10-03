@@ -1764,10 +1764,10 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 .ab-trick small{font-size:.62rem;color:var(--paper3);max-width:9rem;text-align:left;line-height:1.25;}
 .ab-trick:disabled{opacity:.4;cursor:default;}
 .ab-trick:not(:disabled):hover{border-color:#ffb347;box-shadow:0 0 12px rgba(255,179,71,.35);}
-.ab-board{--pc:#8f9bff;position:relative;aspect-ratio:200/232;width:min(100%,34rem,max(17rem,calc((100vh - 26rem)*.862)));padding:.45rem;border-radius:20px;
+.ab-board{--pc:#8f9bff;position:relative;aspect-ratio:200/220;width:min(100%,46rem,max(17rem,calc((100vh - 21rem)*.909)));padding:.45rem;border-radius:20px;
   background:linear-gradient(155deg,#aab4ff 0%,#5a64c8 28%,#2a3180 60%,#5a64c8 85%,#aab4ff);
   box-shadow:inset 0 2px 3px rgba(255,255,255,.45),inset 0 -3px 5px rgba(10,12,60,.6),0 14px 34px rgba(0,0,0,.65),0 0 0 1px #141a4a,0 0 26px -4px var(--pc);transition:box-shadow .4s;}
-@supports(height:100svh){.ab-board{width:min(100%,34rem,max(17rem,calc((100svh - 26rem)*.862)));}}
+@supports(height:100svh){.ab-board{width:min(100%,46rem,max(17rem,calc((100svh - 21rem)*.909)));}}
 .ab-board.live{box-shadow:inset 0 2px 3px rgba(255,255,255,.45),inset 0 -3px 5px rgba(10,12,60,.6),0 14px 34px rgba(0,0,0,.65),0 0 0 1px #141a4a,0 0 46px 2px var(--pc);}
 .ab-board svg{display:block;width:100%;height:100%;border-radius:14px;}
 .ab-board.shake{animation:mh-shake .42s cubic-bezier(.36,.07,.19,.97) both;}
@@ -1819,6 +1819,8 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
   .gt-board{--gt-oh:12.5rem;width:min(47vw,40rem,max(19rem,calc(100vh - var(--gt-oh))));}
   @supports(height:100svh){.gt-board{width:min(47vw,40rem,max(19rem,calc(100svh - var(--gt-oh))));}}
   .gt-panel{width:min(30vw,20rem);justify-content:center;}
+  .ab-board{width:min(58vw,46rem,max(19rem,calc((100vh - 12.5rem)*.909)));}
+  @supports(height:100svh){.ab-board{width:min(58vw,46rem,max(19rem,calc((100svh - 12.5rem)*.909)));}}
   .gt-final{position:absolute;top:.4rem;left:50%;transform:translateX(-50%);z-index:5;}
   .gt-felt{position:relative;}
 }
@@ -12084,10 +12086,10 @@ function gtTap(a,t){
    to the start). Reaching 100 (or going past it) wins.
    The board is made from a seed (and checked for a sensible length), so every game is different and every device agrees.
    Everything here is pure: abRoll() changes a plain state object and returns a record (ab.fx) of what happened, to be replayed. */
-const AB_N=100,AB_CELL=20;
+const AB_N=100,AB_CELL=20,AB_GAP=13,AB_KEEP=8;
 // Centre of square n on the winding board (1 is bottom left, the rows turn round at the ends, 100 is top left); n = 0 is the start pad.
 function abCell(n){
-  if(n<=0)return[100,217];
+  if(n<=0)return[100,210];
   const i=n-1,row=Math.floor(i/10),c=i%10,col=row%2===0?c:9-c;
   return[col*AB_CELL+10,(9-row)*AB_CELL+10];
 }
@@ -12096,6 +12098,11 @@ function abCross(a,b,c,d){
   const o=(p,q,r)=>(q[0]-p[0])*(r[1]-p[1])-(q[1]-p[1])*(r[0]-p[0]);
   return o(a,b,c)*o(a,b,d)<0&&o(c,d,a)*o(c,d,b)<0;
 }
+// Shortest distance between the straight lines a-b and c-d (they are known not to cross).
+function abSegDist(a,b,c,d){
+  const pt=(p,q,r)=>{const dx=r[0]-q[0],dy=r[1]-q[1],l=dx*dx+dy*dy,t=l?Math.max(0,Math.min(1,((p[0]-q[0])*dx+(p[1]-q[1])*dy)/l)):0;return Math.hypot(p[0]-q[0]-t*dx,p[1]-q[1]-t*dy);};
+  return Math.min(pt(a,c,d),pt(b,c,d),pt(c,a,b),pt(d,a,b));
+}
 function abRand(st){st.s=(st.s*48271)%2147483647;return st.s/2147483647;}
 // Makes a board: {sq:{n:{t:'ladder'|'pit'|'hole'|'worm'|'star',to,pair}}}. null when the layout could not be made.
 function abGen(seed){
@@ -12103,23 +12110,27 @@ function abGen(seed){
   const r=(a,b)=>a+Math.floor(abRand(st)*(b-a+1));
   const sq={},used=new Set(),heads=new Set();
   // a square that something happens on: not taken, and not next to another such square (so the board stays readable)
-  const free=n=>n>=2&&n<=98&&!used.has(n)&&!heads.has(n-1)&&!heads.has(n+1);
+  const free=n=>n>=2&&n<=98&&!used.has(n)&&!heads.has(n-1)&&!heads.has(n+1)&&offLadders(n);
   // a square something leads to: just not taken
   const dest=n=>n>=2&&n<=98&&!used.has(n);
   const lines=[];   // ladders and pits already drawn, as straight lines between square centres: new ones must not cross them
-  const clear=(a,b)=>lines.every(l=>!abCross(abCell(a),abCell(b),abCell(l[0]),abCell(l[1])));
+  // two ladders must not cross, nor run side by side (that looks like one tangled ladder)
+  const clear=(a,b)=>lines.every(l=>!abCross(abCell(a),abCell(b),abCell(l[0]),abCell(l[1]))&&abSegDist(abCell(a),abCell(b),abCell(l[0]),abCell(l[1]))>=AB_GAP);
+  // an icon (hole, pit, wormhole, star) must not sit on a ladder; and a ladder must not run over a black hole
+  const offLadders=n=>lines.every(l=>abSegDist(abCell(n),abCell(n),abCell(l[0]),abCell(l[1]))>=AB_KEEP);
+  const holes=[];
   const mark=n=>{used.add(n);};
   const head=n=>{used.add(n);heads.add(n);};
   const pick=(lo,hi)=>{for(let i=0;i<300;i++){const n=r(lo,hi);if(free(n))return n;}return 0;};
   let ok=true;
   // black holes: spread over the board
-  [[22,40],[41,58],[59,75],[76,88],[89,97]].forEach(([lo,hi])=>{const a=pick(lo,hi);if(!a){ok=false;return;}sq[a]={t:'hole',to:0};head(a);});
+  [[22,40],[41,58],[59,75],[76,88],[89,97]].forEach(([lo,hi])=>{const a=pick(lo,hi);if(!a){ok=false;return;}sq[a]={t:'hole',to:0};head(a);holes.push(a);});
   // ladders: [foot range, length range]; the last two are rockets
   [[3,12,8,16],[10,24,10,20],[20,36,10,22],[30,48,12,24],[44,62,10,22],[56,72,10,20],[2,20,28,40],[38,54,28,40],[24,42,12,22]].forEach(([lo,hi,l0,l1])=>{
     let a=0,b=0;
     for(let tries=0;tries<40&&!b;tries++){
       a=pick(lo,hi);if(!a)continue;
-      for(let i=0;i<20&&!b;i++){const c=a+r(l0,l1);if(c<=98&&dest(c)&&clear(a,c))b=c;}
+      for(let i=0;i<20&&!b;i++){const c=a+r(l0,l1);if(c<=98&&dest(c)&&clear(a,c)&&holes.every(h=>abSegDist(abCell(h),abCell(h),abCell(a),abCell(c))>=AB_KEEP))b=c;}
     }
     if(!b){ok=false;return;}
     sq[a]={t:'ladder',to:b};head(a);mark(b);lines.push([a,b]);
@@ -12215,10 +12226,36 @@ function abNew(P,seed){
 function abStart(ab,first){ab.cur=first||1;return ab;}
 function abLog(ab,e){ab.hist.push(e);if(ab.hist.length>8)ab.hist.shift();}
 // Passes the turn on. A frozen player is skipped (the list of those who missed a turn is returned).
+// At the start of every round the stars jump to new squares (empty ones, away from the other special squares).
+// Returns {from:[...],to:[...]} or null when there is no star.
+function abMoveStars(ab){
+  const sq=ab.board.sq,old=Object.keys(sq).map(Number).filter(n=>sq[n].t==='star').sort((a,b)=>a-b);
+  if(!old.length)return null;
+  const taken=new Set([0]),heads=new Set();
+  Object.keys(sq).forEach(k=>{const n=+k,x=sq[n];if(x.t==='star')return;taken.add(n);heads.add(n);if(x.to!=null)taken.add(x.to);});
+  ab.pos.forEach(q=>taken.add(q));
+  const lad=Object.keys(sq).map(Number).filter(k=>sq[k].t==='ladder').map(k=>[abCell(k),abCell(sq[k].to)]);
+  const offLad=n=>lad.every(l=>abSegDist(abCell(n),abCell(n),l[0],l[1])>=AB_KEEP);
+  old.forEach(n=>delete sq[n]);
+  const st={s:ab.rng},to=[];
+  old.forEach(o=>{
+    let got=0;
+    for(let i=0;i<120&&!got;i++){
+      const n=6+Math.floor(abRand(st)*89);
+      if(taken.has(n)||old.includes(n)||heads.has(n-1)||heads.has(n+1)||!offLad(n))continue;
+      got=n;
+    }
+    if(!got)got=o;
+    taken.add(got);heads.add(got);to.push(got);sq[got]={t:'star'};
+  });
+  ab.rng=st.s;
+  return{from:old,to:to.sort((a,b)=>a-b)};
+}
 function abNext(ab){
-  ab.dbl=0;const skipped=[];
+  ab.dbl=0;const skipped=[];ab.starMv=null;
   for(let g=0;g<ab.P*2;g++){
-    ab.cur=ab.cur%ab.P+1;if(ab.cur===1)ab.round++;
+    ab.cur=ab.cur%ab.P+1;
+    if(ab.cur===1){ab.round++;const mv=abMoveStars(ab);if(mv)ab.starMv=ab.starMv?{from:ab.starMv.from,to:mv.to}:mv;}
     if(ab.skip[ab.cur-1]>0){ab.skip[ab.cur-1]--;skipped.push(ab.cur);abLog(ab,{s:ab.cur,k:'skip'});}
     else break;
   }
@@ -12239,7 +12276,7 @@ function abRoll(ab,seat,d1,d2){
     // the third double in a row throws you back to the start
     fx.triple=true;fx.eff={t:'triple',from,to:0};ab.pos[i]=0;fx.to=0;ab.stats.triple[i]++;
     abLog(ab,{s:seat,k:'triple'});
-    fx.again=false;fx.skipped=abNext(ab);ab.fx=fx;return fx;
+    fx.again=false;fx.skipped=abNext(ab);fx.stars=ab.starMv;ab.starMv=null;ab.fx=fx;return fx;
   }
   let p=from;
   for(let k=0;k<d1+d2&&p<AB_N;k++){p++;fx.steps.push(p);}
@@ -12271,7 +12308,7 @@ function abRoll(ab,seat,d1,d2){
   ab.pos[i]=q;fx.to=q;
   if(fx.dbl)fx.again=true;
   abLog(ab,{s:seat,k:'roll',d:[d1,d2],f:from,e:fx.eff?fx.eff.t:'',t:q,b:fx.bumps.map(b=>b.seat),bn:fx.bounce?1:0,dbl:fx.dbl?1:0,dr:fx.drew||''});
-  if(!fx.again)fx.skipped=abNext(ab);
+  if(!fx.again){fx.skipped=abNext(ab);fx.stars=ab.starMv;ab.starMv=null;}
   ab.fx=fx;
   return fx;
 }
@@ -12391,9 +12428,9 @@ function abMoment(ab,names){
   return`${nm(w)} reached the top first.`;
 }
 /* ── The Abyss: the board ── */
-const AB_VH=232;
+const AB_VH=220;
 function abXY(ab,seat,n){
-  if(n<=0)return[100+(seat-1-(ab.P-1)/2)*24,217];
+  if(n<=0)return[100+(seat-1-(ab.P-1)/2)*24,210];
   return abCell(n);
 }
 const AB_STATIC={};
@@ -12413,23 +12450,14 @@ function abStaticSVG(ab){
     <radialGradient id="abfin" cx=".5" cy=".5" r=".6"><stop offset="0" stop-color="#ffe9a0"/><stop offset="1" stop-color="#b8861c"/></radialGradient>`);
   body.push(`<rect x="0" y="0" width="200" height="${AB_VH}" rx="6" fill="url(#abbg)"/>`);
   for(let k=0;k<46;k++){const x=(k*53+17)%197+1.5,y=(k*91+29)%228+1.5,r=.35+((k*7)%5)*.12;body.push(`<circle cx="${x}" cy="${y}" r="${r.toFixed(2)}" fill="#fff" opacity="${(.15+((k*11)%6)*.07).toFixed(2)}"/>`);}
-  // every square that does something has its own colour, and the ends of ladders and pits are marked too
-  const sq0=ab.board.sq,tint={},badge={},nums=[];
-  Object.keys(sq0).forEach(k=>{
-    const n=+k,s=sq0[k];
-    if(s.t==='ladder'){tint[n]=['#3ddc84',.3];badge[n]='⬆';if(!tint[s.to]){tint[s.to]=['#5aa9ff',.26];badge[s.to]='🔝';}}
-    else if(s.t==='pit'){tint[n]=['#ff5a4e',.32];if(!tint[s.to]){tint[s.to]=['#ff8a5e',.16];badge[s.to]='📍';}}
-    else if(s.t==='hole')tint[n]=['#8f5ae0',.36];
-    else if(s.t==='worm')tint[n]=[s.pair===0?'#b98af0':'#ff9a3c',.32];
-    else if(s.t==='star')tint[n]=['#ffd84a',.28];
-  });
+  const nums=[];
   for(let n=1;n<=AB_N;n++){
     const[x,y]=abCell(n),i=n-1,row=Math.floor(i/10),odd=(row+i%10)%2;
-    const fin=n===AB_N,ti=tint[n];
-    body.push(`<g transform="translate(${x} ${y})"><rect x="-9.4" y="-9.4" width="18.8" height="18.8" rx="2.4" fill="${fin?'url(#abfin)':odd?'url(#abc1)':'url(#abc0)'}" stroke="${fin?'#ffe9a0':'rgba(150,170,255,.22)'}" stroke-width="${fin?.9:.4}"/>${ti?`<rect x="-9.4" y="-9.4" width="18.8" height="18.8" rx="2.5" fill="${ti[0]}" fill-opacity="${ti[1]}" stroke="${ti[0]}" stroke-opacity=".75" stroke-width=".7"/>`:''}${badge[n]?`<text x="6.4" y="-5.6" text-anchor="middle" font-size="5.2">${badge[n]}</text>`:''}${fin?'<text y="1.5" text-anchor="middle" dominant-baseline="middle" font-size="9">🏁</text>':''}</g>`);
-    nums.push(`<text x="${(x-8.6).toFixed(1)}" y="${(y+8.4).toFixed(1)}" font-size="4.6" font-weight="600" fill="${fin?'#5a3a00':'rgba(236,242,255,.92)'}"${fin?'':' stroke="#070b24" stroke-width="1" paint-order="stroke"'} font-family="Jost,sans-serif" pointer-events="none">${n}</text>`);
+    const fin=n===AB_N;
+    body.push(`<g transform="translate(${x} ${y})"><rect x="-9.4" y="-9.4" width="18.8" height="18.8" rx="2.4" fill="${fin?'url(#abfin)':odd?'url(#abc1)':'url(#abc0)'}" stroke="${fin?'#ffe9a0':'rgba(150,170,255,.22)'}" stroke-width="${fin?.9:.4}"/>${fin?'<text y="1.5" text-anchor="middle" dominant-baseline="middle" font-size="9">🏁</text>':''}</g>`);
+    nums.push(`<text x="${(x-8.6).toFixed(1)}" y="${(y+8.4).toFixed(1)}" font-size="3.9" font-weight="600" fill="${fin?'#5a3a00':'rgba(222,232,255,.72)'}"${fin?'':' stroke="#070b24" stroke-width=".7" paint-order="stroke"'} font-family="Jost,sans-serif" pointer-events="none">${n}</text>`);
   }
-  body.push(`<rect x="22" y="205" width="156" height="24" rx="12" fill="rgba(0,0,0,.35)" stroke="rgba(150,170,255,.3)" stroke-width=".5"/><text x="100" y="209.5" text-anchor="middle" font-size="3.6" letter-spacing=".5" fill="rgba(200,215,255,.5)" font-family="Cinzel,serif">START</text>`);
+  body.push(`<rect x="3" y="202.5" width="194" height="15" rx="7.5" fill="rgba(0,0,0,.35)" stroke="rgba(150,170,255,.3)" stroke-width=".5"/><text x="9" y="211.4" font-size="3.4" letter-spacing=".5" fill="rgba(200,215,255,.55)" font-family="Cinzel,serif">START</text>`);
   const sq=ab.board.sq,laddersSvg=[],pitsSvg=[],iconSvg=[];
   Object.keys(sq).map(Number).forEach(n=>{
     const s=sq[n],[x,y]=abCell(n);
@@ -12455,11 +12483,16 @@ function abStaticSVG(ab){
         pitsSvg.push(`<path d="M${x.toFixed(1)} ${y.toFixed(1)} Q${mx.toFixed(1)} ${my.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}" fill="none" stroke="${col}" stroke-width=".7" stroke-dasharray="1.2 1.8" opacity=".55"/>`);
       }
     } else if(s.t==='star'){
-      iconSvg.push(`<text class="ab-star" x="${x}" y="${(y+.4).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="9.5">⭐</text>`);
+      /* stars are drawn by abStarsInner: they move */
     }
   });
-  body.push(laddersSvg.join(''),pitsSvg.join(''),iconSvg.join(''),nums.join(''));
-  return AB_STATIC[key]={defs:defs.join(''),body:body.join('')};
+  body.push(laddersSvg.join(''),pitsSvg.join(''),iconSvg.join(''));
+  return AB_STATIC[key]={defs:defs.join(''),body:body.join(''),nums:nums.join('')};
+}
+// The stars: they jump to new squares every round, so they are not part of the cached board.
+function abStarList(ab){return Object.keys(ab.board.sq).map(Number).filter(n=>ab.board.sq[n].t==='star').sort((a,b)=>a-b);}
+function abStarsInner(list){
+  return list.map(n=>{const[x,y]=abCell(n);return`<g><rect x="${x-9.4}" y="${y-9.4}" width="18.8" height="18.8" rx="2.5" fill="#ffd84a" fill-opacity=".16" stroke="#ffd84a" stroke-opacity=".6" stroke-width=".6"/><text class="ab-star" x="${x}" y="${(y+.4).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="9.5">⭐</text></g>`;}).join('');
 }
 function abDrawXY(ab,seat,seq){
   const n=seq&&seq.pos&&seq.pos[seat]!=null?seq.pos[seat]:ab.pos[seat-1];
@@ -12550,7 +12583,7 @@ function abBoardSVG(ab,o){
     }
   }
   const st=abStaticSVG(ab);
-  return`<svg viewBox="0 0 200 ${AB_VH}" role="img" aria-label="The Abyss: a board of 100 squares with ladders, rockets, pits, black holes, wormholes and stars" xmlns="http://www.w3.org/2000/svg"><defs>${st.defs}</defs>${st.body}${abOverlaySVG(ab,o)}${toks}${tags}</svg>`;
+  return`<svg viewBox="0 0 200 ${AB_VH}" role="img" aria-label="The Abyss: a board of 100 squares with ladders, rockets, pits, black holes, wormholes and stars" xmlns="http://www.w3.org/2000/svg"><defs>${st.defs}</defs>${st.body}<g class="ab-stars">${abStarsInner(seq&&seq.starPos?seq.starPos:abStarList(ab))}</g>${st.nums}${abOverlaySVG(ab,o)}${toks}${tags}</svg>`;
 }
 // One readable line for an entry of ab.hist.
 function abHistText(h,names){
@@ -12572,14 +12605,14 @@ function abLegendHTML(){
     [sw('lg-ab-pit','⌄'),'<b>Pit:</b> you fall to the end of the dashed red line.'],
     [sw('lg-ab-hole','🌑'),'<b>Black hole:</b> swallowed — back to the very start.'],
     [sw('lg-ab-worm','🌀'),'<b>Wormhole:</b> step on one end, come out of the other (it may be ahead or behind).'],
-    [sw('lg-ab-star','⭐'),'<b>Star:</b> roll again.'],
+    [sw('lg-ab-star','⭐'),'<b>Star:</b> roll again and win a trick. The stars jump to new squares every round.'],
     [sw('lg-ab-bump','💥'),'<b>Bump:</b> land on another player and they slide back 3.'],
     [sw('lg-ab-dbl','⚀⚀'),'<b>Doubles</b> roll again. Three in a row sends you back to the start.'],
     [sw('lg-ab-tap','👆'),'<b>Tap any square</b> to see what it does and where it leads. On your turn the <b>dots</b> on the squares ahead show where you could land: <span style="color:#5be37d">green</span> good, <span style="color:#ff5e55">red</span> bad, <span style="color:#c58cff">violet</span> a wormhole, <span style="color:#ffd84a">gold</span> the top; more dots = more likely.'],
     [sw('lg-ab-trick','🃏'),'<b>Tricks</b> (shown next to each name) are single-use: one per turn, before you roll. 💨 Shove · 🔄 Swap · ✂️ Cut · 🧱 Plug · ❄️ Freeze. You get one at the start, from a ⭐, and a consolation one when a black hole swallows you.']];
   return`<details class="gt-legend"><summary>❔ What is what on the board?</summary><ul>${rows.map(r=>`<li>${r[0]}<span>${r[1]}</span></li>`).join('')}</ul></details>`;
 }
-function abReachOn(){try{return localStorage.getItem('ct_ab_reach')!=='off';}catch(e){return true;}}
+function abReachOn(){try{return localStorage.getItem('ct_ab_reach')==='on';}catch(e){return false;}}
 function abReachSet(on){try{localStorage.setItem('ct_ab_reach',on?'on':'off');}catch(e){}}
 // A small card explaining one square (tapped on the board): what it is, where it leads, who stands there, how likely you are to land on it.
 function abInfoHTML(ab,n,players,reach){
@@ -12591,7 +12624,7 @@ function abInfoHTML(ab,n,players,reach){
     else if(s.t==='pit'){icon='🕳️';txt=`Pit: you fall from ${n} down to ${s.to} (−${n-s.to}).`;}
     else if(s.t==='hole'){icon='🌑';txt='Black hole: swallowed — back to the very start. You get a consolation trick.';}
     else if(s.t==='worm'){icon='🌀';txt=`Wormhole: step in and come out on ${s.to}, ${Math.abs(s.to-n)} squares ${s.to>n?'ahead of':'behind'} this one.`;}
-    else if(s.t==='star'){icon='⭐';txt='Star: roll again, and win a trick.';}
+    else if(s.t==='star'){icon='⭐';txt='Star: roll again, and win a trick. Stars jump to new squares every round.';}
     if(ab.off[n]&&(s.t==='ladder'||s.t==='hole'))txt+=` Right now it is ${s.t==='ladder'?'cut — out of order':'plugged'} until ${nm(ab.off[n]-1)}’s next turn.`;
   } else {
     const r=abRelated(ab,n)[0];
@@ -12649,7 +12682,6 @@ function rAbyssTable(){
       controls+=`<div class="ab-tricks"><span>🃏 Play a trick first? (one per turn)</span><div>${[...new Set(hand)].map(k=>{const tt=AB_TRICKS[k],n=hand.filter(x=>x===k).length,ok=abTrickTargets(ab,seat,k).length>0;return`<button class="ab-trick" data-a="abtrick" data-t="${k}" ${ok?'':'disabled'}><b>${tt.icon} ${tt.name}${n>1?' ×'+n:''}</b><small>${ok?tt.txt:'nobody to use it on'}</small></button>`;}).join('')}</div></div>`;
     }
   }
-  const logHTML=ab.hist&&ab.hist.length?`<ul class="gt-log" aria-label="Last moves">${ab.hist.slice(-3).reverse().map((h,i)=>`<li class="${i===0?'new':''}">${abHistText(h,names)}</li>`).join('')}</ul>`:'';
   return`<div id="s-table" class="scr on game-gauntlet game-abyss">
     <div class="game-bar">
       <div class="gb-game">🌌 <span class="cr-gbn">The Abyss</span></div>
@@ -12665,7 +12697,6 @@ function rAbyssTable(){
           ${infoN?abInfoHTML(ab,infoN,players,reachAll):''}
           ${diceHTML}
           ${controls}
-          ${logHTML}
           ${abLegendHTML()}
           <button class="gt-animbtn" data-a="ab-reach" aria-label="Where I could land">🎯 Where I could land: ${abReachOn()?'On':'Off'}</button>
           <button class="gt-animbtn" data-a="gt-anim" aria-label="Animations">✨ Animations: ${{full:'Full',light:'Light',off:'Off'}[gtAnim()]}</button>
@@ -12813,12 +12844,29 @@ function abRunSeq(ab,renderNow,done){
     if(fx.trick==='swap')fx.swap.forEach(x=>{seq.pos[x.seat]=x.from;});
   } else {seq.pos[fx.seat]=fx.from;(fx.bumps||[]).forEach(b=>{seq.pos[b.seat]=b.from;});}
   G.abSeq=seq;
-  let finished=false;
-  const fin=()=>{if(G.abSeq!==seq||finished)return;finished=true;G.abSeq=null;stages();render();gtRunPost();if(done)done();};
+  if(fx.stars)seq.starPos=fx.stars.from.slice();
+  const svg0=()=>document.querySelector('.ab-board svg');
+  let finished=false,starsShown=false;
+  const fin0=()=>{if(G.abSeq!==seq||finished)return;finished=true;G.abSeq=null;stages();render();gtRunPost();if(done)done();};
+  // the stars vanish where they were and come back somewhere else
+  const fin=()=>{
+    if(G.abSeq!==seq||finished||starsShown)return;
+    const svg=svg0(),layer=svg&&svg.querySelector('.ab-stars');
+    if(!fx.stars||!layer||fx.win){fin0();return;}
+    starsShown=true;
+    SFX.abStar();
+    fx.stars.from.forEach(n=>gtSpray(svg,abCell(n),{n:7,col:['#ffe14a','#fff'],spread:9,life:500,size:.7}));
+    layer.style.transition='opacity .3s';layer.style.opacity='0';
+    setTimeout(()=>{
+      if(G.abSeq!==seq)return;
+      layer.innerHTML=abStarsInner(fx.stars.to);layer.style.opacity='1';
+      fx.stars.to.forEach(n=>{gtWave(svg,abCell(n),'#ffe14a',1.4,5,600);gtSpray(svg,abCell(n),{n:9,col:['#ffe14a','#fff'],spread:11,life:600,size:.8});});
+      setTimeout(fin0,750);
+    },340);
+  };
   const after=(fn,ms)=>setTimeout(()=>{if(G.abSeq===seq)fn();},ms);
   if(fx.kind!=='trick'){SFX.gtRoll();_dieIntent=Date.now();}
   render();
-  const svg0=()=>document.querySelector('.ab-board svg');
   // frame-by-frame helper: u runs 0..1 over `dur` ms, then cont()
   const tween=(dur,fn,cont)=>{
     const t0=performance.now();let ended=false;

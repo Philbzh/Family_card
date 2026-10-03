@@ -6771,7 +6771,21 @@ async function runPresentation(A,W,frame){
     check('ladders lead up, pits lead down, black holes lead to the start, wormholes are mutual',boards.every(sq=>Object.entries(sq).every(([n,x])=>{n=+n;return x.t==='ladder'?x.to>n:x.t==='pit'?x.to<n&&x.to>=2:x.t==='hole'?x.to===0:x.t==='worm'?(sq[x.to]&&sq[x.to].t==='worm'&&sq[x.to].to===n&&Math.abs(x.to-n)>=20):true;})));
     check('nothing special sits on square 1, 99 or 100, and nothing leads onto another special square',boards.every(sq=>!sq[1]&&!sq[99]&&!sq[100]&&Object.values(sq).every(x=>x.t==='worm'||x.t==='star'||x.t==='hole'||!sq[x.to])));
     check('ladders never cross each other (the board stays readable)',boards.every(sq=>{const L=Object.entries(sq).filter(([n,x])=>x.t==='ladder').map(([n,x])=>[+n,x.to]);return L.every((p,i)=>L.every((q,j)=>i>=j||!abCross(abCell(p[0]),abCell(p[1]),abCell(q[0]),abCell(q[1]))));}));
-    check('the board is walked with the squares winding like a snake: 1 bottom left, 10 bottom right, 11 above it, 20 on the left, 100 top left',JSON.stringify([abCell(1),abCell(10),abCell(11),abCell(20),abCell(100),abCell(0)])===JSON.stringify([[10,190],[190,190],[190,170],[10,170],[10,10],[100,217]]));
+    check('ladders also keep their distance (no two run side by side) and no pit, hole, wormhole or star sits on a ladder (also after the stars have jumped)',boards.every(sq=>{const seg=Object.entries(sq).filter(([n,x])=>x.t==='ladder').map(([n,x])=>[abCell(+n),abCell(x.to)]);const F2=W.eval('abSegDist');for(let i=0;i<seg.length;i++)for(let j=i+1;j<seg.length;j++)if(F2(seg[i][0],seg[i][1],seg[j][0],seg[j][1])<13)return false;return Object.entries(sq).every(([n,x])=>x.t==='ladder'||seg.every(g=>F2(abCell(+n),abCell(+n),g[0],g[1])>=8));}));
+    check('the stars jump to new empty squares at the start of every round, and a roll that ends the round says where they went',(()=>{
+      const x=W.eval('abStart')(abNew(2,4242),1),before=Object.keys(x.board.sq).filter(k=>x.board.sq[k].t==='star').map(Number).sort((p,q)=>p-q);
+      const f1=W.eval('abRoll')(x,1,1,2);   // player 1 plays, then player 2 is up: still the same round
+      if(f1.stars)return false;
+      let f2=null;for(let g=0;g<6&&!f2;g++){const f=W.eval('abRoll')(x,x.cur,1,2);if(f&&f.stars)f2=f;}
+      if(!f2)return false;
+      const after=Object.keys(x.board.sq).filter(k=>x.board.sq[k].t==='star').map(Number).sort((p,q)=>p-q);
+      const lad=Object.entries(x.board.sq).filter(([k,v])=>v.t==='ladder').map(([k,v])=>[abCell(+k),abCell(v.to)]);return after.every(n=>lad.every(g=>W.eval('abSegDist')(abCell(n),abCell(n),g[0],g[1])>=8))&&JSON.stringify(f2.stars.from)===JSON.stringify(before)&&JSON.stringify(f2.stars.to)===JSON.stringify(after)&&after.length===5&&after.every(n=>!before.includes(n)&&!x.pos.includes(n)&&x.board.sq[n].t==='star');
+    })());
+    check('the jump is the same on every device (same state in, same stars out)',(()=>{
+      const mk=()=>{const x=W.eval('abStart')(abNew(2,777),1);for(let k=0;k<7;k++)W.eval('abRoll')(x,x.cur,2,3);return JSON.stringify(x.board.sq);};
+      return mk()===mk();
+    })());
+    check('the board is walked with the squares winding like a snake: 1 bottom left, 10 bottom right, 11 above it, 20 on the left, 100 top left',JSON.stringify([abCell(1),abCell(10),abCell(11),abCell(20),abCell(100),abCell(0)])===JSON.stringify([[10,190],[190,190],[190,170],[10,170],[10,10],[100,210]]));
     check('a game is built on a board of sensible length (a lone walker needs 13–19 turns)',[11,22,33,44,55].every(s=>{const g=abBoard(s);return g.len>=13.5&&g.len<=18.5;}));
     check('2 to 6 players, everybody starts off the board, player 1 is up',(()=>{const g=abNew(9);return g.P===6&&g.pos.every(p=>p===0)&&g.cur===1&&!g.over&&abNew(1).P===2;})());
   });
@@ -7147,24 +7161,25 @@ async function runPresentation(A,W,frame){
       ab.pos=[12,30,0];ab.tricks=[[],[],[]];
       F('abStaticSVG');Object.keys(F('AB_STATIC')).forEach(k=>delete F('AB_STATIC')[k]);
       let d=doc();
-      // 1: squares that do something look different
-      const tinted=d.querySelectorAll('svg g > rect[rx="2.5"]').length;
-      check('every special square has its own tint, and so do the other end of each ladder and pit: 6 specials + 1 ladder top + 1 pit end = 8',tinted===8);
-      check('the ladder top and the pit landing carry a small marker (🔝 and 📍), the foot an arrow',[...d.querySelectorAll('svg g > text')].some(t=>t.textContent==='🔝')&&[...d.querySelectorAll('svg g > text')].some(t=>t.textContent==='📍')&&[...d.querySelectorAll('svg g > text')].some(t=>t.textContent==='⬆'));
+      // 1: the board stays calm
+      check('the squares are calm: no tint and no corner badges, only the one star square carries a faint gold edge',d.querySelectorAll('svg g > rect[rx="2.5"]').length===1&&![...d.querySelectorAll('svg g > text')].some(t=>['🔝','📍','⬆'].includes(t.textContent)));
       const html=F('rAbyssTable')();
-      check('the 100 numbers are drawn on top of the ladders and the icons, larger and with a dark outline',(html.match(/font-size="4\.6"/g)||[]).length===100&&html.indexOf('font-size="4.6"')>html.indexOf('stroke="#7fe6ff" stroke-width="1.5"')&&/paint-order="stroke"/.test(html));
+      check('the 100 numbers are small and quiet, and drawn after the ladders and icons',(html.match(/font-size="3\.9"/g)||[]).length===100&&html.indexOf('font-size="3.9"')>html.indexOf('stroke="#7fe6ff" stroke-width="1.5"'));
+      check('the stars have their own layer (they move): one star on the board',d.querySelectorAll('svg g.ab-stars text.ab-star').length===1);
+      check('there is no move log under the dice, and no big empty start area: the board is 200 x 220',!d.querySelector('.gt-log')&&/viewBox="0 0 200 220"/.test(html));
       // 2: where am I
       check('the player on turn has a name tag over the token with the square (or "start"), and a pulsing frame round the square',[...d.querySelectorAll('svg text')].some(t=>/^Phil · 12$/.test(t.textContent))&&d.querySelectorAll('svg rect.gt-halo').length===1);
       check('the prompt says where you are',/you are on square 12/.test(d.querySelector('.y-hint').textContent));
       check('tokens never get in the way of a tap',[...d.querySelectorAll('.ab-tok')].every(g=>g.getAttribute('pointer-events')==='none'));
-      // 3: the reach map
+      // 3: the reach map (off until asked for)
+      check('the reach map is off until you ask for it',d.querySelectorAll('svg circle[r="1.15"]').length===0&&/Where I could land: Off/.test(d.body.textContent));
+      tap('ab-reach');d=doc();
       const dots=d.querySelectorAll('svg circle[r="1.15"]').length;
-      check('on your turn the squares you could land on (14 … 24) show dots for how likely they are, and the interesting ones a coloured edge',dots>=11&&d.querySelectorAll('svg rect[stroke="#5be37d"][fill="none"]').length>=1);
+      check('switched on: the squares you could land on (14 … 24) show dots for how likely they are, and the interesting ones a coloured edge (remembered)',dots>=11&&d.querySelectorAll('svg rect[stroke="#5be37d"][fill="none"]').length>=1&&W.localStorage.getItem('ct_ab_reach')==='on');
       check('the pit on 20 gets a red edge, the star on 15 a green one',d.querySelectorAll('svg rect[stroke="#ff5e55"][fill="none"]').length>=1);
       tap('ab-reach');
-      check('the reach map can be switched off (and the choice is remembered)',doc().querySelectorAll('svg circle[r="1.15"]').length===0&&W.localStorage.getItem('ct_ab_reach')==='off'&&/Where I could land: Off/.test(doc().body.textContent));
+      check('...and off again',doc().querySelectorAll('svg circle[r="1.15"]').length===0&&W.localStorage.getItem('ct_ab_reach')==='off');
       tap('ab-reach');
-      check('...and on again',doc().querySelectorAll('svg circle[r="1.15"]').length>=11);
       ab.cur=2;G.lcur=1;
       check('when it is a bot\'s turn the reach map is not shown',doc().querySelectorAll('svg circle[r="1.15"]').length===0);
       ab.cur=1;G.lcur=0;
