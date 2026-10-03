@@ -1672,6 +1672,23 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 .gt-res table{width:100%;border-collapse:collapse;font-size:.8rem;}
 .gt-res th,.gt-res td{padding:.25rem .3rem;}
 .gt-res td:first-child,.gt-res th:first-child{text-align:left;}
+.gt-legend{width:100%;max-width:26rem;font-size:.74rem;color:var(--paper3);}
+.gt-legend summary{cursor:pointer;text-align:center;padding:.3rem;color:var(--gold2);list-style:none;}
+.gt-legend summary::-webkit-details-marker{display:none;}
+.gt-legend ul{list-style:none;margin:.3rem 0 0;padding:.5rem .7rem;border-radius:12px;background:rgba(0,0,0,.35);display:flex;flex-direction:column;gap:.45rem;}
+.gt-legend li{display:flex;gap:.6rem;align-items:center;line-height:1.35;}
+.gt-legend b{color:var(--paper);}
+.lg{flex:0 0 auto;width:1.7rem;height:1.7rem;display:inline-flex;align-items:center;justify-content:center;border-radius:.45rem;font-style:normal;font-size:.85rem;border:1.5px solid rgba(255,255,255,.35);}
+.lg-run{border-radius:50%;background:#101010;border:2px solid #fff;color:#ff7a6e;box-shadow:0 0 0 3px rgba(255,90,78,.3);}
+.lg-safe{background:linear-gradient(#3b6384,#1f3a52);border-color:#a9d0f2;color:#eaf5ff;}
+.lg-entry{background:linear-gradient(#ff5a4e99,#7a1f1a);border-color:#ff5a4e;color:#fff;}
+.lg-risk{background:linear-gradient(#7a2a1c,#3d130c);border-color:#ff8a5e;}
+.lg-haz{background:repeating-linear-gradient(135deg,#7a4a06 0 4px,#c9a02a 4px 6px);border-color:#f4c93a;}
+.lg-tcap{background:#174a30;border-color:rgba(0,0,0,.5);background-image:radial-gradient(circle,transparent 5px,rgba(255,255,255,.55) 5.5px,transparent 6.5px);}
+.lg-lane{background:rgba(154,140,240,.3);border-color:#9a8cf0;font-size:.8rem;}
+.lg-final{background:linear-gradient(#5fd68a99,#14532d);border-color:#5fd68a;color:#fff;font-weight:700;}
+.lg-tell{background:rgba(255,225,74,.12);border-color:#ffe14a;color:#ffe14a;font-weight:700;}
+.lg-mem{background:rgba(0,0,0,.6);border-color:#b5532a;border-radius:50%;}
 .gt-dl{font-size:1.6rem;}
 .gt-dare-d{filter:hue-rotate(-30deg) saturate(1.5);box-shadow:0 0 18px rgba(255,80,60,.7);}
 .gt-dare{display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;}
@@ -11223,7 +11240,7 @@ function gtScXY(gt,id,k){
 function gtXY(gt,seat,rel,r){
   const e=gt.entries[seat-1];
   if(rel>=100)return gtScXY(gt,Math.floor((rel-100)/10),(rel-100)%10);
-  if(rel===-1){const a=gtAng(e),p=gtPolar(a,95);return[p[0]-Math.sin(a)*(r-1)*7.2,p[1]+Math.cos(a)*(r-1)*7.2];}
+  if(rel===-1){const a=gtAng(e),p=gtPolar(a,91.5);return[p[0]-Math.sin(a)*(r-1)*8.4,p[1]+Math.cos(a)*(r-1)*8.4];}
   if(rel<GT_LAP)return gtPolar(gtAng((e+rel)%GT_RING),GT_R);
   if(rel<GT_HOME)return gtPolar(gtRootAng(gt,seat),GT_LANE[rel-GT_LAP]);
   return gtPolar(gtRootAng(gt,seat)+(r-1)*.42,12.5);
@@ -11242,12 +11259,12 @@ function gtScStatic(gt,s){
   const L=GT_SC_LOOK[s.id],pts=[];
   for(let q=0;q<=40;q++)pts.push(gtScXY(gt,s.id,q/8));
   const d='M'+pts.map(p=>p[0].toFixed(2)+' '+p[1].toFixed(2)).join(' L');
-  const out=[`<path d="${d}" fill="none" stroke="rgba(0,0,0,.65)" stroke-width="8.6" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="${d}" fill="none" stroke="${L.c}" stroke-opacity=".3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  const out=[`<path d="${d}" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="7.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="${d}" fill="none" stroke="${L.c}" stroke-opacity=".2" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
     <path d="${d}" fill="none" stroke="${L.g}" stroke-opacity=".55" stroke-width=".6" stroke-dasharray="1.1 2.1" stroke-linecap="round"/>`];
   for(let k=1;k<GT_SC_STEPS;k++){
     const[x,y]=gtScXY(gt,s.id,k),hz=GT_SC[s.id].hz===k;
-    out.push(`<g transform="translate(${x.toFixed(2)} ${y.toFixed(2)})"><rect x="-3.7" y="-3.7" width="7.4" height="7.4" rx="1.6" fill="url(#gttileL)" stroke="${hz?'#f4c93a':L.c}" stroke-width="${hz?1:.8}"/><rect x="-3.2" y="-3.2" width="6.4" height="2.5" rx="1" fill="#fff" opacity=".08"/>${hz?`<path d="M-2.6 2.6 L2.6 -2.6 M-2.6 .4 L.4 -2.6 M-.4 2.6 L2.6 -.4" stroke="#f4c93a" stroke-width=".8" stroke-linecap="round"/>`:''}${gt.tcap.includes(100+s.id*10+k)?`<circle r="2.3" fill="none" stroke="rgba(230,195,106,.6)" stroke-width=".4"/><circle cx="-1.2" cy="-1.2" r=".33" fill="#e6c36a"/><circle cx="1.2" cy="-1.2" r=".33" fill="#e6c36a"/><circle cx="-1.2" cy="1.2" r=".33" fill="#e6c36a"/><circle cx="1.2" cy="1.2" r=".33" fill="#e6c36a"/>`:''}</g>`);
+    out.push(`<g transform="translate(${x.toFixed(2)} ${y.toFixed(2)})"><rect x="-3.3" y="-3.3" width="6.6" height="6.6" rx="1.5" fill="${L.c}" fill-opacity=".3" stroke="${hz?'#f4c93a':L.c}" stroke-width="${hz?1:.9}"/>${hz?`<path d="M-2.6 2.6 L2.6 -2.6 M-2.6 .4 L.4 -2.6 M-.4 2.6 L2.6 -.4" stroke="#f4c93a" stroke-width=".8" stroke-linecap="round"/>`:''}${gt.tcap.includes(100+s.id*10+k)?`<circle r="1.8" fill="none" stroke="rgba(255,255,255,.35)" stroke-width=".35" stroke-dasharray=".9 .7"/>`:''}</g>`);
   }
   const[ex,ey]=gtPolar(gtAng(s.a),71.6),[ox,oy]=gtPolar(gtAng(s.b),71.6);
   out.push(`<circle cx="${ex.toFixed(2)}" cy="${ey.toFixed(2)}" r="3.5" fill="#12171c" stroke="${L.c}" stroke-width=".8"/><text x="${ex.toFixed(2)}" y="${(ey+.4).toFixed(2)}" text-anchor="middle" dominant-baseline="middle" font-size="4.1">${GT_SC[s.id].icon}</text>
@@ -11270,7 +11287,7 @@ function gtStaticSVG(gt){
     <linearGradient id="gtwood" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6b4528"/><stop offset=".5" stop-color="#3c2314"/><stop offset="1" stop-color="#1d1008"/></linearGradient>
     <linearGradient id="gtwoodhl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd9a0" stop-opacity=".28"/><stop offset=".45" stop-color="#ffd9a0" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".4"/></linearGradient>
     <linearGradient id="gttile" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#245a3f"/><stop offset="1" stop-color="#143523"/></linearGradient>
-    <linearGradient id="gttileS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4b4a22"/><stop offset="1" stop-color="#2a2a12"/></linearGradient>
+    <linearGradient id="gttileS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b6384"/><stop offset="1" stop-color="#1f3a52"/></linearGradient>
     <linearGradient id="gttileR" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7a2a1c"/><stop offset="1" stop-color="#3d130c"/></linearGradient>
     <linearGradient id="gttileL" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3138"/><stop offset="1" stop-color="#12171c"/></linearGradient>
     <radialGradient id="gthub" cx=".5" cy=".4" r=".7"><stop offset="0" stop-color="#1c3a2a"/><stop offset="1" stop-color="#050d09"/></radialGradient>
@@ -11299,12 +11316,12 @@ function gtStaticSVG(gt){
     } else if(gt.risk.includes(i)){
       tile=`<rect x="-4.3" y="-4.3" width="8.6" height="8.6" rx="1.8" fill="url(#gttileR)" stroke="#ff8a5e" stroke-width="1"/><rect x="-3.8" y="-3.8" width="7.6" height="3.1" rx="1.3" fill="#fff" opacity=".08"/><text y=".5" text-anchor="middle" dominant-baseline="middle" font-size="5.2" transform="rotate(${(-deg).toFixed(1)})">😈</text>`;
     } else if(safe){
-      tile=`<rect x="-4.3" y="-4.3" width="8.6" height="8.6" rx="1.8" fill="url(#gttileS)" stroke="url(#gtbez)" stroke-width="1"/><path d="M0 -2.4 L.65 -.65 L2.4 0 L.65 .65 L0 2.4 L-.65 .65 L-2.4 0 L-.65 -.65Z" fill="#f3dc92" opacity=".92"/>`;
+      tile=`<rect x="-4.3" y="-4.3" width="8.6" height="8.6" rx="1.8" fill="url(#gttileS)" stroke="#a9d0f2" stroke-width="1"/><path d="M0 -2.4 L.65 -.65 L2.4 0 L.65 .65 L0 2.4 L-.65 .65 L-2.4 0 L-.65 -.65Z" fill="#eaf5ff" opacity=".95"/>`;
     } else {
       tile=`<rect x="-4.3" y="-4.3" width="8.6" height="8.6" rx="1.8" fill="url(#gttile)" stroke="rgba(0,0,0,.55)" stroke-width=".5"/><rect x="-3.8" y="-3.8" width="7.6" height="3.1" rx="1.3" fill="#fff" opacity=".08"/><rect x="-4.3" y="-4.3" width="8.6" height="8.6" rx="1.8" fill="none" stroke="rgba(255,255,255,.1)" stroke-width=".3"/>`;
     }
-    if(gt.haz.includes(i))tile+=`<path d="M-3.6 3.6 L3.6 -3.6 M-3.6 .6 L.6 -3.6 M-.6 3.6 L3.6 -.6" stroke="#f4c93a" stroke-width=".9" stroke-linecap="round" opacity=".9"/>`;
-    if(gt.tcap.includes(i))tile+=`<circle r="2.5" fill="none" stroke="rgba(230,195,106,.6)" stroke-width=".4"/><circle cx="-1.3" cy="-1.3" r=".35" fill="#e6c36a"/><circle cx="1.3" cy="-1.3" r=".35" fill="#e6c36a"/><circle cx="-1.3" cy="1.3" r=".35" fill="#e6c36a"/><circle cx="1.3" cy="1.3" r=".35" fill="#e6c36a"/>`;
+    if(gt.haz.includes(i))tile+=`<rect x="-4.3" y="-4.3" width="8.6" height="8.6" rx="1.8" fill="#7a4a06" opacity=".5"/><path d="M-3.6 3.6 L3.6 -3.6 M-3.6 .6 L.6 -3.6 M-.6 3.6 L3.6 -.6" stroke="#f4c93a" stroke-width=".7" stroke-linecap="round" opacity=".55"/>`;
+    if(gt.tcap.includes(i))tile+=`<circle r="1.9" fill="none" stroke="rgba(255,255,255,.3)" stroke-width=".35" stroke-dasharray=".9 .7"/>`;
     body.push(`<g transform="translate(${x.toFixed(2)} ${y.toFixed(2)}) rotate(${deg.toFixed(1)})">${tile}</g>`);
   }
   // the three shortcut lanes
@@ -11333,8 +11350,8 @@ function gtStaticSVG(gt){
   }
   // start pads: an engraved brass plate with three recessed wells, outside the track at each entry
   for(let s=1;s<=gt.P;s++){
-    const c=GT_COLORS[s-1],a=gtAng(gt.entries[s-1]),[px,py]=gtPolar(a,95),deg=a*180/Math.PI+90;
-    body.push(`<g transform="translate(${px.toFixed(2)} ${py.toFixed(2)}) rotate(${deg.toFixed(1)})"><rect x="-12.6" y="-5.7" width="25.2" height="11.4" rx="5.7" fill="rgba(0,0,0,.45)" stroke="url(#gtbez)" stroke-width=".9"/><rect x="-12.6" y="-5.7" width="25.2" height="11.4" rx="5.7" fill="none" stroke="${c}" stroke-opacity=".5" stroke-width=".35" transform="scale(.93 .9)"/>${[-7.2,0,7.2].map(dx=>`<circle cx="${dx}" cy="0" r="4.35" fill="url(#gtwell)" stroke="${c}" stroke-width=".8"/>`).join('')}</g>`);
+    const c=GT_COLORS[s-1],a=gtAng(gt.entries[s-1]),[px,py]=gtPolar(a,91.5),deg=a*180/Math.PI+90;
+    body.push(`<g transform="translate(${px.toFixed(2)} ${py.toFixed(2)}) rotate(${deg.toFixed(1)})"><rect x="-14.6" y="-6.5" width="29.2" height="13" rx="6.5" fill="rgba(0,0,0,.5)" stroke="url(#gtbez)" stroke-width=".9"/><rect x="-14.6" y="-6.5" width="29.2" height="13" rx="6.5" fill="none" stroke="${c}" stroke-opacity=".5" stroke-width=".35" transform="scale(.93 .9)"/>${[-8.4,0,8.4].map(dx=>`<circle cx="${dx}" cy="0" r="5.1" fill="url(#gtwell)" stroke="${c}" stroke-width=".8"/>`).join('')}</g>`);
   }
   body.push(`<circle cx="100" cy="100" r="86.5" fill="url(#gtsheen)" pointer-events="none"/><circle cx="100" cy="100" r="99.6" fill="url(#gtvig)" pointer-events="none"/>`);
   return GT_STATIC[ck]={defs:defs.join(''),body:body.join('')};
@@ -11405,29 +11422,29 @@ function gtBoardSVG(gt,o){
   Object.values(groups).forEach(g=>{
     g.forEach((d,idx)=>{
       let[x,y]=d.xy;
-      if(g.length>1){const spread=(idx-(g.length-1)/2)*4.6,ang=Math.atan2(y-GT_CY,x-GT_CX)+Math.PI/2;x+=Math.cos(ang)*spread;y+=Math.sin(ang)*spread;}
-      drawn.push({s:d.s,r:d.r,x,y,pair:g.length>1});
+      if(g.length>1){const spread=(idx-(g.length-1)/2)*6.4,ang=Math.atan2(y-GT_CY,x-GT_CX)+Math.PI/2;x+=Math.cos(ang)*spread;y+=Math.sin(ang)*spread;}
+      drawn.push({s:d.s,r:d.r,x,y,pair:g.length>1,small:gt.run[d.s-1][d.r].rel>=GT_HOME||gt.run[d.s-1][d.r].rel===-1});
     });
   });
   const fl=seq&&seq.flash;
   const runnersSVG=drawn.sort((a,b)=>a.y-b.y).map(d=>{
     const key=d.s+':'+d.r,can=o.can&&o.can.has(key),col=GT_COLORS[d.s-1];
-    const gems=Array.from({length:d.r+1},(_,k)=>`<circle cx="${((k-d.r/2)*1.9).toFixed(2)}" cy="4.15" r=".62" fill="#fff6cc" stroke="rgba(60,35,5,.7)" stroke-width=".18"/>`).join('');
-    const shd=gtShielded(gt,d.s,d.r)?`<circle r="6.7" fill="rgba(120,220,255,.14)" stroke="#8fe4ff" stroke-width=".75" class="gt-shd"/><path d="M3.6 -6.6 l2.3 .9 v2 q0 2 -2.3 3 q-2.3 -1 -2.3 -3 v-2z" fill="#8fe4ff" stroke="#17556a" stroke-width=".3"/>`:'';
+    const gems=Array.from({length:d.r+1},(_,k)=>`<circle cx="${((k-d.r/2)*2.2).toFixed(2)}" cy="5.5" r=".8" fill="#fff" stroke="#000" stroke-width=".25"/>`).join('');
+    const shd=gtShielded(gt,d.s,d.r)?`<circle r="8.4" fill="rgba(120,220,255,.14)" stroke="#8fe4ff" stroke-width=".9" class="gt-shd"/><path d="M4.4 -8 l2.8 1 v2.4 q0 2.4 -2.8 3.6 q-2.8 -1.2 -2.8 -3.6 v-2.4z" fill="#8fe4ff" stroke="#17556a" stroke-width=".3"/>`:'';
     return`<g class="gt-run p${d.s}${can?' can':''}${fl&&fl.s===d.s&&fl.r===d.r?' hit':''}" data-k="${key}" ${can?`data-a="gtrun" data-r="${d.r}"`:''} transform="translate(${d.x.toFixed(2)} ${d.y.toFixed(2)})">
-      <g transform="scale(${d.pair?.86:1})">
+      <g transform="scale(${d.small?.7:d.pair?.84:1})">
         <ellipse class="gt-sh" cx=".5" cy="2.6" rx="4.7" ry="2.2" fill="rgba(0,0,0,.6)" opacity=".7"/>
         <g class="gt-lift">
-          <circle r="5.2" fill="url(#gtbez)" stroke="rgba(40,22,2,.8)" stroke-width=".3"/>
-          <circle r="4.15" fill="url(#gtg${d.s})" stroke="${gtShade(col,.3)}" stroke-width=".35"/>
-          <circle r="3.1" fill="none" stroke="rgba(255,255,255,.18)" stroke-width=".25"/>
-          <ellipse cx="-1.5" cy="-2" rx="1.9" ry=".95" transform="rotate(-32 -1.5 -2)" fill="#fff" opacity=".62"/>
-          <text x=".25" y=".9" text-anchor="middle" dominant-baseline="middle" font-size="4.3" fill="rgba(255,255,255,.35)">${GT_SHAPES[d.s-1]}</text>
-          <text y=".4" text-anchor="middle" dominant-baseline="middle" font-size="4.3" fill="rgba(20,8,0,.72)">${GT_SHAPES[d.s-1]}</text>
+          <circle r="7.6" fill="${col}" fill-opacity=".28"/>
+          <circle r="6.5" fill="#101010" stroke="#fff" stroke-width="1"/>
+          <circle r="5.5" fill="url(#gtg${d.s})" stroke="${gtShade(col,.3)}" stroke-width=".4"/>
+          <ellipse cx="-1.8" cy="-2.4" rx="2.2" ry="1.1" transform="rotate(-32 -1.8 -2.4)" fill="#fff" opacity=".6"/>
+          <text x=".3" y="1.1" text-anchor="middle" dominant-baseline="middle" font-size="6" fill="rgba(255,255,255,.35)">${GT_SHAPES[d.s-1]}</text>
+          <text y=".5" text-anchor="middle" dominant-baseline="middle" font-size="6" font-weight="700" fill="rgba(10,4,0,.85)">${GT_SHAPES[d.s-1]}</text>
           ${gems}
         </g>
         ${shd}
-        ${can?`<circle r="7" fill="none" stroke="#fff6cc" stroke-width=".8" class="gt-halo"/>`:''}
+        ${can?`<circle r="9" fill="none" stroke="#fff6cc" stroke-width="1" class="gt-halo"/>`:''}
       </g>
     </g>`;
   }).join('');
@@ -11474,6 +11491,22 @@ function gtRouteLabel(key){
   if(key==='')return'🛤️ Main route';
   const ids=key.split(',').map(Number);
   return ids.map(i=>GT_SC[i].icon+' '+GT_SC[i].name).join(' + ')+' · saves '+ids.reduce((n,i)=>n+GT_SC[i].main-GT_SC_STEPS,0);
+}
+// "What is what?": every kind of space and sign on the board, with a swatch that looks like it.
+function gtLegendHTML(){
+  const sw=(cls,inner)=>`<i class="lg ${cls}">${inner||''}</i>`;
+  const rows=[
+    [sw('lg-run','●'),'<b>A runner.</b> Every player has a colour and a shape; the little dots under it say which of the three it is.'],
+    [sw('lg-safe','◆'),'<b>Safe space</b> (blue). A runner standing here cannot be captured.'],
+    [sw('lg-entry','▼'),'<b>Entry space</b> of a player (coloured, also safe). Runners come onto the board here.'],
+    [sw('lg-risk','😈'),'<b>Risk space.</b> Land exactly on it and choose: play safe, or DARE.'],
+    [sw('lg-haz',''),'<b>Hazard space</b> (amber stripes). Slip traps slide runners to it; in a Storm it throws you back 2.'],
+    [sw('lg-tcap',''),'<b>Dotted ring:</b> a trap may be hidden on this space.'],
+    [sw('lg-lane','🌉'),'<b>Shortcut</b> (Bridge, Tunnel, Rooftops): 5 steps instead of the long way round. The round badge is the entrance, the small ▾ the exit.'],
+    [sw('lg-final','›'),'<b>Final run:</b> each player’s own straight to Home. Nobody else can touch it.'],
+    [sw('lg-tell','⚡'),'<b>A glowing sign</b> (sparks, shimmer, a seam, a vibration, a hum): a hidden trap lies just ahead.'],
+    [sw('lg-mem','🪤'),'<b>A trap that has gone off</b> (or been defused) stays on the board as a mark.']];
+  return`<details class="gt-legend"><summary>❔ What is what on the board?</summary><ul>${rows.map(r=>`<li>${r[0]}<span>${r[1]}</span></li>`).join('')}</ul></details>`;
 }
 // What everybody may know about the traps: how many armed ones lie in which region.
 function gtTrapStripHTML(gt){
@@ -11669,6 +11702,7 @@ function rGauntletTable(){
           ${diceHTML}
           ${controls}
           ${logHTML}
+          ${gtLegendHTML()}
         </div>
       </div>
       ${!mine&&online&&!gt.over?awayIndicatorHTML(p.id,p.name):''}

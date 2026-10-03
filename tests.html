@@ -6246,7 +6246,7 @@ async function runPresentation(A,W,frame){
       let gt=G.gt=gtStart(gtNew(3),1);G.lcur=0;G.scr='table';
       gt.run[0][0].rel=3;gt.run[0][1].rel=14;gtSyncPairs(gt);
       let d=doc();
-      check('the board marks 6 hazard spaces (yellow stripes) and 12 trap-capable ring spaces plus the Tunnel\'s 4 (a plate with four rivets)',d.querySelectorAll('svg path[d="M-3.6 3.6 L3.6 -3.6 M-3.6 .6 L.6 -3.6 M-.6 3.6 L3.6 -.6"]').length===6&&d.querySelectorAll('svg circle[r="2.5"]').length===12&&d.querySelectorAll('svg circle[r="2.3"]').length===4);
+      check('the board marks 6 hazard spaces (yellow stripes) and 12 trap-capable ring spaces plus the Tunnel\'s 4 (a plate with four rivets)',d.querySelectorAll('svg path[d="M-3.6 3.6 L3.6 -3.6 M-3.6 .6 L.6 -3.6 M-.6 3.6 L3.6 -.6"]').length===6&&d.querySelectorAll('svg circle[r="1.9"][stroke-dasharray]').length===12&&d.querySelectorAll('svg circle[r="1.8"][stroke-dasharray]').length===4);
       check('the panel says that no trap has been set yet',/No traps set yet/.test(d.querySelector('.gt-traps').textContent));
       check('the player on turn is offered the secret panel (with the number of traps left)',/Set a trap · 3 left/.test(d.querySelector('[data-a="gtsecret"]').textContent));
       // two humans share the device: a cover first
@@ -6422,6 +6422,25 @@ async function runPresentation(A,W,frame){
     }));
     check('45 bot games (Classic, Mayhem, Chaos × 2–6 players) all finish and never get stuck',finished===games&&stuck===0&&bad===0);
     check('events really happen: warned, started and ended, and all six kinds turn up',started>40&&warned>=started-games&&ended>20&&names.size===6);
+  });
+  suite('The Gauntlet — the board is easy to read',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart'),gtSyncPairs=F('gtSyncPairs'),rGauntletTable=F('rGauntletTable');
+    try{
+      G.isOnline=false;G.srv=null;G.selGame='gauntlet';G.gtSeq=null;G.gtInstant=true;G.gtSecret=null;
+      G.lp=[{id:1,name:'Phil',avatar:A.AVATARS[0],hand:[],totalScore:0},{id:2,name:'Anna',avatar:A.AVATARS[1],hand:[],totalScore:0}];
+      const gt=G.gt=gtStart(gtNew(2),1);G.lcur=0;G.scr='table';
+      gt.run[0][0].rel=5;gt.run[1][0].rel=9;gtSyncPairs(gt);
+      const d=new DOMParser().parseFromString(rGauntletTable(),'text/html');
+      const tok=d.querySelector('.gt-run');
+      check('a runner is a dark disc with a white rim, a colour glow and a bold shape — it cannot be mistaken for a tile',!!tok.querySelector('circle[stroke="#fff"]')&&!!tok.querySelector('circle[fill-opacity=".28"]')&&tok.querySelector('text[font-weight="700"]'));
+      check('safe spaces are blue (not gold, the colour of the yellow player and of the decoration)',d.querySelectorAll('svg rect[stroke="#a9d0f2"]').length===gt.safe.filter((s,i)=>s&&!gt.entries.includes(i)).length);
+      check('the start plates are roomy enough for the big tokens (wells of radius 5.1), and stay inside the board',d.querySelectorAll('svg circle[r="5.1"]').length===6);
+      check('a legend explains every symbol on the board, closed until asked for',!!d.querySelector('details.gt-legend:not([open])')&&d.querySelectorAll('.gt-legend li').length>=10&&/Safe space/.test(d.querySelector('.gt-legend').textContent)&&/Risk space/.test(d.querySelector('.gt-legend').textContent)&&/Hazard/.test(d.querySelector('.gt-legend').textContent)&&/Shortcut/.test(d.querySelector('.gt-legend').textContent));
+      const home=gt.run[0][1];home.rel=48;
+      const d2=new DOMParser().parseFromString(rGauntletTable(),'text/html');
+      check('runners that are home or still waiting are drawn smaller, so the hub and the plates stay tidy',[...d2.querySelectorAll('.gt-run > g[transform="scale(0.7)"]')].length>=1);
+    } finally { G.gtInstant=false;G.gt=null;G.lp=[];G.scr='home'; }
   });
   suite('The Gauntlet — the table: mode choice, event banner, stats and trophies',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);
