@@ -5719,11 +5719,11 @@ async function runPresentation(A,W,frame){
     check('with a token one die can be rerolled, once per turn',(()=>{const fx=gtAct(g,1,{t:'reroll',i:0,v:6});return fx&&g.dice[0]===6&&g.tok[0]===0&&g.rerolled&&gtAct(g,1,{t:'reroll',i:1,v:4})===null;})());
     g=gtStart(gtNew(2),1);g.run[0][0].rel=10;gtRoll(g,1,2,3);
     check('a reroll needs a token',gtAct(g,1,{t:'reroll',i:0,v:6})===null);
-    g=gtStart(gtNew(2),1);g.run[0][0].rel=10;g.run[0][1].rel=20;gtRoll(g,1,4,4);
+    g=gtStart(gtNew(2),1);g.run[0][0].rel=11;g.run[0][1].rel=20;gtRoll(g,1,4,4);
     check('doubles give a +1 step bonus, offered as an extra move',g.bonus===1&&gtActions(g,1).some(a=>a.t==='bonus')&&g.stats.dbl[0]===1);
     gtAct(g,1,{t:'die',i:0,r:0});gtAct(g,1,{t:'die',i:1,r:0});
     check('the turn waits for the bonus; using it moves one step and ends the turn',g.cur===1&&gtAct(g,1,{t:'bonus',r:1})&&g.run[0][1].rel===21&&g.cur===2);
-    g=gtStart(gtNew(2),1);g.run[0][0].rel=10;gtRoll(g,1,2,2);gtAct(g,1,{t:'sum',r:0});
+    g=gtStart(gtNew(2),1);g.run[0][0].rel=11;gtRoll(g,1,2,2);gtAct(g,1,{t:'sum',r:0});
     check('the bonus can be skipped',gtAct(g,1,{t:'skipbonus'})&&g.cur===2);
     g=gtStart(gtNew(2),1);gtRoll(g,1,6,1);gtAct(g,1,{t:'die',i:0,r:0});
     check('the 6 enters a runner; the 1 can then move that runner one step, and the turn ends once both dice are used',g.cur===1&&gtAct(g,1,{t:'die',i:1,r:0})&&g.run[0][0].rel===1&&g.cur===2);
@@ -5748,9 +5748,13 @@ async function runPresentation(A,W,frame){
     }
     check('bots play '+total+' complete games (2, 3, 4, 5 and 6 players) without one illegal move, mixed colours on a plain space, or a third runner on a pair',ok,why);
     check('every one of those games finished with a winner',finished===total);
-    const g=gtStart(gtNew(2),1);g.run[0][0].rel=25;g.run[1][0].rel=4;gtSyncPairs(g);gtRoll(g,1,3,6);
-    let caps=0;for(let i=0;i<20;i++){const a=gtBotPick(g,1,'sharp');if(a&&a.plan&&a.plan.cap)caps++;}
-    check('a Sharp bot takes a capture when one is on offer ('+caps+' of 20)',caps>=18);
+    // (entering with the 6 and capturing with the 3 reaches the same board in either order, so judge the whole turn)
+    let caps=0;for(let i=0;i<20;i++){
+      const g=gtStart(gtNew(2),1);g.run[0][0].rel=24;g.run[1][0].rel=3;gtSyncPairs(g);gtRoll(g,1,3,6);
+      let guard=0;while(g.cur===1&&!g.over&&guard++<10){const a=gtBotPick(g,1,'sharp');if(!a||!gtAct(g,1,a))break;}
+      if(g.stats.cap[0]>=1)caps++;
+    }
+    check('a Sharp bot takes a capture when one is on offer ('+caps+' of 20 turns)',caps>=19);
     check('a bot with no legal move returns nothing (the caller banks)',(()=>{const g2=gtStart(gtNew(2),1);gtRoll(g2,1,2,3);return gtBotPick(g2,1,'sharp')===null;})());
     const r=gtStart(gtNew(4),1);
     check('the board holds up with six players: 6 entries, 6 final runs, 18 runners',gtNew(6).entries.length===6&&gtNew(6).run.flat().length===18);
@@ -5787,6 +5791,255 @@ async function runPresentation(A,W,frame){
       const d=new DOMParser().parseFromString(F('rGauntletTable')(),'text/html');
       check('a player who is waiting sees the last moves instead of an empty space (newest first)',d.querySelectorAll('.gt-log li').length===2&&/captured Anna/.test(d.querySelector('.gt-log li.new').textContent));
     } finally { G.gt=null;G.scr='home'; }
+  });
+  /* —— The Gauntlet, Phase B: shortcuts, risk spaces and the Dare, the shield, revenge —————— */
+  suite('The Gauntlet — three shortcuts',()=>{
+    const F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart'),gtRoll=F('gtRoll'),gtAct=F('gtAct'),gtActions=F('gtActions'),gtPlans=F('gtPlans'),gtSyncPairs=F('gtSyncPairs');
+    const SC=F('GT_SC'),AT=F('GT_SC_AT');
+    check('there are three shortcuts: Bridge (8 → 5 steps), Tunnel (10 → 5), Rooftops (12 → 5, with a gate)',SC.length===3&&SC.map(s=>s.main).join()==='8,10,12'&&F('GT_SC_STEPS')===5&&!!SC[2].gate&&!SC[0].gate);
+    check('for every player count, every seat\'s lap contains all three entrances, nothing overlaps, and no end touches an entry space',[2,3,4,5,6].every(P=>{
+      const g=gtNew(P),en=g.entries;
+      const cov=g.sc.map(s=>{const o=new Set();for(let i=0;i<=s.main;i++)o.add((s.a+i)%48);return o;});
+      const noOverlap=[0,1,2].every(i=>[0,1,2].every(j=>i>=j||![...cov[i]].some(x=>cov[j].has(x))));
+      const inLap=en.every(e=>g.sc.every(s=>((s.a-e+48)%48)<=41));
+      const clear=g.sc.every(s=>!en.includes(s.a)&&!en.includes(s.b));
+      return noOverlap&&inLap&&clear;
+    }));
+    // seat 1 of 2 players: the Bridge entrance is on rel 1 (abs 1), its exit on rel 9
+    const mk=(P,list,dice,cur)=>{const g=gtStart(gtNew(P),cur||1);list.forEach(([s,r,rel,sc])=>{g.run[s-1][r].rel=rel;if(sc)g.run[s-1][r].sc=sc;});gtSyncPairs(g);if(dice)gtRoll(g,g.cur,dice[0],dice[1]);return g;};
+    let g=mk(2,[[1,0,1]],[3,2]);
+    let pl=gtPlans(g,1,0,5);
+    check('standing on an entrance with 5 to go: the main route reaches rel 6, the Bridge reaches its exit at rel 9 (3 free spaces)',pl.length===2&&pl.find(p=>p.key==='').nrel===6&&pl.find(p=>p.key==='0').nrel===9&&pl.find(p=>p.key==='0').nsc===null);
+    pl=gtPlans(g,1,0,3);
+    check('with 3 to go the Bridge leaves the runner inside the lane, on its third space',pl.find(p=>p.key==='0').nsc.k===3&&pl.find(p=>p.key==='0').to===103);
+    pl=gtPlans(mk(2,[[1,0,0]]),1,0,5);
+    check('passing an entrance with steps left offers the same choice (one step to the entrance, four into the lane)',pl.length===2&&pl.find(p=>p.key==='0').nsc.k===4&&pl.find(p=>p.key==='').nrel===5);
+    check('a runner that ends exactly on the entrance has no choice yet',gtPlans(mk(2,[[1,0,0]]),1,0,1).length===1);
+    // the choice goes through gtAct as a key; no key means the main route
+    g=mk(2,[[1,0,1]],[3,2]);
+    let fx=gtAct(g,1,{t:'die',i:0,r:0,key:'0'});
+    check('choosing the Bridge puts the runner in the lane; the move record names the shortcut',fx&&g.run[0][0].sc&&g.run[0][0].sc.id===0&&g.run[0][0].sc.k===3&&fx.via.join()==='0'&&g.stats.sc[0]===1);
+    check('a runner inside a lane is not on the ring (it blocks nothing and cannot be hit from the ring)',F('gtOnRing')(g.run[0][0])===false&&F('gtRunnersAt')(g,(g.entries[0]+1)%48).length===0&&F('gtRunnersIn')(g,0,3).length===1);
+    g=mk(2,[[1,0,1]],[3,2]);fx=gtAct(g,1,{t:'die',i:0,r:0});
+    check('with no key the main route is taken',g.run[0][0].rel===4&&!g.run[0][0].sc);
+    g=mk(2,[[1,0,1]],[3,2]);
+    check('an unknown key is refused',gtAct(g,1,{t:'die',i:0,r:0,key:'1'})===null&&g.run[0][0].rel===1);
+    // moving on inside the lane and out of it
+    g=mk(2,[[1,0,10,{id:1,k:2}]],[3,4]);
+    pl=gtPlans(g,1,0,3);
+    check('inside a lane the only way is on: 3 more steps from the second space leave through the exit (rel 20)',pl.length===1&&pl[0].nrel===20&&pl[0].nsc===null&&pl[0].path.join()==='113,114,20');
+    check('and one more step is the third space',gtPlans(g,1,0,1)[0].nsc.k===3);
+    // the Rooftops gate
+    g=mk(2,[[1,0,22]]);
+    check('passing the Rooftops entrance does not open the gate (no shortcut plan from 3 spaces before it)',!gtPlans(g,1,0,5).some(p=>p.key==='2')&&gtPlans(g,1,0,5).length===1);
+    g=mk(2,[[1,0,25]]);
+    check('but a runner standing on the entrance may go in',gtPlans(g,1,0,3).some(p=>p.key==='2'));
+    g.gate=2;const g2=mk(2,[[1,0,22]]);g2.gate=2;
+    check('and while the gate event is on, passing is enough',gtPlans(g2,1,0,5).some(p=>p.key==='2'));
+    // the Tunnel can be passed into too
+    check('the Tunnel (entrance on rel 10) is open to a runner that passes it',gtPlans(mk(2,[[1,0,7]]),1,0,5).some(p=>p.key==='1'&&p.nsc.k===2));
+    // captures happen in the lanes too
+    g=mk(2,[[1,0,10,{id:1,k:2}],[2,0,34]],null,2);gtRoll(g,2,2,6);
+    fx=gtActions(g,2).find(a=>a.t==='die'&&a.i===0&&a.r===0&&a.plan.key==='1');
+    check('inside the Tunnel a runner can land on a lone enemy and capture it',!!fx&&fx.plan.cap&&fx.plan.cap.seat===1);
+    gtAct(g,2,{t:'die',i:0,r:0,key:'1'});
+    check('the victim goes back to the start area and leaves the lane',g.run[0][0].rel===-1&&!g.run[0][0].sc&&g.stats.cap[1]===1);
+    // two runners of different colours cannot share a lane space, and a pair of one colour is not a blockade
+    g=mk(2,[[1,0,10,{id:1,k:2}],[1,1,10,{id:1,k:2}],[2,0,34]],null,2);gtRoll(g,2,2,6);
+    check('a lane space holds at most two runners: nobody can land on a pair',!gtActions(g,2).some(a=>a.t==='die'&&a.i===0&&a.r===0&&a.plan.key==='1'));
+    check('but a pair in a lane does not block the way for passing (the runner can go through to the exit)',gtActions(g,2).some(a=>a.t==='die'&&a.i===1&&a.r===0&&a.plan.key==='1'));
+    // a blockade on the exit space stops the shortcut at its last step
+    g=mk(2,[[1,0,1],[2,0,33],[2,1,33]],null,1);gtRoll(g,1,5,1);
+    check('(setup) seat 2 rel 33 is the Bridge exit, abs 9',(33+24)%48===9&&g.pairs[9]&&g.pairs[9].seat===2);
+    check('a blockade on the exit space makes the shortcut illegal (the exit step is a landing there), but the main route is still open',!gtActions(g,1).some(a=>a.t==='die'&&a.i===0&&a.r===0&&a.plan.key==='0')&&gtActions(g,1).some(a=>a.t==='die'&&a.i===0&&a.r===0&&a.plan.key===''));
+    // when the exit lies beyond the lap, the runner is carried into its final run (or home)
+    g=mk(6,[[1,0,33]]);
+    pl=gtPlans(g,1,0,5);
+    check('with 6 players seat 1 sees the Rooftops exit beyond its last ring space: it carries the runner into its final run',pl.some(p=>p.key==='2'&&p.nrel===45&&!p.nsc));
+    g=mk(6,[[6,0,41]]);
+    check('and from rel 41 the Rooftops end at home',gtPlans(g,6,0,5).some(p=>p.key==='2'&&p.home&&p.nrel===48));
+    // progress for the result counts the lane
+    g=mk(2,[[1,0,10,{id:1,k:4}],[2,0,11]]);
+    check('the scoring counts a runner in a lane as part-way along (4/5 of ten)',F('gtProg')(g.run[0][0])===18&&F('gtScore')(g,1)>F('gtScore')(g,2));
+  });
+  suite('The Gauntlet — risk spaces and the Dare',()=>{
+    const F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart'),gtRoll=F('gtRoll'),gtAct=F('gtAct'),gtActions=F('gtActions'),gtSyncPairs=F('gtSyncPairs'),gtBotPick=F('gtBotPick');
+    const mk=(P,list,dice,cur)=>{const g=gtStart(gtNew(P),cur||1);list.forEach(([s,r,rel])=>{g.run[s-1][r].rel=rel;});gtSyncPairs(g);if(dice)gtRoll(g,g.cur,dice[0],dice[1]);return g;};
+    const R=F('GT_RISK');
+    check('there are four risk spaces for every player count, none of them safe, an entry, or a shortcut end',[2,3,4,5,6].every(P=>{const g=gtNew(P);return g.risk.length===4&&g.risk.every(a=>!g.safe[a]&&!g.entries.includes(a)&&g.sc.every(s=>s.a!==a&&s.b!==a))&&new Set(g.risk).size===4;}));
+    check('they are spread round the ring (no two within 6 spaces)',[2,3,4,5,6].every(P=>{const r=R[P].slice().sort((a,b)=>a-b);return r.every((x,i)=>{const y=r[(i+1)%4],d=(y-x+48)%48;return d>=6;});}));
+    // 2 players: a risk space is on abs 2 (rel 2 for seat 1)
+    let g=mk(2,[[1,0,0]],[2,1]);
+    let fx=gtAct(g,1,{t:'die',i:0,r:0});
+    check('landing exactly on a risk space opens a question: DARE or PLAY SAFE; the turn cannot continue until it is answered',fx&&g.run[0][0].rel===2&&g.pq.length===1&&g.pq[0].k==='dare'&&gtActions(g,1).map(a=>a.t).sort().join()==='dare,safe'&&g.cur===1);
+    check('while the question is open no move, bank or reroll is accepted',gtAct(g,1,{t:'die',i:1,r:0})===null&&gtAct(g,1,{t:'bank'})===null);
+    fx=gtAct(g,1,{t:'safe'});
+    check('playing safe changes nothing, and the other die can still be used',fx&&fx.kind==='safe'&&g.pq.length===0&&g.run[0][0].rel===2&&g.cur===1&&gtActions(g,1).some(a=>a.t==='die'&&a.i===1));
+    // each result of the die
+    const dare=(v,setup)=>{const x=mk(2,[[1,0,0]],[2,1]);if(setup)setup(x);gtAct(x,1,{t:'die',i:0,r:0});const f=gtAct(x,1,{t:'dare',v});return{x,f};};
+    let r=dare(1);
+    check('1: backfire — thrown back 3 (here to the entry space)',r.f.res==='back'&&r.x.run[0][0].rel===0&&r.f.moves[0].back===true);
+    r=dare(2);
+    check('2: nothing happens',r.f.res==='nothing'&&r.x.run[0][0].rel===2);
+    r=dare(3);
+    check('3: +3 steps by the main route',r.f.res==='forward'&&r.x.run[0][0].rel===5);
+    r=dare(4);
+    check('4: +3 steps as well',r.f.res==='forward'&&r.x.run[0][0].rel===5);
+    r=dare(5);
+    check('5: a Risk Token when the shield is still unused',r.f.res==='token'&&r.x.tok[0]===1);
+    r=dare(5,x=>{x.sh[0]={s:2,r:-1};});
+    check('5: the shield comes back when it has been used',r.f.res==='shieldback'&&r.x.sh[0].s===0&&r.x.tok[0]===0);
+    r=dare(6);
+    check('6: jackpot — straight to the exit of the next shortcut ahead (the Tunnel, rel 20)',r.f.res==='jackpot'&&r.x.run[0][0].rel===20&&r.f.moves[0].leap===true);
+    r=dare(3,x=>{x.run[1][0].rel=29;});
+    check('a dare movement can capture: +3 lands rel 5 (abs 5), where seat 2 (rel 29 = abs 5) stands',r.f.cap&&r.f.cap.seat===2&&r.x.run[1][0].rel===-1);
+    check('the dare is counted, and the turn goes on afterwards',r.x.stats.dare[0]===1&&r.x.cur===1&&r.x.used[0]&&!r.x.used[1]);
+    // only once per runner per lap, and not after bonus movement
+    g=mk(2,[[1,0,0]],[2,1]);g.run[0][0].dr=[2];gtAct(g,1,{t:'die',i:0,r:0});
+    check('a runner that has dared a space this lap is not offered it again',g.pq.length===0);
+    g=mk(2,[[1,0,0]],[3,3]);
+    g.bonus=2;gtAct(g,1,{t:'bonus',r:0});
+    check('a +2 bonus step that lands exactly on a risk space offers the dare too',g.run[0][0].rel===2&&g.pq.length===1&&g.pq[0].k==='dare');
+    g=mk(2,[[1,0,0]],[2,1]);gtAct(g,1,{t:'die',i:0,r:0});
+    check('a bot answers an open dare (a dare with a die value, or play safe) and never leaves it open',(()=>{let ok=true;for(let i=0;i<30;i++){const a=gtBotPick(g,1,i%2?'sharp':'gentle');ok=ok&&a&&((a.t==='dare'&&a.v>=1&&a.v<=6)||a.t==='safe');}return ok;})());
+    check('a bad dare value is refused',gtAct(g,1,{t:'dare',v:9})===null&&g.pq.length===1);
+    const log=F('gtHistText');
+    gtAct(g,1,{t:'dare',v:6});
+    check('the dare is in the log in words',/dared a 6: jackpot/.test(log(g.hist[g.hist.length-1],['Phil','Anna'])));
+  });
+  suite('The Gauntlet — the shield and revenge',()=>{
+    const F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart'),gtRoll=F('gtRoll'),gtAct=F('gtAct'),gtActions=F('gtActions'),gtSyncPairs=F('gtSyncPairs'),gtBotShield=F('gtBotShield'),gtShieldTargets=F('gtShieldTargets'),gtBotPick=F('gtBotPick');
+    const mk=(P,list,dice,cur)=>{const g=gtStart(gtNew(P),cur||1);list.forEach(([s,r,rel])=>{g.run[s-1][r].rel=rel;});gtSyncPairs(g);if(dice)gtRoll(g,g.cur,dice[0],dice[1]);return g;};
+    let g=mk(2,[[1,0,10],[1,1,-1]]);
+    check('before the roll a player can shield a runner that is on the board (not one in the start area)',JSON.stringify(gtShieldTargets(g,1))==='[0]'&&gtShieldTargets(g,2).length===0);
+    let fx=gtAct(g,1,{t:'shield',r:0});
+    check('arming the shield is a free action: the phase does not change and the runner is shielded for everybody to see',fx&&fx.kind==='shield'&&g.phase==='roll'&&g.cur===1&&g.sh[0].s===1&&g.sh[0].r===0&&F('gtShielded')(g,1,0));
+    check('a shield cannot be armed twice, and not for a runner in the start area',gtAct(g,1,{t:'shield',r:0})===null&&gtAct(g,1,{t:'shield',r:1})===null);
+    gtRoll(g,1,1,2);
+    check('...and not after the roll',gtShieldTargets(g,1).length===0&&gtAct(g,1,{t:'shield',r:0})===null);
+    // the shield stops a capture
+    g=mk(2,[[1,0,10],[2,0,30]]);gtAct(g,1,{t:'shield',r:0});
+    gtAct(g,1,{t:'die',i:0,r:0});  // not rolled: ignored
+    g.cur=2;g.phase='roll';gtRoll(g,2,4,1);
+    const plan=gtActions(g,2).find(a=>a.t==='die'&&a.i===0&&a.r===0);
+    check('(setup) seat 2 can land on the shielded runner with a 4',!!plan&&plan.plan.cap&&plan.plan.cap.shield===true);
+    fx=gtAct(g,2,{t:'die',i:0,r:0});
+    check('landing on a shielded runner captures nothing: the shield breaks, and both stand on the space',fx&&!fx.cap&&fx.shield&&fx.shield.seat===1&&g.sh[0].s===2&&g.run[0][0].rel===10&&g.run[1][0].rel===34&&g.stats.blk[0]===1&&g.stats.cap[1]===0);
+    check('no revenge for a stopped capture, and the log says so',!g.rev[0]&&/shield stopped/.test(F('gtHistText')(g.hist[g.hist.length-1],['Phil','Anna'])));
+    check('a third runner cannot land on a space that already holds two',(()=>{const x=mk(2,[[1,0,10],[2,0,34],[2,1,30]],null,2);gtRoll(x,2,4,1);return !gtActions(x,2).some(a=>a.t==='die'&&a.i===0&&a.r===1);})());
+    check('once broken, the shield cannot be armed again (until a dare or revenge restores it)',(()=>{const x=mk(2,[[1,0,10]]);x.sh[0]={s:2,r:-1};return gtShieldTargets(x,1).length===0;})());
+    // a shield is given back when the runner leaves the ring for its final run
+    g=mk(2,[[1,0,40]]);gtAct(g,1,{t:'shield',r:0});gtRoll(g,1,3,1);gtAct(g,1,{t:'die',i:0,r:0});
+    check('a shielded runner that enters the final run hands its shield back (it is safe there anyway)',g.run[0][0].rel===43&&g.sh[0].s===0);
+    // backfire is absorbed
+    g=mk(2,[[1,0,0]]);gtAct(g,1,{t:'shield',r:0});gtRoll(g,1,2,1);gtAct(g,1,{t:'die',i:0,r:0});
+    fx=gtAct(g,1,{t:'dare',v:1});
+    check('a dare backfire is absorbed by the shield: the runner stays and the shield breaks',fx.res==='shield'&&g.run[0][0].rel===2&&g.sh[0].s===2);
+    // revenge
+    g=mk(2,[[1,0,10],[1,1,7],[2,0,30]],null,2);gtRoll(g,2,4,1);
+    fx=gtAct(g,2,{t:'die',i:0,r:0});
+    check('being captured sets Revenge for the victim against the capturer (shown by a mark, valid for 4 rounds)',fx.cap&&g.rev[0]&&g.rev[0].vs===2&&g.rev[0].until===g.round+4&&!g.rev[1]);
+    g.cur=1;g.phase='roll';gtRoll(g,1,3,1);
+    fx=gtAct(g,1,{t:'die',i:0,r:1});
+    check('capturing a runner of that player opens the revenge choice, and the revenge is used up',fx.cap&&g.pq.length===1&&g.pq[0].k==='rev'&&!g.rev[0]&&g.stats.rev[0]===1);
+    check('the choices offered are only the usable ones (+2 steps; the shield only if it has been used)',gtActions(g,1).map(a=>a.pick).join()==='move2');
+    check('another move is refused while the choice is open',gtAct(g,1,{t:'die',i:1,r:0})===null);
+    fx=gtAct(g,1,{t:'revenge',pick:'move2'});
+    check('+2 steps becomes a bonus move of 2 for any runner',fx.kind==='revenge'&&g.bonus===2&&gtActions(g,1).some(a=>a.t==='bonus'&&a.plan.path.length===2));
+    gtAct(g,1,{t:'bonus',r:1});
+    check('and using it moves the runner 2 spaces',g.run[0][1].rel===12);
+    // the shield as revenge reward
+    g=mk(2,[[1,0,10],[1,1,7],[2,0,30]],null,2);g.sh[0]={s:2,r:-1};gtRoll(g,2,4,1);gtAct(g,2,{t:'die',i:0,r:0});g.cur=1;g.phase='roll';gtRoll(g,1,3,1);gtAct(g,1,{t:'die',i:0,r:1});
+    check('with a used shield both rewards are offered; picking the shield restores it',gtActions(g,1).map(a=>a.pick).sort().join()==='move2,shield'&&gtAct(g,1,{t:'revenge',pick:'shield'})&&g.sh[0].s===0);
+    // revenge runs out
+    g=mk(2,[[1,0,10],[1,1,7],[2,0,30]],null,2);gtRoll(g,2,4,1);gtAct(g,2,{t:'die',i:0,r:0});g.cur=1;g.round=g.rev[0].until+1;g.phase='roll';gtRoll(g,1,3,1);
+    fx=gtAct(g,1,{t:'die',i:0,r:1});
+    check('after 4 rounds the revenge has expired: no choice is offered',fx.cap&&g.pq.length===0);
+    // only one revenge is active at a time: a newer capture replaces the older
+    g=mk(3,[[1,0,10],[2,0,5],[3,0,45]],null,2);
+    check('(only one revenge per player at a time: a second capture replaces the first)',(()=>{g.rev[0]={vs:2,until:9};g.rev[0]={vs:3,until:11};return g.rev[0].vs===3;})());
+    // bots
+    g=mk(2,[[1,0,10],[2,0,31]]);
+    check('a sharp bot shields a runner with an enemy 3 behind; a gentle bot only when it is really exposed',gtBotShield(g,1,'sharp')===0&&gtBotShield(g,1,'gentle')===-1);
+    check('nobody is shielded who is already safe (a safe space, a pair, or nobody behind)',gtBotShield(mk(2,[[1,0,12],[2,0,31]]),1,'sharp')===-1&&gtBotShield(mk(2,[[1,0,10]]),1,'sharp')===-1);
+    g=mk(2,[[1,0,10],[1,1,7],[2,0,30]],null,2);gtRoll(g,2,4,1);gtAct(g,2,{t:'die',i:0,r:0});g.cur=1;g.phase='roll';gtRoll(g,1,3,1);gtAct(g,1,{t:'die',i:0,r:1});
+    const ba=gtBotPick(g,1,'sharp');
+    check('a bot answers an open revenge choice',ba&&ba.t==='revenge'&&ba.pick==='move2');
+  });
+  suite('The Gauntlet — bot games with shortcuts, dares, shields and revenge',()=>{
+    const F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart'),gtRoll=F('gtRoll'),gtAct=F('gtAct'),gtBotPick=F('gtBotPick'),gtBotShield=F('gtBotShield'),gtRunnersAt=F('gtRunnersAt'),gtRunnersIn=F('gtRunnersIn');
+    const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+    let finished=0,stuck=0,bad=0,sc=0,dares=0,blk=0,rev=0,games=0;
+    [2,3,4,5,6].forEach(P=>{
+      for(let n=0;n<8;n++){
+        const gt=gtStart(gtNew(P),1);let guard=0;games++;
+        while(!gt.over&&guard++<5000){
+          const s=gt.cur,lv=s%2?'sharp':'gentle';
+          if(gt.phase==='roll'){const sr=gtBotShield(gt,s,lv);if(sr>=0)gtAct(gt,s,{t:'shield',r:sr});gtRoll(gt,s,rnd(1,6),rnd(1,6));}
+          else{const a=gtBotPick(gt,s,lv);const fx=a?gtAct(gt,s,a):gtAct(gt,s,{t:'bank'});if(!fx){stuck++;break;}}
+          for(let abs=0;abs<48&&!bad;abs++){const h=gtRunnersAt(gt,abs);if(h.length>2&&!gt.safe[abs])bad++;}
+          for(const s2 of gt.sc)for(let k=1;k<5;k++)if(gtRunnersIn(gt,s2.id,k).length>2)bad++;
+        }
+        if(gt.over){finished++;sc+=gt.stats.sc.reduce((a,b)=>a+b,0);dares+=gt.stats.dare.reduce((a,b)=>a+b,0);blk+=gt.stats.blk.reduce((a,b)=>a+b,0);rev+=gt.stats.rev.reduce((a,b)=>a+b,0);}
+      }
+    });
+    check('40 bot games for 2 to 6 players all finish, and never get stuck on an open question',finished===games&&stuck===0);
+    check('they never put three runners on one ordinary space or in one lane space',bad===0);
+    check('and the new rules are actually used: shortcuts, dares, shields held, revenges taken',sc>50&&dares>10&&blk>0);
+  });
+  suite('The Gauntlet — the table shows the new choices',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart'),gtRoll=F('gtRoll'),gtSyncPairs=F('gtSyncPairs'),rGauntletTable=F('rGauntletTable');
+    const doc=()=>new DOMParser().parseFromString(rGauntletTable(),'text/html');
+    const tap=(a,attrs)=>{const b=W.document.createElement('button');b.setAttribute('data-a',a);Object.entries(attrs||{}).forEach(([k,v])=>b.setAttribute(k,v));W.document.body.appendChild(b);b.click();b.remove();};
+    try{
+      G.isOnline=false;G.srv=null;G.selGame='gauntlet';G.gtSeq=null;G.gtSel=null;G.gtChoose=null;G.gtInstant=true;
+      G.lp=[{id:1,name:'Phil',avatar:A.AVATARS[0],hand:[],totalScore:0},{id:2,name:'Anna',avatar:A.AVATARS[1],hand:[],totalScore:0}];
+      let gt=G.gt=gtStart(gtNew(2),1);G.lcur=0;G.scr='table';
+      gt.run[0][0].rel=1;gt.run[0][1].rel=-1;gtSyncPairs(gt);
+      let d=doc();
+      check('the board has three shortcut lanes (a badge for each entrance), four risk tiles and the lane spaces',d.querySelectorAll('svg text').length>0&&[...d.querySelectorAll('svg text')].filter(t=>t.textContent==='😈').length===4&&F('GT_SC').every(s=>[...d.querySelectorAll('svg text')].some(t=>t.textContent===s.icon)));
+      check('before rolling, the player is offered the shield (once per game), one button for each runner on the board',d.querySelectorAll('.gt-shb').length===1&&/once per game/.test(d.querySelector('.gt-shrow').textContent));
+      tap('gtshield',{'data-r':'0'});
+      d=doc();
+      check('after arming it, the runner wears the shield for everybody, the standings show it up, and the offer turns into a note',gt.sh[0].s===1&&d.querySelectorAll('.gt-run .gt-shd').length===1&&d.querySelector('.gt-shp.on')&&/Runner 1 is shielded/.test(d.querySelector('.gt-shrow.on').textContent));
+      tap('gtroll');gt.dice=[3,2];gt.used=[false,false];gt.bonus=0;gt.pq=[];
+      tap('gtdie',{'data-i':'0'});
+      tap('gtrun',{'data-r':'0'});
+      d=doc();
+      check('a runner with a choice of routes is asked which way: a button for each, and tappable ghosts on the board',G.gtChoose&&d.querySelectorAll('.gt-route').length===2&&/Bridge/.test(d.querySelector('.gt-route[data-key="0"]').textContent)&&/Main route/.test(d.querySelector('.gt-route[data-key=""]').textContent)&&d.querySelectorAll('svg [data-a="gtgo"]').length===2);
+      tap('gtcancel');
+      check('Back returns to choosing a runner',!G.gtChoose&&!doc().querySelector('.gt-route'));
+      tap('gtrun',{'data-r':'0'});tap('gtgo',{'data-r':'0','data-key':'0'});
+      check('choosing the Bridge puts the runner into the lane; the table calls the spot the Bridge',gt.run[0][0].sc&&gt.run[0][0].sc.id===0&&/Bridge 3\/4/.test(F('gtRunnerStatus')(gt.run[0][0])));
+      // the dare question
+      gt=G.gt=gtStart(gtNew(2),1);gt.run[0][0].rel=0;gtRoll(gt,1,2,1);G.gtSel=null;G.gtChoose=null;G.lcur=0;
+      tap('gtdie',{'data-i':'0'});tap('gtrun',{'data-r':'0'});
+      tap('gtgo',{'data-r':'0','data-key':''});
+      d=doc();
+      check('landing on a risk space asks DARE or Play safe, and says how the odds are',gt.pq.length===1&&!!d.querySelector('[data-a="gtdare"]')&&!!d.querySelector('[data-a="gtsafe"]')&&/4 of 6/.test(d.querySelector('.gt-hintline').textContent));
+      tap('gtdare');
+      check('tapping DARE rolls the die for the player and resolves it',gt.pq.length===0&&gt.fx.kind==='dare'&&gt.fx.v>=1&&gt.fx.v<=6);
+      // the dare die is shown while the dare is played out
+      G.gtSeq={fx:{kind:'dare',seat:1,v:4,moves:[]},pos:{},xy:{},dareV:4};
+      d=doc();
+      check('while a dare is shown the table displays the dare die with its number',!!d.querySelector('.gt-dare-d')&&d.querySelectorAll('.gt-dare-d .pip').length===4&&/dares/.test(d.querySelector('.y-hint').textContent));
+      G.gtSeq=null;
+      // revenge question
+      gt=G.gt=gtStart(gtNew(2),1);gt.run[0][0].rel=20;gt.run[0][1].rel=7;gt.run[1][0].rel=34;gtSyncPairs(gt);gt.sh[0]={s:2,r:-1};gt.rev[0]={vs:2,until:9};gtRoll(gt,1,3,1);G.gtSel=null;G.gtChoose=null;
+      tap('gtdie',{'data-i':'0'});tap('gtrun',{'data-r':'1'});
+      d=doc();
+      check('a revenge capture offers the rewards as buttons: +2 steps and the shield back',gt.pq.length&&gt.pq[0].k==='rev'&&!!d.querySelector('[data-a="gtrevenge"][data-p="move2"]')&&!!d.querySelector('[data-a="gtrevenge"][data-p="shield"]'));
+      tap('gtrevenge',{'data-p':'shield'});
+      check('picking one gives it',gt.pq.length===0&&gt.sh[0].s===0);
+      // the wait for the next player shows revenge marks in the standings
+      gt.rev[1]={vs:1,until:gt.round+2};
+      check('a player who wants revenge has a mark in the standings',/😡/.test(doc().querySelectorAll('.cr-pill')[1].innerHTML));
+    } finally { G.gtInstant=false;G.gt=null;G.gtSeq=null;G.gtSel=null;G.gtChoose=null;G.scr='home'; }
   });
   /* —— The Gauntlet: Play Together (one device, humans and bots), the table and the results —————— */
   suite('The Gauntlet — Play Together on one device',()=>{
@@ -5866,6 +6119,12 @@ async function runPresentation(A,W,frame){
       seen.seqOther=G.gtSeq?{kind:G.gtSeq.fx.kind,from:G.gtSeq.pos['1:0']}:null;G.gtSeq=null;
       // an away player: rolls and moves for them
       DB=room(2);G.myPid='a';G.srv=clone(DB);await oGtAuto();seen.auto1=clone(DB);G.srv=clone(DB);await oGtAuto();seen.auto2=clone(DB);
+      // Phase B in the room: a shield before the roll, a shortcut chosen by key, and a dare asked and answered
+      DB=room(1,2);DB.gt.run[0][0].rel=1;G.myPid='a';G.srv=clone(DB);
+      await oGtDo({t:'shield',r:0});seen.shield=clone(DB);
+      G.srv=clone(DB);await oGtDo({t:'roll',d:[3,2]});G.srv=clone(DB);await oGtDo({t:'die',i:0,r:0,key:'0'});seen.lane=clone(DB);
+      DB=room(1,2);DB.gt.run[0][0].rel=0;G.myPid='a';G.srv=clone(DB);await oGtDo({t:'roll',d:[2,1]});G.srv=clone(DB);await oGtDo({t:'die',i:0,r:0});seen.dareAsk=clone(DB);
+      G.srv=clone(DB);await oGtDo({t:'dare',v:3});seen.dareDone=clone(DB);
       // a win ends the game with ranks and a Table Moment
       DB=room(1,2);DB.gt.run[0][0].rel=48;DB.gt.run[0][1].rel=46;G.myPid='a';G.srv=clone(DB);
       await oGtDo({t:'roll',d:[2,3]});G.srv=clone(DB);await oGtDo({t:'die',i:0,r:1});
@@ -5891,6 +6150,9 @@ async function runPresentation(A,W,frame){
       check('a capture is stored in the room with the victim, so every device can show it',!!seen.cap.gt.fx&&!!seen.cap.gt.fx.cap&&seen.cap.gt.fx.cap.seat===2&&seen.cap.gt.run[1][1].rel===-1);
       check('the other device starts replaying the move the moment the new state arrives',!!seen.seqOther&&seen.seqOther.kind==='die'&&seen.seqOther.from===10);
       check('an away player gets a roll made for them, then a move (or a bank)',seen.auto1.gt.phase==='move'&&seen.auto2.gt.moves>seen.auto1.gt.moves);
+      check('a shield is armed through the room before the roll: the phase stays "roll" and the runner is shielded for everybody',seen.shield.gt.sh[0].s===1&&seen.shield.gt.sh[0].r===0&&seen.shield.gt.phase==='roll'&&seen.shield.curIdx===0);
+      check('a shortcut chosen by key is written to the room: the runner is inside the Bridge',!!seen.lane.gt.run[0][0].sc&&seen.lane.gt.run[0][0].sc.id===0&&seen.lane.gt.run[0][0].sc.k===3);
+      check('an open dare lives in the room (the turn stays with the player) and its answer is written the same way',seen.dareAsk.gt.pq.length===1&&seen.dareAsk.curIdx===0&&seen.dareDone.gt.pq.length===0&&seen.dareDone.gt.run[0][0].rel===5&&seen.dareDone.gt.fx.kind==='dare');
       check('a win ends the game: winner, ranks, runner counts and a Table Moment are in the room',seen.win.winner==='a'&&seen.win.gt.over&&seen.win.players[0].c4Result==='win'&&seen.win.players[0].gtHome===2&&!!seen.win.moment);
       check('starting from the lobby makes a five-seat game with a fresh ring',seen.started.gameId==='gauntlet'&&seen.started.gt.P===5&&seen.started.gt.moves===0&&seen.started.curIdx===seen.started.gt.cur-1&&seen.started.players.length===5);
       check('Rematch: same players, a fresh game, nobody home',seen.rematch.gameId==='gauntlet'&&seen.rematch.phase==='game'&&!seen.rematch.winner&&seen.rematch.gt.moves===0&&seen.rematch.players.length===2);
