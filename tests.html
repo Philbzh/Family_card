@@ -5762,6 +5762,32 @@ async function runPresentation(A,W,frame){
     check('its rules explain the dice choice, capture, blockade, final run, banking and doubles',['one at a time','capture','blockade','final run','Bank','doubles'].every(w=>new RegExp(w,'i').test(g.rules.join(' '))));
     check('the capture and final-round banners exist',!!W.eval('STAGE_EVENTS').CAPTURE&&!!W.eval('STAGE_EVENTS').FINALROUND&&!!W.eval('STAGE_EVENTS').FINALRUN);
   });
+  /* —— The Gauntlet: the finished look of the board and the "last moves" log —————— */
+  suite('The Gauntlet — the board is built from wood, brass and felt, and remembers the last moves',()=>{
+    const F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart'),gtRoll=F('gtRoll'),gtAct=F('gtAct'),gtBoardSVG=F('gtBoardSVG'),gtStaticSVG=F('gtStaticSVG'),gtHistText=F('gtHistText'),gtSyncPairs=F('gtSyncPairs');
+    const g4=gtStart(gtNew(4),1);
+    const svg=new DOMParser().parseFromString(gtBoardSVG(g4,{seq:null,can:new Set(),ghosts:[]}),'text/html');
+    check('the board has a turned-wood outer ring, a brass lip, the felt, 48 track tiles and a brass gear hub with 18 teeth',/url\(#gtwood\)/.test(svg.documentElement.innerHTML)&&/url\(#gtfelt\)/.test(svg.documentElement.innerHTML)&&svg.querySelectorAll('rect[fill="url(#gttile)"],rect[fill="url(#gttileS)"],rect[fill^="url(#gtt"]').length>=48&&svg.querySelectorAll('rect[width="2.4"]').length===18);
+    check('every seat has a start plate with three wells, six final-run tiles and three home wells',svg.querySelectorAll('circle[fill="url(#gtwell)"]').length===4*3*2);
+    check('the unchanging layers are built once per player count and reused',gtStaticSVG(g4)===gtStaticSVG(gtStart(gtNew(4),2))&&gtStaticSVG(g4)!==gtStaticSVG(gtStart(gtNew(3),1)));
+    check('the nine to eighteen runners are still drawn on top of it',svg.querySelectorAll('.gt-run').length===12);
+    // the log: the engine keeps the last events, the table writes them in words
+    const g=gtStart(gtNew(3),1);g.run[0][0].rel=25;g.run[1][0].rel=12;gtSyncPairs(g);
+    gtRoll(g,1,3,6);gtAct(g,1,{t:'die',i:0,r:0});
+    check('the engine records the roll and the capture',g.hist.length===2&&g.hist[0].k==='roll'&&g.hist[0].d.join()==='3,6'&&g.hist[1].k==='move'&&g.hist[1].c===2);
+    const names=['Phil','Anna','Robo'];
+    check('and they read well: who rolled what, who captured whom',/Phil rolled 3 \+ 6/.test(gtHistText(g.hist[0],names))&&/Phil captured Anna/.test(gtHistText(g.hist[1],names)));
+    check('doubles, entering, going home, the final run and banking each have their own line',/doubles/.test(gtHistText({s:1,k:'roll',d:[4,4]},names))&&/onto the board/.test(gtHistText({s:1,k:'move',e:1,n:1},names))&&/runner home/.test(gtHistText({s:1,k:'move',h:1,n:3},names))&&/final run/.test(gtHistText({s:1,k:'move',f:1,n:3},names))&&/Risk Token/.test(gtHistText({s:2,k:'bank'},names))&&/moved 1 space\b/.test(gtHistText({s:3,k:'move',n:1},names)));
+    check('only the last 8 events are kept',(()=>{const x=gtStart(gtNew(2),1);for(let i=0;i<12;i++)F('gtLog')(x,{s:1,k:'bank'});return x.hist.length===8;})());
+    const G=W.eval('G');
+    try{
+      G.isOnline=false;G.srv=null;G.selGame='gauntlet';G.lp=[{id:1,name:'Phil',avatar:A.AVATARS[0],hand:[],totalScore:0},{id:2,name:'Anna',avatar:A.AVATARS[1],hand:[],totalScore:0,bot:'gentle'},{id:3,name:'Robo',avatar:A.AVATARS[2],hand:[],totalScore:0}];
+      G.gt=g;g.cur=2;g.phase='roll';g.dice=null;G.lcur=1;G.gtSeq=null;
+      const d=new DOMParser().parseFromString(F('rGauntletTable')(),'text/html');
+      check('a player who is waiting sees the last moves instead of an empty space (newest first)',d.querySelectorAll('.gt-log li').length===2&&/captured Anna/.test(d.querySelector('.gt-log li.new').textContent));
+    } finally { G.gt=null;G.scr='home'; }
+  });
   /* —— The Gauntlet: Play Together (one device, humans and bots), the table and the results —————— */
   suite('The Gauntlet — Play Together on one device',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);

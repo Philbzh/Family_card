@@ -1640,6 +1640,10 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 .gt-chip.ok{background:linear-gradient(180deg,rgba(230,195,106,.28),rgba(230,195,106,.1));border-color:rgba(230,195,106,.7);box-shadow:0 0 14px rgba(230,195,106,.35);}
 .gt-bonus{display:flex;gap:.5rem;}
 .gt-bonus .btn.on{outline:2px solid var(--gold2);}
+.gt-log{list-style:none;margin:.2rem 0 0;padding:.5rem .8rem;width:100%;max-width:22rem;border-radius:12px;background:rgba(0,0,0,.3);border:1px solid rgba(230,195,106,.18);display:flex;flex-direction:column;gap:.25rem;}
+.gt-log li{font-size:.74rem;color:var(--paper3);line-height:1.35;}
+.gt-log li.new{color:var(--paper);font-size:.8rem;}
+@media(max-width:480px){.gt-log li:nth-child(3){display:none;}}
 .gt-final{align-self:center;padding:.3rem .9rem;border-radius:99px;background:rgba(230,195,106,.16);border:1px solid rgba(230,195,106,.6);color:var(--gold2);font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;animation:gt-pulse 1.4s ease-in-out infinite;}
 .gt-roll{min-width:12rem;font-size:1.05rem;}
 .cr-pill .gt-home{font-style:normal;margin-left:.4rem;font-size:.7rem;letter-spacing:.05em;}
@@ -10043,9 +10047,10 @@ function gtNew(P,mode){
     run:Array.from({length:P},()=>[{rel:-1},{rel:-1},{rel:-1}]),
     tok:new Array(P).fill(0),idle:new Array(P).fill(0),tc:new Array(P).fill(0),
     cur:1,round:1,phase:'roll',dice:null,used:[false,false],rerolled:false,bonus:0,moved:false,turnCaps:0,
-    pairs:{},fin:null,over:false,win:0,winners:[],tie:false,moves:0,fx:null,
+    pairs:{},fin:null,over:false,win:0,winners:[],tie:false,moves:0,fx:null,hist:[],
     stats:{cap:new Array(P).fill(0),hit:new Array(P).fill(0),dbl:new Array(P).fill(0),bank:new Array(P).fill(0),maxCap:null}};
 }
+function gtLog(gt,e){gt.hist.push(e);if(gt.hist.length>8)gt.hist.shift();}
 function gtBeginTurn(gt){
   gt.tc[gt.cur-1]++;gt.phase='roll';gt.dice=null;gt.used=[false,false];gt.rerolled=false;gt.bonus=0;gt.moved=false;gt.turnCaps=0;
 }
@@ -10136,6 +10141,7 @@ function gtRoll(gt,seat,d1,d2){
   gt.dice=[d1,d2];gt.used=[false,false];gt.phase='move';gt.rerolled=false;gt.moved=false;gt.bonus=0;
   if(d1===d2){gt.bonus=1;gt.stats.dbl[seat-1]++;}
   gt.moves++;gt.fx={seat,kind:'roll',dice:[d1,d2],dbl:d1===d2,moves:[]};
+  gtLog(gt,{s:seat,k:'roll',d:[d1,d2]});
   return gt.fx;
 }
 function gtEndTurn(gt){
@@ -10164,7 +10170,7 @@ function gtAct(gt,seat,act){
   if(act.t==='bank'){
     if(gt.moved||gtHasMoves(gt,seat))return null;
     gt.tok[seat-1]=Math.min(GT_MAXTOK,gt.tok[seat-1]+1);gt.stats.bank[seat-1]++;
-    gt.moves++;gt.fx={seat,kind:'bank',moves:[]};gtEndTurn(gt);return gt.fx;
+    gt.moves++;gt.fx={seat,kind:'bank',moves:[]};gtLog(gt,{s:seat,k:'bank'});gtEndTurn(gt);return gt.fx;
   }
   if(act.t==='reroll'){
     const i=act.i;
@@ -10194,6 +10200,7 @@ function gtAct(gt,seat,act){
   else if(legal.t==='die'){gt.used[legal.i]=true;}
   else if(legal.t==='bonus'){gt.bonus=0;}
   gt.moved=true;gt.moves++;gt.fx=fx;
+  gtLog(gt,{s:seat,k:'move',e:plan.enter?1:0,h:plan.home?1:0,f:fx.finalRun?1:0,c:plan.cap?plan.cap.seat:0,n:plan.path.length});
   gtSyncPairs(gt);
   if(gtHomeCount(gt,seat)>=2&&!gt.fin){
     const left=[];for(let k=1;k<gt.P;k++)left.push((seat-1+k)%gt.P+1);
@@ -10492,29 +10499,84 @@ function gtPips(n){
   const on={1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]}[n]||[];
   return`<span class="gt-pips">${Array.from({length:9},(_,k)=>`<i${on.includes(k)?' class="on"':''}></i>`).join('')}</span>`;
 }
-function gtBoardSVG(gt,o){
-  const seq=o.seq,cells=[],lanes=[],pads=[],defs=[];
+const GT_STATIC={};
+// Everything that never changes during a game: wood, brass, felt, tiles, lanes, pads, hub. Built once per player count.
+function gtStaticSVG(gt){
+  if(GT_STATIC[gt.P])return GT_STATIC[gt.P];
+  const defs=[],body=[];
   for(let s=1;s<=gt.P;s++){
     const c=GT_COLORS[s-1];
     defs.push(`<radialGradient id="gtg${s}" cx=".35" cy=".28" r=".85"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".3" stop-color="${c}"/><stop offset=".85" stop-color="${gtShade(c,.62)}"/><stop offset="1" stop-color="${gtShade(c,.4)}"/></radialGradient>`);
+    defs.push(`<linearGradient id="gtt${s}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c}" stop-opacity=".55"/><stop offset="1" stop-color="${gtShade(c,.45)}" stop-opacity=".7"/></linearGradient>`);
   }
+  defs.push(`<linearGradient id="gtbez" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fbeaa8"/><stop offset=".45" stop-color="#c79a3a"/><stop offset=".55" stop-color="#8a6420"/><stop offset="1" stop-color="#f3dc92"/></linearGradient>
+    <radialGradient id="gtfelt" cx=".5" cy=".4" r=".75"><stop offset="0" stop-color="#14402b"/><stop offset=".7" stop-color="#0a1c13"/><stop offset="1" stop-color="#050d09"/></radialGradient>
+    <linearGradient id="gtwood" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6b4528"/><stop offset=".5" stop-color="#3c2314"/><stop offset="1" stop-color="#1d1008"/></linearGradient>
+    <linearGradient id="gtwoodhl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd9a0" stop-opacity=".28"/><stop offset=".45" stop-color="#ffd9a0" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".4"/></linearGradient>
+    <linearGradient id="gttile" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#245a3f"/><stop offset="1" stop-color="#143523"/></linearGradient>
+    <linearGradient id="gttileS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4b4a22"/><stop offset="1" stop-color="#2a2a12"/></linearGradient>
+    <radialGradient id="gthub" cx=".5" cy=".4" r=".7"><stop offset="0" stop-color="#1c3a2a"/><stop offset="1" stop-color="#050d09"/></radialGradient>
+    <radialGradient id="gtwell" cx=".5" cy=".35" r=".75"><stop offset="0" stop-color="#000" stop-opacity=".25"/><stop offset="1" stop-color="#000" stop-opacity=".7"/></radialGradient>
+    <radialGradient id="gtsheen" cx=".3" cy=".2" r=".8"><stop offset="0" stop-color="#fff" stop-opacity=".13"/><stop offset=".6" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gtvig" cx=".5" cy=".5" r=".5"><stop offset=".78" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".55"/></radialGradient>`);
+  // turned-wood outer ring with concentric grain, a brass lip, then the felt
+  body.push(`<circle cx="100" cy="100" r="99.6" fill="url(#gtwood)"/>`);
+  for(let r=88.6;r<99.4;r+=.85)body.push(`<circle cx="100" cy="100" r="${r.toFixed(2)}" fill="none" stroke="${Math.round(r*10)%2?'rgba(0,0,0,.3)':'rgba(255,210,150,.07)'}" stroke-width=".28"/>`);
+  body.push(`<circle cx="100" cy="100" r="94" fill="none" stroke="url(#gtwoodhl)" stroke-width="11.4"/>
+    <circle cx="100" cy="100" r="88.2" fill="none" stroke="rgba(0,0,0,.65)" stroke-width="1.1"/>
+    <circle cx="100" cy="100" r="87.4" fill="none" stroke="url(#gtbez)" stroke-width="1.5"/>
+    <circle cx="100" cy="100" r="86.5" fill="url(#gtfelt)"/>
+    <circle cx="100" cy="100" r="80" fill="none" stroke="rgba(0,0,0,.42)" stroke-width="11.4"/>
+    <circle cx="100" cy="100" r="85.8" fill="none" stroke="rgba(230,195,106,.3)" stroke-width=".35"/>
+    <circle cx="100" cy="100" r="74.2" fill="none" stroke="rgba(230,195,106,.22)" stroke-width=".35"/>`);
+  // the 48 tiles of the track
   const entrySeat={};gt.entries.forEach((e,i)=>{entrySeat[e]=i+1;});
   for(let i=0;i<GT_RING;i++){
     const a=gtAng(i),[x,y]=gtPolar(a,GT_R),deg=a*180/Math.PI+90;
     const es=entrySeat[i],safe=gt.safe[i];
-    const fill=es?`${GT_COLORS[es-1]}38`:safe?'rgba(230,195,106,.13)':'rgba(255,255,255,.045)';
-    const stroke=es?GT_COLORS[es-1]:safe?'#E6C36A':'rgba(255,255,255,.16)';
-    cells.push(`<g transform="translate(${x.toFixed(2)} ${y.toFixed(2)}) rotate(${deg.toFixed(1)})"><rect x="-4.2" y="-4.2" width="8.4" height="8.4" rx="1.7" fill="${fill}" stroke="${stroke}" stroke-width="${es?1.3:safe?.9:.5}"/>${safe&&!es?'<circle r="1.1" fill="#E6C36A" opacity=".8"/>':''}${es?`<path d="M-2 1.6 L0 -2.2 L2 1.6 Z" fill="${GT_COLORS[es-1]}" opacity=".85"/>`:''}</g>`);
+    let tile;
+    if(es){
+      const c=GT_COLORS[es-1];
+      tile=`<rect x="-4.3" y="-4.3" width="8.6" height="8.6" rx="1.8" fill="url(#gtt${es})" stroke="${c}" stroke-width="1.1"/><path d="M-2.1 -1.4 L2.1 -1.4 L0 2.3 Z" fill="#fff" opacity=".88"/>`;
+    } else if(safe){
+      tile=`<rect x="-4.3" y="-4.3" width="8.6" height="8.6" rx="1.8" fill="url(#gttileS)" stroke="url(#gtbez)" stroke-width="1"/><path d="M0 -2.4 L.65 -.65 L2.4 0 L.65 .65 L0 2.4 L-.65 .65 L-2.4 0 L-.65 -.65Z" fill="#f3dc92" opacity=".92"/>`;
+    } else {
+      tile=`<rect x="-4.3" y="-4.3" width="8.6" height="8.6" rx="1.8" fill="url(#gttile)" stroke="rgba(0,0,0,.55)" stroke-width=".5"/><rect x="-3.8" y="-3.8" width="7.6" height="3.1" rx="1.3" fill="#fff" opacity=".08"/><rect x="-4.3" y="-4.3" width="8.6" height="8.6" rx="1.8" fill="none" stroke="rgba(255,255,255,.1)" stroke-width=".3"/>`;
+    }
+    body.push(`<g transform="translate(${x.toFixed(2)} ${y.toFixed(2)}) rotate(${deg.toFixed(1)})">${tile}</g>`);
   }
+  // each seat's final run: a recessed channel with a glow, chevrons pointing home, and a gold last tile
   for(let s=1;s<=gt.P;s++){
     const c=GT_COLORS[s-1],ra=gtRootAng(gt,s);
+    const[x1,y1]=gtPolar(ra,GT_LANE[0]+1),[x2,y2]=gtPolar(ra,GT_LANE[5]);
+    body.push(`<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke="${c}" stroke-opacity=".16" stroke-width="11.6" stroke-linecap="round"/>
+      <line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke="rgba(0,0,0,.55)" stroke-width="9.6" stroke-linecap="round"/>`);
     for(let k=0;k<6;k++){
-      const[x,y]=gtPolar(ra,GT_LANE[k]),deg=ra*180/Math.PI+90;
-      lanes.push(`<g transform="translate(${x.toFixed(2)} ${y.toFixed(2)}) rotate(${deg.toFixed(1)})"><rect x="-3.8" y="-3.8" width="7.6" height="7.6" rx="1.5" fill="${c}${k===5?'55':'26'}" stroke="${k===5?'#E6C36A':c}" stroke-width="${k===5?1:.6}"/></g>`);
+      const[x,y]=gtPolar(ra,GT_LANE[k]),deg=ra*180/Math.PI+90,last=k===5;
+      body.push(`<g transform="translate(${x.toFixed(2)} ${y.toFixed(2)}) rotate(${deg.toFixed(1)})"><rect x="-3.9" y="-3.9" width="7.8" height="7.8" rx="1.6" fill="url(#gtt${s})" stroke="${last?'#f3dc92':c}" stroke-width="${last?1.1:.7}"/><rect x="-3.4" y="-3.4" width="6.8" height="2.6" rx="1.1" fill="#fff" opacity=".1"/>${last?'<path d="M-1.6 -1 L0 1.4 L1.6 -1 Z" fill="#f3dc92"/>':'<path d="M-1.5 -.9 L0 .9 L1.5 -.9" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width=".55" stroke-linecap="round" stroke-linejoin="round"/>'}</g>`);
     }
-    for(let r=0;r<3;r++){const[x,y]=gtXY(gt,s,48,r);lanes.push(`<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="3.1" fill="${c}22" stroke="${c}" stroke-width=".6"/>`);}
-    for(let r=0;r<3;r++){const[x,y]=gtXY(gt,s,-1,r);pads.push(`<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="4.1" fill="rgba(0,0,0,.35)" stroke="${c}" stroke-width=".6" stroke-dasharray="1.2 1.2"/>`);}
+    const[rx,ry]=gtPolar(ra,GT_R-5.6);
+    body.push(`<circle cx="${rx.toFixed(2)}" cy="${ry.toFixed(2)}" r=".95" fill="url(#gtbez)" stroke="rgba(40,22,2,.7)" stroke-width=".2"/>`);
   }
+  // the brass hub: a toothed ring round a recessed floor with the three home wells of every seat
+  for(let k=0;k<18;k++){const a=k/18*Math.PI*2;body.push(`<rect x="${(100+Math.cos(a)*19.4-1.2).toFixed(2)}" y="${(100+Math.sin(a)*19.4-1.4).toFixed(2)}" width="2.4" height="2.8" rx=".5" fill="url(#gtbez)" transform="rotate(${(a*180/Math.PI+90).toFixed(1)} ${(100+Math.cos(a)*19.4).toFixed(2)} ${(100+Math.sin(a)*19.4).toFixed(2)})"/>`);}
+  body.push(`<circle cx="100" cy="100" r="18.2" fill="url(#gtbez)" stroke="rgba(40,22,2,.8)" stroke-width=".4"/>
+    <circle cx="100" cy="100" r="15.6" fill="url(#gthub)" stroke="rgba(0,0,0,.7)" stroke-width=".5"/>
+    <text x="100" y="100.6" text-anchor="middle" dominant-baseline="middle" font-size="4.3" fill="rgba(243,220,146,.4)" letter-spacing=".7" style="font-family:Cinzel,serif">HOME</text>`);
+  for(let s=1;s<=gt.P;s++){
+    const c=GT_COLORS[s-1];
+    for(let r=0;r<3;r++){const[x,y]=gtXY(gt,s,48,r);body.push(`<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="3.15" fill="url(#gtwell)" stroke="${c}" stroke-width=".8"/>`);}
+  }
+  // start pads: an engraved brass plate with three recessed wells, outside the track at each entry
+  for(let s=1;s<=gt.P;s++){
+    const c=GT_COLORS[s-1],a=gtAng(gt.entries[s-1]),[px,py]=gtPolar(a,95),deg=a*180/Math.PI+90;
+    body.push(`<g transform="translate(${px.toFixed(2)} ${py.toFixed(2)}) rotate(${deg.toFixed(1)})"><rect x="-12.6" y="-5.7" width="25.2" height="11.4" rx="5.7" fill="rgba(0,0,0,.45)" stroke="url(#gtbez)" stroke-width=".9"/><rect x="-12.6" y="-5.7" width="25.2" height="11.4" rx="5.7" fill="none" stroke="${c}" stroke-opacity=".5" stroke-width=".35" transform="scale(.93 .9)"/>${[-7.2,0,7.2].map(dx=>`<circle cx="${dx}" cy="0" r="4.35" fill="url(#gtwell)" stroke="${c}" stroke-width=".8"/>`).join('')}</g>`);
+  }
+  body.push(`<circle cx="100" cy="100" r="86.5" fill="url(#gtsheen)" pointer-events="none"/><circle cx="100" cy="100" r="99.6" fill="url(#gtvig)" pointer-events="none"/>`);
+  return GT_STATIC[gt.P]={defs:defs.join(''),body:body.join('')};
+}
+function gtBoardSVG(gt,o){
+  const seq=o.seq;
   // runners (a pair on one space is drawn side by side)
   const drawn=[],groups={};
   for(let s=1;s<=gt.P;s++)for(let r=0;r<3;r++){
@@ -10551,12 +10613,19 @@ function gtBoardSVG(gt,o){
   }).join('');
   const ghosts=(o.ghosts||[]).map(g=>`<circle cx="${g.xy[0].toFixed(2)}" cy="${g.xy[1].toFixed(2)}" r="${g.cap?5.6:5}" fill="${g.cap?'rgba(255,90,78,.2)':'rgba(255,246,204,.12)'}" stroke="${g.cap?'#ff5a4e':'#fff6cc'}" stroke-width=".9" stroke-dasharray="1.6 1.2" class="gt-ghost"/>`).join('');
   const burst=fl?(()=>{const p=gtDrawXY(gt,fl.s,fl.r,seq);return`<circle cx="${p[0].toFixed(2)}" cy="${p[1].toFixed(2)}" r="3" fill="none" stroke="#fff" stroke-width="1.4" class="gt-burst"/>`;})():'';
-  return`<svg viewBox="0 0 200 200" role="img" aria-label="The Gauntlet board: a ring of 48 spaces with a final run for every player" xmlns="http://www.w3.org/2000/svg"><defs>${defs.join('')}<linearGradient id="gtbez" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fbeaa8"/><stop offset=".45" stop-color="#c79a3a"/><stop offset=".55" stop-color="#8a6420"/><stop offset="1" stop-color="#f3dc92"/></linearGradient><radialGradient id="gtfelt" cx=".5" cy=".4" r=".75"><stop offset="0" stop-color="#14402b"/><stop offset=".7" stop-color="#0a1c13"/><stop offset="1" stop-color="#050d09"/></radialGradient></defs>
-    <circle cx="100" cy="100" r="99" fill="url(#gtfelt)"/>
-    <circle cx="100" cy="100" r="86.5" fill="none" stroke="rgba(230,195,106,.18)" stroke-width=".6"/>
-    <circle cx="100" cy="100" r="16.5" fill="rgba(0,0,0,.35)" stroke="#E6C36A" stroke-width=".9"/>
-    <text x="100" y="101" text-anchor="middle" dominant-baseline="middle" font-size="5" fill="rgba(230,195,106,.35)" letter-spacing=".6" style="font-family:Cinzel,serif">HOME</text>
-    ${cells.join('')}${lanes.join('')}${pads.join('')}${ghosts}${runnersSVG}${burst}</svg>`;
+  const st=gtStaticSVG(gt);
+  return`<svg viewBox="0 0 200 200" role="img" aria-label="The Gauntlet board: a ring of 48 spaces with a final run for every player" xmlns="http://www.w3.org/2000/svg"><defs>${st.defs}</defs>${st.body}${ghosts}${runnersSVG}${burst}</svg>`;
+}
+// One readable line for an entry of gt.hist.
+function gtHistText(h,names){
+  const nm=s=>esc((names&&names[s-1])||'Someone');
+  if(h.k==='roll')return`🎲 ${nm(h.s)} rolled ${h.d[0]} + ${h.d[1]}${h.d[0]===h.d[1]?' — doubles!':''}`;
+  if(h.k==='bank')return`🪙 ${nm(h.s)} banked a Risk Token`;
+  if(h.c)return`💥 ${nm(h.s)} captured ${nm(h.c)}`;
+  if(h.h)return`🏁 ${nm(h.s)} got a runner home`;
+  if(h.f)return`🏁 ${nm(h.s)} entered the final run`;
+  if(h.e)return`▶ ${nm(h.s)} brought a runner onto the board`;
+  return`▶ ${nm(h.s)} moved ${h.n} space${h.n!==1?'s':''}`;
 }
 function gtRunnerStatus(rn){return rn.rel===-1?'Start':rn.rel>=GT_HOME?'Home':rn.rel>=GT_LAP?'Final run '+(rn.rel-GT_LAP+1)+'/6':'Space '+(rn.rel+1)+'/42';}
 function rGauntletTable(){
@@ -10624,6 +10693,9 @@ function rGauntletTable(){
       controls+=`<div class="gt-bonus"><button class="btn btn-ghost btn-sm${sel&&sel.k==='bonus'?' on':''}" data-a="gtbonus">⭐ Double! +1 step</button><button class="btn btn-ghost btn-sm" data-a="gtskip">Skip</button></div>`;
     }
   }
+  const names=players.map(q=>q.name);
+  const showLog=!acts||gt.phase==='roll';
+  const logHTML=showLog&&gt.hist&&gt.hist.length?`<ul class="gt-log" aria-label="Last moves">${gt.hist.slice(-3).reverse().map((h,i)=>`<li class="${i===0?'new':''}">${gtHistText(h,names)}</li>`).join('')}</ul>`:'';
   const finBanner=gt.fin&&!gt.over?`<div class="gt-final">🏁 FINAL ROUND — ${gt.fin.left.length} more turn${gt.fin.left.length!==1?'s':''}</div>`:'';
   const turnTxt=`${avChar(mover.avatar)} ${esc(mover.name)}’s turn`;
   const boardHTML=gtBoardSVG(gt,{seq,can,sel:null,ghosts});
@@ -10642,6 +10714,7 @@ function rGauntletTable(){
           <div class="y-hint">${prompt}</div>
           ${diceHTML}
           ${controls}
+          ${logHTML}
         </div>
       </div>
       ${!mine&&online&&!gt.over?awayIndicatorHTML(p.id,p.name):''}
