@@ -6041,6 +6041,282 @@ async function runPresentation(A,W,frame){
       check('a player who wants revenge has a mark in the standings',/😡/.test(doc().querySelectorAll('.cr-pill')[1].innerHTML));
     } finally { G.gtInstant=false;G.gt=null;G.gtSeq=null;G.gtSel=null;G.gtChoose=null;G.scr='home'; }
   });
+  /* —— The Gauntlet, Phase C: secret traps —————— */
+  suite('The Gauntlet — hazards, trap-capable spaces and placing a trap',()=>{
+    const F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart'),gtRoll=F('gtRoll'),gtAct=F('gtAct'),gtSyncPairs=F('gtSyncPairs'),gtTrapSlots=F('gtTrapSlots'),gtTrapCounts=F('gtTrapCounts'),gtRegionName=F('gtRegionName'),gtRegion=F('gtRegion');
+    const mk=(P,list,dice,cur,mode)=>{const g=gtStart(gtNew(P,mode),cur||1);list.forEach(([s,r,rel,sc])=>{g.run[s-1][r].rel=rel;if(sc)g.run[s-1][r].sc=sc;});gtSyncPairs(g);if(dice)gtRoll(g,g.cur,dice[0],dice[1]);return g;};
+    check('every board has 6 hazard spaces and 16 trap-capable spaces (12 on the ring and the 4 spaces of the Tunnel), none of them safe, an entry, risky, or a shortcut end',[2,3,4,5,6].every(P=>{
+      const g=gtNew(P);
+      const bad=new Set(g.risk);g.entries.forEach(e=>bad.add(e));g.sc.forEach(s=>{bad.add(s.a);bad.add(s.b);});g.safe.forEach((s,i)=>{if(s)bad.add(i);});
+      const ring=g.tcap.filter(x=>x<100);
+      return g.haz.length===6&&new Set(g.haz).size===6&&g.tcap.length===16&&ring.length===12&&new Set(ring).size===12&&g.tcap.filter(x=>x>=100).join()==='111,112,113,114'&&![...g.haz,...ring].some(x=>bad.has(x))&&!g.haz.some(h=>ring.includes(h));
+    }));
+    check('Classic gives each player 3 traps, Mayhem 5',gtNew(2).tleft.join()==='3,3'&&gtNew(2,'mayhem').tleft.join()==='5,5'&&gtNew(2,'mayhem').tmax===5);
+    check('regions are public: the Tunnel, or one of four quarters of the ring named by compass',gtRegion(112)==='tunnel'&&gtRegion(5)==='s0'&&gtRegion(13)==='s1'&&gtRegion(30)==='s2'&&gtRegion(47)==='s3'&&gtRegionName('s0')==='the north-east quarter'&&gtRegionName('tunnel')==='the Tunnel');
+    let g=mk(2,[[1,0,3]]);
+    check('before the roll a player may lay a trap on any empty trap-capable space',gtTrapSlots(g,1).length===16&&gtTrapSlots(g,2).length===0);
+    check('the other player cannot place on your turn, and only the player on turn places',gtAct(g,2,{t:'trap',s:13,type:'shock'})===null);
+    check('an unknown kind or a space that is not trap-capable is refused',gtAct(g,1,{t:'trap',s:13,type:'laser'})===null&&gtAct(g,1,{t:'trap',s:14,type:'shock'})===null);
+    let fx=gtAct(g,1,{t:'trap',s:13,type:'shock'});
+    check('placing is a free action: it takes no dice, keeps the turn, and uses one of the 3 traps',fx&&fx.kind==='trapset'&&g.cur===1&&g.phase==='roll'&&g.tleft[0]===2&&g.stats.set[0]===1&&g.traps.length===1&&g.traps[0].o===1&&g.traps[0].st===0);
+    check('only one trap per turn',gtTrapSlots(g,1).length===0&&gtAct(g,1,{t:'trap',s:17,type:'blast'})===null);
+    gtRoll(g,1,1,2);
+    check('...even after the roll',gtAct(g,1,{t:'trap',s:17,type:'blast'})===null);
+    g=mk(2,[[1,0,3]],[1,2]);
+    check('a trap may also be laid after the roll, while moves remain',gtAct(g,1,{t:'trap',s:17,type:'blast'})&&g.cur===1&&g.phase==='move');
+    g=mk(2,[[1,0,3],[2,0,3]]);
+    check('a space with a runner on it, or one of the 2 spaces right ahead of an enemy runner, is not allowed (seat 2 on abs 27 forbids 28 and 29)',(()=>{const s=gtTrapSlots(g,1);return s.includes(33)&&!s.includes(29)&&s.includes(23);})());
+    g=mk(2,[[1,0,13]]);
+    check('a space with one of your own runners on it is not allowed either',!gtTrapSlots(g,1).includes(13)&&gtTrapSlots(g,1).includes(17));
+    g=mk(2,[[2,0,34]]);
+    check('an enemy standing on the Tunnel entrance (abs 10) forbids the first two Tunnel spaces',(()=>{const s=gtTrapSlots(g,1);return!s.includes(111)&&!s.includes(112)&&s.includes(113);})());
+    // a spent trap stays on the board as a memory: nobody lays a new one there
+    g=mk(2,[[1,0,3]]);g.traps.push({o:2,t:'shock',s:13,st:1});
+    check('a space that has already held a trap (even a spent one) is not offered again',!gtTrapSlots(g,1).includes(13));
+    // the counts everybody may see
+    g=mk(2,[[1,0,3]]);g.traps.push({o:1,t:'shock',s:5,st:0},{o:2,t:'decoy',s:8,st:0},{o:2,t:'blast',s:13,st:0},{o:1,t:'slip',s:112,st:0},{o:2,t:'magnet',s:21,st:1});
+    const c=gtTrapCounts(g);
+    check('everybody sees how many armed traps lie in each region, not where, which kind, or whose (spent traps are not counted)',c.s0===2&&c.s1===1&&c.tunnel===1&&!c.s2&&Object.keys(c).length===3);
+    // turns
+    g=mk(2,[[1,0,3]]);gtAct(g,1,{t:'trap',s:13,type:'shock'});
+    g.phase='move';g.dice=[1,1];g.used=[true,true];F('gtEndTurn')(g);F('gtEndTurn')(g);
+    check('the one-trap-per-turn limit resets on the player\'s next turn',g.cur===1&&g.placed===false&&gtTrapSlots(g,1).length>0);
+    g=mk(2,[[1,0,3]]);g.tleft[0]=0;
+    check('with no traps left nothing can be placed',gtTrapSlots(g,1).length===0);
+    g=mk(2,[[1,0,3]],[3,3]);
+    g.pq.push({k:'dare',r:0,abs:2});
+    check('nor while a question (dare, revenge) is open',gtTrapSlots(g,1).length===0);
+  });
+  suite('The Gauntlet — what each kind of trap does',()=>{
+    const F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart'),gtRoll=F('gtRoll'),gtAct=F('gtAct'),gtSyncPairs=F('gtSyncPairs');
+    const mk=(P,list,dice,cur)=>{const g=gtStart(gtNew(P),cur||1);list.forEach(([s,r,rel,sc])=>{g.run[s-1][r].rel=rel;if(sc)g.run[s-1][r].sc=sc;});gtSyncPairs(g);if(dice)gtRoll(g,g.cur,dice[0],dice[1]);return g;};
+    const trap=(g,o,t,s,st)=>{g.traps.push({o,t,s,st:st||0});return g;};
+    // seat 1 of 2: abs = rel. hazards 3,11,19,27,35,43; safe 0,6,12,18,24,30,36,42; Tunnel entrance abs 10, gate abs 12 (rel 12)
+    let g=trap(mk(2,[[1,0,9]],[4,1]),2,'shock',13);
+    let fx=gtAct(g,1,{t:'die',i:0,r:0});
+    check('SHOCK: stopping on it throws the runner back 3 spaces (13 → 10), and the trap is spent and revealed',fx&&fx.trap&&fx.trap.type==='shock'&&fx.trap.moved&&g.run[0][0].rel===10&&g.traps[0].st===1&&g.stats.trig[0]===1&&g.stats.tby[1]===1);
+    check('the record shows the runner on the trap space and then the move back, for the animation',fx.moves.length===2&&fx.moves[0].trap&&fx.moves[1].trapMove&&fx.moves[1].back===true&&fx.moves[1].path.join()==='12,11,10');
+    g=trap(mk(2,[[1,0,9]],[4,1]),2,'slip',13);fx=gtAct(g,1,{t:'die',i:0,r:0});
+    check('SLIP: slides forward to the next hazard space (13 → 19)',g.run[0][0].rel===19&&fx.trap.moved&&fx.moves[1].back===false);
+    g=trap(mk(2,[[1,0,17]],[4,1]),2,'detour',21);gtAct(g,1,{t:'die',i:0,r:0});
+    check('DETOUR: carried back to the previous junction (21 → the sector gate on 12)',g.run[0][0].rel===12);
+    g=trap(mk(2,[[1,0,17]],[4,1]),2,'blast',21);gtAct(g,1,{t:'die',i:0,r:0});
+    check('BLAST: sent to the nearest safe space behind (21 → 18), never to the start',g.run[0][0].rel===18&&g.safe[18]);
+    g=trap(mk(2,[[1,0,17],[1,1,23]],[4,1]),2,'magnet',21);fx=gtAct(g,1,{t:'die',i:0,r:0});
+    check('MAGNET: pulled toward the nearest runner — onto an ally it forms a pair',g.run[0][0].rel===23&&g.run[0][1].rel===23&&Object.keys(g.pairs).length===1);
+    g=trap(mk(2,[[1,0,25],[2,0,7]],[4,1]),1,'magnet',29);fx=gtAct(g,1,{t:'die',i:0,r:0});
+    check('MAGNET: pulled onto a lone enemy it is a CAPTURE (and an own trap fired on its owner counts as an oops)',fx.cap&&fx.cap.seat===2&&g.run[1][0].rel===-1&&g.run[0][0].rel===31&&g.stats.oops[0]===1&&g.stats.cap[0]===1);
+    g=trap(mk(2,[[1,0,9]],[4,1]),2,'decoy',13);fx=gtAct(g,1,{t:'die',i:0,r:0});
+    check('DECOY: nothing happens — but it clicks, and is revealed',fx.trap.type==='decoy'&&!fx.trap.moved&&g.run[0][0].rel===13&&g.traps[0].st===1);
+    // shield, passing, spent traps, own traps
+    g=mk(2,[[1,0,9]]);gtAct(g,1,{t:'shield',r:0});gtRoll(g,1,4,1);trap(g,2,'shock',13);fx=gtAct(g,1,{t:'die',i:0,r:0});
+    check('a shield absorbs the trap: the runner stays, the shield breaks, the trap is spent',fx.trap.absorbed&&g.run[0][0].rel===13&&g.sh[0].s===2&&g.traps[0].st===1&&g.stats.blk[0]===1);
+    g=trap(mk(2,[[1,0,9]],[6,5]),2,'shock',13);gtAct(g,1,{t:'sum',r:0});
+    check('a trap only goes off for a runner that STOPS on it: passing (9 + 11) leaves it armed',g.run[0][0].rel===20&&g.traps[0].st===0);
+    g=trap(mk(2,[[1,0,9]],[4,1]),2,'shock',13,1);fx=gtAct(g,1,{t:'die',i:0,r:0});
+    check('a spent trap does nothing the second time',!fx.trap&&g.run[0][0].rel===13);
+    g=trap(mk(2,[[1,0,9]],[4,1]),2,'shock',13);trap(g,2,'shock',10);gtAct(g,1,{t:'die',i:0,r:0});
+    check('a runner thrown onto another trap does not set that one off (no chains)',g.run[0][0].rel===10&&g.traps[1].st===0);
+    g=trap(mk(2,[[1,0,9]],[4,1]),2,'shock',13);fx=gtAct(g,1,{t:'die',i:0,r:0});
+    check('the log tells who set off whose trap',/set off Anna’s Shock/.test(F('gtHistText')(g.hist[g.hist.length-1],['Phil','Anna'])));
+    // inside the Tunnel (id 1: lane spaces are 111..114; the runner enters at abs 10 = rel 10)
+    const lane=(type,res)=>{const x=trap(mk(2,[[1,0,10,{id:1,k:1}]],[1,2]),2,type,112);gtAct(x,1,{t:'die',i:0,r:0});return x;};
+    g=lane('shock');
+    check('in the Tunnel: SHOCK throws the runner back out of the lane to rel 9',g.run[0][0].rel===9&&!g.run[0][0].sc);
+    g=lane('detour');
+    check('in the Tunnel: DETOUR throws it back to the entrance',g.run[0][0].rel===10&&!g.run[0][0].sc);
+    g=lane('slip');
+    check('in the Tunnel: SLIP slides it on to the exit (rel 20)',g.run[0][0].rel===20&&!g.run[0][0].sc);
+    g=lane('blast');
+    check('in the Tunnel: BLAST goes back past the entrance to the nearest safe space (abs 6)',g.run[0][0].rel===6&&!g.run[0][0].sc);
+    g=lane('decoy');
+    check('in the Tunnel: a decoy does nothing',g.run[0][0].sc&&g.run[0][0].sc.k===2);
+    // effects never push a runner onto an enemy
+    g=trap(mk(2,[[1,0,9],[2,0,36]],[4,1]),2,'blast',13);   // seat 2 on rel 36 = abs 12, a safe space: sharing is allowed
+    gtAct(g,1,{t:'die',i:0,r:0});
+    check('a displacement may share a safe space with an enemy',g.run[0][0].rel===12&&g.run[1][0].rel===36);
+    g=trap(mk(2,[[1,0,9],[2,0,34]],[4,1]),2,'shock',13);   // seat 2 stands on abs 10 (not safe): the runner must stop further back
+    gtAct(g,1,{t:'die',i:0,r:0});
+    check('...but never onto a lone enemy on an ordinary space: it stops on the next free space further back (rel 9)',g.run[0][0].rel===9);
+    // a runner that enters the final run through a trap effect
+    g=trap(mk(2,[[1,0,38]],[2,1]),2,'slip',40);fx=gtAct(g,1,{t:'die',i:0,r:0});
+    check('SLIP with no hazard left ahead moves it 3 forward, into the final run when it reaches the end',g.run[0][0].rel>=42&&fx.finalRun===true);
+  });
+  suite('The Gauntlet — tells, defusing, getting traps back',()=>{
+    const F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart'),gtRoll=F('gtRoll'),gtAct=F('gtAct'),gtActions=F('gtActions'),gtSyncPairs=F('gtSyncPairs'),gtTells=F('gtTells'),gtDisarmTargets=F('gtDisarmTargets'),gtUsedTraps=F('gtUsedTraps'),gtRevOptions=F('gtRevOptions');
+    const mk=(P,list,dice,cur)=>{const g=gtStart(gtNew(P),cur||1);list.forEach(([s,r,rel,sc])=>{g.run[s-1][r].rel=rel;if(sc)g.run[s-1][r].sc=sc;});gtSyncPairs(g);if(dice)gtRoll(g,g.cur,dice[0],dice[1]);return g;};
+    const trap=(g,o,t,s,st)=>{g.traps.push({o,t,s,st:st||0});return g;};
+    let g=trap(mk(2,[[1,0,11]]),2,'shock',13);
+    check('a tell shows when any runner stands within 2 spaces behind an armed trap — and says which kind of sign it is',JSON.stringify(gtTells(g))==='[{"s":13,"t":"shock"}]');
+    check('3 spaces behind: nothing to see',gtTells(trap(mk(2,[[1,0,10]]),2,'shock',13)).length===0);
+    check('an enemy runner behind it shows the tell too',gtTells(trap(mk(2,[[2,0,35]]),1,'blast',13)).length===1);
+    check('a decoy never shows a tell',gtTells(trap(mk(2,[[1,0,11]]),2,'decoy',13)).length===0);
+    check('a spent trap shows nothing (it is a revealed mechanism instead)',gtTells(trap(mk(2,[[1,0,11]]),2,'shock',13,1)).length===0);
+    g=trap(mk(2,[[1,0,11]]),2,'shock',13);g.blackout=1;
+    check('during a blackout the tells go dark',gtTells(g).length===0);
+    g=trap(mk(2,[[1,0,10,{id:1,k:1}]]),2,'slip',113);
+    check('tells work inside the Tunnel too (the runner is 2 spaces behind)',gtTells(g).length===1);
+    // defusing
+    g=trap(mk(2,[[1,0,11]]),2,'shock',13);g.tok[0]=1;
+    check('with a Risk Token a player can defuse a trap with a visible tell within 2 spaces ahead of a runner',JSON.stringify(gtDisarmTargets(g,1))==='[13]');
+    fx=gtAct(g,1,{t:'disarm',s:13});
+    check('defusing costs the token, reveals the kind, and spends the trap; the turn goes on',fx&&fx.kind==='disarm'&&fx.trap.type==='shock'&&g.tok[0]===0&&g.traps[0].st===2&&g.cur===1&&g.stats.dis[0]===1);
+    check('the log says who defused what',/defused Anna’s Shock/.test(F('gtHistText')(g.hist[g.hist.length-1],['Phil','Anna'])));
+    g=trap(mk(2,[[1,0,11]]),2,'shock',13);
+    check('no token, no defusing',gtAct(g,1,{t:'disarm',s:13})===null&&gtDisarmTargets(g,1).length===0);
+    g=trap(mk(2,[[1,0,11]]),2,'decoy',13);g.tok[0]=2;
+    check('a decoy cannot be defused (there is no tell to aim at)',gtDisarmTargets(g,1).length===0&&gtAct(g,1,{t:'disarm',s:13})===null);
+    g=trap(mk(2,[[1,0,9]]),2,'shock',13);g.tok[0]=2;
+    check('nor a trap that is more than 2 spaces ahead (it shows no tell yet)',gtDisarmTargets(g,1).length===0);
+    g=trap(mk(2,[[2,0,35]]),1,'shock',13);g.tok[0]=1;
+    check('nor one that is not ahead of one of your own runners (a tell caused by an enemy runner does not help you)',gtDisarmTargets(g,1).length===0);
+    g=trap(mk(2,[[1,0,11]],[1,2]),2,'blast',13);g.tok[0]=1;
+    check('a spent token still defuses after the roll',gtAct(g,1,{t:'disarm',s:13})&&g.phase==='move');
+    // doubles: a used trap back instead of +1
+    g=mk(2,[[1,0,10]]);g.traps.push({o:1,t:'shock',s:13,st:1});g.tleft[0]=2;
+    check('(setup) one used trap',gtUsedTraps(g,1)===1);
+    gtRoll(g,1,3,3);
+    check('doubles offer a used trap back as an alternative to +1 step',gtActions(g,1).some(a=>a.t==='recover')&&gtActions(g,1).some(a=>a.t==='bonus'));
+    fx=gtAct(g,1,{t:'recover'});
+    check('taking it gives the trap back and uses the bonus',fx&&fx.kind==='recover'&&g.tleft[0]===3&&g.bonus===0&&gtUsedTraps(g,1)===0);
+    g=mk(2,[[1,0,10]],[3,3]);
+    check('with nothing to recover there is no such option',!gtActions(g,1).some(a=>a.t==='recover')&&gtAct(g,1,{t:'recover'})===null);
+    g=mk(2,[[1,0,10]]);g.traps.push({o:1,t:'shock',s:13,st:2});g.tleft[0]=2;gtRoll(g,1,2,5);
+    check('without doubles there is no recover option',!gtActions(g,1).some(a=>a.t==='recover'));
+    // revenge can give a trap back too
+    g=mk(2,[[1,0,10]]);g.traps.push({o:1,t:'shock',s:13,st:1});g.tleft[0]=2;
+    check('Revenge can give a used trap back',gtRevOptions(g,1).includes('trap'));
+    g.pq.push({k:'rev'});g.phase='move';g.dice=[1,2];
+    gtAct(g,1,{t:'revenge',pick:'trap'});
+    check('...and picking it does',g.tleft[0]===3&&g.pq.length===0);
+    // a player who can only recover can still bank / the turn waits for a decision
+    g=mk(2,[[2,0,1]],[3,3]);g.traps.push({o:1,t:'shock',s:13,st:1});g.tleft[0]=2;
+    check('a player who cannot move but has doubles and a used trap may still bank',gtAct(g,1,{t:'bank'})&&g.cur===2);
+    // bots
+    const gtBotPick=F('gtBotPick'),gtBotTrap=F('gtBotTrap'),gtBotDisarm=F('gtBotDisarm');
+    g=mk(2,[[1,0,10]]);
+    check('a bot lays a legal trap (kind and place) when it decides to',(()=>{let n=0,ok=true;for(let i=0;i<200;i++){const t=gtBotTrap(g,1,i%2?'sharp':'gentle');if(t){n++;ok=ok&&F('GT_TRAP_TYPES').includes(t.type)&&F('gtTrapSlots')(g,1).includes(t.s);}}return n>10&&ok;})());
+    g=trap(mk(2,[[1,0,11]]),2,'shock',13);g.tok[0]=1;
+    check('a bot may defuse a visible trap ahead of its runner',(()=>{let n=0;for(let i=0;i<60;i++){const d=gtBotDisarm(g,1,'sharp');if(d&&d.t==='disarm'&&d.s===13)n++;}return n>20;})());
+    g=trap(mk(2,[[1,0,9]],[4,2]),2,'shock',13);
+    check('a bot thinks ahead on a copy of the board without the other players’ hidden traps, and leaves the real game untouched',(()=>{for(let k=0;k<20;k++)gtBotPick(g,1,k%2?'sharp':'gentle');return g.traps.length===1&&g.traps[0].st===0&&g.traps[0].t==='shock'&&g.run[0][0].rel===9;})());
+    g=trap(mk(2,[[1,0,9]],[4,1]),1,'shock',13);
+    check('...but it steers clear of its own traps',(()=>{let hit=0;for(let i=0;i<30;i++){const a=gtBotPick(g,1,'sharp');if(a&&a.plan&&a.plan.nrel===13&&a.t==='die'&&a.i===0)hit++;}return hit===0;})());
+    // a bot with only a "recover" left must skip the bonus rather than stall
+    g=mk(2,[[2,0,1]],[3,3]);g.traps.push({o:1,t:'shock',s:13,st:1});g.tleft[0]=2;
+    check('a bot with only a recover option left skips the bonus',(()=>{const a=gtBotPick(g,1,'gentle');return a&&a.t==='skipbonus';})());
+  });
+  suite('The Gauntlet — bot games with traps',()=>{
+    const F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart'),gtRoll=F('gtRoll'),gtAct=F('gtAct'),gtBotPick=F('gtBotPick'),gtBotShield=F('gtBotShield'),gtBotTrap=F('gtBotTrap'),gtBotDisarm=F('gtBotDisarm'),gtRunnersAt=F('gtRunnersAt');
+    const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+    let finished=0,stuck=0,bad=0,games=0,set=0,trig=0,dis=0,illegal=0;
+    [2,3,4,5,6].forEach(P=>{
+      for(let n=0;n<8;n++){
+        const gt=gtStart(gtNew(P,n%4===0?'mayhem':'classic'),1);let guard=0;games++;
+        while(!gt.over&&guard++<8000){
+          const s=gt.cur,lv=s%2?'sharp':'gentle';
+          if(gt.phase==='roll'){
+            const sr=gtBotShield(gt,s,lv);if(sr>=0){gtAct(gt,s,{t:'shield',r:sr});continue;}
+            const tp=gtBotTrap(gt,s,lv);if(tp){if(!gtAct(gt,s,tp))illegal++;continue;}
+            const dz=gtBotDisarm(gt,s,lv);if(dz){if(!gtAct(gt,s,dz))illegal++;continue;}
+            gtRoll(gt,s,rnd(1,6),rnd(1,6));
+          } else {const a=gtBotPick(gt,s,lv);const fx=a?gtAct(gt,s,a):gtAct(gt,s,{t:'bank'});if(!fx){stuck++;break;}}
+          for(let abs=0;abs<48&&!bad;abs++){if(gtRunnersAt(gt,abs).length>2&&!gt.safe[abs])bad++;}
+        }
+        if(gt.over){finished++;set+=gt.stats.set.reduce((a,b)=>a+b,0);trig+=gt.stats.trig.reduce((a,b)=>a+b,0);dis+=gt.stats.dis.reduce((a,b)=>a+b,0);}
+      }
+    });
+    check('40 bot games with traps (Classic and Mayhem, 2 to 6 players) all finish and never get stuck',finished===games&&stuck===0);
+    check('every trap a bot lays is legal, and nothing breaks the "two to a space" rule',illegal===0&&bad===0);
+    check('traps are really used: laid, set off and defused',set>100&&trig>30&&dis>0);
+  });
+  suite('The Gauntlet — the table: hazards, the secret panel, tells and defusing',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart'),gtRoll=F('gtRoll'),gtSyncPairs=F('gtSyncPairs'),rGauntletTable=F('rGauntletTable');
+    const doc=()=>new DOMParser().parseFromString(rGauntletTable(),'text/html');
+    const tap=(a,attrs)=>{const b=W.document.createElement('button');b.setAttribute('data-a',a);Object.entries(attrs||{}).forEach(([k,v])=>b.setAttribute(k,v));W.document.body.appendChild(b);b.click();b.remove();};
+    const human=(id,n,i,bot)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,...(bot?{bot}:{})});
+    try{
+      G.isOnline=false;G.srv=null;G.selGame='gauntlet';G.gtSeq=null;G.gtSel=null;G.gtChoose=null;G.gtSecret=null;G.gtDisarm=false;G.gtInstant=true;
+      G.lp=[human(1,'Phil',0),human(2,'Anna',1),human(3,'Robo',2,'gentle')];
+      let gt=G.gt=gtStart(gtNew(3),1);G.lcur=0;G.scr='table';
+      gt.run[0][0].rel=3;gt.run[0][1].rel=14;gtSyncPairs(gt);
+      let d=doc();
+      check('the board marks 6 hazard spaces (yellow stripes) and 12 trap-capable ring spaces plus the Tunnel\'s 4 (a plate with four rivets)',d.querySelectorAll('svg path[d="M-3.6 3.6 L3.6 -3.6 M-3.6 .6 L.6 -3.6 M-.6 3.6 L3.6 -.6"]').length===6&&d.querySelectorAll('svg circle[r="2.5"]').length===12&&d.querySelectorAll('svg circle[r="2.3"]').length===4);
+      check('the panel says that no trap has been set yet',/No traps set yet/.test(d.querySelector('.gt-traps').textContent));
+      check('the player on turn is offered the secret panel (with the number of traps left)',/Set a trap · 3 left/.test(d.querySelector('[data-a="gtsecret"]').textContent));
+      // two humans share the device: a cover first
+      tap('gtsecret');
+      d=doc();
+      check('with two humans at the device the secret panel starts behind a hand-over cover that names the player',!!d.querySelector('.gt-cover')&&/Hand the device to\s*Phil/.test(d.querySelector('.gt-cover').textContent)&&!d.querySelector('.gt-board'));
+      tap('gtsecretclose');
+      check('Cancel goes back to the table',!doc().querySelector('.gt-cover')&&!!doc().querySelector('.gt-board svg'));
+      tap('gtsecret');tap('gtsecretopen');
+      d=doc();
+      check('opened, it shows the board, the six kinds with their effect and their tell, and a disabled Place button',d.querySelectorAll('.gt-type').length===6&&/Thrown back 3/.test(d.querySelector('.gt-type').textContent)&&/Tell:/.test(d.querySelector('.gt-type').textContent)&&d.querySelector('[data-a="gtplace"]').disabled&&/Only you can see this/.test(d.querySelector('.gt-secret-tag').textContent));
+      tap('gttype',{'data-t':'magnet'});
+      d=doc();
+      check('after choosing a kind the legal spaces are marked on the board (dashed, tappable)',d.querySelectorAll('svg [data-a="gtslot"]').length>=10&&d.querySelector('.gt-type.on'));
+      tap('gtslot',{'data-s':'22'});
+      d=doc();
+      check('after choosing a space the Place button is ready',!d.querySelector('[data-a="gtplace"]').disabled);
+      tap('gtplace');
+      check('placing writes the trap with its owner, kind and place — and closes the panel',gt.traps.length===1&&gt.traps[0].o===1&&gt.traps[0].t==='magnet'&&gt.traps[0].s===22&&!G.gtSecret);
+      d=doc();
+      const html=rGauntletTable();
+      check('the shared table afterwards shows only the region count: "1 trap set — the south-east quarter"',/1 trap set/.test(d.querySelector('.gt-traps').textContent)&&/south-east quarter/.test(d.querySelector('.gt-traps').textContent));
+      check('nothing private is on the shared table: no own-trap marker, no kind, no 🧲',!d.querySelector('.gt-own')&&!/🧲|Magnet/.test(html.replace(/<defs>[\s\S]*?<\/defs>/,'')));
+      check('and the set-a-trap button is gone for this turn (one per turn)',!d.querySelector('[data-a="gtsecret"]'));
+      check('the log says that a trap was set, nothing more',/Phil set a trap/.test(d.querySelector('.gt-log li.new')?d.querySelector('.gt-log li.new').textContent:gt.hist.map(h=>F('gtHistText')(h,['Phil','Anna','Robo'])).join()));
+      // one human among bots: no cover needed
+      G.lp=[human(1,'Phil',0),human(2,'Anna',1,'gentle'),human(3,'Robo',2,'sharp')];
+      gt=G.gt=gtStart(gtNew(3),1);G.lcur=0;gt.run[0][0].rel=3;gtSyncPairs(gt);G.gtSecret=null;
+      tap('gtsecret');
+      check('with only one human at the device there is nobody to hide from: the panel opens directly',!!doc().querySelector('.gt-types')&&!doc().querySelector('.gt-cover'));
+      tap('gtsecretclose');
+      // tells and board memory
+      G.lp=[human(1,'Phil',0),human(2,'Anna',1),human(3,'Robo',2,'gentle')];
+      gt=G.gt=gtStart(gtNew(3),1);G.lcur=0;gt.run[0][0].rel=4;gtSyncPairs(gt);G.gtSecret=null;
+      gt.traps.push({o:2,t:'shock',s:6,st:0},{o:3,t:'decoy',s:10,st:0},{o:2,t:'blast',s:14,st:1},{o:3,t:'slip',s:22,st:2});
+      d=doc();
+      check('a tell is drawn on the trapped space when a runner is within 2 behind it (a shock shows sparks); the decoy ahead shows nothing',d.querySelectorAll('.gt-tell').length===1&&d.querySelector('.gt-tell.t-shock')&&/⚡/.test(d.querySelector('.gt-tell').textContent));
+      check('spent traps stay on the board as a memory: a fired one and a defused one',d.querySelectorAll('.gt-mem').length===2&&/💣/.test(d.querySelectorAll('.gt-mem')[0].textContent)&&/🌀/.test(d.querySelectorAll('.gt-mem')[1].textContent));
+      check('the count strip leaves the spent ones out (2 armed traps)',/2 traps set/.test(d.querySelector('.gt-traps').textContent));
+      // defusing
+      gt.tok[0]=1;
+      d=doc();
+      check('with a token and a visible tell ahead, a Defuse button appears',/Defuse a trap/.test(d.querySelector('[data-a="gtdisarmmode"]').textContent));
+      tap('gtdisarmmode');
+      d=doc();
+      check('Defuse mode marks the traps that may be defused, and offers a way back',d.querySelectorAll('svg [data-a="gtdisarm"]').length===1&&!!d.querySelector('[data-a="gtcancel"]')&&/defuse/.test(d.querySelector('.y-hint').textContent));
+      tap('gtdisarm',{'data-s':'6'});
+      check('tapping the marker defuses it (token spent, trap revealed as defused)',gt.traps[0].st===2&&gt.tok[0]===0&&!G.gtDisarm);
+      // online: a player sees their own armed traps on their own screen only
+      const P=(id,n,i)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0});
+      const og=gtStart(gtNew(2),1);og.traps.push({o:1,t:'detour',s:13,st:0});og.tleft[0]=2;
+      G.isOnline=true;G.roomId='T';G.srv={phase:'game',gameId:'gauntlet',host:'a',players:[P('a','Anna',0),P('b','Ben',1)],curIdx:0,gt:og};
+      G.myPid='a';
+      check('online, the owner sees their own armed trap marked on their screen',doc().querySelectorAll('.gt-own').length===1);
+      G.myPid='b';
+      check('...and the other player does not',doc().querySelectorAll('.gt-own').length===0);
+      check('online there is no cover: the secret panel opens at once on the player\'s own device',(()=>{G.myPid='a';G.isOnline=true;G.gtSecret=null;tap('gtsecret');const o=!!doc().querySelector('.gt-types');tap('gtsecretclose');return o;})());
+    } finally { G.isOnline=false;G.srv=null;G.gtInstant=false;G.gt=null;G.gtSeq=null;G.gtSel=null;G.gtChoose=null;G.gtSecret=null;G.gtDisarm=false;G.lp=[];G.scr='home'; }
+  });
+  suite('The Gauntlet — a trap going off is part of the record every device replays',()=>{
+    const F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart'),gtRoll=F('gtRoll'),gtAct=F('gtAct'),gtSyncPairs=F('gtSyncPairs');
+    const g=gtStart(gtNew(2),1);g.run[0][0].rel=9;g.traps.push({o:2,t:'shock',s:13,st:0});gtSyncPairs(g);gtRoll(g,1,4,1);
+    const fx=gtAct(g,1,{t:'die',i:0,r:0});
+    const copy=JSON.parse(JSON.stringify(g));
+    check('the move record survives the trip through the room (JSON): the trap, its owner, and both moves',copy.fx.trap.type==='shock'&&copy.fx.trap.owner===2&&copy.fx.moves.length===2&&copy.fx.moves[0].trap.slot===13);
+    check('the full state (including every trap) is plain data that clones exactly',JSON.stringify(F('gtCloneLite')(g).traps)===JSON.stringify(g.traps));
+    const S=F('GT_TRAP_INFO');
+    check('each kind has a name, an icon, a tell (except the decoy) and a one-line effect',['shock','slip','detour','blast','magnet','decoy'].every(k=>S[k].name&&S[k].icon&&S[k].txt&&(k==='decoy'?S[k].tell==='':!!S[k].tell)));
+  });
   /* —— The Gauntlet: Play Together (one device, humans and bots), the table and the results —————— */
   suite('The Gauntlet — Play Together on one device',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);
@@ -6125,6 +6401,10 @@ async function runPresentation(A,W,frame){
       G.srv=clone(DB);await oGtDo({t:'roll',d:[3,2]});G.srv=clone(DB);await oGtDo({t:'die',i:0,r:0,key:'0'});seen.lane=clone(DB);
       DB=room(1,2);DB.gt.run[0][0].rel=0;G.myPid='a';G.srv=clone(DB);await oGtDo({t:'roll',d:[2,1]});G.srv=clone(DB);await oGtDo({t:'die',i:0,r:0});seen.dareAsk=clone(DB);
       G.srv=clone(DB);await oGtDo({t:'dare',v:3});seen.dareDone=clone(DB);
+      // Phase C in the room: a secret trap is stored, and goes off on the other player's turn
+      DB=room(1,2);G.myPid='a';G.srv=clone(DB);await oGtDo({t:'trap',s:13,type:'shock'});seen.trapset=clone(DB);
+      DB.gt.cur=2;DB.gt.phase='roll';DB.curIdx=1;DB.gt.placed=false;DB.gt.run[1][0].rel=33;F('gtSyncPairs')(DB.gt);G.myPid='b';G.srv=clone(DB);
+      await oGtDo({t:'roll',d:[4,1]});G.srv=clone(DB);await oGtDo({t:'die',i:0,r:0});seen.trapfire=clone(DB);
       // a win ends the game with ranks and a Table Moment
       DB=room(1,2);DB.gt.run[0][0].rel=48;DB.gt.run[0][1].rel=46;G.myPid='a';G.srv=clone(DB);
       await oGtDo({t:'roll',d:[2,3]});G.srv=clone(DB);await oGtDo({t:'die',i:0,r:1});
@@ -6153,6 +6433,8 @@ async function runPresentation(A,W,frame){
       check('a shield is armed through the room before the roll: the phase stays "roll" and the runner is shielded for everybody',seen.shield.gt.sh[0].s===1&&seen.shield.gt.sh[0].r===0&&seen.shield.gt.phase==='roll'&&seen.shield.curIdx===0);
       check('a shortcut chosen by key is written to the room: the runner is inside the Bridge',!!seen.lane.gt.run[0][0].sc&&seen.lane.gt.run[0][0].sc.id===0&&seen.lane.gt.run[0][0].sc.k===3);
       check('an open dare lives in the room (the turn stays with the player) and its answer is written the same way',seen.dareAsk.gt.pq.length===1&&seen.dareAsk.curIdx===0&&seen.dareDone.gt.pq.length===0&&seen.dareDone.gt.run[0][0].rel===5&&seen.dareDone.gt.fx.kind==='dare');
+      check('a trap laid through the room is stored with its owner, kind and place (the room is the single source of truth)',seen.trapset.gt.traps.length===1&&seen.trapset.gt.traps[0].o===1&&seen.trapset.gt.traps[0].t==='shock'&&seen.trapset.gt.traps[0].s===13&&seen.trapset.gt.tleft[0]===2);
+      check('and when the other player stops on it, it goes off in the room: spent, the runner thrown back 3, and the record carries the trap for the other device’s animation',seen.trapfire.gt.traps[0].st===1&&seen.trapfire.gt.run[1][0].rel===34&&!!seen.trapfire.gt.fx.trap&&seen.trapfire.gt.fx.trap.owner===1&&seen.trapfire.gt.fx.trap.seat===2&&seen.trapfire.gt.fx.moves.length===2);
       check('a win ends the game: winner, ranks, runner counts and a Table Moment are in the room',seen.win.winner==='a'&&seen.win.gt.over&&seen.win.players[0].c4Result==='win'&&seen.win.players[0].gtHome===2&&!!seen.win.moment);
       check('starting from the lobby makes a five-seat game with a fresh ring',seen.started.gameId==='gauntlet'&&seen.started.gt.P===5&&seen.started.gt.moves===0&&seen.started.curIdx===seen.started.gt.cur-1&&seen.started.players.length===5);
       check('Rematch: same players, a fresh game, nobody home',seen.rematch.gameId==='gauntlet'&&seen.rematch.phase==='game'&&!seen.rematch.winner&&seen.rematch.gt.moves===0&&seen.rematch.players.length===2);
