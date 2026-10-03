@@ -6254,6 +6254,82 @@ async function runPresentation(A,W,frame){
     }
   });
 
+  /* —— Privacy: results are kept under a private table code, never sent from a developer machine; rooms have 6-letter codes (awaits live at the top level) —————— */
+  {
+    const G=W.eval('G'),F=n=>W.eval(n);
+    W.__keepSb7=W.eval('_sb');W.__keepDev=W.eval('isDevHost');W.__keepCode=W.localStorage.getItem('ct_table_code');
+    const hadSup=typeof W.supabase!=='undefined';if(!hadSup)W.supabase={createClient(){return null;}};
+    const calls=[];let rpcAnswer=()=>({data:[],error:null});
+    W.__fakeSb={
+      rpc:(n,args)=>{calls.push(['rpc',n,args]);return Promise.resolve(rpcAnswer(n,args));},
+      from:(tb)=>({
+        insert:row=>{calls.push(['insert',tb,row]);return Promise.resolve({error:null});},
+        select:()=>({order:()=>({limit:()=>{calls.push(['select',tb]);return Promise.resolve({data:[{game_id:'pig',mode:'local',winner_name:'Old',players:['Old'],played_at:'2026-01-01'}],error:null});}})})
+      })
+    };
+    const seen={};
+    const entry={game:'pig',winner:'Anna',players:['Anna','Ben'],mode:'local'};
+    try{
+      W.eval('_sb=window.__fakeSb;_histLegacy=false;');
+      // 1. never from a developer machine (this very test page is one)
+      seen.devHost=F('isDevHost')();
+      F('syncHistory')(entry);seen.devCalls=calls.length;
+      // 2. from a real address: one add_history call carrying the private code and the row
+      W.eval('isDevHost=()=>false');
+      calls.length=0;W.localStorage.setItem('ct_table_code','K7M2Q9XRTA');
+      F('syncHistory')(entry);await new Promise(r=>setTimeout(r,20));
+      seen.rpc=calls.find(c=>c[0]==='rpc'&&c[1]==='add_history');seen.legacyInsert=calls.some(c=>c[0]==='insert');
+      // 3. reading goes through history_for with the code, and rows are mapped
+      calls.length=0;rpcAnswer=(n)=>({data:[{game_id:'pig',mode:'online',winner_name:'Ben',players:['Ben','Anna'],played_at:'2026-02-02'}],error:null});
+      seen.rows=await F('fetchFamilyHistory')();seen.readCall=calls.find(c=>c[0]==='rpc'&&c[1]==='history_for');
+      // 4. before the database functions exist, the app falls back to the old way (and says so once)
+      calls.length=0;rpcAnswer=()=>({data:null,error:{code:'PGRST202',message:'Could not find the function public.history_for'}});
+      seen.fallbackRows=await F('fetchFamilyHistory')();seen.legacyFlag=F('_histLegacy');
+      calls.length=0;F('syncHistory')(entry);await new Promise(r=>setTimeout(r,20));
+      seen.legacyWrite=calls.some(c=>c[0]==='insert');seen.noRpcAfter=!calls.some(c=>c[0]==='rpc');
+      // 5. any other error: nothing is returned and nothing falls back (no leak through a flaky connection)
+      W.eval('_histLegacy=false');calls.length=0;rpcAnswer=()=>({data:null,error:{code:'57014',message:'timeout'}});
+      seen.errRows=await F('fetchFamilyHistory')();seen.errLegacy=F('_histLegacy');seen.errSelect=calls.some(c=>c[0]==='select');
+      // 6. the Your data panel: the code is shown, saved from the input, and a clean new one can be made
+      W.eval('_histLegacy=false');rpcAnswer=()=>({data:[],error:null});
+      G.dataOpen=true;seen.panel=F('rDataOv')();
+      const inp=W.document.createElement('input');inp.id='tc-input';inp.value='ab12';W.document.body.appendChild(inp);
+      const btn=W.document.createElement('button');btn.setAttribute('data-a','tc-save');W.document.body.appendChild(btn);
+      btn.click();seen.shortKept=W.localStorage.getItem('ct_table_code');
+      inp.value='mü-ller 2026';btn.click();seen.saved=W.localStorage.getItem('ct_table_code');
+      const nb=W.document.createElement('button');nb.setAttribute('data-a','tc-new');W.document.body.appendChild(nb);nb.click();seen.fresh=W.localStorage.getItem('ct_table_code');
+      inp.remove();btn.remove();nb.remove();
+      // 7. a device that has never had a code makes its own private one
+      W.localStorage.removeItem('ct_table_code');seen.made=F('tableCode')();seen.madeKept=W.localStorage.getItem('ct_table_code');
+      // 8. room codes
+      seen.rooms=Array.from({length:200},()=>F('newRoomCode')());
+      await new Promise(r=>setTimeout(r,60)); // let the background history reload finish against the fake
+    } finally {
+      W.eval('_sb=window.__keepSb7;isDevHost=window.__keepDev;_histLegacy=false;');
+      if(!hadSup)delete W.supabase;
+      if(W.__keepCode==null)W.localStorage.removeItem('ct_table_code');else W.localStorage.setItem('ct_table_code',W.__keepCode);
+      G.dataOpen=false;
+    }
+    suite('Privacy — results stay under a private table code',()=>{
+      check('the test page counts as a developer machine, so nothing it plays is sent to the live database',seen.devHost===true&&seen.devCalls===0);
+      check('from a real address a finished game is added with the table code and the row, through add_history only',!!seen.rpc&&seen.rpc[2].p_code==='K7M2Q9XRTA'&&seen.rpc[2].p_row.winner_name==='Anna'&&seen.rpc[2].p_row.game_id==='pig'&&!seen.legacyInsert);
+      check('reading goes through history_for with the same code and returns the rows in the app\'s own shape',!!seen.readCall&&seen.readCall[2].p_code==='K7M2Q9XRTA'&&seen.rows.length===1&&seen.rows[0].winner==='Ben'&&seen.rows[0].game==='pig');
+      check('before the database functions exist the app falls back to the old way, once',seen.legacyFlag===true&&seen.fallbackRows&&seen.fallbackRows[0].winner==='Old'&&seen.legacyWrite&&seen.noRpcAfter);
+      check('any OTHER error returns nothing and does not fall back to reading the shared table',seen.errRows===null&&seen.errLegacy===false&&!seen.errSelect);
+      check('🔒 Your data shows the code, a box to type the family\'s code, and a way to make a new one',/Your table code/.test(seen.panel)&&/id="tc-input"/.test(seen.panel)&&/data-a="tc-save"/.test(seen.panel)&&/data-a="tc-new"/.test(seen.panel)&&/K7M2Q-9XRTA/.test(seen.panel));
+      check('a code shorter than 6 characters is refused and the old one is kept',seen.shortKept==='K7M2Q9XRTA');
+      check('a typed code is cleaned (capitals, no spaces or dashes or odd letters) and saved',seen.saved==='MLLER2026');
+      check('"make a new private code" gives a fresh 10-character code',/^[A-Z2-9]{10}$/.test(seen.fresh)&&seen.fresh!=='MLLER2026');
+      check('a device that never had a code makes its own private one and keeps it',/^[A-Z2-9]{10}$/.test(seen.made)&&seen.madeKept===seen.made);
+    });
+    suite('Online rooms — 6-letter codes',()=>{
+      check('new room codes are 6 characters from an alphabet without 0, O, 1 and I',seen.rooms.every(c=>/^[A-HJ-NP-Z2-9]{6}$/.test(c)));
+      check('200 new codes are (practically) all different',new Set(seen.rooms).size>=198);
+      const html=F('rOnline')?F('rOnline')():'';
+      check('the join box accepts 6 characters',/id="ol-code"[^>]*maxlength="6"/.test(html));
+    });
+  }
+
   /* —— Mayhem online: privacy, turn gating, the sequence on every device, rematch, away players (awaits live at the top level) —————— */
   {
     const G=W.eval('G'),F=n=>W.eval(n);
