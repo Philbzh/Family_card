@@ -5410,6 +5410,133 @@ async function runPresentation(A,W,frame){
     });
   }
 
+  /* —— Chain Reaction, Fun version: Surge and Overload —————— */
+  suite('Chain Reaction (Fun) — the two powers',()=>{
+    const F=n=>W.eval(n);
+    const crNew=F('crNew'),crPlay=F('crPlay'),crPowerTargets=F('crPowerTargets'),crClone=F('crClone');
+    const put=(cr,list)=>list.forEach(([i,o,c])=>{cr.o[i]=o;cr.c[i]=c;cr.placed[o-1]=true;});
+    const classic=crNew(3),fun=crNew(3,true);
+    check('Classic has no powers; Fun gives every seat one Surge and one Overload',classic.fun===false&&classic.pw===null&&fun.fun===true&&fun.pw.length===3&&fun.pw.every(p=>p.surge===1&&p.overload===1));
+    check('a copy of a Fun game keeps the powers (the bots simulate on copies)',JSON.stringify(crClone(fun).pw)===JSON.stringify(fun.pw)&&crClone(fun).pw!==fun.pw);
+    check('in Classic a power is refused',crPlay((()=>{const c=crNew(2);put(c,[[0,2,1]]);return c;})(),1,0,{kind:'surge'})===null);
+    let cr=crNew(2,true);put(cr,[[20,1,1],[0,2,1]]);cr.moves=2;
+    check('Surge can only be aimed at ENEMY cells; Overload only at your OWN cells',JSON.stringify(crPowerTargets(cr,1,'surge'))==='[0]'&&JSON.stringify(crPowerTargets(cr,1,'overload'))==='[20]');
+    check('nothing to aim at before anyone has played: no targets',crPowerTargets(crNew(2,true),1,'surge').length===0&&crPowerTargets(crNew(2,true),1,'overload').length===0);
+    const snap=JSON.stringify([cr.o,cr.c,cr.pw,cr.moves]);
+    check('a power aimed at the wrong kind of cell is refused and nothing changes',crPlay(cr,1,20,{kind:'surge'})===null&&crPlay(cr,1,0,{kind:'overload'})===null&&crPlay(cr,1,5,{kind:'surge'})===null&&JSON.stringify([cr.o,cr.c,cr.pw,cr.moves])===snap);
+    const fx=crPlay(cr,1,0,{kind:'surge'});
+    check('Surge puts an orb on the enemy cell, which becomes yours (a corner with 2 orbs explodes)',!!fx&&fx.kind==='surge'&&fx.explosions>=1&&fx.cell===0);
+    check('...taking a player\'s last cell knocks them out, and the Surge is spent',cr.out[1]>0&&cr.over&&cr.win===1&&cr.pw[0].surge===0&&cr.pw[0].overload===1);
+    cr=crNew(2,true);put(cr,[[14,1,2],[35,2,1]]);cr.moves=2;
+    const fo=crPlay(cr,1,14,{kind:'overload'});
+    check('Overload fills your cell to its critical mass and it explodes at once',!!fo&&fo.kind==='overload'&&fo.explosions>=1&&cr.c[14]===0&&cr.pw[0].overload===0);
+    check('...the four neighbours each got an orb and are yours',[8,13,15,20].every(i=>cr.o[i]===1&&cr.c[i]===1));
+    check('a power cannot be used twice',crPlay(cr,1,8,{kind:'overload'})===null&&crPowerTargets(cr,1,'overload').length===0);
+    check('an ordinary move still works in Fun and does not spend a power',(()=>{const c=crNew(2,true);crPlay(c,1,5);return c.pw[0].surge===1&&c.pw[0].overload===1&&c.o[5]===1;})());
+    check('the move record says which power was used',(()=>{const c=crNew(2,true);put(c,[[14,1,2],[35,2,1]]);c.moves=2;return crPlay(c,1,14,{kind:'overload'}).kind==='overload'&&F('crPlay')(crNew(2,true),1,3).kind==='drop';})());
+  });
+  suite('Chain Reaction (Fun) — the bots and the version choice',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const crNew=F('crNew'),crPlay=F('crPlay'),crBotChoice=F('crBotChoice'),crNext=F('crNext'),crLegal=F('crLegal'),crPowerTargets=F('crPowerTargets');
+    const put=(cr,list)=>list.forEach(([i,o,c])=>{cr.o[i]=o;cr.c[i]=c;cr.placed[o-1]=true;});
+    // no ordinary move wins here; a Surge on the lone corner does
+    const cr=crNew(2,true);put(cr,[[20,1,1],[0,2,1]]);cr.moves=2;
+    const m=crBotChoice(cr,1,'sharp');
+    check('a bot uses a power when it wins on the spot (here Surge on the last enemy cell)',m.kind==='surge'&&m.cell===0);
+    const cl=crNew(2,false);put(cl,[[20,1,1],[0,2,1]]);cl.moves=2;
+    check('in Classic a bot only ever makes ordinary moves',crBotChoice(cl,1,'sharp').kind==='drop');
+    let ok=true,used=0;
+    for(const lvl of['gentle','sharp'])for(let g=0;g<6;g++){
+      const c=crNew(2+g%3,true);let who=1;
+      for(let n=0;n<120&&!c.over;n++){
+        const mv=crBotChoice(c,who,lvl);
+        const legal=mv.kind==='drop'?crLegal(c,who).includes(mv.cell):crPowerTargets(c,who,mv.kind).includes(mv.cell);
+        if(!legal){ok=false;break;}
+        if(mv.kind!=='drop')used++;
+        crPlay(c,who,mv.cell,mv.kind==='drop'?undefined:{kind:mv.kind});who=c.over?who:crNext(c,who);
+      }
+    }
+    check('through whole Fun games (2, 3 and 4 players) the bots only choose legal moves, and use powers ('+used+' times)',ok&&used>0);
+    // the version choice
+    const keep=F('crMode')();
+    try{
+      F('crSetMode')('fun');const a=F('crMode')()==='fun';F('crSetMode')('whatever');const b=F('crMode')()==='classic';
+      check('the version is remembered, and anything unknown means Classic',a&&b);
+      const html=F('crOptionsHTML')();
+      check('the setup screen offers Classic and Fun and describes both powers',(html.match(/data-a="cr-mode"/g)||[]).length===2&&/Surge/.test(html)&&/Overload/.test(html));
+    } finally { F('crSetMode')(keep); }
+    const g=A.GAMES.find(x=>x.id==='chainreaction');
+    check('the rules mention the Fun version and both powers',/Fun version/.test(g.rules.join(' '))&&/Surge/.test(g.rules.join(' '))&&/Overload/.test(g.rules.join(' ')));
+  });
+  suite('Chain Reaction (Fun) — a local game and the table',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const lStartMatch=F('lStartMatch'),crTap=F('crTap'),rChainTable=F('rChainTable');
+    const keep=F('crMode')();
+    try{
+      F('crSetMode')('fun');
+      const mk=(id,n)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false});
+      G.isOnline=false;G.srv=null;G.selGame='chainreaction';G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;lStartMatch();G.lstart=0;G.lcur=0;G.scr='table';G.crInstant=true;
+      check('a Fun game starts with both powers for everybody',G.cr.fun&&G.cr.pw.every(p=>p.surge===1&&p.overload===1));
+      let d=new DOMParser().parseFromString(rChainTable(),'text/html');
+      check('the Fun table shows the two power buttons, both unavailable until there is something to aim at',d.querySelectorAll('.cr-pw-btn').length===2&&[...d.querySelectorAll('.cr-pw-btn')].every(b=>b.hasAttribute('disabled')));
+      check('and each player\'s remaining powers beside their name',/⚡/.test(d.querySelectorAll('.cr-pill')[0].textContent)&&/💥/.test(d.querySelectorAll('.cr-pill')[1].textContent));
+      crTap(14);crTap(1); // Phil in the middle, Anna on an edge
+      G.lcur=0;
+      d=new DOMParser().parseFromString(rChainTable(),'text/html');
+      const btn=k=>d.querySelector('.cr-pw-btn[data-k="'+k+'"]');
+      check('with cells to aim at, the powers light up',!btn('surge').hasAttribute('disabled')&&!btn('overload').hasAttribute('disabled'));
+      // arm Surge through the real click handler
+      const b=W.document.createElement('button');b.setAttribute('data-a','crarm');b.setAttribute('data-k','surge');W.document.body.appendChild(b);b.click();b.remove();
+      check('arming Surge is remembered and shown',G.crArm==='surge');
+      d=new DOMParser().parseFromString(rChainTable(),'text/html');
+      check('only enemy cells can be tapped while Surge is armed, and they are marked',d.querySelectorAll('.cr-cell[data-a="crcell"]').length===1&&d.querySelectorAll('.cr-cell.tgt').length===1&&d.querySelector('[data-i="1"]').hasAttribute('data-a')&&/enemy cell/.test(d.querySelector('.y-hint').textContent));
+      crTap(1);
+      check('tapping the enemy cell plays the Surge: it is spent, the cell is Phil\'s and the arm is cleared',G.cr.pw[0].surge===0&&G.cr.o[1]===1&&G.crArm===null&&G.cr.moves===3);
+      check('in Classic the table has no power buttons',(()=>{F('crSetMode')('classic');G.lp.forEach(p=>{p.totalScore=0;});F('lDealChain')();G.scr='table';return new DOMParser().parseFromString(rChainTable(),'text/html').querySelectorAll('.cr-pw-btn').length===0;})());
+    } finally {
+      F('crSetMode')(keep);G.crInstant=false;G.crArm=null;G.scr='home';G.cr=null;G.crSeq=null;
+    }
+  });
+  {
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const oCrPlay=F('oCrPlay'),crNew=F('crNew'),oStartGame=F('oStartGame');
+    W.__keepSb9=W.eval('_sb');
+    W.eval('window.__origSetTimeout=setTimeout; setTimeout=(fn)=>0;');
+    let DB=null;const clone=o=>JSON.parse(JSON.stringify(o));
+    W.__fakeSb={from:()=>({
+      select:()=>({eq:()=>({single:()=>Promise.resolve({data:DB?{state:clone(DB)}:null,error:DB?null:{message:'none'}})})}),
+      upsert:row=>{DB=clone(row.state);return Promise.resolve({error:null});},
+      update:row=>({eq:()=>({eq:()=>({select:()=>{DB=clone(row.state);return Promise.resolve({data:[{id:'T'}],error:null});}})})})})};
+    const P=(id,n,i)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,roundsWon:0,chips:900,c4Result:null});
+    const room=()=>{const ps=[P('a','Anna',0),P('b','Ben',1)];const cr=crNew(2,true);[[20,1,1],[14,2,1],[30,2,1]].forEach(([i,o,c])=>{cr.o[i]=o;cr.c[i]=c;cr.placed[o-1]=true;});cr.moves=3;return{phase:'game',gameId:'chainreaction',host:'a',players:ps,curIdx:0,cr,winner:null,winnerName:null,winnerAv:null,round:1,_ts:Date.now()-5000};};
+    const keep=F('crMode')();
+    const seen={};
+    try{
+      G.isOnline=true;G.roomId='T';G.myPid='a';G.isHost=true;G.scr='table';G.selGame='chainreaction';
+      W.eval('_sb=window.__fakeSb');
+      DB=room();G.srv=clone(DB);await oCrPlay(14,'surge');seen.surge=clone(DB);
+      DB=room();G.srv=clone(DB);const b1=JSON.stringify(DB);await oCrPlay(20,'surge');seen.wrong=JSON.stringify(DB)===b1;
+      DB=room();DB.cr.pw[0].surge=0;G.srv=clone(DB);const b2=JSON.stringify(DB);await oCrPlay(14,'surge');seen.spent=JSON.stringify(DB)===b2;
+      DB=room();G.myPid='b';G.srv=clone(DB);G.srv.curIdx=1;const b3=JSON.stringify(DB);await oCrPlay(14,'overload');seen.notMine=JSON.stringify(DB)===b3;
+      const lobby={phase:'lobby',gameId:'chainreaction',host:'a',players:[P('a','Anna',0),P('b','Ben',1),P('c','Cleo',2)],_ts:Date.now()-5000};
+      G.myPid='a';F('crSetMode')('fun');G.srv=clone(lobby);oStartGame(clone(lobby));seen.fun=clone(G.srv);
+      F('crSetMode')('classic');G.srv=clone(lobby);oStartGame(clone(lobby));seen.classic=clone(G.srv);
+    } finally {
+      W.eval('setTimeout=window.__origSetTimeout');
+      W.eval('_sb=window.__keepSb9');F('crSetMode')(keep);
+      G.isOnline=false;G.srv=null;G.scr='home';G.isHost=false;G.cr=null;G.crSeq=null;G.crArm=null;
+      try{W.localStorage.removeItem('ct_online_session');W.localStorage.removeItem('ct_resume');}catch(e){}
+    }
+    suite('Chain Reaction (Fun) online — powers go through the room like any other move',()=>{
+      check('a Surge by the player on turn is written to the room: the cell changes hands and the power is spent',seen.surge.cr.o[14]===1&&seen.surge.cr.pw[0].surge===0&&seen.surge.cr.fx.kind==='surge'&&seen.surge.curIdx===1);
+      check('a power aimed at the wrong cell changes nothing',seen.wrong);
+      check('a power that has already been spent changes nothing',seen.spent);
+      check('a device that is not on turn cannot use a power',seen.notMine);
+      check('the host choosing Fun creates a room where every seat holds both powers',seen.fun.cr.fun===true&&seen.fun.cr.pw.length===3&&seen.fun.cr.pw.every(p=>p.surge===1&&p.overload===1));
+      check('the host choosing Classic creates a plain room',seen.classic.cr.fun===false&&seen.classic.cr.pw===null);
+    });
+  }
+
   /* —— Table talk: a richer set of reactions, ordered per game, with a ⋯ panel and a little motion —————— */
   suite('Reactions — 12 on the strip, every one behind ⋯, ordered per game',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);
