@@ -737,6 +737,9 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
     radial-gradient(ellipse 60% 40% at 80% 60%,rgba(20,33,61,.32),transparent 55%),
     var(--bg);}
 .tc-code{font-family:var(--serif);font-size:1.5rem;font-weight:700;letter-spacing:.14em;text-align:center;color:var(--gold2);padding:.5rem;border-radius:10px;background:rgba(0,0,0,.3);border:1px solid rgba(212,168,67,.3);user-select:all;}
+.fam-code{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem .8rem;margin:0 0 1.1rem;padding:.7rem .9rem;border-radius:12px;background:rgba(212,168,67,.08);border:1px solid rgba(212,168,67,.28);font-size:.8rem;color:var(--paper2);}
+.fam-code b{font-family:var(--serif);letter-spacing:.1em;color:var(--gold2);margin-left:.3rem;}
+.fam-code-sub{flex:1 1 14rem;font-size:.72rem;color:var(--paper3);line-height:1.5;}
 .code-big{width:100%;text-align:center;text-transform:uppercase;letter-spacing:.2em;font-size:clamp(1.7rem,9.5vw,2.6rem);font-family:var(--serif);font-weight:700;background:radial-gradient(140% 200% at 50% -20%,rgba(201,155,78,.1),transparent 60%),rgba(8,12,18,.7);border:1px solid rgba(255,255,255,.16);border-radius:14px;color:var(--paper);padding:.7rem 1rem;box-shadow:inset 0 2px 10px rgba(0,0,0,.35);}
 .code-big:focus{outline:none;border-color:var(--gold);}
 .code-big::placeholder{font-size:1rem;letter-spacing:.1em;color:rgba(255,255,255,.2);}
@@ -4551,8 +4554,15 @@ function isDevHost(){const h=(typeof location!=='undefined'&&location.hostname)|
 // Until the two database functions exist (supabase-table-code.sql not run yet) the app keeps working the old way.
 let _histLegacy=false;
 function histFnMissing(err){return !!err&&(err.code==='PGRST202'||err.code==='42883'||/could not find the function|does not exist/i.test(err.message||''));}
+// 🧳 Guest game: switched on in the lobby (host) or on the setup screen, a game with people outside the family is not written to the
+// shared family results (it is still kept on the devices that played it). It switches itself off when you go back to the home screen.
+function guestToggleHTML(){
+  const on=!!G.guestGame;
+  return`<div class="panel"><div class="hr-grid"><div class="hr-tog${on?' on':''}" data-a="guest-toggle" role="switch" aria-checked="${on}" tabindex="0"><div class="hr-row"><span class="hr-nm">🧳 Guest game</span><span class="hr-chk">${on?'✓':''}</span></div><span class="hr-desc">${on?'On — this game is <b>not</b> added to your family’s results.':'Playing with people outside your family? Turn this on and the result stays out of your family results.'}</span></div></div></div>`;
+}
 function syncHistory(e){
   if(isDevHost())return;
+  if(G.guestGame)return;
   const sb=SB();if(!sb)return;
   // An online result arrives on EVERY connected device, and each one used to insert its own row for
   // the same game. Four people playing one online round produced four rows — so the Family screen
@@ -18296,8 +18306,14 @@ function rFamily(){
     </div>
     <button class="family-remove" data-a="family-remove" data-name="${esc(m.name)}" aria-label="Remove ${esc(m.name)}">✕</button>
   </div>`).join('');
-  const emptyState=`<div class="moments-empty"><div style="font-size:2.4rem;margin-bottom:.6rem;">♥</div><div style="font-family:var(--serif);font-size:1.2rem;color:var(--paper);margin-bottom:.3rem;">No one added yet</div><div style="font-size:.8rem;color:var(--paper3);">Add the people who play at your table to track their stats.</div></div>`;
   const suggestions=familySuggestions();
+  const emptyMsg=_familyHistoryCache===null
+    ?['Looking for your table’s games…','One moment — the results saved under your table code are being loaded.']
+    :suggestions.length
+      ?['Welcome to the table!',`Your table has played ${totalGames} game${totalGames!==1?'s':''}. <b>Tap a name below</b> to add that person to your family list.`]
+      :['No one added yet','Add the people who play at your table below. Once games have been played together, their names also appear here to add with one tap.'];
+  const emptyState=`<div class="moments-empty"><div style="font-size:2.4rem;margin-bottom:.6rem;">♥</div><div style="font-family:var(--serif);font-size:1.2rem;color:var(--paper);margin-bottom:.3rem;">${emptyMsg[0]}</div><div style="font-size:.8rem;color:var(--paper3);">${emptyMsg[1]}</div></div>`;
+  const codeLine=`<div class="fam-code"><span>🔒 Your table code <b>${tcShow(tableCode())}</b></span><span class="fam-code-sub">Every device that uses this code shares these results. Your family list below is kept on each device — add the names you want to follow.</span><button class="btn btn-ghost btn-sm" data-a="open-data">View or change</button></div>`;
   const suggestRow=suggestions.length?`<div class="family-suggest-row"><span class="family-suggest-lbl">Seen at your table:</span>${suggestions.map(n=>`<button class="family-suggest-chip" data-a="family-quickadd" data-name="${esc(n)}">+ ${esc(n)}</button>`).join('')}</div>`:'';
   const legendData=houseLegends();
   const legendsPanel=legendData?`<div class="legends-row">${legendData.legends.map(l=>`<div class="legend-badge">
@@ -18326,6 +18342,7 @@ function rFamily(){
       </div>
       <button class="ambient-toggle" data-a="open-almanac">📖 The Almanac</button>
     </div>
+    ${codeLine}
     ${legendsPanel}
     ${rivalryPanel}
     ${family.length?`<div class="family-list">${rows}</div>`:emptyState}
@@ -18650,6 +18667,7 @@ function rSetup(){
       ${game.id==='liarsdice'?ldOptionsHTML():''}
       ${game.id==='bingo'?bgOptionsHTML():''}
       ${tourBtnHTML(game.id)}
+      ${guestToggleHTML()}
       ${game.id==='fourrow'?c4OptionsHTML():''}
       ${game.id==='chainreaction'?crOptionsHTML():''}
       ${game.id==='mayhem'?mhOptionsHTML():''}
@@ -18937,6 +18955,7 @@ function rLobby(){
         <button class="ambient-toggle${G.notifyOn?' on':''}" data-a="toggle-notify" aria-pressed="${G.notifyOn}">🔔 Notify me when it's my turn</button>
       </div>
       ${tourBtnHTML(game.id)}
+      ${G.isHost?guestToggleHTML():''}
       ${game.id==='drawit'&&G.isHost?dwOptionsHTML():''}
       ${game.id==='liarsdice'&&G.isHost?ldOptionsHTML():''}
       ${game.id==='bingo'&&G.isHost?bgOptionsHTML():''}
@@ -20428,7 +20447,7 @@ function rDataOv(){
     <div class="panel" style="text-align:left;">
       <div class="panel-lbl">Synced online</div>
       <div style="font-size:.76rem;color:var(--paper3);line-height:1.6;">
-        Finished games sync under your table code — just the game, the winner, and the players' names — so House Legends and Rivalries work across your table's devices. No accounts, emails, or passwords. Synced results are a shared, append-only ledger and can't be individually deleted from within the app, but nothing beyond a name and a result is ever stored there.
+        Finished games sync under your table code — just the game, the winner, and the players' names — so House Legends and Rivalries work across your table's devices. Playing with guests? Switch on 🧳 Guest game before you start and that game stays out. No accounts, emails, or passwords. Synced results are a shared, append-only ledger and can't be individually deleted from within the app, but nothing beyond a name and a result is ever stored there.
       </div>
     </div>
     <div style="display:flex;flex-direction:column;gap:.6rem;">
@@ -21190,6 +21209,7 @@ function maybeShowFirstRunWelcome(){
 }
 
 function render(){
+  if(G.scr==='home'||G.scr==='games')G.guestGame=false; // a guest game lasts for one visit to the table
   // A render rebuilds #app, canvas included, which would drop the artist's pen mid-stroke -- and online
   // the artist's own snapshot write echoes straight back as a state update. Hold it until the pen lifts.
   if(_dwPenDown){_dwPendingRender=true;return;}
@@ -21560,6 +21580,7 @@ document.addEventListener('click',e=>{
   else if(a==='es-fuse'){esFuse();}
   else if(a==='pigroll'){G.isOnline?oPigRoll():pigRoll();}
   else if(a==='pigbank'){G.isOnline?oPigBank():pigBank();}
+  else if(a==='guest-toggle'){G.guestGame=!G.guestGame;SFX.chip();render();}
   else if(a==='crcell'){crTap(+t.getAttribute('data-i'));}
   else if(a==='crarm'){
     const cr=G.isOnline?(G.srv&&G.srv.cr):G.cr;if(!cr||cr.over||G.crSeq)return;

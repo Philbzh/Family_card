@@ -5565,6 +5565,52 @@ async function runPresentation(A,W,frame){
     }
   });
 
+  /* —— Guest games stay out of the family results; the Family tab explains the table code —————— */
+  suite('Guest game and the Family tab',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const keepSb=W.eval('_sb'),keepDev=W.eval('isDevHost'),keepCode=W.localStorage.getItem('ct_table_code'),keepFam=W.localStorage.getItem('ct_family');
+    const hadSup=typeof W.supabase!=='undefined';if(!hadSup)W.supabase={createClient(){return null;}};
+    const calls=[];
+    W.__fakeSb={rpc:(n,args)=>{calls.push(['rpc',n,args]);return Promise.resolve({data:[],error:null});},from:()=>({insert:row=>{calls.push(['insert',row]);return Promise.resolve({error:null});}})};
+    const entry={game:'pig',winner:'Anna',players:['Anna','Max'],mode:'local'};
+    try{
+      W.eval('_sb=window.__fakeSb;_histLegacy=false;isDevHost=()=>false;');
+      W.localStorage.setItem('ct_table_code','K7M2Q9XRTA');
+      G.guestGame=false;F('syncHistory')(entry);const normal=calls.length;
+      calls.length=0;G.guestGame=true;F('syncHistory')(entry);const guest=calls.length;
+      check('a normal game is written to the family results',normal===1);
+      check('a guest game writes nothing to the shared family results',guest===0);
+      // the switch
+      G.guestGame=false;G.isOnline=false;G.selGame='pig';G.scr='setup';
+      const html0=F('guestToggleHTML')();
+      check('the switch explains itself and starts off',/Guest game/.test(html0)&&/stays out of your family results/.test(html0)&&!/hr-tog on/.test(html0));
+      check('it is offered on the local setup screen',/data-a="guest-toggle"/.test(F('rSetup')()));
+      const b=W.document.createElement('button');b.setAttribute('data-a','guest-toggle');W.document.body.appendChild(b);b.click();
+      check('tapping it turns it on, and it says so',G.guestGame===true&&/not<\/b> added to your family/.test(F('guestToggleHTML')()));
+      G.scr='home';F('render')();b.remove();
+      check('going back to the home screen switches it off again (it lasts for one visit)',G.guestGame===false);
+      // the Family tab
+      W.localStorage.removeItem('ct_family');
+      W.eval('_familyHistoryLoading=true;_familyHistoryCache=null;');
+      let d=new DOMParser().parseFromString(F('rFamily')(),'text/html');
+      check('the Family tab shows the table code, with an explanation and a way to view or change it',/K7M2Q-9XRTA/.test(d.querySelector('.fam-code').textContent)&&/shares these results/.test(d.querySelector('.fam-code').textContent)&&!!d.querySelector('.fam-code [data-a="open-data"]'));
+      check('while the results are still loading it says so',/Looking for your table/.test(d.querySelector('.moments-empty').textContent));
+      W.eval('_familyHistoryCache=[];');
+      d=new DOMParser().parseFromString(F('rFamily')(),'text/html');
+      check('with an empty notebook and an empty list it tells you to add names',/No one added yet/.test(d.querySelector('.moments-empty').textContent)&&/appear here to add with one tap/.test(d.querySelector('.moments-empty').textContent));
+      W.eval("_familyHistoryCache=[{game:'pig',winner:'Max',players:['Max','Anna'],date:'2026-01-01'},{game:'pig',winner:'Anna',players:['Max','Anna'],date:'2026-01-02'}];");
+      d=new DOMParser().parseFromString(F('rFamily')(),'text/html');
+      check('when the notebook has games but the list is empty it says "Tap a name below" and offers the names',/Welcome to the table/.test(d.querySelector('.moments-empty').textContent)&&/Tap a name below/.test(d.querySelector('.moments-empty').innerHTML)&&d.querySelectorAll('.family-suggest-chip').length===2);
+    } finally {
+      W.eval('_familyHistoryLoading=false;_familyHistoryCache=null;_histLegacy=false;');
+      W.__ksb=keepSb;W.__kdev=keepDev;W.eval('_sb=window.__ksb;isDevHost=window.__kdev;');
+      if(!hadSup)delete W.supabase;
+      if(keepCode==null)W.localStorage.removeItem('ct_table_code');else W.localStorage.setItem('ct_table_code',keepCode);
+      if(keepFam==null)W.localStorage.removeItem('ct_family');else W.localStorage.setItem('ct_family',keepFam);
+      G.guestGame=false;G.scr='home';
+    }
+  });
+
   /* —— Table talk: a richer set of reactions, ordered per game, with a ⋯ panel and a little motion —————— */
   suite('Reactions — 12 on the strip, every one behind ⋯, ordered per game',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);
