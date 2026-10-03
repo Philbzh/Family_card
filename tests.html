@@ -6759,6 +6759,179 @@ async function runPresentation(A,W,frame){
     });
   }
 
+  /* —— The Abyss (Snakes and Ladders for grown-ups) —————— */
+  suite('The Abyss — the board is made from a seed and is always playable',()=>{
+    const F=n=>W.eval(n);
+    const abGen=F('abGen'),abBoard=F('abBoard'),abNew=F('abNew'),abLength=F('abLength'),abCell=F('abCell'),abCross=F('abCross');
+    const a=abGen(12345),b=abGen(12345),c=abGen(54321);
+    check('the same seed always makes the same board; another seed makes another',JSON.stringify(a)===JSON.stringify(b)&&JSON.stringify(a)!==JSON.stringify(c));
+    const boards=[1,2,3,4,5,6,7,8,9,10].map(s=>abNew(2,s*977).board.sq);
+    const count=(sq,t)=>Object.values(sq).filter(x=>x.t===t).length;
+    check('every board has 9 ladders, 6 pits, 5 black holes, 2 pairs of wormholes and 5 stars',boards.every(sq=>count(sq,'ladder')===9&&count(sq,'pit')===6&&count(sq,'hole')===5&&count(sq,'worm')===4&&count(sq,'star')===5));
+    check('ladders lead up, pits lead down, black holes lead to the start, wormholes are mutual',boards.every(sq=>Object.entries(sq).every(([n,x])=>{n=+n;return x.t==='ladder'?x.to>n:x.t==='pit'?x.to<n&&x.to>=2:x.t==='hole'?x.to===0:x.t==='worm'?(sq[x.to]&&sq[x.to].t==='worm'&&sq[x.to].to===n&&Math.abs(x.to-n)>=20):true;})));
+    check('nothing special sits on square 1, 99 or 100, and nothing leads onto another special square',boards.every(sq=>!sq[1]&&!sq[99]&&!sq[100]&&Object.values(sq).every(x=>x.t==='worm'||x.t==='star'||x.t==='hole'||!sq[x.to])));
+    check('ladders never cross each other (the board stays readable)',boards.every(sq=>{const L=Object.entries(sq).filter(([n,x])=>x.t==='ladder').map(([n,x])=>[+n,x.to]);return L.every((p,i)=>L.every((q,j)=>i>=j||!abCross(abCell(p[0]),abCell(p[1]),abCell(q[0]),abCell(q[1]))));}));
+    check('the board is walked with the squares winding like a snake: 1 bottom left, 10 bottom right, 11 above it, 20 on the left, 100 top left',JSON.stringify([abCell(1),abCell(10),abCell(11),abCell(20),abCell(100),abCell(0)])===JSON.stringify([[10,190],[190,190],[190,170],[10,170],[10,10],[100,217]]));
+    check('a game is built on a board of sensible length (a lone walker needs 13–19 turns)',[11,22,33,44,55].every(s=>{const g=abBoard(s);return g.len>=13.5&&g.len<=18.5;}));
+    check('2 to 6 players, everybody starts off the board, player 1 is up',(()=>{const g=abNew(9);return g.P===6&&g.pos.every(p=>p===0)&&g.cur===1&&!g.over&&abNew(1).P===2;})());
+  });
+  suite('The Abyss — a roll, and what each square does',()=>{
+    const F=n=>W.eval(n);
+    const abNew=F('abNew'),abStart=F('abStart'),abRoll=F('abRoll'),abMoment=F('abMoment');
+    const mk=(P,sq,pos)=>{const g=abStart(abNew(P,5),1);g.board={sq:sq||{}};if(pos)g.pos=pos.slice();return g;};
+    let g=mk(2,{},[0,0]);
+    check('only the player on turn may roll, only with real dice',abRoll(g,2,3,4)===null&&abRoll(g,1,0,4)===null&&abRoll(g,1,3,7)===null&&g.moves===0);
+    let fx=abRoll(g,1,3,4);
+    check('a roll walks the total: 0 → 7, one square at a time, and the turn passes',fx&&g.pos[0]===7&&fx.steps.join()==='1,2,3,4,5,6,7'&&fx.from===0&&fx.to===7&&g.cur===2&&!fx.eff);
+    check('the log and the stats record it',g.hist.length===1&&g.hist[0].d.join()==='3,4'&&g.stats.turns[0]===1);
+    g=mk(2,{10:{t:'ladder',to:27}},[3,0]);fx=abRoll(g,1,3,4);
+    check('LADDER: landing on the foot climbs to the top (10 → 27)',g.pos[0]===27&&fx.eff.t==='ladder'&&fx.eff.from===10&&fx.eff.to===27&&g.stats.climb[0]===1&&fx.landed===10);
+    g=mk(2,{20:{t:'pit',to:9}},[13,0]);fx=abRoll(g,1,3,4);
+    check('PIT: falls (20 → 9)',g.pos[0]===9&&fx.eff.t==='pit'&&g.stats.fall[0]===1);
+    g=mk(2,{40:{t:'hole',to:0}},[33,0]);fx=abRoll(g,1,3,4);
+    check('BLACK HOLE: swallowed, back to the very start',g.pos[0]===0&&fx.eff.t==='hole'&&g.stats.hole[0]===1);
+    g=mk(2,{15:{t:'worm',to:60,pair:0},60:{t:'worm',to:15,pair:0}},[8,0]);fx=abRoll(g,1,3,4);
+    check('WORMHOLE: comes out of the twin (15 → 60) ...',g.pos[0]===60&&fx.eff.t==='worm'&&g.stats.worm[0]===1);
+    g=mk(2,{15:{t:'worm',to:60,pair:0},60:{t:'worm',to:15,pair:0}},[53,0]);fx=abRoll(g,1,3,4);
+    check('... and back from the far end (60 → 15), because both ends work',g.pos[0]===15&&fx.eff.to===15);
+    g=mk(2,{12:{t:'star'}},[5,0]);fx=abRoll(g,1,3,4);
+    check('STAR: the same player rolls again',g.pos[0]===12&&fx.again&&g.cur===1&&g.stats.star[0]===1);
+    fx=abRoll(g,1,1,2);
+    check('...and then the turn passes',g.pos[0]===15&&g.cur===2);
+    g=mk(2,{},[0,0]);fx=abRoll(g,1,3,3);
+    check('A DOUBLE: the same player rolls again',fx.dbl&&fx.again&&g.cur===1&&g.pos[0]===6&&g.dbl===1);
+    abRoll(g,1,2,2);fx=abRoll(g,1,5,5);
+    check('THREE DOUBLES in a row: no move, thrown back to the start, turn over',fx.triple&&g.pos[0]===0&&g.cur===2&&g.stats.triple[0]===1&&g.dbl===0);
+    g=mk(2,{},[0,0]);abRoll(g,1,3,3);abRoll(g,1,1,2);
+    check('a non-double in between breaks the run',g.dbl===0&&g.cur===2);
+    // bumping
+    g=mk(3,{},[3,10,10]);fx=abRoll(g,1,3,4);
+    check('BUMP: landing on other players sends each back 3',fx.bumps.length===2&&g.pos.join()==='10,7,7'&&g.stats.bump[0]===2&&g.stats.bumped[1]===1);
+    g=mk(2,{},[0,0]);g.pos=[0,0];abRoll(g,1,3,4);
+    check('(nobody is bumped on the start pad)',g.pos[1]===0);
+    g=mk(2,{20:{t:'ladder',to:30}},[13,30]);fx=abRoll(g,1,3,4);
+    check('...also at the top of a ladder: the player standing there is bumped',g.pos.join()==='30,27'&&fx.bumps.length===1);
+    // winning
+    g=mk(2,{},[93,0]);fx=abRoll(g,1,3,4);
+    check('reaching 100 exactly wins',fx.win&&g.over&&g.win===1&&g.pos[0]===100&&g.phase==='over');
+    check('nothing can be rolled once the game is over',abRoll(g,2,3,4)===null);
+    g=mk(2,{},[95,0]);fx=abRoll(g,1,6,6);
+    check('going past 100 wins too (no exact roll needed), the walk stops on 100',fx.win&&g.pos[0]===100&&fx.steps.length===5);
+    g=mk(2,{},[95,0]);fx=abRoll(g,1,3,3);
+    check('a winning double does not give another roll',g.over&&fx.win&&g.cur===1);
+    // turns and rounds
+    g=mk(3,{},[0,0,0]);abRoll(g,1,1,2);abRoll(g,2,1,2);abRoll(g,3,1,2);
+    check('after the last player the round counter goes up',g.cur===1&&g.round===2);
+    // moments
+    g=mk(2,{},[93,0]);g.stats.hole[0]=2;abRoll(g,1,3,4);
+    check('the Table Moment names what made the game',/black hole 2 times/.test(abMoment(g,['Phil','Anna'])));
+    g=mk(2,{},[93,0]);g.stats.climb[0]=3;abRoll(g,1,3,4);
+    check('(ladders)',/climbed 3 ladders/.test(abMoment(g,['Phil','Anna'])));
+    // whole games
+    let ok=0,bad=0;const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+    for(let P=2;P<=6;P++)for(let n=0;n<12;n++){const x=abStart(abNew(P),1);let guard=0;while(!x.over&&guard++<3000){const f=abRoll(x,x.cur,rnd(1,6),rnd(1,6));if(!f){bad++;break;}if(x.pos.some(p=>p<0||p>100))bad++;}if(x.over&&x.pos[x.win-1]===100)ok++;}
+    check('60 whole games for 2 to 6 players all end with somebody on 100, and nobody ever leaves the board',ok===60&&bad===0);
+  });
+  suite('The Abyss — on the roster and at the table',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const game=F('GAMES').find(x=>x.id==='abyss');
+    check('The Abyss is in the party games with 2–6 players and written rules',game&&game.cat==='party'&&game.minP===2&&game.maxP===6&&game.rules.length>=5);
+    check('it plays online and against bots',F('ONLINE_GAMES').includes('abyss')&&F('BOT_GAMES').has('abyss'));
+    check('it has a quick tour of 4 slides, a tagline, an accent colour, a name for the history and its own reactions',F('TOURS').abyss.slides.length===4&&!!F('STAGE_TAGS').abyss&&!!F('MOMENT_ACCENT').abyss&&F('v14GameLabel')('abyss')==='The Abyss'&&F('REACTION_GAME').abyss.length===3);
+    check('the stage can announce what happens on the board, and the sounds exist',typeof F('STAGE_EVENTS').AB_EVT==='function'&&['abLadder','abFall','abHole','abWorm','abStar'].every(k=>typeof F('SFX')[k]==='function'));
+    const human=(id,n,i,bot)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,...(bot?{bot}:{})});
+    const keepHist=W.localStorage.getItem('ct_history'),keepName=G.myName;
+    try{
+      G.isOnline=false;G.srv=null;G.selGame='abyss';G.abSeq=null;G.abInstant=true;
+      G.lp=[human(1,'Phil',0),human(2,'Anna',1),human(3,'Robo',2,'gentle')];G.lstart=0;
+      F('lStartMatch')();G.lstart=0;G.ab.cur=1;G.lcur=0;
+      check('starting from the lobby deals an Abyss game with 3 players, Phil first',G.ab&&G.ab.P===3&&G.ab.cur===1&&G.scr==='table');
+      let d=new DOMParser().parseFromString(F('rAbyssTable')(),'text/html');
+      const sq=G.ab.board.sq,cnt=t=>Object.values(sq).filter(x=>x.t===t).length;
+      check('the table shows the board (100 squares), 3 tokens, 3 standings and a Roll button for the player on turn',d.querySelectorAll('.ab-board svg g > rect[rx="2.4"]').length===100&&d.querySelectorAll('.ab-tok').length===3&&d.querySelectorAll('.cr-pill').length===3&&!!d.querySelector('[data-a="abroll"]'));
+      check('every ladder, black hole, wormhole end and star is drawn, and the pits come with their dashed fall line',d.querySelectorAll('svg circle[r="2.1"]').length===cnt('ladder')&&d.querySelectorAll('.ab-swirl').length===cnt('hole')+cnt('worm')&&d.querySelectorAll('.ab-star').length===cnt('star')&&d.querySelectorAll('svg path[stroke-dasharray="1.6 1.4"]').length===cnt('pit'));
+      check('a legend explains the squares, and the animation setting is there',d.querySelectorAll('.gt-legend li').length===7&&/Black hole/.test(d.querySelector('.gt-legend').textContent)&&/Animations/.test(d.querySelector('.gt-animbtn').textContent));
+      check('the player on turn has a glow',d.querySelectorAll('.ab-tok.turn').length===1&&d.querySelector('.ab-tok.turn').classList.contains('p1'));
+      const tap=(a)=>{const b=W.document.createElement('button');b.setAttribute('data-a',a);W.document.body.appendChild(b);b.click();b.remove();};
+      tap('abroll');
+      check('rolling through the real button moves Phil and passes the turn to Anna',G.ab.moves===1&&G.ab.pos[0]>=2&&G.ab.cur===2||G.ab.cur===1&&G.ab.fx.again);
+      d=new DOMParser().parseFromString(F('rAbyssTable')(),'text/html');
+      check('the dice that were thrown stay on the table, with their pips',d.querySelectorAll('.die.gt-d .pip').length===G.ab.fx.dice[0]+G.ab.fx.dice[1]);
+      // the rest with bots
+      G.lp.forEach(p=>{p.bot='gentle';});G.lcur=G.ab.cur-1;
+      let guard=0;while(!G.ab.over&&guard++<3000){F('botAbyssAct')(G.lp[G.lcur]);}
+      check('played to the end by bots: one winner on 100, results for everyone',G.ab.over&&G.lp.some(p=>p.c4Result==='win'&&p.abPos===100)&&G.lp.every(p=>['win','loss'].includes(p.c4Result)));
+      const row=F('getHistory')()[0];
+      check('the family history has the game, a Table Moment and what each player met on the way',row&&row.game==='abyss'&&!!row.moment&&Object.keys(row.stats.ab).join()==='Phil,Anna,Robo'&&['climb','fall','hole','worm','star','bump','bumped','dbl','triple','turns'].every(k=>typeof row.stats.ab.Phil[k]==='number'));
+      G.scr='matchend';
+      const res=new DOMParser().parseFromString(F('rMatchEnd')(),'text/html');
+      check('the results list the three players, the winner "reached the top"',res.querySelectorAll('.sr').length===3&&/reached the top/.test(res.querySelectorAll('.sr-delta')[0].textContent)&&/won!/.test(res.querySelector('.wb-title').textContent));
+      // trophies
+      const ach=id=>F('ACHIEVEMENTS').find(a=>a.id===id);
+      G.myName='Phil';W.__origH=F('getHistory');
+      const r=(extra,win)=>({game:'abyss',winner:win?'Phil':'Other',players:['Phil','Other'],stats:{ab:{Phil:Object.assign({climb:0,fall:0,hole:0,worm:0,star:0,bump:0,bumped:0,dbl:0,triple:0,turns:0},extra)}}});
+      try{
+        W.__rows=[];W.eval('getHistory=()=>window.__rows');
+        const t=(id,rows)=>{W.__rows=rows;return!!ach(id).check();};
+        check('four Abyss trophies exist (one secret)',F('ACHIEVEMENTS').filter(a=>a.id.startsWith('ab-')).length===4&&ach('ab-horizon').secret===true);
+        check('Into the Abyss: after one game',t('ab-first',[r({})])&&!t('ab-first',[]));
+        check('Skyward: 3 ladders in one game',t('ab-skyward',[r({climb:3})])&&!t('ab-skyward',[r({climb:2})]));
+        check('Back from the Void: won after a black hole (a loss does not count)',t('ab-void',[r({hole:1},true)])&&!t('ab-void',[r({hole:1},false)]));
+        check('Event Horizon (secret): swallowed twice',t('ab-horizon',[r({hole:2})])&&!t('ab-horizon',[r({hole:1})]));
+      } finally { W.eval('getHistory=window.__origH'); }
+    } finally {
+      G.myName=keepName;G.abInstant=false;G.ab=null;G.abSeq=null;G.lp=[];G.scr='home';
+      if(keepHist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keepHist);
+    }
+  });
+  /* —— The Abyss online: turns, the room, the end, the rematch (awaits live at the top level) —————— */
+  {
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const oAbDo=F('oAbDo'),oAbAuto=F('oAbAuto'),abNew=F('abNew'),abStart=F('abStart'),abRoll=F('abRoll'),oStartGame=F('oStartGame');
+    W.__keepSbAb=W.eval('_sb');
+    W.eval('window.__origSetTimeout=setTimeout; setTimeout=(fn)=>0;');
+    let DB=null;const clone=o=>JSON.parse(JSON.stringify(o));
+    W.__fakeSb={from:()=>({
+      select:()=>({eq:()=>({single:()=>Promise.resolve({data:DB?{state:clone(DB)}:null,error:DB?null:{message:'none'}})})}),
+      upsert:row=>{DB=clone(row.state);return Promise.resolve({error:null});},
+      update:row=>({eq:()=>({eq:()=>({select:()=>{DB=clone(row.state);return Promise.resolve({data:[{id:'T'}],error:null});}})})})})};
+    const P=(id,n,i)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,roundsWon:0,chips:900,c4Result:null,abPos:0});
+    const room=(first,n)=>{const ps=[P('a','Anna',0),P('b','Ben',1),P('c','Cleo',2)].slice(0,n||3);return{phase:'game',gameId:'abyss',host:'a',players:ps,curIdx:first-1,ab:abStart(abNew(ps.length,7),first),winner:null,winnerName:null,winnerAv:null,round:1,_ts:Date.now()-5000};};
+    const seen={};
+    try{
+      G.isOnline=true;G.roomId='T';G.myPid='a';G.isHost=true;G.scr='table';G.selGame='abyss';
+      W.eval('_sb=window.__fakeSb');
+      DB=room(1);G.srv=clone(DB);await oAbDo([3,4]);seen.roll=clone(DB);
+      DB=room(1);G.myPid='b';G.srv=clone(DB);G.srv.curIdx=1;const b1=JSON.stringify(DB);await oAbDo([1,2]);seen.notMine=JSON.stringify(DB)===b1;
+      DB=room(2);G.myPid='a';G.srv=clone(DB);await oAbAuto();seen.auto=clone(DB);
+      // a win ends the game with ranks and a Table Moment
+      DB=room(1,2);DB.ab.pos[0]=95;G.myPid='a';G.srv=clone(DB);await oAbDo([3,4]);seen.win=clone(DB);
+      // the table seen from the device that is not on turn, and from the one that is
+      DB=room(2);G.abSeq=null;G.myPid='a';G.srv=clone(DB);seen.waitHtml=F('rAbyssTable')();
+      G.myPid='b';G.srv=clone(DB);seen.myHtml=F('rAbyssTable')();
+      // the host starts it from the lobby
+      const lobby={phase:'lobby',gameId:'abyss',host:'a',players:[P('a','Anna',0),P('b','Ben',1),P('c','Cleo',2),P('d','Dan',3)],_ts:Date.now()-5000};
+      G.myPid='a';G.srv=clone(lobby);oStartGame(clone(lobby));seen.started=clone(G.srv);
+      DB=clone(seen.win);G.isHost=true;G.srv=clone(DB);await F('oRematch')();seen.rematch=clone(DB);
+    } finally {
+      W.eval('setTimeout=window.__origSetTimeout');
+      W.eval('_sb=window.__keepSbAb');
+      G.isOnline=false;G.srv=null;G.scr='home';G.isHost=false;G.ab=null;G.abSeq=null;
+      try{W.localStorage.removeItem('ct_online_session');W.localStorage.removeItem('ct_resume');}catch(e){}
+    }
+    suite('The Abyss online — the room, the turn and the end',()=>{
+      check('the player on turn rolls and the room records the move, the dice and the next player',seen.roll.ab.moves===1&&seen.roll.ab.pos[0]>=2&&(seen.roll.curIdx===seen.roll.ab.cur-1)&&!!seen.roll.ab.fx&&seen.roll.ab.fx.dice.join()==='3,4');
+      check('a device that is not on turn changes nothing',seen.notMine);
+      check('an away player has the dice thrown for them, and the room says so',seen.auto.ab.moves===1&&seen.auto.ab.fx.seat===2&&/skipped/.test(seen.auto.lastAct));
+      check('a win ends the game: winner, ranks, positions and a Table Moment are in the room',seen.win.winner==='a'&&seen.win.ab.over&&seen.win.players[0].c4Result==='win'&&seen.win.players[0].abPos===100&&seen.win.players[1].c4Result==='loss'&&!!seen.win.moment);
+      check('starting from the lobby makes a four-player game on a fresh board',seen.started.gameId==='abyss'&&seen.started.ab.P===4&&seen.started.ab.moves===0&&seen.started.curIdx===seen.started.ab.cur-1&&Object.keys(seen.started.ab.board.sq).length>=25);
+      check('Rematch: same players, a new board, nobody has moved',seen.rematch.gameId==='abyss'&&seen.rematch.phase==='game'&&!seen.rematch.winner&&seen.rematch.ab.moves===0&&seen.rematch.players.length===2);
+      const wait=new DOMParser().parseFromString(seen.waitHtml,'text/html'),mine=new DOMParser().parseFromString(seen.myHtml,'text/html');
+      check('a player who is not on turn gets no Roll button, just who they are waiting for',wait.querySelectorAll('[data-a="abroll"]').length===0&&/Waiting for/.test(wait.querySelector('.y-hint').textContent));
+      check('the player on turn gets the Roll button',mine.querySelectorAll('[data-a="abroll"]').length===1);
+    });
+  }
+
   /* —— Table talk: a richer set of reactions, ordered per game, with a ⋯ panel and a little motion —————— */
   suite('Reactions — 12 on the strip, every one behind ⋯, ordered per game',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);
