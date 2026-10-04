@@ -6454,7 +6454,7 @@ async function runPresentation(A,W,frame){
       // the choice
       F('gtSetMode')('classic');
       let d=new DOMParser().parseFromString(F('gtOptionsHTML')(),'text/html');
-      check('the mode picker offers Classic, Mayhem and Chaos with their descriptions, the current one ticked',d.querySelectorAll('.hr-tog').length===3&&d.querySelector('.hr-tog.on').getAttribute('data-m')==='classic'&&/five traps/i.test(d.body.textContent)&&/every 3 rounds/.test(d.body.textContent));
+      check('the mode picker offers Sprint, Classic, Mayhem and Chaos with their descriptions, the current one ticked',d.querySelectorAll('.hr-tog').length===4&&/Sprint/.test(d.body.textContent)&&d.querySelector('.hr-tog.on').getAttribute('data-m')==='classic'&&/five traps/i.test(d.body.textContent)&&/every 3 rounds/.test(d.body.textContent));
       tap('gt-mode',{'data-m':'chaos'});
       check('tapping a mode chooses it, and an invalid value falls back to Classic',F('gtMode')()==='chaos'&&(F('gtSetMode')('weird'),F('gtMode')()==='classic'));
       F('gtSetMode')('mayhem');
@@ -6636,6 +6636,7 @@ async function runPresentation(A,W,frame){
   suite('The Gauntlet — Play Together on one device',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);
     const lStartMatch=F('lStartMatch'),rGauntletTable=F('rGauntletTable'),gtTap=F('gtTap');
+    F('gtSetMode')('classic');   // these checks are about the three-runner Classic table; Sprint has its own suite below
     try{
       const mk=(id,n,bot)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false,...(bot?{bot}:{})});
       G.isOnline=false;G.srv=null;G.selGame='gauntlet';
@@ -6759,6 +6760,88 @@ async function runPresentation(A,W,frame){
     });
   }
 
+
+  /* —— The Gauntlet: Sprint mode and the Sweep —————— */
+  suite('The Gauntlet — Sprint: two runners, first home wins, no traps, the Sweep',()=>{
+    const F=n=>W.eval(n);
+    const gtNew=F('gtNew'),gtStart=F('gtStart');
+    const mk=(P,seed)=>gtStart(gtNew(P,'sprint',seed||123),1);
+    const g=mk(3);
+    check('Sprint is the first mode, and the default when nothing has been chosen',Object.keys(F('GT_MODES'))[0]==='sprint'&&(W.localStorage.removeItem('ct_gt_mode'),F('gtMode')()==='sprint'));
+    check('Sprint: two runners each, one is enough, no traps, no hazards, no events',g.run.every(r=>r.length===2)&&g.need===1&&g.sprint===true&&g.tmax===0&&g.tleft.every(x=>x===0)&&g.tcap.length===0&&g.haz.length===0&&!g.evNext&&!g.ev);
+    check('Sprint: the only safe spaces are the entry spaces',g.safe.filter(Boolean).length===3&&g.entries.every(e=>g.safe[e]));
+    const c=gtNew(3,'classic',123);
+    check('Classic is untouched: three runners, two needed, three traps each, no beam',c.run.every(r=>r.length===3)&&c.need===2&&c.tmax===3&&!c.sw&&!!c.evNext);
+    check('there are two beams, 8 spaces wide, opposite each other, turning 6 spaces a round',F('GT_SW_N')===2&&F('GT_SW_W')===8&&F('GT_SW_STEP')===6&&F('GT_SW_BACK')===6);
+    const b=mk(2,5);b.sw.a=6;
+    const inb=n=>F('gtInBeam')(b,n);
+    check('the zones are 6…13 and 30…37 when the beam stands on 6',[6,13,30,37].every(inb)&&![5,14,29,38,0,24].some(inb));
+    // who is in danger
+    b.run[0][0].rel=8;b.run[0][1].rel=-1;b.run[1][0].rel=6;b.run[1][1].rel=44;   // seat 2 enters on 24, so rel 6 = abs 30
+    let tg=F('gtBeamTargets')(b);
+    check('only ring runners inside a zone are in danger (not the start area, not the final run)',tg.length===2&&tg.some(x=>x.s===1&&x.r===0)&&tg.some(x=>x.s===2&&x.r===0));
+    b.run[1][0].rel=0;
+    check('an entry space is safe even inside a zone',F('gtBeamTargets')(b).every(x=>x.s===1));
+    // firing
+    const f=mk(2,6);f.sw.a=6;f.fx={moves:[]};f.run[0][0].rel=10;f.run[0][1].rel=3;f.run[1][0].rel=20;f.run[1][1].rel=-1;
+    const rec=F('gtSweep')(f);
+    check('the beam throws a runner in the zone back 6, leaves the others, and moves on 6',f.run[0][0].rel===4&&f.run[0][1].rel===3&&f.run[1][0].rel===20&&f.sw.a===12&&rec.hits.length===1&&rec.hits[0].from===10&&rec.hits[0].to===4&&rec.a===6&&rec.to===12&&f.fx.sweep===rec);
+    check('the throw-back never goes below the entry space',(()=>{const x=mk(2,7);x.sw.a=1;x.fx={moves:[]};x.run[0][0].rel=3;F('gtSweep')(x);return x.run[0][0].rel===0;})());
+    check('a shield takes the hit once and breaks',(()=>{const x=mk(2,8);x.sw.a=6;x.fx={moves:[]};x.run[0][0].rel=9;x.sh[0]={s:1,r:0};const r=F('gtSweep')(x);return x.run[0][0].rel===9&&x.sh[0].s===2&&r.hits[0].absorbed===true;})());
+    check('stats count the hits and the log has a line',f.stats.zap[0]===1&&f.hist.some(h=>h.k==='sweep'&&h.w[0]===1));
+    // when it fires
+    const e=mk(3,9);e.sw.a=20;e.fx={moves:[]};e.run[0][0].rel=30;
+    e.cur=1;F('gtEndTurn')(e);
+    check('it does not fire while the round is still going',!e.fx.sweep&&e.cur===2&&e.sw.a===20);
+    e.cur=3;e.fx={moves:[]};F('gtEndTurn')(e);
+    check('it fires when the last player ends their turn, and the round counter goes up',!!e.fx.sweep&&e.cur===1&&e.round===2&&e.sw.a===26);
+    // the win
+    const w=mk(2,10);w.run[0][0].rel=44;w.cur=1;w.dice=[5,6];w.phase='move';w.used=[false,false];w.fx={moves:[]};
+    const acts=F('gtActions')(w,1).filter(a=>a.plan&&a.plan.home);
+    const ok=acts.length&&F('gtAct')(w,1,Object.assign({},acts[0],{key:acts[0].plan.key}));
+    check('the first runner home wins on the spot — no final round',!!ok&&w.over&&w.win===1&&w.winners.join()==='1'&&w.fin&&w.fin.left.length===0);
+    check('the moment says who got home first',/got a runner home first/.test(F('gtMoment')(w,['Phil','Anna'])));
+    // bots
+    check('a bot would rather stand outside a zone than inside it',(()=>{
+      const x=mk(2,11);x.sw.a=6;x.run[0][0].rel=8;x.run[0][1].rel=-1;const inside=F('gtEval')(x,1);x.run[0][0].rel=16;const outside=F('gtEval')(x,1);
+      return outside>inside+6;})());
+    check('bots play whole Sprint games to the end with 2 to 6 players, always with a winner',(()=>{
+      let ok=true;
+      for(let P=2;P<=6;P++)for(let k=0;k<4;k++){
+        const x=mk(P,300+P*10+k);let n=0;
+        while(!x.over&&n++<4000){
+          const seat=x.cur;
+          if(x.phase==='roll'){F('gtRoll')(x,seat,1+Math.floor(Math.random()*6),1+Math.floor(Math.random()*6));continue;}
+          const a=F('gtBotPick')(x,seat,'gentle');
+          if(!F('gtAct')(x,seat,a||{t:'bank'})&&!F('gtAct')(x,seat,{t:'bank'})&&!F('gtAct')(x,seat,{t:'safe'})){ok=false;break;}
+        }
+        if(!x.over||!x.win)ok=false;
+      }
+      return ok;})());
+  });
+  suite('The Gauntlet — Sprint at the table',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const mk=(id,n,bot)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false,...(bot?{bot}:{})});
+    let keepMode=null;try{keepMode=W.localStorage.getItem('ct_gt_mode');}catch(e){}
+    try{
+      F('gtSetMode')('sprint');
+      G.isOnline=false;G.srv=null;G.selGame='gauntlet';G.gtSeq=null;
+      G.lp=[mk(1,'Phil'),mk(2,'Anna'),mk(3,'Robo','gentle')];G.lstart=0;F('lStartMatch')();G.lstart=0;G.gt.cur=1;G.gt.tc=[1,0,0];G.lcur=0;G.scr='table';G.gtInstant=true;
+      G.gt.sw.a=6;G.gt.run[0][0].rel=8;   // Phil's runner stands in a red zone
+      const d=new DOMParser().parseFromString(F('rGauntletTable')(),'text/html');
+      check('the table shows the ring with 6 runners (two each), the title says Sprint',d.querySelectorAll('.gt-run').length===6&&/Sprint/.test(d.querySelector('.gb-game').textContent));
+      check('two red zones with a spoke each, and the next places dashed',d.querySelectorAll('.gt-sweep-now').length===2&&d.querySelectorAll('.gt-sweep-next').length===2&&d.querySelectorAll('line.gt-spoke').length===2);
+      check('the line above the controls says the beam fires at the end of the round and who is in danger',!!d.querySelector('.gt-sweepban')&&/fires at the end of this round/.test(d.querySelector('.gt-sweepban').textContent)&&/In danger now/.test(d.querySelector('.gt-sweepban').textContent));
+      check('no trap counter, no tell or trap legend; the legend explains the Sweep',!d.querySelector('.gt-traps')&&/The Sweep/.test(d.querySelector('.gt-legend').textContent)&&!/hidden trap/.test(d.querySelector('.gt-legend').textContent));
+      check('the hub has a rim segment for every runner (3 players x 2)',d.querySelectorAll('.gt-hubseg').length===6);
+      const mp=new DOMParser().parseFromString(F('gtOptionsHTML')(),'text/html');
+      check('the mode picker lists Sprint first, ticked',mp.querySelectorAll('.hr-tog').length===4&&mp.querySelector('.hr-tog').getAttribute('data-m')==='sprint'&&mp.querySelector('.hr-tog.on').getAttribute('data-m')==='sprint');
+      check('the rules explain Sprint and the Sweep',F('GAMES').find(x=>x.id==='gauntlet').rules.some(r=>/SPRINT/.test(r)&&/SWEEP/.test(r)));
+    } finally {
+      G.gtInstant=false;G.gt=null;G.gtSeq=null;G.lp=[];G.scr='home';
+      if(keepMode==null)W.localStorage.removeItem('ct_gt_mode');else W.localStorage.setItem('ct_gt_mode',keepMode);
+    }
+  });
   /* —— The Abyss (Snakes and Ladders for grown-ups) —————— */
   suite('The Abyss — the board is made from a seed and is always playable',()=>{
     const F=n=>W.eval(n);

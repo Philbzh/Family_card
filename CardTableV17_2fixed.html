@@ -1665,6 +1665,11 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 .gt-event{display:flex;flex-direction:column;gap:.1rem;align-items:center;text-align:center;font-size:.72rem;border-radius:12px;padding:.35rem .8rem;max-width:26rem;}
 .gt-event b{font-size:.8rem;}
 .gt-event span{color:var(--paper3);}
+.gt-sweep-now{transform-box:fill-box;}
+.gt-board.an-full .gt-sweep-now{animation:gt-swpulse 1.7s ease-in-out infinite;}
+.gt-sweep-now.fire{animation:none!important;fill:rgba(255,190,160,.5);stroke:#fff;stroke-width:1.8;}
+@keyframes gt-swpulse{0%,100%{fill-opacity:.7;}50%{fill-opacity:1.25;}}
+.lg-beam{background:rgba(255,70,50,.25);border-color:#ff5a4e;}
 .gt-event.warn{background:rgba(255,160,40,.14);border:1px solid rgba(255,190,80,.6);color:#ffd68a;animation:gt-pulse 1.2s ease-in-out infinite;}
 .gt-event.on{background:rgba(255,90,78,.12);border:1px solid rgba(255,120,100,.55);color:#ffb0a5;}
 .gt-evring{animation:gt-pulse 1s ease-in-out infinite;}
@@ -4293,6 +4298,7 @@ const GAMES=[
      'Each player has a colour <i>and</i> a shape: ● red, ◆ gold, ▲ green, ■ blue. Play with 2 to 4 people, on one device, online, or against a bot.']},
   {id:'gauntlet',cat:'party',icon:'🏁',name:'The Gauntlet',players:'2–6',dur:'15–25 min',diff:'medium',deal:0,minP:2,maxP:6,cover:'assets/games/gauntlet.jpg',
    rules:['<b>Run. Risk. Outsmart. Survive.</b> A race round a ring of 48 spaces. Every player has <b>3 runners</b>; the first to bring <b>2 of them home</b> starts the <b>final round</b> — everyone else gets one last turn.',
+     '⚡ SPRINT (the default mode): two runners each, and the FIRST runner home wins at once. No traps and no events — instead the SWEEP: two beams from the middle light two red zones of 8 spaces for the whole round, and everybody can see them. When the round ends they fire: every runner in a zone that is not on a safe space is thrown back 6 (a shield takes the hit once), and the beams move on 6 spaces. Run out of the zone, hide on a safe space, or pull rivals into it.',
      'On your turn <b>roll two dice</b>. Use them <b>one at a time</b> (each die moves one runner) or <b>together</b> (tap Σ: one runner moves the total). A die showing <b>4, 5 or 6</b> brings a runner out of the start area onto your entry space.',
      'Land <b>exactly</b> on a lone enemy runner and you <b>capture</b> it: it is sent back to its start area. Runners on a <b>safe space</b> (gold dot or coloured entry) cannot be captured.',
      'Two of your runners on one space make a <b>blockade</b>: enemies can neither land on it nor pass it. It dissolves after three of your turns, so nobody is locked out for ever.',
@@ -7312,13 +7318,14 @@ const TOURS={
   gauntlet:{title:'How to play The Gauntlet',slides:[
     {ic:'🎲',h:'Roll two dice, choose how to use them',t:'Use the dice <b>one at a time</b> — each die moves one runner — or tap <b>Σ</b> to move <b>one runner the total</b>. A <b>4, 5 or 6</b> brings a runner out of your start area.'},
     {ic:'💥',h:'Capture!',t:'Land <b>exactly</b> on a lone enemy runner and it is sent back to start. Gold-dot spaces and entry spaces are <b>safe</b>. Two of your runners together form a <b>blockade</b> nobody can pass — but only for three turns.'},
-    {ic:'🏁',h:'The final run',t:'After one lap your runner turns into your private <b>final run</b> and then home — no exact roll needed. Bring <b>2 of your 3 runners</b> home to start the <b>final round</b>.'},
+    {ic:'⚡',h:'Sprint and the Sweep',t:'In <b>Sprint</b> (the default mode) you have <b>2 runners</b> and the <b>first runner home wins</b>. Two beams from the middle light two <b>red zones</b> for the whole round. When the round ends they fire: every runner in a zone that is not on a safe space is <b>thrown back 6</b>. The dashed outline shows where they go next.'},
+    {ic:'🏁',h:'The final run',t:'After one lap your runner turns into your private <b>final run</b> and then home — no exact roll needed. In the other modes you bring <b>2 of your 3 runners</b> home to start the <b>final round</b>.'},
     {ic:'🛤️',h:'Shortcuts',t:'Three lanes cut across the board — <b>🌉 Bridge, 🚇 Tunnel, 🏙️ Rooftops</b>. Each costs only 5 steps. When you are on or pass an entrance, <b>you choose</b>: shortcut or main route. The Rooftops gate opens only if your runner <b>stands</b> on its entrance.'},
     {ic:'😈',h:'Risk spaces and the Dare',t:'Land exactly on a <b>😈 space</b>: play safe, or <b>dare</b> a die. 4 results help, one hurts, one does nothing. A <b>6</b> is a jackpot — straight to the next shortcut exit.'},
     {ic:'🛡️',h:'Shield and revenge',t:'Once per game, <b>before you roll</b>, shield one runner — it blocks one capture. When you are captured you earn <b>😡 revenge</b>: capture that player back within 4 rounds for +2 steps or your shield back.'},
-    {ic:'🪤',h:'Secret traps',t:'Tap <b>🔒 Set a trap</b>: choose one of six kinds and a marked space. Nobody sees which or where — only how many lie in each part of the board. The first runner that <b>stops exactly</b> on it sets it off, even yours.'},
+    {ic:'🪤',h:'Secret traps (not in Sprint)',t:'Tap <b>🔒 Set a trap</b>: choose one of six kinds and a marked space. Nobody sees which or where — only how many lie in each part of the board. The first runner that <b>stops exactly</b> on it sets it off, even yours.'},
     {ic:'👀',h:'Watch for the tells',t:'Within 2 spaces behind a trap you may see <b>sparks, a shimmer, a seam, a vibration or a hum</b>. A <b>Decoy</b> shows nothing at all. Spend a 🪙 token to <b>🔧 defuse</b> a trap with a tell, or walk round it.'},
-    {ic:'⚠️',h:'The board changes',t:'Every few rounds an <b>event</b> hits — you get a warning one round before. <b>🌪️ Storm</b> (hazards throw you back 2), <b>🚪 Open Gate</b>, <b>🔒 Lockdown</b> (a shortcut closes), <b>🌑 Blackout</b> (no tells). Mayhem and Chaos add <b>⚡ Overcharge</b> and <b>💥 Collapse</b>.'},
+    {ic:'⚠️',h:'The board changes (not in Sprint)',t:'Every few rounds an <b>event</b> hits — you get a warning one round before. <b>🌪️ Storm</b> (hazards throw you back 2), <b>🚪 Open Gate</b>, <b>🔒 Lockdown</b> (a shortcut closes), <b>🌑 Blackout</b> (no tells). Mayhem and Chaos add <b>⚡ Overcharge</b> and <b>💥 Collapse</b>.'},
     {ic:'🪙',h:'Stuck? Bank a token',t:'If nothing can move, <b>bank</b> a Risk Token (max 3). Spend one to <b>reroll a die</b> or to defuse a trap. Doubles give a free +1 step — or a used trap back.'}]},
   abyss:{title:'How to play The Abyss',slides:[
     {ic:'🎲',h:'Roll and race to the top',t:'Roll <b>two dice</b> and walk the total. The first to reach <b>square 100</b> wins — you do not need an exact roll. A <b>double</b> rolls again; three in a row throws you back to the start.'},
@@ -10241,7 +10248,7 @@ function crOptionsHTML(){
   return`<div class="panel"><div class="panel-lbl">Which version?</div><div class="hr-grid">${opts.map(([k,n,d])=>`<div class="hr-tog${m===k?' on':''}" data-a="cr-mode" data-m="${k}"><div class="hr-row"><span class="hr-nm">${n}</span><span class="hr-chk">${m===k?'✓':''}</span></div><span class="hr-desc">${d}</span></div>`).join('')}</div></div>`;
 }
 // The Gauntlet's mode (Classic / Mayhem / Chaos): chosen before the game, by the host online.
-function gtMode(){let m='classic';try{m=localStorage.getItem('ct_gt_mode')||'classic';}catch(e){}return GT_MODES[m]?m:'classic';}
+function gtMode(){let m='sprint';try{m=localStorage.getItem('ct_gt_mode')||'sprint';}catch(e){}return GT_MODES[m]?m:'sprint';}
 function gtSetMode(m){try{localStorage.setItem('ct_gt_mode',GT_MODES[m]?m:'classic');}catch(e){}}
 function gtOptionsHTML(){
   const m=gtMode();
@@ -10271,8 +10278,8 @@ function crTap(i){
 const GT_RING=48,GT_LAP=42,GT_HOME=48,GT_BLOCK_TURNS=3,GT_MAXTOK=3,GT_REVENGE_ROUNDS=4;
 const GT_ENTRIES={2:[0,24],3:[0,16,32],4:[0,12,24,36],5:[0,10,20,30,40],6:[0,8,16,24,32,40]};
 // Safe spaces follow each seat's entry (the same pattern for every seat): 4 per seat for 2 players, 3 for 3-4, 2 for 5-6.
-function gtSafeSpaces(P,entries){
-  const k=P===2?4:P<=4?3:2,d=GT_RING/P,out=new Set();
+function gtSafeSpaces(P,entries,only){
+  const k=only?1:P===2?4:P<=4?3:2,d=GT_RING/P,out=new Set();
   entries.forEach(e=>{for(let j=0;j<k;j++)out.add((e+Math.round(j*d/k))%GT_RING);});
   return out;
 }
@@ -10299,7 +10306,12 @@ const GT_EVENTS={
   overcharge:{icon:'⚡',name:'Overcharge',dur:2,txt:'A dare that rolls 5 or 6 is a jackpot'},
   collapse:{icon:'💥',name:'Collapse',dur:1,txt:'Two ordinary spaces turn into hazards for good'}};
 const GT_EV_LIST={classic:['storm','opengate','lockdown','blackout'],mayhem:['storm','opengate','lockdown','blackout','overcharge','collapse'],chaos:['storm','opengate','lockdown','blackout','overcharge','collapse']};
-const GT_MODES={classic:{name:'Classic',txt:'Three traps each. A board event every 5–6 rounds: Storm, Open Gate, Lockdown, Blackout.'},
+/* ── The Sweep (Sprint mode): a beam from the hub lights a zone of 8 ring spaces for the whole round. When the round ends it fires:
+   every runner in the zone that is not on a safe space (or shielded) is thrown back 5, then the beam moves on 6 spaces. Everybody sees
+   it coming, so every round has one moment everybody is watching. Two beams stand opposite each other and turn together. ── */
+const GT_SW_W=8,GT_SW_STEP=6,GT_SW_BACK=6,GT_SW_N=2;
+const GT_MODES={sprint:{name:'Sprint',txt:'Two runners each, the first one home wins. No traps, no events — instead the Sweep: two beams from the middle that everybody can see coming and that throw every runner in their zones back 6.',sprint:true},
+  classic:{name:'Classic',txt:'Three traps each. A board event every 5–6 rounds: Storm, Open Gate, Lockdown, Blackout.'},
   mayhem:{name:'Mayhem',txt:'Five traps each, traps allowed on the Rooftops too, events every 4–5 rounds — plus Overcharge and Collapse.'},
   chaos:{name:'Chaos',txt:'An event every 3 rounds, riskier dares (a 2 backfires too). For experienced players.'}};
 function gtRand(gt){gt.seed=(gt.seed*48271)%2147483647;return gt.seed/2147483647;}
@@ -10352,25 +10364,63 @@ function gtTickEvents(gt){
 function gtNew(P,mode,seed){
   P=Math.max(2,Math.min(6,P|0||2));
   const entries=GT_ENTRIES[P].slice(),safe=new Array(GT_RING).fill(false);
-  gtSafeSpaces(P,entries).forEach(e=>{safe[e]=true;});
   mode=GT_MODES[mode]?mode:'classic';
-  const gt0={P,mode,entries,safe,seed:seed||Math.floor(Math.random()*2147483000)+1,ev:null,evNext:null,lastEv:'',storm:0,charge:0,lock:null,collapsed:[],
+  gtSafeSpaces(P,entries,mode==='sprint').forEach(e=>{safe[e]=true;});
+  const sp=mode==='sprint',nr=sp?2:3;
+  const gt0={P,mode,sprint:sp,need:sp?1:2,sw:null,entries,safe,seed:seed||Math.floor(Math.random()*2147483000)+1,ev:null,evNext:null,lastEv:'',storm:0,charge:0,lock:null,collapsed:[],
     sc:GT_SC.map((s,i)=>({id:i,a:GT_SC_AT[P][i],b:(GT_SC_AT[P][i]+s.main)%GT_RING,main:s.main})),
     risk:GT_RISK[P].slice(),gate:0,blackout:0,
-    haz:GT_HAZ[P].slice(),tcap:GT_TCAP[P].concat([111,112,113,114],mode==='mayhem'?[121,122,123,124]:[]),traps:[],placed:false,
-    tmax:mode==='mayhem'?5:3,tleft:new Array(P).fill(mode==='mayhem'?5:3),
-    run:Array.from({length:P},()=>[{rel:-1},{rel:-1},{rel:-1}]),
+    haz:sp?[]:GT_HAZ[P].slice(),tcap:sp?[]:GT_TCAP[P].concat([111,112,113,114],mode==='mayhem'?[121,122,123,124]:[]),traps:[],placed:false,
+    tmax:sp?0:mode==='mayhem'?5:3,tleft:new Array(P).fill(sp?0:mode==='mayhem'?5:3),
+    run:Array.from({length:P},()=>Array.from({length:nr},()=>({rel:-1}))),
     tok:new Array(P).fill(0),idle:new Array(P).fill(0),tc:new Array(P).fill(0),
     sh:Array.from({length:P},()=>({s:0,r:-1})),rev:new Array(P).fill(null),pq:[],
     cur:1,round:1,phase:'roll',dice:null,used:[false,false],rerolled:false,bonus:0,moved:false,turnCaps:0,
     pairs:{},fin:null,over:false,win:0,winners:[],tie:false,moves:0,fx:null,hist:[],
-    stats:{cap:new Array(P).fill(0),hit:new Array(P).fill(0),dbl:new Array(P).fill(0),bank:new Array(P).fill(0),
+    stats:{zap:new Array(P).fill(0),cap:new Array(P).fill(0),hit:new Array(P).fill(0),dbl:new Array(P).fill(0),bank:new Array(P).fill(0),
       sc:new Array(P).fill(0),dare:new Array(P).fill(0),blk:new Array(P).fill(0),rev:new Array(P).fill(0),
       set:new Array(P).fill(0),trig:new Array(P).fill(0),oops:new Array(P).fill(0),tby:new Array(P).fill(0),dis:new Array(P).fill(0),maxCap:null}};
-  gtSchedule(gt0,1);
+  if(sp)gt0.sw={a:Math.floor(gtRand(gt0)*GT_RING)};else gtSchedule(gt0,1);
   return gt0;
 }
 function gtLog(gt,e){gt.hist.push(e);if(gt.hist.length>8)gt.hist.shift();}
+// Is this ring space in the lit zone of the beam?
+function gtInBeam(gt,abs){
+  if(!gt.sw)return false;
+  for(let k=0;k<GT_SW_N;k++)if(((abs-gt.sw.a-k*GT_RING/GT_SW_N+GT_RING*2)%GT_RING)<GT_SW_W)return true;
+  return false;
+}
+// Runners (seat, runner) the beam would hit if it fired now.
+function gtBeamTargets(gt){
+  const out=[];
+  if(!gt.sw)return out;
+  for(let s=1;s<=gt.P;s++)gt.run[s-1].forEach((rn,r)=>{
+    if(!gtOnRing(rn))return;
+    const abs=gtAbs(gt,s,rn.rel);
+    if(gtInBeam(gt,abs)&&!gt.safe[abs])out.push({s,r,abs,shield:gtShielded(gt,s,r)});
+  });
+  return out;
+}
+// The end of a round: the beam fires. Returns the record (also put into gt.fx.sweep for the replay).
+function gtSweep(gt){
+  if(!gt.sw)return null;
+  const rec={a:gt.sw.a,to:(gt.sw.a+GT_SW_STEP)%GT_RING,hits:[]};
+  gtBeamTargets(gt).forEach(t=>{
+    const rn=gt.run[t.s-1][t.r],h={s:t.s,r:t.r,from:rn.rel,to:rn.rel,path:[],absorbed:false};
+    if(t.shield){gt.sh[t.s-1]={s:2,r:-1};gt.stats.blk[t.s-1]++;h.absorbed=true;}
+    else{
+      const d=gtTrapDest(gt,t.s,t.r,'shock',GT_SW_BACK);
+      if(d){gtDisplace(gt,t.s,t.r,d,{moves:[],cap:null});h.to=d.loc.rel;h.path=d.path.slice();}
+    }
+    gt.stats.zap[t.s-1]=(gt.stats.zap[t.s-1]||0)+1;
+    rec.hits.push(h);
+  });
+  gt.sw.a=rec.to;
+  gtSyncPairs(gt);
+  gtLog(gt,{k:'sweep',w:rec.hits.map(h=>h.s),ab:rec.hits.filter(h=>h.absorbed).length});
+  if(gt.fx)gt.fx.sweep=rec;
+  return rec;
+}
 function gtBeginTurn(gt){
   gt.tc[gt.cur-1]++;gt.phase='roll';gt.dice=null;gt.used=[false,false];gt.rerolled=false;gt.bonus=0;gt.moved=false;gt.turnCaps=0;gt.pq=[];gt.placed=false;
 }
@@ -10546,7 +10596,7 @@ function gtEndTurn(gt){
   const onBoard=gt.run[s-1].some(rn=>rn.rel>=0&&rn.rel<GT_HOME),hasStart=gt.run[s-1].some(rn=>rn.rel===-1);
   gt.idle[s-1]=(!onBoard&&hasStart)?gt.idle[s-1]+1:0;
   if(gt.fin){gt.fin.left=gt.fin.left.filter(x=>x!==s);if(!gt.fin.left.length){gtResolve(gt);return;}}
-  gt.cur=s%gt.P+1;if(gt.cur===1){gt.round++;gtTickEvents(gt);}
+  gt.cur=s%gt.P+1;if(gt.cur===1){gt.round++;gtSweep(gt);gtTickEvents(gt);}
   gtBeginTurn(gt);
 }
 function gtScore(gt,seat){
@@ -10714,6 +10764,10 @@ function gtAct(gt,seat,act){
   return fx;
 }
 function gtCheckFinal(gt,seat,fx){
+  if(gt.sprint&&gtHomeCount(gt,seat)>=1&&!gt.fin){
+    // Sprint: the first runner home wins on the spot
+    gt.fin={trigger:seat,left:[]};gtResolve(gt);return;
+  }
   if(gtHomeCount(gt,seat)>=2&&!gt.fin){
     const left=[];for(let k=1;k<gt.P;k++)left.push((seat-1+k)%gt.P+1);
     gt.fin={trigger:seat,left};fx.final=true;
@@ -10991,6 +11045,7 @@ function gtEval(gt,me){
         s+=v;
         if(gtOnRing(rn)){
           const abs=gtAbs(gt,seat,rn.rel);
+          if(gt.sw&&!gt.safe[abs]&&gtInBeam(gt,abs)&&!gtShielded(gt,seat,r))s-=GT_SW_BACK+1;
           if(gt.safe[abs])s+=2;
           else if(!gtShielded(gt,seat,r))s-=gtExposure(gt,seat,rn)*.55/(gt.P>3?1.3:1);
         }
@@ -11075,6 +11130,8 @@ function gtMoment(gt,names){
   if(gt.stats.sc[w-1]>=4)return`${nm(w)} took the shortcuts ${gt.stats.sc[w-1]} times and it paid off.`;
   if(gt.stats.dare[w-1]>=2)return`${nm(w)} dared ${gt.stats.dare[w-1]} times and won.`;
   if(gt.stats.blk[w-1]>=1)return`${nm(w)} was saved by the shield and went on to win.`;
+  if(gt.sprint&&gt.stats.zap&&gt.stats.zap[w-1]>=2)return`${nm(w)} was caught by the beam ${gt.stats.zap[w-1]} times and still got home first.`;
+  if(gt.sprint)return`${nm(w)} got a runner home first.`;
   return`${nm(w)} brought two runners home first.`;
 }
 
@@ -11307,6 +11364,7 @@ function gtRunSeq(gt,renderNow,done){
   const stages=()=>{
     if(G.gtInstant||!fx)return;
     const w=players[fx.seat-1];
+    if(fx.sweep&&fx.sweep.hits.length)stageEmit('GT_EVENT',{text:'THE SWEEP!',icon:'⚡',tone:'bad',sub:fx.sweep.hits.map(h=>nm(h.s)).filter((x,i,a)=>a.indexOf(x)===i).join(' and ')+' '+(fx.sweep.hits.every(h=>h.absorbed)?'were saved by a shield':'thrown back '+GT_SW_BACK)});
     if(fx.ev&&fx.ev.some(e=>e.k!=='end'))SFX.gtEvent();
     if(fx.ev)fx.ev.forEach(e=>{
       if(e.k==='end')return;
@@ -11331,10 +11389,57 @@ function gtRunSeq(gt,renderNow,done){
     if(done){if(G.gtInstant)done();else setTimeout(done,gt.over?500:0);}
     return;
   }
-  const seq={fx,pos:{},xy:{},flash:null,rolling:false,id:gt.moves,dareV:fx.kind==='dare'?fx.v:0};
+  const seq={fx,pos:{},xy:{},flash:null,rolling:false,id:gt.moves,dareV:fx.kind==='dare'?fx.v:0,sw:fx.sweep?fx.sweep.a:null};
+  if(fx.sweep)fx.sweep.hits.forEach(h=>{seq.pos[h.s+':'+h.r]=h.from;});
   G.gtSeq=seq;
-  const fin=()=>{if(G.gtSeq!==seq)return;G.gtSeq=null;stages();render();gtRunPost();if(done)done();};
+  const fin0=()=>{if(G.gtSeq!==seq)return;G.gtSeq=null;stages();render();gtRunPost();if(done)done();};
   const after=(fn,ms)=>setTimeout(()=>{if(G.gtSeq===seq)fn();},ms);
+  // the end of a round: the beam fires, bolts strike the runners in the zone, they are thrown back, and the beam turns on
+  let swDone=false;
+  const sweepFx=cont=>{
+    const svg=document.querySelector('.gt-board svg'),sw=fx.sweep;
+    if(!svg||!sw){cont();return;}
+    SFX.gtEvent();haptic([30,20,50]);
+    const grp=svg.querySelector('.gt-sweepg');
+    svg.querySelectorAll('.gt-sweep-now').forEach(e=>e.classList.add('fire'));
+    gtWave(svg,[100,100],'#ff6a4e',2.2,9,800);
+    gtSpray(svg,[100,100],{n:16,col:['#ff6a4e','#ffd0c0','#fff'],spread:22,life:800,size:1});
+    const hits=sw.hits;
+    hits.forEach(h=>{
+      const p=gtXY(gt,h.s,h.from,h.r);
+      gtBolts(svg,p,'#ffb09a',3,4);gtSpray(svg,p,{n:12,col:['#ff6a4e','#fff'],spread:12,life:550,size:.9});
+      if(h.absorbed)gtWave(svg,p,'#8fe4ff',1.8,6,700);
+    });
+    if(hits.length)gtShakeBoard(380);
+    const turnBeam=()=>{
+      if(!grp){after(cont,200);return;}
+      const t0=performance.now(),dur=750,ang=GT_SW_STEP*360/GT_RING;
+      const frame=now2=>{
+        if(G.gtSeq!==seq||!grp.isConnected){cont();return;}
+        const u=Math.min(1,(now2-t0)/dur),e=u*u*(3-2*u);
+        grp.setAttribute('transform','rotate('+(ang*e).toFixed(2)+' 100 100)');
+        if(u<1)requestAnimationFrame(frame);else after(cont,150);
+      };
+      requestAnimationFrame(frame);
+    };
+    after(()=>{
+      let n=0;
+      hits.forEach(h=>{
+        const el=gtRunnerEl(h.s+':'+h.r);
+        if(!el||h.absorbed||!h.path.length)return;
+        n++;svg.appendChild(el);
+        const pts=[gtXY(gt,h.s,h.from,h.r)].concat(h.path.map(c=>gtXY(gt,h.s,c,h.r)));
+        gtHop(el,pts,{dur:()=>130,hop:()=>2.4,settle:160},()=>SFX.gtStep(),()=>{});
+      });
+      after(turnBeam,n?Math.min(1200,h0ms(hits)+120):250);
+    },hits.length?650:250);
+  };
+  const h0ms=hits=>hits.reduce((m,h)=>Math.max(m,h.path.length*130+160),0);
+  const fin=()=>{
+    if(G.gtSeq!==seq)return;
+    if(fx.sweep&&!swDone){swDone=true;sweepFx(()=>after(fin0,60));return;}
+    fin0();
+  };
   if(fx.kind==='roll'){
     // the dice are drawn once with the classic "throw" animation of the other dice games, and settle by themselves
     SFX.gtRoll();_dieIntent=Date.now();seq.rolling=true;render();
@@ -11533,10 +11638,10 @@ function gtScXY(gt,id,k){
 function gtXY(gt,seat,rel,r){
   const e=gt.entries[seat-1];
   if(rel>=100)return gtScXY(gt,Math.floor((rel-100)/10),(rel-100)%10);
-  if(rel===-1){const a=gtAng(e),p=gtPolar(a,91.5);return[p[0]-Math.sin(a)*(r-1)*8.4,p[1]+Math.cos(a)*(r-1)*8.4];}
+  if(rel===-1){const a=gtAng(e),p=gtPolar(a,91.5),c0=(gt.run[seat-1].length-1)/2;return[p[0]-Math.sin(a)*(r-c0)*8.4,p[1]+Math.cos(a)*(r-c0)*8.4];}
   if(rel<GT_LAP)return gtPolar(gtAng((e+rel)%GT_RING),GT_R);
   if(rel<GT_HOME)return gtPolar(gtRootAng(gt,seat),GT_LANE[rel-GT_LAP]);
-  return gtPolar(gtRootAng(gt,seat)+(r-1)*.42,12.5);
+  return gtPolar(gtRootAng(gt,seat)+(r-(gt.run[seat-1].length-1)/2)*.42,12.5);
 }
 function gtShade(hex,f){
   const n=parseInt(hex.slice(1),16),c=k=>Math.max(0,Math.min(255,Math.round(((n>>k)&255)*f)));
@@ -11567,7 +11672,7 @@ function gtScStatic(gt,s){
 const GT_STATIC={};
 // Everything that never changes during a game: wood, brass, felt, tiles, lanes, pads, hub. Built once per player count.
 function gtStaticSVG(gt){
-  const ck=gt.P+':'+gt.haz.join(',')+':'+gt.tcap.length;
+  const ck=gt.P+':'+gt.haz.join(',')+':'+gt.tcap.length+':'+gt.run[0].length;
   if(GT_STATIC[ck])return GT_STATIC[ck];
   const defs=[],body=[];
   for(let s=1;s<=gt.P;s++){
@@ -11640,12 +11745,12 @@ function gtStaticSVG(gt){
     <text x="100" y="100.6" text-anchor="middle" dominant-baseline="middle" font-size="4.3" fill="rgba(243,220,146,.4)" letter-spacing=".7" style="font-family:Cinzel,serif">HOME</text>`);
   for(let s=1;s<=gt.P;s++){
     const c=GT_COLORS[s-1];
-    for(let r=0;r<3;r++){const[x,y]=gtXY(gt,s,48,r);body.push(`<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="3.15" fill="url(#gtwell)" stroke="${c}" stroke-width=".8"/>`);}
+    for(let r=0;r<gt.run[0].length;r++){const[x,y]=gtXY(gt,s,48,r);body.push(`<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="3.15" fill="url(#gtwell)" stroke="${c}" stroke-width=".8"/>`);}
   }
   // start pads: an engraved brass plate with three recessed wells, outside the track at each entry
   for(let s=1;s<=gt.P;s++){
     const c=GT_COLORS[s-1],a=gtAng(gt.entries[s-1]),[px,py]=gtPolar(a,91.5),deg=a*180/Math.PI+90;
-    body.push(`<g transform="translate(${px.toFixed(2)} ${py.toFixed(2)}) rotate(${deg.toFixed(1)})"><rect x="-14.6" y="-6.5" width="29.2" height="13" rx="6.5" fill="rgba(0,0,0,.5)" stroke="url(#gtbez)" stroke-width=".9"/><rect x="-14.6" y="-6.5" width="29.2" height="13" rx="6.5" fill="none" stroke="${c}" stroke-opacity=".5" stroke-width=".35" transform="scale(.93 .9)"/>${[-8.4,0,8.4].map(dx=>`<circle cx="${dx}" cy="0" r="5.1" fill="url(#gtwell)" stroke="${c}" stroke-width=".8"/>`).join('')}</g>`);
+    body.push(`<g transform="translate(${px.toFixed(2)} ${py.toFixed(2)}) rotate(${deg.toFixed(1)})"><rect x="-14.6" y="-6.5" width="29.2" height="13" rx="6.5" fill="rgba(0,0,0,.5)" stroke="url(#gtbez)" stroke-width=".9"/><rect x="-14.6" y="-6.5" width="29.2" height="13" rx="6.5" fill="none" stroke="${c}" stroke-opacity=".5" stroke-width=".35" transform="scale(.93 .9)"/>${(gt.run[0].length===2?[-4.2,4.2]:[-8.4,0,8.4]).map(dx=>`<circle cx="${dx}" cy="0" r="5.1" fill="url(#gtwell)" stroke="${c}" stroke-width=".8"/>`).join('')}</g>`);
   }
   body.push(`<circle cx="100" cy="100" r="86.5" fill="url(#gtsheen)" pointer-events="none"/><circle cx="100" cy="100" r="99.6" fill="url(#gtvig)" pointer-events="none"/>`);
   return GT_STATIC[ck]={defs:defs.join(''),body:body.join('')};
@@ -11713,22 +11818,50 @@ function gtTrapLayer(gt,o){
 }
 // The hub's rim: a segment for each runner of each player; it lights in the player's colour when that runner is home.
 function gtHubSegs(gt,seq){
-  const P=gt.P,n=P*3,span=Math.PI*2/n,gap=span*.22,out=[];
+  const P=gt.P,NR=gt.run[0].length,n=P*NR,span=Math.PI*2/n,gap=span*.22,out=[];
   for(let s=1;s<=P;s++){
     const home=gtHomeCount(gt,s),pending=seq&&!seq.homeLit&&seq.fx&&seq.fx.seat===s&&(seq.fx.moves||[]).some(m=>m.to===GT_HOME)?1:0,col=GT_COLORS[s-1];
-    for(let k=0;k<3;k++){
-      const a0=-Math.PI/2+((s-1)*3+k)*span+gap/2,a1=a0+span-gap,r=22.8;
+    for(let k=0;k<NR;k++){
+      const a0=-Math.PI/2+((s-1)*NR+k)*span+gap/2,a1=a0+span-gap,r=22.8;
       const[x0,y0]=gtPolar(a0,r),[x1,y1]=gtPolar(a1,r),lit=k<home-pending;
       out.push(`<path class="gt-hubseg${lit?' lit':''}" data-s="${s}" data-k="${k}" d="M${x0.toFixed(2)} ${y0.toFixed(2)} A${r} ${r} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)}" fill="none" stroke="${lit?col:'rgba(255,255,255,.14)'}" stroke-width="${lit?1.7:1.1}" stroke-linecap="round" style="--hc:${col}" pointer-events="none"/>`);
     }
   }
   return out.join('');
 }
+// The Sweep on the board: the lit zone (it fires at the end of this round), a dashed outline of where it goes next, and a spoke
+// from the hub. All three sit in one group so the whole beam can be turned in one go.
+function gtSweepLayer(gt,seq){
+  if(!gt.sw||gt.over)return'';
+  const a=seq&&seq.sw!=null?seq.sw:gt.sw.a,W=GT_SW_W,rIn=72.5,rOut=87.5;
+  const sector=(a0)=>{
+    const A0=gtAng(a0-.5),A1=gtAng(a0+W-.5),o0=gtPolar(A0,rOut),o1=gtPolar(A1,rOut),i1=gtPolar(A1,rIn),i0=gtPolar(A0,rIn);
+    return`M${o0[0].toFixed(2)} ${o0[1].toFixed(2)} A${rOut} ${rOut} 0 0 1 ${o1[0].toFixed(2)} ${o1[1].toFixed(2)} L${i1[0].toFixed(2)} ${i1[1].toFixed(2)} A${rIn} ${rIn} 0 0 0 ${i0[0].toFixed(2)} ${i0[1].toFixed(2)}Z`;
+  };
+  let inner='';
+  for(let k=0;k<GT_SW_N;k++){
+    const off=k*GT_RING/GT_SW_N,a1=(a+off)%GT_RING,a2=(a+off+GT_SW_STEP)%GT_RING;
+    const mid=gtAng(a1+(W-1)/2),h0=gtPolar(mid,19.5),h1=gtPolar(mid,rIn-1);
+    inner+=`<path d="${sector(a2)}" fill="none" stroke="#ff8a6a" stroke-opacity=".55" stroke-width=".8" stroke-dasharray="2 1.6" class="gt-sweep-next"/>
+    <path d="${sector(a1)}" fill="rgba(255,70,50,.2)" stroke="#ff5a4e" stroke-width="1.2" class="gt-sweep-now"/>
+    <line x1="${h0[0].toFixed(2)}" y1="${h0[1].toFixed(2)}" x2="${h1[0].toFixed(2)}" y2="${h1[1].toFixed(2)}" stroke="#ff7a5e" stroke-opacity=".75" stroke-width="1.3" stroke-linecap="round" class="gt-spoke"/>
+    <circle cx="${h0[0].toFixed(2)}" cy="${h0[1].toFixed(2)}" r="1.5" fill="#ffb09a" class="gt-spoke"/>`;
+  }
+  return`<g class="gt-sweepg" pointer-events="none">${inner}</g>`;
+}
+// The line above the controls: what the beam will do at the end of this round, and who is standing in it.
+function gtSweepBannerHTML(gt){
+  if(!gt.sw||gt.over)return'';
+  const t=gtBeamTargets(gt),by={};
+  t.forEach(x=>{if(!x.shield)(by[x.s]=by[x.s]||[]).push(x.r);});
+  const danger=Object.keys(by).map(s=>`<i style="color:${GT_COLORS[s-1]}">${GT_SHAPES[s-1]}${by[s].length>1?'×'+by[s].length:''}</i>`).join(' ');
+  return`<div class="gt-event warn gt-sweepban" role="status"><b>⚡ THE SWEEP — fires at the end of this round</b><span>Runners in the two red zones (not on a safe space) are thrown back ${GT_SW_BACK}.${danger?' In danger now: '+danger:' Nobody is in the zone right now.'}</span></div>`;
+}
 function gtBoardSVG(gt,o){
   const seq=o.seq;
   // runners (a pair on one space is drawn side by side)
   const drawn=[],groups={};
-  for(let s=1;s<=gt.P;s++)for(let r=0;r<3;r++){
+  for(let s=1;s<=gt.P;s++)for(let r=0;r<gt.run[s-1].length;r++){
     const xy=gtDrawXY(gt,s,r,seq);
     const k=xy[0].toFixed(0)+','+xy[1].toFixed(0);
     (groups[k]=groups[k]||[]).push({s,r,xy});
@@ -11770,13 +11903,14 @@ function gtBoardSVG(gt,o){
   }).join('');
   const burst=fl?(()=>{const p=gtDrawXY(gt,fl.s,fl.r,seq);return`<circle cx="${p[0].toFixed(2)}" cy="${p[1].toFixed(2)}" r="3" fill="none" stroke="#fff" stroke-width="1.4" class="gt-burst"/>`;})():'';
   const st=gtStaticSVG(gt);
-  return`<svg viewBox="0 0 200 200" role="img" aria-label="The Gauntlet board: a ring of 48 spaces with three shortcuts, four risk spaces, six hazards and a final run for every player" xmlns="http://www.w3.org/2000/svg"><defs>${st.defs}</defs>${st.body}${gtHubSegs(gt,seq)}${gtEventLayer(gt,drawn)}${gtTrapLayer(gt,o)}${ghosts}${runnersSVG}${burst}</svg>`;
+  return`<svg viewBox="0 0 200 200" role="img" aria-label="The Gauntlet board: a ring of 48 spaces with three shortcuts, four risk spaces, six hazards and a final run for every player" xmlns="http://www.w3.org/2000/svg"><defs>${st.defs}</defs>${st.body}${gtHubSegs(gt,seq)}${gtSweepLayer(gt,seq)}${gtEventLayer(gt,drawn)}${gtTrapLayer(gt,o)}${ghosts}${runnersSVG}${burst}</svg>`;
 }
 // One readable line for an entry of gt.hist.
 function gtHistText(h,names){
   const nm=s=>esc((names&&names[s-1])||'Someone');
   if(h.k==='roll')return`🎲 ${nm(h.s)} rolled ${h.d[0]} + ${h.d[1]}${h.d[0]===h.d[1]?' — doubles!':''}`;
   if(h.k==='bank')return`🪙 ${nm(h.s)} banked a Risk Token`;
+  if(h.k==='sweep')return h.w.length?`⚡ The beam threw back ${h.w.map(nm).join(', ')}${h.ab?' (a shield took one hit)':''}`:'⚡ The beam fired — nobody was in the zone';
   if(h.k==='ev'){const e=GT_EVENTS[h.n];return h.e==='warn'?`⚠️ ${e.name} in 1 round`:h.e==='start'?`${e.icon} ${e.name} begins${h.n==='lockdown'&&h.i!=null?' — '+GT_SC[h.i].name+' closed':''}`:`${e.icon} ${e.name} is over`;}
   if(h.k==='shield')return`🛡️ ${nm(h.s)} raised a shield`;
   if(h.k==='trapset')return`🪤 ${nm(h.s)} set a trap`;
@@ -11808,19 +11942,21 @@ function gtRouteLabel(key){
   return ids.map(i=>GT_SC[i].icon+' '+GT_SC[i].name).join(' + ')+' · saves '+ids.reduce((n,i)=>n+GT_SC[i].main-GT_SC_STEPS,0);
 }
 // "What is what?": every kind of space and sign on the board, with a swatch that looks like it.
-function gtLegendHTML(){
+function gtLegendHTML(gt){
+  const sp=gt&&gt.sprint;
   const sw=(cls,inner)=>`<i class="lg ${cls}">${inner||''}</i>`;
   const rows=[
-    [sw('lg-run','●'),'<b>A runner.</b> Every player has a colour and a shape; the little dots under it say which of the three it is.'],
+    [sw('lg-run','●'),'<b>A runner.</b> Every player has a colour and a shape; the little dots under it say which of your runners it is.'],
     [sw('lg-safe','◆'),'<b>Safe space</b> (blue). A runner standing here cannot be captured.'],
     [sw('lg-entry','▼'),'<b>Entry space</b> of a player (coloured, also safe). Runners come onto the board here.'],
     [sw('lg-risk','😈'),'<b>Risk space.</b> Land exactly on it and choose: play safe, or DARE.'],
-    [sw('lg-haz',''),'<b>Hazard space</b> (amber stripes). Slip traps slide runners to it; in a Storm it throws you back 2.'],
-    [sw('lg-tcap',''),'<b>Dotted ring:</b> a trap may be hidden on this space.'],
+    ...(sp?[]:[[sw('lg-haz',''),'<b>Hazard space</b> (amber stripes). Slip traps slide runners to it; in a Storm it throws you back 2.'],
+    [sw('lg-tcap',''),'<b>Dotted ring:</b> a trap may be hidden on this space.']]),
     [sw('lg-lane','🌉'),'<b>Shortcut</b> (Bridge, Tunnel, Rooftops): 5 steps instead of the long way round. The round badge is the entrance, the small ▾ the exit.'],
     [sw('lg-final','›'),'<b>Final run:</b> each player’s own straight to Home. Nobody else can touch it.'],
-    [sw('lg-tell','⚡'),'<b>A glowing sign</b> (sparks, shimmer, a seam, a vibration, a hum): a hidden trap lies just ahead.'],
-    [sw('lg-mem','🪤'),'<b>A trap that has gone off</b> (or been defused) stays on the board as a mark.']];
+    ...(sp?[[sw('lg-beam','⚡'),'<b>The Sweep:</b> the two red zones are lit by beams from the middle. At the end of the round it fires: every runner in it that is not on a safe space is thrown back 5 (a shield takes the hit once). The dashed outline shows where it goes next.']]
+      :[[sw('lg-tell','⚡'),'<b>A glowing sign</b> (sparks, shimmer, a seam, a vibration, a hum): a hidden trap lies just ahead.'],
+    [sw('lg-mem','🪤'),'<b>A trap that has gone off</b> (or been defused) stays on the board as a mark.']])];
   return`<details class="gt-legend"><summary>❔ What is what on the board?</summary><ul>${rows.map(r=>`<li>${r[0]}<span>${r[1]}</span></li>`).join('')}</ul></details>`;
 }
 // What everybody may know about the traps: how many armed ones lie in which region.
@@ -12012,12 +12148,12 @@ function rGauntletTable(){
         <div class="gt-board an-${gtAnim()}${seq?' live':''}" data-turn="${gt.round}-${seat}" style="--pc:${GT_COLORS[(seq?seq.fx.seat:seat)-1]||GT_COLORS[0]}">${boardHTML}</div>
         <div class="gt-panel">
           <div class="y-hint">${prompt}</div>
-          ${gtEventBannerHTML(gt)}
-          ${gtTrapStripHTML(gt)}
+          ${gtSweepBannerHTML(gt)}${gtEventBannerHTML(gt)}
+          ${gt.tmax>0?gtTrapStripHTML(gt):''}
           ${diceHTML}
           ${controls}
           ${logHTML}
-          ${gtLegendHTML()}
+          ${gtLegendHTML(gt)}
           <button class="gt-animbtn" data-a="gt-anim" aria-label="Animations">✨ Animations: ${{full:'Full',light:'Light',off:'Off'}[gtAnim()]}</button>
         </div>
       </div>
