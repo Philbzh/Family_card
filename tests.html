@@ -6454,7 +6454,7 @@ async function runPresentation(A,W,frame){
       // the choice
       F('gtSetMode')('classic');
       let d=new DOMParser().parseFromString(F('gtOptionsHTML')(),'text/html');
-      check('the mode picker offers Sprint, Classic, Mayhem and Chaos with their descriptions, the current one ticked',d.querySelectorAll('.hr-tog').length===4&&/Sprint/.test(d.body.textContent)&&d.querySelector('.hr-tog.on').getAttribute('data-m')==='classic'&&/five traps/i.test(d.body.textContent)&&/every 3 rounds/.test(d.body.textContent));
+      check('the mode picker offers Turbo, Sprint, Classic, Mayhem and Chaos with their descriptions, the current one ticked',d.querySelectorAll('.hr-tog').length===5&&/Sprint/.test(d.body.textContent)&&d.querySelector('.hr-tog.on').getAttribute('data-m')==='classic'&&/five traps/i.test(d.body.textContent)&&/every 3 rounds/.test(d.body.textContent));
       tap('gt-mode',{'data-m':'chaos'});
       check('tapping a mode chooses it, and an invalid value falls back to Classic',F('gtMode')()==='chaos'&&(F('gtSetMode')('weird'),F('gtMode')()==='classic'));
       F('gtSetMode')('mayhem');
@@ -6761,13 +6761,167 @@ async function runPresentation(A,W,frame){
   }
 
 
+
+  /* —— The Gauntlet: Turbo (item race + push your luck) —————— */
+  suite('The Gauntlet — Turbo: the setup and the push-your-luck turn',()=>{
+    const F=n=>W.eval(n);
+    const mk=(P,seed)=>F('gtStart')(F('gtNew')(P,'turbo',seed||123),1);
+    const mv=(x,seat,r,sumDice)=>{   // roll, then move runner r by the sum on the main route
+      F('gtRoll')(x,seat,sumDice[0],sumDice[1]);
+      const a=F('gtActions')(x,seat).filter(q=>q.t==='sum'&&q.r===r&&q.plan.key==='')[0];
+      return a?F('gtAct')(x,seat,Object.assign({},a,{key:''})):null;
+    };
+    const g=mk(2);
+    check('Turbo is the first mode and the default',Object.keys(F('GT_MODES'))[0]==='turbo'&&(W.localStorage.removeItem('ct_gt_mode'),F('gtMode')()==='turbo'));
+    check('Turbo: two runners each standing on their entry, one home wins, no traps, hazards, risk spaces, events or beams, the shield is not a free action',g.turbo&&g.sprint&&g.need===1&&g.run.every(r=>r.length===2&&r.every(x=>x.rel===0))&&g.tmax===0&&g.haz.length===0&&g.risk.length===0&&!g.evNext&&!g.sw&&g.sh.every(h=>h.s===2)&&g.gate>0);
+    check('item boxes lie on ordinary ring spaces only (not safe, not an entry, not a shortcut mouth)',g.boxes.length>=6&&g.boxes.every(a=>!g.safe[a]&&!g.entries.includes(a)&&!g.sc.some(s=>s.a===a||s.b===a)));
+    check('everybody starts with one item, and nothing lies on the board yet',g.items.every(h=>h.length===1)&&g.bananas.length===0&&g.clover.every(c=>c===0)&&!g.pushing&&g.gain===0);
+    // the first roll
+    F('gtRoll')(g,1,3,4);
+    check('the dice only ever move ONE runner by the whole total (no single-die moves, no doubles bonus)',F('gtActions')(g,1).every(a=>a.t==='sum')&&F('gtActions')(g,1).length>0&&g.bonus===0);
+    check('a double gives no bonus in Turbo',(()=>{const x=mk(2,5);F('gtRoll')(x,1,4,4);return x.bonus===0&&x.fx.dbl===false;})());
+    const x=mk(2,6);x.run[0][0].rel=14;x.run[0][1].rel=6;
+    const ok1=mv(x,1,0,[3,4]);
+    check('after the move the player may push their luck: still their turn, "pushing", 7 steps gained',!!ok1&&x.cur===1&&x.pushing===true&&x.phase==='roll'&&x.gain===7&&x.run[0][0].rel===21);
+    // stop
+    const y=JSON.parse(JSON.stringify(x));
+    const st=F('gtAct')(y,1,{t:'stop'});
+    check('banking ends the turn with the gains kept',!!st&&st.kind==='stop'&&y.cur===2&&!y.pushing&&y.run[0][0].rel===21);
+    check('you cannot bank before you have moved, and nobody else can',!F('gtAct')(mk(2,7),1,{t:'stop'})&&!F('gtAct')(JSON.parse(JSON.stringify(x)),2,{t:'stop'}));
+    // a push without a 1
+    const z=JSON.parse(JSON.stringify(x));F('gtRoll')(z,1,5,6);
+    check('a push roll without a 1 is just another roll and move',z.phase==='move'&&z.cur===1&&F('gtActions')(z,1).length>0&&z.stats.push[0]===1);
+    // a bust
+    const b=JSON.parse(JSON.stringify(x));const bf=F('gtRoll')(b,1,1,6);
+    check('a 1 on a push roll busts: the whole turn is undone and the turn passes on',bf.kind==='bust'&&b.cur===2&&b.run[0][0].rel===14&&b.run[0][1].rel===6&&bf.back.length===1&&bf.back[0].from===21&&bf.back[0].to===14&&b.stats.bust[0]===1);
+    check('the first roll of a turn can show a 1 without busting',(()=>{const w=mk(2,8);const f=F('gtRoll')(w,1,1,1);return f.kind==='roll'&&w.phase==='move';})());
+    // a clover
+    const c=JSON.parse(JSON.stringify(x));c.clover[0]=1;const cf=F('gtRoll')(c,1,1,4);
+    check('a clover cancels one bust: the roll counts, the clover is used up',cf.kind==='roll'&&cf.clover===true&&c.clover[0]===0&&c.phase==='move'&&c.run[0][0].rel===21);
+    // a bust undoes a capture
+    const d=mk(2,9);d.run[0][0].rel=20;d.run[0][1].rel=6;d.run[1][0].rel=3;d.run[1][1].rel=30;
+    const cap=mv(d,1,0,[3,4]);
+    const capDone=cap&&cap.cap&&d.run[1][0].rel===0;
+    F('gtRoll')(d,1,1,2);
+    check('a capture is undone by a bust too (the victim comes back), and a captured runner restarts on its entry space with no revenge to claim',capDone&&d.run[1][0].rel===3&&d.run[0][0].rel===20&&d.pq.length===0&&d.rev.every(r=>r===null));
+    // winning
+    const w=mk(2,10);w.run[0][0].rel=44;
+    mv(w,1,0,[4,3]);
+    check('the first runner home wins on the spot, even in the middle of a push',w.over&&w.win===1&&w.fin&&w.fin.left.length===0);
+  });
+  suite('The Gauntlet — Turbo: items, boxes and bananas',()=>{
+    const F=n=>W.eval(n);
+    const mk=(P,seed)=>F('gtStart')(F('gtNew')(P,'turbo',seed||321),1);
+    const useI=(x,seat,item)=>F('gtAct')(x,seat,{t:'item',item});
+    // rocket
+    const r=mk(2,1);r.run[0][0].rel=14;r.run[0][1].rel=6;r.run[1][0].rel=3;r.run[1][1].rel=30;r.items[0]=['rocket'];
+    const tg=F('gtItemTarget')(r,1,'rocket');
+    check('Rocket finds the nearest rival ahead within 14 spaces and not one on a safe space',!!tg&&tg.s===2&&tg.r===0&&tg.d===13);
+    const rf=useI(r,1,'rocket');
+    check('Rocket throws it back 8 (down to its entry), costs the item, and counts as the item for this turn',!!rf&&r.run[1][0].rel===0&&rf.tg.from===3&&rf.tg.to===0&&r.items[0].length===0&&r.itemUsed&&r.phase==='roll'&&r.cur===1);
+    check('only one item a turn, and not once you have rolled or while pushing',(()=>{const q=mk(2,2);q.items[0]=['boost','clover'];useI(q,1,'boost');const second=useI(q,1,'clover');const q2=mk(2,3);q2.items[0]=['boost'];F('gtRoll')(q2,1,2,3);return second===null&&useI(q2,1,'boost')===null;})());
+    check('Rocket cannot be played when nobody is in range',(()=>{const q=mk(2,4);q.items[0]=['rocket'];return F('gtItemTarget')(q,1,'rocket')===null&&useI(q,1,'rocket')===null;})());
+    // comet
+    const c=mk(2,5);c.run[0][0].rel=14;c.run[1][0].rel=31;c.run[1][1].rel=3;c.items[0]=['comet'];
+    check('Comet hits the runner in the lead: thrown back 10',(()=>{const f=useI(c,1,'comet');return !!f&&f.tg.s===2&&f.tg.r===0&&c.run[1][0].rel===21;})());
+    check('Comet cannot be played by the leader',(()=>{const q=mk(2,6);q.run[0][0].rel=30;q.run[1][0].rel=10;q.items[0]=['comet'];return F('gtItemTarget')(q,1,'comet')===null;})());
+    // banana
+    const b=mk(2,7);b.run[0][0].rel=14;b.run[0][1].rel=8;b.items[0]=['banana'];
+    const bt=F('gtItemTarget')(b,1,'banana');
+    check('Banana is dropped just behind the last runner, on a free ordinary space (space 6 is safe, so it goes on 5)',!!bt&&bt.abs===5&&bt.by===1&&!b.safe[bt.abs]);
+    useI(b,1,'banana');
+    check('the banana lies on the board for everyone to see',b.bananas.length===1&&b.bananas[0].abs===bt.abs&&b.bananas[0].o===1);
+    // a runner that passes it spins back 4
+    const p=mk(2,8);p.run[0][0].rel=14;p.run[0][1].rel=2;p.bananas=[{abs:4,o:1}];p.cur=2;F('gtBeginTurn')(p);p.run[1][0].rel=22;p.run[1][1].rel=0;
+    F('gtRoll')(p,2,3,3);
+    const a=F('gtActions')(p,2).filter(q=>q.t==='sum'&&q.r===0&&q.plan.key==='')[0];
+    const bf=F('gtAct')(p,2,Object.assign({},a,{key:''}));
+    check('a runner that passes over a banana slips: it ends 4 spaces back and the banana is gone',!!bf&&!!bf.banana&&p.bananas.length===0&&p.run[1][0].rel===24&&bf.moves.length===2);
+    // boost and clover
+    const o=mk(2,9);o.items[0]=['boost','clover'];useI(o,1,'boost');
+    check('Boost makes the next roll count 5 more',o.plus===5&&(()=>{F('gtRoll')(o,1,2,3);const m=F('gtActions')(o,1).filter(q=>q.t==='sum'&&q.plan.key==='')[0];return o.plusNow===5&&o.plus===0&&m.plan.path.length===10;})());
+    const cl=mk(2,10);cl.items[0]=['clover'];useI(cl,1,'clover');
+    check('Clover is armed (and cannot be armed twice)',cl.clover[0]===1&&F('gtItemTarget')(cl,1,'clover')===null);
+    // boxes
+    const bx=mk(2,11);bx.run[0][0].rel=6;bx.items[0]=[];bx.run[0][1].rel=0;
+    F('gtRoll')(bx,1,4,4);
+    const ba=F('gtActions')(bx,1).filter(q=>q.t==='sum'&&q.r===0&&q.plan.key==='')[0];
+    const bfx=F('gtAct')(bx,1,Object.assign({},ba,{key:''}));
+    check('stopping exactly on an item box gives an item',!!bfx.pick&&!!bfx.pick.item&&bx.items[0].length===1&&bx.boxes.includes(14));
+    const full=mk(2,12);full.run[0][0].rel=6;full.items[0]=['boost','clover'];
+    F('gtRoll')(full,1,4,4);
+    const fa=F('gtActions')(full,1).filter(q=>q.t==='sum'&&q.r===0&&q.plan.key==='')[0];
+    const ffx=F('gtAct')(full,1,Object.assign({},fa,{key:''}));
+    check('a full hand (2 items) gets nothing more',ffx.pick.full===true&&full.items[0].length===2);
+    // who gets which item
+    check('the player in last place draws Comet far more often, the leader never does',(()=>{
+      const q=mk(2,13);q.run[0][0].rel=30;q.run[1][0].rel=0;
+      let last=0,lead=0;
+      for(let k=0;k<500;k++){q.items[0]=[];q.items[1]=[];if(F('gtDrawItem')(q,2)==='comet')last++;if(F('gtDrawItem')(q,1)==='comet')lead++;}
+      return last>90&&lead===0;})());
+    // items in the log and the bots
+    check('bots play whole Turbo games to the end with 2 to 6 players, always with a winner, using items and pushing',(()=>{
+      let ok=true,items=0,pushes=0,busts=0;
+      for(let P=2;P<=6;P++)for(let k=0;k<4;k++){
+        const q=mk(P,500+P*10+k);let n=0;
+        while(!q.over&&n++<8000){
+          const seat=q.cur;
+          if(q.phase==='roll'){
+            if(q.pushing){F('gtBotPush')(q,seat,'gentle')?F('gtRoll')(q,seat,1+Math.floor(Math.random()*6),1+Math.floor(Math.random()*6)):F('gtAct')(q,seat,{t:'stop'});continue;}
+            const it=F('gtBotItem')(q,seat,'gentle');
+            if(it){F('gtAct')(q,seat,{t:'item',item:it});continue;}
+            F('gtRoll')(q,seat,1+Math.floor(Math.random()*6),1+Math.floor(Math.random()*6));continue;
+          }
+          const a=F('gtBotPick')(q,seat,'gentle');
+          if(!F('gtAct')(q,seat,a||{t:'bank'})&&!F('gtAct')(q,seat,{t:'bank'})){ok=false;break;}
+        }
+        if(!q.over||!q.win)ok=false;
+        items+=q.stats.itm.reduce((u,v)=>u+v,0);pushes+=q.stats.push.reduce((u,v)=>u+v,0);busts+=q.stats.bust.reduce((u,v)=>u+v,0);
+      }
+      return ok&&items>0&&pushes>0&&busts>0;})());
+  });
+  suite('The Gauntlet — Turbo at the table',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const mk=(id,n,bot)=>({id,name:n,avatar:A.AVATARS[id-1],hand:[],totalScore:0,roundsWon:0,chips:1000,bet:0,folded:false,allIn:false,...(bot?{bot}:{})});
+    const tap=(a,attrs)=>{const b=W.document.createElement('button');b.setAttribute('data-a',a);Object.entries(attrs||{}).forEach(([k,v])=>b.setAttribute(k,v));W.document.body.appendChild(b);b.click();b.remove();};
+    const doc=()=>new DOMParser().parseFromString(F('rGauntletTable')(),'text/html');
+    let keepMode=null;try{keepMode=W.localStorage.getItem('ct_gt_mode');}catch(e){}
+    try{
+      F('gtSetMode')('turbo');
+      G.isOnline=false;G.srv=null;G.selGame='gauntlet';G.gtSeq=null;
+      G.lp=[mk(1,'Phil'),mk(2,'Anna')];G.lstart=0;F('lStartMatch')();G.lstart=0;G.gt.cur=1;G.gt.tc=[1,0];G.lcur=0;G.scr='table';G.gtInstant=true;
+      const gt=G.gt;
+      check('a game started from the table is a Turbo game',gt.turbo===true&&gt.run.length===2&&gt.run.every(r=>r.length===2));
+      gt.run[0][0].rel=14;gt.run[0][1].rel=6;gt.run[1][0].rel=3;gt.run[1][1].rel=30;gt.items[0]=['rocket','banana'];gt.items[1]=['comet'];gt.bananas=[{abs:40,o:2}];
+      let d=doc();
+      check('the table shows 4 runners, the title says Turbo, no trap counter',d.querySelectorAll('.gt-run').length===4&&/Turbo/.test(d.querySelector('.gb-game').textContent)&&!d.querySelector('.gt-traps'));
+      check('item boxes and the banana lie on the ring',d.querySelectorAll('g.gt-box').length===gt.boxes.length&&d.querySelectorAll('text.gt-banana').length===1);
+      check('everybody can see what everybody holds, next to the names',/🚀/.test(d.querySelectorAll('.cr-pill')[0].textContent)&&/🍌/.test(d.querySelectorAll('.cr-pill')[0].textContent)&&/☄️/.test(d.querySelectorAll('.cr-pill')[1].textContent));
+      check('before the first roll the player on turn gets an item tray: playable items are enabled, others say why not',d.querySelectorAll('.gt-items .ab-trick').length===2&&!d.querySelector('.gt-items .ab-trick[data-t="rocket"]').disabled&&!d.querySelector('.gt-items .ab-trick[data-t="banana"]').disabled);
+      check('the legend explains item boxes, bananas and pushing your luck; no risk-space row',/Item box/.test(d.querySelector('.gt-legend').textContent)&&/Push your luck/.test(d.querySelector('.gt-legend').textContent)&&!/Risk space/.test(d.querySelector('.gt-legend').textContent));
+      tap('gtitem',{'data-t':'rocket'});
+      check('tapping an item plays it',gt.itemUsed===true&&gt.items[0].join()==='banana'&&gt.run[1][0].rel===0);
+      check('the tray is gone once an item has been played this turn',!doc().querySelector('.gt-items'));
+      tap('gtroll');gt.dice=[2,3];
+      d=doc();
+      check('after the roll the total is shown (no Σ button, no single dice) and the mover is picked from the highlighted runners',gt.phase==='move'&&!!d.querySelector('.gt-total')&&!d.querySelector('.gt-sum')&&d.querySelectorAll('.gt-chip.ok').length>=1);
+      tap('gtrun',{'data-r':'0'});
+      d=doc();
+      check('after the move the player is asked: push your luck or bank it (with the steps so far)',gt.pushing===true&&!!d.querySelector('[data-a="gtstop"]')&&/Push your luck/.test(d.querySelector('[data-a="gtroll"]').textContent)&&new RegExp(gt.gain+' step').test(d.querySelector('.y-hint').textContent));
+      tap('gtstop');
+      check('banking passes the turn',gt.cur===2&&!gt.pushing);
+    } finally {
+      G.gtInstant=false;G.gt=null;G.gtSeq=null;G.lp=[];G.scr='home';
+      if(keepMode==null)W.localStorage.removeItem('ct_gt_mode');else W.localStorage.setItem('ct_gt_mode',keepMode);
+    }
+  });
   /* —— The Gauntlet: Sprint mode and the Sweep —————— */
   suite('The Gauntlet — Sprint: two runners, first home wins, no traps, the Sweep',()=>{
     const F=n=>W.eval(n);
     const gtNew=F('gtNew'),gtStart=F('gtStart');
     const mk=(P,seed)=>gtStart(gtNew(P,'sprint',seed||123),1);
     const g=mk(3);
-    check('Sprint is the first mode, and the default when nothing has been chosen',Object.keys(F('GT_MODES'))[0]==='sprint'&&(W.localStorage.removeItem('ct_gt_mode'),F('gtMode')()==='sprint'));
+    check('Sprint is listed second (Turbo is the first mode and the default)',Object.keys(F('GT_MODES'))[1]==='sprint'&&Object.keys(F('GT_MODES'))[0]==='turbo'&&(W.localStorage.removeItem('ct_gt_mode'),F('gtMode')()==='turbo'));
     check('Sprint: two runners each, one is enough, no traps, no hazards, no events',g.run.every(r=>r.length===2)&&g.need===1&&g.sprint===true&&g.tmax===0&&g.tleft.every(x=>x===0)&&g.tcap.length===0&&g.haz.length===0&&!g.evNext&&!g.ev);
     check('Sprint: the only safe spaces are the entry spaces',g.safe.filter(Boolean).length===3&&g.entries.every(e=>g.safe[e]));
     const c=gtNew(3,'classic',123);
@@ -6835,7 +6989,7 @@ async function runPresentation(A,W,frame){
       check('no trap counter, no tell or trap legend; the legend explains the Sweep',!d.querySelector('.gt-traps')&&/The Sweep/.test(d.querySelector('.gt-legend').textContent)&&!/hidden trap/.test(d.querySelector('.gt-legend').textContent));
       check('the hub has a rim segment for every runner (3 players x 2)',d.querySelectorAll('.gt-hubseg').length===6);
       const mp=new DOMParser().parseFromString(F('gtOptionsHTML')(),'text/html');
-      check('the mode picker lists Sprint first, ticked',mp.querySelectorAll('.hr-tog').length===4&&mp.querySelector('.hr-tog').getAttribute('data-m')==='sprint'&&mp.querySelector('.hr-tog.on').getAttribute('data-m')==='sprint');
+      check('the mode picker lists Turbo first and Sprint second, Sprint ticked',mp.querySelectorAll('.hr-tog').length===5&&mp.querySelector('.hr-tog').getAttribute('data-m')==='turbo'&&mp.querySelectorAll('.hr-tog')[1].getAttribute('data-m')==='sprint'&&mp.querySelector('.hr-tog.on').getAttribute('data-m')==='sprint');
       check('the rules explain Sprint and the Sweep',F('GAMES').find(x=>x.id==='gauntlet').rules.some(r=>/SPRINT/.test(r)&&/SWEEP/.test(r)));
     } finally {
       G.gtInstant=false;G.gt=null;G.gtSeq=null;G.lp=[];G.scr='home';
