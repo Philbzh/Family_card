@@ -7719,6 +7719,41 @@ function stageEmit(name,d){const f=STAGE_EVENTS[name];if(!f)return null;const o=
 const BST_LEVEL_LINES={2:['DANGER LEVEL 2','Dead 💀 dice creep in','hot'],3:['DANGER LEVEL 3','A ☠️ die can bust you instantly','bad'],4:['DANGER LEVEL 4','A 🔥 ×2 die joins the pool','bad'],5:['FINAL RISK','Every die is dangerous now','bad']};
 function stageBustLevel(level){stageEmit('DANGER_LEVEL',{level});}
 // Online: compare the room before and after a change, and stage what just happened on every device.
+// Start a show once the screen has been rebuilt with the new state (a microtask: before anything is painted), and only after any show that is
+// still running (a move that arrives mid-show waits its turn; it never cuts the other one off). Only the newest state is shown.
+let SHOW_SYNC=false;   // (tests: start the show at once instead of a moment later)
+function showAfter(busy,run,obj,key){
+  const moves=obj.moves;
+  if(SHOW_SYNC){run(obj);return;}
+  const go=n=>{
+    const st=G.srv;if(!st||!st[key]||st[key].moves!==moves)return;
+    if(busy()&&n<40){setTimeout(()=>go(n+1),200);return;}
+    run(st[key]);
+  };
+  (window.queueMicrotask||(f=>Promise.resolve().then(f)))(()=>go(0));
+}
+// Your own move is shown at once, on this device; the room is told right after (the round trip used to come first and felt like nothing happening).
+async function oFastMutate(mutate,onOk,onFail){
+  if(_onlineBusy)return false;
+  _onlineBusy=true;
+  try{
+    const cur=G.srv;
+    if(cur&&cur.players){
+      const opt=JSON.parse(JSON.stringify(cur));
+      if(!mutate(opt)){if(onFail)onFail();return false;}
+      if(onOk)onOk();
+      onSrv(opt);
+    }
+    const state=await dbRead(G.roomId);
+    if(!state)return false;
+    if(oNotMyTurnNow(state)){if(cur)onSrv(state);return false;}
+    if(!mutate(state)){if(cur&&onFail)onFail();onSrv(state);return false;}
+    if(!cur&&onOk)onOk();
+    state._ts=Date.now();onSrv(state);
+    await dbWrite(G.roomId,state);
+    return true;
+  }finally{_onlineBusy=false;}
+}
 function stageOnSrv(prev,state){
   try{
     if(!prev||!state||prev.gameId!==state.gameId||state.phase!=='game')return;
@@ -7729,13 +7764,13 @@ function stageOnSrv(prev,state){
     else if(g==='pig'&&prev.pig&&state.pig&&state.pig.busted&&!prev.pig.busted)
       stageEmit('PIG_OUT',{who:cur,points:state.pig.turnTotal});
     else if(g==='mayhem'&&prev.mh&&state.mh&&state.mh.moves>prev.mh.moves&&state.mh.fx){
-      mhFeel(state.mh.fx,(state.players||[])[state.mh.fx.who-1]);mhRunSeq(state.mh,false,null);
+      mhFeel(state.mh.fx,(state.players||[])[state.mh.fx.who-1]);showAfter(()=>G.mhSeq,x=>mhRunSeq(x,false,null),state.mh,'mh');
     }
     else if(g==='gauntlet'&&prev.gt&&state.gt&&state.gt.moves>prev.gt.moves&&state.gt.fx){
-      gtFeel(state.gt.fx);gtRunSeq(state.gt,false,null);
+      gtFeel(state.gt.fx);showAfter(()=>G.gtSeq,x=>gtRunSeq(x,false,null),state.gt,'gt');
     }
     else if(g==='abyss'&&prev.ab&&state.ab&&state.ab.moves>prev.ab.moves&&state.ab.fx){
-      abRunSeq(state.ab,false,null);
+      showAfter(()=>G.abSeq,x=>abRunSeq(x,false,null),state.ab,'ab');
     }
     else if(g==='blackwater'&&prev.bw&&state.bw&&state.bw.moves>prev.bw.moves&&state.bw.fx){
       const bwS=state.bw;
@@ -7744,7 +7779,7 @@ function stageOnSrv(prev,state){
       (window.queueMicrotask||(f=>Promise.resolve().then(f)))(()=>{if(G.srv&&G.srv.bw&&G.srv.bw.moves===bwS.moves){if(G.bwSeq){G.bwNext=bwS;if(G.bwSeq.skip)G.bwSeq.skip();}else bwRunSeq(G.srv.bw,false,null);}});
     }
     else if(g==='chainreaction'&&prev.cr&&state.cr&&state.cr.moves>prev.cr.moves&&state.cr.fx){
-      crFeel(state.cr.fx,(state.players||[])[state.cr.fx.who-1],state.cr);crRunSeq(state.cr,false,null);
+      crFeel(state.cr.fx,(state.players||[])[state.cr.fx.who-1],state.cr);showAfter(()=>G.crSeq,x=>crRunSeq(x,false,null),state.cr,'cr');
     }
     else if(g==='fourrow'&&prev.c4&&state.c4&&state.c4.over&&!prev.c4.over){
       if(state.c4.win)stageEmit('BIG_WIN',{who:cur,text:'FOUR IN A ROW!',sub:'Connected',icon:'🔴'});
@@ -9826,18 +9861,14 @@ function mhBurst(fx){
 async function oMhPlay(move){
   if(_onlineBusy)return;
   if(!isMyTurn()){toast('Not your turn');return;}
-  _onlineBusy=true;
-  try{
-    const state=await dbRead(G.roomId);if(!state||!state.mh)return;
-    if(oNotMyTurnNow(state))return;
+  await oFastMutate(state=>{
+    if(!state||!state.mh)return false;
     const idx=state.curIdx||0,res=mhApply(state.mh,idx+1,move);
-    if(!res){SFX.illegal();toast(move.kind==='drop'?'That column is full':'That is not possible');return;}
-    G.mhArm=null;G.mhPend=null;
+    if(!res)return false;
     if(state.mh.over)oMhFinish(state);
     else state.curIdx=mod(idx+1,2);
-    state._ts=Date.now();onSrv(state);
-    await dbWrite(G.roomId,state);
-  } finally { _onlineBusy=false; }
+    return true;
+  },()=>{G.mhArm=null;G.mhPend=null;},()=>{SFX.illegal();toast(move.kind==='drop'?'That column is full':'That is not possible');});
 }
 function oMhFinish(state){
   const mh=state.mh,names=(state.players||[]).map(p=>p.name);
@@ -10351,19 +10382,15 @@ function crFly(ex,who,d){
 async function oCrPlay(cell,kind){
   if(_onlineBusy)return;
   if(!isMyTurn()){toast('Not your turn');return;}
-  _onlineBusy=true;
-  try{
-    const state=await dbRead(G.roomId);if(!state||!state.cr)return;
-    if(oNotMyTurnNow(state))return;
+  await oFastMutate(state=>{
+    if(!state||!state.cr)return false;
     const idx=state.curIdx||0,who=idx+1;
     const fx=crPlay(state.cr,who,cell,kind&&kind!=='drop'?{kind}:undefined);
-    if(!fx){SFX.illegal();toast(kind&&kind!=='drop'?'That power cannot be used there':'You can only play an empty cell or one of yours');return;}
-    G.crArm=null;
+    if(!fx)return false;
     if(state.cr.over)oCrFinish(state);
     else state.curIdx=crNext(state.cr,who)-1;
-    state._ts=Date.now();onSrv(state);
-    await dbWrite(G.roomId,state);
-  } finally { _onlineBusy=false; }
+    return true;
+  },()=>{G.crArm=null;},()=>{SFX.illegal();toast(kind&&kind!=='drop'?'That power cannot be used there':'You can only play an empty cell or one of yours');});
 }
 function oCrFinish(state){
   const cr=state.cr,names=(state.players||[]).map(p=>p.name),rank=crRanks(cr);
@@ -12124,18 +12151,14 @@ function gtDrawXY(gt,seat,r,seq){
 async function oGtDo(act){
   if(_onlineBusy)return;
   if(!isMyTurn()){toast('Not your turn');return;}
-  _onlineBusy=true;
-  try{
-    const state=await dbRead(G.roomId);if(!state||!state.gt)return;
-    if(oNotMyTurnNow(state))return;
+  await oFastMutate(state=>{
+    if(!state||!state.gt)return false;
     const gt=state.gt,seat=gt.cur;
-    if(!gtApply(gt,seat,act)){SFX.illegal();return;}
-    G.gtSel=null;G.gtChoose=null;G.gtSecret=null;G.gtDisarm=false;
+    if(!gtApply(gt,seat,act))return false;
     state.curIdx=gt.cur-1;
     if(gt.over)oGtFinish(state);
-    state._ts=Date.now();onSrv(state);
-    await dbWrite(G.roomId,state);
-  } finally { _onlineBusy=false; }
+    return true;
+  },()=>{G.gtSel=null;G.gtChoose=null;G.gtSecret=null;G.gtDisarm=false;},()=>SFX.illegal());
 }
 function gtApply(gt,seat,act){return act.t==='roll'?gtRoll(gt,seat,act.d[0],act.d[1]):gtAct(gt,seat,act);}
 function oGtFinish(state){
@@ -13492,17 +13515,14 @@ function botAbyssAct(p){
 async function oAbDo(d){
   if(_onlineBusy)return;
   if(!isMyTurn()){toast('Not your turn');return;}
-  _onlineBusy=true;
-  try{
-    const state=await dbRead(G.roomId);if(!state||!state.ab)return;
-    if(oNotMyTurnNow(state))return;
+  await oFastMutate(state=>{
+    if(!state||!state.ab)return false;
     const ab=state.ab;
-    if(!abApply(ab,ab.cur,Array.isArray(d)?{t:'roll',d}:d)){SFX.illegal();return;}
+    if(!abApply(ab,ab.cur,Array.isArray(d)?{t:'roll',d}:d))return false;
     state.curIdx=ab.cur-1;
     if(ab.over)oAbFinish(state);
-    state._ts=Date.now();onSrv(state);
-    await dbWrite(G.roomId,state);
-  } finally { _onlineBusy=false; }
+    return true;
+  },null,()=>SFX.illegal());
 }
 function oAbFinish(state){
   const ab=state.ab,names=(state.players||[]).map(p=>p.name);
@@ -15470,7 +15490,10 @@ const BWFX={
     }
   }
 };
-function bwSeqBusy(){return !!(G.bwSeq&&G.isOnline&&G.srv&&G.srv.gameId==='blackwater');}
+function bwSeqBusy(){
+  const g=G.isOnline&&G.srv&&G.srv.gameId;if(!g)return false;
+  return !!((g==='blackwater'&&G.bwSeq)||(g==='gauntlet'&&G.gtSeq)||(g==='abyss'&&G.abSeq)||(g==='chainreaction'&&G.crSeq)||(g==='mayhem'&&G.mhSeq));
+}
 function bwVisible(svg){return !!svg&&!svg.closest('.bw-card.off')&&svg.getBoundingClientRect().width>0;}
 /* the sea itself: bubbles, smoke from damaged ships, rain, mist or sun-glints, always light and only while the table is on screen */
 let _bwAmbT=null;
