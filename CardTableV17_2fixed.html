@@ -1682,7 +1682,7 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 .bw-ct{font-family:'Cinzel',serif;letter-spacing:.14em;font-size:.66rem;color:var(--gold2);text-align:center;margin-bottom:.25rem;}
 .bw-svg{display:block;width:100%;height:auto;border-radius:10px;touch-action:manipulation;}
 .bw-boards.shake{animation:mh-shake .42s cubic-bezier(.36,.07,.19,.97) both;}
-.bw-boards.an-full .bw-card:first-child::after{content:"";position:absolute;inset:auto;left:50%;top:50%;width:140%;aspect-ratio:1;margin:-70% 0 0 -70%;background:conic-gradient(from 0deg,rgba(159,227,214,.0) 0deg,rgba(159,227,214,.0) 300deg,rgba(159,227,214,.11) 358deg,rgba(159,227,214,0) 360deg);animation:bw-sweep 6s linear infinite;pointer-events:none;mix-blend-mode:screen;}
+.bw-boards.an-full .bw-card:first-child::after{content:"";position:absolute;inset:auto;left:50%;top:50%;width:140%;aspect-ratio:1;margin:-70% 0 0 -70%;background:conic-gradient(from 0deg,rgba(159,227,214,.0) 0deg,rgba(159,227,214,.0) 300deg,rgba(159,227,214,.11) 358deg,rgba(159,227,214,0) 360deg);animation:bw-sweep 6s linear infinite;pointer-events:none;}
 @keyframes bw-sweep{to{transform:rotate(360deg);}}
 .bw-lock{transform-box:fill-box;transform-origin:center;animation:bw-lockp 1s ease-in-out infinite;}
 @keyframes bw-lockp{0%,100%{transform:scale(1);opacity:.9;}50%{transform:scale(1.18);opacity:.5;}}
@@ -1782,7 +1782,7 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 @keyframes bw-glitch{0%,100%{filter:none;transform:none;}20%{filter:hue-rotate(40deg) contrast(1.4);transform:translateX(-1.5px);}40%{filter:saturate(2.2);transform:translateX(1.5px);}60%{filter:hue-rotate(-40deg);transform:translateX(-1px);}80%{filter:brightness(1.4);}}
 .bw-ship.pinged{animation:bw-pinged .8s ease-in-out 2;}
 @keyframes bw-pinged{0%,100%{filter:none;}50%{filter:brightness(1.9) drop-shadow(0 0 1.6px #9fd0ff);}}
-.bw-ship.last{animation:bw-lastg 1.7s ease-in-out infinite;}
+.bw-ship.last{filter:drop-shadow(0 0 1.6px #ffd86a);}
 @keyframes bw-lastg{0%,100%{filter:drop-shadow(0 0 .8px #ffd86a);}50%{filter:drop-shadow(0 0 2.2px #ffd86a);}}
 .bw-emb{animation:bw-emb 1.4s ease-in-out infinite alternate;}
 @keyframes bw-emb{from{fill-opacity:.32;}to{fill-opacity:.55;}}
@@ -1799,7 +1799,6 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 .bw-fire:active{transform:translateY(3px) scale(.97);box-shadow:inset 0 3px 8px rgba(0,0,0,.5);}
 @keyframes bw-armed{0%,100%{box-shadow:0 0 6px rgba(255,200,90,.4);}50%{box-shadow:0 0 22px rgba(255,200,90,.85);}}
 .bw-tool:not(:disabled):active{transform:scale(.94);}
-.bw-boards.an-full ~ .bw-panel .bw-tool:not(:disabled) .bw-ic,.bw-cam .bw-tool:not(:disabled) .bw-ic{animation:bw-breathe 3.4s ease-in-out infinite;}
 @keyframes bw-breathe{0%,100%{filter:drop-shadow(0 0 0 rgba(255,214,120,0));}50%{filter:drop-shadow(0 0 4px rgba(255,214,120,.8));}}
 .bw-tool.spent{filter:grayscale(1) brightness(.55);}
 .bw-felt.bw-yt{animation:bw-yt .95s ease-out;}
@@ -4024,7 +4023,8 @@ window.onunhandledrejection=function(e){
 /* ═══════ SUPABASE ═══════ */
 const SB_URL='https://bibxhrqxbecaukmschbe.supabase.co';
 const SB_KEY='sb_publishable_2ZKsf4Yozk4v-QjXfCixMQ_0WpbjJ_h';
-let _sb=null,_ch=null,_poll=null,_awayTick=null,_lts=0,_onlineBusy=false;
+let _sb=null,_ch=null,_poll=null,_pollCb=null,_pollMs=1500,_awayTick=null,_lts=0,_onlineBusy=false;
+function dbSetPoll(ms){if(!_poll||!_pollCb||_pollMs===ms)return;clearInterval(_poll);_pollMs=ms;_poll=setInterval(_pollCb,ms);}
 /* Never step backwards. Every room state carries the _ts it was written with. The 1.5 s poll can already be
    in flight when WE write, and hand back the PREVIOUS snapshot after we applied ours -- the table rolled
    back, your own move vanished, and it "carried out" only when the next poll landed. A _ts we have already
@@ -4182,7 +4182,7 @@ function dbSub(id,cb){
       .subscribe(status=>{if(status==='SUBSCRIBED')_ch.track({pid:G.myPid});});
   }
   if(_poll)clearInterval(_poll);
-  _poll=setInterval(()=>dbRead(id).then(onState),1500);
+  _pollCb=()=>dbRead(id).then(onState);_pollMs=1500;_poll=setInterval(_pollCb,1500);
   // The away badge/skip-button thresholds are time-based (AWAY_HINT_MS/AWAY_SKIP_MS), so they need
   // their own tick to advance on screen even when nothing else about the game state has changed —
   // otherwise a player who's merely gone quiet (no new state to trigger a render) would stay stuck
@@ -7726,7 +7726,7 @@ function stageOnSrv(prev,state){
     }
     else if(g==='blackwater'&&prev.bw&&state.bw&&state.bw.moves>prev.bw.moves&&state.bw.fx){
       const bwS=state.bw;
-      (window.queueMicrotask||(f=>Promise.resolve().then(f)))(()=>{if(G.srv&&G.srv.bw===bwS)bwRunSeq(bwS,false,null);});
+      (window.queueMicrotask||(f=>Promise.resolve().then(f)))(()=>{if(G.srv&&G.srv.bw&&G.srv.bw.moves===bwS.moves){if(G.bwSeq){G.bwNext=bwS;if(G.bwSeq.skip)G.bwSeq.skip();}else bwRunSeq(G.srv.bw,false,null);}});
     }
     else if(g==='chainreaction'&&prev.cr&&state.cr&&state.cr.moves>prev.cr.moves&&state.cr.fx){
       crFeel(state.cr.fx,(state.players||[])[state.cr.fx.who-1],state.cr);crRunSeq(state.cr,false,null);
@@ -14737,8 +14737,25 @@ async function oBwDeploy(fleet,decoys,mines){
   });
   if(ok){SFX.bwReady();G.bwTab='radar';}else SFX.illegal();
 }
+let _bwSending=false;
 async function oBwAct(act){
   if(!isMyTurn()){toast('Not your turn');return;}
+  if(_bwSending)return;
+  _bwSending=true;
+  try{
+    // show the move on this device straight away (the round trip to the room used to come first, and felt like nothing happening)
+    const cur=G.srv,mi=cur&&cur.players?cur.players.findIndex(p=>p.id===G.myPid):-1;
+    if(cur&&cur.bw&&mi>=0){
+      const opt=JSON.parse(JSON.stringify(cur));
+      if(!bwAct(opt.bw,mi+1,act)){SFX.illegal();return;}
+      opt.curIdx=opt.bw.cur-1;if(opt.bw.over)oBwFinish(opt);
+      onSrv(opt);
+    }
+    const ok=await oBwSend(act);
+    if(!ok){SFX.illegal();const fresh=await dbRead(G.roomId);if(fresh)onSrv(fresh);}
+  }finally{_bwSending=false;}
+}
+async function oBwSend(act){
   const ok=await oBwMutate(state=>{
     const i=(state.players||[]).findIndex(p=>p.id===G.myPid);
     if(i<0||!bwAct(state.bw,i+1,act))return false;
@@ -14746,7 +14763,7 @@ async function oBwAct(act){
     if(state.bw.over)oBwFinish(state);
     return true;
   });
-  if(!ok)SFX.illegal();
+  return ok;
 }
 function oBwFire(n){return oBwAct({t:'fire',n});}
 function oBwFinish(state){
@@ -14799,12 +14816,12 @@ function bwFxImg(svg,file,x,y,o){
    BWFX.emit(EVENT,data) is the one place where a moment of the battle gets its look and its sound: particles, light, camera,
    shake, a sound and a chance to react. bwRunSeq only decides WHEN each event happens (the five beats: quiet, anticipation, action,
    impact, aftermath). Everything is drawn with one small canvas, SVG shapes and CSS transforms, so it stays light on a phone. */
-const BWP={cv:null,cx:null,list:[],run:false,t:0,dpr:1,max:300,spr:{},rs:false};
+const BWP={cv:null,cx:null,list:[],run:false,t:0,dpr:1,max:220,spr:{},rs:false};
 const bwR=(a,b)=>a+Math.random()*(b-a);
 const BWC={fire:'255,214,130',ember:'255,140,56',white:'255,255,244',smoke:'58,60,66',smokeL:'168,172,178',teal:'159,227,214',amber:'255,179,71',gold:'255,214,120',water:'206,238,248',red:'255,60,40',blue:'120,190,255'};
 function bwpSize(){
   const cv=BWP.cv;if(!cv)return;
-  BWP.dpr=Math.min(2,window.devicePixelRatio||1);
+  BWP.dpr=Math.min(1.5,window.devicePixelRatio||1);
   cv.width=Math.round(innerWidth*BWP.dpr);cv.height=Math.round(innerHeight*BWP.dpr);
   cv.style.width=innerWidth+'px';cv.style.height=innerHeight+'px';
 }
@@ -15385,7 +15402,12 @@ function bwLockUI(){
   const n=G.bwSel;
   setTimeout(()=>{const e2=document.querySelector('.bw-lk');if(!e2||G.bwSel!==n)return;e2.textContent='LOCKED';e2.classList.add('ok');BWS.locked();const b=document.querySelector('.bw-fire');if(b)b.classList.add('armed');},750);
 }
+function bwSeqFail(e){try{console.error(e);toast('⚠️ Blackwater show problem: '+(e&&e.message?e.message:e));}catch(_){}}
 function bwRunSeq(bw,renderNow,done){
+  try{return bwRunSeq0(bw,renderNow,done);}
+  catch(e){bwSeqFail(e);G.bwSeq=null;try{render();}catch(_){}if(done)try{done();}catch(_){}}
+}
+function bwRunSeq0(bw,renderNow,done){
   const fx=bw&&bw.fx;
   let reduced=false;try{reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
   const players=gtSeatPlayers();
@@ -15436,12 +15458,14 @@ function bwRunSeq(bw,renderNow,done){
     if(G.bwSeq!==seq||finished)return;
     finished=true;G.bwSeq=null;bwScrClear();stages();render();bwPostFx(bw,fx,viewer);
     if(done)done();
+    const nx=G.bwNext;G.bwNext=null;   // a move that arrived while this one was shown: now its turn
+    if(nx&&G.srv&&G.srv.bw&&G.srv.bw.moves===nx.moves&&nx.moves>bw.moves)bwRunSeq(G.srv.bw,false,null);
   };
-  const after=(fn,ms)=>setTimeout(()=>{if(G.bwSeq===seq&&!finished)fn();},ms);
+  const after=(fn,ms)=>setTimeout(()=>{if(G.bwSeq===seq&&!finished){try{fn();}catch(e){bwSeqFail(e);fin();}}},ms);
   render();
   const svg=bwBoardEl(board);
   if(!svg){after(fin,200);return;}
-  after(fin,16000);   // nothing may hold the table for ever
+  after(fin,fx.over?14000:6500);   // nothing may hold the table for ever
   const u=bwUnit(svg),Q=G.isOnline?.62:1,T=fx.over?1.45:(G.isOnline?.7:1);
   if(G.isOnline&&!mine)seq.skip=fin;   // the other player is waiting for me: any tap on the boards shows the result at once
   const ctx=x=>Object.assign({svg:bwBoardEl(board)||svg,u,mine,fx,after},x);
@@ -23314,6 +23338,7 @@ function onSrvCore(state){
   const prevDw=state.gameId==='drawit'?{rid:G.srv?.dw?.rid,gn:(G.srv?.dw?.guesses||[]).length,winner:prevWinner,matchOver:!!G.srv?.matchOver}:null;
   stageOnSrv(G.srv,state);
   G.srv=state;dbNoteTs(state._ts||0);
+  if(G.isOnline)dbSetPoll(state.gameId==='blackwater'&&state.phase==='game'&&!state.winner?700:1500);
   if(state.mauPend&&state.mauPend.pid===G.myPid){
     const sig=state.mauPend.pid+'|'+state.mauPend.deadline;
     if(_oMauSig!==sig){
