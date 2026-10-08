@@ -7455,6 +7455,32 @@ async function runPresentation(A,W,frame){
       if(keepRec==null)W.localStorage.removeItem('ct_bw_record');else W.localStorage.setItem('ct_bw_record',keepRec);
     }
   });
+  suite('Blackwater — the finale again',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const human=(id,n,i,bot)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,...(bot?{bot}:{})});
+    const keepHist=W.localStorage.getItem('ct_history'),keepName=G.myName,keepRec=W.localStorage.getItem('ct_bw_record');
+    try{
+      G.isOnline=false;G.srv=null;G.selGame='blackwater';G.bwSeq=null;G.bwInstant=true;G.myName='Phil';
+      G.lp=[human(1,'Phil',0),human(2,'Anna',1,'sharp')];F('lDealBlackwater')();
+      const bw=G.bw;
+      check('there is no finale button before the game is over',!/data-a="bwfinale"/.test(F('bwReplayHTML')(bw,['Phil','Anna'])));
+      const f1=F('bwAutoFleet')(1,true),f2=F('bwAutoFleet')(2,true);F('bwDeploy')(bw,1,f1);F('bwDeploy')(bw,2,f2);let g=0;
+      while(!bw.over&&g++<3000){const s=bw.cur,a=F('bwBotAct')(bw,s,'commander');if(!a||!F('bwAct')(bw,s,a))break;}
+      const h=F('bwReplayHTML')(bw,['Phil','Anna']);
+      check('a finished game offers "Watch the finale again" (closed and open replay panel)',bw.over&&/data-a="bwfinale"/.test(h)&&(G.bwRpOpen=true,/data-a="bwfinale"/.test(F('bwReplayHTML')(bw,['Phil','Anna']))));
+      G.bwRpOpen=false;G.scr='matchend';
+      const tap=(a,attrs)=>{const b=W.document.createElement('button');b.setAttribute('data-a',a);Object.entries(attrs||{}).forEach(([k,v])=>b.setAttribute(k,v));W.document.body.appendChild(b);b.click();b.remove();};
+      G.bwInstant=false;
+      tap('bwfinale');
+      check('tapping it goes back to the table and plays the last shot (the show is running)',G.scr==='table'&&!!G.bwSeq&&G.bwSeq.fx===bw.fx);
+      check('a second tap during the show does nothing more',(()=>{const s=G.bwSeq;tap('bwfinale');return G.bwSeq===s;})());
+      G.bwSeq=null;G.bwFinaleOn=false;
+    }finally{
+      G.bwInstant=false;G.bwSeq=null;G.bwDep=null;G.scr='home';
+      if(keepHist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keepHist);G.myName=keepName;
+      if(keepRec==null)W.localStorage.removeItem('ct_bw_record');else W.localStorage.setItem('ct_bw_record',keepRec);
+    }
+  });
   suite('Blackwater — the opponent, the show and the battle again',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);
     const tap=(a,attrs)=>{const b=W.document.createElement('button');b.setAttribute('data-a',a);Object.entries(attrs||{}).forEach(([k,v])=>b.setAttribute(k,v));W.document.body.appendChild(b);b.click();b.remove();};

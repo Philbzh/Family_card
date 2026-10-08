@@ -14694,6 +14694,7 @@ function bwTap(a,t){
   if(a==='bwassist'){bwAssistNext();SFX.chip();render();return;}
   if(a==='bwbot'){G.bwBotLvl=t.getAttribute('data-l');try{localStorage.setItem('ct_bw_bot',G.bwBotLvl);}catch(e){}SFX.chip();render();return;}
   if(a==='bwrp'){bwRpTap(t.getAttribute('data-t'));return;}
+  if(a==='bwfinale'){bwFinale();return;}
   if(G.bwSeq)return;
   const viewer=bwViewSeat();
   if(bw.phase==='deploy'){
@@ -15809,7 +15810,8 @@ function bwRpState(bw,upto){
 function bwReplayHTML(bw,names){
   if(!bw||!bw.hist||!bw.fleet||!bw.fleet[0]||!bw.fleet[1])return'';
   const steps=bwRpSteps(bw);if(!steps.length)return'';
-  if(!G.bwRpOpen)return`<div class="panel gt-res" style="text-align:center;"><button class="btn btn-ghost" data-a="bwrp" data-t="tog">⏪ Watch the battle again — with every fleet in the open</button></div>`;
+  const fin=bw.over&&bw.fx&&(bw.fx.kind==='shot'||bw.fx.kind==='torp')?`<button class="btn btn-gold" data-a="bwfinale">🎬 Watch the finale again</button>`:'';
+  if(!G.bwRpOpen)return`<div class="panel gt-res" style="text-align:center;display:flex;flex-direction:column;gap:.5rem;align-items:center;">${fin}<button class="btn btn-ghost" data-a="bwrp" data-t="tog">⏪ Watch the battle again — with every fleet in the open</button></div>`;
   const rp=G.bwRp||(G.bwRp={i:steps.length,play:false}),i=Math.max(0,Math.min(steps.length,rp.i));
   const sy=bwRpState(bw,i),last=i>0?steps[i-1]:null;
   const cap=last?`${esc(names[last.s-1]||'?')} ${last.k==='sonar'?'📡':last.k==='depth'?'💣':last.k==='torp'?'🚀':'🎯'} ${last.n>=0?bwName(last.n):''} — <b>${last.k==='sonar'||last.k==='depth'?(last.r==='contact'?'CONTACT':last.r==='near'?'NEAR CONTACT':'CLEAR')+(last.sw&&last.sw.length?' · mines swept':''):last.r==='miss'?'MISS':last.r==='hit'?'HIT':last.r==='sunk'?'DESTROYED':last.r==='decoy'?'DECOY':last.r==='mine'?'MINE!':'CLEAR'}</b>`:'The fleets before the first move';
@@ -15818,7 +15820,16 @@ function bwReplayHTML(bw,names){
   return`<div class="panel gt-res bw-rp"><div class="panel-lbl">⏪ THE BATTLE AGAIN · MOVE ${i}/${steps.length}</div>
     <div class="bw-boards bw-rpb">${board(1)}${board(2)}</div>
     <div class="y-hint" style="margin:.4rem 0;">${cap}</div>
-    <div class="bw-tools">${b('first','⏮','Start')}${b('prev','◀','Back one move')}${b('play',rp.play?'⏸ Pause':'▶ Play','Play or pause')}${b('next','▶︎','Forward one move')}${b('last','⏭','End')}<button class="btn btn-ghost btn-sm" data-a="bwrp" data-t="tog">✕ Close</button></div></div>`;
+    <div class="bw-tools">${b('first','⏮','Start')}${b('prev','◀','Back one move')}${b('play',rp.play?'⏸ Pause':'▶ Play','Play or pause')}${b('next','▶︎','Forward one move')}${b('last','⏭','End')}<button class="btn btn-ghost btn-sm" data-a="bwrp" data-t="tog">✕ Close</button>${fin?`<button class="btn btn-gold btn-sm" data-a="bwfinale">🎬 Finale</button>`:''}</div></div>`;
+}
+// The finale again: the last shot of a finished game, shown on the table exactly as it was (the record of it is still in the game).
+function bwFinale(){
+  const bw=bwCurBW();
+  if(!bw||!bw.over||!bw.fx||G.bwSeq||!(bw.fx.kind==='shot'||bw.fx.kind==='torp'))return;
+  clearInterval(_bwRpT);_bwRpT=null;if(G.bwRp)G.bwRp.play=false;
+  G.scr='table';G.bwFinaleOn=true;
+  bwRunSeq(bw,false,()=>{setTimeout(()=>{G.bwFinaleOn=false;if(G.scr==='table'){G.scr='matchend';render();}},1400);});
+  if(!G.bwSeq){G.bwFinaleOn=false;G.scr='matchend';render();}
 }
 let _bwRpT=null;
 function bwRpTap(t){
@@ -27631,7 +27642,7 @@ document.addEventListener('click',e=>{
   else if(a==='pigroll'){G.isOnline?oPigRoll():pigRoll();}
   else if(a==='pigbank'){G.isOnline?oPigBank():pigBank();}
   else if(a==='guest-toggle'){G.guestGame=!G.guestGame;SFX.chip();render();}
-  else if(/^bw(dbg|cell|dep|ship|decoytool|minetool|rotate|auto|quick|clear|ready|tab|assist|fire|cancel|tool|scan|torpset|launch|silent|reppick|reprotate|rep|repgo|bot|rp)$/.test(a)){bwTap(a,t);}
+  else if(/^bw(dbg|cell|dep|ship|decoytool|minetool|rotate|auto|quick|clear|ready|tab|assist|fire|cancel|tool|scan|torpset|launch|silent|reppick|reprotate|rep|repgo|bot|rp|finale)$/.test(a)){bwTap(a,t);}
   else if(/^gt(roll|die|sum|bonus|skip|bank|reroll|run|shield|item|stop|dare|safe|revenge|go|cancel|secret|secretopen|secretclose|type|slot|place|disarmmode|disarm|recover)$/.test(a)){gtTap(a,t);}
   else if(a==='crcell'){crTap(+t.getAttribute('data-i'));}
   else if(a==='crarm'){
