@@ -14238,7 +14238,7 @@ const BW_ART='assets/blackwater/';
 // natural sizes of the ship pictures (top view), so that they can be fitted to their cells
 const BW_SHIP_PX={carrier:[280,88],battleship:[249,57],cruiser:[244,53],destroyer:[213,38],scout:[158,63]};
 const BW_WRECK_PX={carrier:[273,111],battleship:[241,97],cruiser:[221,97],destroyer:[190,86],scout:[169,82]};
-const BW_FILES=['ship-carrier','ship-battleship','ship-cruiser','ship-destroyer','ship-scout','decoy-buoy','wreck-carrier','wreck-battleship','wreck-cruiser','wreck-destroyer','wreck-scout','debris','ic-sonar','ic-torpedo','ic-depthcharge','ic-silent','ic-reposition','fx-hit','fx-destroyed','fx-splash','fx-ping','fx-wake','fx-flare'];
+const BW_FILES=['ship-carrier','ship-battleship','ship-cruiser','ship-destroyer','ship-scout','decoy-buoy','wreck-carrier','wreck-battleship','wreck-cruiser','wreck-destroyer','wreck-scout','debris','ic-sonar','ic-torpedo','ic-depthcharge','ic-silent','ic-reposition','fx-hit','fx-destroyed','fx-splash','fx-ping','fx-wake','fx-flare','fx-burst2','fx-sun','fx-star','fx-ring'];
 let _bwWarm=false;
 function bwWarmArt(){if(_bwWarm)return;_bwWarm=true;try{BW_FILES.forEach(f=>{const i=new Image();i.src=BW_ART+f+'.png';});}catch(e){}}
 // One ship (or its wreck) drawn along its cells. opt: {wreck, glow}
@@ -15193,7 +15193,7 @@ const BWFX={
       d.after(()=>{
         bwpBlast(p[0],p[1],S,2.3);bwpSplash(p[0],p[1],S,2.6);
         bwpRing(p[0],p[1],S,34,'rgba(255,150,80,.95)',2.8,.8);setTimeout(()=>bwpRing(p[0],p[1],S,24,'rgba(255,255,255,.8)',1.8,.7),120);
-        bwFxImg(svg,'fx-destroyed',P[0],P[1],{size:26,ms:1000,from:.3,to:1.2});gtWave(svg,P,'#ff8a4a',2,8,900);
+        bwFxImg(svg,'fx-destroyed',P[0],P[1],{size:26,ms:1000,from:.3,to:1.2});bwFxImg(svg,'fx-sun',P[0],P[1],{size:30,ms:1000,from:.25,to:1.15});bwFxImg(svg,'fx-ring',P[0],P[1],{size:52,ms:1200,from:.15,to:1.05,ratio:1.06});gtWave(svg,P,'#ff8a4a',2,8,900);
         bwShake(620,'l');if(mine)bwScr('s-hit',900,.7);else d.after(()=>BWS.cheer(),500);
         const t=gtEl(svg,'text',{x:P[0],y:P[1]-7,'text-anchor':'middle','font-size':4.4,'font-weight':700,fill:'#ff8a4a',class:'gt-reveal','pointer-events':'none'},1300);t.textContent='MINE!';
       },260);
@@ -15235,7 +15235,7 @@ const BWFX={
       order.forEach((c,i)=>at((fin?420:230)+i*step,()=>{
         const q=[bwX(c),bwY(c)],px=bwPx(svg,q);
         BWS.hit(.55+.35*i/len);bwpBlast(px[0],px[1],S,(.75+.5*i/len)*prof.big*(fin?1.25:1));
-        gtWave(svg,q,'#ff6a3e',1.2,4,700);bwFxImg(svg,'fx-destroyed',q[0],q[1],{size:15+prof.big*4+(fin?4:0),ms:900,from:.3,to:1.1});
+        gtWave(svg,q,'#ff6a3e',1.2,4,700);bwFxImg(svg,i%3===1?'fx-star':'fx-destroyed',q[0],q[1],{size:15+prof.big*4+(fin?4:0),ms:900,from:.3,to:1.1});
         bwShake(fin?420:240,fin||prof.shk!=='s'?'m':'s');
       }));
       // 3. the big explosions (and the deck breaking up on the big ships)
@@ -15245,6 +15245,8 @@ const BWFX={
         BWS.boom();bwShake(fin?900:640,'l');haptic([60,40,100]);
         bwpBlast(px[0],px[1],S,(fin?2.8:2.2)*prof.big,{clean:i>0});
         bwpRing(px[0],px[1],S,fin?40:26,'rgba(255,236,190,.9)',2.4,fin?1.1:.8);gtWave(svg,q,'#ffd98a',1.8,fin?12:9,fin?1300:950);
+        bwFxImg(svg,['fx-burst2','fx-sun','fx-burst2'][i%3],q[0],q[1],{size:(fin?34:24)*prof.big,ms:fin?1200:850,from:.25,to:1.15});
+        bwFxImg(svg,'fx-ring',q[0],q[1],{size:fin?74:48,ms:fin?1400:1000,from:.15,to:1.05,ratio:1.06});
         if(fin)setTimeout(()=>bwpRing(px[0],px[1],S,58,'rgba(255,170,90,.7)',1.6,1.3),150);
         bwScr('s-white',fin?420:280,fin?.6:.4);
       });
@@ -15303,6 +15305,7 @@ const BWFX={
       bwCam(svg,[61,61],1,1500);
       for(let i=0;i<6;i++)setTimeout(()=>bwpGold(0,innerWidth,-8,S,16),i*340);
       const p=bwPx(svg,[61,61]);
+      bwFxImg(svg,'fx-ring',61,61,{size:104,ms:1700,from:.2,to:1.1,ratio:1.06});
       [0,260,520].forEach((dl,i)=>setTimeout(()=>bwpRing(p[0],p[1],S,60+i*14,'rgba(255,214,120,.8)',2.2-i*.5,1.3),dl));
       return 2700;
     },
