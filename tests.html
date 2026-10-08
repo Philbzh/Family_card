@@ -6999,7 +6999,7 @@ async function runPresentation(A,W,frame){
       G.lp=[human(1,'Phil',0),human(2,'Anna',1)];F('lDealBlackwater')();
       check('on one device Blackwater is played against a bot: the second seat is made a bot and its fleet is hidden away already',G.lp[1].bot&&G.bw.phase==='deploy'&&G.bw.ready.join()==='false,true'&&G.scr==='table');
       let d=doc();
-      check('deployment: one board (your fleet), the five ships and the decoys to place, Fleet Ready is not yet possible',d.querySelectorAll('.bw-svg').length===1&&d.querySelectorAll('.bw-chip').length===6&&d.querySelector('[data-a="bwready"]').disabled===true);
+      check('deployment: one board (your fleet), the five ships and the decoys to place, Fleet Ready is not yet possible',d.querySelectorAll('.bw-svg').length===1&&d.querySelectorAll('.bw-chip').length===7&&d.querySelector('[data-a="bwready"]').disabled===true);
       tap('bwship',{'data-id':'scout'});tap('bwdep',{'data-n':'0'});
       check('tap a ship, tap the ocean: it is placed (clamped to fit the grid) and the next ship is selected',G.bwDep.pl.scout&&G.bwDep.pl.scout.r===0&&G.bwDep.pl.scout.c===0&&G.bwDep.sel==='carrier');
       tap('bwdep',{'data-n':'9'});
@@ -7049,8 +7049,8 @@ async function runPresentation(A,W,frame){
       check('the end screen shows the winner, the ships left, a title and the numbers',res.querySelectorAll('.sr').length===2&&/ship/.test(res.body.textContent)&&!!res.querySelector('.bw-title')&&/SHOTS/.test(res.body.textContent));
       // the registry
       const gm=F('GAMES').find(x=>x.id==='blackwater');
-      check('Blackwater is on the roster: 2 players, online, with bots, rules, tour, tagline, accent colour, label and reactions',gm&&gm.minP===2&&gm.maxP===2&&gm.rules.length>=6&&F('ONLINE_GAMES').includes('blackwater')&&F('BOT_GAMES').has('blackwater')&&F('TOURS').blackwater.slides.length===6&&!!F('STAGE_TAGS').blackwater&&!!F('MOMENT_ACCENT').blackwater&&F('v14GameLabel')('blackwater')==='Blackwater'&&F('REACTION_GAME').blackwater.length===3);
-      check('five Blackwater trophies exist',F('ACHIEVEMENTS').filter(a=>a.id.startsWith('bw-')).length===5);
+      check('Blackwater is on the roster: 2 players, online, with bots, rules, tour, tagline, accent colour, label and reactions',gm&&gm.minP===2&&gm.maxP===2&&gm.rules.length>=6&&F('ONLINE_GAMES').includes('blackwater')&&F('BOT_GAMES').has('blackwater')&&F('TOURS').blackwater.slides.length===7&&!!F('STAGE_TAGS').blackwater&&!!F('MOMENT_ACCENT').blackwater&&F('v14GameLabel')('blackwater')==='Blackwater'&&F('REACTION_GAME').blackwater.length===3);
+      check('six Blackwater trophies exist',F('ACHIEVEMENTS').filter(a=>a.id.startsWith('bw-')).length===6);
       // online: each device draws only its own fleet
       G.isOnline=true;G.myPid='pB';G.scr='table';
       const bw2=F('bwNew')(31);F('bwDeploy')(bw2,1,F('bwAutoFleet')(1,true));F('bwDeploy')(bw2,2,F('bwAutoFleet')(2,true));bw2.cur=1;
@@ -7186,6 +7186,128 @@ async function runPresentation(A,W,frame){
       const a=mkp(fb()),c=mkp(F('bwAutoFleet')(77,true));
       const seq=()=>{let i=0;return()=>[.1,.7,.3,.9,.5,.2,.8][i++%7];};
       return JSON.stringify(F('bwBotAct')(a,1,'admiral',seq()))===JSON.stringify(F('bwBotAct')(c,1,'admiral',seq()));})());
+  });
+  suite('Blackwater — mines',()=>{
+    const F=n=>W.eval(n);
+    const mk=seed=>{const bw=F('bwNew')(seed);const f1=F('bwAutoFleet')(seed+1,true),f2=F('bwAutoFleet')(seed+2,true);const d1=F('bwAutoDecoys')(seed+3,f1,true),d2=F('bwAutoDecoys')(seed+4,f2,true);
+      F('bwDeploy')(bw,1,f1,d1,F('bwAutoMines')(seed+5,f1,d1,true));F('bwDeploy')(bw,2,f2,d2,F('bwAutoMines')(seed+6,f2,d2,true));return bw;};
+    check('a fleet may carry up to two mines in empty water — never under a ship or a decoy, never twice on one square',(()=>{
+      const f=F('bwAutoFleet')(3,true),d=F('bwAutoDecoys')(4,f,true),ship=F('bwCells')(f[0])[0];
+      return F('bwMinesOk')([],f,d)&&F('bwMinesOk')(null,f,d)&&!F('bwMinesOk')([ship],f,d)&&!F('bwMinesOk')([d[0]],f,d)&&!F('bwMinesOk')([1,1],f,d)&&!F('bwMinesOk')([1,2,3],f,d)&&!F('bwMinesOk')([100],f,d);})());
+    check('Auto deploy always lays two legal mines (200 tries), close to the ships when smart',(()=>{for(let i=1;i<=200;i++){const f=F('bwAutoFleet')(i,true),d=F('bwAutoDecoys')(i+1,f,true),m=F('bwAutoMines')(i+2,f,d,true);if(m.length!==2||!F('bwMinesOk')(m,f,d))return false;}return true;})());
+    check('a game started without mines (an older room, or a player who skipped them) still works',(()=>{const bw=F('bwNew')(9),f=F('bwAutoFleet')(1,true);return F('bwDeploy')(bw,1,f)&&F('bwDeploy')(bw,2,F('bwAutoFleet')(2,true))&&bw.mines[0].length===0&&bw.phase==='battle';})());
+    check('a shot on a mine is wasted: the square becomes a crater (6), the shooter learns nothing about ships, and the mine’s owner is owed an extra shot',(()=>{
+      const bw=mk(21),me=bw.cur,ow=3-me,n=bw.mines[ow-1][0],fx=F('bwFire')(bw,me,n);
+      return fx.res==='mine'&&fx.owner===ow&&bw.shots[ow-1][n]===6&&bw.extra[ow-1]===1&&bw.mineGone[ow-1].includes(n)&&bw.stats.mines[ow-1]===1&&bw.stats.hits[me-1]===0&&bw.cur===ow;})());
+    check('the owner then plays TWO turns in a row, and only once',(()=>{
+      const bw=mk(22),me=bw.cur,ow=3-me;F('bwFire')(bw,me,bw.mines[ow-1][0]);
+      const free=seat=>{for(let n=0;n<100;n++)if(F('bwOpen')(bw.shots[2-seat],n)&&!F('bwShipAt')(bw,3-seat,n)&&!F('bwDecoyAt')(bw,3-seat,n)&&!F('bwMineAt')(bw,3-seat,n))return n;return -1;};
+      const a=F('bwFire')(bw,ow,free(ow));const stay=bw.cur===ow&&a.again===true&&bw.extra[ow-1]===0;
+      const b=F('bwFire')(bw,ow,free(ow));return stay&&bw.cur===me&&!b.again;})());
+    check('a crater cannot be shot again, and the heat-map bots treat it as water that can hold no ship',(()=>{
+      const bw=mk(23),me=bw.cur,ow=3-me,n=bw.mines[ow-1][0];F('bwFire')(bw,me,n);
+      return F('bwFire')(bw,ow,0)!==undefined&&!F('bwOpen')(bw.shots[ow-1],n)&&F('bwPlacements')(bw.shots[ow-1],[2,3]).count[n]===0&&F('bwHeat')(bw,me)[n]===0;})());
+    check('a torpedo that reaches a mine before anything else sets it off (wasted, extra shot for the owner)',(()=>{
+      for(let seed=30;seed<80;seed++){
+        const bw=mk(seed),me=bw.cur,ow=3-me,n=bw.mines[ow-1][0],r=Math.floor(n/10),c=n%10;
+        // a path from the edge that meets the mine first: no ship or decoy before it
+        const path=F('bwTorpPath')('r',r,'a'),k=path.indexOf(n);
+        if(path.slice(0,k).some(x=>F('bwLiveShipCell')(bw,ow,x)||F('bwDecoyAt')(bw,ow,x)||F('bwMineAt')(bw,ow,x)))continue;
+        const fx=F('bwTorpedo')(bw,me,'r',r,'a');return fx.res==='mine'&&fx.n===n&&bw.extra[ow-1]===1&&bw.shots[ow-1][n]===6;}
+      return false;})());
+    check('a depth charge sets off every mine in its 5×5 area harmlessly and shows where they were (no extra shot); sonar and a silent fleet do not',(()=>{
+      const bw=mk(41),me=bw.cur,ow=3-me,n=bw.mines[ow-1][0];
+      const s=F('bwSonar')(bw,me,n);const none=s&&s.swept.length===0&&bw.shots[ow-1][n]===0;
+      bw.scanned=false;const d=F('bwDepth')(bw,me,n);
+      const ok=d.swept.includes(n)&&bw.shots[ow-1][n]===6&&bw.extra[ow-1]===0&&bw.cur===me&&bw.hist[bw.hist.length-1].sw.includes(n);
+      const bw2=mk(42),me2=bw2.cur,ow2=3-me2;bw2.silent[ow2-1]=2;const m2=bw2.mines[ow2-1][0],d2=F('bwDepth')(bw2,me2,m2);
+      return none&&ok&&d2.swept.length===0&&bw2.shots[ow2-1][m2]===0;})());
+    check('a ship cannot be moved onto a mine of its own, or onto a crater',(()=>{
+      const bw=mk(51),me=bw.cur,ow=3-me;
+      const sc=bw.fleet[me-1].find(s=>s.id==='scout'),m=bw.mines[me-1][0];
+      // try to place the scout so it covers the mine
+      for(const d of ['h','v'])for(let k=0;k<2;k++){const r=d==='h'?Math.floor(m/10):Math.floor(m/10)-k,c=d==='h'?m%10-k:m%10;if(r>=0&&c>=0&&F('bwFits')({id:'scout',r,c,d})&&F('bwCells')({id:'scout',r,c,d}).includes(m)){if(F('bwRepositionOk')(bw,me,'scout',r,c,d))return false;}}
+      return true;})());
+    check('the title MINELAYER and the trophy are for a winner whose mines caught the enemy twice',(()=>{
+      const bw=mk(61);bw.over=true;bw.win=1;bw.stats.mines=[2,0];bw.stats.shots=[60,60];bw.stats.sonar=[1,0];return F('bwTitle')(bw)==='MINELAYER'&&F('ACHIEVEMENTS').some(a=>a.id==='bw-mines');})());
+    check('bots play whole games with mines in the water and the game always ends legally (30 games, a Commander and an Officer)',(()=>{
+      for(let i=0;i<30;i++){const bw=mk(100+i);let g=0;while(!bw.over&&g++<900){const s=bw.cur,a=F('bwBotAct')(bw,s,s===1?'commander':'officer');if(!a||!F('bwAct')(bw,s,a))return false;}
+        if(!bw.over)return false;}return true;})());
+  });
+  suite('Blackwater — the opponent, the show and the battle again',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const tap=(a,attrs)=>{const b=W.document.createElement('button');b.setAttribute('data-a',a);Object.entries(attrs||{}).forEach(([k,v])=>b.setAttribute(k,v));W.document.body.appendChild(b);b.click();b.remove();};
+    const doc=()=>new DOMParser().parseFromString(F('rBlackwaterTable')(),'text/html');
+    const human=(id,n,i,bot)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,...(bot?{bot}:{})});
+    const keepHist=W.localStorage.getItem('ct_history'),keepName=G.myName,keepBot=W.localStorage.getItem('ct_bw_bot');
+    try{
+      W.localStorage.removeItem('ct_bw_bot');
+      G.isOnline=false;G.srv=null;G.selGame='blackwater';G.bwSeq=null;G.bwInstant=true;G.myName='Phil';
+      G.lp=[human(1,'Phil',0),human(2,'Anna',1,'sharp')];F('lDealBlackwater')();
+      let d=doc();
+      check('on one device the deployment screen lets you choose the opponent: Cadet, Officer, Commander or Admiral (the Admiral is the default for a Sharp bot)',d.querySelectorAll('.bw-bot').length===4&&d.querySelector('.bw-bot.on').getAttribute('data-l')==='admiral');
+      tap('bwbot',{'data-l':'cadet'});
+      check('choosing one is remembered for the next game, and the bot then plays at that level',G.bwBotLvl==='cadet'&&W.localStorage.getItem('ct_bw_bot')==='cadet'&&doc().querySelector('.bw-bot.on').getAttribute('data-l')==='cadet');
+      W.localStorage.removeItem('ct_bw_bot');F('lDealBlackwater')();
+      check('(a fresh game with nothing remembered goes back to the bot’s own level)',doc().querySelector('.bw-bot.on').getAttribute('data-l')==='admiral');
+      tap('bwminetool');tap('bwdep',{'data-n':'0'});tap('bwdep',{'data-n':'1'});tap('bwdep',{'data-n':'2'});
+      check('the mine tool puts up to two mines in empty water; a third is refused; tapping one takes it away',G.bwDep.mines.join()==='0,1');
+      tap('bwclear');tap('bwdep',{'data-n':'0'});tap('bwminetool');tap('bwdep',{'data-n':'0'});
+      check('a mine cannot be put under a ship',G.bwDep.mines.length===0);
+      tap('bwauto');
+      check('Auto deploy lays two mines too, and your own mines are drawn on your own board',G.bwDep.mines.length===2&&doc().querySelectorAll('.bw-mine').length===2);
+      tap('bwready');
+      check('Fleet Ready carries the mines into the game; the enemy mines are nowhere on the screen',G.bw.mines[0].length===2&&G.bw.mines[1].length===2&&doc().querySelectorAll('.bw-svg[data-kind="radar"] .bw-mine').length===0);
+      // a mine at the table
+      G.bw.cur=1;G.lcur=0;
+      const n=G.bw.mines[1][0];tap('bwcell',{'data-n':String(n)});tap('bwfire');
+      check('firing on a mine at the table: the crater is on the radar, the bot is owed an extra shot (⚡ in its pill) and it plays two turns',G.bw.shots[1][n]===6&&G.bw.extra[1]===1&&G.bw.cur===2&&/⚡/.test(doc().querySelector('.y-standings-strip').textContent));
+      {let k=0;while(G.bw.cur===2&&!G.bw.fx.again&&k++<8)F('botBlackwaterAct')(G.lp[1]);
+       const stayed=G.bw.cur===2&&G.bw.fx.again===true;k=0;while(G.bw.cur===2&&!G.bw.over&&k++<8)F('botBlackwaterAct')(G.lp[1]);
+       check('...the bot’s first turn-ending action keeps its turn (again), the second hands it back',stayed&&(G.bw.cur===1||G.bw.over));}
+      // the show
+      check('the cinematic layer answers to every moment of the battle: lock, fire, pause, miss, hit, decoy, mine, destruction, last stand, final contact, victory, defeat, scans, torpedo, silence, moving, turns',
+        ['TARGET_LOCK','FIRE','IMPACT_FREEZE','MISS','HIT','DECOY_REVEAL','MINE_BLAST','MINES_SWEPT','SHIP_DESTROYED','LAST_STAND','FINAL_CONTACT','VICTORY','DEFEAT','SONAR_SCAN','DEPTH_CHARGE','CONTACT','CLEAR','TORPEDO_LAUNCH','TORPEDO_FIZZLE','SILENT_RUNNING','REPOSITION','TURN_START','ENEMY_TURN'].every(k=>typeof F('BWFX').ev[k]==='function'));
+      check('asking for an event nobody knows is harmless, and a broken handler can never stop the game',(()=>{F('BWFX').emit('NOPE',{});const old=F('BWFX').ev.MISS;F('BWFX').ev.MISS=()=>{throw new Error('x');};let ok=true;try{F('BWFX').emit('MISS',{});}catch(e){ok=false;}F('BWFX').ev.MISS=old;return ok;})());
+      check('each class of ship has its own destruction: the longer the ship the longer the show, and the carrier is the longest',(()=>{const D=F('BW_DESTROY');return D.scout.ms<D.destroyer.ms&&D.destroyer.ms<D.cruiser.ms&&D.cruiser.ms<D.battleship.ms&&D.battleship.ms<D.carrier.ms&&D.carrier.ms>=4000&&D.scout.ms<2000;})());
+      check('the particle engine has a cap, builds its canvas once and adds nothing when animations are off',(()=>{
+        const keep=W.localStorage.getItem('ct_gt_anim');W.localStorage.setItem('ct_gt_anim','off');const n0=F('BWP').list.length;F('bwpAdd')({k:'drop',x:1,y:1,vx:0,vy:0,r:1,col:'#fff',life:1});const offOk=F('BWP').list.length===n0;
+        W.localStorage.setItem('ct_gt_anim','full');F('BWP').list.length=0;for(let i=0;i<500;i++)F('bwpAdd')({k:'drop',x:1,y:1,vx:0,vy:0,r:1,col:'#fff',life:30});const cap=F('BWP').list.length<=F('BWP').max;F('BWP').list.length=0;
+        const one=W.document.querySelectorAll('#bw-fxcv').length<=1;
+        if(keep==null)W.localStorage.removeItem('ct_gt_anim');else W.localStorage.setItem('ct_gt_anim',keep);return offOk&&cap&&one;})());
+      check('Light uses half the particles and Off none',(()=>{const keep=W.localStorage.getItem('ct_gt_anim');W.localStorage.setItem('ct_gt_anim','light');const l=F('bwpN')(20);W.localStorage.setItem('ct_gt_anim','off');const o=F('bwpN')(20);W.localStorage.setItem('ct_gt_anim','full');const f=F('bwpN')(20);if(keep==null)W.localStorage.removeItem('ct_gt_anim');else W.localStorage.setItem('ct_gt_anim',keep);return l===10&&o===0&&f===20;})());
+      check('the sounds are all there',['lock','locked','warn','fire','splash','hit','boom','rumble','ping','blip','clear','torp','siren','beat','victory','lost','silent','move','chime'].every(k=>typeof F('BWS')[k]==='function'));
+      check('a scan reveals which ships it lit up: every ship drawn carries its id and cells',(()=>{const x=doc().querySelector('.bw-ship');return !!x&&!!x.getAttribute('data-id')&&/\d/.test(x.getAttribute('data-cells')||'');})());
+      check('the last surviving ship gets a gold outline',(()=>{const bw=G.bw,v=1;const keep=bw.wreck[0].slice();bw.wreck[0]=bw.fleet[0].slice(0,4).map(s=>({id:s.id,r:s.r,c:s.c,d:s.d}));const has=/bw-ship[^"]* last/.test(F('bwBoardSVG')(bw,'fleet',{viewer:1}));bw.wreck[0]=keep;return has;})());
+      check('two hits side by side are joined by a line (the contact pattern) on the board',(()=>{const bw=G.bw;const g=bw.shots[1];const keep=g.slice();g[33]=2;g[34]=2;const has=/stroke="#ffb347" stroke-width="\.9" stroke-opacity="\.6"/.test(F('bwBoardSVG')(bw,'radar',{viewer:1}));g.length=0;keep.forEach(x=>g.push(x));return has;})());
+      // the battle again
+      G.bwInstant=true;
+      {const bw2=F('bwNew')(777),fa=F('bwAutoFleet')(11,true),fb=F('bwAutoFleet')(12,true),da=F('bwAutoDecoys')(13,fa,true),db=F('bwAutoDecoys')(14,fb,true);
+        F('bwDeploy')(bw2,1,fa,da,F('bwAutoMines')(15,fa,da,true));F('bwDeploy')(bw2,2,fb,db,F('bwAutoMines')(16,fb,db,true));
+        let g=0;while(!bw2.over&&g++<900){const s=bw2.cur,a=F('bwBotAct')(bw2,s,'admiral');if(!a||!F('bwAct')(bw2,s,a))break;}
+        const steps=F('bwRpSteps')(bw2);
+        check('the replay has one step for every shot, torpedo and scan, in order',bw2.over&&steps.length>20&&steps.every(h=>['shot','torp','sonar','depth'].includes(h.k)));
+        check('at the end of the replay the boards are exactly what the game ended with (shots, craters, decoys, mines and wrecks)',(()=>{const sy=F('bwRpState')(bw2,steps.length);
+          const moved=bw2.stats.repos[0]+bw2.stats.repos[1]>0;
+          return [0,1].every(i=>sy.shots[i].every((v,n)=>moved?true:v===bw2.shots[i][n]))&&sy.wreck[0].length===bw2.wreck[0].length&&sy.wreck[1].length===bw2.wreck[1].length&&sy.decoyGone.every((a,i)=>a.length===bw2.decoyGone[i].length)&&sy.mineGone.every((a,i)=>a.length===bw2.mineGone[i].length);})());
+        check('at the start both seas are empty, and each step adds at most one mark to a sea',(()=>{const s0=F('bwRpState')(bw2,0);if(!s0.shots.every(g=>g.every(v=>v===0)))return false;let prev=0;for(let i=1;i<=steps.length;i++){const s=F('bwRpState')(bw2,i),c=s.shots[0].filter(v=>v).length+s.shots[1].filter(v=>v).length;if(c<prev||c>prev+8)return false;prev=c;}return true;})());
+        // the panel on the end screen
+        G.bw=bw2;G.lp=[human(1,'Phil',0),human(2,'Anna',1,'sharp')];G.bwRpOpen=false;G.bwRp=null;
+        check('the end screen offers the replay as a button, closed at first',/Watch the battle again/.test(F('bwReplayHTML')(bw2,['Phil','Anna'])));
+        tap('bwrp',{'data-t':'tog'});
+        let h=F('bwReplayHTML')(bw2,['Phil','Anna']);
+        check('opened: both fleets are shown in the open (ten ships), at move 0, with the controls',G.bwRpOpen&&G.bwRp.i===0&&(h.match(/class="bw-ship/g)||[]).length>=1&&/MOVE 0\//.test(h)&&/data-t="play"/.test(h)&&/data-t="next"/.test(h));
+        tap('bwrp',{'data-t':'next'});tap('bwrp',{'data-t':'next'});
+        check('forward and back move one step at a time, first and last jump to the ends',G.bwRp.i===2&&(tap('bwrp',{'data-t':'prev'}),G.bwRp.i===1)&&(tap('bwrp',{'data-t':'last'}),G.bwRp.i===steps.length)&&(tap('bwrp',{'data-t':'first'}),G.bwRp.i===0));
+        tap('bwrp',{'data-t':'tog'});
+        check('closing it puts the button back',!G.bwRpOpen&&/Watch the battle again/.test(F('bwReplayHTML')(bw2,['Phil','Anna'])));
+        check('the results table carries the replay panel',/bw-rp|Watch the battle again/.test((G.isOnline=false,G.selGame='blackwater',G.bw=bw2,F('bwResultsHTML')())));
+      }
+    }finally{
+      G.bwInstant=false;G.bwSeq=null;G.bwDep=null;G.bwRpOpen=false;G.bwRp=null;G.bwBotLvl='';
+      if(keepBot==null)W.localStorage.removeItem('ct_bw_bot');else W.localStorage.setItem('ct_bw_bot',keepBot);
+      if(keepHist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keepHist);G.myName=keepName;
+    }
   });
   suite('Blackwater — the new tools at the table',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);
