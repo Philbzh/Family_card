@@ -7100,13 +7100,25 @@ async function runPresentation(A,W,frame){
       return a.r==='contact'&&n.r==='near'&&c.r==='clear'&&a.size===5&&x.ammo[0].depth===0&&x.cur===1&&F('bwDepth')(mk(),2,10)===null;})());
     // torpedo
     b=mk();
-    check('torpedo along row 5 from the left hits the Destroyer at A5 (the first live thing), uses the turn, and is counted',(()=>{const t=F('bwTorpedo')(b,1,'r',4,'a');return t.res==='hit'&&t.name==='A5'&&t.path.join()==='40'&&b.cur===2&&b.ammo[0].torp===1&&b.stats.torp[0]===1;})());
-    check('torpedo from the other side hits the other end: from the right along row 5 reaches C5',(()=>{const x=mk();const t=F('bwTorpedo')(x,1,'r',4,'b');return t.res==='hit'&&t.name==='C5'&&t.path.length===8;})());
-    check('torpedo down a column from the top and from the bottom',(()=>{const x=mk(),y=mk();const t=F('bwTorpedo')(x,1,'c',9,'a'),u=F('bwTorpedo')(y,1,'c',9,'b');return t.res==='hit'&&t.name==='J1'&&u.res==='hit'&&u.name==='J2';})());
-    check('a torpedo skips squares that were already shot',(()=>{const x=mk();F('bwFire')(x,1,40);F('bwFire')(x,2,99);const t=F('bwTorpedo')(x,1,'r',4,'a');return t.name==='B5';})());
-    check('a torpedo that finds nothing reports CLEAR with no square (the whole line is crossed)',(()=>{const x=mk();const t=F('bwTorpedo')(x,1,'r',6,'a');return t.res==='clear'&&t.n===-1&&t.path.length===10&&x.cur===2;})());
-    check('a torpedo can hit a decoy: DECOY DESTROYED and the torpedo is wasted',(()=>{const x=mk();const t=F('bwTorpedo')(x,1,'c',5,'a');return t.res==='decoy'&&t.name==='F6'&&x.decoyGone[1].join()==='55';})());
-    check('a torpedo can destroy a ship and win it a TORPEDO ACE count',(()=>{const x=mk();F('bwFire')(x,1,9);F('bwFire')(x,2,99);const t=F('bwTorpedo')(x,1,'c',9,'b');return t.res==='sunk'&&x.stats.torpSunk[0]===1;})());
+    check('a torpedo is strong: it flies through the WHOLE line and hits everything on it — along row 5 it sinks the Destroyer lying there (A5, B5, C5) in one go, uses the turn and is counted once',(()=>{const t=F('bwTorpedo')(b,1,'r',4,'a');return t.res==='sunk'&&t.hits.length===3&&t.hits.map(h=>h.name).join()==='A5,B5,C5'&&t.ship.id==='destroyer'&&t.ships.length===1&&t.path.length===10&&b.cur===2&&b.ammo[0].torp===1&&b.stats.torp[0]===1&&b.stats.shots[0]===1&&b.stats.hits[0]===3;})());
+    check('from the other side it is the same line, met in the other order (C5 first)',(()=>{const x=mk();const t=F('bwTorpedo')(x,1,'r',4,'b');return t.res==='sunk'&&t.hits.length===3&&t.hits[0].name==='C5'&&t.path.length===10;})());
+    check('on every one of the 20 lines, from either side, the torpedo hits exactly the ship cells and decoys that lie on it, in order from the launching side — and nothing else',(()=>{
+      for(const line of ['r','c'])for(let i=0;i<10;i++)for(const from of ['a','b']){
+        const x=mk(),path=F('bwTorpPath')(line,i,from),want=path.filter(c=>F('bwShipAt')(x,2,c)||F('bwDecoyAt')(x,2,c));
+        const t=F('bwTorpedo')(x,1,line,i,from);
+        if(JSON.stringify(t.cells)!==JSON.stringify(want))return false;
+        if(!want.length&&(t.res!=='clear'||t.n!==-1))return false;
+        if(want.length&&t.hits.length!==want.length)return false;
+      }return true;})());
+    check('a torpedo skips squares that were already shot (it only hits what is still there)',(()=>{const x=mk();F('bwFire')(x,1,40);F('bwFire')(x,2,99);const t=F('bwTorpedo')(x,1,'r',4,'a');return t.hits.map(h=>h.name).join()==='B5,C5'&&t.res==='sunk';})());
+    check('a torpedo that finds nothing reports CLEAR with no square (the whole line is crossed)',(()=>{const x=mk();const t=F('bwTorpedo')(x,1,'r',6,'a');return t.res==='clear'&&t.n===-1&&t.path.length===10&&t.hits.length===0&&x.cur===2;})());
+    check('a torpedo can hit a decoy on its way: DECOY DESTROYED, and it flies on',(()=>{const x=mk();const t=F('bwTorpedo')(x,1,'c',5,'a');return t.hits.some(h=>h.res==='decoy'&&h.name==='F6')&&x.decoyGone[1].join()==='55';})());
+    check('a torpedo can destroy ships and win a TORPEDO ACE count',(()=>{const x=mk();F('bwFire')(x,1,9);F('bwFire')(x,2,99);const t=F('bwTorpedo')(x,1,'c',9,'b');return t.res==='sunk'&&x.stats.torpSunk[0]>=1&&t.ships.length===x.stats.torpSunk[0];})());
+    check('a mine is the one thing that stops a torpedo: the ships before it are hit, what lies beyond is not, and the mine’s owner is owed an extra shot',(()=>{
+      const x=mk();x.mines[1]=[45];const t=F('bwTorpedo')(x,1,'r',4,'a');
+      const y=mk();y.mines[1]=[45];const u=F('bwTorpedo')(y,1,'r',4,'b');
+      return t.res==='sunk'&&t.hits.length===4&&t.hits[3].res==='mine'&&t.mineHit===true&&t.path.length===6&&x.extra[1]===1&&x.shots[1][45]===6
+        &&u.res==='mine'&&u.hits.length===1&&u.path.length===5&&y.shots[1][40]===0&&y.shots[1][42]===0;})());
     check('only two torpedoes, and bad lines are refused',(()=>{const x=mk();F('bwTorpedo')(x,1,'r',9,'a');F('bwFire')(x,2,99);F('bwTorpedo')(x,1,'r',8,'a');F('bwFire')(x,2,98);return F('bwTorpedo')(x,1,'r',7,'a')===null&&F('bwTorpedo')(mk(),1,'x',1,'a')===null&&F('bwTorpedo')(mk(),1,'r',10,'a')===null&&F('bwTorpedo')(mk(),1,'r',1,'z')===null;})());
     // silent running
     b=mk();
