@@ -6917,6 +6917,7 @@ async function runPresentation(A,W,frame){
   });
 
   /* —— Blackwater (Battleship-inspired naval game), step 1 —————— */
+  W.eval('BW_CHAIN=false');   // the engine suites below were written for one action a turn; the chain rule (a hit lets you fire again) has its own suite
   suite('Blackwater — fleets and deployment',()=>{
     const F=n=>W.eval(n);
     const ship=(id,r,c,d)=>({id,r,c,d});
@@ -7248,6 +7249,71 @@ async function runPresentation(A,W,frame){
     check('bots play whole games with mines in the water and the game always ends legally (30 games, a Commander and an Officer)',(()=>{
       for(let i=0;i<30;i++){const bw=mk(100+i);let g=0;while(!bw.over&&g++<900){const s=bw.cur,a=F('bwBotAct')(bw,s,s===1?'commander':'officer');if(!a||!F('bwAct')(bw,s,a))return false;}
         if(!bw.over)return false;}return true;})());
+  });
+  suite('Blackwater — a hit lets you fire again',()=>{
+    const F=n=>W.eval(n);
+    W.eval('BW_CHAIN=true');
+    try{
+    const mk=seed=>{const bw=F('bwNew')(seed),f1=F('bwAutoFleet')(seed+1,true),f2=F('bwAutoFleet')(seed+2,true);F('bwDeploy')(bw,1,f1);F('bwDeploy')(bw,2,f2);bw.cur=1;return bw;};
+    const shipCells=(bw,seat)=>bw.fleet[seat-1].flatMap(s=>F('bwCells')(s));
+    const water=(bw,seat)=>{for(let n=0;n<100;n++)if(!shipCells(bw,seat).includes(n)&&F('bwOpen')(bw.shots[seat-1],n))return n;return -1;};
+    check('a new game carries the rule: a hit lets you fire again',F('bwNew')(1).chain===true);
+    check('a HIT keeps the turn: the same player fires again (and the record says so); a MISS hands the turn over',(()=>{
+      const bw=mk(5),c=shipCells(bw,2)[0],a=F('bwFire')(bw,1,c);
+      const stay=a.res==='hit'&&a.chain===true&&a.again===true&&bw.cur===1;
+      const b=F('bwFire')(bw,1,water(bw,2));return stay&&b.res==='miss'&&!b.chain&&bw.cur===2;})());
+    check('a whole chain: hit after hit — including sinking a ship — keeps the turn, until the first miss',(()=>{
+      const bw=mk(6),ship=bw.fleet[1][4],cs=F('bwCells')(ship);let last=null;
+      cs.forEach(c=>{last=F('bwFire')(bw,1,c);});
+      const ok=last.res==='sunk'&&bw.cur===1&&bw.stats.maxStreak[0]===cs.length;
+      F('bwFire')(bw,1,water(bw,2));return ok&&bw.cur===2;})());
+    check('a decoy ends the turn (it is not a ship), and so does a mine (and the mine’s owner still gets the extra shot)',(()=>{
+      const bw=mk(7);bw.decoys[1]=[water(bw,2)];const d=F('bwFire')(bw,1,bw.decoys[1][0]);
+      const bw2=mk(8);const m=water(bw2,2);bw2.mines[1]=[m];const x=F('bwFire')(bw2,1,m);
+      return d.res==='decoy'&&bw.cur===2&&x.res==='mine'&&bw2.cur===2&&bw2.extra[1]===1;})());
+    check('the last hit ends the game — nobody fires again',(()=>{
+      const bw=mk(9);bw.fleet[1].forEach(s=>{if(s.id!=='scout'){F('bwCells')(s).forEach(n=>{bw.shots[1][n]=3;});bw.wreck[1].push(s);}});
+      const cs=F('bwCells')(bw.fleet[1].find(s=>s.id==='scout'));F('bwFire')(bw,1,cs[0]);const e=F('bwFire')(bw,1,cs[1]);return e.over&&bw.over&&bw.win===1&&!e.chain;})());
+    check('a torpedo that crosses a ship keeps the turn; one that finds nothing, or only decoys, or ends on a mine, hands it over',(()=>{
+      const bw=mk(10);const line=(()=>{for(let r=0;r<10;r++){const p=F('bwTorpPath')('r',r,'a');if(p.some(c=>shipCells(bw,2).includes(c)))return r;}return -1;})();
+      const t=F('bwTorpedo')(bw,1,'r',line,'a');const hit=t.hits.some(h=>h.res==='hit'||h.res==='sunk')&&t.chain===true&&bw.cur===1;
+      const bw2=mk(11);const clear=(()=>{for(let r=0;r<10;r++){const p=F('bwTorpPath')('r',r,'a');if(!p.some(c=>shipCells(bw2,2).includes(c)))return r;}return -1;})();
+      const t2=F('bwTorpedo')(bw2,1,'r',clear,'a');
+      const bw3=mk(12);const dr=(()=>{for(let r=0;r<10;r++){const p=F('bwTorpPath')('r',r,'a');if(!p.some(c=>shipCells(bw3,2).includes(c))){bw3.decoys[1]=[p[3]];return r;}}return -1;})();
+      const t3=F('bwTorpedo')(bw3,1,'r',dr,'a');
+      const bw4=mk(13);const l4=line;const p4=F('bwTorpPath')('r',l4,'a');const first=p4.findIndex(c=>shipCells(bw4,2).includes(c));
+      let mc=p4.find((c,i)=>i>first&&!shipCells(bw4,2).includes(c));if(mc==null)mc=-1;
+      if(mc>=0)bw4.mines[1]=[mc];const t4=F('bwTorpedo')(bw4,1,'r',l4,'a');
+      return hit&&t2.res==='clear'&&bw2.cur===2&&t3.res==='decoy'&&bw3.cur===2&&(mc<0||(t4.mineHit===true&&bw4.cur===2));})());
+    check('the silent-running count only goes down when a turn really ends (a chain of hits is one turn)',(()=>{
+      const bw=mk(14);bw.silent[0]=2;F('bwFire')(bw,2,0);   // (seat 2 is not on turn: refused)
+      const c=shipCells(bw,2)[0];F('bwFire')(bw,1,c);const keep=bw.silent[0]===2&&bw.cur===1;
+      F('bwFire')(bw,1,water(bw,2));return keep&&bw.cur===2;})());
+    check('bots play whole games with the chain rule and they always end legally (30 games, an Admiral and a Commander)',(()=>{
+      for(let i=0;i<30;i++){const bw=mk(200+i);let g=0;while(!bw.over&&g++<1200){const s=bw.cur,a=F('bwBotAct')(bw,s,s===1?'admiral':'commander');if(!a||!F('bwAct')(bw,s,a))return false;}
+        if(!bw.over)return false;}return true;})());
+    check('games are shorter with the rule than a shot a turn (the same bots, 20 games each: fewer turns)',(()=>{
+      const turns=(chain)=>{let n=0;for(let i=0;i<20;i++){W.eval('BW_CHAIN='+chain);const bw=mk(400+i);let g=0;while(!bw.over&&g++<1500){const s=bw.cur,a=F('bwBotAct')(bw,s,'commander');if(!a||!F('bwAct')(bw,s,a))break;}n+=bw.round;}return n;};
+      const a=turns(false),b=turns(true);W.eval('BW_CHAIN=true');return b<a;})());
+    // at the table
+    {
+      const G=W.eval('G');
+      const tap=(a,attrs)=>{const b=W.document.createElement('button');b.setAttribute('data-a',a);Object.entries(attrs||{}).forEach(([k,v])=>b.setAttribute(k,v));W.document.body.appendChild(b);b.click();b.remove();};
+      const doc=()=>new DOMParser().parseFromString(F('rBlackwaterTable')(),'text/html');
+      const human=(id,n,i,bot)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,...(bot?{bot}:{})});
+      const keepHist=W.localStorage.getItem('ct_history'),keepName=G.myName;
+      try{
+        G.isOnline=false;G.srv=null;G.selGame='blackwater';G.bwSeq=null;G.bwInstant=true;G.myName='Phil';
+        G.lp=[human(1,'Phil',0),human(2,'Anna',1,'sharp')];F('lDealBlackwater')();
+        tap('bwauto');tap('bwready');G.bw.cur=1;G.lcur=0;G.bw.mines=[[],[]];G.bw.decoys=[[],[]];
+        const hitCell=shipCells(G.bw,2)[0];
+        tap('bwcell',{'data-n':String(hitCell)});tap('bwfire');
+        check('at the table: a hit and it is still your turn — the prompt says "Hit! Fire again" and the tool bar is there',G.bw.cur===1&&/Fire again/.test(doc().querySelector('.y-hint').textContent)&&!!doc().querySelector('.bw-toolbar'));
+        tap('bwcell',{'data-n':String(water(G.bw,2))});tap('bwfire');
+        check('...and a miss hands the turn to the bot',G.bw.cur===2);
+      }finally{G.bwInstant=false;G.bwSeq=null;G.bwDep=null;if(keepHist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keepHist);G.myName=keepName;}
+    }
+    }finally{W.eval('BW_CHAIN=false');}
   });
   suite('Blackwater — the opponent, the show and the battle again',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);
