@@ -7015,7 +7015,7 @@ async function runPresentation(A,W,frame){
       check('Fleet Ready starts the battle and shows both boards, nothing of the enemy fleet',G.bw.phase==='battle'&&(()=>{const e=doc();return e.querySelectorAll('.bw-svg').length===2&&e.querySelectorAll('.bw-svg[data-kind="radar"] g.bw-ship').length===0&&e.querySelectorAll('.bw-svg[data-kind="fleet"] g.bw-ship').length===5;})());
       G.bw.cur=1;G.lcur=0;
       // fire
-      const bot=G.bw.fleet[1].flatMap(s=>F('bwCells')(s));
+      const bot=G.bw.fleet[1].flatMap(s=>F('bwCells')(s)).concat(G.bw.decoys[1],G.bw.mines[1]||[]);
       let target=0;while(bot.includes(target))target++;
       tap('bwcell',{'data-n':String(target)});
       d=doc();
@@ -7308,6 +7308,25 @@ async function runPresentation(A,W,frame){
       if(keepBot==null)W.localStorage.removeItem('ct_bw_bot');else W.localStorage.setItem('ct_bw_bot',keepBot);
       if(keepHist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keepHist);G.myName=keepName;
     }
+  });
+  suite('Blackwater — online: a show in progress is not rebuilt by a poll',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const keep={on:G.isOnline,srv:G.srv,seq:G.bwSeq,sel:G.selGame};
+    const app=W.document.getElementById('app');
+    try{
+      G.isOnline=true;G.srv={gameId:'blackwater'};G.bwSeq={};G.selGame='blackwater';
+      check('while an online Blackwater show runs it counts as busy; offline or with no show it does not',F('bwSeqBusy')()===true&&(G.isOnline=false,F('bwSeqBusy')()===false)&&(G.isOnline=true,G.bwSeq=null,F('bwSeqBusy')()===false));
+      G.bwSeq={};G.scr='table';
+      const before=app.innerHTML;app.innerHTML='<i id="sentinel">x</i>';
+      W.eval('_bwAutoRender=true');F('render')();
+      const held=!!W.document.getElementById('sentinel');
+      W.eval('_bwAutoRender=false');
+      check('a redraw asked for by a poll, presence or the away tick is held back while the show runs (it would wipe the shell and the explosion)',held);
+      app.innerHTML=before;
+    }finally{
+      W.eval('_bwAutoRender=false');G.isOnline=keep.on;G.srv=keep.srv;G.bwSeq=keep.seq;G.selGame=keep.sel;
+    }
+    check('every other game is untouched by that hold (a redraw during a poll still happens)',(()=>{G.isOnline=true;G.srv={gameId:'uno'};G.bwSeq={};const r=F('bwSeqBusy')()===false;G.isOnline=keep.on;G.srv=keep.srv;G.bwSeq=keep.seq;return r;})());
   });
   suite('Blackwater — the new tools at the table',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);

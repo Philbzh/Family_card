@@ -4132,7 +4132,7 @@ function _onPresenceSync(){
     if(_presentPids.has(pid))delete _absentSince[pid];
     else if(_absentSince[pid]==null)_absentSince[pid]=Date.now();
   });
-  render();
+  if(!bwSeqBusy())render();
 }
 // What to do with each snapshot the poll / realtime channel hands back. A snapshot this device has not seen is
 // applied. One it HAS seen is normally either the state already on screen or an old read arriving late, and is
@@ -4171,7 +4171,7 @@ function dbSub(id,cb){
   // otherwise a player who's merely gone quiet (no new state to trigger a render) would stay stuck
   // showing "may be away" long past the point the skip button should have appeared.
   if(_awayTick)clearInterval(_awayTick);
-  _awayTick=setInterval(()=>{if(Object.keys(_absentSince).length)render();oRoulCheckStuckSpin();},4000);
+  _awayTick=setInterval(()=>{if(Object.keys(_absentSince).length&&!bwSeqBusy())render();oRoulCheckStuckSpin();},4000);
 }
 // keepSeat=true means "I am walking away from this screen", not "I am done with this game". Tapping
 // Home used to be irreversible: it wiped ct_online_session, and join() refuses any room already in
@@ -7708,7 +7708,8 @@ function stageOnSrv(prev,state){
       abRunSeq(state.ab,false,null);
     }
     else if(g==='blackwater'&&prev.bw&&state.bw&&state.bw.moves>prev.bw.moves&&state.bw.fx){
-      bwRunSeq(state.bw,false,null);
+      const bwS=state.bw;
+      (window.queueMicrotask||(f=>Promise.resolve().then(f)))(()=>{if(G.srv&&G.srv.bw===bwS)bwRunSeq(bwS,false,null);});
     }
     else if(g==='chainreaction'&&prev.cr&&state.cr&&state.cr.moves>prev.cr.moves&&state.cr.fx){
       crFeel(state.cr.fx,(state.players||[])[state.cr.fx.who-1],state.cr);crRunSeq(state.cr,false,null);
@@ -9831,7 +9832,7 @@ async function oMhAuto(){
 }
 
 /* ── Mayhem: the table ── */
-let _gtEndAt=0,_abEndAt=0,_bwEndAt=0;
+let _gtEndAt=0,_abEndAt=0,_bwEndAt=0,_bwAutoRender=false;
 let _crEndAt=0;
 let _mhEndAt=0;
 function mhMyHand(mh){
@@ -15309,6 +15310,7 @@ const BWFX={
     }
   }
 };
+function bwSeqBusy(){return !!(G.bwSeq&&G.isOnline&&G.srv&&G.srv.gameId==='blackwater');}
 function bwVisible(svg){return !!svg&&!svg.closest('.bw-card.off')&&svg.getBoundingClientRect().width>0;}
 /* the sea itself: bubbles, smoke from damaged ships, rain, mist or sun-glints, always light and only while the table is on screen */
 let _bwAmbT=null;
@@ -15423,8 +15425,9 @@ function bwRunSeq(bw,renderNow,done){
   const svg=bwBoardEl(board);
   if(!svg){after(fin,200);return;}
   after(fin,16000);   // nothing may hold the table for ever
-  const u=bwUnit(svg),T=fx.over?1.45:1;
-  const ctx=x=>Object.assign({svg,u,mine,fx,after},x);
+  const u=bwUnit(svg),Q=G.isOnline?.62:1,T=fx.over?1.45:(G.isOnline?.7:1);
+  if(G.isOnline&&!mine)seq.skip=fin;   // the other player is waiting for me: any tap on the boards shows the result at once
+  const ctx=x=>Object.assign({svg:bwBoardEl(board)||svg,u,mine,fx,after},x);
   const scan=fx.kind==='sonar'||fx.kind==='depth';
   // ── 📡 / 💣 a scan
   if(scan){
@@ -15456,16 +15459,17 @@ function bwRunSeq(bw,renderNow,done){
     else if(fx.final){after(()=>BWFX.emit('FINAL_CONTACT',ctx({P:Pi})),t);t+=1500;}
     after(fin,t);
   };
+  const L=ms=>Math.round(ms*(G.isOnline?.7:1));   // online the other player is waiting: shorter pauses
   const reveal=()=>{
     seq.skip=fin;
     if(ret&&ret.remove)ret.remove();
-    if(fx.res==='clear'){const ms=BWFX.emit('TORPEDO_FIZZLE',ctx({P:Pi}))||1000;after(fin,ms);return;}
-    if(fx.res==='miss'){after(fin,BWFX.emit('MISS',ctx({P,torp:fx.kind==='torp'}))||950);return;}
-    if(fx.res==='mine'){after(fin,BWFX.emit('MINE_BLAST',ctx({P}))||1900);return;}
-    if(fx.res==='decoy'){after(fin,BWFX.emit('DECOY_REVEAL',ctx({P}))||1500);return;}
+    if(fx.res==='clear'){const ms=BWFX.emit('TORPEDO_FIZZLE',ctx({P:Pi}))||1000;after(fin,L(ms));return;}
+    if(fx.res==='miss'){after(fin,L(BWFX.emit('MISS',ctx({P,torp:fx.kind==='torp'}))||950));return;}
+    if(fx.res==='mine'){after(fin,L(BWFX.emit('MINE_BLAST',ctx({P}))||1900));return;}
+    if(fx.res==='decoy'){after(fin,L(BWFX.emit('DECOY_REVEAL',ctx({P}))||1500));return;}
     if(fx.res==='hit'){
       const links=[fx.n%10>0?fx.n-1:-1,fx.n%10<9?fx.n+1:-1,fx.n-10,fx.n+10].filter(m=>m>=0&&m<100&&g[m]===2);
-      tail(BWFX.emit('HIT',ctx({P,links,power:fx.kind==='torp'?1.5:1,torp:fx.kind==='torp',first:fx.first}))||1000);
+      tail(L(BWFX.emit('HIT',ctx({P,links,power:fx.kind==='torp'?1.5:1,torp:fx.kind==='torp',first:fx.first}))||1000));
       return;
     }
     const ms=BWFX.emit('SHIP_DESTROYED',ctx({P,slow:T,own:!mine}))||2000;
@@ -15485,7 +15489,8 @@ function bwRunSeq(bw,renderNow,done){
     const head=gtEl(svg,'circle',{cx:edgeA[0],cy:edgeA[1],r:1.4,fill:'#fff3c0','pointer-events':'none'},0);
     const S=u/2.8;let t0=0,lastB=0;
     const frame=now=>{
-      if(G.bwSeq!==seq||!head.isConnected){wake.remove();head.remove();return;}
+      if(G.bwSeq!==seq)return;
+      if(!head.isConnected){wake.remove();head.remove();impact();return;}
       const tt=Math.min(1,(now-t0)/dur),d2=tt<.65?tt/.65*.85:.85+(tt-.65)/.35*.15;   // it slows for the last stretch
       const x=edgeA[0]+(b[0]-edgeA[0])*d2,y=edgeA[1]+(b[1]-edgeA[1])*d2;
       head.setAttribute('cx',x.toFixed(1));head.setAttribute('cy',y.toFixed(1));wake.setAttribute('x2',x.toFixed(1));wake.setAttribute('y2',y.toFixed(1));
@@ -15497,7 +15502,7 @@ function bwRunSeq(bw,renderNow,done){
     after(()=>{t0=performance.now();requestAnimationFrame(frame);},520);
     return;
   }
-  const start=mine?[61,118]:[61,-6],lockMs=430,antic=190,trav=500;
+  const start=mine?[61,118]:[61,-6],lockMs=Math.round(430*Q),antic=Math.round(190*Q),trav=Math.round(500*Q);
   ret=BWFX.emit('TARGET_LOCK',ctx({P,ms:lockMs+antic+trav+400}));
   after(()=>BWFX.emit('FIRE',ctx({P,start,travel:trav})),lockMs);
   after(()=>{
@@ -15506,7 +15511,8 @@ function bwRunSeq(bw,renderNow,done){
     const glow=gtEl(svg,'circle',{cx:start[0],cy:start[1],r:3.2,fill:'#ffb347','fill-opacity':.35,'pointer-events':'none'},0);
     const t0=performance.now();let lastT=0;
     const frame=now=>{
-      if(G.bwSeq!==seq||!shell.isConnected){shell.remove();glow.remove();return;}
+      if(G.bwSeq!==seq)return;
+      if(!shell.isConnected){shell.remove();glow.remove();impact();return;}
       const uu=Math.min(1,(now-t0)/trav),e=uu*uu*(3-2*uu);
       const x=start[0]+(P[0]-start[0])*e,y=start[1]+(P[1]-start[1])*e-Math.sin(Math.PI*uu)*14,r=1.5*(1.5-.6*uu);
       shell.setAttribute('cx',x.toFixed(1));shell.setAttribute('cy',y.toFixed(1));shell.setAttribute('r',r.toFixed(2));
@@ -23267,7 +23273,8 @@ function oMauTimeoutCheck(sig){
     await dbWrite(G.roomId,state);
   })();
 }
-function onSrv(state){
+function onSrv(state){_bwAutoRender=true;try{return onSrvCore(state);}finally{_bwAutoRender=false;}}
+function onSrvCore(state){
   // dbRead already normalises, but onSrv is also called directly by the local optimistic-update paths
   // and by the realtime payload path, so guard here too rather than trusting every caller.
   state=sanitiseState(state);
@@ -23517,8 +23524,15 @@ function onSrv(state){
           addHistory({game:'blackwater',winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),players:nms,mode:'online',
             moment:state.moment||`${state.winnerName} destroyed the enemy fleet.`,
             stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions,bw:bwStatsFor(state.bw,nms)}});
-          _bwEndAt=Date.now()+3600;
-          setTimeout(()=>{if(G.isOnline&&G.srv&&G.srv.gameId==='blackwater'&&G.srv.winner){G.scr='matchend';render();}},3650);
+          _bwEndAt=Infinity;let idleAt=0;
+          const goEnd=()=>{
+            if(!(G.isOnline&&G.srv&&G.srv.gameId==='blackwater'&&G.srv.winner)){_bwEndAt=0;return;}
+            if(G.bwSeq){idleAt=0;setTimeout(goEnd,300);return;}
+            if(!idleAt)idleAt=Date.now();
+            if(Date.now()-idleAt<2600){setTimeout(goEnd,300);return;}
+            _bwEndAt=0;G.scr='matchend';render();
+          };
+          setTimeout(goEnd,1200);
         }
         if(Date.now()<_bwEndAt){G.scr='table';render();return;}
         G.scr='matchend';render();return;
@@ -26978,6 +26992,7 @@ function render(){
   // A render rebuilds #app, canvas included, which would drop the artist's pen mid-stroke -- and online
   // the artist's own snapshot write echoes straight back as a state update. Hold it until the pen lifts.
   if(_dwPenDown){_dwPendingRender=true;return;}
+  if(_bwAutoRender&&bwSeqBusy())return;   // Blackwater: the show in progress draws the final picture itself when it ends
   // Same idea for a guesser mid-word: presence blips and away-ticks also call render(), and each rebuild
   // would dismiss the iPad keyboard. Held until the field loses focus.
   if(document.activeElement&&(document.activeElement.id==='dw-guess-input'||(document.activeElement.id==='talk-input'&&G.selGame==='drawit'))&&G.scr==='table'){_dwPendingRender=true;return;}
