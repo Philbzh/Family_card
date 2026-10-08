@@ -7109,9 +7109,12 @@ async function runPresentation(A,W,frame){
         if(JSON.stringify(t.cells)!==JSON.stringify(want))return false;
         if(!want.length&&(t.res!=='clear'||t.n!==-1))return false;
         if(want.length&&t.hits.length!==want.length)return false;
+        const empty=t.path.filter(c=>!want.includes(c));
+        if(JSON.stringify(t.clearCells)!==JSON.stringify(empty)||!empty.every(c=>x.shots[1][c]===1))return false;   // what it crossed without finding anything is marked as empty water
       }return true;})());
+    check('a torpedo that finds nothing marks every square of the line as empty water (a miss, nothing shot), and a later reposition makes those marks doubtful like any miss',(()=>{const x=mk();F('bwTorpedo')(x,1,'r',6,'a');F('bwFire')(x,2,99);return x.shots[1].slice(60,70).every(v=>v===1);})());
     check('a torpedo skips squares that were already shot (it only hits what is still there)',(()=>{const x=mk();F('bwFire')(x,1,40);F('bwFire')(x,2,99);const t=F('bwTorpedo')(x,1,'r',4,'a');return t.hits.map(h=>h.name).join()==='B5,C5'&&t.res==='sunk';})());
-    check('a torpedo that finds nothing reports CLEAR with no square (the whole line is crossed)',(()=>{const x=mk();const t=F('bwTorpedo')(x,1,'r',6,'a');return t.res==='clear'&&t.n===-1&&t.path.length===10&&t.hits.length===0&&x.cur===2;})());
+    check('a torpedo that finds nothing reports CLEAR with no square (the whole line is crossed)',(()=>{const x=mk();const t=F('bwTorpedo')(x,1,'r',6,'a');return t.res==='clear'&&t.n===-1&&t.path.length===10&&t.hits.length===0&&x.cur===2&&t.clearCells.length===10&&x.shots[1].slice(60,70).every(v=>v===1)&&x.stats.shots[0]===0;})());
     check('a torpedo can hit a decoy on its way: DECOY DESTROYED, and it flies on',(()=>{const x=mk();const t=F('bwTorpedo')(x,1,'c',5,'a');return t.hits.some(h=>h.res==='decoy'&&h.name==='F6')&&x.decoyGone[1].join()==='55';})());
     check('a torpedo can destroy ships and win a TORPEDO ACE count',(()=>{const x=mk();F('bwFire')(x,1,9);F('bwFire')(x,2,99);const t=F('bwTorpedo')(x,1,'c',9,'b');return t.res==='sunk'&&x.stats.torpSunk[0]>=1&&t.ships.length===x.stats.torpSunk[0];})());
     check('a mine is the one thing that stops a torpedo: the ships before it are hit, what lies beyond is not, and the mine’s owner is owed an extra shot',(()=>{
@@ -7302,7 +7305,7 @@ async function runPresentation(A,W,frame){
         check('at the end of the replay the boards are exactly what the game ended with (shots, craters, decoys, mines and wrecks)',(()=>{const sy=F('bwRpState')(bw2,steps.length);
           const moved=bw2.stats.repos[0]+bw2.stats.repos[1]>0;
           return [0,1].every(i=>sy.shots[i].every((v,n)=>moved?true:v===bw2.shots[i][n]))&&sy.wreck[0].length===bw2.wreck[0].length&&sy.wreck[1].length===bw2.wreck[1].length&&sy.decoyGone.every((a,i)=>a.length===bw2.decoyGone[i].length)&&sy.mineGone.every((a,i)=>a.length===bw2.mineGone[i].length);})());
-        check('at the start both seas are empty, and each step adds at most one mark to a sea',(()=>{const s0=F('bwRpState')(bw2,0);if(!s0.shots.every(g=>g.every(v=>v===0)))return false;let prev=0;for(let i=1;i<=steps.length;i++){const s=F('bwRpState')(bw2,i),c=s.shots[0].filter(v=>v).length+s.shots[1].filter(v=>v).length;if(c<prev||c>prev+8)return false;prev=c;}return true;})());
+        check('at the start both seas are empty, and each step adds only a few marks to a sea (a torpedo marks its whole line)',(()=>{const s0=F('bwRpState')(bw2,0);if(!s0.shots.every(g=>g.every(v=>v===0)))return false;let prev=0;for(let i=1;i<=steps.length;i++){const s=F('bwRpState')(bw2,i),c=s.shots[0].filter(v=>v).length+s.shots[1].filter(v=>v).length;if(c<prev||c>prev+12)return false;prev=c;}return true;})());
         // the panel on the end screen
         G.bw=bw2;G.lp=[human(1,'Phil',0),human(2,'Anna',1,'sharp')];G.bwRpOpen=false;G.bwRp=null;
         check('the end screen offers the replay as a button, closed at first',/Watch the battle again/.test(F('bwReplayHTML')(bw2,['Phil','Anna'])));
