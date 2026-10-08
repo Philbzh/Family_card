@@ -6774,7 +6774,7 @@ async function runPresentation(A,W,frame){
     };
     const g=mk(2);
     check('Turbo is the first mode and the default',Object.keys(F('GT_MODES'))[0]==='turbo'&&(W.localStorage.removeItem('ct_gt_mode'),F('gtMode')()==='turbo'));
-    check('Turbo: two runners each standing on their entry, one home wins, no traps, hazards, risk spaces, events or beams, the shield is not a free action',g.turbo&&g.sprint&&g.need===1&&g.run.every(r=>r.length===2&&r.every(x=>x.rel===0))&&g.tmax===0&&g.haz.length===0&&g.risk.length===0&&!g.evNext&&!g.sw&&g.sh.every(h=>h.s===2)&&g.gate>0);
+    check('Turbo: two runners each standing on their entry, both runners home wins, no traps, hazards, risk spaces, events or beams, the shield is not a free action',g.turbo&&g.sprint&&g.need===2&&g.run.every(r=>r.length===2&&r.every(x=>x.rel===0))&&g.tmax===0&&g.haz.length===0&&g.risk.length===0&&!g.evNext&&!g.sw&&g.sh.every(h=>h.s===2)&&g.gate>0);
     check('item boxes lie on ordinary ring spaces only (not safe, not an entry, not a shortcut mouth)',g.boxes.length>=6&&g.boxes.every(a=>!g.safe[a]&&!g.entries.includes(a)&&!g.sc.some(s=>s.a===a||s.b===a)));
     check('everybody starts with one item, and nothing lies on the board yet',g.items.every(h=>h.length===1)&&g.bananas.length===0&&g.clover.every(c=>c===0)&&!g.pushing&&g.gain===0);
     // the first roll
@@ -6808,7 +6808,11 @@ async function runPresentation(A,W,frame){
     // winning
     const w=mk(2,10);w.run[0][0].rel=44;
     mv(w,1,0,[4,3]);
-    check('the first runner home wins on the spot, even in the middle of a push',w.over&&w.win===1&&w.fin&&w.fin.left.length===0);
+    check('one runner home is not enough in Turbo: it needs both, and the game goes on',!w.over&&F('gtHomeCount')(w,1)===1);
+    const w2=mk(2,11);w2.run[0][0].rel=48;w2.run[0][1].rel=44;
+    mv(w2,1,1,[4,3]);
+    check('the first player with BOTH runners home wins on the spot, even in the middle of a push',w2.over&&w2.win===1&&w2.fin&&w2.fin.left.length===0);
+    check('an older Turbo game (made before the change, need 1) still ends with the first runner home',(()=>{const o=mk(2,12);o.need=1;o.run[0][0].rel=44;mv(o,1,0,[4,3]);return o.over&&o.win===1;})());
   });
   suite('The Gauntlet — Turbo: items, boxes and bananas',()=>{
     const F=n=>W.eval(n);
