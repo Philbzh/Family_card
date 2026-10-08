@@ -13856,6 +13856,12 @@ function bwNew(seed){
     cur:1,moves:0,round:1,over:false,win:0,fx:null,hist:[],
     stats:{shots:[0,0],hits:[0,0],sunk:[0,0],streak:[0,0],maxStreak:[0,0],sonar:[0,0],torp:[0,0],depth:[0,0],silent:[0,0],repos:[0,0],torpSunk:[0,0],mines:[0,0]}};
 }
+// A running series between the same two players: first to two wins. A finished series starts again with the next game.
+function bwSeriesAdd(ser,win){
+  const s=ser&&!ser.done?{wins:ser.wins.slice(),games:ser.games,done:false}:{wins:[0,0],games:0,done:false};
+  s.wins[win-1]++;s.games++;s.done=s.wins[win-1]>=2;
+  return s;
+}
 function bwLog(bw,e){bw.hist.push(e);if(bw.hist.length>400)bw.hist.shift();}
 // A player locks in their fleet (and decoys). Returns false (and changes nothing) when that is not allowed, so a retried write is harmless.
 function bwDeploy(bw,seat,fleet,decoys,mines){
@@ -14526,13 +14532,15 @@ function rBlackwaterTable(){
     </div>`;
   const lastLeft=bw.phase==='battle'&&!bw.over?bwShipsLeft(bw,viewer):5;
   const last=lastLeft===1?'<div class="gt-final">🚨 LAST STAND — one ship left</div>':'';
+  const ser=online?(state&&state.bwSeries):G.bwSeries;
+  const serchip=ser&&ser.games>0&&!ser.done&&!bw.over?`<div class="bw-wx wx-calm bw-ser" role="status">🏆 SERIES · ${esc(seatOf(0).name)} <b>${ser.wins[0]}</b> – <b>${ser.wins[1]}</b> ${esc(seatOf(1).name)} · first to 2</div>`:'';
   const wxchip=wx&&bw.phase==='battle'&&!bw.over?`<div class="bw-wx wx-${wx.kind}" role="status">${BW_WX[wx.kind][0]} <b>${BW_WX[wx.kind][1]}</b> — ${BW_WX[wx.kind][2]} · ${wx.left} round${wx.left!==1?'s':''} left</div>`:'';
   return`<div id="s-table" class="scr on game-gauntlet game-blackwater">
     ${gb}
     <div class="y-standings-strip">${pills}</div>
     <div class="felt-table gt-felt bw-felt${mineTurn?' my-turn':''}" style="flex:0 0 auto;min-height:0;max-height:none;padding:.55rem .6rem;gap:.5rem;">
       <div class="bw-cam">
-        ${last}${wxchip}${tabs}
+        ${last}${serchip}${wxchip}${tabs}
         <div class="bw-boards an-${gtAnim()}${seq?' live':''}${wx?' wx-'+wx.kind:''}${lastLeft===1?' laststand':''}${deploying?' deploy':''}">${radar}${fleet}</div>
         <div class="bw-panel">
           <div class="y-hint">${prompt}</div>
@@ -14746,6 +14754,7 @@ function bwStatsFor(bw,names){
 function bwEndLocal(bwArg){
   const bw=bwArg||G.bw;if(!bw||!bw.over||G.bw!==bw)return;
   const names=G.lp.map(p=>p.name);
+  if(!bw.tallied){bw.tallied=true;const key=names.join('|'),same=G.bwSeries&&G.bwSeries.key===key?G.bwSeries:null;G.bwSeries=bwSeriesAdd(same,bw.win);G.bwSeries.key=key;}
   G.lp.forEach((p,i)=>{p.bwLeft=bwShipsLeft(bw,i+1);p.c4Result=bw.win===i+1?'win':'loss';p.totalScore=bwShipsLeft(bw,i+1);});
   const winner=G.lp[bw.win-1];
   G.bwMoment=bwMoment(bw,names);G.bwTitle=bwTitle(bw);
@@ -14814,6 +14823,7 @@ function oBwFinish(state){
   const bw=state.bw,names=(state.players||[]).map(p=>p.name);
   state.players.forEach((p,i)=>{p.bwLeft=bwShipsLeft(bw,i+1);p.c4Result=bw.win===i+1?'win':'loss';p.totalScore=bwShipsLeft(bw,i+1);});
   const wp=state.players[bw.win-1];
+  state.bwSeries=bwSeriesAdd(state.bwSeries,bw.win);
   state.winner=wp.id;state.winnerName=wp.name;state.winnerAv=wp.avatar;
   state.moment=bwMoment(bw,names);state.title=bwTitle(bw);
   state.lastAct=esc(wp.name)+' destroyed the enemy fleet.';
@@ -15757,7 +15767,9 @@ function bwResultsHTML(){
   if(!bw||!bw.stats)return'';
   const s=bw.stats,title=G.isOnline?(G.srv&&G.srv.title):G.bwTitle;
   const rows=players.map((p,i)=>`<tr><td>${i===0?'⚓':'🎯'} ${esc(p.name)}</td><td>${s.shots[i]}</td><td>${s.hits[i]}</td><td>${s.shots[i]?Math.round(s.hits[i]/s.shots[i]*100):0}%</td><td>${s.sunk[i]}</td><td>${s.sonar[i]+s.depth[i]}</td><td>${s.torp[i]}</td><td>${bwShipsLeft(bw,i+1)}</td></tr>`).join('');
-  return`<div class="panel gt-res">${title?`<div class="bw-title">⚓ ${esc(title)}</div>`:''}<div class="panel-lbl">BLACKWATER · ${s.shots[0]+s.shots[1]} SHOTS</div><table><thead><tr><th></th><th title="Shots">🎯</th><th title="Hits">💥</th><th title="Accuracy">%</th><th title="Ships destroyed">⚓✕</th><th title="Sonar scans and depth charges">📡</th><th title="Torpedoes">🚀</th><th title="Ships left">⚓</th></tr></thead><tbody>${rows}</tbody></table></div>${bwReplayHTML(bw,players.map(p=>p.name))}`;
+  const sr=G.isOnline?(G.srv&&G.srv.bwSeries):G.bwSeries;
+  const srl=sr&&sr.games>0?`<div class="bw-title" style="font-size:.82rem;letter-spacing:.14em;">🏆 SERIES · ${esc(players[0].name)} ${sr.wins[0]} – ${sr.wins[1]} ${esc(players[1].name)}${sr.done?` — <b>${esc(players[sr.wins[0]>sr.wins[1]?0:1].name)} wins the series!</b>`:' · first to 2'}</div>`:'';
+  return`<div class="panel gt-res">${title?`<div class="bw-title">⚓ ${esc(title)}</div>`:''}${srl}<div class="panel-lbl">BLACKWATER · ${s.shots[0]+s.shots[1]} SHOTS</div><table><thead><tr><th></th><th title="Shots">🎯</th><th title="Hits">💥</th><th title="Accuracy">%</th><th title="Ships destroyed">⚓✕</th><th title="Sonar scans and depth charges">📡</th><th title="Torpedoes">🚀</th><th title="Ships left">⚓</th></tr></thead><tbody>${rows}</tbody></table></div>${bwReplayHTML(bw,players.map(p=>p.name))}`;
 }
 
 
@@ -24729,7 +24741,7 @@ function oStartGame(rs){
       if(rs.gameId==='blackwater'){
         const players=rs.players.slice(0,2).map(p=>({...p,totalScore:0,c4Result:null,bwLeft:5}));
         const gs={phase:'game',gameId:'blackwater',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
-          bw:bwNew(),winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
+          bw:bwNew(),bwSeries:rs.bwSeries||null,winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
         G.srv=gs;G.bwDep=null;G.bwSel=null;G.bwTab='fleet';dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }

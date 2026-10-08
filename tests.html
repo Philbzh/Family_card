@@ -7341,6 +7341,37 @@ async function runPresentation(A,W,frame){
       if(keepHist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keepHist);G.myName=keepName;
     }
   });
+  suite('Blackwater — the series (first to two wins)',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const human=(id,n,i,bot)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,...(bot?{bot}:{})});
+    check('a series counts wins; at two it is won; the next game starts a new series',(()=>{
+      const a=F('bwSeriesAdd')(null,1),b=F('bwSeriesAdd')(a,2),c=F('bwSeriesAdd')(b,1),d=F('bwSeriesAdd')(c,2);
+      return a.wins.join()==='1,0'&&a.games===1&&!a.done&&b.wins.join()==='1,1'&&!b.done&&c.wins.join()==='2,1'&&c.done&&c.games===3&&d.wins.join()==='0,1'&&d.games===1&&!d.done;})());
+    check('adding to a series never changes the old one (it is a new record each time)',(()=>{const a=F('bwSeriesAdd')(null,1);const b=F('bwSeriesAdd')(a,1);return a.wins.join()==='1,0'&&b.wins.join()==='2,0';})());
+    const keepHist=W.localStorage.getItem('ct_history'),keepName=G.myName;
+    try{
+      G.isOnline=false;G.srv=null;G.selGame='blackwater';G.bwSeq=null;G.bwInstant=true;G.myName='Phil';G.bwSeries=null;
+      G.lp=[human(1,'Phil',0),human(2,'Anna',1,'sharp')];
+      const finish=win=>{F('lDealBlackwater')();const bw=G.bw;bw.phase='over';bw.over=true;bw.win=win;F('bwEndLocal')(bw);F('bwEndLocal')(bw);};   // (twice: it must count once)
+      finish(1);
+      check('at the table the first win starts the series: Phil 1 – 0, counted once even if the end screen is built twice',G.bwSeries.wins.join()==='1,0'&&G.bwSeries.games===1);
+      F('lDealBlackwater')();
+      check('during the next game a chip shows the score',/SERIES/.test(new DOMParser().parseFromString(F('rBlackwaterTable')(),'text/html').body.textContent)&&/Phil\s*1\s*–\s*0/.test(new DOMParser().parseFromString(F('rBlackwaterTable')(),'text/html').body.textContent));
+      finish(1);
+      check('the second win ends the series, and the end screen says who won it',G.bwSeries.done&&G.bwSeries.wins.join()==='2,0'&&/Phil wins the series/.test(F('bwResultsHTML')()));
+      finish(2);
+      check('the game after a finished series starts a new one',G.bwSeries.wins.join()==='0,1'&&G.bwSeries.games===1&&!G.bwSeries.done);
+      G.lp=[human(1,'Phil',0),human(2,'Max',1,'sharp')];finish(1);
+      check('another opponent means another series',G.bwSeries.wins.join()==='1,0'&&G.bwSeries.games===1);
+    }finally{G.bwInstant=false;G.bwSeq=null;G.bwDep=null;G.bwSeries=null;if(keepHist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keepHist);G.myName=keepName;}
+    check('online the series lives in the room: a finished game adds to it, and a rematch carries it (and a finished series is not carried over twice)',(()=>{
+      const mk=seed=>{const bw=F('bwNew')(seed),f1=F('bwAutoFleet')(seed+1,true),f2=F('bwAutoFleet')(seed+2,true);F('bwDeploy')(bw,1,f1);F('bwDeploy')(bw,2,f2);let g=0;while(!bw.over&&g++<1500){const s=bw.cur,a=F('bwBotAct')(bw,s,'commander');if(!a||!F('bwAct')(bw,s,a))break;}return bw;};
+      const players=[{id:'a',name:'Phil'},{id:'b',name:'Son'}];
+      const st={players,bw:mk(1)};F('oBwFinish')(st);
+      const first=st.bwSeries.games===1&&st.bwSeries.wins[st.bw.win-1]===1;
+      const st2={players,bw:mk(2),bwSeries:st.bwSeries};F('oBwFinish')(st2);
+      return first&&st2.bwSeries.games===2&&st2.bwSeries.wins[0]+st2.bwSeries.wins[1]===2&&st.bwSeries.games===1;})());
+  });
   suite('Blackwater — the opponent, the show and the battle again',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);
     const tap=(a,attrs)=>{const b=W.document.createElement('button');b.setAttribute('data-a',a);Object.entries(attrs||{}).forEach(([k,v])=>b.setAttribute(k,v));W.document.body.appendChild(b);b.click();b.remove();};
