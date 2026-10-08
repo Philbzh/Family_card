@@ -1773,6 +1773,8 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 @keyframes bw-reveal{from{opacity:0;}to{opacity:1;}}
 .bw-sink{transform-box:fill-box;transform-origin:center;animation:bw-sink 1.9s ease-in forwards;}
 @keyframes bw-sink{0%{filter:brightness(1);}30%{filter:brightness(.4) saturate(.6);transform:rotate(1.5deg);}100%{opacity:0;filter:brightness(.12);transform:rotate(4deg) scale(.97);}}
+.bw-sinkbig{transform-box:fill-box;transform-origin:50% 60%;animation:bw-sinkbig 3.2s cubic-bezier(.45,.05,.6,1) forwards;}
+@keyframes bw-sinkbig{0%{filter:brightness(.95);transform:rotate(0) translateY(0) scale(1);}22%{filter:brightness(.55) saturate(.7);transform:rotate(3deg) translateY(.6px);}58%{filter:brightness(.3) saturate(.5);transform:rotate(11deg) translateY(2.2px) scale(.97);}100%{opacity:0;filter:brightness(.08);transform:rotate(21deg) translateY(5.5px) scale(.84);}}
 .bw-fadeout{animation:bw-fadeout 1.4s ease-out forwards;opacity:.5;}
 @keyframes bw-fadeout{to{opacity:0;}}
 .bw-slide{animation:bw-slide 1s cubic-bezier(.5,0,.3,1) both;}
@@ -14448,7 +14450,7 @@ function rBlackwaterTable(){
   // the prompt and the controls
   let prompt='',controls='';
   const img=(f,c)=>`<img class="bw-ic${c?' '+c:''}" src="${BW_ART}${f}.png" alt="" width="22" height="22">`;
-  if(bw.over)prompt=`🏆 ${esc(seatOf(bw.win-1).name)} wins!`;
+  if(bw.over&&!seq)prompt=`🏆 ${esc(seatOf(bw.win-1).name)} wins!`;
   else if(seq&&seq.fx.kind==='shot')prompt=`${esc(seatOf(seq.fx.seat-1).name)} fires at <b>${seq.fx.name}</b>…`;
   else if(seq&&seq.fx.kind==='torp')prompt=`🚀 ${esc(seatOf(seq.fx.seat-1).name)} launches a torpedo along <b>${seq.fx.line==='r'?'row '+(seq.fx.i+1):'column '+BW_LETTERS[seq.fx.i]}</b>…`;
   else if(seq&&(seq.fx.kind==='sonar'||seq.fx.kind==='depth'))prompt=`${seq.fx.kind==='depth'?'💣':'📡'} ${esc(seatOf(seq.fx.seat-1).name)} scans <b>${seq.fx.name}</b>…`;
@@ -14913,7 +14915,7 @@ function bwpDraw(cx,p,u){
 function bwpLoop(now){
   const cx=BWP.cx,cv=BWP.cv;
   if(!cx||!cv||!cv.isConnected){BWP.run=false;BWP.list.length=0;return;}
-  const dt=Math.min(.05,Math.max(.001,(now-BWP.t)/1000));BWP.t=now;
+  const dt=Math.min(.05,Math.max(.001,(now-BWP.t)/1000))*(BWP.slow||1);BWP.t=now;
   cx.setTransform(BWP.dpr,0,0,BWP.dpr,0,0);cx.clearRect(0,0,innerWidth,innerHeight);
   const L=BWP.list;let w=0;
   for(let i=0;i<L.length;i++){
@@ -14968,7 +14970,7 @@ function bwScr(cls,ms,peak){
   e.style.setProperty('--ms',(ms||700)+'ms');e.style.setProperty('--pk',peak==null?1:peak);e.className=cls;
   clearTimeout(e._t);e._t=setTimeout(()=>{e.className='';},(ms||700)+80);
 }
-function bwScrClear(){const e=document.getElementById('bw-scr');if(e){clearTimeout(e._t);e.className='';}}
+function bwScrClear(){BWP.slow=1;const e=document.getElementById('bw-scr');if(e){clearTimeout(e._t);e.className='';}}
 function bwCam(svg,P,sc,ms){
   if(!svg||!gtFxOn('light'))return;
   if(P)svg.style.transformOrigin=(P[0]/112*100).toFixed(1)+'% '+(P[1]/112*100).toFixed(1)+'%';
@@ -15193,10 +15195,15 @@ const BWFX={
       },i*220));
       return (cells||[]).length*220+700;
     },
-    // a ship goes down; the longer the ship, the longer the show
+    // a ship goes down; the longer the ship, the longer the show. The LAST ship of a fleet (d.finale) gets the whole finale:
+    // a spotlight, slow blasts all along the hull, slow motion, two or three huge explosions, fires on the water, then it rolls over and sinks in a whirl.
     SHIP_DESTROYED(d){
-      const {svg,fx,mine}=d,sh=fx.ship,prof=BW_DESTROY[sh.id]||BW_DESTROY.cruiser,T=d.slow||1,S=d.u/2.8;
-      const cells=sh.cells,len=cells.length,total=Math.round(prof.ms*T);
+      const {svg,fx,mine}=d,sh=fx.ship,prof=BW_DESTROY[sh.id]||BW_DESTROY.cruiser,T=d.slow||1,S=d.u/2.8,fin=!!d.finale;
+      const cells=sh.cells,len=cells.length;
+      const span=fin?Math.max(prof.ms*.5*T,2600):prof.ms*.5*T;          // how long the chain of blasts along the hull lasts
+      const sec=fin?prof.sec+2:prof.sec;                                  // the big explosions
+      const sinkAt=fin?230+span+250:230+prof.ms*T*.5;                     // when the hull starts to go under
+      const total=fin?Math.round(sinkAt+3300):Math.round(prof.ms*T);
       const mid=[(bwX(cells[0])+bwX(cells[len-1]))/2,(bwY(cells[0])+bwY(cells[len-1]))/2];
       const at=(ms,fn)=>d.after(fn,ms);
       // the ship shows itself (on the enemy waters; my own is already there)
@@ -15205,41 +15212,62 @@ const BWFX={
         ge=document.createElementNS(GT_NS,'g');ge.setAttribute('class','bw-reveal');ge.setAttribute('pointer-events','none');
         ge.innerHTML=bwShipSVG({id:sh.id,r:sh.r,c:sh.c,d:sh.d},{});svg.appendChild(ge);
       } else ge=svg.querySelector('.bw-ship[data-id="'+sh.id+'"]');
-      // 1. the freeze: a breath in which nothing moves
-      bwCam(svg,mid,prof.cam,260);
-      bwScr('s-dim',520,.7);BWS.tension();
+      // 1. the freeze: a breath in which nothing moves (and, for the last ship, a spotlight on it)
+      bwCam(svg,mid,prof.cam+(fin?.05:0),fin?900:260);
+      bwScr('s-dim',fin?700:520,.7);BWS.tension();
+      if(fin){const zone=[];cells.forEach(c=>bwArea(c,1).forEach(m=>{if(!zone.includes(m))zone.push(m);}));bwDimOutside(svg,zone,Math.round(sinkAt+700));BWS.beat();}
       gtEl(svg,'circle',{cx:bwX(fx.n),cy:bwY(fx.n),r:1,fill:'#fff',class:'bw-pin','pointer-events':'none'},500);
       // 2. the chain of blasts along the hull, from the cell that was hit
-      const order=cells.slice().sort((a,b)=>Math.abs(a-fx.n)-Math.abs(b-fx.n)),step=prof.ms*.5*T/len;
-      order.forEach((c,i)=>at(230+i*step,()=>{
+      const order=cells.slice().sort((a,b)=>Math.abs(a-fx.n)-Math.abs(b-fx.n)),step=span/len;
+      order.forEach((c,i)=>at((fin?420:230)+i*step,()=>{
         const q=[bwX(c),bwY(c)],px=bwPx(svg,q);
-        BWS.hit(.55+.35*i/len);bwpBlast(px[0],px[1],S,(.75+.5*i/len)*prof.big);
-        gtWave(svg,q,'#ff6a3e',1.2,4,700);bwFxImg(svg,'fx-destroyed',q[0],q[1],{size:15+prof.big*4,ms:900,from:.3,to:1.1});
-        bwShake(240,prof.shk==='s'?'s':'m');
+        BWS.hit(.55+.35*i/len);bwpBlast(px[0],px[1],S,(.75+.5*i/len)*prof.big*(fin?1.25:1));
+        gtWave(svg,q,'#ff6a3e',1.2,4,700);bwFxImg(svg,'fx-destroyed',q[0],q[1],{size:15+prof.big*4+(fin?4:0),ms:900,from:.3,to:1.1});
+        bwShake(fin?420:240,fin||prof.shk!=='s'?'m':'s');
       }));
-      // 3. the secondary explosions (and the deck breaking up on the big ships)
-      const secAt=i=>230+prof.ms*T*(.5+.14*i);
-      for(let i=0;i<prof.sec;i++)at(secAt(i),()=>{
-        const q=i%2?[mid[0]+(sh.d==='h'?8:0),mid[1]+(sh.d==='h'?0:8)]:mid,px=bwPx(svg,q);
-        BWS.boom();bwShake(640,'l');haptic([60,40,100]);
-        bwpBlast(px[0],px[1],S,2.2*prof.big,{clean:i>0});
-        bwpRing(px[0],px[1],S,26,'rgba(255,236,190,.9)',2.4,.8);gtWave(svg,q,'#ffd98a',1.8,9,950);
-        bwScr('s-white',280,.4);
+      // 3. the big explosions (and the deck breaking up on the big ships)
+      const secAt=i=>fin?230+span*.55+i*520:230+prof.ms*T*(.5+.14*i);
+      for(let i=0;i<sec;i++)at(secAt(i),()=>{
+        const q=i%2?[mid[0]+(sh.d==='h'?8:0),mid[1]+(sh.d==='h'?0:8)]:i%3===2?[mid[0]-(sh.d==='h'?8:0),mid[1]-(sh.d==='h'?0:8)]:mid,px=bwPx(svg,q);
+        BWS.boom();bwShake(fin?900:640,'l');haptic([60,40,100]);
+        bwpBlast(px[0],px[1],S,(fin?2.8:2.2)*prof.big,{clean:i>0});
+        bwpRing(px[0],px[1],S,fin?40:26,'rgba(255,236,190,.9)',2.4,fin?1.1:.8);gtWave(svg,q,'#ffd98a',1.8,fin?12:9,fin?1300:950);
+        if(fin)setTimeout(()=>bwpRing(px[0],px[1],S,58,'rgba(255,170,90,.7)',1.6,1.3),150);
+        bwScr('s-white',fin?420:280,fin?.6:.4);
       });
-      if(prof.plates)at(230+prof.ms*T*.5,()=>{
+      if(prof.plates||fin)at(fin?230+span*.7:230+prof.ms*T*.5,()=>{
         const px=bwPx(svg,mid),ax=sh.d==='h'?1:0;
-        for(let i=0,n=bwpN(prof.plates);i<n;i++){const s=i%2?1:-1,sp=bwR(40,120)*S;
-          bwpAdd({k:'deb',x:px[0]+s*bwR(0,len*3)*S*ax,y:px[1]+s*bwR(0,len*3)*S*(1-ax),vx:(ax?s*sp:bwR(-30,30)*S),vy:(ax?-bwR(40,90)*S:s*sp-40*S),ay:210*S,w:bwR(5,12)*S,h:bwR(1.3,2.4)*S,rot:bwR(0,6),vr:bwR(-5,5),col:i%2?'#33302c':'#51463b',life:bwR(1,1.7)});}
-        BWS.rumble(prof.ms*.4*T);
+        for(let i=0,n=bwpN(Math.max(prof.plates,fin?10:0));i<n;i++){const sg=i%2?1:-1,sp=bwR(40,120)*S;
+          bwpAdd({k:'deb',x:px[0]+sg*bwR(0,len*3)*S*ax,y:px[1]+sg*bwR(0,len*3)*S*(1-ax),vx:(ax?sg*sp:bwR(-30,30)*S),vy:(ax?-bwR(40,90)*S:sg*sp-40*S),ay:210*S,w:bwR(5,12)*S,h:bwR(1.3,2.4)*S,rot:bwR(0,6),vr:bwR(-5,5),col:i%2?'#33302c':'#51463b',life:bwR(1,1.7)});}
+        BWS.rumble((fin?span:prof.ms*.4*T)*(fin?.9:1));
       });
-      // 4. the hull sinks, smoke rolls over the wreck
-      at(230+prof.ms*T*.5,()=>{const im=ge&&ge.querySelector('image');if(im)im.classList.add('bw-sink');BWS.creak();});
-      at(230+prof.ms*T*.7,()=>{
-        for(let i=0;i<prof.smoke;i++){const c=cells[Math.floor(Math.random()*len)],px=bwPx(svg,[bwX(c),bwY(c)]);bwpSmoke(px[0],px[1],S,2,true,true);}
+      if(fin){
+        // slow motion for the biggest blast: only the particles slow down, which is enough to feel the time stretch
+        at(secAt(0)-80,()=>{BWP.slow=.28;});
+        at(secAt(0)+1000,()=>{BWP.slow=1;});
+        // fires burning on the water, oil smoke rolling over the hull
+        for(let k=0;k<22;k++)at(230+span*.6+k*170,()=>{
+          const c=cells[Math.floor(Math.random()*len)],px=bwPx(svg,[bwX(c),bwY(c)]);
+          bwpAdd({k:'ember',x:px[0]+bwR(-2,2)*S,y:px[1]+bwR(-2,2)*S,vx:bwR(-6,6)*S,vy:-bwR(10,26)*S,r:bwR(1.6,3)*S,col:BWC.ember,ph:Math.random()*6,life:bwR(.8,1.6)});
+          if(k%2)bwpSmoke(px[0],px[1],S,1,true,true);
+        });
+      }
+      // 4. the hull sinks: it lists, goes dark, goes under in a whirl of foam and bubbles
+      at(sinkAt,()=>{
+        const im=ge&&ge.querySelector('image');if(im)im.classList.add(fin?'bw-sinkbig':'bw-sink');
+        BWS.creak();if(fin){BWS.rumble(2600);for(let i=0;i<10;i++)setTimeout(()=>bwSt(bwR(380,980),bwR(240,500),.07,{v:.04}),i*260);}
+        if(fin){
+          const px=bwPx(svg,mid);
+          [0,380,760].forEach(dl=>at(sinkAt+dl,()=>gtWave(svg,mid,'#a8e4f2',1.5,len*2.8,1200,true)));
+          bwpBubbles(px[0],px[1],S,26,len*5);setTimeout(()=>bwpBubbles(px[0],px[1],S,22,len*5),900);setTimeout(()=>bwpSplash(px[0],px[1],S,1.3),1400);
+        }
+      });
+      at(fin?sinkAt+500:230+prof.ms*T*.7,()=>{
+        for(let i=0;i<prof.smoke+(fin?2:0);i++){const c=cells[Math.floor(Math.random()*len)],px=bwPx(svg,[bwX(c),bwY(c)]);bwpSmoke(px[0],px[1],S,2,true,true);}
         bwpBubbles(...bwPx(svg,mid),S,10,len*3);
       });
       // 5. the camera lets go; the attacker gets the gold
-      at(total,()=>{bwCam(svg,mid,1,520);if(mine){fxPulse('gold');BWS.cheer();}else fxPulse('red');gtWave(svg,mid,'#e6c36a',1.8,9,1000);});
+      at(total,()=>{BWP.slow=1;bwCam(svg,mid,1,fin?900:520);if(mine){fxPulse('gold');BWS.cheer();}else fxPulse('red');gtWave(svg,mid,'#e6c36a',1.8,9,1000);});
       return total+420;
     },
     LAST_STAND(d){
@@ -15512,7 +15540,7 @@ function bwRunSeq0(bw,renderNow,done){
   render();
   const svg=bwBoardEl(board);
   if(!svg){bwDbg('no board found for '+board);after(fin,200);return;}
-  after(fin,fx.over?14000:(fx.kind==='torp'&&fx.ships&&fx.ships.length>1?12000:6500));   // nothing may hold the table for ever
+  after(fin,fx.over?20000:(fx.kind==='torp'&&fx.ships&&fx.ships.length>1?12000:6500));   // nothing may hold the table for ever
   const u=bwUnit(svg),Q=G.isOnline?.62:1,T=fx.over?1.45:(G.isOnline?.7:1);
   if(G.isOnline&&!mine)seq.skip=fin;   // the other player is waiting for me: any tap on the boards shows the result at once
   const ctx=x=>Object.assign({svg:bwBoardEl(board)||svg,u,mine,fx,after},x);
@@ -15560,7 +15588,7 @@ function bwRunSeq0(bw,renderNow,done){
       tail(L(BWFX.emit('HIT',ctx({P,links,power:fx.kind==='torp'?1.5:1,torp:fx.kind==='torp',first:fx.first}))||1000));
       return;
     }
-    const ms=BWFX.emit('SHIP_DESTROYED',ctx({P,slow:T,own:!mine}))||2000;
+    const ms=BWFX.emit('SHIP_DESTROYED',ctx({P,slow:T,own:!mine,finale:!!fx.over}))||2000;
     if(fx.over){after(()=>{after(fin,BWFX.emit(mine?'VICTORY':'DEFEAT',ctx({P}))||2000);},ms);return;}
     tail(ms);
   };
@@ -15577,7 +15605,7 @@ function bwRunSeq0(bw,renderNow,done){
     };
     const step=i=>{
       if(i<sunk.length){
-        const h=sunk[i],ms=BWFX.emit('SHIP_DESTROYED',ctx({P:[bwX(h.n),bwY(h.n)],fx:h,slow:(fx.over&&i===sunk.length-1)?T:(G.isOnline?.6:.8),own:!mine}))||1500;
+        const h=sunk[i],ms=BWFX.emit('SHIP_DESTROYED',ctx({P:[bwX(h.n),bwY(h.n)],fx:h,slow:(fx.over&&i===sunk.length-1)?T:(G.isOnline?.6:.8),own:!mine,finale:!!(fx.over&&i===sunk.length-1)}))||1500;
         after(()=>step(i+1),ms);return;
       }
       if(mineHit){const ms=BWFX.emit('MINE_BLAST',ctx({P:[bwX(mineHit.n),bwY(mineHit.n)]}))||1900;after(aftermath,L(ms));return;}
