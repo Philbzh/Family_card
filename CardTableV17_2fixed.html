@@ -1837,6 +1837,7 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
   .game-blackwater .bw-fleets{gap:.5rem 2rem;}
 }
 .game-blackwater .bw-panel .y-hint{font-size:.95rem;color:var(--paper);text-align:center;line-height:1.35;}
+.bw-dbg{width:100%;max-width:36rem;max-height:14rem;overflow:auto;margin:.4rem 0 0;padding:.5rem .6rem;border-radius:10px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.15);color:#bfe;font:11px/1.35 ui-monospace,Menlo,monospace;white-space:pre-wrap;text-align:left;}
 .bw-title{font-family:'Cinzel',serif;color:var(--gold2);text-align:center;letter-spacing:.14em;margin-bottom:.4rem;}
 .gt-event.warn{background:rgba(255,160,40,.14);border:1px solid rgba(255,190,80,.6);color:#ffd68a;animation:gt-pulse 1.2s ease-in-out infinite;}
 .gt-event.on{background:rgba(255,90,78,.12);border:1px solid rgba(255,120,100,.55);color:#ffb0a5;}
@@ -7726,6 +7727,8 @@ function stageOnSrv(prev,state){
     }
     else if(g==='blackwater'&&prev.bw&&state.bw&&state.bw.moves>prev.bw.moves&&state.bw.fx){
       const bwS=state.bw;
+      bwDbg('state arrived: moves '+prev.bw.moves+' → '+bwS.moves+' ('+bwS.fx.kind+')');
+      setTimeout(()=>{if((G.bwShown||0)<bwS.moves&&!G.bwSeq&&G.srv&&G.srv.bw&&G.srv.bw.moves===bwS.moves){bwDbg('fallback start');bwRunSeq(G.srv.bw,false,null);}},350);
       (window.queueMicrotask||(f=>Promise.resolve().then(f)))(()=>{if(G.srv&&G.srv.bw&&G.srv.bw.moves===bwS.moves){if(G.bwSeq){G.bwNext=bwS;if(G.bwSeq.skip)G.bwSeq.skip();}else bwRunSeq(G.srv.bw,false,null);}});
     }
     else if(g==='chainreaction'&&prev.cr&&state.cr&&state.cr.moves>prev.cr.moves&&state.cr.fx){
@@ -7774,7 +7777,7 @@ function stageOnSrv(prev,state){
       (state.players||[]).forEach((p,i)=>{const b=(prev.players||[])[i];
         if(b&&p.bjBust&&!b.bjBust)stageEmit('BUST',{who:p,sub:'Over 21'});});
     }
-  }catch(e){}
+  }catch(e){try{bwDbg('stageOnSrv ERROR '+(e&&e.message));}catch(_){}}
 }
 /* ═══════ TABLE STAGE END ═══════ */
 
@@ -14480,7 +14483,7 @@ function rBlackwaterTable(){
   else prompt=`Waiting for ${esc(foe.name)} to act…`;
   const panel=deploying?'':`${bwFleetCardsHTML(bw,viewer)}${bwLogHTML(bw,viewer,names)}`;
   const gb=`<div class="game-bar">
-      <div class="gb-game">⚓ <span class="cr-gbn">Blackwater</span></div>
+      <div class="gb-game" data-a="bwdbg">⚓ <span class="cr-gbn">Blackwater</span></div>
       <div class="gb-turn p${bw.phase==='battle'?bw.cur:viewer}${mineTurn?' mine':''}">${deploying?'Deployment':avChar(seatOf(bw.cur-1).avatar)+' '+esc(seatOf(bw.cur-1).name)+'’s turn'}</div>
       <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
     </div>`;
@@ -14501,6 +14504,7 @@ function rBlackwaterTable(){
           ${bwLegendHTML()}
           <button class="gt-animbtn" data-a="bwassist" aria-label="Help level">🧭 Help: ${bwAssist()[0].toUpperCase()+bwAssist().slice(1)}</button>
           <button class="gt-animbtn" data-a="gt-anim" aria-label="Animations">✨ Animations: ${{full:'Full',light:'Light',off:'Off'}[gtAnim()]}</button>
+          ${bwDbgHTML()}
         </div>
       </div>
       ${online&&!bw.over&&((bw.phase==='battle'&&bw.cur!==viewer)||(deploying&&bw.ready[viewer-1]&&!bw.ready[opp-1]))?awayIndicatorHTML(foe.id,foe.name):''}
@@ -14574,6 +14578,7 @@ function viewerSeat(){return bwViewSeat();}
 function bwTap(a,t){
   const bw=bwCurBW();if(!bw)return;
   if(a==='bwtab'){G.bwTab=t.getAttribute('data-t');SFX.chip();render();return;}
+  if(a==='bwdbg'){const n=Date.now();G.bwDbgTaps=(n-(G.bwDbgAt||0)<2500?(G.bwDbgTaps||0):0)+1;G.bwDbgAt=n;if(G.bwDbgTaps>=5){G.bwDbgTaps=0;G.bwDbgOn=!G.bwDbgOn;render();}return;}
   if(a==='bwassist'){bwAssistNext();SFX.chip();render();return;}
   if(a==='bwbot'){G.bwBotLvl=t.getAttribute('data-l');try{localStorage.setItem('ct_bw_bot',G.bwBotLvl);}catch(e){}SFX.chip();render();return;}
   if(a==='bwrp'){bwRpTap(t.getAttribute('data-t'));return;}
@@ -14741,17 +14746,19 @@ let _bwSending=false;
 async function oBwAct(act){
   if(!isMyTurn()){toast('Not your turn');return;}
   if(_bwSending)return;
-  _bwSending=true;
+  _bwSending=true;bwDbg('tap '+JSON.stringify(act));
   try{
     // show the move on this device straight away (the round trip to the room used to come first, and felt like nothing happening)
     const cur=G.srv,mi=cur&&cur.players?cur.players.findIndex(p=>p.id===G.myPid):-1;
     if(cur&&cur.bw&&mi>=0){
       const opt=JSON.parse(JSON.stringify(cur));
-      if(!bwAct(opt.bw,mi+1,act)){SFX.illegal();return;}
+      if(!bwAct(opt.bw,mi+1,act)){bwDbg('move refused locally');SFX.illegal();return;}
       opt.curIdx=opt.bw.cur-1;if(opt.bw.over)oBwFinish(opt);
+      bwDbg('shown at once, moves='+opt.bw.moves);
       onSrv(opt);
     }
     const ok=await oBwSend(act);
+    bwDbg('sent to the room: '+ok);
     if(!ok){SFX.illegal();const fresh=await dbRead(G.roomId);if(fresh)onSrv(fresh);}
   }finally{_bwSending=false;}
 }
@@ -15402,13 +15409,21 @@ function bwLockUI(){
   const n=G.bwSel;
   setTimeout(()=>{const e2=document.querySelector('.bw-lk');if(!e2||G.bwSel!==n)return;e2.textContent='LOCKED';e2.classList.add('ok');BWS.locked();const b=document.querySelector('.bw-fire');if(b)b.classList.add('armed');},750);
 }
-function bwSeqFail(e){try{console.error(e);toast('⚠️ Blackwater show problem: '+(e&&e.message?e.message:e));}catch(_){}}
+function bwDbg(m){try{const a=G.bwDbgLog=G.bwDbgLog||[];a.push(Math.round(performance.now()/100)/10+'s '+m);if(a.length>45)a.shift();if(G.bwDbgOn&&G.selGame==='blackwater'&&!G.bwSeq){const el=document.getElementById('bw-dbg');if(el)el.textContent=a.slice().reverse().join('\n');}}catch(e){}}
+function bwDbgHTML(){
+  if(!G.bwDbgOn)return'';
+  let red='?';try{red=matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
+  return`<pre id="bw-dbg" class="bw-dbg">motion-reduced=${red} anim=${gtAnim()} online=${!!G.isOnline} sound=${!!G.snd}\n${(G.bwDbgLog||[]).slice().reverse().join('\n')}</pre>`;
+}
+function bwSeqFail(e){bwDbg('ERROR '+(e&&e.message?e.message:e));try{console.error(e);toast('⚠️ Blackwater show problem: '+(e&&e.message?e.message:e));}catch(_){}}
 function bwRunSeq(bw,renderNow,done){
   try{return bwRunSeq0(bw,renderNow,done);}
   catch(e){bwSeqFail(e);G.bwSeq=null;try{render();}catch(_){}if(done)try{done();}catch(_){}}
 }
 function bwRunSeq0(bw,renderNow,done){
   const fx=bw&&bw.fx;
+  G.bwShown=Math.max(G.bwShown||0,(bw&&bw.moves)||0);
+  bwDbg('show '+(fx&&fx.kind)+' '+((fx&&(fx.res||fx.r))||'')+' seat'+(fx&&fx.seat)+' moves='+(bw&&bw.moves));
   let reduced=false;try{reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
   const players=gtSeatPlayers();
   const nm=s=>(players[s-1]||{}).name||'someone';
@@ -15444,6 +15459,7 @@ function bwRunSeq0(bw,renderNow,done){
   };
   const animated=fx&&['shot','torp','sonar','depth','silent','repos'].includes(fx.kind);
   if(!fx||!animated||G.bwInstant||reduced||gtAnim()==='off'){
+    bwDbg('NO animation: animated='+!!animated+' instant='+!!G.bwInstant+' reduced='+reduced+' anim='+gtAnim());
     G.bwSeq=null;if(fx&&!G.bwInstant)stages();
     if(done){if(G.bwInstant)done();else setTimeout(done,bw.over?500:0);}
     return;
@@ -15456,7 +15472,7 @@ function bwRunSeq0(bw,renderNow,done){
   let finished=false;
   const fin=()=>{
     if(G.bwSeq!==seq||finished)return;
-    finished=true;G.bwSeq=null;bwScrClear();stages();render();bwPostFx(bw,fx,viewer);
+    finished=true;G.bwSeq=null;bwDbg('show ended');bwScrClear();stages();render();bwPostFx(bw,fx,viewer);
     if(done)done();
     const nx=G.bwNext;G.bwNext=null;   // a move that arrived while this one was shown: now its turn
     if(nx&&G.srv&&G.srv.bw&&G.srv.bw.moves===nx.moves&&nx.moves>bw.moves)bwRunSeq(G.srv.bw,false,null);
@@ -15464,7 +15480,7 @@ function bwRunSeq0(bw,renderNow,done){
   const after=(fn,ms)=>setTimeout(()=>{if(G.bwSeq===seq&&!finished){try{fn();}catch(e){bwSeqFail(e);fin();}}},ms);
   render();
   const svg=bwBoardEl(board);
-  if(!svg){after(fin,200);return;}
+  if(!svg){bwDbg('no board found for '+board);after(fin,200);return;}
   after(fin,fx.over?14000:6500);   // nothing may hold the table for ever
   const u=bwUnit(svg),Q=G.isOnline?.62:1,T=fx.over?1.45:(G.isOnline?.7:1);
   if(G.isOnline&&!mine)seq.skip=fin;   // the other player is waiting for me: any tap on the boards shows the result at once
@@ -27404,7 +27420,7 @@ document.addEventListener('click',e=>{
   else if(a==='pigroll'){G.isOnline?oPigRoll():pigRoll();}
   else if(a==='pigbank'){G.isOnline?oPigBank():pigBank();}
   else if(a==='guest-toggle'){G.guestGame=!G.guestGame;SFX.chip();render();}
-  else if(/^bw(cell|dep|ship|decoytool|minetool|rotate|auto|quick|clear|ready|tab|assist|fire|cancel|tool|scan|torpset|launch|silent|reppick|reprotate|rep|repgo|bot|rp)$/.test(a)){bwTap(a,t);}
+  else if(/^bw(dbg|cell|dep|ship|decoytool|minetool|rotate|auto|quick|clear|ready|tab|assist|fire|cancel|tool|scan|torpset|launch|silent|reppick|reprotate|rep|repgo|bot|rp)$/.test(a)){bwTap(a,t);}
   else if(/^gt(roll|die|sum|bonus|skip|bank|reroll|run|shield|item|stop|dare|safe|revenge|go|cancel|secret|secretopen|secretclose|type|slot|place|disarmmode|disarm|recover)$/.test(a)){gtTap(a,t);}
   else if(a==='crcell'){crTap(+t.getAttribute('data-i'));}
   else if(a==='crarm'){
