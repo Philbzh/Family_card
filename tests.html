@@ -7372,6 +7372,43 @@ async function runPresentation(A,W,frame){
       const st2={players,bw:mk(2),bwSeries:st.bwSeries};F('oBwFinish')(st2);
       return first&&st2.bwSeries.games===2&&st2.bwSeries.wins[0]+st2.bwSeries.wins[1]===2&&st.bwSeries.games===1;})());
   });
+  suite('Blackwater — the rules of the sea',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const tap=(a,attrs)=>{const b=W.document.createElement('button');b.setAttribute('data-a',a);Object.entries(attrs||{}).forEach(([k,v])=>b.setAttribute(k,v));W.document.body.appendChild(b);b.click();b.remove();};
+    const human=(id,n,i,bot)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,...(bot?{bot}:{})});
+    const keepHist=W.localStorage.getItem('ct_history'),keepName=G.myName,keepRules=W.localStorage.getItem('ct_bw_rules');
+    check('the usual rules are the defaults: a hit lets you fire again (as the game default says), mines on, two torpedoes; nonsense falls back to them',(()=>{
+      const d=F('bwRulesClean')(null),x=F('bwRulesClean')({torp:9,mines:0,chain:0});
+      return d.mines===true&&d.torp===2&&d.chain===F('BW_CHAIN')&&x.torp===2&&x.mines===false&&x.chain===false;})());
+    check('a game made with rules carries them: one shot a turn, no mines, three torpedoes',(()=>{
+      const bw=F('bwNew')(5,{chain:false,mines:false,torp:3});
+      return bw.chain===false&&bw.noMines===true&&bw.ammo[0].torp===3&&bw.ammo[1].torp===3&&bw.rules.torp===3;})());
+    check('with mines off, deploying mines is ignored, and a hit does not give another shot when the chain rule is off',(()=>{
+      const bw=F('bwNew')(6,{chain:false,mines:false,torp:2}),f1=F('bwAutoFleet')(1,true),f2=F('bwAutoFleet')(2,true);
+      F('bwDeploy')(bw,1,f1,[],[0,1]);F('bwDeploy')(bw,2,f2);bw.cur=1;
+      const c=F('bwCells')(bw.fleet[1][0])[0],a=F('bwFire')(bw,1,c);
+      return bw.mines[0].length===0&&a.res==='hit'&&bw.cur===2&&!a.chain;})());
+    try{
+      W.localStorage.removeItem('ct_bw_rules');W.eval('BW_CHAIN=true');   // (the engine suites run with the old one-shot rule; here the real default)
+      check('the host sees the panel: the chain rule and mines are switches, torpedoes are 1, 2 or 3',(()=>{const h=F('bwOptionsHTML')();return /Rules of the sea/.test(h)&&/data-k="chain"/.test(h)&&/data-k="mines"/.test(h)&&(h.match(/data-a="bw-torp"/g)||[]).length===3;})());
+      tap('bw-rule',{'data-k':'mines'});tap('bw-torp',{'data-n':'3'});
+      check('tapping a switch changes the rule and it is remembered; torpedoes 3',F('bwRules')().mines===false&&F('bwRules')().torp===3&&F('bwRules')().chain===F('BW_CHAIN'));
+      G.isOnline=false;G.srv=null;G.selGame='blackwater';G.bwSeq=null;G.bwInstant=true;G.myName='Phil';
+      G.lp=[human(1,'Phil',0),human(2,'Anna',1,'sharp')];F('lDealBlackwater')();
+      const doc=()=>new DOMParser().parseFromString(F('rBlackwaterTable')(),'text/html');
+      check('the next game uses them: no mines (the bot has none either), three torpedoes each, and the deployment screen has no mine chip but says which rules are on',
+        G.bw.noMines&&G.bw.ammo[0].torp===3&&G.bw.mines[1].length===0&&doc().querySelectorAll('.bw-chip').length===6&&/Rules of this game: no mines · 3 torpedoes/.test(doc().body.textContent));
+      tap('bwauto');
+      check('Auto deploy lays no mines either',G.bwDep.mines.length===0);
+      W.localStorage.removeItem('ct_bw_rules');F('lDealBlackwater')();
+      check('with the usual rules there is no extra line',!/Rules of this game/.test(doc().body.textContent)&&doc().querySelectorAll('.bw-chip').length===7);
+    }finally{
+      G.bwInstant=false;G.bwSeq=null;G.bwDep=null;
+      W.eval('BW_CHAIN=false');
+      if(keepRules==null)W.localStorage.removeItem('ct_bw_rules');else W.localStorage.setItem('ct_bw_rules',keepRules);
+      if(keepHist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keepHist);G.myName=keepName;
+    }
+  });
   suite('Blackwater — the opponent, the show and the battle again',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);
     const tap=(a,attrs)=>{const b=W.document.createElement('button');b.setAttribute('data-a',a);Object.entries(attrs||{}).forEach(([k,v])=>b.setAttribute(k,v));W.document.body.appendChild(b);b.click();b.remove();};
