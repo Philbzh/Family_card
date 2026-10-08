@@ -6915,6 +6915,158 @@ async function runPresentation(A,W,frame){
       if(keepMode==null)W.localStorage.removeItem('ct_gt_mode');else W.localStorage.setItem('ct_gt_mode',keepMode);
     }
   });
+
+  /* —— Blackwater (Battleship-inspired naval game), step 1 —————— */
+  suite('Blackwater — fleets and deployment',()=>{
+    const F=n=>W.eval(n);
+    const ship=(id,r,c,d)=>({id,r,c,d});
+    const std=()=>[ship('carrier',0,0,'h'),ship('battleship',2,0,'h'),ship('cruiser',4,0,'h'),ship('destroyer',6,0,'h'),ship('scout',8,0,'h')];
+    check('the fleet is five ships of 5, 4, 3, 3 and 2 cells (17 cells), and the grid is 10 x 10',F('BW_SHIPS').map(s=>s.len).join()==='5,4,3,3,2'&&F('BW_N')===10&&F('BW_SHIPS').reduce((a,s)=>a+s.len,0)===17);
+    check('cells are named like C7 (column letter, row number)',F('bwName')(0)==='A1'&&F('bwName')(99)==='J10'&&F('bwName')(26)==='G3'&&F('bwName')(62)==='C7');
+    check('a ship covers its cells across (h) or down (v)',JSON.stringify(F('bwCells')(ship('cruiser',2,3,'h')))==='[23,24,25]'&&JSON.stringify(F('bwCells')(ship('cruiser',2,3,'v')))==='[23,33,43]');
+    check('a legal fleet is accepted',F('bwFleetOk')(std()));
+    check('ships may not overlap, leave the grid, repeat or be missing',!F('bwFleetOk')([ship('carrier',0,0,'h'),ship('battleship',0,3,'h'),...std().slice(2)])&&!F('bwFleetOk')([ship('carrier',0,7,'h'),...std().slice(1)])&&!F('bwFleetOk')([ship('carrier',8,0,'v'),...std().slice(1)])&&!F('bwFleetOk')(std().slice(1))&&!F('bwFleetOk')([ship('carrier',0,0,'x'),...std().slice(1)]));
+    check('Auto and Quick deploy always make legal fleets (500 tries)',(()=>{for(let i=1;i<=250;i++){if(!F('bwFleetOk')(F('bwAutoFleet')(i,true))||!F('bwFleetOk')(F('bwAutoFleet')(i,false)))return false;}return true;})());
+    check('Auto deploy keeps the ships apart: no two touch, even at a corner',(()=>{
+      for(let i=1;i<=120;i++){const f=F('bwAutoFleet')(i*7,true);const own={};f.forEach(s=>F('bwCells')(s).forEach(n=>{own[n]=s.id;}));
+        for(const s of f)for(const n of F('bwCells')(s))for(const m of F('bwNeighbors')(n))if(own[m]&&own[m]!==s.id)return false;}return true;})());
+    check('different seeds give different fleets, the same seed gives the same one',JSON.stringify(F('bwAutoFleet')(5,true))===JSON.stringify(F('bwAutoFleet')(5,true))&&JSON.stringify(F('bwAutoFleet')(5,true))!==JSON.stringify(F('bwAutoFleet')(6,true)));
+    const bw=F('bwNew')(12);
+    check('a new game starts in deployment with nobody ready and empty shot grids',bw.phase==='deploy'&&bw.ready.join()==='false,false'&&bw.shots.every(g=>g.length===100&&g.every(x=>x===0)));
+    check('an illegal fleet, the wrong seat or a second deployment changes nothing',(()=>{const x=F('bwNew')(1);return !F('bwDeploy')(x,1,[])&&!F('bwDeploy')(x,3,std())&&F('bwDeploy')(x,1,std())&&!F('bwDeploy')(x,1,std())&&x.ready.join()==='true,false'&&x.phase==='deploy';})());
+    check('when both fleets are ready the battle begins, with one of the two seats first, decided by the seed',(()=>{const x=F('bwNew')(8);F('bwDeploy')(x,2,std());const y=F('bwDeploy')(x,1,std());return y&&x.phase==='battle'&&(x.cur===1||x.cur===2)&&x.fx.kind==='start';})());
+    check('nobody can deploy once the battle is on',(()=>{const x=F('bwNew')(8);F('bwDeploy')(x,1,std());F('bwDeploy')(x,2,std());return !F('bwDeploy')(x,1,F('bwAutoFleet')(3,true));})());
+  });
+  suite('Blackwater — shots, sinking, last stand and the end',()=>{
+    const F=n=>W.eval(n);
+    const ship=(id,r,c,d)=>({id,r,c,d});
+    // fleet A (seat 1) and fleet B (seat 2): B has the Scout at J1-J2 (cells 9 and 19) and a Destroyer at A5-C5 (40,41,42)
+    const fb=()=>[ship('carrier',0,0,'h'),ship('battleship',2,0,'h'),ship('cruiser',7,0,'h'),ship('destroyer',4,0,'h'),ship('scout',0,9,'v')];
+    const fa=()=>[ship('carrier',9,0,'h'),ship('battleship',8,0,'h'),ship('cruiser',7,0,'h'),ship('destroyer',6,0,'h'),ship('scout',5,0,'h')];
+    const mk=()=>{const x=F('bwNew')(2);F('bwDeploy')(x,1,fa());F('bwDeploy')(x,2,fb());x.cur=1;return x;};
+    const fire=(x,seat,n)=>F('bwFire')(x,seat,n);
+    let b=mk();
+    check('a shot into open water is a MISS, marked in the target grid, and the turn passes',(()=>{const f=fire(b,1,77);return f&&f.res==='miss'&&b.shots[1][77]===1&&b.cur===2&&f.name==='H8';})());
+    check('only the player on turn can fire, once per cell, inside the grid',!fire(b,1,5)&&fire(b,2,0)&&!fire(b,2,0)&&!fire(b,1,100)&&!fire(b,1,-1)&&!fire(b,1,1.5));
+    b=mk();
+    check('a shot at a ship is a HIT (the first one is flagged as such), the cell is marked and the turn passes',(()=>{const f=fire(b,1,9);return f.res==='hit'&&f.first===true&&b.shots[1][9]===2&&b.cur===2&&b.stats.hits[0]===1;})());
+    check('hitting every cell of a ship DESTROYS it: all its cells change, the wreck is public, a record says which ship',(()=>{fire(b,2,0);const f=fire(b,1,19);return f.res==='sunk'&&f.ship.id==='scout'&&b.shots[1][9]===3&&b.shots[1][19]===3&&b.wreck[1].length===1&&b.wreck[1][0].id==='scout'&&b.stats.sunk[0]===1;})());
+    check('the number of ships left is public and counts down',F('bwShipsLeft')(b,2)===4&&F('bwShipsLeft')(b,1)===5);
+    check('ships afloat are listed from the public record only',F('bwAfloat')(b,2).map(s=>s.id).join()==='carrier,battleship,cruiser,destroyer');
+    // sink everything but one ship: LAST STAND, then FINAL CONTACT, then the end
+    b=mk();let seat=1,last=null,flags={};
+    const cellsB=fb().flatMap(s=>F('bwCells')(s));
+    const order=[...cellsB.filter(n=>!F('bwCells')(ship('destroyer',4,0,'h')).includes(n))];
+    let miss=60;
+    for(const n of order){last=fire(b,1,n);if(b.over)break;let m;do{m=miss++;}while(b.shots[0][m]);fire(b,2,m);if(last.lastStand)flags.lastStand=true;}
+    check('sinking the fourth ship is flagged LAST STAND (for the defender)',flags.lastStand===true&&F('bwShipsLeft')(b,2)===1&&!b.over);
+    check('the first hit on the final ship is FINAL CONTACT',(()=>{const f=fire(b,1,40);return f.res==='hit'&&f.final===true&&b.finalContact[1]===true;})());
+    check('the last cell of the last ship ends the game: winner, phase over, no further turn',(()=>{let m=miss;fire(b,2,m);fire(b,1,41);const f=(()=>{fire(b,2,m+1);return fire(b,1,42);})();return f.over===true&&b.over&&b.win===1&&b.phase==='over'&&F('bwShipsLeft')(b,2)===0&&!fire(b,2,5);})());
+    check('the winner gets a title and a story',F('bwTitle')(b).length>3&&/won|sank|hit|found|destroyed/.test(F('bwMoment')(b,['Phil','Anna'])));
+    // deduction help
+    const g=new Array(100).fill(0);
+    check('Continuation: a single hit points at its four neighbours',(()=>{const x=g.slice();x[44]=2;return [...F('bwContinuation')(x)].sort((p,q)=>p-q).join()==='34,43,45,54';})());
+    check('Continuation: two hits in a row point along their line',(()=>{const x=g.slice();x[44]=2;x[45]=2;return [...F('bwContinuation')(x)].sort((p,q)=>p-q).join()==='43,46';})());
+    check('Impossible squares: a corner walled in by two misses cannot hold any ship, an open square can',(()=>{const x=g.slice();x[1]=1;x[10]=1;const imp=F('bwImpossible')(x,[5,4,3,3,2]);return imp.has(0)&&!imp.has(2)&&!imp.has(55);})());
+    check('Impossible squares: with only the Scout left, an isolated square is impossible (it needs a neighbour)',(()=>{const x=g.slice();[1,10,12,21].forEach(n=>x[n]=1);const imp=F('bwImpossible')(x,[2]);return imp.has(11);})());
+    // the bots
+    check('a bot never fires twice at one square or out of the grid, and plays whole games at every level',(()=>{
+      for(const lv of ['cadet','officer','commander','admiral'])for(let k=0;k<15;k++){
+        const x=F('bwNew')(k*77+5);F('bwDeploy')(x,1,F('bwAutoFleet')(k+1,true));F('bwDeploy')(x,2,F('bwAutoFleet')(k+100,k%2===0));let n=0;
+        while(!x.over&&n++<300){const s=x.cur,c=F('bwBotShot')(x,s,lv);if(!(c>=0&&c<100)||x.shots[2-s][c]||!F('bwFire')(x,s,c))return false;}
+        if(!x.over)return false;
+      }return true;})());
+    check('bots cannot cheat: the same shots against a different hidden fleet give the same choice',(()=>{
+      const a=F('bwNew')(1),c=F('bwNew')(1);F('bwDeploy')(a,1,fa());F('bwDeploy')(a,2,fb());F('bwDeploy')(c,1,fa());F('bwDeploy')(c,2,F('bwAutoFleet')(77,true));
+      a.cur=c.cur=1;[44,45,12,78].forEach(n=>{a.shots[1][n]=1;c.shots[1][n]=1;});
+      const seq=()=>{let i=0;return()=>[.1,.7,.3,.9,.5][i++%5];};
+      return ['cadet','officer','commander'].every(lv=>F('bwBotShot')(a,1,lv,seq())===F('bwBotShot')(c,1,lv,seq()));})());
+    check('smarter bots win: the Officer beats the Cadet and the Commander beats the Officer in most games (over 50 games each)',(()=>{
+      const play=(l1,l2,k)=>{const x=F('bwNew')(k);F('bwDeploy')(x,1,F('bwAutoFleet')(k*3,true));F('bwDeploy')(x,2,F('bwAutoFleet')(k*5,true));let n=0;
+        while(!x.over&&n++<300){const s=x.cur;F('bwFire')(x,s,F('bwBotShot')(x,s,s===1?l1:l2));}return x.win;};
+      let w1=0,w2=0;for(let k=1;k<=50;k++){if(play('officer','cadet',k)===1)w1++;if(play('commander','officer',k*3)===1)w2++;}
+      return w1>=29&&w2>=31;})());
+  });
+  suite('Blackwater — at the table',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const tap=(a,attrs)=>{const b=W.document.createElement('button');b.setAttribute('data-a',a);Object.entries(attrs||{}).forEach(([k,v])=>b.setAttribute(k,v));W.document.body.appendChild(b);b.click();b.remove();};
+    const doc=()=>new DOMParser().parseFromString(F('rBlackwaterTable')(),'text/html');
+    const human=(id,n,i,bot)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,...(bot?{bot}:{})});
+    const keepHist=W.localStorage.getItem('ct_history'),keepName=G.myName,keepAssist=W.localStorage.getItem('ct_bw_assist');
+    try{
+      W.localStorage.removeItem('ct_bw_assist');
+      G.isOnline=false;G.srv=null;G.selGame='blackwater';G.bwSeq=null;G.bwInstant=true;G.myName='Phil';
+      G.lp=[human(1,'Phil',0),human(2,'Anna',1)];F('lDealBlackwater')();
+      check('on one device Blackwater is played against a bot: the second seat is made a bot and its fleet is hidden away already',G.lp[1].bot&&G.bw.phase==='deploy'&&G.bw.ready.join()==='false,true'&&G.scr==='table');
+      let d=doc();
+      check('deployment: one board (your fleet) and the five ships to place, Fleet Ready is not yet possible',d.querySelectorAll('.bw-svg').length===1&&d.querySelectorAll('.bw-chip').length===5&&d.querySelector('[data-a="bwready"]').disabled===true);
+      tap('bwship',{'data-id':'scout'});tap('bwdep',{'data-n':'0'});
+      check('tap a ship, tap the ocean: it is placed (clamped to fit the grid) and the next ship is selected',G.bwDep.pl.scout&&G.bwDep.pl.scout.r===0&&G.bwDep.pl.scout.c===0&&G.bwDep.sel==='carrier');
+      tap('bwdep',{'data-n':'9'});
+      check('a ship near the edge is pulled back onto the grid',G.bwDep.pl.carrier.c===5&&G.bwDep.pl.carrier.r===0);
+      tap('bwship',{'data-id':'cruiser'});tap('bwdep',{'data-n':'3'});
+      check('ships cannot be put on top of each other',!G.bwDep.pl.cruiser);
+      tap('bwrotate');
+      check('Rotate turns the ship that is about to be placed',G.bwDep.dir==='v');
+      tap('bwclear');tap('bwauto');
+      d=doc();
+      check('Auto deploy places all five ships, and Fleet Ready is now possible',Object.keys(G.bwDep.pl).length===5&&d.querySelector('[data-a="bwready"]').disabled===false&&d.querySelectorAll('g.bw-ship').length===5);
+      tap('bwready');
+      check('Fleet Ready starts the battle and shows both boards, nothing of the enemy fleet',G.bw.phase==='battle'&&(()=>{const e=doc();return e.querySelectorAll('.bw-svg').length===2&&e.querySelectorAll('.bw-svg[data-kind="radar"] g.bw-ship').length===0&&e.querySelectorAll('.bw-svg[data-kind="fleet"] g.bw-ship').length===5;})());
+      G.bw.cur=1;G.lcur=0;
+      // fire
+      const bot=G.bw.fleet[1].flatMap(s=>F('bwCells')(s));
+      let target=0;while(bot.includes(target))target++;
+      tap('bwcell',{'data-n':String(target)});
+      d=doc();
+      check('tapping a square sets the target and asks for confirmation',G.bwSel===target&&/TARGET/.test(d.querySelector('.y-hint').textContent)&&!!d.querySelector('[data-a="bwfire"]'));
+      tap('bwfire');
+      check('FIRE shoots: a miss is recorded and the turn passes to the bot',G.bw.shots[1][target]===1&&G.bw.cur===2&&G.bwSel===null);
+      F('botBlackwaterAct')(G.lp[1]);
+      check('the bot answers with one shot',G.bw.cur===1&&G.bw.shots[0].filter(x=>x).length===1);
+      // a hit shows on the radar, the legend and the log
+      const hitCell=bot[0];tap('bwcell',{'data-n':String(hitCell)});tap('bwfire');
+      d=doc();
+      check('a hit is drawn on the radar and written in the contact log',d.querySelectorAll('.bw-svg[data-kind="radar"] path[stroke="#ffb347"]').length>=1&&/HIT/.test(d.querySelector('.bw-log').textContent));
+      check('the ship cards show the enemy fleet as unknown until a ship is destroyed',d.querySelectorAll('.bw-fleets .bw-sc.unk').length===5);
+      F('botBlackwaterAct')(G.lp[1]);
+      // help levels
+      check('Standard help greys out impossible squares; Family also marks where a hit ship could continue; Expert shows nothing',(()=>{
+        W.localStorage.setItem('ct_bw_assist','family');const fam=doc().querySelectorAll('.bw-cont').length;
+        W.localStorage.setItem('ct_bw_assist','standard');const st=doc().querySelectorAll('.bw-cont').length;
+        W.localStorage.setItem('ct_bw_assist','expert');const ex=doc();
+        return fam>=1&&st===0&&ex.querySelectorAll('.bw-cont').length===0&&ex.querySelectorAll('svg rect[fill-opacity=".38"]').length===0;})());
+      W.localStorage.removeItem('ct_bw_assist');
+      // play to the end
+      let guard=0;
+      while(!G.bw.over&&guard++<400){
+        if(G.bw.cur===1){const n=F('bwBotShot')(G.bw,1,'commander');F('bwFireLocal')(1,n);}
+        else F('botBlackwaterAct')(G.lp[1]);
+      }
+      check('the game ends with a winner, results for both players, and a story in the history',G.bw.over&&G.lp.every(p=>['win','loss'].includes(p.c4Result))&&F('getHistory')()[0]&&F('getHistory')()[0].game==='blackwater'&&!!F('getHistory')()[0].moment&&Object.keys(F('getHistory')()[0].stats.bw).join()==='Phil,Anna');
+      G.scr='matchend';
+      const res=new DOMParser().parseFromString(F('rMatchEnd')(),'text/html');
+      check('the end screen shows the winner, the ships left, a title and the numbers',res.querySelectorAll('.sr').length===2&&/ship/.test(res.body.textContent)&&!!res.querySelector('.bw-title')&&/SHOTS/.test(res.body.textContent));
+      // the registry
+      const gm=F('GAMES').find(x=>x.id==='blackwater');
+      check('Blackwater is on the roster: 2 players, online, with bots, rules, tour, tagline, accent colour, label and reactions',gm&&gm.minP===2&&gm.maxP===2&&gm.rules.length>=6&&F('ONLINE_GAMES').includes('blackwater')&&F('BOT_GAMES').has('blackwater')&&F('TOURS').blackwater.slides.length===4&&!!F('STAGE_TAGS').blackwater&&!!F('MOMENT_ACCENT').blackwater&&F('v14GameLabel')('blackwater')==='Blackwater'&&F('REACTION_GAME').blackwater.length===3);
+      check('three Blackwater trophies exist',F('ACHIEVEMENTS').filter(a=>a.id.startsWith('bw-')).length===3);
+      // online: each device draws only its own fleet
+      G.isOnline=true;G.myPid='pB';G.scr='table';
+      const bw2=F('bwNew')(31);F('bwDeploy')(bw2,1,F('bwAutoFleet')(1,true));F('bwDeploy')(bw2,2,F('bwAutoFleet')(2,true));bw2.cur=1;
+      G.srv={gameId:'blackwater',phase:'game',players:[{id:'pA',name:'Phil',avatar:A.AVATARS[0]},{id:'pB',name:'Anna',avatar:A.AVATARS[1]}],curIdx:0,bw:bw2};
+      const sig=sh=>sh.map(s=>s.id+s.r+s.c+s.d).join();
+      const html=F('rBlackwaterTable')();
+      const mineSig=bw2.fleet[1].map(s=>F('bwCells')(s)[0]);
+      const dd=new DOMParser().parseFromString(html,'text/html');
+      check('online, a device shows only its own player’s ships (seat 2 sees seat 2’s fleet, never the other)',dd.querySelectorAll('.bw-svg[data-kind="fleet"] g.bw-ship').length===5&&dd.querySelectorAll('.bw-svg[data-kind="radar"] g.bw-ship').length===0&&bw2.fleet[0].every(s=>true));
+      check('online, the player not on turn waits and cannot tap the enemy waters',!dd.querySelector('[data-a="bwcell"]')&&/Waiting for Phil/.test(dd.querySelector('.y-hint').textContent));
+    } finally {
+      G.isOnline=false;G.srv=null;G.myPid=null;G.bwInstant=false;G.bw=null;G.bwSeq=null;G.bwDep=null;G.lp=[];G.scr='home';G.myName=keepName;
+      if(keepHist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keepHist);
+      if(keepAssist==null)W.localStorage.removeItem('ct_bw_assist');else W.localStorage.setItem('ct_bw_assist',keepAssist);
+    }
+  });
   /* —— The Gauntlet: Sprint mode and the Sweep —————— */
   suite('The Gauntlet — Sprint: two runners, first home wins, no traps, the Sweep',()=>{
     const F=n=>W.eval(n);
