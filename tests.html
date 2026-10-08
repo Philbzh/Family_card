@@ -7315,6 +7315,32 @@ async function runPresentation(A,W,frame){
     }
     }finally{W.eval('BW_CHAIN=false');}
   });
+  suite('Blackwater — what a sonar answer looks like',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const human=(id,n,i,bot)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,...(bot?{bot}:{})});
+    const keepHist=W.localStorage.getItem('ct_history'),keepName=G.myName,keepAssist=W.localStorage.getItem('ct_bw_assist');
+    try{
+      G.isOnline=false;G.srv=null;G.selGame='blackwater';G.bwSeq=null;G.bwInstant=true;G.myName='Phil';
+      G.lp=[human(1,'Phil',0),human(2,'Anna',1,'sharp')];F('lDealBlackwater')();
+      const bw=G.bw;bw.phase='battle';bw.ready=[true,true];bw.cur=1;bw.fleet[1]=[{id:'carrier',r:1,c:0,d:'h'},{id:'battleship',r:3,c:0,d:'h'},{id:'cruiser',r:5,c:0,d:'h'},{id:'destroyer',r:7,c:0,d:'h'},{id:'scout',r:9,c:0,d:'h'}];bw.decoys[1]=[];bw.mines[1]=[];
+      const doc=()=>new DOMParser().parseFromString(F('rBlackwaterTable')(),'text/html');
+      const s=F('bwSonar')(bw,1,44);   // a 3x3 around E5: only the middle of the area has nothing; the ship is at the edge (row 4, column A..E: D4/E4 are in the area)
+      W.localStorage.setItem('ct_bw_assist','standard');
+      const tint=d=>d.querySelectorAll('.bw-svg[data-kind="radar"] rect[fill="#ffb347"][fill-opacity=".15"]').length;
+      check('a sonar CONTACT tints the squares of the area that can still hold the echo (standard help), and says it is somewhere in it',s.r==='contact'&&tint(doc())===9&&/somewhere in the amber area/.test(doc().body.textContent));
+      bw.shots[1][44]=1;bw.shots[1][45]=1;
+      check('a miss inside the area takes that square out of the tint',tint(doc())===7);
+      W.localStorage.setItem('ct_bw_assist','expert');
+      check('with no help (expert) the area is outlined but not tinted',tint(doc())===0&&doc().querySelectorAll('.bw-scan').length===1);
+      bw.scanned=false;const c=F('bwSonar')(bw,1,64);
+      W.localStorage.setItem('ct_bw_assist','standard');
+      check('an AREA CLEAR is not tinted and says so',c.r==='clear'&&/Nothing found in that area/.test(doc().body.textContent));
+    }finally{
+      G.bwInstant=false;G.bwSeq=null;G.bwDep=null;
+      if(keepAssist==null)W.localStorage.removeItem('ct_bw_assist');else W.localStorage.setItem('ct_bw_assist',keepAssist);
+      if(keepHist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keepHist);G.myName=keepName;
+    }
+  });
   suite('Blackwater — the opponent, the show and the battle again',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);
     const tap=(a,attrs)=>{const b=W.document.createElement('button');b.setAttribute('data-a',a);Object.entries(attrs||{}).forEach(([k,v])=>b.setAttribute(k,v));W.document.body.appendChild(b);b.click();b.remove();};

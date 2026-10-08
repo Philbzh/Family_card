@@ -4491,7 +4491,7 @@ const GAMES=[
    rules:['<b>Find them. Fool them. Fire.</b> Two admirals, a <b>10 × 10 ocean</b> and a secret fleet of five ships: <b>Carrier</b> (5 cells), <b>Battleship</b> (4), <b>Cruiser</b> (3), <b>Destroyer</b> (3) and <b>Scout</b> (2) — plus <b>2 decoys</b>. Nobody sees where yours are.',
      '<b>Deployment:</b> tap a ship, then tap the ocean to place it (or <b>drag</b> it); <b>⟳</b> turns it. Ships may not overlap. Tap <b>🛟 Decoys</b> and <b>💥 Mines</b> and tap empty squares for your fakes and your mines (optional). <b>Auto deploy</b> and <b>Quick deploy</b> do it all for you. Press <b>FLEET READY</b>.',
      '<b>Firing:</b> on your turn tap a square in <b>ENEMY WATERS</b> (columns A–J, rows 1–10), see the <b>TARGET</b>, press <b>FIRE</b>. The answer is <b>MISS</b>, <b>HIT</b>, or <b>DESTROYED</b> when the last cell of a ship is hit; a <b>decoy</b> reports DECOY DESTROYED. <b>Every HIT lets you fire again</b> — keep going until you miss; a miss, a decoy or a mine ends your turn.',
-     '<b>Intelligence — limited, and free:</b> before you act you may take <b>one scan</b>. <b>📡 Sonar</b> (3 a game): a 3×3 area answers CONTACT (an echo — a ship <i>or a decoy</i>) or AREA CLEAR. <b>💣 Depth charge</b> (1): a 5×5 area answers CONTACT (the middle), NEAR CONTACT (only round the edge) or NO CONTACT.',
+     '<b>Intelligence — limited, and free:</b> before you act you may take <b>one scan</b>. <b>📡 Sonar</b> (3 a game): a 3×3 area answers CONTACT (an echo <i>somewhere in the area</i> — a ship <i>or a decoy</i>, not necessarily the middle square) or AREA CLEAR. <b>💣 Depth charge</b> (1): a 5×5 area answers CONTACT (the middle), NEAR CONTACT (only round the edge) or NO CONTACT.',
      '<b>Weapons and tricks that use your turn:</b> <b>🚀 Torpedo</b> (2): pick a row or column and the side it comes from; it flies through the whole line and hits every ship and decoy on it (a mine stops it); every empty square it crosses is marked as clear water. <b>🤫 Silent running</b> (1): for two enemy turns their scans find nothing — but you cannot scan or torpedo meanwhile. <b>⚓ Reposition</b> (1): move one undamaged ship; everyone sees FLEET MOVEMENT DETECTED and all old misses become doubtful.',
      '<b>💥 Mines</b> (2 each, hidden in empty water at deployment): if the enemy fires or launches a torpedo onto a mine, the shot is wasted and its owner takes an <b>extra shot</b>. A depth charge sets off every mine in its area harmlessly.',
      '<b>Weather</b> comes now and then for two rounds: <b>🌫 Fog</b> switches the deduction help off, <b>⛈ Storm</b> blurs sonar (it answers for 5×5), <b>☀️ Calm</b> makes sonar count the echoes.',
@@ -14276,6 +14276,7 @@ function bwBoardSVG(bw,kind,o){
   if(hc>=0)s+=`<rect x="${11+hc*10}" y="11" width="10" height="100" fill="#ffe9a0" fill-opacity=".05" pointer-events="none"/><rect x="11" y="${11+hr*10}" width="100" height="10" fill="#ffe9a0" fill-opacity=".05" pointer-events="none"/>`;
   // scans: mine on the radar, the enemy's on my own waters
   const scans=(bw.scans[(kind==='radar'?viewer:opp)-1]||[]);
+  const zoneCells=sc=>bwArea(sc.n,(sc.size-1)/2);
   scans.forEach((sc,i)=>{
     if(o.hideScan&&i===scans.length-1)return;
     const rad=(sc.size-1)/2,r0=Math.floor(sc.n/10),c0=sc.n%10;
@@ -14283,6 +14284,10 @@ function bwBoardSVG(bw,kind,o){
     const x=11+ca*10+.8,y=11+ra*10+.8,w=(cb-ca+1)*10-1.6,h=(rb-ra+1)*10-1.6;
     const col=kind==='fleet'?'#9fd0ff':sc.r==='contact'?'#ffb347':sc.r==='near'?'#e6c36a':'#7fd6c8';
     const glyph=sc.r==='contact'?(sc.k?String(sc.k):'●'):sc.r==='near'?'◐':'○';
+    if(kind==='radar'&&o.assist&&sc.r!=='clear'){   // the squares of the area that can still hold the echo (a miss inside it takes itself out)
+      const inner=bwArea(sc.n,1);
+      zoneCells(sc).filter(m=>bwOpen(g,m)&&(sc.kind==='depth'?(sc.r==='near'?!inner.includes(m):inner.includes(m)):true)).forEach(m=>{s+=`<rect x="${bwX(m)-4.7}" y="${bwY(m)-4.7}" width="9.4" height="9.4" rx="1" fill="#ffb347" fill-opacity=".15" pointer-events="none"/>`;});
+    }
     s+=`<g pointer-events="none" class="bw-scan"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1.4" fill="${col}" fill-opacity=".06" stroke="${col}" stroke-opacity=".75" stroke-width=".55" stroke-dasharray="2 1.4"/><text x="${x+w-2}" y="${y+4.6}" text-anchor="end" font-size="4.4" fill="${col}" font-weight="700">${kind==='fleet'?'📡':glyph}</text></g>`;
   });
   // the ships
@@ -14388,7 +14393,7 @@ function bwLegendHTML(){
     ['<i class="lg" style="background:#2b1f1d;border-color:#a2483a">⚓</i>','<b>Wreck.</b> A destroyed ship stays on the map, and everybody knows where it was.'],
     ['<i class="lg" style="background:rgba(255,179,71,.12);border-color:#ffb347">🛟</i>','<b>Decoy.</b> A fake ship: sonar and depth charges can mistake it for a real one. It is revealed when it is hit.'],
     ['<i class="lg" style="background:rgba(138,156,161,.15);border-color:#8a9ca1">💥</i>','<b>Mine.</b> Each admiral hides two in empty water. A shot or torpedo that lands on one is <b>wasted</b>, the mine leaves a crater — and its owner gets an <b>extra shot</b>. A depth charge sets off every mine in its area (harmlessly).'],
-    ['<i class="lg" style="background:rgba(255,179,71,.12);border-color:#ffb347">📡</i>','<b>Sonar</b> (3 a game, free, one scan a turn): tap the centre of a 3×3 area. CONTACT = an echo inside (a ship — or a decoy). AREA CLEAR = nothing.'],
+    ['<i class="lg" style="background:rgba(255,179,71,.12);border-color:#ffb347">📡</i>','<b>Sonar</b> (3 a game, free, one scan a turn): tap the centre of a 3×3 area. CONTACT = an echo <i>somewhere inside</i> the area (a ship — or a decoy; not necessarily the middle). The squares that can still hold it stay tinted. AREA CLEAR = nothing.'],
     ['<i class="lg" style="background:rgba(255,179,71,.12);border-color:#ffb347">💣</i>','<b>Depth charge</b> (1, free): a 5×5 area. CONTACT = an echo in the middle 3×3, NEAR CONTACT = only round the edge, NO CONTACT = nothing.'],
     ['<i class="lg" style="background:rgba(255,179,71,.12);border-color:#ffb347">🚀</i>','<b>Torpedo</b> (2, uses your turn): pick a row or column and the side it comes from. It flies through the whole line and hits every ship and decoy on it (a mine stops it); every empty square it crosses is marked as clear water, or finds nothing.'],
     ['<i class="lg" style="background:rgba(255,179,71,.12);border-color:#ffb347">🤫</i>','<b>Silent running</b> (1, uses your turn): for two enemy turns their sonar and depth charges find nothing — but you cannot scan or torpedo while you run silent.'],
@@ -14478,7 +14483,7 @@ function rBlackwaterTable(){
     const tb=(t,label,cnt,ok,ic)=>`<button class="bw-tool${tool===t?' on':''}${cnt===0?' spent':''}" data-a="bwtool" data-t="${t}" ${ok?'':'disabled'} aria-pressed="${tool===t}">${ic||''}<span>${label}</span>${cnt!=null?`<i>${cnt}</i>`:''}</button>`;
     const bar=`<div class="bw-toolbar" role="group" aria-label="Actions">${tb('fire','Fire',null,true,'<b class="bw-em">🎯</b>')}${tb('sonar','Sonar',am.sonar,am.sonar>0&&canScan,img('ic-sonar'))}${tb('depth','Depth charge',am.depth,am.depth>0&&canScan,img('ic-depthcharge'))}${tb('torp','Torpedo',am.torp,am.torp>0&&!silentMe,img('ic-torpedo'))}${tb('silent','Silent run',am.silent,am.silent>0&&bw.silent[viewer-1]===0,img('ic-silent'))}${tb('repos','Reposition',am.repos,am.repos>0&&(bw.fleet[viewer-1]||[]).some(s=>bwCanMove(bw,viewer,s.id)),img('ic-reposition'))}</div>`;
     const exNote=bw.extra&&bw.extra[viewer-1]>0?'<div class="gt-hintline">⚡ One of your mines paid off: you take two turns in a row.</div>':'';
-    const note1=silentMe?`<div class="gt-hintline">🤫 You are running silent for ${bw.silent[viewer-1]} more turn${bw.silent[viewer-1]!==1?'s':''}: no scans, no torpedoes — but their sonar finds nothing.</div>`:(bw.scanned?'<div class="gt-hintline">📡 You have scanned this turn. Now fire (or launch a torpedo).</div>':'');
+    const note1=silentMe?`<div class="gt-hintline">🤫 You are running silent for ${bw.silent[viewer-1]} more turn${bw.silent[viewer-1]!==1?'s':''}: no scans, no torpedoes — but their sonar finds nothing.</div>`:(bw.scanned?(()=>{const sc=(bw.scans[viewer-1]||[]).slice(-1)[0];const m=!sc?'':sc.r==='contact'?(sc.kind==='depth'?'📡 An echo in the middle 3×3 of the area — not necessarily the centre square, and it may be a decoy.':'📡 An echo somewhere in the amber area — not necessarily the middle square, and it may be a decoy. A miss inside it takes that square out.'):sc.r==='near'?'📡 An echo, but only round the edge of the area.':'📡 Nothing found in that area (a fleet running silent also looks clear).';return`<div class="gt-hintline">${m} Now fire (or launch a torpedo).</div>`;})():'');
     const note=exNote+note1;
     if(tool==='fire'){
       if(sel!=null){prompt=`🎯 TARGET <b>${bwName(sel)}</b> — <span class="bw-lk">LOCKING…</span>`;controls=`${bar}<div class="gt-dare"><button class="btn btn-gold gt-roll bw-fire" data-a="bwfire">🔥 FIRE</button><button class="btn btn-ghost" data-a="bwcancel">Cancel</button></div>${note}`;}
@@ -15564,8 +15569,9 @@ function bwRunSeq0(bw,renderNow,done){
       seq.skip=fin;
       const col=fx.r==='contact'?'#ffb347':fx.r==='near'?'#e6c36a':'#7fd6c8';
       BWFX.emit(fx.r==='clear'?'CLEAR':'CONTACT',ctx({P,near:fx.r==='near'}));
-      const t=gtEl(svg,'text',{x:P[0],y:P[1]+1.6,'text-anchor':'middle','font-size':fx.k?7:3.6,'font-weight':700,fill:col,class:'gt-reveal','pointer-events':'none'},1100);
-      t.textContent=fx.r==='contact'?(fx.k?String(fx.k):'CONTACT'):fx.r==='near'?'NEAR':'CLEAR';
+      const zy=Math.max(9.5,P[1]-((fx.size-1)/2)*10-6.5);   // above the area: the echo is somewhere in it, not at the centre
+      const t=gtEl(svg,'text',{x:Math.min(86,Math.max(36,P[0])),y:zy,'text-anchor':'middle','font-size':3.3,'font-weight':700,fill:col,class:'gt-reveal','pointer-events':'none'},1500);
+      t.textContent=fx.r==='contact'?(fx.kind==='depth'?'ECHO IN THE MIDDLE OF THE AREA':fx.k?fx.k+' ECHOES IN THE AREA':'ECHO SOMEWHERE IN THE AREA'):fx.r==='near'?'ECHO ONLY AT THE EDGE':'AREA CLEAR';
       const sw=fx.swept&&fx.swept.length?(BWFX.emit('MINES_SWEPT',ctx({P,cells:fx.swept}))||0):0;
       after(fin,950+sw);
     },lead);
