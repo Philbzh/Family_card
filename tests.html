@@ -6999,7 +6999,7 @@ async function runPresentation(A,W,frame){
       G.lp=[human(1,'Phil',0),human(2,'Anna',1)];F('lDealBlackwater')();
       check('on one device Blackwater is played against a bot: the second seat is made a bot and its fleet is hidden away already',G.lp[1].bot&&G.bw.phase==='deploy'&&G.bw.ready.join()==='false,true'&&G.scr==='table');
       let d=doc();
-      check('deployment: one board (your fleet) and the five ships to place, Fleet Ready is not yet possible',d.querySelectorAll('.bw-svg').length===1&&d.querySelectorAll('.bw-chip').length===5&&d.querySelector('[data-a="bwready"]').disabled===true);
+      check('deployment: one board (your fleet), the five ships and the decoys to place, Fleet Ready is not yet possible',d.querySelectorAll('.bw-svg').length===1&&d.querySelectorAll('.bw-chip').length===6&&d.querySelector('[data-a="bwready"]').disabled===true);
       tap('bwship',{'data-id':'scout'});tap('bwdep',{'data-n':'0'});
       check('tap a ship, tap the ocean: it is placed (clamped to fit the grid) and the next ship is selected',G.bwDep.pl.scout&&G.bwDep.pl.scout.r===0&&G.bwDep.pl.scout.c===0&&G.bwDep.sel==='carrier');
       tap('bwdep',{'data-n':'9'});
@@ -7049,8 +7049,8 @@ async function runPresentation(A,W,frame){
       check('the end screen shows the winner, the ships left, a title and the numbers',res.querySelectorAll('.sr').length===2&&/ship/.test(res.body.textContent)&&!!res.querySelector('.bw-title')&&/SHOTS/.test(res.body.textContent));
       // the registry
       const gm=F('GAMES').find(x=>x.id==='blackwater');
-      check('Blackwater is on the roster: 2 players, online, with bots, rules, tour, tagline, accent colour, label and reactions',gm&&gm.minP===2&&gm.maxP===2&&gm.rules.length>=6&&F('ONLINE_GAMES').includes('blackwater')&&F('BOT_GAMES').has('blackwater')&&F('TOURS').blackwater.slides.length===4&&!!F('STAGE_TAGS').blackwater&&!!F('MOMENT_ACCENT').blackwater&&F('v14GameLabel')('blackwater')==='Blackwater'&&F('REACTION_GAME').blackwater.length===3);
-      check('three Blackwater trophies exist',F('ACHIEVEMENTS').filter(a=>a.id.startsWith('bw-')).length===3);
+      check('Blackwater is on the roster: 2 players, online, with bots, rules, tour, tagline, accent colour, label and reactions',gm&&gm.minP===2&&gm.maxP===2&&gm.rules.length>=6&&F('ONLINE_GAMES').includes('blackwater')&&F('BOT_GAMES').has('blackwater')&&F('TOURS').blackwater.slides.length===6&&!!F('STAGE_TAGS').blackwater&&!!F('MOMENT_ACCENT').blackwater&&F('v14GameLabel')('blackwater')==='Blackwater'&&F('REACTION_GAME').blackwater.length===3);
+      check('five Blackwater trophies exist',F('ACHIEVEMENTS').filter(a=>a.id.startsWith('bw-')).length===5);
       // online: each device draws only its own fleet
       G.isOnline=true;G.myPid='pB';G.scr='table';
       const bw2=F('bwNew')(31);F('bwDeploy')(bw2,1,F('bwAutoFleet')(1,true));F('bwDeploy')(bw2,2,F('bwAutoFleet')(2,true));bw2.cur=1;
@@ -7063,6 +7063,226 @@ async function runPresentation(A,W,frame){
       check('online, the player not on turn waits and cannot tap the enemy waters',!dd.querySelector('[data-a="bwcell"]')&&/Waiting for Phil/.test(dd.querySelector('.y-hint').textContent));
     } finally {
       G.isOnline=false;G.srv=null;G.myPid=null;G.bwInstant=false;G.bw=null;G.bwSeq=null;G.bwDep=null;G.lp=[];G.scr='home';G.myName=keepName;
+      if(keepHist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keepHist);
+      if(keepAssist==null)W.localStorage.removeItem('ct_bw_assist');else W.localStorage.setItem('ct_bw_assist',keepAssist);
+    }
+  });
+
+  suite('Blackwater — decoys, scans, torpedoes, silence, moving and weather',()=>{
+    const F=n=>W.eval(n);
+    const ship=(id,r,c,d)=>({id,r,c,d});
+    // seat 2's fleet: Scout at J1-J2 (9,19), Destroyer A5-C5 (40,41,42), Carrier row 1 (0-4), Battleship row 3 (20-23), Cruiser row 8 (70-72); decoys on 55 and 88
+    const fb=()=>[ship('carrier',0,0,'h'),ship('battleship',2,0,'h'),ship('cruiser',7,0,'h'),ship('destroyer',4,0,'h'),ship('scout',0,9,'v')];
+    const fa=()=>[ship('carrier',9,0,'h'),ship('battleship',8,0,'h'),ship('cruiser',7,0,'h'),ship('destroyer',6,0,'h'),ship('scout',5,0,'h')];
+    const mk=(da,db)=>{const x=F('bwNew')(2);F('bwDeploy')(x,1,fa(),da||[]);F('bwDeploy')(x,2,fb(),db||[55,88]);x.cur=1;return x;};
+    const pass=(x)=>{ // the other player makes a harmless shot at a known empty corner so the turn comes back
+      const s=x.cur;const free=[];for(let n=99;n>=0&&free.length<1;n--)if(F('bwOpen')(x.shots[2-s],n)&&!F('bwShipAt')(x,3-s,n)&&!F('bwDecoyAt')(x,3-s,n))free.push(n);return F('bwFire')(x,s,free[0]);};
+    check('decoys: up to two different squares, never under a ship; none is fine',F('bwDecoysOk')([55,88],fb())&&F('bwDecoysOk')([],fb())&&!F('bwDecoysOk')([55,55],fb())&&!F('bwDecoysOk')([55,88,99],fb())&&!F('bwDecoysOk')([1],fb())&&!F('bwDecoysOk')([100],fb()));
+    check('a fleet with an illegal decoy is refused',(()=>{const x=F('bwNew')(3);return !F('bwDeploy')(x,1,fa(),[90])&&F('bwDeploy')(x,1,fa(),[0,1]);})());
+    check('Auto decoys are two legal squares not under any ship',(()=>{for(let i=1;i<=100;i++){const f=F('bwAutoFleet')(i,true),d=F('bwAutoDecoys')(i,f,true);if(d.length!==2||!F('bwDecoysOk')(d,f))return false;}return true;})());
+    let b=mk();
+    check('a shot at a decoy: DECOY DESTROYED — recorded in public (4), no hit, the turn passes, the decoy is spent',(()=>{const f=F('bwFire')(b,1,55);return f.res==='decoy'&&b.shots[1][55]===4&&b.decoyGone[1].join()==='55'&&b.stats.hits[0]===0&&b.cur===2&&b.fooled[1].join()==='55';})());
+    check('the same square cannot be shot again',(()=>{F('bwFire')(b,2,60);return F('bwFire')(b,1,55)===null;})());
+    // sonar
+    b=mk();
+    let f=F('bwSonar')(b,1,10);   // centre B2 (cell 11 is row 2 col B): zone 0,1,2,10,11,12,20,21,22 holds the carrier and the battleship
+    check('sonar: CONTACT when a live ship cell is inside the 3x3 area; it is free (the turn stays), once a turn, and counted',f.kind==='sonar'&&f.r==='contact'&&b.cur===1&&b.scanned===true&&b.ammo[0].sonar===2&&b.scans[0].length===1&&F('bwSonar')(b,1,50)===null);
+    check('after a scan the player still fires, then the turn passes and scanning is allowed again',(()=>{const g=F('bwFire')(b,1,77);const ok=g&&b.cur===2&&b.scanned===false;pass(b);return ok&&F('bwSonar')(b,1,50)!==null;})());
+    b=mk();
+    check('sonar: AREA CLEAR over empty water, and cells that were already hit no longer show up as contact',(()=>{const c=F('bwSonar')(b,1,69);if(c.r!=='clear')return false;b.scanned=false;const k=mk();F('bwFire')(k,1,9);F('bwFire')(k,2,99);F('bwFire')(k,1,19);F('bwFire')(k,2,98);return F('bwSonar')(k,1,9).r==='clear';})());
+    check('a decoy is an echo too: a scan over a decoy alone says CONTACT, and the decoy is noted as having fooled the scanner',(()=>{const c=F('bwSonar')(mk(),1,55);const k=mk();F('bwSonar')(k,1,55);return c.r==='contact'&&k.fooled[1].join()==='55';})());
+    check('no sonar left, and no scan from a player who is not on turn',(()=>{const k=mk();for(let i=0;i<3;i++){F('bwSonar')(k,1,60+i);k.scanned=false;}return F('bwSonar')(k,1,70)===null&&F('bwSonar')(mk(),2,10)===null;})());
+    // depth charge
+    b=mk();
+    check('depth charge (5x5): CONTACT when an echo is in the middle 3x3, NEAR CONTACT when only round the edge, NO CONTACT otherwise; it is free and counted',(()=>{
+      const a=F('bwDepth')(mk(),1,10),n=F('bwDepth')(mk(),1,69),c=F('bwDepth')(mk(),1,49);
+      const x=mk();const e=F('bwDepth')(x,1,10);
+      return a.r==='contact'&&n.r==='near'&&c.r==='clear'&&a.size===5&&x.ammo[0].depth===0&&x.cur===1&&F('bwDepth')(mk(),2,10)===null;})());
+    // torpedo
+    b=mk();
+    check('torpedo along row 5 from the left hits the Destroyer at A5 (the first live thing), uses the turn, and is counted',(()=>{const t=F('bwTorpedo')(b,1,'r',4,'a');return t.res==='hit'&&t.name==='A5'&&t.path.join()==='40'&&b.cur===2&&b.ammo[0].torp===1&&b.stats.torp[0]===1;})());
+    check('torpedo from the other side hits the other end: from the right along row 5 reaches C5',(()=>{const x=mk();const t=F('bwTorpedo')(x,1,'r',4,'b');return t.res==='hit'&&t.name==='C5'&&t.path.length===8;})());
+    check('torpedo down a column from the top and from the bottom',(()=>{const x=mk(),y=mk();const t=F('bwTorpedo')(x,1,'c',9,'a'),u=F('bwTorpedo')(y,1,'c',9,'b');return t.res==='hit'&&t.name==='J1'&&u.res==='hit'&&u.name==='J2';})());
+    check('a torpedo skips squares that were already shot',(()=>{const x=mk();F('bwFire')(x,1,40);F('bwFire')(x,2,99);const t=F('bwTorpedo')(x,1,'r',4,'a');return t.name==='B5';})());
+    check('a torpedo that finds nothing reports CLEAR with no square (the whole line is crossed)',(()=>{const x=mk();const t=F('bwTorpedo')(x,1,'r',6,'a');return t.res==='clear'&&t.n===-1&&t.path.length===10&&x.cur===2;})());
+    check('a torpedo can hit a decoy: DECOY DESTROYED and the torpedo is wasted',(()=>{const x=mk();const t=F('bwTorpedo')(x,1,'c',5,'a');return t.res==='decoy'&&t.name==='F6'&&x.decoyGone[1].join()==='55';})());
+    check('a torpedo can destroy a ship and win it a TORPEDO ACE count',(()=>{const x=mk();F('bwFire')(x,1,9);F('bwFire')(x,2,99);const t=F('bwTorpedo')(x,1,'c',9,'b');return t.res==='sunk'&&x.stats.torpSunk[0]===1;})());
+    check('only two torpedoes, and bad lines are refused',(()=>{const x=mk();F('bwTorpedo')(x,1,'r',9,'a');F('bwFire')(x,2,99);F('bwTorpedo')(x,1,'r',8,'a');F('bwFire')(x,2,98);return F('bwTorpedo')(x,1,'r',7,'a')===null&&F('bwTorpedo')(mk(),1,'x',1,'a')===null&&F('bwTorpedo')(mk(),1,'r',10,'a')===null&&F('bwTorpedo')(mk(),1,'r',1,'z')===null;})());
+    // silent running
+    b=mk();
+    check('silent running uses the turn, can only be used once, and is public',(()=>{const f=F('bwSilentRun')(b,1);return f.kind==='silent'&&b.cur===2&&b.silent[0]===2&&b.ammo[0].silent===0&&F('bwSilentRun')(b,1)===null;})());
+    check('while a fleet runs silent the enemy’s sonar and depth charge find nothing — and it lasts exactly two enemy turns',(()=>{
+      const q=F('bwSonar')(b,2,90);
+      return q.r==='clear'&&b.silent[0]===2;})());
+    check('the enemy turn count goes down by one per enemy turn, then scans work again',(()=>{
+      const x=mk();F('bwSilentRun')(x,1);        // seat 2 to play
+      const s1=F('bwSonar')(x,2,90);F('bwFire')(x,2,99);    // enemy turn 1: scan finds nothing
+      pass(x);                                   // seat 1 shoots (cannot scan: silent)
+      const s2=F('bwSonar')(x,2,90);F('bwFire')(x,2,98);    // enemy turn 2: still nothing
+      const left=x.silent[0];pass(x);
+      const s3=F('bwSonar')(x,2,90);
+      return s1.r==='clear'&&s2.r==='clear'&&left===0&&s3!==null&&s3.r==='contact';})());
+    check('the silent player cannot scan or launch a torpedo while running silent',(()=>{const x=mk();F('bwSilentRun')(x,1);F('bwFire')(x,2,99);return F('bwSonar')(x,1,10)===null&&F('bwTorpedo')(x,1,'r',4,'a')===null&&F('bwFire')(x,1,77)!==null;})());
+    // emergency reposition
+    b=mk();
+    check('only an undamaged ship may move, and the new place must be free and different',(()=>{const x=mk();F('bwFire')(x,1,9);F('bwFire')(x,2,99);return F('bwCanMove')(x,2,'carrier')&&!F('bwCanMove')(x,2,'scout')&&!F('bwRepositionOk')(x,2,'carrier',0,0,'h')&&!F('bwRepositionOk')(x,2,'carrier',2,0,'h')&&!F('bwRepositionOk')(x,2,'carrier',0,7,'h')&&F('bwRepositionOk')(x,2,'carrier',6,0,'h');})());
+    check('a ship cannot move onto a decoy',(()=>!F('bwRepositionOk')(mk(),2,'carrier',5,5,'h')&&F('bwRepositionOk')(mk(),2,'carrier',6,0,'h'))());
+    check('the reposition itself (seat 2 on turn): public signal, stale misses, the ship has really moved',(()=>{
+      const x=mk();F('bwFire')(x,1,77);
+      const r=F('bwReposition')(x,2,'carrier',6,0,'h');
+      return !!r&&r.kind==='repos'&&x.moved[1]===true&&x.shots[1][77]===5&&x.cur===1&&x.fleet[1].find(s=>s.id==='carrier').r===6&&x.ammo[1].repos===0&&F('bwReposition')(x,2,'cruiser',3,3,'h')===null;})());
+    check('after a move the old misses can be shot again, and no longer count as proof of empty water in the help',(()=>{
+      const x=mk();F('bwFire')(x,1,77);F('bwReposition')(x,2,'carrier',6,0,'h');
+      const again=F('bwFire')(x,1,77);
+            return again!==null&&(again.res==='miss'||again.res==='hit');})());
+    // weather
+    check('weather: nothing before round 3, then one kind at a time for exactly two rounds with quiet spells between, and the same on every device (it depends only on the seed and the round)',(()=>{
+      const tl=seed=>{const x=F('bwNew')(seed);const out=[];for(let r=2;r<=30;r++){x.round=r;F('bwWeatherTick')(x);out.push(x.weather.kind);}return out;};
+      const a=tl(11),b2=tl(11),c=tl(12),d=tl(13);
+      if(JSON.stringify(a)!==JSON.stringify(b2))return false;
+      if(a[0]!==''||a[1]!=='')return false;               // rounds 2 and 3 are quiet (the first change comes at round 4 at the earliest)
+      const runs=[];let cur=null;
+      a.forEach(k=>{if(k&&cur&&cur.k===k)cur.n++;else if(k){cur={k,n:1};runs.push(cur);}else cur=null;});
+      const kinds=new Set(runs.map(r=>r.k));
+      return runs.length>=3&&runs.every(r=>r.n>=2&&r.n<=4)&&[...kinds].every(k=>['fog','storm','calm'].includes(k))&&(JSON.stringify(a)!==JSON.stringify(c)||JSON.stringify(a)!==JSON.stringify(d));})());
+    check('a storm blurs sonar: the answer is for the 5x5 area; calm makes it count the echoes',(()=>{
+      const s=mk();s.weather={kind:'storm',left:2,wait:0};const r=F('bwSonar')(s,1,32);   // 3x3 around 32 is empty-ish, but the 5x5 holds the battleship/carrier
+      const c=mk();c.weather={kind:'calm',left:2,wait:0};const q=F('bwSonar')(c,1,11);
+      return r.blur===true&&r.size===5&&q.calm===true&&q.k>=2&&q.r==='contact';})());
+    // stories
+    check('titles: Torpedo Ace, Ghost Fleet, False Contact, Admiral’s Gamble, No Mercy, Last Stand',(()=>{
+      const base=()=>{const x=mk();x.over=true;x.win=1;x.phase='over';x.wreck[1]=[{id:'a'},{id:'b'},{id:'c'},{id:'d'},{id:'e'}];x.stats.shots=[60,60];return x;};
+      const t=(f)=>{const x=base();f(x);return F('bwTitle')(x);};
+      return t(x=>{x.stats.torpSunk[0]=1;})==='TORPEDO ACE'&&t(x=>{x.stats.silent[0]=1;})==='GHOST FLEET'&&t(x=>{x.fooled[0]=[1,2];})==='FALSE CONTACT'&&t(x=>{x.stats.sonar[0]=1;x.stats.torp[0]=1;x.stats.depth[0]=1;x.stats.silent[0]=1;})==='ADMIRAL’S GAMBLE'&&t(x=>{x.stats.shots=[40,40];})==='NO MERCY'&&t(x=>{x.wreck[0]=[{id:'a'},{id:'b'},{id:'c'},{id:'d'}];})==='LAST STAND';})());
+    check('moments: a torpedo finish, a silent-running win, two decoys, and one ship left',(()=>{
+      const x=F('bwNew')(1);F('bwDeploy')(x,1,fa());F('bwDeploy')(x,2,fb());x.over=true;x.win=1;x.phase='over';x.wreck[1]=[{id:'a'},{id:'b'},{id:'c'},{id:'d'},{id:'e'}];
+      x.hist=[{s:1,k:'torp',r:'sunk',by:'torp'}];const m1=F('bwMoment')(x,['Phil','Anna']);
+      x.hist=[];x.stats.silent[0]=1;const m2=F('bwMoment')(x,['Phil','Anna']);
+      x.stats.silent[0]=0;x.fooled[1]=[1,2];const m3=F('bwMoment')(x,['Phil','Anna']);
+      x.fooled[1]=[];x.wreck[0]=[{id:'carrier'},{id:'battleship'},{id:'cruiser'},{id:'destroyer'}];const m4=F('bwMoment')(x,['Phil','Anna']);
+      return /torpedo/.test(m1)&&/Silent Running/.test(m2)&&/decoys/.test(m3)&&/only the Scout left/.test(m4);})());
+    // the bots with all their tools
+    check('the Admiral plays whole games legally with every weapon, uses specials, and the Sharp bot maps to the Admiral',(()=>{
+      if(F('bwBotLevel')('sharp')!=='admiral'||F('bwBotLevel')('gentle')!=='officer')return false;
+      let used=0;
+      for(let k=0;k<20;k++){
+        const x=F('bwNew')(k*31+7);const f1=F('bwAutoFleet')(k+1,true),f2=F('bwAutoFleet')(k+50,true);
+        F('bwDeploy')(x,1,f1,F('bwAutoDecoys')(k,f1,true));F('bwDeploy')(x,2,f2,F('bwAutoDecoys')(k+9,f2,true));let n=0;
+        while(!x.over&&n++<900){const s=x.cur,a=F('bwBotAct')(x,s,'admiral');if(!a||!F('bwAct')(x,s,a))return false;if(a.t!=='fire')used++;}
+        if(!x.over)return false;
+      }
+      return used>40;})());
+    check('the Admiral beats the Commander in most games (over 80 games), so the weapons are worth using',(()=>{
+      let w=0;
+      for(let k=1;k<=80;k++){
+        const x=F('bwNew')(k*53+3);const f1=F('bwAutoFleet')(k*3,true),f2=F('bwAutoFleet')(k*5,true);
+        F('bwDeploy')(x,1,f1,F('bwAutoDecoys')(k,f1,true));F('bwDeploy')(x,2,f2,F('bwAutoDecoys')(k+9,f2,true));let n=0;
+        while(!x.over&&n++<900){const s=x.cur,a=F('bwBotAct')(x,s,s===1?'admiral':'commander');if(!a||!F('bwAct')(x,s,a))break;}
+        if(x.win===1)w++;
+      }
+      return w>=44;})());
+    check('the Admiral cannot cheat: the same record against a different hidden fleet gives the same choice',(()=>{
+      const mkp=(fleet)=>{const x=F('bwNew')(5);F('bwDeploy')(x,1,fa(),[]);F('bwDeploy')(x,2,fleet,[]);x.cur=1;x.round=3;[44,45,12,78].forEach(n=>{x.shots[1][n]=1;});x.scans[0].push({n:33,size:3,kind:'sonar',r:'clear'});return x;};
+      const a=mkp(fb()),c=mkp(F('bwAutoFleet')(77,true));
+      const seq=()=>{let i=0;return()=>[.1,.7,.3,.9,.5,.2,.8][i++%7];};
+      return JSON.stringify(F('bwBotAct')(a,1,'admiral',seq()))===JSON.stringify(F('bwBotAct')(c,1,'admiral',seq()));})());
+  });
+  suite('Blackwater — the new tools at the table',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const tap=(a,attrs)=>{const b=W.document.createElement('button');b.setAttribute('data-a',a);Object.entries(attrs||{}).forEach(([k,v])=>b.setAttribute(k,v));W.document.body.appendChild(b);b.click();b.remove();};
+    const doc=()=>new DOMParser().parseFromString(F('rBlackwaterTable')(),'text/html');
+    const human=(id,n,i,bot)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,...(bot?{bot}:{})});
+    const keepHist=W.localStorage.getItem('ct_history'),keepName=G.myName,keepAssist=W.localStorage.getItem('ct_bw_assist');
+    try{
+      W.localStorage.removeItem('ct_bw_assist');
+      G.isOnline=false;G.srv=null;G.selGame='blackwater';G.bwSeq=null;G.bwInstant=true;G.myName='Phil';
+      G.lp=[human(1,'Phil',0),human(2,'Anna',1,'sharp')];F('lDealBlackwater')();
+      // decoys while deploying
+      tap('bwdecoytool');tap('bwdep',{'data-n':'55'});tap('bwdep',{'data-n':'56'});
+      check('deployment: the decoy tool puts up to two decoys on empty squares; a third is refused; tapping one takes it away',G.bwDep.decoys.join()==='55,56'&&(()=>{tap('bwdep',{'data-n':'57'});return G.bwDep.decoys.length===2;})()&&(()=>{tap('bwdep',{'data-n':'55'});return G.bwDep.decoys.join()==='56';})());
+      tap('bwclear');tap('bwdep',{'data-n':'0'});tap('bwdecoytool');tap('bwdep',{'data-n':'2'});
+      check('a decoy cannot be put under a ship, and placing a ship over a decoy removes the decoy',G.bwDep.decoys.length===0);
+      tap('bwdep',{'data-n':'60'});tap('bwship',{'data-id':'cruiser'});tap('bwdep',{'data-n':'60'});
+      check('...even afterwards',G.bwDep.decoys.length===0&&!!G.bwDep.pl.cruiser);
+      tap('bwauto');
+      let d=doc();
+      check('Auto deploy places five ships and two decoys; your own decoys are drawn on your own board (two buoys)',Object.keys(G.bwDep.pl).length===5&&G.bwDep.decoys.length===2&&d.querySelectorAll('image[href*="decoy-buoy"]').length===2);
+      tap('bwready');
+      check('Fleet Ready carries the decoys into the game and the enemy’s decoys are nowhere on the screen',G.bw.decoys[0].length===2&&G.bw.decoys[1].length===2&&(()=>{const e=doc();return e.querySelectorAll('.bw-svg[data-kind="radar"] image[href*="decoy-buoy"]').length===0&&e.querySelectorAll('.bw-svg[data-kind="fleet"] image[href*="decoy-buoy"]').length===2;})());
+      G.bw.cur=1;G.lcur=0;
+      // the tool bar
+      d=doc();
+      check('the tool bar shows Fire, Sonar ×3, Depth charge ×1, Torpedo ×2, Silent run ×1 and Reposition ×1 with pictures',d.querySelectorAll('.bw-tool').length===6&&/3/.test(d.querySelector('.bw-tool[data-t="sonar"]').textContent)&&d.querySelectorAll('.bw-tool img.bw-ic').length===5);
+      // sonar
+      tap('bwtool',{'data-t':'sonar'});tap('bwcell',{'data-n':'44'});
+      d=doc();
+      check('sonar: tap a centre, the 3x3 zone is shown and PING offered; it does not use the turn',/Sonar on/.test(d.querySelector('.y-hint').textContent)&&!!d.querySelector('[data-a="bwscan"]')&&G.bw.cur===1);
+      tap('bwscan');
+      check('PING records the scan, keeps the turn, resets the tool, and disables a second scan',G.bw.scans[0].length===1&&G.bw.cur===1&&G.bw.scanned&&G.bwTool==='fire'&&doc().querySelector('.bw-tool[data-t="sonar"]').disabled===true&&doc().querySelectorAll('.bw-svg[data-kind="radar"] .bw-scan').length===1);
+      tap('bwcell',{'data-n':'12'});tap('bwfire');
+      check('then the shot, and the turn passes',G.bw.cur===2);
+      // a torpedo
+      while(G.bw.cur!==1&&!G.bw.over)F('botBlackwaterAct')(G.lp[1]);
+      tap('bwtool',{'data-t':'torp'});tap('bwcell',{'data-n':'55'});
+      d=doc();
+      check('torpedo: tap a square, then pick the line and the side; LAUNCH waits for the choice',d.querySelectorAll('[data-a="bwtorpset"]').length===4&&d.querySelector('[data-a="bwlaunch"]').disabled===true);
+      tap('bwtorpset',{'data-line':'r','data-i':'5','data-from':'b'});
+      check('...and then launches',doc().querySelector('[data-a="bwlaunch"]').disabled===false);
+      tap('bwlaunch');
+      check('the torpedo was fired along row 6 from the right, used the turn and an ammo',G.bw.stats.torp[0]===1&&G.bw.ammo[0].torp===1&&G.bw.cur===2);
+      while(G.bw.cur!==1&&!G.bw.over)F('botBlackwaterAct')(G.lp[1]);
+      // silent running
+      tap('bwtool',{'data-t':'silent'});
+      d=doc();
+      check('silent running asks for confirmation first',!!d.querySelector('[data-a="bwsilent"]')&&G.bw.silent[0]===0);
+      tap('bwsilent');
+      check('...then the fleet runs silent for two enemy turns, and the pill shows it',G.bw.silent[0]===2&&G.bw.cur===2&&/🤫/.test(doc().body.textContent));
+      while(G.bw.cur!==1&&!G.bw.over)F('botBlackwaterAct')(G.lp[1]);
+      d=doc();
+      check('while silent the scan and torpedo tools are off and a note says so',d.querySelector('.bw-tool[data-t="sonar"]').disabled&&d.querySelector('.bw-tool[data-t="torp"]').disabled&&/running silent/.test(d.body.textContent));
+      // a normal turn first, then the reposition
+      {let n=0;while(!F('bwOpen')(G.bw.shots[1],n))n++;tap('bwcell',{'data-n':String(n)});tap('bwfire');}
+      while(G.bw.cur!==1&&!G.bw.over)F('botBlackwaterAct')(G.lp[1]);
+      tap('bwtool',{'data-t':'repos'});
+      d=doc();
+      check('reposition: choose which undamaged ship to move',d.querySelectorAll('[data-a="bwreppick"]').length>=1);
+      const sid=d.querySelector('[data-a="bwreppick"]').getAttribute('data-id');
+      tap('bwreppick',{'data-id':sid});
+      d=doc();
+      check('then tap your own fleet where it should go; a MOVE button appears once the place is legal',!!G.bwRep&&G.bwRep.id===sid&&d.querySelector('[data-a="bwrepgo"]').disabled===true);
+      // find a legal place for it
+      const sh=G.bw.fleet[0].find(x=>x.id===sid);let placed=false;
+      for(let r=0;r<10&&!placed;r++)for(let c=0;c<10&&!placed;c++){for(const dd of ['h','v']){if(F('bwRepositionOk')(G.bw,1,sid,r,c,dd)){G.bwRep.dir=dd;tap('bwrep',{'data-n':String(r*10+c)});placed=true;break;}}}
+      d=doc();
+      check('...the ghost ship is drawn and MOVE is enabled',placed&&d.querySelector('[data-a="bwrepgo"]').disabled===false);
+      const before=JSON.stringify(G.bw.fleet[0]);
+      tap('bwrepgo');
+      check('MOVE moves the ship, uses the turn and uses the one reposition',JSON.stringify(G.bw.fleet[0])!==before&&G.bw.ammo[0].repos===0&&G.bw.moved[0]===true&&G.bw.cur===2);
+      // weather chip, fog switches the help off
+      while(G.bw.cur!==1&&!G.bw.over)F('botBlackwaterAct')(G.lp[1]);
+      G.bw.weather={kind:'fog',left:2,wait:0};
+      d=doc();
+      check('weather shows as a chip, and fog switches the deduction help off',/Fog/.test(d.querySelector('.bw-wx').textContent)&&d.querySelectorAll('.bw-svg[data-kind="radar"] rect[fill-opacity=".38"]').length===0&&d.querySelector('.bw-boards').classList.contains('wx-fog'));
+      G.bw.weather={kind:'storm',left:2,wait:0};
+      check('a storm shows its own chip and class',/Storm/.test(doc().querySelector('.bw-wx').textContent)&&doc().querySelector('.bw-boards').classList.contains('wx-storm'));
+      G.bw.weather={kind:'',left:0,wait:2};
+      // last stand look
+      G.bw.wreck[0]=[{id:'a'},{id:'b'},{id:'c'},{id:'d'}];
+      check('with one ship left the table says LAST STAND and the fleet board pulses',/LAST STAND/.test(doc().querySelector('.gt-final').textContent)&&doc().querySelector('.bw-boards').classList.contains('laststand'));
+      G.bw.wreck[0]=[];
+      // online: the enemy decoys never reach the screen
+      G.isOnline=true;G.myPid='pB';G.scr='table';
+      const bw2=F('bwNew')(31);const fA=F('bwAutoFleet')(1,true),fB=F('bwAutoFleet')(2,true);
+      F('bwDeploy')(bw2,1,fA,F('bwAutoDecoys')(1,fA,true));F('bwDeploy')(bw2,2,fB,F('bwAutoDecoys')(2,fB,true));bw2.cur=1;
+      G.srv={gameId:'blackwater',phase:'game',players:[{id:'pA',name:'Phil',avatar:A.AVATARS[0]},{id:'pB',name:'Anna',avatar:A.AVATARS[1]}],curIdx:0,bw:bw2};
+      const dd=new DOMParser().parseFromString(F('rBlackwaterTable')(),'text/html');
+      check('online: seat 2 sees its own two decoys and none of seat 1’s; scans against it are drawn on its own waters',dd.querySelectorAll('image[href*="decoy-buoy"]').length===2);
+      F('bwSonar')(bw2,1,44);
+      const d3=new DOMParser().parseFromString(F('rBlackwaterTable')(),'text/html');
+      check('...and the enemy’s scan shows on the player’s own fleet board',d3.querySelectorAll('.bw-svg[data-kind="fleet"] .bw-scan').length===1&&d3.querySelectorAll('.bw-svg[data-kind="radar"] .bw-scan').length===0);
+      check('the art is on disk where the board looks for it',['ship-carrier','wreck-scout','decoy-buoy','ic-sonar','fx-hit'].every(n=>F('BW_FILES').includes(n)));
+    } finally {
+      G.isOnline=false;G.srv=null;G.myPid=null;G.bwInstant=false;G.bw=null;G.bwSeq=null;G.bwDep=null;G.bwRep=null;G.bwTool='fire';G.lp=[];G.scr='home';G.myName=keepName;
       if(keepHist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keepHist);
       if(keepAssist==null)W.localStorage.removeItem('ct_bw_assist');else W.localStorage.setItem('ct_bw_assist',keepAssist);
     }
