@@ -1853,6 +1853,23 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 .bw-torps .bw-bot{flex:1;padding:.35rem 0;}
 .bw-key{margin-top:.4rem;font-size:.62rem;color:var(--paper3);text-align:center;line-height:1.5;}
 .bw-skiph{position:absolute;bottom:-.1rem;left:50%;transform:translateX(-50%);z-index:5;pointer-events:none;font-size:.62rem;letter-spacing:.08em;color:#cfe6e0;background:rgba(0,0,0,.55);border-radius:999px;padding:.15rem .6rem;animation:bw-toast 2.2s ease-out forwards;}
+.peer-think{white-space:nowrap;max-width:94vw;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(5.4rem + env(safe-area-inset-bottom,0px));z-index:30;pointer-events:none;display:flex;align-items:center;gap:.45rem;padding:.3rem .75rem .3rem .4rem;border-radius:999px;background:rgba(8,14,12,.82);border:1px solid rgba(230,195,106,.35);color:var(--paper2);font-size:.74rem;box-shadow:0 6px 18px rgba(0,0,0,.45);backdrop-filter:blur(4px);}
+.peer-think .pt-av{width:1.5rem;height:1.5rem;border-radius:50%;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;font-size:1.1rem;}
+.pt-dots{display:inline-flex;gap:.18rem;}
+.pt-dots b{width:.28rem;height:.28rem;border-radius:50%;background:var(--gold2);opacity:.3;animation:pt-d 1.2s ease-in-out infinite;}
+.pt-dots b:nth-child(2){animation-delay:.2s}.pt-dots b:nth-child(3){animation-delay:.4s}
+@keyframes pt-d{0%,80%,100%{opacity:.25;transform:translateY(0);}40%{opacity:1;transform:translateY(-2px);}}
+@media(prefers-reduced-motion:reduce){.pt-dots b{animation:none;opacity:.7;}}
+.tn-end{text-align:center;display:flex;flex-direction:column;gap:.55rem;align-items:center;}
+.tn-line{font-family:var(--serif);font-size:1.05rem;color:var(--paper);}
+.tn-aw{display:flex;flex-direction:column;gap:.3rem;width:100%;}
+.tn-awi{display:flex;gap:.45rem;align-items:baseline;justify-content:center;flex-wrap:wrap;font-size:.8rem;color:var(--paper2);}
+.tn-awi b{color:var(--gold2);font-weight:600;}.tn-awi em{font-style:normal;color:var(--paper3);}
+.tn-nlbl{font-size:.62rem;letter-spacing:.22em;color:var(--paper3);margin-bottom:.3rem;}
+.tn-nrow{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;}
+.tn-nrow small{opacity:.6;margin-left:.25rem;}
+.tn-chip{font-size:.78rem;color:var(--paper2);padding:.25rem .6rem;border:1px solid rgba(255,255,255,.15);border-radius:999px;}
+@media(min-width:1100px){.v10-tonight-m{display:none;}}
 .bw-title{font-family:'Cinzel',serif;color:var(--gold2);text-align:center;letter-spacing:.14em;margin-bottom:.4rem;}
 .gt-event.warn{background:rgba(255,160,40,.14);border:1px solid rgba(255,190,80,.6);color:#ffd68a;animation:gt-pulse 1.2s ease-in-out infinite;}
 .gt-event.on{background:rgba(255,90,78,.12);border:1px solid rgba(255,120,100,.55);color:#ffb0a5;}
@@ -4155,6 +4172,28 @@ function isPlayerAbsent(pid,graceMs){
   const since=_absentSince[pid];
   return since!=null&&(Date.now()-since)>=(graceMs||0);
 }
+// The people at the table are not just names: while somebody else is on turn their avatar is there, thinking (and, in Blackwater, aiming).
+const PEER_NO_TURN=new Set(['roulette','slots','bingo','drawit','vault','escape','battle','hotbomb']);
+function peerSend(kind){try{if(_ch&&G.isOnline&&G.myPid)_ch.send({type:'broadcast',event:'pk',payload:{pid:G.myPid,kind}});}catch(e){}}
+function peerOnBroadcast(p){if(!p||!p.pid||p.pid===G.myPid)return;G.peer={pid:p.pid,kind:p.kind,at:Date.now()};peerThinkTick();}
+function peerThinkTick(){
+  let el=document.getElementById('peer-think');
+  const st=G.srv;
+  let who=null;
+  if(G.isOnline&&st&&st.phase==='game'&&!st.winner&&G.scr==='table'&&!PEER_NO_TURN.has(st.gameId)&&!document.hidden){
+    const p=(st.players||[])[st.curIdx||0];
+    if(p&&p.id!==G.myPid&&!isPlayerAbsent(p.id,0))who=p;
+  }
+  if(!who){if(el)el.remove();return;}
+  const since=Date.now()-(G._srvAt||Date.now());
+  const aim=G.peer&&G.peer.pid===who.id&&G.peer.kind==='aim'&&Date.now()-G.peer.at<15000;
+  const nm=esc((who.name||'').slice(0,14));
+  const txt=aim?`🎯 ${nm} is lining up a shot`:since<9000?`${nm} is thinking`:since<26000?`🤔 ${nm} is taking their time`:`⏳ Still waiting for ${nm}`;
+  if(!el){el=document.createElement('div');el.id='peer-think';el.className='peer-think';el.setAttribute('role','status');el.setAttribute('aria-live','off');document.body.appendChild(el);}
+  const html=`<span class="pt-av">${avHTML(who.avatar)}</span><span>${txt}</span><i class="pt-dots"><b></b><b></b><b></b></i>`;
+  if(el._h!==html){el._h=html;el.innerHTML=html;}
+}
+setInterval(()=>{try{peerThinkTick();}catch(e){}},1000);
 function _onPresenceSync(){
   const sb=SB();if(!sb||!_ch)return;
   const state=_ch.presenceState();
@@ -4194,6 +4233,7 @@ function dbSub(id,cb){
     _ch=sb.channel('r:'+id)
       .on('postgres_changes',{event:'*',schema:'public',table:'card_rooms',filter:`id=eq.${id}`},()=>dbRead(id).then(onState))
       .on('presence',{event:'sync'},_onPresenceSync)
+      .on('broadcast',{event:'pk'},msg=>peerOnBroadcast(msg&&msg.payload))
       .on('broadcast',{event:'dw'},msg=>dwOnBroadcast(msg&&msg.payload))
       .subscribe(status=>{if(status==='SUBSCRIBED')_ch.track({pid:G.myPid});});
   }
@@ -5098,6 +5138,90 @@ function syncHistory(e){
   catch(err){}
 }
 
+// What tonight looks like so far: who leads, the little awards, and what to play next.
+function pickGame(gid){
+    if(!GAMES.find(g=>g.id===gid&&g.locked)){
+      G.selGame=gid;
+      // Seats carry over between games, so a six-player Mau Mau table walked straight into a
+      // two-seat duel: the extra seats stayed on screen, "Add a bot" greyed out because the table
+      // read as full, and the game quietly played only the first two anyway. Fit the table to the
+      // game that is about to be played, and say so rather than silently dropping people.
+      const g=currentGame(),cap=g.maxP||(isPoker()?8:6),min=g.minP||2;
+      if(G.lp.length>cap){
+        const dropped=G.lp.slice(cap).map(p=>p.name.trim()).filter(Boolean);
+        G.lp=G.lp.slice(0,cap);
+        toast(dropped.length?`${g.name} seats ${cap} — ${dropped.join(', ')} stepped out`
+                            :`${g.name} seats ${cap}`);
+      }
+      while(G.lp.length<min)
+        G.lp.push({id:G.nid++,name:'',avatar:AVATARS[G.lp.length%AVATARS.length],hand:[],totalScore:0,
+          roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false});
+    }
+}
+function goNewGame(){
+    ldClearReveal();ldStopOnline();smClearTimers();hbStop();vtStop();esStop();
+    const keep={snd:G.snd,gp:G.gp,tw:G.tw,selGame:G.selGame,myName:G.myName,myAvatar:G.myAvatar,beginnerMode:G.beginnerMode,hr:G.hr};
+    stopSync();
+    localStorage.removeItem('ct_resume');
+    G={scr:'home',selGame:keep.selGame,snd:keep.snd,joinCode:'',lp:[{id:1,name:'',avatar:AVATARS[0],hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false},{id:2,name:'',avatar:AVATARS[1],hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false}],nid:3,ldeck:[],ldisc:[],lcur:0,lstart:0,ldir:1,lsuit:null,lpend:0,lround:1,lpass1:'',lpass2:'',llast:'',lmau:null,ldrawnCount:0,lspick:false,lpcard:null,lshake:null,lshowThrow:null,lthrowing:false,lDealIn:false,lres:null,pot:0,community:[],communityRevealAnim:null,dealerHand:[],dealerHoleHidden:true,dealerRevealAnim:false,bjBet:50,battleLast:null,battleAnimating:false,pokerPhase:'preflop',bigBlind:20,smallBlind:10,dealer:0,currentBet:0,betInput:'',drawSelections:new Set(),pokerShowdown:false,hr:keep.hr,rulesOpen:false,quitOpen:false,isOnline:false,roomId:null,myPid:null,isHost:false,myName:keep.myName,myAvatar:keep.myAvatar,srv:null,gp:keep.gp,tw:keep.tw,beginnerMode:keep.beginnerMode,matchStats:freshMatchStats(),familyNewAvatar:AVATARS[0],
+      talkOpen:false,tableName:localStorage.getItem('ct_tablename')||'',plaqueEditing:false,profileEditing:false,ambientOn:localStorage.getItem('ct_ambient')==='1',
+      notifyOn:localStorage.getItem('ct_notify')==='1',digestOpen:false,digestImg:null,
+      ydice:[1,1,1,1,1],yheld:[false,false,false,false,false],yrolls:0,yres:null,yLastRolled:[],
+      roulChip:5,roulSpinning:false,roulResult:null,roulHistory:[],roulHighlight:null};
+    applyFeltTheme(localStorage.getItem('ct_felt_theme')||'emerald');
+    render();
+  }
+function tonightSummary(){
+  const todayStr=new Date().toDateString();
+  const todays=getHistory().filter(h=>new Date(h.date).toDateString()===todayStr);
+  if(!todays.length)return null;
+  const gname=id=>(GAMES.find(g=>g.id===id)||{}).name||id;
+  const wins={};todays.forEach(h=>{if(h.winner&&h.winner!=='Nobody')wins[h.winner]=(wins[h.winner]||0)+1;});
+  const order=Object.entries(wins).sort((a,b)=>b[1]-a[1]);
+  const aw=[];
+  const stat=(h,k)=>(h.stats&&h.stats[k])||0;
+  const talk=todays.slice().sort((a,b)=>stat(b,'reactions')-stat(a,'reactions'))[0];
+  if(talk&&stat(talk,'reactions')>=3)aw.push({ic:'😂',t:'Most talked about',s:gname(talk.game)+' — '+stat(talk,'reactions')+' reactions'});
+  const cb=todays.slice().sort((a,b)=>stat(b,'comebacks')-stat(a,'comebacks'))[0];
+  if(cb&&stat(cb,'comebacks')>=1)aw.push({ic:'🔄',t:'Comeback of the night',s:gname(cb.game)+' — '+(cb.winner||'')});
+  const moments=todays.filter(h=>h.moment).slice(0,2).map(h=>({ic:(GAMES.find(g=>g.id===h.game)||{}).icon||'🃏',t:h.moment}));
+  return{games:todays.length,order,awards:aw,moments,played:[...new Set(todays.map(h=>h.game))]};
+}
+// Games worth trying next: not played tonight, fit the number of seats, a different kind than the last one, shorter ones first.
+function tonightNext(n){
+  const sm=tonightSummary(),played=new Set(sm?sm.played:[]);
+  const online=!!G.isOnline;
+  const seats=online?((G.srv&&G.srv.players)||[]).length:((G.lp||[]).filter(p=>(p.name&&p.name.trim())||p.bot).length||2);
+  const curId=online?(G.srv&&G.srv.gameId):G.selGame,cur=GAMES.find(g=>g.id===curId)||{};
+  let pool=GAMES.filter(g=>!g.locked&&!g.hidden&&g.id!=='slots'&&!played.has(g.id)&&g.id!==curId&&(online?ONLINE_GAMES.includes(g.id):!g.onlineOnly)&&!(g.id==='fourrow'&&curId==='mayhem')&&(()=>{
+    const nums=String(g.players||'2').match(/\d+/g);if(!nums)return true;const lo=+nums[0],hi=+nums[nums.length-1];return seats>=lo&&seats<=hi;})());
+  pool.sort((a,b)=>((a.cat===cur.cat)-(b.cat===cur.cat))||((parseInt(a.dur)||15)-(parseInt(b.dur)||15)));
+  const out=[],cats=new Set();
+  for(const g of pool){if(out.length>=n)break;if(cats.has(g.cat)&&pool.length>n*2)continue;cats.add(g.cat);out.push(g);}
+  return out;
+}
+function tonightLine(sm){
+  if(!sm||!sm.order.length)return sm?sm.games+' game'+(sm.games>1?'s':'')+' tonight':'';
+  const a=sm.order[0],b=sm.order[1];
+  if(!b)return`${esc(a[0])} wins every game so far (${a[1]})`;
+  return a[1]===b[1]?`All square: ${esc(a[0])} ${a[1]} – ${b[1]} ${esc(b[0])}`:`${esc(a[0])} leads ${a[1]} – ${b[1]} over ${esc(b[0])}`;
+}
+// The small panel on the results screen: the score of the evening, the awards, and two or three games to try next.
+function tonightEndHTML(){
+  const sm=tonightSummary();if(!sm)return'';
+  const next=tonightNext(3);
+  const canPick=G.isOnline?!!G.isHost:true;
+  const act=G.isOnline?'o-switch':'tonight-go';
+  const nx=next.length?`<div class="tn-next"><div class="tn-nlbl">${canPick?'NEXT UP?':'SUGGEST TO THE HOST'}</div><div class="tn-nrow">${next.map(g=>canPick?`<button class="btn btn-ghost btn-sm" data-a="${act}" data-gid="${g.id}">${g.icon} ${esc(g.name)} <small>${esc(g.dur||'')}</small></button>`:`<span class="tn-chip">${g.icon} ${esc(g.name)}</span>`).join('')}</div></div>`:'';
+  const aw=sm.awards.length?`<div class="tn-aw">${sm.awards.map(x=>`<div class="tn-awi"><span>${x.ic}</span><b>${esc(x.t)}</b><em>${esc(x.s)}</em></div>`).join('')}</div>`:'';
+  return`<div class="panel tn-end"><div class="panel-lbl">TONIGHT AT OUR TABLE · ${sm.games} GAME${sm.games>1?'S':''}</div><div class="tn-line">${tonightLine(sm)}</div>${aw}${nx}</div>`;
+}
+// On the home screen of a phone or a tablet in portrait (the wide screen has its own Tonight card in the side column).
+function tonightHomeHTML(){
+  const sm=tonightSummary();if(!sm)return'';
+  const next=tonightNext(2);
+  return`<div class="v10-section v10-tonight-m"><div class="v10-section-title">Tonight at Our Table</div></div><div class="v10-tonight-m" style="padding:0 1.1rem;"><div class="panel tn-end"><div class="tn-line">${sm.games} game${sm.games>1?'s':''} · ${tonightLine(sm)}</div>${next.length?`<div class="tn-next"><div class="tn-nlbl">PLAY NEXT?</div><div class="tn-nrow">${next.map(g=>`<button class="btn btn-ghost btn-sm" data-a="pick" data-gid="${g.id}">${g.icon} ${esc(g.name)} <small>${esc(g.dur||'')}</small></button>`).join('')}</div></div>`:''}</div></div>`;
+}
 function tonightStats(){
   const todayStr=new Date().toDateString();
   const todays=getHistory().filter(h=>new Date(h.date).toDateString()===todayStr);
@@ -7630,6 +7754,8 @@ const STAGE_TONES={
 };
 let _stageEl=null,_stageT=null,_stagePri=-1,_stageShakeT=null;
 // o: {text, sub, tone ('good'|'bad'|'gold'|'hot'|'cool'), icon, who:{name,avatar}, ms, pri, shake}
+// Which reactions fit a big moment (the ones that swell up for a few seconds on the reaction strip).
+function stageReactList(tone,mine){return tone==='gold'?['👏','🎉','😮']:tone==='bad'?(mine?['😅','😬','😱']:['😂','😏','😮']):tone==='good'?['👏','🔥','😮']:tone==='cool'?['😅','🙌','😮']:['🔥','😮','😱'];}
 function stageMoment(o){
   if(!o||!o.text||typeof document==='undefined'||!document.body)return null;
   const pri=o.pri!=null?o.pri:1;
@@ -7649,6 +7775,11 @@ function stageMoment(o){
   _stageT=setTimeout(()=>{el.classList.add('stg-out');setTimeout(()=>{if(_stageEl===el){el.remove();_stageEl=null;_stagePri=-1;}else el.remove();},280);},ms);
   if(o.snd&&typeof SFX!=='undefined'&&SFX[o.snd])try{SFX[o.snd]();}catch(e){}
   if(o.buzz!==false)haptic(T.buzz);
+  try{if(G.isOnline&&!o.noReact&&(pri>=2||tone==='gold')){
+    const mine=o.who&&o.who.id&&o.who.id===G.myPid;
+    const list=stageReactList(tone,mine);
+    setTimeout(()=>{try{BWFX.react(list);}catch(e){}},450);
+  }}catch(e){}
   if((o.shake||tone==='bad')&&!reduced&&o.shake!==false){
     const app=document.getElementById('app');
     if(app){app.classList.remove('stg-shake');void app.offsetWidth;app.classList.add('stg-shake');clearTimeout(_stageShakeT);_stageShakeT=setTimeout(()=>app.classList.remove('stg-shake'),520);}
@@ -7670,7 +7801,7 @@ const STAGE_EVENTS={
   PIG_OUT:d=>({text:'PIG OUT!',sub:(d.points||0)+' points lost',tone:'bad',icon:'🐷',who:d.who}),
   POWER:d=>({text:d.text,sub:d.sub,tone:'hot',icon:d.icon,who:d.who,ms:1100,pri:1}),
   CAPTURE:d=>({text:'CAPTURE!',sub:d.sub||'',tone:'bad',icon:'💥',who:d.who,pri:2,ms:1500}),
-  BW_EVT:d=>({text:d.text,sub:d.sub||'',tone:d.tone||'hot',icon:d.icon||'⚓',who:d.who,pri:d.pri==null?2:d.pri,ms:d.ms||1500,shake:d.tone==='bad'&&d.pri>=3}),
+  BW_EVT:d=>({text:d.text,sub:d.sub||'',tone:d.tone||'hot',icon:d.icon||'⚓',who:d.who,pri:d.pri==null?2:d.pri,ms:d.ms||1500,shake:d.tone==='bad'&&d.pri>=3,noReact:true}),
   AB_EVT:d=>({text:d.text,sub:d.sub||'',tone:d.tone||'hot',icon:d.icon||'🌌',who:d.who,pri:d.pri==null?2:d.pri,ms:d.ms||1500,shake:d.tone==='bad'&&d.pri>=3}),
   GT_EVENT:d=>({text:d.text,sub:d.sub||'',tone:d.tone||'hot',icon:d.icon||'⚠️',who:d.who,pri:1,ms:1800,shake:false}),
   GT_TRAP:d=>({text:d.text,sub:d.sub||'',tone:d.tone||'bad',icon:d.icon||'🪤',who:d.who,pri:2,ms:1500,shake:d.tone==='bad'}),
@@ -14723,9 +14854,9 @@ function bwTap(a,t){
     if(tool==='fire'&&!bwOpen(g,n))return;
     G.bwSel=G.bwSel===n&&tool==='fire'?null:n;
     if(tool==='torp')G.bwTorp=null;
-    SFX.bwLock();render();if(tool==='fire')bwLockUI();return;
+    SFX.bwLock();render();if(tool==='fire'){bwLockUI();if(G.isOnline&&G.bwSel!=null)peerSend('aim');}return;
   }
-  if(a==='bwcancel'){G.bwSel=null;G.bwTorp=null;G.bwRep=null;G.bwTool='fire';SFX.chip();render();return;}
+  if(a==='bwcancel'){if(G.isOnline)peerSend('idle');G.bwSel=null;G.bwTorp=null;G.bwRep=null;G.bwTool='fire';SFX.chip();render();return;}
   const finish=()=>{G.bwSel=null;G.bwTorp=null;G.bwRep=null;G.bwTool='fire';};
   if(a==='bwfire'){if(G.bwSel==null)return;const n=G.bwSel;finish();bwActNow({t:'fire',n});return;}
   if(a==='bwscan'){if(G.bwSel==null)return;const n=G.bwSel,k=tool==='depth'?'depth':'sonar';G.bwSel=null;G.bwTool='fire';bwActNow({t:k,n});return;}
@@ -23573,6 +23704,7 @@ function onSrvCore(state){
   const prevDw=state.gameId==='drawit'?{rid:G.srv?.dw?.rid,gn:(G.srv?.dw?.guesses||[]).length,winner:prevWinner,matchOver:!!G.srv?.matchOver}:null;
   stageOnSrv(G.srv,state);
   G.srv=state;dbNoteTs(state._ts||0);
+  if(state._ts!==G._srvTs){G._srvTs=state._ts;G._srvAt=Date.now();G.peer=null;}
   if(G.isOnline)dbSetPoll(state.gameId==='blackwater'&&state.phase==='game'&&!state.winner?700:1500);
   if(state.mauPend&&state.mauPend.pid===G.myPid){
     const sig=state.mauPend.pid+'|'+state.mauPend.deadline;
@@ -24620,6 +24752,7 @@ function rHome(){
         ${plaqueHTML}
         ${feltPickerHTML}
         ${continueCard}
+        ${tonightHomeHTML()}
         ${homeFamilyHTML(history)}
         ${homeRoomsHTML()}
         ${homeJumpHTML(history)}
@@ -26715,6 +26848,7 @@ function rMatchEnd(){
       ${statChips}
       <div class="panel" style="text-align:center;margin-bottom:.8rem;"><div class="panel-lbl">TABLE MOMENT</div><div style="font-family:var(--serif);font-size:1.1rem;color:var(--paper);margin:.2rem 0;">${matchMoment(sorted)}</div></div>
       ${isGT?gtResultsHTML():''}${isBW?bwResultsHTML():''}
+      ${tonightEndHTML()}
       <div class="standings">${rows}</div>
       ${resButtonsHTML()}
     </div>
@@ -27482,26 +27616,13 @@ document.addEventListener('click',e=>{
     if(!ONLINE_GAMES.includes(G.selGame)){toast('⚠️ Online play is not available for this game yet.');return;}
     G.scr='online';render();
   }
-  else if(a==='pick'){
+  else if(a==='pick'){pickGame(t.getAttribute('data-gid'));render();}
+  else if(a==='tonight-go'){
     const gid=t.getAttribute('data-gid');
-    if(!GAMES.find(g=>g.id===gid&&g.locked)){
-      G.selGame=gid;
-      // Seats carry over between games, so a six-player Mau Mau table walked straight into a
-      // two-seat duel: the extra seats stayed on screen, "Add a bot" greyed out because the table
-      // read as full, and the game quietly played only the first two anyway. Fit the table to the
-      // game that is about to be played, and say so rather than silently dropping people.
-      const g=currentGame(),cap=g.maxP||(isPoker()?8:6),min=g.minP||2;
-      if(G.lp.length>cap){
-        const dropped=G.lp.slice(cap).map(p=>p.name.trim()).filter(Boolean);
-        G.lp=G.lp.slice(0,cap);
-        toast(dropped.length?`${g.name} seats ${cap} — ${dropped.join(', ')} stepped out`
-                            :`${g.name} seats ${cap}`);
-      }
-      while(G.lp.length<min)
-        G.lp.push({id:G.nid++,name:'',avatar:AVATARS[G.lp.length%AVATARS.length],hand:[],totalScore:0,
-          roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false});
-    }
-    render();
+    const keep=(G.lp||[]).filter(p=>(p.name&&p.name.trim())||p.bot).map(p=>({name:p.name,avatar:p.avatar,bot:p.bot}));
+    goNewGame();
+    if(keep.length)G.lp=keep.map(p=>({id:G.nid++,name:p.name,avatar:p.avatar,hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false,...(p.bot?{bot:p.bot}:{})}));
+    pickGame(gid);G.isOnline=false;G.scr='setup';render();
   }
   else if(a==='snd'){G.snd=!G.snd;render();}
   else if(a==='beginner'){G.beginnerMode=!G.beginnerMode;localStorage.setItem('ct_beginner',G.beginnerMode?'1':'0');render();}
@@ -28020,19 +28141,7 @@ document.addEventListener('click',e=>{
   else if(a==='o-rematch'){oRematch();}
   else if(a==='o-another'){G.anotherOpen=!G.anotherOpen;render();}
   else if(a==='o-switch'){oSwitchGame(t.getAttribute('data-gid'));}
-  else if(a==='newgame'){
-    ldClearReveal();ldStopOnline();smClearTimers();hbStop();vtStop();esStop();
-    const keep={snd:G.snd,gp:G.gp,tw:G.tw,selGame:G.selGame,myName:G.myName,myAvatar:G.myAvatar,beginnerMode:G.beginnerMode,hr:G.hr};
-    stopSync();
-    localStorage.removeItem('ct_resume');
-    G={scr:'home',selGame:keep.selGame,snd:keep.snd,joinCode:'',lp:[{id:1,name:'',avatar:AVATARS[0],hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false},{id:2,name:'',avatar:AVATARS[1],hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false}],nid:3,ldeck:[],ldisc:[],lcur:0,lstart:0,ldir:1,lsuit:null,lpend:0,lround:1,lpass1:'',lpass2:'',llast:'',lmau:null,ldrawnCount:0,lspick:false,lpcard:null,lshake:null,lshowThrow:null,lthrowing:false,lDealIn:false,lres:null,pot:0,community:[],communityRevealAnim:null,dealerHand:[],dealerHoleHidden:true,dealerRevealAnim:false,bjBet:50,battleLast:null,battleAnimating:false,pokerPhase:'preflop',bigBlind:20,smallBlind:10,dealer:0,currentBet:0,betInput:'',drawSelections:new Set(),pokerShowdown:false,hr:keep.hr,rulesOpen:false,quitOpen:false,isOnline:false,roomId:null,myPid:null,isHost:false,myName:keep.myName,myAvatar:keep.myAvatar,srv:null,gp:keep.gp,tw:keep.tw,beginnerMode:keep.beginnerMode,matchStats:freshMatchStats(),familyNewAvatar:AVATARS[0],
-      talkOpen:false,tableName:localStorage.getItem('ct_tablename')||'',plaqueEditing:false,profileEditing:false,ambientOn:localStorage.getItem('ct_ambient')==='1',
-      notifyOn:localStorage.getItem('ct_notify')==='1',digestOpen:false,digestImg:null,
-      ydice:[1,1,1,1,1],yheld:[false,false,false,false,false],yrolls:0,yres:null,yLastRolled:[],
-      roulChip:5,roulSpinning:false,roulResult:null,roulHistory:[],roulHighlight:null};
-    applyFeltTheme(localStorage.getItem('ct_felt_theme')||'emerald');
-    render();
-  }
+  else if(a==='newgame'){goNewGame();}
 });
 
 document.addEventListener('keydown',e=>{

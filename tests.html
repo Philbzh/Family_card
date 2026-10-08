@@ -7481,6 +7481,57 @@ async function runPresentation(A,W,frame){
       if(keepRec==null)W.localStorage.removeItem('ct_bw_record');else W.localStorage.setItem('ct_bw_record',keepRec);
     }
   });
+  suite('Tonight at Our Table, a quiet "is thinking", and a chance to react',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const keepH=W.localStorage.getItem('ct_history'),keep={on:G.isOnline,srv:G.srv,scr:G.scr,lp:G.lp,sel:G.selGame,host:G.isHost,name:G.myName,pid:G.myPid};
+    const today=(o)=>Object.assign({game:'fourrow',winner:'Phil',winnerAvatar:'🦊',date:new Date().toISOString(),players:['Phil','Son'],stats:{reactions:0,comebacks:0}},o);
+    try{
+      W.localStorage.setItem('ct_history',JSON.stringify([]));
+      check('no games tonight: no summary, no panel',F('tonightSummary')()===null&&F('tonightEndHTML')()===''&&F('tonightHomeHTML')()==='');
+      W.localStorage.setItem('ct_history',JSON.stringify([today({game:'farkle',winner:'Phil',stats:{reactions:7,comebacks:0},moment:'Phil risked it all.'}),today({game:'fourrow',winner:'Son',stats:{reactions:1,comebacks:2},moment:'Son comes back.'}),today({game:'uno',winner:'Phil'}),today({game:'pig',winner:'Phil',date:new Date(Date.now()-3*864e5).toISOString()})]));
+      const sm=F('tonightSummary')();
+      check('tonight counts only today: 3 games, Phil 2 – 1 Son, the games played',sm.games===3&&sm.order[0][0]==='Phil'&&sm.order[0][1]===2&&sm.order[1][0]==='Son'&&sm.played.length===3);
+      check('the little awards: most talked about (7 reactions) and comeback of the night; the moments are listed',sm.awards.some(a=>/Most talked about/.test(a.t)&&/7 reactions/.test(a.s))&&sm.awards.some(a=>/Comeback/.test(a.t))&&sm.moments.length===2);
+      check('the score line reads naturally (leads / all square)',/Phil leads 2 – 1 over Son/.test(F('tonightLine')(sm))&&/All square/.test(F('tonightLine')({games:2,order:[['A',1],['B',1]]})));
+      G.isOnline=false;G.selGame='fourrow';G.lp=[{name:'Phil',avatar:'🦊'},{name:'Son',avatar:'🐼'}];
+      const nx=F('tonightNext')(3);
+      check('suggestions: up to three, none already played tonight, none online-only, each fits two seats',nx.length>=1&&nx.length<=3&&nx.every(g=>!['farkle','fourrow','uno'].includes(g.id)&&!g.onlineOnly&&(()=>{const n=String(g.players||'2').match(/\d+/g).map(Number);return 2>=n[0]&&2<=n[n.length-1];})()));
+      G.isOnline=true;G.srv={gameId:'fourrow',phase:'game',players:[{id:'a',name:'Phil'},{id:'b',name:'Son'}],curIdx:0};
+      check('online the suggestions are online games only',F('tonightNext')(6).every(g=>F('ONLINE_GAMES').includes(g.id)));
+      G.isHost=true;let h=F('tonightEndHTML')();
+      check('the end screen panel: the score, the awards, and (for the host) buttons that switch the room to another game',/TONIGHT AT OUR TABLE · 3 GAMES/.test(h)&&/Phil leads/.test(h)&&/data-a="o-switch"/.test(h));
+      G.isHost=false;h=F('tonightEndHTML')();
+      check('...a guest only sees suggestions, no buttons',!/data-a="o-switch"/.test(h)&&/SUGGEST TO THE HOST/.test(h));
+      G.isOnline=false;G.isHost=false;h=F('tonightEndHTML')();
+      check('on one device the suggestions start a game with the same players',/data-a="tonight-go"/.test(h));
+      G.selGame='fourrow';G.scr='matchend';G.lp=[{id:1,name:'Phil',avatar:'🦊',hand:[],totalScore:0},{id:2,name:'Son',avatar:'🐼',hand:[],totalScore:0}];
+      const id=F('tonightNext')(1)[0].id;
+      const b=W.document.createElement('button');b.setAttribute('data-a','tonight-go');b.setAttribute('data-gid',id);W.document.body.appendChild(b);b.click();b.remove();
+      const G2=W.eval('G');
+      check('tapping one goes to that game\'s setup with Phil and Son still at the table',G2.scr==='setup'&&G2.selGame===id&&G2.lp.map(p=>p.name).slice(0,2).join()==='Phil,Son');
+      const G3=W.eval('G');
+      G3.isOnline=true;G3.myPid='b';G3.scr='table';G3.srv={gameId:'fourrow',phase:'game',winner:null,players:[{id:'a',name:'Phil',avatar:'🦊'},{id:'b',name:'Son',avatar:'🐼'}],curIdx:0};G3._srvAt=Date.now();
+      F('peerThinkTick')();
+      let el=W.document.getElementById('peer-think');
+      check('while somebody else is on turn their avatar and "is thinking" quietly show',!!el&&/Phil is thinking/.test(el.textContent));
+      G3._srvAt=Date.now()-12000;F('peerThinkTick')();
+      check('after a while it says they are taking their time',/taking their time/.test(W.document.getElementById('peer-think').textContent));
+      G3.srv.curIdx=1;F('peerThinkTick')();
+      check('on my turn it goes away',!W.document.getElementById('peer-think'));
+      G3.srv.curIdx=0;G3.srv.gameId='roulette';F('peerThinkTick')();
+      check('and it is not shown in games where everybody plays at once',!W.document.getElementById('peer-think'));
+      G3.srv.gameId='blackwater';G3._srvAt=Date.now();F('peerOnBroadcast')({pid:'a',kind:'aim'});
+      check('in Blackwater the other player sees "lining up a shot" (no square is told)',/lining up a shot/.test(W.document.getElementById('peer-think').textContent));
+      G3.isOnline=false;F('peerThinkTick')();
+      check('offline it never shows',!W.document.getElementById('peer-think'));
+      check('big moments suggest fitting reactions: gold cheers, bad luck for me is sympathy, for the other a grin',F('stageReactList')('gold',false).includes('👏')&&F('stageReactList')('bad',true).includes('😅')&&F('stageReactList')('bad',false).includes('😂'));
+    }finally{
+      const gg=W.eval('G');
+      if(keepH==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keepH);
+      gg.isOnline=keep.on;gg.srv=keep.srv;gg.scr=keep.scr;gg.lp=keep.lp;gg.selGame=keep.sel;gg.isHost=keep.host;gg.myName=keep.name;gg.myPid=keep.pid;
+      const e=W.document.getElementById('peer-think');if(e)e.remove();
+    }
+  });
   suite('Blackwater — the opponent, the show and the battle again',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);
     const tap=(a,attrs)=>{const b=W.document.createElement('button');b.setAttribute('data-a',a);Object.entries(attrs||{}).forEach(([k,v])=>b.setAttribute(k,v));W.document.body.appendChild(b);b.click();b.remove();};
