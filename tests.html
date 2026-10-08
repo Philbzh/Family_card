@@ -7051,7 +7051,7 @@ async function runPresentation(A,W,frame){
       // the registry
       const gm=F('GAMES').find(x=>x.id==='blackwater');
       check('Blackwater is on the roster: 2 players, online, with bots, rules, tour, tagline, accent colour, label and reactions',gm&&gm.minP===2&&gm.maxP===2&&gm.rules.length>=6&&F('ONLINE_GAMES').includes('blackwater')&&F('BOT_GAMES').has('blackwater')&&F('TOURS').blackwater.slides.length===7&&!!F('STAGE_TAGS').blackwater&&!!F('MOMENT_ACCENT').blackwater&&F('v14GameLabel')('blackwater')==='Blackwater'&&F('REACTION_GAME').blackwater.length===3);
-      check('six Blackwater trophies exist',F('ACHIEVEMENTS').filter(a=>a.id.startsWith('bw-')).length===6);
+      check('ten Blackwater trophies exist',F('ACHIEVEMENTS').filter(a=>a.id.startsWith('bw-')).length===10);
       // online: each device draws only its own fleet
       G.isOnline=true;G.myPid='pB';G.scr='table';
       const bw2=F('bwNew')(31);F('bwDeploy')(bw2,1,F('bwAutoFleet')(1,true));F('bwDeploy')(bw2,2,F('bwAutoFleet')(2,true));bw2.cur=1;
@@ -7407,6 +7407,47 @@ async function runPresentation(A,W,frame){
       W.eval('BW_CHAIN=false');
       if(keepRules==null)W.localStorage.removeItem('ct_bw_rules');else W.localStorage.setItem('ct_bw_rules',keepRules);
       if(keepHist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keepHist);G.myName=keepName;
+    }
+  });
+  suite('Blackwater — new trophies and the family record',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const ship=(id,r,c,d)=>({id,r,c,d});
+    check('a torpedo that destroys two ships at once is counted as its best (and one ship is one)',(()=>{
+      const bw=F('bwNew')(1);F('bwDeploy')(bw,1,[ship('carrier',2,0,'h'),ship('battleship',4,0,'h'),ship('cruiser',6,0,'h'),ship('destroyer',8,0,'h'),ship('scout',9,5,'h')]);
+      F('bwDeploy')(bw,2,[ship('carrier',2,0,'h'),ship('battleship',4,0,'h'),ship('cruiser',6,0,'h'),ship('destroyer',0,4,'h'),ship('scout',0,0,'h')]);bw.cur=1;
+      const t=F('bwTorpedo')(bw,1,'r',0,'a');return t.ships.length===2&&bw.stats.torpBest[0]===2&&bw.stats.torpBest[1]===0;})());
+    check('a depth charge that sets off two mines is counted as its best',(()=>{
+      const bw=F('bwNew')(2),f1=F('bwAutoFleet')(1,true),f2=F('bwAutoFleet')(2,true);F('bwDeploy')(bw,1,f1);F('bwDeploy')(bw,2,f2);bw.cur=1;
+      const free=[];for(let n=0;n<100&&free.length<2;n++)if(!f2.flatMap(F('bwCells')).includes(n)&&Math.abs(n-45)<=11&&n%10>=3&&n%10<=6)free.push(n);
+      bw.mines[1]=free;const d=F('bwDepth')(bw,1,45);return free.length===2&&d.swept.length===2&&bw.stats.sweepBest[0]===2;})());
+    const keepH=W.localStorage.getItem('ct_history'),keepRec=W.localStorage.getItem('ct_bw_record'),keepName=G.myName;
+    try{
+      G.myName='Phil';
+      const stat=(o)=>({game:'blackwater',winner:'Phil',players:['Phil','Son'],stats:{bw:{Phil:Object.assign({shots:40,hits:10,sunk:2,streak:2,left:3,sonar:0,torp:0,depth:0,silent:0,repos:0,fooled:0,mines:0,torpBest:0,sweepBest:0},o||{})}}});
+      const ach=id=>F('ACHIEVEMENTS').find(a=>a.id===id);
+      W.localStorage.setItem('ct_history',JSON.stringify([stat()]));
+      check('none of the four new trophies is given for an ordinary game',['bw-pierce','bw-roll','bw-sweep','bw-series'].every(id=>!ach(id).check()));
+      W.localStorage.setItem('ct_history',JSON.stringify([stat({torpBest:2})]));check('Straight Through: a torpedo that destroyed two ships',ach('bw-pierce').check()&&!ach('bw-roll').check());
+      W.localStorage.setItem('ct_history',JSON.stringify([stat({streak:5})]));check('On a Roll: five hits in a row',ach('bw-roll').check()&&!ach('bw-pierce').check());
+      W.localStorage.setItem('ct_history',JSON.stringify([stat({sweepBest:2})]));check('Mine Sweeper: two mines with one depth charge',ach('bw-sweep').check());
+      W.localStorage.setItem('ct_history',JSON.stringify([Object.assign(stat(),{bwSeriesDone:true})]));check('Admiral of the Evening: won the game that ended a series',ach('bw-series').check());
+      W.localStorage.setItem('ct_history',JSON.stringify([Object.assign(stat(),{bwSeriesDone:true,winner:'Son'})]));check('...but not for the loser of that series',!ach('bw-series').check());
+      // the record
+      W.localStorage.removeItem('ct_bw_record');
+      F('bwRecordAdd')('Phil','Son','Phil',111);F('bwRecordAdd')('Phil','Son','Phil',111);F('bwRecordAdd')('Son','Phil','Son',222);F('bwRecordAdd')('Phil','Anna','Anna',333);
+      check('the family record counts each game once (the same game seen twice, or from the other device, is one), either way round, per pair of players',(()=>{const r=F('bwRecordGet')('Phil','Son'),q=F('bwRecordGet')('Son','Phil'),o=F('bwRecordGet')('Phil','Anna');return r.a===1&&r.b===1&&q.a===1&&q.b===1&&o.a===0&&o.b===1;})());
+      F('bwRecordAdd')('Phil','Son','Phil',444);F('bwRecordAdd')('Phil','Son','Nobody',555);F('bwRecordAdd')('Phil','Phil','Phil',666);
+      check('a winner who is not one of the two, or a player against himself, is ignored; and the record survives more than 50 games of history',F('bwRecordGet')('Phil','Son').a===2&&F('bwRecordGet')('Phil','Son').b===1);
+      // on the end screen
+      G.isOnline=false;G.srv=null;G.selGame='blackwater';G.bwInstant=true;
+      G.lp=[{id:1,name:'Phil',avatar:A.AVATARS[0],hand:[],totalScore:0},{id:2,name:'Son',avatar:A.AVATARS[1],hand:[],totalScore:0,bot:'sharp'}];F('lDealBlackwater')();
+      const bw=G.bw;bw.over=true;bw.win=1;
+      check('the end screen shows the all-time record once there are two games',/ALL GAMES TOGETHER · Phil <b>2<\/b> – <b>1<\/b> Son/.test(F('bwResultsHTML')()));
+      check('and a key for the numbers',/shots · .* hits/.test(F('bwResultsHTML')()));
+    }finally{
+      G.bwInstant=false;G.bwSeq=null;G.bwDep=null;G.myName=keepName;
+      if(keepH==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keepH);
+      if(keepRec==null)W.localStorage.removeItem('ct_bw_record');else W.localStorage.setItem('ct_bw_record',keepRec);
     }
   });
   suite('Blackwater — the opponent, the show and the battle again',()=>{

@@ -1844,6 +1844,8 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 .bw-rl{width:100%;max-width:36rem;text-align:center;font-size:.72rem;padding:.3rem .6rem;border-radius:999px;border:1px solid rgba(255,214,120,.55);background:rgba(255,214,120,.1);color:#ffe9b0;}
 .bw-torps{display:flex;gap:.4rem;}
 .bw-torps .bw-bot{flex:1;padding:.35rem 0;}
+.bw-key{margin-top:.4rem;font-size:.62rem;color:var(--paper3);text-align:center;line-height:1.5;}
+.bw-skiph{position:absolute;bottom:-.1rem;left:50%;transform:translateX(-50%);z-index:5;pointer-events:none;font-size:.62rem;letter-spacing:.08em;color:#cfe6e0;background:rgba(0,0,0,.55);border-radius:999px;padding:.15rem .6rem;animation:bw-toast 2.2s ease-out forwards;}
 .bw-title{font-family:'Cinzel',serif;color:var(--gold2);text-align:center;letter-spacing:.14em;margin-bottom:.4rem;}
 .gt-event.warn{background:rgba(255,160,40,.14);border:1px solid rgba(255,190,80,.6);color:#ffd68a;animation:gt-pulse 1.2s ease-in-out infinite;}
 .gt-event.on{background:rgba(255,90,78,.12);border:1px solid rgba(255,120,100,.55);color:#ffb0a5;}
@@ -4495,7 +4497,7 @@ const GAMES=[
      '<b>Deployment:</b> tap a ship, then tap the ocean to place it (or <b>drag</b> it); <b>⟳</b> turns it. Ships may not overlap. Tap <b>🛟 Decoys</b> and <b>💥 Mines</b> and tap empty squares for your fakes and your mines (optional). <b>Auto deploy</b> and <b>Quick deploy</b> do it all for you. Press <b>FLEET READY</b>.',
      '<b>Firing:</b> on your turn tap a square in <b>ENEMY WATERS</b> (columns A–J, rows 1–10), see the <b>TARGET</b>, press <b>FIRE</b>. The answer is <b>MISS</b>, <b>HIT</b>, or <b>DESTROYED</b> when the last cell of a ship is hit; a <b>decoy</b> reports DECOY DESTROYED. <b>Every HIT lets you fire again</b> — keep going until you miss; a miss, a decoy or a mine ends your turn.',
      '<b>Intelligence — limited, and free:</b> before you act you may take <b>one scan</b>. <b>📡 Sonar</b> (3 a game): a 3×3 area answers CONTACT (an echo <i>somewhere in the area</i> — a ship <i>or a decoy</i>, not necessarily the middle square) or AREA CLEAR. <b>💣 Depth charge</b> (1): a 5×5 area answers CONTACT (the middle), NEAR CONTACT (only round the edge) or NO CONTACT.',
-     '<b>Weapons and tricks that use your turn:</b> <b>🚀 Torpedo</b> (2): pick a row or column and the side it comes from; it flies through the whole line and hits every ship and decoy on it (a mine stops it); every empty square it crosses is marked as clear water. <b>🤫 Silent running</b> (1): for two enemy turns their scans find nothing — but you cannot scan or torpedo meanwhile. <b>⚓ Reposition</b> (1): move one undamaged ship; everyone sees FLEET MOVEMENT DETECTED and all old misses become doubtful.',
+     '<b>Weapons and tricks that use your turn</b> (a torpedo that hits a ship lets you fire again): <b>🚀 Torpedo</b> (2): pick a row or column and the side it comes from; it flies through the whole line and hits every ship and decoy on it (a mine stops it); every empty square it crosses is marked as clear water. <b>🤫 Silent running</b> (1): for two enemy turns their scans find nothing — but you cannot scan or torpedo meanwhile. <b>⚓ Reposition</b> (1): move one undamaged ship; everyone sees FLEET MOVEMENT DETECTED and all old misses become doubtful.',
      '<b>💥 Mines</b> (2 each, hidden in empty water at deployment): if the enemy fires or launches a torpedo onto a mine, the shot is wasted and its owner takes an <b>extra shot</b>. A depth charge sets off every mine in its area harmlessly.',
      '<b>Weather</b> comes now and then for two rounds: <b>🌫 Fog</b> switches the deduction help off, <b>⛈ Storm</b> blurs sonar (it answers for 5×5), <b>☀️ Calm</b> makes sonar count the echoes.',
      'A destroyed ship stays on the map as <b>wreckage</b>. Sink all five ships to win. With one ship left it is your <b>LAST STAND</b> — you can still win.',
@@ -4941,6 +4943,10 @@ const ACHIEVEMENTS=[
   {id:'bw-ghost',icon:'🤫',name:'Ghost Fleet',desc:'Won Blackwater after running silent',check:()=>getHistory().some(h=>{const s=bwMine(h);return s&&h.winner===G.myName&&s.silent>=1;})},
   {id:'bw-false',icon:'🛟',name:'False Contact',desc:'Both your decoys fooled the enemy in one game of Blackwater',check:()=>getHistory().some(h=>{const s=bwMine(h);return s&&s.fooled>=2;})},
   {id:'bw-mines',icon:'💥',name:'Minelayer',desc:'Your mines caught the enemy twice in one game of Blackwater',check:()=>getHistory().some(h=>{const s=bwMine(h);return s&&s.mines>=2;})},
+  {id:'bw-pierce',icon:'🚀',name:'Straight Through',desc:'One torpedo destroyed two ships in Blackwater',check:()=>getHistory().some(h=>{const s=bwMine(h);return s&&s.torpBest>=2;})},
+  {id:'bw-roll',icon:'🔥',name:'On a Roll',desc:'Hit a ship five times in a row in Blackwater',check:()=>getHistory().some(h=>{const s=bwMine(h);return s&&s.streak>=5;})},
+  {id:'bw-sweep',icon:'🧹',name:'Mine Sweeper',desc:'Set off two mines with a single depth charge in Blackwater',check:()=>getHistory().some(h=>{const s=bwMine(h);return s&&s.sweepBest>=2;})},
+  {id:'bw-series',icon:'🏆',name:'Admiral of the Evening',desc:'Won a first-to-two series of Blackwater',check:()=>getHistory().some(h=>h.game==='blackwater'&&h.bwSeriesDone&&h.winner===G.myName)},
   {id:'bw-last',icon:'🚨',name:'Last Stand',desc:'Won Blackwater with only one ship left',check:()=>getHistory().some(h=>{const s=bwMine(h);return s&&h.winner===G.myName&&s.left===1;})},
   // — The Abyss —
   {id:'ab-first',icon:'🌌',name:'Into the Abyss',desc:'Played a game of The Abyss',check:()=>getHistory().some(h=>h.game==='abyss')},
@@ -13871,7 +13877,7 @@ function bwNew(seed,rules){
     rules,noMines:!rules.mines,chain:rules.chain,scans:[[],[]],silent:[0,0],moved:[false,false],scanned:false,mines:[[],[]],mineGone:[[],[]],extra:[0,0],
     weather:{kind:'',left:0,wait:3},
     cur:1,moves:0,round:1,over:false,win:0,fx:null,hist:[],
-    stats:{shots:[0,0],hits:[0,0],sunk:[0,0],streak:[0,0],maxStreak:[0,0],sonar:[0,0],torp:[0,0],depth:[0,0],silent:[0,0],repos:[0,0],torpSunk:[0,0],mines:[0,0]}};
+    stats:{shots:[0,0],hits:[0,0],sunk:[0,0],streak:[0,0],maxStreak:[0,0],sonar:[0,0],torp:[0,0],depth:[0,0],silent:[0,0],repos:[0,0],torpSunk:[0,0],mines:[0,0],torpBest:[0,0],sweepBest:[0,0]}};
 }
 // A running series between the same two players: first to two wins. A finished series starts again with the next game.
 function bwSeriesAdd(ser,win){
@@ -13879,6 +13885,16 @@ function bwSeriesAdd(ser,win){
   s.wins[win-1]++;s.games++;s.done=s.wins[win-1]>=2;
   return s;
 }
+// The family record between two players, all games (the history only keeps the last 50 games of every game, so this has its own small counter).
+function bwRecAll(){try{return JSON.parse(localStorage.getItem('ct_bw_record')||'{}')||{};}catch(e){return{};}}
+function bwRecordAdd(a,b,winner,seed){
+  if(!a||!b||a===b||(winner!==a&&winner!==b))return;
+  const all=bwRecAll(),k=[a,b].sort().join('|'),r=all[k]||{w:{},last:0};
+  if(seed&&r.last===seed)return;   // the same game, seen again (a reload, or the second device in the room)
+  r.last=seed||0;r.w[winner]=(r.w[winner]||0)+1;all[k]=r;
+  try{localStorage.setItem('ct_bw_record',JSON.stringify(all));}catch(e){}
+}
+function bwRecordGet(a,b){const r=bwRecAll()[[a,b].sort().join('|')];return{a:(r&&r.w[a])||0,b:(r&&r.w[b])||0};}
 function bwLog(bw,e){bw.hist.push(e);if(bw.hist.length>400)bw.hist.shift();}
 // A player locks in their fleet (and decoys). Returns false (and changes nothing) when that is not allowed, so a retried write is harmless.
 function bwDeploy(bw,seat,fleet,decoys,mines){
@@ -13993,6 +14009,7 @@ function bwScan(bw,seat,n,kind){
   // a depth charge sets off every mine in its area (harmlessly: it only shows where they were)
   const swept=(kind==='depth'&&!silent&&bw.mines)?zone.filter(c=>bwMineAt(bw,opp,c)):[];
   swept.forEach(c=>{bw.shots[opp-1][c]=6;bw.mineGone[opp-1].push(c);});
+  if(swept.length){const sb=bw.stats.sweepBest||(bw.stats.sweepBest=[0,0]);sb[seat-1]=Math.max(sb[seat-1],swept.length);}
   let r='clear',k=0;
   if(!silent){
     if(kind==='depth'){r=inCount>0?'contact':allCount>0?'near':'clear';}
@@ -14052,6 +14069,7 @@ function bwTorpedo(bw,seat,line,i,from){
   // what it flew over and did not find is certainly empty water: marked as such (a miss, as if shot at)
   fx.clearCells=[];
   fx.path.forEach(c=>{if(g[c]===0||g[c]===5){g[c]=1;fx.clearCells.push(c);}});
+  const tb=bw.stats.torpBest||(bw.stats.torpBest=[0,0]);tb[seat-1]=Math.max(tb[seat-1],fx.ships.length);
   return bwFinishAction(bw,seat,fx);
 }
 /* ── 🤫 silent running ── */
@@ -14419,7 +14437,7 @@ function bwLegendHTML(){
     ['<i class="lg" style="background:rgba(138,156,161,.15);border-color:#8a9ca1">💥</i>','<b>Mine.</b> Each admiral hides two in empty water. A shot or torpedo that lands on one is <b>wasted</b>, the mine leaves a crater — and its owner gets an <b>extra shot</b>. A depth charge sets off every mine in its area (harmlessly).'],
     ['<i class="lg" style="background:rgba(255,179,71,.12);border-color:#ffb347">📡</i>','<b>Sonar</b> (3 a game, free, one scan a turn): tap the centre of a 3×3 area. CONTACT = an echo <i>somewhere inside</i> the area (a ship — or a decoy; not necessarily the middle). The squares that can still hold it stay tinted. AREA CLEAR = nothing.'],
     ['<i class="lg" style="background:rgba(255,179,71,.12);border-color:#ffb347">💣</i>','<b>Depth charge</b> (1, free): a 5×5 area. CONTACT = an echo in the middle 3×3, NEAR CONTACT = only round the edge, NO CONTACT = nothing.'],
-    ['<i class="lg" style="background:rgba(255,179,71,.12);border-color:#ffb347">🚀</i>','<b>Torpedo</b> (2, uses your turn): pick a row or column and the side it comes from. It flies through the whole line and hits every ship and decoy on it (a mine stops it); every empty square it crosses is marked as clear water, or finds nothing.'],
+    ['<i class="lg" style="background:rgba(255,179,71,.12);border-color:#ffb347">🚀</i>','<b>Torpedo</b> (2, uses your turn unless it hits a ship): pick a row or column and the side it comes from. It flies through the whole line and hits every ship and decoy on it (a mine stops it); every empty square it crosses is marked as clear water, or finds nothing.'],
     ['<i class="lg" style="background:rgba(255,179,71,.12);border-color:#ffb347">🤫</i>','<b>Silent running</b> (1, uses your turn): for two enemy turns their sonar and depth charges find nothing — but you cannot scan or torpedo while you run silent.'],
     ['<i class="lg" style="background:rgba(255,179,71,.12);border-color:#ffb347">⚓</i>','<b>Reposition</b> (1, uses your turn): move one undamaged ship. Everybody is told FLEET MOVEMENT DETECTED — and all old misses become doubtful.'],
     ['<i class="lg" style="background:rgba(230,195,106,.12);border-color:#e6c36a">┈</i>','<b>Gold dashes</b> (Family help): a square where an unfinished ship could continue. <b>Dark squares</b>: no ship still afloat can fit there. (Help is off in fog.)'],
@@ -14521,7 +14539,7 @@ function rBlackwaterTable(){
     else if(tool==='torp'){
       if(sel!=null){
         const r=Math.floor(sel/10),c=sel%10,tp=G.bwTorp;
-        prompt=tp?`🚀 Torpedo along ${tp.line==='r'?'row '+(tp.i+1):'column '+BW_LETTERS[tp.i]} from ${tp.line==='r'?(tp.from==='a'?'the left':'the right'):(tp.from==='a'?'the top':'the bottom')}. It uses your turn.`:`🚀 Which line, and from which side? (Row ${r+1} or column ${BW_LETTERS[c]})`;
+        prompt=tp?`🚀 Torpedo along ${tp.line==='r'?'row '+(tp.i+1):'column '+BW_LETTERS[tp.i]} from ${tp.line==='r'?(tp.from==='a'?'the left':'the right'):(tp.from==='a'?'the top':'the bottom')}. It uses your turn — unless it hits a ship: then you fire again.`:`🚀 Which line, and from which side? (Row ${r+1} or column ${BW_LETTERS[c]})`;
         const opt=(line,i,from,label)=>`<button class="btn btn-ghost btn-sm${tp&&tp.line===line&&tp.i===i&&tp.from===from?' on':''}" data-a="bwtorpset" data-line="${line}" data-i="${i}" data-from="${from}">${label}</button>`;
         controls=`${bar}<div class="bw-tools">${opt('r',r,'a',`Row ${r+1} ▶ from the left`)}${opt('r',r,'b',`Row ${r+1} ◀ from the right`)}${opt('c',c,'a',`Column ${BW_LETTERS[c]} ▼ from the top`)}${opt('c',c,'b',`Column ${BW_LETTERS[c]} ▲ from the bottom`)}</div><div class="gt-dare"><button class="btn btn-gold gt-roll" data-a="bwlaunch" ${tp?'':'disabled'}>🚀 LAUNCH</button><button class="btn btn-ghost" data-a="bwcancel">Cancel</button></div>${note}`;
       } else {prompt='🚀 Torpedo: tap any square on the row or column you want to hit. It flies through the whole line and hits every ship and decoy on it (a mine stops it); every empty square it crosses is marked as clear water.';controls=bar+note;}
@@ -14769,7 +14787,7 @@ function botBlackwaterAct(p){
 }
 function bwStatsFor(bw,names){
   const o={};
-  names.forEach((nm,i)=>{const s=bw.stats;o[nm]={shots:s.shots[i],hits:s.hits[i],sunk:s.sunk[i],streak:s.maxStreak[i],left:bwShipsLeft(bw,i+1),sonar:s.sonar[i],torp:s.torp[i],depth:s.depth[i],silent:s.silent[i],repos:s.repos[i],fooled:bw.fooled[i].length,mines:(s.mines&&s.mines[i])||0};});
+  names.forEach((nm,i)=>{const s=bw.stats;o[nm]={shots:s.shots[i],hits:s.hits[i],sunk:s.sunk[i],streak:s.maxStreak[i],left:bwShipsLeft(bw,i+1),sonar:s.sonar[i],torp:s.torp[i],depth:s.depth[i],silent:s.silent[i],repos:s.repos[i],fooled:bw.fooled[i].length,mines:(s.mines&&s.mines[i])||0,torpBest:(s.torpBest&&s.torpBest[i])||0,sweepBest:(s.sweepBest&&s.sweepBest[i])||0};});
   return o;
 }
 function bwEndLocal(bwArg){
@@ -14778,9 +14796,10 @@ function bwEndLocal(bwArg){
   if(!bw.tallied){bw.tallied=true;const key=names.join('|'),same=G.bwSeries&&G.bwSeries.key===key?G.bwSeries:null;G.bwSeries=bwSeriesAdd(same,bw.win);G.bwSeries.key=key;}
   G.lp.forEach((p,i)=>{p.bwLeft=bwShipsLeft(bw,i+1);p.c4Result=bw.win===i+1?'win':'loss';p.totalScore=bwShipsLeft(bw,i+1);});
   const winner=G.lp[bw.win-1];
+  bwRecordAdd(names[0],names[1],winner.name,bw.seed);
   G.bwMoment=bwMoment(bw,names);G.bwTitle=bwTitle(bw);
   if(bw.win===1){G.tw++;localStorage.setItem('ct_tw',G.tw);}
-  addHistory({game:'blackwater',winner:winner.name,winnerAvatar:winner.avatar,date:new Date().toISOString(),players:names,moment:G.bwMoment,
+  addHistory({game:'blackwater',bwSeriesDone:!!(G.bwSeries&&G.bwSeries.done),winner:winner.name,winnerAvatar:winner.avatar,date:new Date().toISOString(),players:names,moment:G.bwMoment,
     stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions,bw:bwStatsFor(bw,names)}});
   render();
   setTimeout(()=>{if(G.selGame==='blackwater'&&G.bw===bw&&G.scr==='table'){G.scr='matchend';render();}},3600);
@@ -15516,6 +15535,14 @@ function bwDbgHTML(){
   let red='?';try{red=matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
   return`<pre id="bw-dbg" class="bw-dbg">motion-reduced=${red} anim=${gtAnim()} online=${!!G.isOnline} sound=${!!G.snd}\n${(G.bwDbgLog||[]).slice().reverse().join('\n')}</pre>`;
 }
+function bwSkipHint(){
+  try{
+    const n=+(localStorage.getItem('ct_bw_skiphint')||0);if(n>=4)return;
+    localStorage.setItem('ct_bw_skiphint',String(n+1));
+    const c=document.querySelector('.bw-cam');if(!c||!gtFxOn('light'))return;
+    const t=document.createElement('div');t.className='bw-skiph';t.textContent='tap the boards to skip';c.appendChild(t);setTimeout(()=>t.remove(),2200);
+  }catch(e){}
+}
 function bwSeqFail(e){bwDbg('ERROR '+(e&&e.message?e.message:e));try{console.error(e);toast('⚠️ Blackwater show problem: '+(e&&e.message?e.message:e));}catch(_){}}
 function bwRunSeq(bw,renderNow,done){
   try{return bwRunSeq0(bw,renderNow,done);}
@@ -15592,7 +15619,7 @@ function bwRunSeq0(bw,renderNow,done){
   if(!svg){bwDbg('no board found for '+board);after(fin,200);return;}
   after(fin,fx.over?20000:(fx.kind==='torp'&&fx.ships&&fx.ships.length>1?12000:6500));   // nothing may hold the table for ever
   const u=bwUnit(svg),Q=G.isOnline?.62:1,T=fx.over?1.45:(G.isOnline?.7:1);
-  if(G.isOnline&&!mine)seq.skip=fin;   // the other player is waiting for me: any tap on the boards shows the result at once
+  if(G.isOnline&&!mine)seq.skip=fin;bwSkipHint();   // the other player is waiting for me: any tap on the boards shows the result at once
   const ctx=x=>Object.assign({svg:bwBoardEl(board)||svg,u,mine,fx,after},x);
   const scan=fx.kind==='sonar'||fx.kind==='depth';
   // ── 📡 / 💣 a scan
@@ -15600,7 +15627,7 @@ function bwRunSeq0(bw,renderNow,done){
     const P=[bwX(fx.n),bwY(fx.n)];
     const lead=BWFX.emit(fx.kind==='depth'?'DEPTH_CHARGE':'SONAR_SCAN',ctx({P}))||1100;
     after(()=>{
-      seq.skip=fin;
+      seq.skip=fin;bwSkipHint();
       const col=fx.r==='contact'?'#ffb347':fx.r==='near'?'#e6c36a':'#7fd6c8';
       BWFX.emit(fx.r==='clear'?'CLEAR':'CONTACT',ctx({P,near:fx.r==='near'}));
       const zy=Math.max(9.5,P[1]-((fx.size-1)/2)*10-6.5);   // above the area: the echo is somewhere in it, not at the centre
@@ -15612,8 +15639,8 @@ function bwRunSeq0(bw,renderNow,done){
     return;
   }
   // ── 🤫 silent running and ⚓ reposition
-  if(fx.kind==='silent'){const ms=BWFX.emit('SILENT_RUNNING',ctx({}))||1500;after(()=>{seq.skip=fin;},700);after(fin,ms);return;}
-  if(fx.kind==='repos'){const ms=BWFX.emit('REPOSITION',ctx({}))||1300;after(()=>{seq.skip=fin;},700);after(fin,ms);return;}
+  if(fx.kind==='silent'){const ms=BWFX.emit('SILENT_RUNNING',ctx({}))||1500;after(()=>{seq.skip=fin;bwSkipHint();},700);after(fin,ms);return;}
+  if(fx.kind==='repos'){const ms=BWFX.emit('REPOSITION',ctx({}))||1300;after(()=>{seq.skip=fin;bwSkipHint();},700);after(fin,ms);return;}
   // ── 🎯 / 🚀 a shot or a torpedo, then the answer
   const P=fx.n>=0?[bwX(fx.n),bwY(fx.n)]:null;
   const lastC=fx.kind==='torp'&&fx.path&&fx.path.length?fx.path[fx.path.length-1]:fx.n;
@@ -15628,7 +15655,7 @@ function bwRunSeq0(bw,renderNow,done){
   };
   const L=ms=>Math.round(ms*(G.isOnline?.7:1));   // online the other player is waiting: shorter pauses
   const reveal=()=>{
-    seq.skip=fin;
+    seq.skip=fin;bwSkipHint();
     if(ret&&ret.remove)ret.remove();
     if(fx.res==='clear'){const ms=BWFX.emit('TORPEDO_FIZZLE',ctx({P:Pi}))||1000;after(fin,L(ms));return;}
     if(fx.res==='miss'){after(fin,L(BWFX.emit('MISS',ctx({P,torp:fx.kind==='torp'}))||950));return;}
@@ -15663,7 +15690,7 @@ function bwRunSeq0(bw,renderNow,done){
       aftermath();
     };
     const revealTorp=()=>{
-      seq.skip=fin;
+      seq.skip=fin;bwSkipHint();
       if(!hs.length){after(fin,L(BWFX.emit('TORPEDO_FIZZLE',ctx({P:Pi}))||1000));return;}
       step(0);
     };
@@ -15790,7 +15817,9 @@ function bwResultsHTML(){
   const rows=players.map((p,i)=>`<tr><td>${i===0?'⚓':'🎯'} ${esc(p.name)}</td><td>${s.shots[i]}</td><td>${s.hits[i]}</td><td>${s.shots[i]?Math.round(s.hits[i]/s.shots[i]*100):0}%</td><td>${s.sunk[i]}</td><td>${s.sonar[i]+s.depth[i]}</td><td>${s.torp[i]}</td><td>${bwShipsLeft(bw,i+1)}</td></tr>`).join('');
   const sr=G.isOnline?(G.srv&&G.srv.bwSeries):G.bwSeries;
   const srl=sr&&sr.games>0?`<div class="bw-title" style="font-size:.82rem;letter-spacing:.14em;">🏆 SERIES · ${esc(players[0].name)} ${sr.wins[0]} – ${sr.wins[1]} ${esc(players[1].name)}${sr.done?` — <b>${esc(players[sr.wins[0]>sr.wins[1]?0:1].name)} wins the series!</b>`:' · first to 2'}</div>`:'';
-  return`<div class="panel gt-res">${title?`<div class="bw-title">⚓ ${esc(title)}</div>`:''}${srl}<div class="panel-lbl">BLACKWATER · ${s.shots[0]+s.shots[1]} SHOTS</div><table><thead><tr><th></th><th title="Shots">🎯</th><th title="Hits">💥</th><th title="Accuracy">%</th><th title="Ships destroyed">⚓✕</th><th title="Sonar scans and depth charges">📡</th><th title="Torpedoes">🚀</th><th title="Ships left">⚓</th></tr></thead><tbody>${rows}</tbody></table></div>${bwReplayHTML(bw,players.map(p=>p.name))}`;
+  const rc=bwRecordGet(players[0].name,players[1].name);
+  const rcl=rc.a+rc.b>=2?`<div class="bw-key" style="font-size:.72rem;margin:0 0 .4rem;">ALL GAMES TOGETHER · ${esc(players[0].name)} <b>${rc.a}</b> – <b>${rc.b}</b> ${esc(players[1].name)}</div>`:'';
+  return`<div class="panel gt-res">${title?`<div class="bw-title">⚓ ${esc(title)}</div>`:''}${srl}${rcl}<div class="panel-lbl">BLACKWATER · ${s.shots[0]+s.shots[1]} SHOTS</div><table><thead><tr><th></th><th title="Shots">🎯</th><th title="Hits">💥</th><th title="Accuracy">%</th><th title="Ships destroyed">⚓✕</th><th title="Sonar scans and depth charges">📡</th><th title="Torpedoes">🚀</th><th title="Ships left">⚓</th></tr></thead><tbody>${rows}</tbody></table><div class="bw-key">🎯 shots · 💥 hits · % accuracy · ⚓✕ ships sunk · 📡 scans · 🚀 torpedoes · ⚓ ships left</div></div>${bwReplayHTML(bw,players.map(p=>p.name))}`;
 }
 
 
@@ -23727,7 +23756,8 @@ function onSrvCore(state){
           const wIdx=(state.players||[]).findIndex(p=>p.id===state.winner);if(wIdx>=0)fxSeatGlow(wIdx,'gold');
           if(state.winner===G.myPid){G.tw++;localStorage.setItem('ct_tw',G.tw);}
           const nms=(state.players||[]).map(p=>p.name);
-          addHistory({game:'blackwater',winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),players:nms,mode:'online',
+          bwRecordAdd(nms[0],nms[1],state.winnerName,state.bw.seed);
+          addHistory({game:'blackwater',bwSeriesDone:!!(state.bwSeries&&state.bwSeries.done),winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),players:nms,mode:'online',
             moment:state.moment||`${state.winnerName} destroyed the enemy fleet.`,
             stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions,bw:bwStatsFor(state.bw,nms)}});
           _bwEndAt=Infinity;let idleAt=0;
