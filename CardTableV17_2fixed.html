@@ -15250,7 +15250,7 @@ function bwDimOutside(svg,cells,ms,tone){
    Everything goes through one small "mixing desk": a soft limiter and a room/sea echo (a generated impulse response), so that
    guns, hits and explosions have weight and a tail instead of being single beeps. */
 let _bwOff=null;   // tests render the sounds into an OfflineAudioContext instead of the speakers
-function bwAc(){if(_bwOff)return _bwOff;if(!G.snd)return null;try{_ac=_ac||new(window.AudioContext||window.webkitAudioContext)();if(_ac.state==='suspended')_ac.resume();return _ac;}catch(e){return null;}}
+function bwAc(){if(_bwOff)return _bwOff;if(!G.snd)return null;try{_ac=_ac||new(window.AudioContext||window.webkitAudioContext)();if(_ac.state==='suspended')_ac.resume();if(!_bwSmpBusy)setTimeout(bwLoadSamples,0);return _ac;}catch(e){return null;}}
 let _bwBus=null;
 function bwBus(ac){
   if(_bwBus&&_bwBus.ac===ac)return _bwBus;
@@ -15269,6 +15269,19 @@ function bwBus(ac){
 }
 // a node on its way to the speakers; o.rev = how much of it goes into the echo (0..1)
 function bwTo(ac,node,o){const b=bwBus(ac);node.connect(b.inp);if(o&&o.rev){const g=ac.createGain();g.gain.value=o.rev;node.connect(g);g.connect(b.send);}}
+// Two sounds are real files (made with ChatGPT and chosen by ear: the torpedo launch and the sonar ping). They load once, in the background,
+// when sound is first used; until they are there (or if they cannot load) the synthesized versions play instead.
+const BW_SFX={torp:'torpedo_launch.wav',ping:'sonar_ping.wav'},_bwSmp={};let _bwSmpBusy=false;
+function bwLoadSamples(){
+  const ac=bwAc();if(!ac||_bwSmpBusy)return Promise.resolve();
+  _bwSmpBusy=true;
+  return Promise.all(Object.keys(BW_SFX).map(k=>_bwSmp[k]?0:fetch(BW_ART+'sfx/'+BW_SFX[k]).then(r=>r.ok?r.arrayBuffer():Promise.reject()).then(ab=>new Promise((ok,no)=>{const p=ac.decodeAudioData(ab,ok,no);if(p&&p.then)p.then(ok,no);})).then(b=>{_bwSmp[k]=b;}).catch(()=>{}))).then(()=>{_bwSmpBusy=Object.keys(BW_SFX).every(k=>_bwSmp[k]);});
+}
+// plays a loaded file through the mixing desk; false if it is not loaded (the caller then plays the synthesized version)
+function bwSample(k,o){
+  const ac=bwAc(),b=_bwSmp[k];if(!ac||!b)return false;o=o||{};
+  try{const src=ac.createBufferSource(),g=ac.createGain();src.buffer=b;g.gain.value=o.v||1;src.connect(g);bwTo(ac,g,o);src.start(ac.currentTime+(o.d||0)/1000);return true;}catch(e){return false;}
+}
 // a pitch that glides from f0 to f1. o: {d delay ms, v volume, type, lp low-pass, a attack, rev echo, dist crunch, lfo [Hz, depth] tremolo}
 function bwSt(f0,f1,dur,o){
   const ac=bwAc();if(!ac)return;o=o||{};
@@ -15378,6 +15391,7 @@ const BWS={
   tension(){bwSt(70,52,.9,{v:.35,a:.2,dist:.2,rev:.3});bwSn(.9,200,700,{n:'brown',v:.2,a:.4,rev:.4});},
   // a sonar ping that rings out and comes back as an echo
   ping(){
+    if(bwSample('ping',{v:1,rev:.4}))return;
     const ac=bwAc();if(!ac)return;
     try{
       const t=ac.currentTime,os=ac.createOscillator(),o2=ac.createOscillator(),g=ac.createGain(),dl=ac.createDelay(1),fb=ac.createGain(),wet=ac.createGain();
@@ -15395,7 +15409,8 @@ const BWS={
   drop(ms){bwSt(420,130,ms/1000,{v:.12,a:.05,rev:.3,lp:900});bwSn(ms/1000,1500,250,{type:'bandpass',q:3,v:.1,a:.05});},
   plunk(){bwSn(.4,3600,500,{type:'bandpass',q:.7,v:.35,a:.004,rev:.3});bwSt(300,80,.3,{v:.4,dist:.2,a:.004,rev:.3});bwBubbles(6,.5,.08,60);},
   // a torpedo leaving the tube: the thump of the air, the hiss, bubbles
-  torp(){bwSt(140,44,.5,{v:1.1,dist:1,a:.003,rev:.25,long:true});bwSn(.18,6000,1500,{type:'highpass',v:.35,a:.002});bwSn(1.4,5200,500,{type:'bandpass',q:.6,v:.7,a:.03,d:40,rev:.35,long:true});bwSn(1.2,900,150,{v:.5,a:.05,d:60,rev:.5,long:true});bwBubbles(10,.9,.1,100);},
+  torp(){if(bwSample('torp',{v:1,rev:.25})){bwBubbles(6,.9,.05,300);return;}
+bwSt(140,44,.5,{v:1.1,dist:1,a:.003,rev:.25,long:true});bwSn(.18,6000,1500,{type:'highpass',v:.35,a:.002});bwSn(1.4,5200,500,{type:'bandpass',q:.6,v:.7,a:.03,d:40,rev:.35,long:true});bwSn(1.2,900,150,{v:.5,a:.05,d:60,rev:.5,long:true});bwBubbles(10,.9,.1,100);},
   // the propeller of a torpedo running: a throbbing growl
   hum(ms){const s=ms/1000;bwSt(66,125,s,{type:'sawtooth',v:.17,lp:380,lp2:700,a:.15,lfo:[26,.5],rev:.25});bwSn(s,900,1800,{type:'bandpass',q:1.5,v:.05,a:.2});},
   armed(){bwSt(1100,1100,.1,{v:.07,a:.002,rev:.45});bwSt(1650,1650,.18,{v:.06,d:120,a:.002,rev:.5});},

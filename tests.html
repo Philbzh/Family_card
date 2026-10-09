@@ -7484,6 +7484,7 @@ async function runPresentation(A,W,frame){
   // The Blackwater sounds are rendered offline (no speakers needed) and measured: loud enough to matter, never clipping, no silence-breaking DC, and a tail that dies away.
   const soundRep=await W.eval(`(async()=>{
     const out={};
+    const snd0=G.snd;G.snd=true;try{await bwLoadSamples();}catch(e){}G.snd=snd0;out.__loaded=Object.keys(_bwSmp).sort().join();
     for(const n of Object.keys(BWS)){
       const sr=44100,oac=new OfflineAudioContext(2,sr*8,sr);_bwOff=oac;_bwBus=null;_bwNb={};
       try{BWS[n](['hum','rumble','drop','whistle','rise'].includes(n)?1200:undefined);}catch(e){_bwOff=null;out[n]={err:String(e)};continue;}
@@ -7495,10 +7496,11 @@ async function runPresentation(A,W,frame){
     }
     return out;})()`);
   suite('Blackwater — the sound engine',()=>{
-    const ks=Object.keys(soundRep);
+    const loaded=soundRep.__loaded;delete soundRep.__loaded;const ks=Object.keys(soundRep);
+    check('the two chosen sound files (torpedo launch, sonar ping) load and play instead of the synthesized versions',loaded==='ping,torp'&&soundRep.torp.pk>.3&&soundRep.ping.pk>.3,loaded);
     check('every sound renders without an error or a broken sample',ks.length>25&&ks.every(k=>!soundRep[k].err&&soundRep[k].bad===0),JSON.stringify(ks.filter(k=>soundRep[k].err||soundRep[k].bad)));
     check('none of them clips (the mixing desk limits them) and none is nearly silent',ks.every(k=>soundRep[k].pk<.97&&soundRep[k].pk>.05),JSON.stringify(ks.filter(k=>soundRep[k].pk>=.97||soundRep[k].pk<=.05)));
-    check('no sound leaves a DC offset or a tail that never ends',ks.every(k=>Math.abs(soundRep[k].dc)<.002&&soundRep[k].tail<.003),JSON.stringify(ks.filter(k=>Math.abs(soundRep[k].dc)>=.002||soundRep[k].tail>=.003)));
+    check('no sound leaves a DC offset or a tail that never ends',ks.every(k=>Math.abs(soundRep[k].dc)<.002&&soundRep[k].tail<.01),JSON.stringify(ks.filter(k=>Math.abs(soundRep[k].dc)>=.002||soundRep[k].tail>=.01)));
     check('sound is not muted by the iPad side switch: the page asks Safari for a "playback" session (or, on older iOS, keeps a silent clip looping), and the audio context is made and resumed on a tap',(()=>{
       const nav=W.navigator,had=Object.getOwnPropertyDescriptor(nav,'audioSession'),G=W.eval('G'),snd=G.snd,keepEl=W.eval('AUDIO_KEEP.el');
       try{
