@@ -3,13 +3,16 @@
 // app shell itself. Multiplayer still needs a live connection (Supabase requests are always
 // passed straight through to the network, never cached), so this is about the shell — the HTML,
 // icons, and manifest — not about playing an online game with no signal.
-const CACHE_NAME = 'our-table-v40';
+const CACHE_NAME = 'our-table-v41';
 // Pictures live in their OWN cache, which a new app version does not throw away: the ~12 MB of covers,
 // room pictures and avatars used to be downloaded again from scratch on every visit (network-first with
 // no-store) and again on every release, so on a slow connection the home screen painted only the top strip
 // of each cover. Images are now served from this cache first. Bump ASSET_CACHE ONLY when an existing image
 // file is replaced in place under the same name (a brand-new file just gets fetched the first time).
 const ASSET_CACHE = 'our-table-assets-v1';
+// Pictures replaced in place under the same name: dropped from ASSET_CACHE on every activation so the new file is fetched (a few hundred KB;
+// leaving a name in this list is harmless). Without this, devices that had already loaded the old picture kept showing it for ever.
+const REPLACED_ASSETS = ['./assets/games/blackwater.jpg'];
 const APP_SHELL = [
   './CardTableV17_2fixed.html',
   './manifest.json',
@@ -67,6 +70,7 @@ self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
       .then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME && k !== ASSET_CACHE).map(k => caches.delete(k))))
+      .then(() => caches.open(ASSET_CACHE).then(c => Promise.all(REPLACED_ASSETS.map(u => c.delete(u)))))
       .then(() => self.clients.claim())
       .then(() => warmGameCovers())
   );

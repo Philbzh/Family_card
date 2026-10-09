@@ -7485,12 +7485,13 @@ async function runPresentation(A,W,frame){
   const soundRep=await W.eval(`(async()=>{
     const out={};
     for(const n of Object.keys(BWS)){
-      const sr=44100,oac=new OfflineAudioContext(2,sr*6,sr);_bwOff=oac;_bwBus=null;_bwNb={};
+      const sr=44100,oac=new OfflineAudioContext(2,sr*8,sr);_bwOff=oac;_bwBus=null;_bwNb={};
       try{BWS[n](['hum','rumble','drop','whistle','rise'].includes(n)?1200:undefined);}catch(e){_bwOff=null;out[n]={err:String(e)};continue;}
       const b=await oac.startRendering();_bwOff=null;_bwBus=null;
       const L=b.getChannelData(0);let pk=0,bad=0,dc=0,tail=0;
-      for(let i=0;i<L.length;i++){const v=Math.abs(L[i]);if(v!==v)bad++;if(v>pk)pk=v;dc+=L[i];if(i>sr*5.2&&v>tail)tail=v;}
-      out[n]={pk,bad,dc:dc/L.length,tail};
+      for(let i=0;i<L.length;i++){const v=Math.abs(L[i]);if(v!==v)bad++;if(v>pk)pk=v;dc+=L[i];if(i>sr*7.2&&v>tail)tail=v;}
+      const rms=(a,c)=>{let x=0;for(let i=Math.round(a*sr);i<Math.round(c*sr);i++)x+=L[i]*L[i];return Math.sqrt(x/((c-a)*sr));};
+      out[n]={pk,bad,dc:dc/L.length,tail,r0:rms(0,.5),r2:rms(2,2.5)};
     }
     return out;})()`);
   suite('Blackwater — the sound engine',()=>{
@@ -7510,6 +7511,7 @@ async function runPresentation(A,W,frame){
         return modern&&old&&ctxOk;
       }finally{G.snd=snd;const e=W.eval('AUDIO_KEEP.el');if(e&&e!==keepEl)e.pause();W.eval('AUDIO_KEEP.el=null');if(had)Object.defineProperty(nav,'audioSession',had);}
     })());
+    check('a bang is not over in a blink: two seconds after a blast or a gun the roll is still at least a fifth as loud as the bang, in the range a small speaker plays',soundRep.boom.r2>soundRep.boom.r0*.2&&soundRep.fire.r2>soundRep.fire.r0*.2&&soundRep.boom.r2>.08,JSON.stringify({boom:soundRep.boom,fire:soundRep.fire}));
     check('guns, hits and explosions are the loud ones: a shot, a hit and a blast reach at least 0.4, a blast the most',soundRep.fire.pk>=.4&&soundRep.hit.pk>=.4&&soundRep.boom.pk>=.6&&soundRep.boom.pk>=soundRep.fire.pk);
   });
   suite('Tonight at Our Table, a quiet "is thinking", and a chance to react',()=>{

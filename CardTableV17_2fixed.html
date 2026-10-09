@@ -15254,16 +15254,16 @@ function bwAc(){if(_bwOff)return _bwOff;if(!G.snd)return null;try{_ac=_ac||new(w
 let _bwBus=null;
 function bwBus(ac){
   if(_bwBus&&_bwBus.ac===ac)return _bwBus;
-  const inp=ac.createGain(),sat=ac.createWaveShaper(),cmp=ac.createDynamicsCompressor(),out=ac.createGain(),send=ac.createGain(),conv=ac.createConvolver(),rev=ac.createGain();
+  const inp=ac.createGain(),sat=ac.createWaveShaper(),cmp=ac.createDynamicsCompressor(),out=ac.createGain(),lim=ac.createDynamicsCompressor(),send=ac.createGain(),conv=ac.createConvolver(),rev=ac.createGain();
   const k=1.6,cv=new Float32Array(1025);for(let i=0;i<1025;i++){const x=i/512-1;cv[i]=Math.tanh(k*x)/Math.tanh(k);}   // odd length: silence in = silence out
   sat.curve=cv;
-  cmp.threshold.value=-16;cmp.knee.value=14;cmp.ratio.value=6;cmp.attack.value=.002;cmp.release.value=.22;
-  out.gain.value=.95;
+  cmp.threshold.value=-26;cmp.knee.value=12;cmp.ratio.value=8;cmp.attack.value=.002;cmp.release.value=.35;   // squeezes the bangs so that the roll after them stays loud
+  out.gain.value=1.25;lim.threshold.value=-3;lim.knee.value=0;lim.ratio.value=20;lim.attack.value=.001;lim.release.value=.12;
   // the echo: 2.6 s of noise that fades and gets darker, a little different in each ear
-  const n=Math.round(ac.sampleRate*2.6),ir=ac.createBuffer(2,n,ac.sampleRate);
-  for(let ch=0;ch<2;ch++){const d=ir.getChannelData(ch);let lp=0;for(let i=0;i<n;i++){const t=i/n,a=.04+.5*t*t;lp+=(Math.random()*2-1-lp)*(1-a*1.6>.05?1-a*1.6:.05);d[i]=lp*Math.pow(1-t,2.6)*(i<ac.sampleRate*.012?i/(ac.sampleRate*.012):1);}}
-  conv.buffer=ir;send.gain.value=1;rev.gain.value=.55;
-  inp.connect(sat);sat.connect(cmp);cmp.connect(out);out.connect(ac.destination);
+  const n=Math.round(ac.sampleRate*3.4),ir=ac.createBuffer(2,n,ac.sampleRate);
+  for(let ch=0;ch<2;ch++){const d=ir.getChannelData(ch);let lp=0;for(let i=0;i<n;i++){const t=i/n,a=.04+.5*t*t;lp+=(Math.random()*2-1-lp)*(1-a*1.6>.05?1-a*1.6:.05);d[i]=lp*Math.pow(1-t,2.2)*(i<ac.sampleRate*.012?i/(ac.sampleRate*.012):1);}}
+  conv.buffer=ir;send.gain.value=1;rev.gain.value=.7;
+  inp.connect(sat);sat.connect(cmp);cmp.connect(out);out.connect(lim);lim.connect(ac.destination);
   send.connect(conv);conv.connect(rev);rev.connect(cmp);
   _bwBus={ac,inp,send};return _bwBus;
 }
@@ -15276,7 +15276,7 @@ function bwSt(f0,f1,dur,o){
     const t=ac.currentTime+(o.d||0)/1000,os=ac.createOscillator(),g=ac.createGain();
     os.type=o.type||'sine';os.frequency.setValueAtTime(f0,t);if(f1&&f1!==f0)os.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t+dur);
     const v=(o.v||.1),att=o.a||.006;
-    g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(v,t+att);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(v,t+att);if(o.long)g.gain.exponentialRampToValueAtTime(v*.3,t+dur*.45);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
     let last=os;
     if(o.dist){const w=ac.createWaveShaper(),c=new Float32Array(513),kk=1+o.dist*6;for(let i=0;i<513;i++){const x=i/256-1;c[i]=Math.tanh(kk*x);}w.curve=c;last.connect(w);last=w;}
     if(o.lp){const f=ac.createBiquadFilter();f.type='lowpass';f.frequency.setValueAtTime(o.lp,t);if(o.lp2)f.frequency.exponentialRampToValueAtTime(o.lp2,t+dur);last.connect(f);last=f;}
@@ -15302,7 +15302,7 @@ function bwSn(dur,f0,f1,o){
     const t=ac.currentTime+(o.d||0)/1000,s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();
     s.buffer=bwNoise(ac,o.n||'white');f.type=o.type||'lowpass';f.Q.value=o.q||.8;f.frequency.setValueAtTime(f0,t);f.frequency.exponentialRampToValueAtTime(Math.max(30,f1),t+dur);
     const v=(o.v||.15),att=o.a||.008;
-    g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(v,t+att);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(v,t+att);if(o.long)g.gain.exponentialRampToValueAtTime(v*.3,t+dur*.45);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
     let last=f;s.connect(f);
     if(o.hp){const h=ac.createBiquadFilter();h.type='highpass';h.frequency.value=o.hp;f.connect(h);last=h;}
     last.connect(g);bwTo(ac,g,o);s.start(t,Math.random()*1.5);s.stop(t+dur+.05);
@@ -15325,13 +15325,15 @@ const BWS={
   warn(){for(let i=0;i<3;i++)bwSt(190,170,.3,{type:'sawtooth',v:.1,lp:520,d:i*340,a:.02,rev:.35});bwSn(.5,500,150,{v:.06,n:'brown',a:.1});},
   // a naval gun: crack + blast + thump + the long roll of the echo. far=true: it is the other side firing (muffled, further away)
   fire(far){
-    const k=far?.5:1;
-    bwCrack(.55*k,0,.3);
-    bwSn(.55,far?1800:5200,far?120:160,{v:.6*k,a:.003,rev:.45});
-    bwSt(far?110:170,36,.5,{v:.9*k,dist:.7,a:.003,rev:.2});
-    bwSt(62,26,1.0,{v:.55*k,d:30,dist:.2,rev:.3});
-    bwSn(1.7,far?500:700,55,{n:'brown',v:.42*k,a:.04,rev:.6,d:60});
-    bwTicks(far?4:8,.6,.05*k,120);
+    const k=far?.55:1;
+    bwCrack(.8*k,0,.3);
+    bwSn(.8,far?1800:5200,140,{v:.9*k,a:.003,rev:.45});
+    bwSt(far?125:190,42,.8,{v:1.2*k,dist:1,a:.003,rev:.25,long:true});                // the thump (distorted, so a small speaker plays its harmonics)
+    bwSt(76,30,1.8,{v:.9*k,d:20,dist:1,rev:.3,long:true});
+    bwSn(2.6,far?520:900,90,{v:1.0*k,a:.03,rev:.7,d:40,long:true});                    // the body of the blast: 100-600 Hz, rolling
+    bwSn(3.0,520,60,{n:'brown',v:.8*k,a:.05,rev:.7,d:80,long:true});
+    bwSn(2.2,900,110,{v:.5*k,a:.06,d:560,rev:.85,long:true});bwSt(95,36,1.2,{v:.55*k,dist:1,d:560,rev:.5,long:true});   // the answer from the horizon
+    bwTicks(far?4:8,.7,.06*k,140);
     if(!far)BWS.whistle(500,true,k);
   },
   // the shell in the air. away=true: it leaves (the pitch drops); otherwise it comes down on you (rises, then loud)
@@ -15342,33 +15344,35 @@ const BWS={
   // a shell into the sea: the slap, the white column of water, the low whump, a few bubbles
   splash(){
     bwSn(.14,7500,1800,{type:'bandpass',q:.6,v:.5,a:.002,rev:.15});
-    bwSn(.9,4200,420,{type:'bandpass',q:.5,v:.4,a:.014,rev:.3});
-    bwSt(230,55,.38,{v:.55,dist:.3,a:.004,rev:.2});
-    bwSn(1.3,1100,110,{n:'brown',v:.4,a:.05,d:40,rev:.4});
+    bwSn(1.1,4200,420,{type:'bandpass',q:.5,v:.5,a:.014,rev:.3,long:true});
+    bwSt(230,55,.5,{v:.8,dist:.8,a:.004,rev:.25,long:true});
+    bwSn(1.8,1300,110,{v:.5,a:.05,d:40,rev:.5,long:true});
     bwBubbles(7,.7,.07,120);
     bwTicks(10,.8,.05,200,2600);
   },
   // a shell on steel: snap, clang, fireball, thump and metal falling afterwards
   hit(pw){pw=pw||1;
-    bwCrack(.6*Math.min(pw,1.4),0,.25);
-    bwClang(.18*pw,640,.9);
-    bwSn(.9,5000,140,{v:.55*pw,a:.003,rev:.4});
-    bwSt(125,34,.6,{v:.85*pw,dist:.6,a:.003,rev:.15});
-    bwSn(1.1,600,60,{n:'brown',v:.34*pw,a:.03,d:50,rev:.45});
-    bwTicks(Math.round(8+pw*6),.9,.07*pw,140);
+    bwCrack(.7*Math.min(pw,1.4),0,.25);
+    bwClang(.2*pw,640,1.1);
+    bwSn(1.3,5000,160,{v:.9*pw,a:.003,rev:.45,long:true});
+    bwSt(135,38,.9,{v:1.2*pw,dist:1,a:.003,rev:.2,long:true});
+    bwSn(2.2,800,90,{v:.9*pw,a:.025,d:40,rev:.6,long:true});
+    bwSn(2.0,500,60,{n:'brown',v:.6*pw,a:.04,d:60,rev:.6,long:true});
+    bwTicks(Math.round(8+pw*6),1.1,.08*pw,140);
   },
   // a big explosion: a flash of crack, the fireball, a heavy low body, a second and third blast, then the roll
-  boom(deep){const k=deep?.8:1;
-    bwCrack(.75*k,0,.4);
-    bwSn(1.8,deep?2400:5600,70,{v:.85*k,a:.003,rev:.5});
-    bwSt(deep?60:88,22,1.9,{v:1.0*k,dist:.8,a:.004,rev:.3});
-    bwSt(190,52,.75,{type:'sawtooth',v:.2*k,lp:700,lp2:120,dist:.5,d:15,rev:.2});
-    bwSn(3.0,520,45,{n:'brown',v:.55*k,a:.05,rev:.7,d:80});
-    [[260,.45],[480,.3],[760,.2]].forEach(([dl,pw])=>{bwSn(.5,3200,120,{v:.4*pw*k,a:.004,d:dl,rev:.5});bwSt(100,30,.5,{v:.5*pw*k,dist:.5,d:dl,rev:.2});});
-    bwTicks(22,2.0,.09*k,250);
-    if(!deep)bwClang(.07,520,1.4,120,.5);
+  boom(deep){const k=deep?.85:1;
+    bwCrack(.9*k,0,.4);
+    bwSn(2.4,deep?2000:4800,90,{v:1.0*k,a:.003,rev:.5,long:true});                      // the fireball
+    bwSt(82,30,2.6,{v:1.3*k,dist:1,a:.004,rev:.35,long:true});                          // heavy low body, distorted so that small speakers speak it too
+    bwSt(120,40,1.8,{type:'sawtooth',v:.45*k,lp:480,lp2:120,dist:.9,d:10,rev:.3,long:true});
+    bwSn(3.8,deep?600:1000,70,{v:1.1*k,a:.04,rev:.75,d:50,long:true});                  // the roll: 100-600 Hz, the part that lasts
+    bwSn(4.2,520,55,{n:'brown',v:.9*k,a:.08,rev:.8,d:100,long:true});
+    [[240,.55],[460,.4],[720,.3],[1100,.2]].forEach(([dl,pw])=>{bwSn(.9,3200,120,{v:.5*pw*k,a:.004,d:dl,rev:.55,long:true});bwSt(105,32,.9,{v:.7*pw*k,dist:1,d:dl,rev:.3,long:true});});
+    bwTicks(28,3,.1*k,250);
+    if(!deep)bwClang(.08,520,1.6,120,.5);
   },
-  rumble(ms){bwSn(ms/1000,320,50,{n:'brown',v:.5,a:.3,rev:.4});},
+  rumble(ms){bwSn(ms/1000,700,70,{v:.5,a:.3,rev:.5,long:true});bwSn(ms/1000,420,50,{n:'brown',v:.5,a:.3,rev:.5,long:true});},
   // steel under strain: a groan that wanders, and rivets popping
   creak(){bwSt(150,95,1.1,{type:'sawtooth',v:.1,lp:360,lp2:200,a:.25,lfo:[7,.4],rev:.4});bwSt(232,138,.9,{type:'sawtooth',v:.06,lp:420,lp2:220,a:.2,d:140,rev:.4});bwTicks(5,.9,.07,200,2400);},
   tension(){bwSt(70,52,.9,{v:.35,a:.2,dist:.2,rev:.3});bwSn(.9,200,700,{n:'brown',v:.2,a:.4,rev:.4});},
@@ -15391,7 +15395,7 @@ const BWS={
   drop(ms){bwSt(420,130,ms/1000,{v:.12,a:.05,rev:.3,lp:900});bwSn(ms/1000,1500,250,{type:'bandpass',q:3,v:.1,a:.05});},
   plunk(){bwSn(.4,3600,500,{type:'bandpass',q:.7,v:.35,a:.004,rev:.3});bwSt(300,80,.3,{v:.4,dist:.2,a:.004,rev:.3});bwBubbles(6,.5,.08,60);},
   // a torpedo leaving the tube: the thump of the air, the hiss, bubbles
-  torp(){bwSt(130,42,.3,{v:.7,dist:.6,a:.003,rev:.2});bwSn(.18,6000,1500,{type:'highpass',v:.25,a:.002});bwSn(1.0,5200,500,{type:'bandpass',q:.6,v:.4,a:.03,d:40,rev:.3});bwBubbles(10,.8,.08,100);},
+  torp(){bwSt(140,44,.5,{v:1.1,dist:1,a:.003,rev:.25,long:true});bwSn(.18,6000,1500,{type:'highpass',v:.35,a:.002});bwSn(1.4,5200,500,{type:'bandpass',q:.6,v:.7,a:.03,d:40,rev:.35,long:true});bwSn(1.2,900,150,{v:.5,a:.05,d:60,rev:.5,long:true});bwBubbles(10,.9,.1,100);},
   // the propeller of a torpedo running: a throbbing growl
   hum(ms){const s=ms/1000;bwSt(66,125,s,{type:'sawtooth',v:.17,lp:380,lp2:700,a:.15,lfo:[26,.5],rev:.25});bwSn(s,900,1800,{type:'bandpass',q:1.5,v:.05,a:.2});},
   armed(){bwSt(1100,1100,.1,{v:.07,a:.002,rev:.45});bwSt(1650,1650,.18,{v:.06,d:120,a:.002,rev:.5});},
@@ -15415,7 +15419,7 @@ const BWS={
   chime(){bwSt(784,784,.9,{v:.12,a:.003,rev:.55});bwSt(1568,1568,.5,{v:.04,a:.003,rev:.5});bwSt(1175,1175,1.1,{v:.11,d:130,a:.003,rev:.55});bwSt(2350,2350,.5,{v:.04,d:130,a:.003,rev:.5});},
   wah(){bwHorn(196,.55,.3,0,{lp:420,lp2:260,glide:.85,a:.03,rev:.5});bwHorn(147,.8,.3,300,{lp:380,lp2:220,glide:.8,a:.03,rev:.5});},
   cheer(){bwHorn(262,.5,.3,0,{lp:700,lp2:1800,a:.02,rev:.45});bwHorn(392,.7,.3,170,{lp:800,lp2:2200,a:.02,rev:.5});bwSt(95,55,.35,{v:.5,dist:.4,rev:.3});},
-  thunder(){bwSn(.06,6000,1000,{v:.15,a:.001,type:'highpass'});bwSn(3.0,700,40,{n:'brown',v:.7,a:.1,rev:.7});bwSt(60,28,2,{v:.3,a:.2,rev:.4});}
+  thunder(){bwSn(.06,6000,1000,{v:.15,a:.001,type:'highpass'});bwSn(3.4,900,60,{v:.7,a:.1,rev:.8,long:true});bwSn(3.6,500,40,{n:'brown',v:.7,a:.1,rev:.8,long:true});bwSt(70,30,2.4,{v:.5,dist:1,a:.2,rev:.4,long:true});}
 };
 
 /* how each class of ship goes down: length of the show (ms), the push-in of the camera, the size of the blasts, bursts of smoke, shake */
