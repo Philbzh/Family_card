@@ -7498,6 +7498,18 @@ async function runPresentation(A,W,frame){
     check('every sound renders without an error or a broken sample',ks.length>25&&ks.every(k=>!soundRep[k].err&&soundRep[k].bad===0),JSON.stringify(ks.filter(k=>soundRep[k].err||soundRep[k].bad)));
     check('none of them clips (the mixing desk limits them) and none is nearly silent',ks.every(k=>soundRep[k].pk<.97&&soundRep[k].pk>.05),JSON.stringify(ks.filter(k=>soundRep[k].pk>=.97||soundRep[k].pk<=.05)));
     check('no sound leaves a DC offset or a tail that never ends',ks.every(k=>Math.abs(soundRep[k].dc)<.002&&soundRep[k].tail<.003),JSON.stringify(ks.filter(k=>Math.abs(soundRep[k].dc)>=.002||soundRep[k].tail>=.003)));
+    check('sound is not muted by the iPad side switch: the page asks Safari for a "playback" session (or, on older iOS, keeps a silent clip looping), and the audio context is made and resumed on a tap',(()=>{
+      const nav=W.navigator,had=Object.getOwnPropertyDescriptor(nav,'audioSession'),G=W.eval('G'),snd=G.snd,keepEl=W.eval('AUDIO_KEEP.el');
+      try{
+        G.snd=true;W.eval('AUDIO_KEEP.el=null');
+        Object.defineProperty(nav,'audioSession',{value:{type:'auto'},configurable:true,writable:true});
+        W.eval('audioKeepAlive()');const modern=nav.audioSession.type==='playback'&&!W.eval('AUDIO_KEEP.el');
+        delete nav.audioSession;
+        W.eval('audioKeepAlive()');const el=W.eval('AUDIO_KEEP.el');const old=!!el&&el.loop&&/^blob:/.test(el.src);
+        const ctxOk=['running','suspended'].includes(W.eval('_ac&&_ac.state'));
+        return modern&&old&&ctxOk;
+      }finally{G.snd=snd;const e=W.eval('AUDIO_KEEP.el');if(e&&e!==keepEl)e.pause();W.eval('AUDIO_KEEP.el=null');if(had)Object.defineProperty(nav,'audioSession',had);}
+    })());
     check('guns, hits and explosions are the loud ones: a shot, a hit and a blast reach at least 0.4, a blast the most',soundRep.fire.pk>=.4&&soundRep.hit.pk>=.4&&soundRep.boom.pk>=.6&&soundRep.boom.pk>=soundRep.fire.pk);
   });
   suite('Tonight at Our Table, a quiet "is thinking", and a chance to react',()=>{

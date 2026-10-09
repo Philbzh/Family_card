@@ -4666,6 +4666,28 @@ function rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
 
 /* ═══════ AUDIO ═══════ */
 let _ac=null;
+// iPhones and iPads keep web sound silent while the side switch / Control Center says "mute"; headphones bypass that switch, which is why
+// sound only worked with headphones. Telling Safari this page is "playback" (a game) lets the speakers play too; the in-app 🔊 still mutes.
+// Older iOS has no navigator.audioSession: there a silent looping clip, started by a tap, does the same. The AudioContext is also created and
+// resumed on a tap, because one made later by a network event (the other player's shot) stays suspended on iOS and plays nothing.
+const AUDIO_KEEP={el:null};
+function audioKeepAlive(){
+  try{
+    if(!G.snd)return;
+    if(!_ac&&(window.AudioContext||window.webkitAudioContext))_ac=new(window.AudioContext||window.webkitAudioContext)();
+    if(_ac&&_ac.state!=='running'&&_ac.state!=='closed')_ac.resume();
+    if(navigator.audioSession){if(navigator.audioSession.type!=='playback')navigator.audioSession.type='playback';return;}
+    if(!AUDIO_KEEP.el){
+      const n=2000,b=new Uint8Array(44+n),w=(o,v,l)=>{for(let i=0;i<l;i++)b[o+i]=(v>>(8*i))&255;},t=(o,x)=>{for(let i=0;i<x.length;i++)b[o+i]=x.charCodeAt(i);};
+      t(0,'RIFF');w(4,36+n,4);t(8,'WAVEfmt ');w(16,16,4);w(20,1,2);w(22,1,2);w(24,8000,4);w(28,8000,4);w(32,1,2);w(34,8,2);t(36,'data');w(40,n,4);b.fill(128,44);
+      const a=document.createElement('audio');a.src=URL.createObjectURL(new Blob([b],{type:'audio/wav'}));a.loop=true;a.setAttribute('playsinline','');a.preload='auto';AUDIO_KEEP.el=a;
+    }
+    if(AUDIO_KEEP.el.paused)AUDIO_KEEP.el.play().catch(()=>{});
+  }catch(e){}
+}
+try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(e){}
+['pointerdown','touchend','click','keydown'].forEach(ev=>document.addEventListener(ev,audioKeepAlive,{capture:true,passive:true}));
+document.addEventListener('visibilitychange',()=>{try{if(document.hidden){if(AUDIO_KEEP.el)AUDIO_KEEP.el.pause();}else audioKeepAlive();}catch(e){}});
 function tone(f,d,t='sine'){if(!G.snd)return;try{_ac=_ac||new(window.AudioContext||window.webkitAudioContext)();if(_ac.state==='suspended')_ac.resume();const o=_ac.createOscillator(),g=_ac.createGain();o.type=t;o.frequency.value=f;g.gain.value=.065;o.connect(g);g.connect(_ac.destination);o.start();g.gain.exponentialRampToValueAtTime(.0001,_ac.currentTime+(d||.12));o.stop(_ac.currentTime+(d||.12)+.02);}catch(e){}}
 // Ambient Lounge — a very quiet, deliberately simple room-tone bed (soft filtered noise, no pitched
 // content) that plays while you're actually at the table. Kept to noise-only on purpose: a synthesized
