@@ -15224,73 +15224,176 @@ function bwDimOutside(svg,cells,ms,tone){
   const e=gtEl(svg,'path',{d:`M0 0H112V112H0Z M${x} ${y}V${y+h}H${x+w}V${y}Z`,'fill-rule':'evenodd',fill:tone||'#00080c',class:'bw-dimf','pointer-events':'none'},ms+120);
   e.style.setProperty('--ms',ms+'ms');
 }
-/* ── sound: all made here, a little richer than the table beeps ── */
-function bwAc(){if(!G.snd)return null;try{_ac=_ac||new(window.AudioContext||window.webkitAudioContext)();if(_ac.state==='suspended')_ac.resume();return _ac;}catch(e){return null;}}
-// a pitch that glides from f0 to f1. o: {d delay ms, v volume, type, lp low-pass, a attack}
+/* ── sound: all made here, layered like the real thing (crack + blast + thump + rumble + echo) ──
+   Everything goes through one small "mixing desk": a soft limiter and a room/sea echo (a generated impulse response), so that
+   guns, hits and explosions have weight and a tail instead of being single beeps. */
+let _bwOff=null;   // tests render the sounds into an OfflineAudioContext instead of the speakers
+function bwAc(){if(_bwOff)return _bwOff;if(!G.snd)return null;try{_ac=_ac||new(window.AudioContext||window.webkitAudioContext)();if(_ac.state==='suspended')_ac.resume();return _ac;}catch(e){return null;}}
+let _bwBus=null;
+function bwBus(ac){
+  if(_bwBus&&_bwBus.ac===ac)return _bwBus;
+  const inp=ac.createGain(),sat=ac.createWaveShaper(),cmp=ac.createDynamicsCompressor(),out=ac.createGain(),send=ac.createGain(),conv=ac.createConvolver(),rev=ac.createGain();
+  const k=1.6,cv=new Float32Array(1025);for(let i=0;i<1025;i++){const x=i/512-1;cv[i]=Math.tanh(k*x)/Math.tanh(k);}   // odd length: silence in = silence out
+  sat.curve=cv;
+  cmp.threshold.value=-16;cmp.knee.value=14;cmp.ratio.value=6;cmp.attack.value=.002;cmp.release.value=.22;
+  out.gain.value=.95;
+  // the echo: 2.6 s of noise that fades and gets darker, a little different in each ear
+  const n=Math.round(ac.sampleRate*2.6),ir=ac.createBuffer(2,n,ac.sampleRate);
+  for(let ch=0;ch<2;ch++){const d=ir.getChannelData(ch);let lp=0;for(let i=0;i<n;i++){const t=i/n,a=.04+.5*t*t;lp+=(Math.random()*2-1-lp)*(1-a*1.6>.05?1-a*1.6:.05);d[i]=lp*Math.pow(1-t,2.6)*(i<ac.sampleRate*.012?i/(ac.sampleRate*.012):1);}}
+  conv.buffer=ir;send.gain.value=1;rev.gain.value=.55;
+  inp.connect(sat);sat.connect(cmp);cmp.connect(out);out.connect(ac.destination);
+  send.connect(conv);conv.connect(rev);rev.connect(cmp);
+  _bwBus={ac,inp,send};return _bwBus;
+}
+// a node on its way to the speakers; o.rev = how much of it goes into the echo (0..1)
+function bwTo(ac,node,o){const b=bwBus(ac);node.connect(b.inp);if(o&&o.rev){const g=ac.createGain();g.gain.value=o.rev;node.connect(g);g.connect(b.send);}}
+// a pitch that glides from f0 to f1. o: {d delay ms, v volume, type, lp low-pass, a attack, rev echo, dist crunch, lfo [Hz, depth] tremolo}
 function bwSt(f0,f1,dur,o){
   const ac=bwAc();if(!ac)return;o=o||{};
   try{
     const t=ac.currentTime+(o.d||0)/1000,os=ac.createOscillator(),g=ac.createGain();
     os.type=o.type||'sine';os.frequency.setValueAtTime(f0,t);if(f1&&f1!==f0)os.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t+dur);
-    const v=(o.v||.1)*.75,att=o.a||.006;
+    const v=(o.v||.1),att=o.a||.006;
     g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(v,t+att);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
-    if(o.lp){const f=ac.createBiquadFilter();f.type='lowpass';f.frequency.value=o.lp;os.connect(f);f.connect(g);}else os.connect(g);
-    g.connect(ac.destination);os.start(t);os.stop(t+dur+.05);
+    let last=os;
+    if(o.dist){const w=ac.createWaveShaper(),c=new Float32Array(513),kk=1+o.dist*6;for(let i=0;i<513;i++){const x=i/256-1;c[i]=Math.tanh(kk*x);}w.curve=c;last.connect(w);last=w;}
+    if(o.lp){const f=ac.createBiquadFilter();f.type='lowpass';f.frequency.setValueAtTime(o.lp,t);if(o.lp2)f.frequency.exponentialRampToValueAtTime(o.lp2,t+dur);last.connect(f);last=f;}
+    last.connect(g);
+    if(o.lfo){const l=ac.createOscillator(),lg=ac.createGain();l.frequency.value=o.lfo[0];lg.gain.value=o.lfo[1];l.connect(lg);const m=ac.createGain();m.gain.value=1;lg.connect(m.gain);g.connect(m);l.start(t);l.stop(t+dur+.05);bwTo(ac,m,o);}
+    else bwTo(ac,g,o);
+    os.start(t);os.stop(t+dur+.05);
   }catch(e){}
 }
-let _bwNb=null;
-// filtered noise that sweeps from f0 to f1. o: {d, v, type, a, q}
+let _bwNb={};
+// noise: white (hiss, crack, spray) or brown (rumble, water, wind)
+function bwNoise(ac,kind){
+  const c=_bwNb[kind];if(c&&c.sampleRate===ac.sampleRate)return c;
+  const n=ac.sampleRate*3,b=ac.createBuffer(1,n,ac.sampleRate),d=b.getChannelData(0);
+  if(kind==='brown'){let l=0;for(let i=0;i<n;i++){l=(l+.02*(Math.random()*2-1))/1.02;d[i]=l*3.4;}}
+  else for(let i=0;i<n;i++)d[i]=Math.random()*2-1;
+  return _bwNb[kind]=b;
+}
+// filtered noise that sweeps from f0 to f1. o: {d, v, type, a, q, n 'white'|'brown', hp high-pass, rev}
 function bwSn(dur,f0,f1,o){
   const ac=bwAc();if(!ac)return;o=o||{};
   try{
-    if(!_bwNb||_bwNb.sampleRate!==ac.sampleRate){const n=ac.sampleRate*2,b=ac.createBuffer(1,n,ac.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1;_bwNb=b;}
     const t=ac.currentTime+(o.d||0)/1000,s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();
-    s.buffer=_bwNb;f.type=o.type||'lowpass';f.Q.value=o.q||.8;f.frequency.setValueAtTime(f0,t);f.frequency.exponentialRampToValueAtTime(Math.max(30,f1),t+dur);
-    const v=(o.v||.15)*.75,att=o.a||.01;
+    s.buffer=bwNoise(ac,o.n||'white');f.type=o.type||'lowpass';f.Q.value=o.q||.8;f.frequency.setValueAtTime(f0,t);f.frequency.exponentialRampToValueAtTime(Math.max(30,f1),t+dur);
+    const v=(o.v||.15),att=o.a||.008;
     g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(v,t+att);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
-    s.connect(f);f.connect(g);g.connect(ac.destination);s.start(t,Math.random()*1.2);s.stop(t+dur+.05);
+    let last=f;s.connect(f);
+    if(o.hp){const h=ac.createBiquadFilter();h.type='highpass';h.frequency.value=o.hp;f.connect(h);last=h;}
+    last.connect(g);bwTo(ac,g,o);s.start(t,Math.random()*1.5);s.stop(t+dur+.05);
   }catch(e){}
 }
+// the sharp snap at the start of every bang
+function bwCrack(v,d,rev){bwSn(.05,9000,2500,{type:'highpass',v:v,a:.001,d:d||0,rev:rev||0,q:.4});bwSn(.09,6500,900,{v:v*.8,a:.001,d:d||0,rev:rev||0});}
+// small bits flying and landing: many tiny ticks over a stretch of time
+function bwTicks(n,span,v,d,f){for(let i=0;i<n;i++){const t=(d||0)+Math.pow(Math.random(),1.3)*span*1000;bwSn(.02+Math.random()*.03,(f||4200)*(.6+Math.random()),(f||4200)*.3,{type:'bandpass',q:2.2,v:v*(.4+Math.random()*.6)*(1-t/(span*1000+(d||0)+1)*.5),a:.001,d:t,rev:.2});}}
+// bubbles rising: short pitch glides upward
+function bwBubbles(n,span,v,d){for(let i=0;i<n;i++){const f=260+Math.random()*700,t=(d||0)+Math.random()*span*1000;bwSt(f,f*(1.5+Math.random()*.6),.05+Math.random()*.05,{v:v*(.5+Math.random()*.5),d:t,rev:.25,a:.003});}}
+// a ringing piece of steel: inharmonic partials, each fading at its own speed
+function bwClang(v,f,len,d,rev){[1,1.62,2.36,3.18,4.1].forEach((m,i)=>bwSt(f*m,f*m*.985,len*(1-i*.14),{v:v/(1+i*.7),d:(d||0)+i*3,a:.002,rev:rev==null?.35:rev}));}
+// a horn / brass note: a few slightly detuned saws behind a low-pass that opens
+function bwHorn(f,dur,v,d,o){o=o||{};[0,-7,6].forEach(c=>bwSt(f*Math.pow(2,c/1200),f*Math.pow(2,c/1200)*(o.glide||1),dur,{type:'sawtooth',v:v/2.2,d:d||0,a:o.a||.05,lp:o.lp||500,lp2:o.lp2||(o.lp||500)*3,rev:o.rev==null?.4:o.rev}));}
 const BWS={
-  lock(){bwSt(1700,1700,.04,{type:'square',v:.04});bwSt(2300,2300,.04,{type:'square',v:.04,d:90});bwSt(2900,2900,.05,{type:'square',v:.045,d:180});},
-  locked(){bwSt(1500,1500,.09,{v:.07});bwSt(2100,2100,.14,{v:.06,d:70});},
-  warn(){bwSt(300,300,.07,{type:'square',v:.05,lp:900});bwSt(300,300,.07,{type:'square',v:.05,lp:900,d:140});bwSt(230,230,.12,{type:'square',v:.05,lp:900,d:280});},
-  fire(){bwSt(170,48,.34,{v:.34});bwSn(.3,2400,200,{v:.2});},
-  whistle(ms){bwSt(1500,520,ms/1000,{v:.05,lp:2600,a:.05});},
-  rise(ms){bwSt(420,900,ms/1000,{v:.04,a:.06});},
-  splash(){bwSn(.55,3400,700,{type:'bandpass',v:.2,q:.6});bwSt(520,190,.16,{v:.08});bwSt(860,420,.08,{v:.04,d:120});},
-  hit(pw){pw=pw||1;bwSt(120,38,.6,{v:.36*pw});bwSn(.55,1900,120,{v:.3*pw});bwSt(240,70,.2,{type:'sawtooth',v:.07,lp:900});},
-  boom(){bwSt(72,26,1.15,{v:.5});bwSn(1.25,950,70,{v:.42});bwSt(150,50,.5,{type:'sawtooth',v:.08,lp:500,d:40});},
-  rumble(ms){bwSn(ms/1000,260,55,{v:.24,a:.25});},
-  creak(){bwSt(310,170,.55,{type:'sawtooth',v:.05,lp:520,a:.12});},
-  tension(){bwSt(95,62,.5,{type:'sine',v:.14,a:.1});},
+  // the target closes in: soft radar pings, not computer-game beeps
+  lock(){[0,150,300].forEach((d,i)=>bwSt(1900+i*140,1900+i*140,.12,{v:.07,d:d,a:.002,rev:.35}));bwSn(.2,900,300,{v:.04,n:'brown',a:.05});},
+  locked(){bwSt(110,70,.18,{v:.3,dist:.4});bwSt(1400,1400,.5,{v:.08,d:60,rev:.5});bwSt(2100,2100,.7,{v:.05,d:120,rev:.5});},
+  warn(){for(let i=0;i<3;i++)bwSt(190,170,.3,{type:'sawtooth',v:.1,lp:520,d:i*340,a:.02,rev:.35});bwSn(.5,500,150,{v:.06,n:'brown',a:.1});},
+  // a naval gun: crack + blast + thump + the long roll of the echo. far=true: it is the other side firing (muffled, further away)
+  fire(far){
+    const k=far?.5:1;
+    bwCrack(.55*k,0,.3);
+    bwSn(.55,far?1800:5200,far?120:160,{v:.6*k,a:.003,rev:.45});
+    bwSt(far?110:170,36,.5,{v:.9*k,dist:.7,a:.003,rev:.2});
+    bwSt(62,26,1.0,{v:.55*k,d:30,dist:.2,rev:.3});
+    bwSn(1.7,far?500:700,55,{n:'brown',v:.42*k,a:.04,rev:.6,d:60});
+    bwTicks(far?4:8,.6,.05*k,120);
+    if(!far)BWS.whistle(500,true,k);
+  },
+  // the shell in the air. away=true: it leaves (the pitch drops); otherwise it comes down on you (rises, then loud)
+  whistle(ms,away,k){k=k||1;const s=Math.max(.25,ms/1000);
+    if(away){bwSn(s*1.1,3200,700,{type:'bandpass',q:5,v:.1*k,a:.02,d:80});bwSt(1300,500,s,{v:.025*k,a:.04,d:80});}
+    else{bwSn(s,900,3900,{type:'bandpass',q:5,v:.3*k,a:s*.85});bwSt(600,2400,s,{v:.05*k,a:s*.8});bwSn(s,300,1200,{n:'brown',v:.1*k,a:s*.8});}},
+  rise(ms){bwSt(420,900,ms/1000,{v:.04,a:.06,rev:.3});},
+  // a shell into the sea: the slap, the white column of water, the low whump, a few bubbles
+  splash(){
+    bwSn(.14,7500,1800,{type:'bandpass',q:.6,v:.5,a:.002,rev:.15});
+    bwSn(.9,4200,420,{type:'bandpass',q:.5,v:.4,a:.014,rev:.3});
+    bwSt(230,55,.38,{v:.55,dist:.3,a:.004,rev:.2});
+    bwSn(1.3,1100,110,{n:'brown',v:.4,a:.05,d:40,rev:.4});
+    bwBubbles(7,.7,.07,120);
+    bwTicks(10,.8,.05,200,2600);
+  },
+  // a shell on steel: snap, clang, fireball, thump and metal falling afterwards
+  hit(pw){pw=pw||1;
+    bwCrack(.6*Math.min(pw,1.4),0,.25);
+    bwClang(.18*pw,640,.9);
+    bwSn(.9,5000,140,{v:.55*pw,a:.003,rev:.4});
+    bwSt(125,34,.6,{v:.85*pw,dist:.6,a:.003,rev:.15});
+    bwSn(1.1,600,60,{n:'brown',v:.34*pw,a:.03,d:50,rev:.45});
+    bwTicks(Math.round(8+pw*6),.9,.07*pw,140);
+  },
+  // a big explosion: a flash of crack, the fireball, a heavy low body, a second and third blast, then the roll
+  boom(deep){const k=deep?.8:1;
+    bwCrack(.75*k,0,.4);
+    bwSn(1.8,deep?2400:5600,70,{v:.85*k,a:.003,rev:.5});
+    bwSt(deep?60:88,22,1.9,{v:1.0*k,dist:.8,a:.004,rev:.3});
+    bwSt(190,52,.75,{type:'sawtooth',v:.2*k,lp:700,lp2:120,dist:.5,d:15,rev:.2});
+    bwSn(3.0,520,45,{n:'brown',v:.55*k,a:.05,rev:.7,d:80});
+    [[260,.45],[480,.3],[760,.2]].forEach(([dl,pw])=>{bwSn(.5,3200,120,{v:.4*pw*k,a:.004,d:dl,rev:.5});bwSt(100,30,.5,{v:.5*pw*k,dist:.5,d:dl,rev:.2});});
+    bwTicks(22,2.0,.09*k,250);
+    if(!deep)bwClang(.07,520,1.4,120,.5);
+  },
+  rumble(ms){bwSn(ms/1000,320,50,{n:'brown',v:.5,a:.3,rev:.4});},
+  // steel under strain: a groan that wanders, and rivets popping
+  creak(){bwSt(150,95,1.1,{type:'sawtooth',v:.1,lp:360,lp2:200,a:.25,lfo:[7,.4],rev:.4});bwSt(232,138,.9,{type:'sawtooth',v:.06,lp:420,lp2:220,a:.2,d:140,rev:.4});bwTicks(5,.9,.07,200,2400);},
+  tension(){bwSt(70,52,.9,{v:.35,a:.2,dist:.2,rev:.3});bwSn(.9,200,700,{n:'brown',v:.2,a:.4,rev:.4});},
+  // a sonar ping that rings out and comes back as an echo
   ping(){
     const ac=bwAc();if(!ac)return;
     try{
-      const t=ac.currentTime,os=ac.createOscillator(),g=ac.createGain(),dl=ac.createDelay(1),fb=ac.createGain(),wet=ac.createGain();
-      os.type='sine';os.frequency.value=1180;g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.11,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+.75);
-      dl.delayTime.value=.27;fb.gain.value=.42;wet.gain.value=.6;
-      os.connect(g);g.connect(ac.destination);g.connect(dl);dl.connect(fb);fb.connect(dl);dl.connect(wet);wet.connect(ac.destination);
-      os.start(t);os.stop(t+.8);setTimeout(()=>{try{dl.disconnect();fb.disconnect();wet.disconnect();}catch(e){}},2600);
+      const t=ac.currentTime,os=ac.createOscillator(),o2=ac.createOscillator(),g=ac.createGain(),dl=ac.createDelay(1),fb=ac.createGain(),wet=ac.createGain();
+      os.type='sine';os.frequency.value=1180;o2.type='sine';o2.frequency.value=2360;
+      g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.2,t+.008);g.gain.exponentialRampToValueAtTime(.0001,t+1.0);
+      const g2=ac.createGain();g2.gain.value=.25;o2.connect(g2);g2.connect(g);os.connect(g);
+      dl.delayTime.value=.32;fb.gain.value=.45;wet.gain.value=.5;
+      bwTo(ac,g,{rev:.5});g.connect(dl);dl.connect(fb);fb.connect(dl);dl.connect(wet);bwTo(ac,wet,{rev:.4});
+      os.start(t);o2.start(t);os.stop(t+1.1);o2.stop(t+1.1);setTimeout(()=>{try{dl.disconnect();fb.disconnect();wet.disconnect();}catch(e){}},3200);
     }catch(e){}
   },
-  blip(){bwSt(1500,1500,.07,{type:'square',v:.045});bwSt(1500,1500,.07,{type:'square',v:.045,d:120});bwSt(1100,1100,.2,{v:.05,d:260});},
-  clear(){bwSt(760,520,.55,{v:.05});},
-  drop(ms){bwSt(520,150,ms/1000,{v:.05,a:.04});},
-  plunk(){bwSt(320,90,.22,{v:.12});bwSn(.25,1400,300,{type:'bandpass',v:.08});},
-  torp(){bwSn(.6,500,2000,{type:'bandpass',v:.16,a:.05});bwSt(150,60,.4,{v:.2});},
-  hum(ms){bwSt(58,104,ms/1000,{type:'sawtooth',v:.05,lp:260,a:.2});},
-  armed(){bwSt(900,900,.06,{type:'square',v:.04});bwSt(1250,1250,.08,{type:'square',v:.04,d:110});},
-  siren(){for(let i=0;i<3;i++){bwSt(880,880,.2,{type:'square',v:.045,lp:1400,d:i*420});bwSt(620,620,.2,{type:'square',v:.045,lp:1400,d:i*420+210});}},
-  beat(){bwSt(64,44,.2,{v:.4});bwSt(56,40,.22,{v:.3,d:200});},
-  victory(){[523,659,784,1047].forEach((f,i)=>bwSt(f,f,.5,{type:'triangle',v:.09,d:i*150}));bwSt(523,523,1.6,{v:.07,d:620});bwSt(784,784,1.6,{v:.06,d:620});bwSt(1047,1047,1.6,{v:.05,d:620});},
-  lost(){bwSt(220,110,1.3,{type:'triangle',v:.1});bwSt(165,82,1.5,{type:'triangle',v:.09,d:300});},
-  silent(){bwSn(1.1,1600,80,{v:.14,a:.1});bwSt(300,95,1.2,{v:.06});},
-  move(){bwSt(180,320,.7,{v:.06});bwSn(.8,380,950,{type:'bandpass',v:.08,a:.1});},
-  chime(){bwSt(784,784,.3,{type:'triangle',v:.07});bwSt(1175,1175,.45,{type:'triangle',v:.07,d:110});},
-  wah(){bwSt(520,330,.3,{type:'triangle',v:.07});bwSt(380,230,.4,{type:'triangle',v:.07,d:230});},
-  cheer(){bwSt(660,990,.2,{type:'triangle',v:.07});bwSt(880,1320,.3,{type:'triangle',v:.07,d:150});},
-  thunder(){bwSn(1.6,320,45,{v:.3,a:.15});}
+  blip(){bwSt(1500,1500,.09,{v:.09,a:.002,rev:.4});bwSt(1500,1500,.09,{v:.09,d:130,a:.002,rev:.4});bwSt(1000,1000,.45,{v:.07,d:290,rev:.5});},
+  clear(){bwSt(640,420,.8,{v:.09,rev:.5,a:.02});bwSn(.6,1200,300,{n:'brown',v:.05,a:.1});},
+  // the depth charge sinks: a low whine that falls away
+  drop(ms){bwSt(420,130,ms/1000,{v:.12,a:.05,rev:.3,lp:900});bwSn(ms/1000,1500,250,{type:'bandpass',q:3,v:.1,a:.05});},
+  plunk(){bwSn(.4,3600,500,{type:'bandpass',q:.7,v:.35,a:.004,rev:.3});bwSt(300,80,.3,{v:.4,dist:.2,a:.004,rev:.3});bwBubbles(6,.5,.08,60);},
+  // a torpedo leaving the tube: the thump of the air, the hiss, bubbles
+  torp(){bwSt(130,42,.3,{v:.7,dist:.6,a:.003,rev:.2});bwSn(.18,6000,1500,{type:'highpass',v:.25,a:.002});bwSn(1.0,5200,500,{type:'bandpass',q:.6,v:.4,a:.03,d:40,rev:.3});bwBubbles(10,.8,.08,100);},
+  // the propeller of a torpedo running: a throbbing growl
+  hum(ms){const s=ms/1000;bwSt(66,125,s,{type:'sawtooth',v:.17,lp:380,lp2:700,a:.15,lfo:[26,.5],rev:.25});bwSn(s,900,1800,{type:'bandpass',q:1.5,v:.05,a:.2});},
+  armed(){bwSt(1100,1100,.1,{v:.07,a:.002,rev:.45});bwSt(1650,1650,.18,{v:.06,d:120,a:.002,rev:.5});},
+  // a ship's alarm: slow, low, hooting
+  siren(){for(let i=0;i<3;i++){bwHorn(246,.5,.2,i*620,{lp:550,lp2:900,glide:.8,a:.06});}bwSn(1.9,300,100,{n:'brown',v:.08,a:.3});},
+  // a pulse in the chest
+  beat(){bwSt(78,40,.24,{v:.7,dist:.4,a:.004,rev:.15});bwSt(70,38,.26,{v:.55,d:210,dist:.4,a:.004,rev:.15});bwSn(.1,300,100,{v:.15,a:.002});bwSn(.1,300,100,{v:.12,a:.002,d:210});},
+  // the fanfare: a drum, then horns climbing a chord and holding it
+  victory(){
+    bwSt(95,50,.5,{v:.8,dist:.5,rev:.4});bwSn(.5,1800,200,{v:.25,rev:.5});
+    bwHorn(131,2.6,.4,150,{lp:400,lp2:2200,a:.12,rev:.6});bwHorn(196,2.5,.34,330,{lp:400,lp2:2400,a:.1,rev:.6});bwHorn(262,2.4,.3,500,{lp:500,lp2:3000,a:.08,rev:.6});bwHorn(330,2.3,.24,700,{lp:500,lp2:3200,a:.08,rev:.6});bwHorn(392,2.2,.24,860,{lp:500,lp2:3400,a:.08,rev:.6});
+    bwSt(95,50,.5,{v:.7,d:850,dist:.5,rev:.4});bwClang(.06,1100,2.2,870,.6);
+  },
+  // the dirge: a low horn sinking in a minor third
+  lost(){bwHorn(131,2.0,.4,0,{lp:380,lp2:240,glide:.82,a:.2,rev:.7});bwHorn(155,2.3,.32,420,{lp:380,lp2:230,glide:.8,a:.2,rev:.7});bwSt(64,38,1.8,{v:.5,d:200,a:.1,rev:.5});bwSn(2.2,400,60,{n:'brown',v:.18,a:.3,rev:.6});},
+  // silent running: everything powers down into a hush
+  silent(){bwSn(1.6,2200,60,{n:'brown',v:.4,a:.08,rev:.4});bwSt(240,48,1.5,{v:.3,dist:.2,a:.05,rev:.4});bwSt(1800,300,.9,{v:.04,rev:.4});},
+  // the ship sails to a new place: engines turn over and fade
+  move(){bwSt(52,98,1.0,{type:'sawtooth',v:.18,lp:300,lp2:520,a:.25,lfo:[18,.4],rev:.25});bwSn(1.0,300,900,{type:'bandpass',q:1,v:.12,a:.2,n:'brown'});bwBubbles(6,.8,.05,200);},
+  // soft bells instead of video-game blips
+  chime(){bwSt(784,784,.9,{v:.12,a:.003,rev:.55});bwSt(1568,1568,.5,{v:.04,a:.003,rev:.5});bwSt(1175,1175,1.1,{v:.11,d:130,a:.003,rev:.55});bwSt(2350,2350,.5,{v:.04,d:130,a:.003,rev:.5});},
+  wah(){bwHorn(196,.55,.3,0,{lp:420,lp2:260,glide:.85,a:.03,rev:.5});bwHorn(147,.8,.3,300,{lp:380,lp2:220,glide:.8,a:.03,rev:.5});},
+  cheer(){bwHorn(262,.5,.3,0,{lp:700,lp2:1800,a:.02,rev:.45});bwHorn(392,.7,.3,170,{lp:800,lp2:2200,a:.02,rev:.5});bwSt(95,55,.35,{v:.5,dist:.4,rev:.3});},
+  thunder(){bwSn(.06,6000,1000,{v:.15,a:.001,type:'highpass'});bwSn(3.0,700,40,{n:'brown',v:.7,a:.1,rev:.7});bwSt(60,28,2,{v:.3,a:.2,rev:.4});}
 };
 
 /* how each class of ship goes down: length of the show (ms), the push-in of the camera, the size of the blasts, bursts of smoke, shake */
@@ -15335,7 +15438,7 @@ const BWFX={
       const {svg,start,mine}=d;if(!svg)return;
       const S=d.u/2.8,p=bwPx(svg,start);
       if(mine){BWS.fire();}
-      else{bwSt(120,55,.3,{v:.14});BWS.whistle(d.travel||500);}
+      else{BWS.fire(true);BWS.whistle(d.travel||500);}
       bwpAdd({k:'flash',x:p[0],y:p[1],r:2*S,r1:11*S,col:BWC.fire,a:.9,life:.28});
       bwpSmoke(p[0],p[1],S,2,false);
       bwpAdd({k:'spark',x:p[0],y:p[1],vx:bwR(-40,40)*S,vy:-bwR(80,150)*S*(mine?1:-1),fr:.93,r:1.3*S,col:'#fff3c0',life:.3});

@@ -7481,6 +7481,25 @@ async function runPresentation(A,W,frame){
       if(keepRec==null)W.localStorage.removeItem('ct_bw_record');else W.localStorage.setItem('ct_bw_record',keepRec);
     }
   });
+  // The Blackwater sounds are rendered offline (no speakers needed) and measured: loud enough to matter, never clipping, no silence-breaking DC, and a tail that dies away.
+  const soundRep=await W.eval(`(async()=>{
+    const out={};
+    for(const n of Object.keys(BWS)){
+      const sr=44100,oac=new OfflineAudioContext(2,sr*6,sr);_bwOff=oac;_bwBus=null;_bwNb={};
+      try{BWS[n](['hum','rumble','drop','whistle','rise'].includes(n)?1200:undefined);}catch(e){_bwOff=null;out[n]={err:String(e)};continue;}
+      const b=await oac.startRendering();_bwOff=null;_bwBus=null;
+      const L=b.getChannelData(0);let pk=0,bad=0,dc=0,tail=0;
+      for(let i=0;i<L.length;i++){const v=Math.abs(L[i]);if(v!==v)bad++;if(v>pk)pk=v;dc+=L[i];if(i>sr*5.2&&v>tail)tail=v;}
+      out[n]={pk,bad,dc:dc/L.length,tail};
+    }
+    return out;})()`);
+  suite('Blackwater — the sound engine',()=>{
+    const ks=Object.keys(soundRep);
+    check('every sound renders without an error or a broken sample',ks.length>25&&ks.every(k=>!soundRep[k].err&&soundRep[k].bad===0),JSON.stringify(ks.filter(k=>soundRep[k].err||soundRep[k].bad)));
+    check('none of them clips (the mixing desk limits them) and none is nearly silent',ks.every(k=>soundRep[k].pk<.97&&soundRep[k].pk>.05),JSON.stringify(ks.filter(k=>soundRep[k].pk>=.97||soundRep[k].pk<=.05)));
+    check('no sound leaves a DC offset or a tail that never ends',ks.every(k=>Math.abs(soundRep[k].dc)<.002&&soundRep[k].tail<.003),JSON.stringify(ks.filter(k=>Math.abs(soundRep[k].dc)>=.002||soundRep[k].tail>=.003)));
+    check('guns, hits and explosions are the loud ones: a shot, a hit and a blast reach at least 0.4, a blast the most',soundRep.fire.pk>=.4&&soundRep.hit.pk>=.4&&soundRep.boom.pk>=.6&&soundRep.boom.pk>=soundRep.fire.pk);
+  });
   suite('Tonight at Our Table, a quiet "is thinking", and a chance to react',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);
     const keepH=W.localStorage.getItem('ct_history'),keep={on:G.isOnline,srv:G.srv,scr:G.scr,lp:G.lp,sel:G.selGame,host:G.isHost,name:G.myName,pid:G.myPid};
