@@ -1555,6 +1555,15 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 .cr-cell.ready .cr-orbs{animation:cr-wob .5s ease-in-out infinite;}
 @keyframes cr-wob{0%,100%{transform:rotate(-7deg);}50%{transform:rotate(7deg);}}
 @keyframes cr-ready{0%,100%{filter:brightness(1);}50%{filter:brightness(1.35) drop-shadow(0 0 5px rgba(255,170,60,.9));}}
+.cr-well.shk-s{animation:cr-shk-s .22s ease-out both;}
+.cr-well.shk-m{animation:cr-shk-m .34s ease-out both;}
+.cr-well.shk-l{animation:cr-shk-l .55s cubic-bezier(.36,.07,.19,.97) both;}
+@keyframes cr-shk-s{0%,100%{transform:translate(0,0);}30%{transform:translate(-1.5px,1px);}60%{transform:translate(1.5px,-1px);}}
+@keyframes cr-shk-m{0%,100%{transform:translate(0,0);}15%{transform:translate(-4px,2px);}40%{transform:translate(4px,-2px);}65%{transform:translate(-2px,1px);}85%{transform:translate(1px,0);}}
+@keyframes cr-shk-l{0%,100%{transform:translate(0,0) rotate(0);}10%{transform:translate(-8px,4px) rotate(-.4deg);}25%{transform:translate(7px,-5px) rotate(.4deg);}40%{transform:translate(-6px,3px);}55%{transform:translate(4px,-2px);}75%{transform:translate(-2px,1px);}}
+.cr-count{position:fixed;z-index:62;transform:translate(-50%,-100%);pointer-events:none;font-family:'Cinzel',serif;font-weight:700;font-size:1.5rem;line-height:1;color:#ffd98a;text-shadow:0 0 12px rgba(255,150,50,.9),0 2px 3px rgba(0,0,0,.8);padding:.15rem .7rem;border-radius:999px;background:rgba(10,6,2,.55);border:1px solid rgba(255,190,90,.5);}
+.cr-count.pop{animation:cr-cpop .28s ease-out;}
+@keyframes cr-cpop{0%{transform:translate(-50%,-100%) scale(1.5);}100%{transform:translate(-50%,-100%) scale(1);}}
 .cr-cell.blow{animation:cr-blow .22s ease-in-out both;z-index:3;}
 @keyframes cr-blow{0%{transform:scale(1);}50%{transform:scale(1.2);filter:brightness(1.9);}100%{transform:scale(1.1);filter:brightness(1.5);}}
 .cr-cell.blow:after{content:'';position:absolute;inset:-8%;border-radius:50%;border:3px solid var(--pc);opacity:0;pointer-events:none;animation:cr-ring .32s ease-out forwards;}
@@ -4520,7 +4529,7 @@ const GAMES=[
      'When a cell is full it <b>explodes</b>: it sends one orb to each neighbouring cell, and every one of them turns <b>your colour</b>. If that fills a neighbour, it explodes too — a <b>chain reaction</b>, played out wave by wave.',
      'Cells one orb from exploding glow — yours are your weapons, but an enemy next to them can set them off and <b>take them</b>.',
      'Lose all your cells (after you have played) and you are <b>knocked out</b>. The <b>last player standing</b> wins.',
-     '<b>Fun version</b> (pick it before you start): everybody also holds two single-use powers, and using one is your move. <b>⚡ Surge</b> drops an orb on an <b>enemy</b> cell and it becomes yours. <b>💥 Overload</b> fills one of <b>your</b> cells to the brim and sets it off at once. Everyone can see who still has what.',
+     '<b>Fun version</b> (pick it before you start): everybody also holds two single-use powers, and using one is your move. <b>⚡ Surge</b> drops an orb on an <b>enemy</b> cell and it becomes yours (never a player’s last cell). <b>💥 Overload</b> fills one of <b>your</b> cells to the brim and sets it off at once. Everyone can see who still has what.',
      'Each player has a colour <i>and</i> a shape: ● red, ◆ gold, ▲ green, ■ blue. Play with 2 to 4 people, on one device, online, or against a bot.']},
   {id:'gauntlet',cat:'party',icon:'🏁',name:'The Gauntlet',players:'2–6',dur:'15–25 min',diff:'medium',deal:0,minP:2,maxP:6,cover:'assets/games/gauntlet.jpg',
    rules:['<b>Run. Risk. Outsmart. Survive.</b> A race round a ring of 48 spaces. Every player has <b>3 runners</b>; the first to bring <b>2 of them home</b> starts the <b>final round</b> — everyone else gets one last turn.',
@@ -4800,8 +4809,6 @@ const SFX={
   gtEvent(){[330,262,196].forEach((f,i)=>setTimeout(()=>tone(f,.16,'sawtooth'),i*150));haptic([40,60,40]);},
   gtTrap(tp){const f={shock:[900,700,500],slip:[500,420,330],detour:[300,340,300],blast:[120,90,60],magnet:[600,500,650],decoy:[800,820]}[tp]||[400];f.forEach((x,i)=>setTimeout(()=>tone(x,.11,tp==='blast'||tp==='shock'?'sawtooth':'triangle'),i*75));},
   gtHit(){[150,110,80].forEach((f,i)=>setTimeout(()=>tone(f,.18,'sawtooth'),i*50));},
-  crPlace(){tone(520,.04,'sine');setTimeout(()=>tone(700,.05,'sine'),30);haptic(6);},
-  crPop(k){const f=250+Math.min(k||0,14)*50;tone(f,.07,'triangle');setTimeout(()=>tone(f*1.5,.05,'sine'),35);setTimeout(()=>tone(f*.5,.09,'sawtooth'),10);},
   tnAlarm(){tone(880,.1,'square');setTimeout(()=>tone(660,.1,'square'),140);setTimeout(()=>tone(880,.1,'square'),300);haptic([20,30,20]);},
 };
 
@@ -7714,7 +7721,7 @@ const TOURS={
     {ic:'🔢',h:'Every cell has a limit',t:'Corners hold <b>2</b> orbs, edges <b>3</b>, the middle <b>4</b>. The little empty circles in a cell show how many fit before it blows.'},
     {ic:'💥',h:'Full? It explodes!',t:'A full cell sends one orb to each neighbour and they all turn <b>your colour</b>. If that fills a neighbour, it explodes too — a <b>chain reaction</b>, wave after wave.'},
     {ic:'🔥',h:'Watch the glowing cells',t:'A cell one orb from its limit glows and wobbles. Yours are your weapons — but an enemy next to them can set them off and <b>take them</b>.'},
-    {ic:'🏆',h:'Last one standing',t:'Lose every cell (after you have played) and you are out. The <b>Fun</b> version, picked before the game, adds two single-use powers: <b>⚡ Surge</b> takes an enemy cell, <b>💥 Overload</b> sets off one of yours.'}]},
+    {ic:'🏆',h:'Last one standing',t:'Lose every cell (after you have played) and you are out. The <b>Fun</b> version, picked before the game, adds two single-use powers: <b>⚡ Surge</b> takes an enemy cell (never a player’s last one), <b>💥 Overload</b> sets off one of yours.'}]},
   fourrow:{title:'How to play 4 in a Row',slides:[
     {ic:'🔴',h:'Four in a row wins',t:'Take turns dropping a disc into a column. Line up <b>four of yours</b> — across, up and down, or diagonally — before the other player does.'},
     {ic:'💥',h:'Classic or Mayhem',t:'Pick before you start. <b>Classic</b> is the plain game. In <b>Mayhem</b> each player is secretly dealt <b>three special moves</b> out of six; your opponent only sees <i>how many</i> you have left.'},
@@ -10275,7 +10282,7 @@ function crLegal(cr,who){
 function crPowerTargets(cr,who,kind){
   const out=[];if(!cr||!cr.fun||cr.over||!(who>=1&&who<=cr.P)||cr.out[who-1]||!cr.pw||!(cr.pw[who-1][kind]>0))return out;
   for(let i=0;i<CR_CELLS;i++){
-    if(kind==='surge'&&cr.o[i]&&cr.o[i]!==who)out.push(i);
+    if(kind==='surge'&&cr.o[i]&&cr.o[i]!==who&&crCount(cr,cr.o[i])>1)out.push(i);   // never a player's LAST cell: one orb on move 2 would have knocked them out
     else if(kind==='overload'&&cr.o[i]===who&&cr.c[i]>=1)out.push(i);
   }
   return out;
@@ -10409,7 +10416,7 @@ function crBotChoice(cr,who,level,opts){
 function crBotMove(cr,who,level){return crBotChoice(cr,who,level,{noPowers:true}).cell;}
 // How long the table spends on a move: a short beat, or one beat per wave (each wave a little faster than the last).
 const CR_POWER_INFO={
-  surge:{icon:'⚡',name:'Surge',tip:'An orb dropped on an enemy cell — it is yours now'},
+  surge:{icon:'⚡',name:'Surge',tip:'An orb dropped on an enemy cell — it is yours now (never their last cell)'},
   overload:{icon:'💥',name:'Overload',tip:'A cell filled to the brim and set off at once'}
 };
 function crWaveMs(k){return Math.max(120,300-k*12);}
@@ -10458,9 +10465,76 @@ function botChainAct(p){
 // Sound, haptics and the stage moment for a move just made (local tables call it directly, online devices via stageOnSrv).
 function crFeel(fx,p,cr){
   if(!fx)return;
-  if(fx.kind==='surge'){SFX.mhZap();haptic([30,20,50]);fxPulse('blue');return;}
-  if(fx.kind==='overload'){SFX.mhBoom();haptic([40,30,60]);fxPulse('red');return;}
-  if(!fx.explosions){SFX.crPlace();return;}
+  if(fx.kind==='surge'){CRS.surge();haptic([30,20,50]);fxPulse('blue');return;}
+  if(fx.kind==='overload'){CRS.overload();haptic([40,30,60]);fxPulse('red');return;}
+  if(!fx.explosions){CRS.place();return;}
+}
+/* ── Chain Reaction: sounds, sparks and shake (the engine of Blackwater's sound and particles) ── */
+// every wave of a chain is a snap, a body and a thump that get a little higher and fuller as the chain grows; big chains end in a roll
+const CRS={
+  place(){haptic(6);bwSt(540,360,.11,{v:.26,a:.003,rev:.2});bwSn(.04,6000,1800,{type:'highpass',v:.12,a:.001});bwSt(150,90,.14,{v:.3,dist:.6,a:.003});},
+  pop(k,n){
+    k=k||0;n=n||1;const up=Math.min(k,16),v=Math.min(1,.5+.035*up+.03*Math.min(n,8)),late=k>22;
+    bwSn(.07,8000,2200,{type:'highpass',v:.3*v,a:.001});
+    bwSn(.34,2600+up*110,220,{v:.5*v,a:.002,rev:.22});
+    bwSt(175+up*7,58,.3,{v:.75*v,dist:.8,a:.003,rev:.12});
+    if(!late&&n>=3)bwSt(640+up*40,340+up*20,.22,{type:'triangle',v:.13*v,d:30,rev:.3});
+  },
+  // the end of a chain: the bigger it was, the bigger the bang and the longer the roll after it
+  finish(fx){
+    const n=(fx&&fx.explosions)||0;
+    if(n>=20){BWS.boom();}
+    else if(n>=12){BWS.hit(1.3);BWS.rumble(1400);}
+    else if(n>=8){BWS.hit(1);}
+    if(fx&&fx.ko&&fx.ko.length)setTimeout(()=>{bwSt(120,42,.7,{v:.9,dist:1,rev:.4,long:true});bwClang(.1,300,1.4,60,.5);},n>=8?260:40);
+  },
+  // ⚡ electricity jumping into an enemy cell
+  surge(){
+    bwSn(.3,9000,1400,{type:'highpass',v:.4,a:.002,rev:.2});
+    for(let i=0;i<6;i++)bwSn(.04,5000+Math.random()*4000,2500,{type:'bandpass',q:3,v:.25,a:.001,d:i*38,rev:.15});
+    bwSt(260,1700,.22,{type:'sawtooth',v:.2,lp:2600,a:.01,rev:.3});
+    bwSt(140,52,.4,{v:.7,dist:.8,d:120,a:.003,rev:.2});
+  },
+  // 💥 a cell charged to the brim, then gone
+  overload(){
+    bwSt(180,1100,.34,{type:'sawtooth',v:.22,lp:1600,a:.12,rev:.3});
+    setTimeout(()=>{bwCrack(.6,0,.3);BWS.hit(1.2);},320);
+  }
+};
+const CR_RGB=['255,90,78','244,201,58','95,214,138','79,166,242'],CR_HEX=['#ff9a90','#ffe27a','#8af0b0','#9ccfff'];
+function crShake(size){
+  if(!gtFxOn('light'))return;
+  const w=document.querySelector('.cr-well');if(!w)return;
+  w.classList.remove('shk-s','shk-m','shk-l');void w.offsetWidth;w.classList.add('shk-'+size);
+  setTimeout(()=>w.classList.remove('shk-'+size),size==='l'?600:size==='m'?380:260);
+}
+// one wave: a flash, sparks in the colour of the player whose chain it is, and a ring from every cell that goes off
+function crBoom(ex,who,k){
+  if(!gtFxOn('light'))return;
+  const well=document.querySelector('.cr-well');if(!well)return;
+  const wr=well.getBoundingClientRect(),S=(wr.width/6)/28,col=CR_RGB[(who-1)%4],hx=CR_HEX[(who-1)%4],up=Math.min(k,12),n=ex.length;
+  ex.slice(0,10).forEach(i=>{
+    const el=well.querySelector(`[data-i="${i}"]`);if(!el)return;
+    const r=el.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
+    bwpAdd({k:'flash',x,y,r:1.5*S,r1:(15+up)*S,col,a:.95,life:.34});
+    bwpAdd({k:'flash',x,y,r:S,r1:7*S,col:BWC.white,a:.9,life:.18});
+    for(let j=0,m=bwpN(6+Math.min(up,6));j<m;j++){const a=bwR(0,6.283),sp=bwR(60,190)*S*(1+up*.04);
+      bwpAdd({k:'spark',x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,fr:.93,ay:60*S,r:bwR(.9,1.9)*S,col:j%3?hx:'#fff6d8',life:bwR(.25,.5)});}
+    bwpRing(x,y,S,12+up*.7,'rgba('+col+',.9)',1.7,.4);
+  });
+  if(n>=8||k>=10)crShake('l');else if(n>=3||k>=4)crShake('m');else if(k>=1)crShake('s');
+  if(n>=6)bwScr('s-white',260,Math.min(.4,.1+n*.02));
+}
+// the running count of explosions of this move, above the board
+function crCounter(total,final){
+  if(!gtFxOn('light'))return;
+  const well=document.querySelector('.cr-well');if(!well)return;
+  let e=document.getElementById('cr-count');
+  if(!e){e=document.createElement('div');e.id='cr-count';e.className='cr-count';e.setAttribute('aria-hidden','true');document.body.appendChild(e);}
+  const r=well.getBoundingClientRect();
+  e.style.left=(r.left+r.width/2)+'px';e.style.top=Math.max(6,r.top-6)+'px';
+  e.textContent='×'+total;e.classList.remove('pop');void e.offsetWidth;e.classList.add('pop');
+  clearTimeout(e._t);e._t=setTimeout(()=>{e.remove();},final?1100:2500);
 }
 /* ── the chain, shown wave by wave: the cell shakes and flies its orbs to the neighbours, then the board shows the new state ── */
 function crRunSeq(cr,renderNow,done){
@@ -10491,13 +10565,16 @@ function crRunSeq(cr,renderNow,done){
     stageEmit('POWER',{who:players[fx.who-1],icon:P.icon,text:P.name.toUpperCase()+'!',sub:P.tip,ms:1000});
   }
   const seq={fx,k:-1,view:start,ex:[],recv:[],stage:'place',id:cr.moves};
-  G.crSeq=seq;
-  SFX.crPlace();
+  G.crSeq=seq;seq.total=0;
+  if(!fx.kind||fx.kind==='drop')CRS.place();
   if(renderNow)render();
   const step=(k)=>{
     if(G.crSeq!==seq)return;
     if(k>=fx.frames.length){
       G.crSeq=null;
+      CRS.finish(fx);
+      if(fx.explosions)crCounter(fx.explosions,true);
+      if(gtFxOn('light')){if(fx.explosions>=12)bwScr('s-white',420,.5);if(fx.ko&&fx.ko.length)bwScr('s-hit',600,.6);if(fx.explosions>=8)crShake('l');}
       finishStage();
       render();
       if(done)done();
@@ -10506,9 +10583,10 @@ function crRunSeq(cr,renderNow,done){
     const fr=fx.frames[k],d=crWaveMs(k);
     // A: the cells about to explode flash and fly their orbs
     seq.k=k;seq.stage='blow';seq.ex=fr.ex;seq.recv=[];
-    SFX.crPop(k);if(fr.ex.length>=3)haptic([10,20,10]);
+    CRS.pop(k,fr.ex.length);if(fr.ex.length>=3)haptic([10,20,10]);
     render();
-    setTimeout(()=>crFly(fr.ex,fx.who,d),20);
+    seq.total+=fr.ex.length;
+    setTimeout(()=>{crFly(fr.ex,fx.who,d);crBoom(fr.ex,fx.who,k);crCounter(seq.total,false);},20);
     setTimeout(()=>{
       if(G.crSeq!==seq)return;
       // B: the board shows the result of the wave; the neighbours that received an orb pulse
@@ -10661,7 +10739,7 @@ function crMode(){let m='classic';try{m=localStorage.getItem('ct_cr_mode')||'cla
 function crSetMode(m){try{localStorage.setItem('ct_cr_mode',m==='fun'?'fun':'classic');}catch(e){}}
 function crOptionsHTML(){
   const m=crMode();
-  const opts=[['classic','Classic','Plain Chain Reaction. Orbs, explosions, last one standing.'],['fun','Fun','Everyone also holds two single-use powers: ⚡ Surge drops an orb on an ENEMY cell and takes it, 💥 Overload sets off one of your own cells at once.']];
+  const opts=[['classic','Classic','Plain Chain Reaction. Orbs, explosions, last one standing.'],['fun','Fun','Everyone also holds two single-use powers: ⚡ Surge drops an orb on an ENEMY cell and takes it (never their last one), 💥 Overload sets off one of your own cells at once.']];
   return`<div class="panel"><div class="panel-lbl">Which version?</div><div class="hr-grid">${opts.map(([k,n,d])=>`<div class="hr-tog${m===k?' on':''}" data-a="cr-mode" data-m="${k}"><div class="hr-row"><span class="hr-nm">${n}</span><span class="hr-chk">${m===k?'✓':''}</span></div><span class="hr-desc">${d}</span></div>`).join('')}</div></div>`;
 }
 // The Gauntlet's mode (Classic / Mayhem / Chaos): chosen before the game, by the host online.

@@ -5421,14 +5421,17 @@ async function runPresentation(A,W,frame){
     check('Classic has no powers; Fun gives every seat one Surge and one Overload',classic.fun===false&&classic.pw===null&&fun.fun===true&&fun.pw.length===3&&fun.pw.every(p=>p.surge===1&&p.overload===1));
     check('a copy of a Fun game keeps the powers (the bots simulate on copies)',JSON.stringify(crClone(fun).pw)===JSON.stringify(fun.pw)&&crClone(fun).pw!==fun.pw);
     check('in Classic a power is refused',crPlay((()=>{const c=crNew(2);put(c,[[0,2,1]]);return c;})(),1,0,{kind:'surge'})===null);
-    let cr=crNew(2,true);put(cr,[[20,1,1],[0,2,1]]);cr.moves=2;
-    check('Surge can only be aimed at ENEMY cells; Overload only at your OWN cells',JSON.stringify(crPowerTargets(cr,1,'surge'))==='[0]'&&JSON.stringify(crPowerTargets(cr,1,'overload'))==='[20]');
+    let cr=crNew(2,true);put(cr,[[20,1,1],[0,2,1],[35,2,1]]);cr.moves=3;
+    check('Surge can only be aimed at ENEMY cells; Overload only at your OWN cells',JSON.stringify(crPowerTargets(cr,1,'surge'))==='[0,35]'&&JSON.stringify(crPowerTargets(cr,1,'overload'))==='[20]');
     check('nothing to aim at before anyone has played: no targets',crPowerTargets(crNew(2,true),1,'surge').length===0&&crPowerTargets(crNew(2,true),1,'overload').length===0);
     const snap=JSON.stringify([cr.o,cr.c,cr.pw,cr.moves]);
     check('a power aimed at the wrong kind of cell is refused and nothing changes',crPlay(cr,1,20,{kind:'surge'})===null&&crPlay(cr,1,0,{kind:'overload'})===null&&crPlay(cr,1,5,{kind:'surge'})===null&&JSON.stringify([cr.o,cr.c,cr.pw,cr.moves])===snap);
     const fx=crPlay(cr,1,0,{kind:'surge'});
     check('Surge puts an orb on the enemy cell, which becomes yours (a corner with 2 orbs explodes)',!!fx&&fx.kind==='surge'&&fx.explosions>=1&&fx.cell===0);
-    check('...taking a player\'s last cell knocks them out, and the Surge is spent',cr.out[1]>0&&cr.over&&cr.win===1&&cr.pw[0].surge===0&&cr.pw[0].overload===1);
+    check('...the Surge is spent, and the player still has their other cell (so is not out)',cr.out[1]===0&&!cr.over&&cr.o[35]===2&&cr.pw[0].surge===0&&cr.pw[0].overload===1);
+    check('a player\'s LAST cell cannot be surged: nothing to aim at, the move is refused and nothing changes',(()=>{const c=crNew(2,true);put(c,[[20,1,1],[0,2,1]]);c.moves=2;const s=JSON.stringify([c.o,c.c,c.pw]);return crPowerTargets(c,1,'surge').length===0&&crPlay(c,1,0,{kind:'surge'})===null&&JSON.stringify([c.o,c.c,c.pw])===s;})());
+    check('the old hole is shut: on move 2 the second player cannot surge the first player\'s only orb',(()=>{const c=crNew(2,true);crPlay(c,1,14);return crPlay(c,2,14,{kind:'surge'})===null&&!c.over;})());
+    check('...and a Fun game between sharp bots is no longer over within ten moves (12 games)',(()=>{let early=0;for(let g=0;g<12;g++){const c=crNew(3,true);let who=1,n=0;while(!c.over&&n++<300){const ch=F('crBotChoice')(c,who,'sharp',{});if(!ch||ch.cell<0)break;if(!crPlay(c,who,ch.cell,ch.kind&&ch.kind!=='drop'?{kind:ch.kind}:undefined))break;if(!c.over)who=F('crNext')(c,who);}if(c.over&&c.moves<10)early++;}return early===0;})());
     cr=crNew(2,true);put(cr,[[14,1,2],[35,2,1]]);cr.moves=2;
     const fo=crPlay(cr,1,14,{kind:'overload'});
     check('Overload fills your cell to its critical mass and it explodes at once',!!fo&&fo.kind==='overload'&&fo.explosions>=1&&cr.c[14]===0&&cr.pw[0].overload===0);
@@ -5442,9 +5445,9 @@ async function runPresentation(A,W,frame){
     const crNew=F('crNew'),crPlay=F('crPlay'),crBotChoice=F('crBotChoice'),crNext=F('crNext'),crLegal=F('crLegal'),crPowerTargets=F('crPowerTargets');
     const put=(cr,list)=>list.forEach(([i,o,c])=>{cr.o[i]=o;cr.c[i]=c;cr.placed[o-1]=true;});
     // no ordinary move wins here; a Surge on the lone corner does
-    const cr=crNew(2,true);put(cr,[[20,1,1],[0,2,1]]);cr.moves=2;
+    const cr=crNew(2,true);put(cr,[[20,1,1],[0,2,1],[1,2,1]]);cr.moves=3;
     const m=crBotChoice(cr,1,'sharp');
-    check('a bot uses a power when it wins on the spot (here Surge on the last enemy cell)',m.kind==='surge'&&m.cell===0);
+    check('a bot uses a power when it wins on the spot (here Surge on a corner that blows up and takes the other enemy cell too)',m.kind==='surge'&&m.cell===0);
     const cl=crNew(2,false);put(cl,[[20,1,1],[0,2,1]]);cl.moves=2;
     check('in Classic a bot only ever makes ordinary moves',crBotChoice(cl,1,'sharp').kind==='drop');
     let ok=true,used=0;
@@ -5482,7 +5485,7 @@ async function runPresentation(A,W,frame){
       let d=new DOMParser().parseFromString(rChainTable(),'text/html');
       check('the Fun table shows the two power buttons, both unavailable until there is something to aim at',d.querySelectorAll('.cr-pw-btn').length===2&&[...d.querySelectorAll('.cr-pw-btn')].every(b=>b.hasAttribute('disabled')));
       check('and each player\'s remaining powers beside their name',/⚡/.test(d.querySelectorAll('.cr-pill')[0].textContent)&&/💥/.test(d.querySelectorAll('.cr-pill')[1].textContent));
-      crTap(14);crTap(1); // Phil in the middle, Anna on an edge
+      crTap(14);crTap(1);crTap(20);crTap(2); // Phil in the middle and below, Anna on two edge cells (a Surge never takes a last cell)
       G.lcur=0;
       d=new DOMParser().parseFromString(rChainTable(),'text/html');
       const btn=k=>d.querySelector('.cr-pw-btn[data-k="'+k+'"]');
@@ -5491,9 +5494,9 @@ async function runPresentation(A,W,frame){
       const b=W.document.createElement('button');b.setAttribute('data-a','crarm');b.setAttribute('data-k','surge');W.document.body.appendChild(b);b.click();b.remove();
       check('arming Surge is remembered and shown',G.crArm==='surge');
       d=new DOMParser().parseFromString(rChainTable(),'text/html');
-      check('only enemy cells can be tapped while Surge is armed, and they are marked',d.querySelectorAll('.cr-cell[data-a="crcell"]').length===1&&d.querySelectorAll('.cr-cell.tgt').length===1&&d.querySelector('[data-i="1"]').hasAttribute('data-a')&&/enemy cell/.test(d.querySelector('.y-hint').textContent));
+      check('only enemy cells can be tapped while Surge is armed, and they are marked',d.querySelectorAll('.cr-cell[data-a="crcell"]').length===2&&d.querySelectorAll('.cr-cell.tgt').length===2&&d.querySelector('[data-i="1"]').hasAttribute('data-a')&&/enemy cell/.test(d.querySelector('.y-hint').textContent));
       crTap(1);
-      check('tapping the enemy cell plays the Surge: it is spent, the cell is Phil\'s and the arm is cleared',G.cr.pw[0].surge===0&&G.cr.o[1]===1&&G.crArm===null&&G.cr.moves===3);
+      check('tapping the enemy cell plays the Surge: it is spent, the cell is Phil\'s and the arm is cleared',G.cr.pw[0].surge===0&&G.cr.o[1]===1&&G.crArm===null&&G.cr.moves===5);
       check('in Classic the table has no power buttons',(()=>{F('crSetMode')('classic');G.lp.forEach(p=>{p.totalScore=0;});F('lDealChain')();G.scr='table';return new DOMParser().parseFromString(rChainTable(),'text/html').querySelectorAll('.cr-pw-btn').length===0;})());
     } finally {
       F('crSetMode')(keep);G.crInstant=false;G.crArm=null;G.scr='home';G.cr=null;G.crSeq=null;
@@ -7550,6 +7553,14 @@ async function runPresentation(A,W,frame){
       const rms=(a,c)=>{let x=0;for(let i=Math.round(a*sr);i<Math.round(c*sr);i++)x+=L[i]*L[i];return Math.sqrt(x/((c-a)*sr));};
       out[n]={pk,bad,dc:dc/L.length,tail,r0:rms(0,.5),r2:rms(2,2.5)};
     }
+    for(const n of Object.keys(CRS)){
+      const sr=44100,oac=new OfflineAudioContext(2,sr*8,sr);_bwOff=oac;_bwBus=null;_bwNb={};
+      try{if(n==='pop')CRS.pop(6,4);else if(n==='finish')CRS.finish({explosions:25,ko:[2]});else CRS[n]();}catch(e){_bwOff=null;out['cr_'+n]={err:String(e)};continue;}
+      const b=await oac.startRendering();_bwOff=null;_bwBus=null;
+      const L=b.getChannelData(0);let pk=0,bad=0,dc=0,tail=0;
+      for(let i=0;i<L.length;i++){const v=Math.abs(L[i]);if(v!==v)bad++;if(v>pk)pk=v;dc+=L[i];if(i>sr*7.2&&v>tail)tail=v;}
+      out['cr_'+n]={pk,bad,dc:dc/L.length,tail,r0:0,r2:0};
+    }
     return out;})()`);
   suite('Blackwater — the sound engine',()=>{
     const loaded=soundRep.__loaded;delete soundRep.__loaded;const ks=Object.keys(soundRep);
@@ -7601,6 +7612,7 @@ async function runPresentation(A,W,frame){
       const G2=W.eval('G');
       check('tapping one goes to that game\'s setup with Phil and Son still at the table',G2.scr==='setup'&&G2.selGame===id&&G2.lp.map(p=>p.name).slice(0,2).join()==='Phil,Son');
       const G3=W.eval('G');
+      Object.defineProperty(W.document,'hidden',{configurable:true,get:()=>false});   // the pill is hidden on purpose while the window is not visible; this test must not depend on that
       G3.isOnline=true;G3.myPid='b';G3.scr='table';G3.srv={gameId:'fourrow',phase:'game',winner:null,players:[{id:'a',name:'Phil',avatar:'🦊'},{id:'b',name:'Son',avatar:'🐼'}],curIdx:0};G3._srvAt=Date.now();
       F('peerThinkTick')();
       let el=W.document.getElementById('peer-think');
@@ -7621,6 +7633,7 @@ async function runPresentation(A,W,frame){
       if(keepH==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keepH);
       gg.isOnline=keep.on;gg.srv=keep.srv;gg.scr=keep.scr;gg.lp=keep.lp;gg.selGame=keep.sel;gg.isHost=keep.host;gg.myName=keep.name;gg.myPid=keep.pid;
       const e=W.document.getElementById('peer-think');if(e)e.remove();
+      try{delete W.document.hidden;}catch(e2){}
     }
   });
   suite('Blackwater — the opponent, the show and the battle again',()=>{
