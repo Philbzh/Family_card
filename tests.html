@@ -6922,6 +6922,7 @@ async function runPresentation(A,W,frame){
   });
 
   /* —— Blackwater (Battleship-inspired naval game), step 1 —————— */
+  W.eval('BW_COUNT=false');   // the older suites below were written for the yes/no answers of sonar; the numbers have their own suite
   W.eval('BW_CHAIN=false');   // the engine suites below were written for one action a turn; the chain rule (a hit lets you fire again) has its own suite
   suite('Blackwater — fleets and deployment',()=>{
     const F=n=>W.eval(n);
@@ -7319,6 +7320,61 @@ async function runPresentation(A,W,frame){
       }finally{G.bwInstant=false;G.bwSeq=null;G.bwDep=null;if(keepHist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keepHist);G.myName=keepName;}
     }
     }finally{W.eval('BW_CHAIN=false');}
+  });
+  suite('Blackwater — sonar and depth charge count the busy squares',()=>{
+    const F=n=>W.eval(n);
+    W.eval('BW_COUNT=true');
+    try{
+      const mk=()=>{const bw=F('bwNew')(777),f1=F('bwAutoFleet')(1,true),f2=F('bwAutoFleet')(2,true),d2=F('bwAutoDecoys')(3,f2,true),m2=F('bwAutoMines')(4,f2,d2,true);
+        F('bwDeploy')(bw,1,f1,F('bwAutoDecoys')(5,f1,true),F('bwAutoMines')(6,f1,[],true));F('bwDeploy')(bw,2,f2,d2,m2);bw.cur=1;return bw;};
+      const cl=o=>JSON.parse(JSON.stringify(o));
+      const base=mk();
+      check('a new game carries the numbers rule, an older game (no flag) keeps the yes/no answers',base.count===true);
+      const busy=(bw,c)=>F('bwLiveShipCell')(bw,2,c)||F('bwDecoyAt')(bw,2,c)||F('bwMineAt')(bw,2,c);
+      let okS=true,bad='',kinds=new Set();
+      for(let n=0;n<100;n++){
+        const bw=cl(base),exp=F('bwArea')(n,1).filter(c=>busy(bw,c)).length,fx=F('bwSonar')(bw,1,n);
+        kinds.add(fx.k);
+        if(!fx||fx.k!==exp||fx.r!==(exp>0?'contact':'clear')||fx.cnt!==true){okS=false;bad=n+':'+(fx&&fx.k)+'/'+exp;break;}
+      }
+      check('sonar: the number is exactly how many squares of its 3×3 area hold a ship part, a decoy or a mine (all 100 centres)',okS&&kinds.size>=3,bad+' '+[...kinds]);
+      let okD=true,bad2='';
+      for(let n=0;n<100;n++){
+        const bw=cl(base),inner=F('bwArea')(n,1),zone=F('bwArea')(n,2);
+        const echo=c=>F('bwLiveShipCell')(bw,2,c)||F('bwDecoyAt')(bw,2,c),k=inner.filter(echo).length,k2=zone.filter(echo).length-k,mines=zone.filter(c=>F('bwMineAt')(bw,2,c)).length;
+        const fx=F('bwDepth')(bw,1,n);
+        if(fx.k!==k||fx.k2!==k2||fx.swept.length!==mines||fx.r!==(k>0?'contact':k2>0?'near':'clear')){okD=false;bad2=n;break;}
+      }
+      check('depth charge: one number for the middle 3×3, one for the edge only; mines in the area are set off and shown, not counted',okD,String(bad2));
+      // pick a centre with a ship and a mine in the area to look at more closely
+      let n0=-1;for(let n=0;n<100&&n0<0;n++){const a=F('bwArea')(n,1);if(a.length===9&&a.some(c=>F('bwMineAt')(base,2,c))&&a.some(c=>F('bwLiveShipCell')(base,2,c)))n0=n;}
+      const calm=cl(base);calm.weather={kind:'calm',left:2,wait:0};const fc=F('bwSonar')(calm,1,n0);
+      check('calm weather: sonar counts only real ship squares (no decoys, no mines)',n0>=0&&fc.k===F('bwArea')(n0,1).filter(c=>F('bwLiveShipCell')(calm,2,c)).length);
+      const storm=cl(base);storm.weather={kind:'storm',left:2,wait:0};const fs=F('bwSonar')(storm,1,n0);
+      check('storm: the same count, over a blurred 5×5 area',fs.size===5&&fs.k===F('bwArea')(n0,2).filter(c=>busy(storm,c)).length);
+      const sil=cl(base);sil.silent[1]=2;const fq=F('bwSonar')(sil,1,n0);
+      check('running silent: nothing is found, the number is 0',fq.r==='clear'&&fq.k===0);
+      // words
+      const W_=F('bwScanWords');
+      check('the answers in words: 3 ECHOES / 1 ECHO / AREA CLEAR / 2 IN THE MIDDLE · 1 AT THE EDGE / NO CONTACT; the old words without the rule',
+        W_('sonar','contact',3,0,1)==='3 ECHOES'&&W_('sonar','contact',1,0,1)==='1 ECHO'&&W_('sonar','clear',0,0,1)==='AREA CLEAR'&&W_('depth','contact',2,1,1)==='2 IN THE MIDDLE · 1 AT THE EDGE'&&W_('depth','clear',0,0,1)==='NO CONTACT'&&W_('depth','near',0,2,0)==='NEAR CONTACT');
+      // what the board and the log show
+      const sc=cl(base);F('bwSonar')(sc,1,n0);sc.scanned=false;sc.cur=1;F('bwDepth')(sc,1,n0);
+      const svg=F('bwBoardSVG')(sc,'radar',{viewer:1});
+      const kS=sc.scans[0][0].k,kD=sc.scans[0][1];
+      check('the number is drawn inside the scanned area itself, small: a little badge in its corner (sonar: one number; depth charge: middle · edge)',
+        !svg.includes('font-size="12"')&&svg.includes('font-size="4.2"')&&svg.includes('>'+kS+'</text>')&&svg.includes('>'+kD.k+'·'+kD.k2+'</text>'));
+      const log=F('bwLogHTML')(sc,1,['Phil','Son']);
+      check('the log tells the number too',/ECHO/.test(log)&&/IN THE MIDDLE/.test(log));
+      // the bots read the numbers: more echoes, more interest in the area
+      const b1=cl(base),b3=cl(base);
+      b1.scans[0]=[{n:44,size:3,kind:'sonar',r:'contact',k:1,k2:0,cnt:1,round:1}];b3.scans[0]=[{n:44,size:3,kind:'sonar',r:'contact',k:3,k2:0,cnt:1,round:1}];
+      const w1=F('bwHeat')(b1,1),w3=F('bwHeat')(b3,1);
+      check('a bot gives an area with three echoes more weight than one with a single echo',w3[44]>w1[44]);
+      // an older game goes on with the old answers
+      const old=cl(base);delete old.count;const fo=F('bwSonar')(old,1,n0);
+      check('a game started before the rule keeps CONTACT / CLEAR (no number)',fo.cnt===false&&fo.k===0&&(fo.r==='contact'||fo.r==='clear'));
+    }finally{W.eval('BW_COUNT=false');}
   });
   suite('Blackwater — what a sonar answer looks like',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);
