@@ -6852,14 +6852,20 @@ function ahDrawHockeyWorld(ah,x,V,sim,fx,gl){
   // the paddles
   const paddle=(pd,cols,glow)=>{
     const v=V(pd.x,pd.y),R=AH.R;
-    x.save();x.shadowColor=cols[0];x.shadowBlur=14+22*glow;
-    let g=x.createRadialGradient(v[0]-R*.3,v[1]-R*.35,R*.1,v[0],v[1],R);g.addColorStop(0,cols[0]);g.addColorStop(.62,cols[1]);g.addColorStop(1,'#04100f');
-    x.fillStyle=g;x.beginPath();x.arc(v[0],v[1],R,0,6.283);x.fill();x.restore();
-    x.lineWidth=2.4;x.strokeStyle='rgba(244,235,208,.55)';x.beginPath();x.arc(v[0],v[1],R-3,0,6.283);x.stroke();
-    // the handle
-    g=x.createRadialGradient(v[0]-R*.14,v[1]-R*.18,R*.04,v[0],v[1],R*.52);g.addColorStop(0,'#fbfbf2');g.addColorStop(.5,cols[0]);g.addColorStop(1,cols[1]);
+    // the glow is a separate soft light BEHIND the paddle, so that the paddle itself stays sharp
+    x.save();x.globalCompositeOperation='lighter';
+    let g=x.createRadialGradient(v[0],v[1],R*.7,v[0],v[1],R*(1.55+.35*glow));g.addColorStop(0,cols[0]+'66');g.addColorStop(1,cols[0]+'00');
+    x.fillStyle=g;x.beginPath();x.arc(v[0],v[1],R*(1.55+.35*glow),0,6.283);x.fill();x.restore();
+    // body: a clean disc with a bright metal rim
+    g=x.createRadialGradient(v[0]-R*.3,v[1]-R*.35,R*.1,v[0],v[1],R);g.addColorStop(0,cols[0]);g.addColorStop(.7,cols[1]);g.addColorStop(1,'#071513');
+    x.fillStyle=g;x.beginPath();x.arc(v[0],v[1],R,0,6.283);x.fill();
+    x.lineWidth=3.2;x.strokeStyle='#F4EBD0';x.beginPath();x.arc(v[0],v[1],R-1.6,0,6.283);x.stroke();
+    x.lineWidth=1.4;x.strokeStyle='rgba(0,0,0,.45)';x.beginPath();x.arc(v[0],v[1],R-5,0,6.283);x.stroke();
+    // the handle, with a sharp highlight
+    g=x.createRadialGradient(v[0]-R*.14,v[1]-R*.18,R*.03,v[0],v[1],R*.52);g.addColorStop(0,'#ffffff');g.addColorStop(.45,cols[0]);g.addColorStop(1,cols[1]);
     x.fillStyle=g;x.beginPath();x.arc(v[0],v[1],R*.5,0,6.283);x.fill();
-    x.lineWidth=1.5;x.strokeStyle='rgba(0,0,0,.35)';x.stroke();
+    x.lineWidth=1.6;x.strokeStyle='rgba(0,0,0,.5)';x.stroke();
+    x.fillStyle='rgba(255,255,255,.85)';x.beginPath();x.arc(v[0]-R*.16,v[1]-R*.2,R*.09,0,6.283);x.fill();
   };
   const bottomSeat=ah.mode==='guest'?1:0;
   const seatCols=s=>(s===bottomSeat)?AH_COL.me:AH_COL.opp;
@@ -6913,11 +6919,15 @@ function ahDrawPongWorld(ah,x,V,sim,fx,gl){
   // the paddles: two lit bars
   const bottomSeat=ah.mode==='guest'?1:0;
   const paddle=(pd,seat)=>{
-    const v=V(pd.x,pd.y),mine=seat===bottomSeat,c=mine?AH_COL.me:AH_COL.opp,w=PW*2,h=PH*1.25;
-    x.save();x.shadowColor=c[0];x.shadowBlur=18+26*gl[mine?0:1];
-    let g=x.createLinearGradient(v[0],v[1]-h/2,v[0],v[1]+h/2);g.addColorStop(0,'#ffffff');g.addColorStop(.35,c[0]);g.addColorStop(1,c[1]);
-    x.fillStyle=g;x.beginPath();x.roundRect?x.roundRect(v[0]-w/2,v[1]-h/2,w,h,h/2):x.rect(v[0]-w/2,v[1]-h/2,w,h);x.fill();x.restore();
-    x.fillStyle='rgba(255,255,255,.55)';x.beginPath();x.roundRect?x.roundRect(v[0]-w/2+8,v[1]-h/2+3,w-16,3,2):x.rect(v[0]-w/2+8,v[1]-h/2+3,w-16,3);x.fill();
+    const v=V(pd.x,pd.y),mine=seat===bottomSeat,c=mine?AH_COL.me:AH_COL.opp,w=PW*2,h=PH*1.25,gk=gl[mine?0:1];
+    // soft light behind, a crisp bar in front
+    x.save();x.globalCompositeOperation='lighter';
+    let g=x.createRadialGradient(v[0],v[1],h*.4,v[0],v[1],w*.72);g.addColorStop(0,c[0]+(gk>.5?'77':'44'));g.addColorStop(1,c[0]+'00');
+    x.fillStyle=g;x.save();x.translate(v[0],v[1]);x.scale(1,.34);x.translate(-v[0],-v[1]);x.beginPath();x.arc(v[0],v[1],w*.72,0,6.283);x.fill();x.restore();x.restore();
+    g=x.createLinearGradient(v[0],v[1]-h/2,v[0],v[1]+h/2);g.addColorStop(0,'#ffffff');g.addColorStop(.3,c[0]);g.addColorStop(1,c[1]);
+    x.fillStyle=g;x.beginPath();if(x.roundRect)x.roundRect(v[0]-w/2,v[1]-h/2,w,h,h/2);else x.rect(v[0]-w/2,v[1]-h/2,w,h);x.fill();
+    x.lineWidth=1.8;x.strokeStyle='#F4EBD0';x.stroke();
+    x.fillStyle='rgba(255,255,255,.7)';x.beginPath();if(x.roundRect)x.roundRect(v[0]-w/2+10,v[1]-h/2+3,w-20,2.6,1.3);else x.rect(v[0]-w/2+10,v[1]-h/2+3,w-20,2.6);x.fill();
   };
   paddle(sim.pad[0],0);paddle(sim.pad[1],1);
   // the ball: a luminous orb that changes colour with the stage
