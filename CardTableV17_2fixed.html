@@ -1613,6 +1613,9 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 .pl-mb{display:inline-block;width:15px;height:15px;border-radius:50%;background:var(--c);color:#fff;font:700 8px/15px Jost,sans-serif;text-align:center;font-style:normal;box-shadow:inset -2px -2px 3px rgba(0,0,0,.4),0 1px 2px rgba(0,0,0,.5);text-shadow:0 0 2px #000;}
 .pl-mb.st{background:linear-gradient(#f6f1e2 0 26%,var(--c) 26% 74%,#f6f1e2 74%);}
 .pl-mb.off{opacity:.2;filter:grayscale(.7);}
+.pl-mb.fresh{animation:pl-gone .9s ease-out both;}
+@keyframes pl-gone{0%{opacity:1;transform:scale(1.9);filter:none;box-shadow:0 0 12px #E6C36A;}100%{opacity:.2;transform:scale(1);}}
+.pl-assist.pl-cloth{bottom:44px;}
 .pl-power{position:absolute;right:10px;top:16%;bottom:16%;width:46px;z-index:4;border-radius:23px;background:linear-gradient(180deg,rgba(10,30,24,.82),rgba(4,12,10,.9));border:2px solid rgba(230,195,106,.55);touch-action:none;overflow:hidden;box-shadow:0 8px 20px -8px #000;}
 .pl-power i{position:absolute;left:0;right:0;top:0;height:0;background:linear-gradient(180deg,#43e1ff,#E6C36A 60%,#ff6a55);opacity:.85;}
 .pl-power span{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:.55rem;letter-spacing:.16em;color:#F4EBD0;opacity:.8;writing-mode:vertical-rl;margin:0 auto;}
@@ -7738,6 +7741,9 @@ const PLS={
 };
 function plLive(){return !!(G.pl&&G.pl.live&&G.scr==='table'&&(!(G.isOnline&&G.srv&&G.srv.winner)||G.pl.anim||G.pl.finale));}
 function plAssist(){try{return localStorage.getItem('ct_pl_assist')||'family';}catch(e){return'family';}}
+const PL_CLOTHS={green:{a:'#14804f',b:'#0a4a2e',c1:'#0f5a35',c2:'#0a4528'},blue:{a:'#1a5fa0',b:'#0b2f58',c1:'#124a80',c2:'#0a3260'},burgundy:{a:'#9a2638',b:'#4a0d17',c1:'#7a1c2c',c2:'#4f1019'}};
+function plCloth(){try{const v=localStorage.getItem('ct_pl_cloth');return PL_CLOTHS[v]?v:'green';}catch(e){return'green';}}
+function plNextCloth(){const v=plCloth(),n=v==='green'?'blue':v==='blue'?'burgundy':'green';try{localStorage.setItem('ct_pl_cloth',n);}catch(e){}if(G.pl)G.pl.statik=null;const b=document.getElementById('pl-clothbtn');if(b)b.textContent='CLOTH: '+n.toUpperCase();return n;}
 function plNext(){const v=plAssist(),n=v==='family'?'challenge':v==='challenge'?'pro':'family';try{localStorage.setItem('ct_pl_assist',n);}catch(e){}return n;}
 function plPlayers(){return ahPlayers();}
 function plMySeat(g){return g.mode==='host'||g.mode==='guest'?g.seat:g.pl.turn;}
@@ -7771,7 +7777,8 @@ function plReplay(np){
 function plSetBusy(b){const g=G.pl;if(!g)return;g.busy=b;}
 function plAnimStep(g,now){
   const a=g.anim;if(!a)return;
-  const el=Math.max(0,(now-a.t0)/1000),fi=Math.floor(el*60),n=a.frames.length;
+  const dt0=a.last==null?0:Math.min(.05,Math.max(0,(now-a.last)/1000));a.last=now;a.el=(a.el||0)+dt0*(a.slow>0?.28:1);if(a.slow>0)a.slow-=dt0;
+  const el=a.el,fi=Math.floor(el*60),n=a.frames.length;
   const f=a.frames[Math.min(fi,n-1)];
   for(let i=0;i<g.disp.length;i++){const d=g.disp[i],was=d.on;d.x=f[i*4];d.y=f[i*4+1];d.on=f[i*4+2]>.5;d.rot=f[i*4+3];if(was&&!d.on){d.fall={x:d.x,y:d.y,t:now};}}
   // the sounds and sparks of the moments of this shot, at their time
@@ -7779,7 +7786,7 @@ function plAnimStep(g,now){
     const e=a.events[a.evi++];
     if(e.k==='hit'){PLS.hit(e.s);if(e.s>900)plSpark(g,e.x,e.y,4,'#fff3c0',300);}
     else if(e.k==='rail')PLS.rail(e.s);
-    else if(e.k==='pocket'){PLS.pocket();plSpark(g,e.x,e.y,14,'#ffd98a',320);g.fx.shake=Math.max(g.fx.shake,4);}
+    else if(e.k==='pocket'){if(e.id!==0&&(e.id===8||e.s>700))a.slow=.5;PLS.pocket();plSpark(g,e.x,e.y,14,'#ffd98a',320);g.fx.shake=Math.max(g.fx.shake,4);}
   }
   if(fi>=n-1)plAnimEnd(g);
 }
@@ -7898,6 +7905,7 @@ function rPoolTable(){
         <div class="pl-power" id="pl-power" aria-label="Power: pull down and let go to shoot"><i id="pl-pw"></i><span>PULL</span></div>
         <div class="pl-spin" id="pl-spin" aria-label="Spin: where the cue hits the ball"><b id="pl-dot"></b></div>
         <button class="pl-assist" data-a="pl-assist" id="pl-assistbtn">AIM: ${a.toUpperCase()}</button>
+        <button class="pl-assist pl-cloth" data-a="pl-cloth" id="pl-clothbtn">CLOTH: ${plCloth().toUpperCase()}</button>
         <button class="btn btn-gold pl-place" id="pl-place" data-a="pl-place" style="display:none">PLACE</button>
       </div>
     </div>
@@ -7985,7 +7993,9 @@ function plHud(g){
   if(st&&st._t!==txt){st._t=txt;st.textContent=txt;}
   const lab=sd=>{const gr=pl.groups[sd];if(!gr)return'<span class="pl-tag">OPEN</span>';
     let h='<span class="pl-tag">'+(gr==='solid'?'SOLIDS':'STRIPES')+'</span>';
-    for(let n=1;n<=7;n++){const id=gr==='solid'?n:n+8,on=pl.balls.some(b=>b.id===id&&b.on);h+='<i class="pl-mb'+(gr==='stripe'?' st':'')+(on?'':' off')+'" style="--c:'+PL_COL[n]+'">'+id+'</i>';}
+    g.trayOff=g.trayOff||{};
+    for(let n=1;n<=7;n++){const id=gr==='solid'?n:n+8,on=pl.balls.some(b=>b.id===id&&b.on),fresh=!on&&!g.trayOff[id]&&g.trayInit;if(!on)g.trayOff[id]=1;h+='<i class="pl-mb'+(gr==='stripe'?' st':'')+(on?'':' off')+(fresh?' fresh':'')+'" style="--c:'+PL_COL[n]+'">'+id+'</i>';}
+    g.trayInit=true;
     return h;};
   const bs=g.mode==='guest'?1:0,a=document.getElementById('pl-sc0'),b=document.getElementById('pl-sc1');
   const la=lab(bs),lb=lab(1-bs);
@@ -7999,6 +8009,7 @@ function plBuildStatic(g){
   const M=PL.M,cw=PL.W+2*M,ch=PL.H+2*M,sc=g.scale,c=document.createElement('canvas');c.width=Math.round(cw*sc);c.height=Math.round(ch*sc);
   const x=c.getContext('2d');x.scale(sc,sc);
   const rr=(px,py,w,h,r)=>{x.beginPath();x.moveTo(px+r,py);x.arcTo(px+w,py,px+w,py+h,r);x.arcTo(px+w,py+h,px,py+h,r);x.arcTo(px,py+h,px,py,r);x.arcTo(px,py,px+w,py,r);x.closePath();};
+  const cl=PL_CLOTHS[plCloth()];
   x.fillStyle='#050d0a';x.fillRect(0,0,cw,ch);
   let gr=x.createLinearGradient(0,0,cw,ch);gr.addColorStop(0,'#6b4022');gr.addColorStop(.35,'#4a2a14');gr.addColorStop(.7,'#3a210f');gr.addColorStop(1,'#5c3719');
   rr(3,3,cw-6,ch-6,38);x.fillStyle=gr;x.fill();
@@ -8018,12 +8029,14 @@ function plBuildStatic(g){
   x.lineWidth=1;x.strokeStyle='rgba(0,0,0,.6)';rr(14.5,14.5,cw-29,ch-29,28);x.stroke();
   // the inner lip of the rail, then the cushions in front of the cloth
   rr(M-17,M-17,PL.W+34,PL.H+34,14);x.fillStyle='#24150b';x.fill();x.lineWidth=2;x.strokeStyle='rgba(255,215,150,.22)';x.stroke();
-  rr(M-12,M-12,PL.W+24,PL.H+24,10);gr=x.createLinearGradient(0,M-12,0,M+PL.H+12);gr.addColorStop(0,'#0f5a35');gr.addColorStop(.5,'#0a4528');gr.addColorStop(1,'#0f5a35');x.fillStyle=gr;x.fill();
+  rr(M-12,M-12,PL.W+24,PL.H+24,10);gr=x.createLinearGradient(0,M-12,0,M+PL.H+12);gr.addColorStop(0,cl.c1);gr.addColorStop(.5,cl.c2);gr.addColorStop(1,cl.c1);x.fillStyle=gr;x.fill();
   x.lineWidth=1.4;x.strokeStyle='rgba(0,0,0,.55)';x.stroke();
-  gr=x.createRadialGradient(cw/2,ch/2,60,cw/2,ch/2,ch*.62);gr.addColorStop(0,'#127048');gr.addColorStop(1,'#0a4a2e');
+  gr=x.createRadialGradient(cw/2,ch/2,60,cw/2,ch/2,ch*.62);gr.addColorStop(0,cl.a);gr.addColorStop(1,cl.b);
   x.fillStyle=gr;x.fillRect(M,M,PL.W,PL.H);
   // a faint weave
   x.strokeStyle='rgba(255,255,255,.018)';x.lineWidth=1;for(let i=M;i<M+PL.H;i+=6){x.beginPath();x.moveTo(M,i);x.lineTo(M+PL.W,i);x.stroke();}
+  // the lamp over the table: warm light in the middle, falling off towards the rails
+  {const lg=x.createRadialGradient(cw/2,ch*.46,40,cw/2,ch*.46,ch*.64);lg.addColorStop(0,'rgba(255,238,190,.16)');lg.addColorStop(.55,'rgba(255,238,190,.03)');lg.addColorStop(1,'rgba(0,0,0,.42)');x.fillStyle=lg;x.fillRect(M,M,PL.W,PL.H);}
   // the head string, the foot spot, the diamonds on the rails
   x.strokeStyle='rgba(255,255,255,.1)';x.lineWidth=1.5;x.beginPath();x.moveTo(M,M+PL.H*.74);x.lineTo(M+PL.W,M+PL.H*.74);x.stroke();
   x.fillStyle='rgba(255,255,255,.22)';x.beginPath();x.arc(M+PL.W/2,M+PL.H*.28,3,0,6.283);x.arc(M+PL.W/2,M+PL.H*.74,3,0,6.283);x.fill();
@@ -8056,19 +8069,27 @@ function plDrawCue(x,cx,cy,ang,pw,al){
 }
 function plDrawBall(x,b,sc){
   const R=PL.R,id=b.id,col=id===0?'#f6f1e2':id===8?'#14161a':(PL_COL[id>8?id-8:id]);
-  // shadow
-  x.fillStyle='rgba(0,0,0,.35)';x.beginPath();x.ellipse(b.x+3,b.y+5,R*1.02,R*.9,0,0,6.283);x.fill();
+  // the shadow falls away from the lamp, soft at its edge
+  const sdx=(b.x-PL.W/2)*.03+2,sdy=(b.y-PL.H*.4)*.03+5;
+  const sg=x.createRadialGradient(b.x+sdx,b.y+sdy,R*.3,b.x+sdx,b.y+sdy,R*1.4);sg.addColorStop(0,'rgba(0,0,0,.55)');sg.addColorStop(.6,'rgba(0,0,0,.28)');sg.addColorStop(1,'rgba(0,0,0,0)');
+  x.fillStyle=sg;x.beginPath();x.arc(b.x+sdx,b.y+sdy,R*1.4,0,6.283);x.fill();
   x.save();x.translate(b.x,b.y);
   // the ball itself
   x.beginPath();x.arc(0,0,R,0,6.283);x.fillStyle=id>8?'#f6f1e2':col;x.fill();x.save();x.clip();
-  if(id>8){x.rotate(b.rot*.8);x.fillStyle=col;x.fillRect(-R,-R*.46,R*2,R*.92);}
+  if(id>8){x.rotate(b.rot*.8);x.fillStyle=col;x.fillRect(-R,-R*.46,R*2,R*.92);x.rotate(-b.rot*.8);}
   // the number disc rolls with the ball
   if(id>0){const ox=Math.cos(b.rot*.9)*R*.35,oy=Math.sin(b.rot*.9)*R*.35*.7;x.fillStyle='#fffaf0';x.beginPath();x.arc(ox,oy,R*.46,0,6.283);x.fill();x.fillStyle='#111';x.font='700 '+Math.round(R*.62)+'px Jost, sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(String(id),ox,oy+.5);}
+  // round shading: lit upper left, dark at the lower right edge
+  const sh=x.createRadialGradient(-R*.35,-R*.4,R*.1,0,0,R*1.15);sh.addColorStop(0,'rgba(255,255,255,.28)');sh.addColorStop(.45,'rgba(255,255,255,0)');sh.addColorStop(.8,'rgba(0,0,0,.28)');sh.addColorStop(1,'rgba(0,0,0,.6)');
+  x.fillStyle=sh;x.fillRect(-R,-R,2*R,2*R);
+  // the green of the cloth bounces a little light back up at the bottom
+  const bl=x.createRadialGradient(R*.2,R*.85,0,R*.2,R*.85,R*.7);bl.addColorStop(0,'rgba(140,210,160,.22)');bl.addColorStop(1,'rgba(140,210,160,0)');x.fillStyle=bl;x.fillRect(-R,-R,2*R,2*R);
+  // the window of the lamp reflected in the gloss
+  x.save();x.rotate(-.7);const wg=x.createRadialGradient(-R*.05,-R*.52,0,-R*.05,-R*.52,R*.42);wg.addColorStop(0,'rgba(255,255,255,.85)');wg.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=wg;x.beginPath();x.ellipse(-R*.05,-R*.52,R*.4,R*.16,0,0,6.283);x.fill();x.restore();
   x.restore();
-  // light and a rim
-  const hl=x.createRadialGradient(-R*.4,-R*.45,1,-R*.25,-R*.3,R*1.05);hl.addColorStop(0,'rgba(255,255,255,.75)');hl.addColorStop(.35,'rgba(255,255,255,.12)');hl.addColorStop(1,'rgba(0,0,0,.35)');
-  x.fillStyle=hl;x.beginPath();x.arc(0,0,R,0,6.283);x.fill();
-  x.lineWidth=.8;x.strokeStyle='rgba(0,0,0,.45)';x.stroke();
+  // a hard specular spot and a thin rim
+  x.fillStyle='rgba(255,255,255,.95)';x.beginPath();x.arc(-R*.38,-R*.42,R*.08,0,6.283);x.fill();
+  x.lineWidth=.8;x.strokeStyle='rgba(0,0,0,.5)';x.beginPath();x.arc(0,0,R,0,6.283);x.stroke();
   x.restore();
 }
 function plDraw(g,now){
@@ -8102,7 +8123,12 @@ function plDraw(g,now){
   // the balls (the ones that have gone into a pocket fade away in it)
   for(const b of g.disp){
     if(b.on&&!((bihMine||(rm&&rm.b))&&b.id===0))plDrawBall(x,b,sc);
-    else if(b.fall){const u=(now-b.fall.t)/380;if(u<1){x.save();x.globalAlpha=1-u;x.translate(b.fall.x,b.fall.y);x.scale(1-u*.6,1-u*.6);x.translate(-b.fall.x,-b.fall.y);plDrawBall(x,{id:b.id,x:b.fall.x,y:b.fall.y,rot:b.rot},sc);x.restore();}}
+    else if(b.fall){const u=(now-b.fall.t)/560;if(u<1){
+      // the ball rolls into the pocket and drops: it is only seen inside the mouth, smaller and darker as it goes
+      let bk=0,bd=1e9;for(let k=0;k<6;k++){const d=Math.hypot(b.fall.x-PL_POCKETS[k][0],b.fall.y-PL_POCKETS[k][1]);if(d<bd){bd=d;bk=k;}}
+      const pc=PL_POCKETS[bk],cap=(bk>=4?PL.PS:PL.PC)+3,e=Math.min(1,u*1.7),px=b.fall.x+(pc[0]-b.fall.x)*e*e,py=b.fall.y+(pc[1]-b.fall.y)*e*e,s2=1-u*.5;
+      x.save();x.beginPath();x.arc(pc[0],pc[1],cap,0,6.283);x.clip();x.translate(px,py);x.scale(s2,s2);x.translate(-px,-py);
+      plDrawBall(x,{id:b.id,x:px,y:py,rot:(b.rot||0)+u*3},sc);x.fillStyle='rgba(0,0,0,'+(u*.85)+')';x.beginPath();x.arc(px,py,PL.R,0,6.283);x.fill();x.restore();}}
   }
   // the cue lies above the balls; the other player's cue is shown live while they aim
   if(cueDraw)plDrawCue(x,cue.x,cue.y,cueDraw.ang,cueDraw.pw,1);
@@ -30179,6 +30205,7 @@ document.addEventListener('click',e=>{
   else if(a==='ah-ready'){ahReadyTap();}
   else if(a==='ah-mode'){ahSetMode(t.getAttribute('data-m'));}
   else if(a==='pl-assist'){plNext();}
+  else if(a==='pl-cloth'){plNextCloth();}
   else if(a==='pl-place'){plPlace();}
   else if(a==='crcell'){crTap(+t.getAttribute('data-i'));}
   else if(a==='crarm'){
