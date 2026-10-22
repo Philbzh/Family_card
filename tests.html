@@ -5442,6 +5442,15 @@ async function runPresentation(A,W,frame){
     const slow=shot(false),fast=shot(true);
     check('a moving paddle gives the puck more speed than a resting one (so a shot is a skill)',fast>slow+300);
     check('the puck never exceeds the top speed',(()=>{const t=sim();t.p.x=300;t.p.y=600;t.pad[0].x=300;t.pad[0].y=700;const e=[];for(let i=0;i<500;i++){adv(t,1/240,[{x:300,y:i<60?520:900},null],e,{noGoal:true});}return Math.hypot(t.p.vx,t.p.vy)<=AH.MAXV+1;})());
+    // spin: a slice across the puck curves it, the wall flips the spin, a rattling line is broken, the paddle is quick
+    const slice=(px)=>{const q=sim();q.p.x=300;q.p.y=620;q.p.vx=0;q.p.vy=0;q.pad[0].x=px;q.pad[0].y=850;const e=[];
+      for(let i=0;i<400;i++){adv(q,1/240,[{x:px,y:560},null],e,{noGoal:true});if(e.some(x=>x.t==='hit'))break;}
+      return q;};
+    const sl=slice(245),st=slice(300);
+    check('a paddle that strikes the puck off-centre (a slice) gives it spin; a centred push gives almost none',Math.abs(sl.p.w)>.35&&Math.abs(sl.p.w)>Math.abs(st.p.w)*2+.1,JSON.stringify([sl.p.w,st.p.w]));
+    check('a spinning puck flies a curve: its direction turns while it travels',(()=>{const q=sim();q.p.x=300;q.p.y=500;q.p.vx=0;q.p.vy=-1200;q.p.w=1.6;const a0=Math.atan2(q.p.vy,q.p.vx);adv(q,.25,null,[],{noGoal:true});return Math.abs(Math.atan2(q.p.vy,q.p.vx)-a0)>.25;})());
+    check('a puck that only rattles between the walls is given a little spin and leaves its line',(()=>{const q=sim();q.p.x=100;q.p.y=500;q.p.vx=1800;q.p.vy=0;let moved=false;const e=[];for(let i=0;i<240*6;i++){adv(q,1/240,null,e,{noGoal:true});if(Math.abs(q.p.vy)>60){moved=true;break;}}return moved;})());
+    check('the paddle catches up with the finger almost at once (90 % of a 300-unit jump within 40 ms)',(()=>{const q=sim();q.pad[0].x=100;q.pad[0].y=800;adv(q,.04,[{x:400,y:800},null],[],{freezePuck:true});return q.pad[0].x>100+270;})());
     // the rules
     const mk=()=>({score:[0,0],stats:{rally:0,bestRally:0,fastest:0,saves:0,hits:[0,0],maxDeficit:[0,0],goalsRow:[0,0],last:-1,moments:[],comeback:null},over:false,out:[]});
     let ah=mk();const g1=F('ahGoal')(ah,0,1800);

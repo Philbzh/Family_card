@@ -6114,7 +6114,7 @@ function lStartMatch(){
    Guest corrections: the host's puck snapshot is advanced by the measured one-way latency and blended in; after the guest's own paddle
    touches the puck, corrections are held back for about a round trip so nothing rubber-bands.
    Coordinates are "sim" coordinates (600x1000, seat 0 defends the bottom). Each viewer sees ITSELF at the bottom (seat 1 draws mirrored). */
-const AH={W:600,H:1000,R:46,PR:30,GOAL:236,WIN:7,DT:1/240,MAXV:2700,PADMAX:3600,M:34,ST_HZ:24};
+const AH={W:600,H:1000,R:46,PR:30,GOAL:236,WIN:7,DT:1/240,MAXV:2700,PADMAX:7000,M:34,ST_HZ:24};
 const AH_COL={me:['#43e1ff','#0b6f8a'],opp:['#ff9a4d','#8f3a12'],gold:'#E6C36A',ivory:'#F4EBD0'};
 let _ahEndAt=0;
 function ahLive(){return !!(G.ah&&G.ah.live&&G.scr==='table'&&!(G.isOnline&&G.srv&&G.srv.winner)&&!(!G.isOnline&&G.ah.over&&G.ah.overAt&&Date.now()-G.ah.overAt>2600));}
@@ -6122,25 +6122,29 @@ const ahRnd=(a,b)=>a+Math.random()*(b-a);
 const ahClamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
 /* ── the world (pure: used by the host, by the guest's prediction, by the bot and by the tests) ── */
-function ahNewSim(){return{p:{x:AH.W/2,y:AH.H/2,vx:0,vy:0},pad:[{x:AH.W/2,y:AH.H-130,vx:0,vy:0},{x:AH.W/2,y:130,vx:0,vy:0}],t:0};}
+function ahNewSim(){return{p:{x:AH.W/2,y:AH.H/2,vx:0,vy:0,w:0,wb:0},pad:[{x:AH.W/2,y:AH.H-130,vx:0,vy:0},{x:AH.W/2,y:130,vx:0,vy:0}],t:0};}
 // a paddle chases its target (a fast, critically damped follow with a speed limit): the finger drives it, and its own velocity is what it gives the puck
 function ahMovePad(pd,idx,tx,ty,dt){
   const R=AH.R;tx=ahClamp(tx,R,AH.W-R);
   ty=idx===0?ahClamp(ty,AH.H/2+R,AH.H-R):ahClamp(ty,R,AH.H/2-R);
-  const k=1-Math.exp(-dt*58);let mx=(tx-pd.x)*k,my=(ty-pd.y)*k;
+  const k=1-Math.exp(-dt*140);let mx=(tx-pd.x)*k,my=(ty-pd.y)*k;
   const maxd=AH.PADMAX*dt,d=Math.hypot(mx,my);if(d>maxd){mx*=maxd/d;my*=maxd/d;}
   pd.x+=mx;pd.y+=my;pd.vx=mx/dt;pd.vy=my/dt;
 }
 // one step of the puck. Returns nothing; pushes events {t:'hit'|'wall'|'post'|'goal',...} into ev
 function ahStepPuck(s,dt,ev,opt){
   const p=s.p,r=AH.PR,W=AH.W,H=AH.H,gx0=(W-AH.GOAL)/2,gx1=(W+AH.GOAL)/2;
+  // spin bends the flight (a slice curves, like a tennis ball or a pool ball with side), and fades slowly
+  if(p.w){const a=p.w*1.15*dt,c=Math.cos(a),sn=Math.sin(a),nx=p.vx*c-p.vy*sn,ny=p.vx*sn+p.vy*c;p.vx=nx;p.vy=ny;p.w*=Math.exp(-.45*dt);if(Math.abs(p.w)<.02)p.w=0;}
   p.x+=p.vx*dt;p.y+=p.vy*dt;
   const f=Math.exp(-.2*dt);p.vx*=f;p.vy*=f;
-  if(p.x<r){p.x=r;if(p.vx<0){const sp=-p.vx;p.vx=sp*.95;ev.push({t:'wall',s:sp,x:p.x,y:p.y});}}
-  else if(p.x>W-r){p.x=W-r;if(p.vx>0){const sp=p.vx;p.vx=-sp*.95;ev.push({t:'wall',s:sp,x:p.x,y:p.y});}}
+  if(p.x<r){p.x=r;if(p.vx<0){const sp=-p.vx;p.vx=sp*.95;p.vy+=p.w*sp*.1;p.w*=-.6;p.wb++;ev.push({t:'wall',s:sp,x:p.x,y:p.y});}}
+  else if(p.x>W-r){p.x=W-r;if(p.vx>0){const sp=p.vx;p.vx=-sp*.95;p.vy-=p.w*sp*.1;p.w*=-.6;p.wb++;ev.push({t:'wall',s:sp,x:p.x,y:p.y});}}
   const inGoal=p.x>gx0&&p.x<gx1;
-  if(p.y<r&&!inGoal){p.y=r;if(p.vy<0){const sp=-p.vy;p.vy=sp*.95;ev.push({t:'wall',s:sp,x:p.x,y:p.y});}}
-  if(p.y>H-r&&!inGoal){p.y=H-r;if(p.vy>0){const sp=p.vy;p.vy=-sp*.95;ev.push({t:'wall',s:sp,x:p.x,y:p.y});}}
+  if(p.y<r&&!inGoal){p.y=r;if(p.vy<0){const sp=-p.vy;p.vy=sp*.95;p.vx-=p.w*sp*.1;p.w*=-.6;p.wb++;ev.push({t:'wall',s:sp,x:p.x,y:p.y});}}
+  if(p.y>H-r&&!inGoal){p.y=H-r;if(p.vy>0){const sp=p.vy;p.vy=-sp*.95;p.vx+=p.w*sp*.1;p.w*=-.6;p.wb++;ev.push({t:'wall',s:sp,x:p.x,y:p.y});}}
+  // a puck that has only rattled off walls for a while (a line nobody breaks) is given a little spin: it leaves the line
+  if(p.wb>=5){p.wb=0;p.w+=(Math.random()<.5?-1:1)*(.9+Math.random()*.7);}
   // the posts of the two goals
   for(const post of [[gx0,0],[gx1,0],[gx0,H],[gx1,H]]){
     const dx=p.x-post[0],dy=p.y-post[1],d=Math.hypot(dx,dy);
@@ -6153,7 +6157,14 @@ function ahStepPuck(s,dt,ev,opt){
     if(d<m&&d>1e-6){
       const nx=dx/d,ny=dy/d;p.x=pd.x+nx*m;p.y=pd.y+ny*m;
       const rvx=p.vx-pd.vx,rvy=p.vy-pd.vy,vn=rvx*nx+rvy*ny;
-      if(vn<0){p.vx-=1.9*vn*nx;p.vy-=1.9*vn*ny;ev.push({t:'hit',pad:i,s:-vn,x:p.x,y:p.y,px:pd.vx,py:pd.vy});}
+      if(vn<0){
+        p.vx-=1.9*vn*nx;p.vy-=1.9*vn*ny;
+        // the part of the paddle's motion ALONG the puck's surface is a slice: it spins the puck and pushes it a little sideways
+        const tx=-ny,ty=nx,vt=rvx*tx+rvy*ty;
+        p.w=ahClamp(p.w+ahClamp(vt*.00085,-1.9,1.9)*Math.min(1,-vn/600),-2.6,2.6);
+        p.vx+=tx*vt*.08;p.vy+=ty*vt*.08;p.wb=0;
+        ev.push({t:'hit',pad:i,s:-vn,x:p.x,y:p.y,px:pd.vx,py:pd.vy,spin:p.w});
+      }
     }
   }
   // a paddle may press the puck against a wall, but never through it
@@ -6174,7 +6185,7 @@ function ahAdvance(s,dt,tg,ev,opt){
   }
 }
 // put the puck down on the side of the player who conceded (at rest, a little in front of the goal)
-function ahServe(s,loserSeat){s.p.x=AH.W/2;s.p.y=loserSeat===0?AH.H*.68:AH.H*.32;s.p.vx=0;s.p.vy=0;}
+function ahServe(s,loserSeat){s.p.x=AH.W/2;s.p.y=loserSeat===0?AH.H*.68:AH.H*.32;s.p.vx=0;s.p.vy=0;s.p.w=0;s.p.wb=0;}
 
 /* ── the bot: it only ever sees what a player sees (the puck, delayed by its reaction time) ── */
 const AH_BOTS={gentle:{delay:.2,vmax:1500,err:60,aggr:.35},sharp:{delay:.11,vmax:2500,err:24,aggr:.8}};
@@ -6281,7 +6292,7 @@ function ahEmit(ah,name,d){
   d=d||{};const fx=ah.fx,mineSeat=ahMe(ah),bottomSeat=ah.mode==='guest'?1:0;
   const shake=n=>{if(typeof gtFxOn==='function'&&gtFxOn('light'))fx.shake=Math.max(fx.shake,n);};
   switch(name){
-    case'HIT':{const s=ahClamp(d.s/2300,0,1),bot=d.pad===bottomSeat;AHS.hit(s);ahSpark(ah,d.x,d.y,Math.round(4+10*s),bot?AH_COL.me[0]:AH_COL.opp[0],300+500*s);
+    case'HIT':{const s=ahClamp(d.s/2300,0,1),bot=d.pad===bottomSeat;if(Math.abs(d.spin||0)>1.1)ahBanner(ah,'SLICE','',AH_COL.ivory,700);AHS.hit(s);ahSpark(ah,d.x,d.y,Math.round(4+10*s),bot?AH_COL.me[0]:AH_COL.opp[0],300+500*s);
       if(s>.45){fx.glow[bot?0:1]=Math.max(fx.glow[bot?0:1],.5+.5*s);}
       if(s>.55){shake(2+4*s);haptic(s>.8?[16]:[8]);}
       if(s>.88)ahRing(ah,d.x,d.y,70,'rgba(244,235,208,.8)',.4);
@@ -6372,7 +6383,7 @@ function ahHostTick(ah,dt,tg){
         const p=sim.p,towardMe=e.pad===0?p.vy<0:p.vy>0;
         const gy=e.pad===0?AH.H:0,dist=Math.abs(p.y-gy);
         if(ah.prevSpeed&&ah.prevSpeed.v>1500&&ah.prevSpeed.toward===e.pad&&dist<230&&towardMe){st.saves++;ah.out.push({t:'SAVE',late:ah.score[1-e.pad]>=AH.WIN-1,x:e.x,y:e.y,seat:e.pad});}
-        ah.out.push({t:'HIT',pad:e.pad,s:e.s,x:e.x,y:e.y});
+        ah.out.push({t:'HIT',pad:e.pad,s:e.s,x:e.x,y:e.y,spin:e.spin});
       }else if(e.t==='wall'){ah.lastWall=ah.lastWall||0;if(e.s>120&&sim.t-ah.lastWall>.05){ah.lastWall=sim.t;ah.out.push({t:'WALL',s:e.s,x:e.x,y:e.y});}}
       else if(e.t==='post')ah.out.push({t:'POST',s:e.s,x:e.x,y:e.y});
     }
@@ -6436,14 +6447,14 @@ function ahApplyEvent(ah,e){
 // bring the host's puck snapshot forward by the one-way latency, then blend it into the local prediction
 function ahCorrectPuck(ah,m){
   const sim=ah.sim,net=ah.net;
-  if(m.ph!=='play'){sim.p.x=m.p[0];sim.p.y=m.p[1];sim.p.vx=m.p[2];sim.p.vy=m.p[3];sim.pad[0].vx=sim.pad[0].vy=0;ah.vis={x:0,y:0};return;}
+  if(m.ph!=='play'){sim.p.x=m.p[0];sim.p.y=m.p[1];sim.p.vx=m.p[2];sim.p.vy=m.p[3];sim.p.w=m.p[4]||0;sim.pad[0].vx=sim.pad[0].vy=0;ah.vis={x:0,y:0};return;}
   const bx=sim.p.x,by=sim.p.y;
   const L=ahClamp(net.rtt/2000,0,.18);
-  const tmp={p:{x:m.p[0],y:m.p[1],vx:m.p[2],vy:m.p[3]},pad:[{x:m.a[0],y:m.a[1],vx:0,vy:0},{x:sim.pad[1].x,y:sim.pad[1].y,vx:sim.pad[1].vx,vy:sim.pad[1].vy}],t:0};
+  const tmp={p:{x:m.p[0],y:m.p[1],vx:m.p[2],vy:m.p[3],w:m.p[4]||0,wb:0},pad:[{x:m.a[0],y:m.a[1],vx:0,vy:0},{x:sim.pad[1].x,y:sim.pad[1].y,vx:sim.pad[1].vx,vy:sim.pad[1].vy}],t:0};
   ahAdvance(tmp,L,null,[],{noGoal:true});
   const p=sim.p,dx=tmp.p.x-p.x,dy=tmp.p.y-p.y,err=Math.hypot(dx,dy),holding=performance.now()<net.hold;
-  if(err>320||(!holding&&err>190)){p.x=tmp.p.x;p.y=tmp.p.y;p.vx=tmp.p.vx;p.vy=tmp.p.vy;}
-  else{const k=holding?.12:.4;p.x+=dx*k;p.y+=dy*k;p.vx+=(tmp.p.vx-p.vx)*k;p.vy+=(tmp.p.vy-p.vy)*k;}
+  if(err>320||(!holding&&err>190)){p.x=tmp.p.x;p.y=tmp.p.y;p.vx=tmp.p.vx;p.vy=tmp.p.vy;p.w=tmp.p.w;}
+  else{const k=holding?.12:.4;p.x+=dx*k;p.y+=dy*k;p.vx+=(tmp.p.vx-p.vx)*k;p.vy+=(tmp.p.vy-p.vy)*k;p.w=(p.w||0)+((tmp.p.w||0)-(p.w||0))*k;}
   // what the eye sees: keep drawing where the puck WAS and let that gap melt away over a few frames (a hard snap is only for a serve or a goal)
   const v=ah.vis||(ah.vis={x:0,y:0});v.x+=bx-p.x;v.y+=by-p.y;const vm=Math.hypot(v.x,v.y);if(vm>260||m.ph!=='play'){v.x=0;v.y=0;}
 }
@@ -6451,7 +6462,7 @@ function ahHostSnapshot(ah){
   const net=ah.net,sim=ah.sim;
   const ev=(ah.evHist||[]).slice(-8);
   ahSend({k:'st',i:++net.seq,ph:ah.ph,pt:Math.round(ah.pt*1000)/1000,sc:ah.score,rd:ah.ready,w:ah.winSeat,
-    p:[Math.round(sim.p.x*10)/10,Math.round(sim.p.y*10)/10,Math.round(sim.p.vx),Math.round(sim.p.vy)],
+    p:[Math.round(sim.p.x*10)/10,Math.round(sim.p.y*10)/10,Math.round(sim.p.vx),Math.round(sim.p.vy),Math.round((sim.p.w||0)*100)/100],
     a:[Math.round(sim.pad[0].x*10)/10,Math.round(sim.pad[0].y*10)/10],b:[Math.round(sim.pad[1].x),Math.round(sim.pad[1].y)],
     ts:ah.guestTs,ev});
 }
@@ -6601,7 +6612,7 @@ function ahGuestTick(ah,dt){
       if(e.t==='hit'&&e.pad===ah.seat){
         // a real strike: for about a round trip the host has not seen it yet, so its snapshots are only blended in lightly
         if(e.s>350){ah.net.hold=performance.now()+ah.net.rtt*.55+60;ah.net.localHitAt=performance.now();}
-        if(e.s>=140&&(!ah.net.lastLocalHit||performance.now()-ah.net.lastLocalHit>70)){ah.net.lastLocalHit=performance.now();ah.out.push({t:'HIT',pad:e.pad,s:e.s,x:e.x,y:e.y,local:1});}
+        if(e.s>=140&&(!ah.net.lastLocalHit||performance.now()-ah.net.lastLocalHit>70)){ah.net.lastLocalHit=performance.now();ah.out.push({t:'HIT',pad:e.pad,s:e.s,x:e.x,y:e.y,spin:e.spin,local:1});}
       }
       else if(e.t==='wall'){ah.net.localWallAt=performance.now();ah.out.push({t:'WALL',s:e.s,x:e.x,y:e.y});}
     }
@@ -6796,7 +6807,7 @@ function ahDraw(ah,now){
     x.fillStyle=g;x.beginPath();x.arc(v[0],v[1],r,0,6.283);x.fill();x.restore();
     x.lineWidth=2.4;x.strokeStyle='rgba(244,235,208,.85)';x.beginPath();x.arc(v[0],v[1],r-2,0,6.283);x.stroke();
     x.lineWidth=1.2;x.strokeStyle='rgba(244,235,208,.3)';x.beginPath();x.arc(v[0],v[1],r*.58,0,6.283);x.stroke();
-    ah.puckAng=(ah.puckAng||0)+sp*.0012*(1/60);
+    ah.puckAng=(ah.puckAng||0)+(sp*.0012+(sim.p.w||0)*9)*(1/60);
     x.fillStyle='rgba(244,235,208,.55)';x.beginPath();x.arc(v[0]+Math.cos(ah.puckAng)*r*.58,v[1]+Math.sin(ah.puckAng)*r*.58,2.2,0,6.283);x.fill();
   }
   // sparks and rings
