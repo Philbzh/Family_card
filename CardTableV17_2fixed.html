@@ -1597,6 +1597,16 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 .iv-btn.on{border-color:#9ff0ff;box-shadow:0 0 18px rgba(120,230,255,.9);}
 @keyframes iv-ready{50%{transform:scale(1.1);}}
 .v10-gc--invaders{background:linear-gradient(160deg,rgba(232,107,255,.22),rgba(8,12,28,.5));border-top-color:#e86bff;}
+/* ── Arcade: records, the Classic/Mayhem choice ── */
+.ar-panel .ar-game{margin:.5rem 0 .8rem;}
+.ar-gn{font-family:'Cinzel',serif;color:#E6C36A;font-size:.95rem;margin-bottom:.3rem;}
+.ar-row{display:grid;grid-template-columns:1fr auto;gap:.1rem .8rem;align-items:baseline;padding:.3rem 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:.85rem;color:var(--paper2,#d9cfae);}
+.ar-row b{color:#F4EBD0;font-family:'Cinzel',serif;}
+.ar-row em{grid-column:1/3;font-style:normal;font-size:.72rem;color:var(--paper3,#9a9378);}
+.ar-none{font-size:.82rem;color:var(--paper3,#9a9378);padding:.4rem 0;}
+.ah-modes{display:flex;justify-content:center;gap:.5rem;margin:0 0 .8rem;}
+.ah-modes button,.ah-modes span{font-family:'Cinzel',serif;letter-spacing:.14em;font-size:.72rem;padding:.35rem .8rem;border-radius:999px;border:1px solid rgba(230,195,106,.4);background:rgba(255,255,255,.03);color:var(--paper2,#d9cfae);}
+.ah-modes .on{background:rgba(230,195,106,.18);border-color:#E6C36A;color:#F4EBD0;}
 .cr-well.shk-s{animation:cr-shk-s .22s ease-out both;}
 .cr-well.shk-m{animation:cr-shk-m .34s ease-out both;}
 .cr-well.shk-l{animation:cr-shk-l .55s cubic-bezier(.36,.07,.19,.97) both;}
@@ -5074,6 +5084,12 @@ const ACHIEVEMENTS=[
   {id:'gt-route',icon:'🚇',name:'Dangerous Route',desc:'Took 4 shortcuts in one Gauntlet',check:()=>getHistory().some(h=>{const s=gtMine(h);return s&&s.sc>=4;})},
   {id:'gt-oops',icon:'🙈',secret:true,name:'Oops',desc:'Stepped on your own trap',check:()=>getHistory().some(h=>{const s=gtMine(h);return s&&s.oops>=1;})},
   // — Blackwater —
+  {id:'ah-comeback',icon:'🏒',name:'Wall of Steel',desc:'Won an Air Hockey match from four goals down',check:()=>arFlag('ah-comeback')},
+  {id:'pg-clean',icon:'🏓',name:'Never Blink',desc:'Won a Pong match 3–0 in games',check:()=>arFlag('pg-clean')},
+  {id:'pg-epic',icon:'🔥',name:'Epic Rally',desc:'A Pong rally of 20 returns',check:()=>arFlag('pg-epic')},
+  {id:'iv-reversal',icon:'👾',name:'Last Stand',desc:'Won Invaders: Duel after being behind at 80 seconds',check:()=>arFlag('iv-reversal')},
+  {id:'iv-fever',icon:'⚡',name:'Fever',desc:'A 25-hit combo in Invaders: Duel',check:()=>arFlag('iv-fever')},
+  {id:'ar-three',icon:'🕹️',name:'Arcade Regular',desc:'Played Air Hockey, Pong and Invaders: Duel',check:()=>arFlag('ar-three')},
   {id:'bw-first',icon:'⚓',name:'Into the Blackwater',desc:'Played a game of Blackwater',check:()=>getHistory().some(h=>h.game==='blackwater')},
   {id:'bw-hunt',icon:'🎯',name:'The Perfect Hunt',desc:'Won Blackwater with at least 55% of your shots hitting',check:()=>getHistory().some(h=>{const s=bwMine(h);return s&&h.winner===G.myName&&s.shots>0&&s.hits/s.shots>=.55;})},
   {id:'bw-ghost',icon:'🤫',name:'Ghost Fleet',desc:'Won Blackwater after running silent',check:()=>getHistory().some(h=>{const s=bwMine(h);return s&&h.winner===G.myName&&s.silent>=1;})},
@@ -6250,6 +6266,13 @@ function ahAdvance(s,dt,tg,ev,opt){
 // put the puck down on the side of the player who conceded (at rest, a little in front of the goal)
 function ahServe(s,loserSeat){if(s.kind==='pong'){s.p.x=AH.W/2;s.p.y=AH.H/2;s.p.vx=0;s.p.vy=0;s.p.w=0;s.p.rl=0;return;}s.p.x=AH.W/2;s.p.y=loserSeat===0?AH.H*.68:AH.H*.32;s.p.vx=0;s.p.vy=0;s.p.w=0;s.p.wb=0;}
 // Pong: the ball is launched towards the player who has to receive it
+function ahPongThreat(ah){const q=ah.pts||[0,0];return[0,1].some(x=>ah.score[x]===AH.GAMES-1&&q[x]>=3&&q[x]>q[1-x]);}
+// rare, short and only visual (a faint ball, a swelling ball): they never decide a point
+function ahPongSpecial(ah,dt){
+  const p=ah.sim.p;if((p.rl||0)<6)return;
+  ah.spT=(ah.spT==null?6:ah.spT)-dt;
+  if(ah.spT<=0){ah.spT=6+Math.random()*6;ah.out.push({t:Math.random()<.5?'BALL_GHOST':'BALL_PULSE'});}
+}
 function ahLaunch(s,towardSeat){const sp=AH.V0*.8,a=ahRnd(-.35,.35);s.p.vx=sp*Math.sin(a);s.p.vy=(towardSeat===0?1:-1)*sp*Math.cos(a);s.p.rl=0;s.p.w=0;}
 
 /* ── the bot: it only ever sees what a player sees (the puck, delayed by its reaction time) ── */
@@ -6322,6 +6345,9 @@ function ahBotMove(b,pd,tx,ty,lv,dt){
 
 /* ── sounds: the Blackwater engine with an air-table character (a thunk, a glass tick, a deep goal, a quiet hum) ── */
 const AHS={
+  intro(){bwSn(1.1,180,2600,{type:'bandpass',q:.9,v:.1,a:.5,rev:.5});bwSt(90,200,1,{v:.12,a:.4,rev:.4});},
+  pulse(){bwSt(300,600,.35,{type:'sine',v:.1,a:.03,rev:.5});},
+  charge(){bwSt(200,1100,.5,{type:'sawtooth',v:.12,lp:1500,a:.05,rev:.4});bwSn(.5,1200,5000,{type:'bandpass',q:1.2,v:.1,a:.2,rev:.3});},
   ivShot(mine){bwSt(1500,620,.07,{type:'square',v:mine?.05:.02,lp:3600,a:.002,rev:.1});},
   ivHit(){bwSt(380,200,.07,{v:.18,a:.002});bwSn(.04,5000,2000,{type:'highpass',v:.1,a:.001});},
   ivKill(k){bwSn(.25,4200,300,{v:.3,a:.002,rev:.25});bwSt(260,80,.22,{v:.45,dist:.5,a:.003});if(k==='c'){bwSt(70,38,.7,{v:.6,dist:1,a:.004,rev:.4,long:true});bwClang(.1,300,1.1,0,.4);}if(k==='m')bwSt(900,300,.25,{type:'sawtooth',v:.1,lp:1600,a:.004,rev:.3});},
@@ -6368,7 +6394,7 @@ function ahNew(mode){
   const players=online?((st&&st.players)||[]):G.lp;
   const sc=(st&&st.ah&&st.ah.score)||[0,0];
   return{mode,id:(st&&st.ah&&st.ah.id)||String(Date.now()),live:true,kind,over:false,overAt:0,sim:ahNewSim(kind),score:sc.slice(),seat:mode==='guest'?1:0,
-    ph:'ready',pt:0,ready:[false,false],t0:Date.now(),evHist:[],evn:0,out:[],pts:[0,0],touch:[false,false],
+    ph:'ready',pt:0,ready:[false,false],t0:Date.now(),evHist:[],evn:0,out:[],pts:[0,0],touch:[false,false],mayhem:kind==='airhockey'&&mode!=='guest'&&ahMayhemPref(),born:performance.now(),
     tgt:[null,null],my:{x:AH.W/2,y:AH.H-130,touch:false},
     net:{seq:0,lastRx:0,lastTx:0,rtt:120,hold:0,seen:{},evs:[],evn:0,lost:false,lostAt:0,lastSt:0},
     bot:{level:(players[1]&&players[1].bot)||'gentle',hist:[],mode:''},
@@ -6412,6 +6438,7 @@ function ahEmit(ah,name,d){
     case'POST':{AHS.post(d.s/1800);ahSpark(ah,d.x,d.y,10,AH_COL.gold,420);ahRing(ah,d.x,d.y,60,'rgba(230,195,106,.9)',.4);shake(5);ahBanner(ah,'POST!','',AH_COL.gold,800);break;}
     case'GOAL':{
       const bot=d.seat===bottomSeat,col=bot?AH_COL.me[0]:AH_COL.opp[0];
+      ah.hush=false;
       if(d.point){
         // tennis: a point is a quiet ring, a game gets the full treatment
         const nm=(ah.players[d.seat]&&ah.players[d.seat].name)||'';
@@ -6434,7 +6461,12 @@ function ahEmit(ah,name,d){
     case'STREAK':ahBanner(ah,d.n+' IN A ROW','',AH_COL.gold,1100);break;
     case'COMEBACK':ahBanner(ah,'COMEBACK','from '+d.from+' down',AH_COL.gold,1500);break;
     case'TIED':ahBanner(ah,'TIED','',AH_COL.ivory,900);break;
-    case'WIN':fx.flash=1;haptic([50,40,50,40,140]);break;
+    case'FINAL_POINT':ah.hush=true;ahBanner(ah,'FINAL POINT','',AH_COL.ivory,1300);AHS.matchPoint();break;
+    case'BALL_GHOST':fx.ghostUntil=performance.now()+850;break;
+    case'BALL_PULSE':fx.pulseUntil=performance.now()+900;AHS.pulse();break;
+    case'OVERCHARGE':fx.chargeUntil=performance.now()+3500;ahBanner(ah,'OVERCHARGE','the puck is hot',AH_COL.me[0],1200);AHS.charge();ahRing(ah,AH.W/2,AH.H/2,180,'rgba(120,235,255,.9)',.6);break;
+    case'CURVEBALL':ahBanner(ah,'CURVE','the puck bends',AH_COL.gold,1100);AHS.pulse();break;
+    case'WIN':ah.hush=false;fx.flash=1;haptic([50,40,50,40,140]);break;
     default:if(typeof name==='string'&&name.indexOf('IV_')===0)ivEmit(ah,name,d);
   }
 }
@@ -6493,6 +6525,18 @@ function ahResultStats(){
   const x=st.stats||st;return{score:st.score||[0,0],fastest:x.fastest||0,bestRally:x.bestRally||0,saves:x.saves||0,perfect:x.perfect||0,dur:st.dur||0};
 }
 // the moment line for the result screen
+function ahMayhemPref(){try{return localStorage.getItem('ct_ah_mode')==='mayhem';}catch(e){return false;}}
+function ahSetMode(m){try{localStorage.setItem('ct_ah_mode',m==='mayhem'?'mayhem':'classic');}catch(e){}const ah=G.ah;if(ah&&ah.mode!=='guest'&&ah.ph==='ready'){ah.mayhem=m==='mayhem';ahPaintOverlay();}}
+// every 14 to 24 seconds of play, one thing happens to the puck: it gets hot (faster) or it bends. Both players see it announced.
+function ahMayhemTick(ah,dt){
+  ah.mmT=(ah.mmT==null?16:ah.mmT)-dt;
+  const p=ah.sim.p;
+  if(ah.mmT<=0&&Math.hypot(p.vx,p.vy)>350){
+    ah.mmT=14+Math.random()*10;
+    if(Math.random()<.5){const sp=Math.hypot(p.vx,p.vy),k=Math.min(AH.MAXV/sp,1.45);p.vx*=k;p.vy*=k;ah.out.push({t:'OVERCHARGE'});}
+    else{p.w=(Math.random()<.5?-1:1)*1.7;ah.out.push({t:'CURVEBALL'});}
+  }
+}
 function ahStatFast(ah){return ah.kind==='invaders'?Math.max((ah.sim.iv&&ah.sim.iv.bestCombo[0])||0,(ah.sim.iv&&ah.sim.iv.bestCombo[1])||0):Math.round(ah.stats.fastest*.0185);}
 function ahMomentText(ah,names){
   const st=ah.stats,w=ah.winSeat,n=i=>names[i]||'Someone';
@@ -6521,9 +6565,11 @@ function ahHostTick(ah,dt,tg){
       sim.p.vx=ahRnd(-70,70);sim.p.vy=(Math.random()<.5?-1:1)*ahRnd(300,380);}}
   }else if(ah.ph==='serve'){
     ahAdvance(sim,dt,tg,ev,{freezePuck:true});ah.pt-=dt;
-    if(ah.pt<=0){ahSetPhase(ah,'play',0);if(sim.kind==='pong')ahLaunch(sim,ah.lastGoal?1-ah.lastGoal.seat:0);}
+    if(ah.pt<=0){ahSetPhase(ah,'play',0);if(sim.kind==='pong'){ahLaunch(sim,ah.lastGoal?1-ah.lastGoal.seat:0);if(ahPongThreat(ah))ah.out.push({t:'FINAL_POINT'});}}
   }else if(ah.ph==='play'){
     ahAdvance(sim,dt,tg,ev);
+    if(sim.kind==='pong')ahPongSpecial(ah,dt);
+    if(ah.mayhem&&sim.kind==='airhockey')ahMayhemTick(ah,dt);
     for(const e of ev){
       if(e.t==='goal'){
         const g=ahGoal(ah,e.seat,e.s);ah.out.push(...g.ev);
@@ -6578,7 +6624,7 @@ function ahOnBroadcast(m){
     // events (the last few ride along in every snapshot, so a lost message does not lose a goal)
     (m.ev||[]).forEach(e=>{if(!net.seen[e.i]){net.seen[e.i]=1;ahApplyEvent(ah,e);}});
     if(m.i>net.lastSt||net.lastSt-m.i>100){net.lastSt=m.i;
-      ah.score=m.sc;ah.pts=m.pp||[0,0];ah.ready=m.rd;
+      ah.score=m.sc;ah.pts=m.pp||[0,0];ah.mayhem=!!m.mm;ah.ready=m.rd;
       if(ah.ph!==m.ph){ah.ph=m.ph;ah.pt=m.pt;}else ah.pt=m.pt;
       const sim=ah.sim,tn=performance.now();
       let hx=m.a[0],hy=m.a[1];
@@ -6618,7 +6664,7 @@ function ahCorrectPuck(ah,m){
 function ahHostSnapshot(ah){
   const net=ah.net,sim=ah.sim;
   const ev=(ah.evHist||[]).slice(-8);
-  ahSend({k:'st',i:++net.seq,ph:ah.ph,pt:Math.round(ah.pt*1000)/1000,sc:ah.score,pp:ah.pts||[0,0],rd:ah.ready,w:ah.winSeat,
+  ahSend({k:'st',i:++net.seq,ph:ah.ph,pt:Math.round(ah.pt*1000)/1000,sc:ah.score,pp:ah.pts||[0,0],mm:ah.mayhem?1:0,rd:ah.ready,w:ah.winSeat,
     p:[Math.round(sim.p.x*10)/10,Math.round(sim.p.y*10)/10,Math.round(sim.p.vx),Math.round(sim.p.vy),Math.round((sim.p.w||0)*100)/100,sim.p.rl||0],
     a:[Math.round(sim.pad[0].x*10)/10,Math.round(sim.pad[0].y*10)/10],b:[Math.round(sim.pad[1].x),Math.round(sim.pad[1].y)],
     ts:ah.guestTs,ev,iv:ah.kind==='invaders'?ivSnapshot(ah):undefined});
@@ -6660,6 +6706,7 @@ function ahAttach(){
   const cv=document.getElementById('ah-cv');if(!cv)return;
   if(ah.cv!==cv){ah.cv=cv;ah.statik=null;ahBindInput(cv);ahSizeCanvas();}
   ahPaintOverlay();
+  if(!ah.introDone){ah.introDone=true;try{AHS.intro();}catch(e){}}
   if(ah.kind==='invaders')ivBindButtons(ah);
   if(!ah.raf){ah.lastFrame=performance.now();ah.raf=requestAnimationFrame(ahFrame);}
   if(G.isOnline&&!ah.net.timer){
@@ -6814,7 +6861,7 @@ function ahFinish(ah,forfeit){
     const st=JSON.parse(JSON.stringify(G.srv));
     st.players.forEach((p,i)=>{p.c4Result=i===w?'win':'loss';p.totalScore=ah.score[i];});
     st.winner=st.players[w].id;st.winnerName=st.players[w].name;st.winnerAv=st.players[w].avatar;st.moment=moment;
-    st.ah=Object.assign({},st.ah||{},{id:ah.id,score:ah.score.slice(),dur,stats:{fastest:ahStatFast(ah),bestRally:ah.stats.bestRally,saves:ah.stats.saves,perfect:ah.stats.perfect||0}});
+    st.ah=Object.assign({},st.ah||{},{id:ah.id,score:ah.score.slice(),dur,stats:ahResultObj(ah)});
     st.lastAct=esc(st.winnerName)+' won the match.';st._ts=Date.now();
     // this device's own end flow first (onSrv compares with the OLD state and runs the history entry and the result screen), then the room
     try{onSrv(st);}catch(e){}
@@ -6826,10 +6873,11 @@ function ahFinish(ah,forfeit){
 function ahEndLocal(ah){
   const w=ah.winSeat,players=G.lp,names=players.map(p=>p.name);
   players.forEach((p,i)=>{p.c4Result=i===w?'win':'loss';p.totalScore=ah.score[i];});
-  G.ahMoment=ah.result.moment;G.ahResult={score:ah.score.slice(),dur:ah.result.dur,fastest:ahStatFast(ah),bestRally:ah.stats.bestRally,saves:ah.stats.saves,perfect:ah.stats.perfect||0};
+  G.ahMoment=ah.result.moment;G.ahResult=Object.assign({score:ah.score.slice(),dur:ah.result.dur},ahResultObj(ah));
   G.tw++;localStorage.setItem('ct_tw',G.tw);
   addHistory({game:ah.kind,winner:players[w].name,winnerAvatar:players[w].avatar,date:new Date().toISOString(),players:names,moment:G.ahMoment,
-    stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions,ah:{score:ah.score.slice(),dur:ah.result.dur,fastest:ahStatFast(ah),bestRally:ah.stats.bestRally,saves:ah.stats.saves,perfect:ah.stats.perfect||0}}});
+    stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions,ah:Object.assign({score:ah.score.slice(),dur:ah.result.dur},ahResultObj(ah))}});
+  try{const nr=arRecordUpdate(ah.kind,names,players[w].name,ah.score.slice(),ahResultObj(ah));if(nr.length)setTimeout(()=>toast('🏆 New Arcade record'),900);}catch(e){}
   setTimeout(()=>{if(ahIs(G.selGame)&&G.scr==='table'){ahStop();G.scr='matchend';render();}},400);
 }
 
@@ -6847,6 +6895,7 @@ function ahPaintOverlay(){
     html=`<div class="ah-card"><div class="ah-kick">${ivm?'INVADERS: DUEL':pgm?'NEON DUEL':'NEON ARENA'}</div>
       <div class="ah-vs"><div class="ah-pl">${avHTML(a.avatar)}<span>${esc(a.name||'')}</span></div><b>VS</b><div class="ah-pl">${avHTML(b.avatar)}<span>${esc(b.name||'')}</span></div></div>
       <ul class="ah-rules">${ivm?`<li>Destroy the fleet, build combos</li><li>Attack your opponent</li><li>Highest score in 90 seconds wins</li>`:pgm?`<li>Return the ball</li><li>Score like tennis: 15, 30, 40, game</li><li>First to ${AH.GAMES} games wins</li>`:`<li>Move your paddle</li><li>Protect your goal</li><li>First to ${AH.WIN} wins</li>`}</ul>
+      ${ah.kind==='airhockey'?(ah.mode==='guest'?`<div class="ah-modes"><span class="on">${ah.mayhem?'MAYHEM':'CLASSIC'}</span></div>`:`<div class="ah-modes"><button class="${ah.mayhem?'':'on'}" data-a="ah-mode" data-m="classic">CLASSIC</button><button class="${ah.mayhem?'on':''}" data-a="ah-mode" data-m="mayhem">MAYHEM</button></div>`):''}
       <button class="btn btn-gold ah-ready${meReady?' on':''}" data-a="ah-ready">${meReady?(ah.mode==='guest'||ah.mode==='host'?'WAITING…':'READY'):'READY'}</button>
       ${ah.mode==='duo'?'<div class="ah-hint">Two players, one table: each plays their own half with a finger.</div>':ah.mode==='bot'?`<div class="ah-hint">${ivm?'Hold your finger down to fire, slide to move. 🛡 shield, ⚡ attack when it is full.':pgm?'You are at the bottom. Slide your finger left and right.':'You are at the bottom. Drag your finger to move the paddle.'}</div>`:'<div class="ah-hint">You are at the bottom. Drag to move.</div>'}
     </div>`;
@@ -6958,7 +7007,7 @@ function ahDrawHockeyWorld(ah,x,V,sim,fx,gl){
   const seatCols=s=>(s===bottomSeat)?AH_COL.me:AH_COL.opp;
   paddle(sim.pad[0],seatCols(0),gl[bottomSeat===0?0:1]);paddle(sim.pad[1],seatCols(1),gl[bottomSeat===1?0:1]);
   // the puck: dark glass with an ivory rim, lit when it is fast
-  { const v=V(pv.x,pv.y),r=AH.PR,hot=ahClamp((sp-700)/1700,0,1);
+  { const v=V(pv.x,pv.y),r=AH.PR,hot=Math.max(ahClamp((sp-700)/1700,0,1),(fx.chargeUntil||0)>performance.now()?1:0);
     x.save();x.shadowColor=hot>0?'rgba(120,235,255,'+(.4+.5*hot)+')':'rgba(0,0,0,0)';x.shadowBlur=10+30*hot;
     let g=x.createRadialGradient(v[0]-r*.35,v[1]-r*.4,r*.1,v[0],v[1],r);g.addColorStop(0,'#5b6c70');g.addColorStop(.55,'#1b2629');g.addColorStop(1,'#080e10');
     x.fillStyle=g;x.beginPath();x.arc(v[0],v[1],r,0,6.283);x.fill();x.restore();
@@ -7018,13 +7067,15 @@ function ahDrawPongWorld(ah,x,V,sim,fx,gl){
   };
   paddle(sim.pad[0],0);paddle(sim.pad[1],1);
   // the ball: a luminous orb that changes colour with the stage
-  const v=V(pv.x,pv.y),pulse=1+.5*Math.max(0,fx.glow[0]>.9||fx.glow[1]>.9?1:0)*.0;
+  const nowT=performance.now(),v=V(pv.x,pv.y),pulse=1+.9*Math.max(0,((fx.pulseUntil||0)-nowT)/900),ga=(fx.ghostUntil||0)>nowT?.3:1;
+  x.globalAlpha=ga;
   x.save();x.globalCompositeOperation='lighter';
   let g=x.createRadialGradient(v[0],v[1],r*.2,v[0],v[1],r*(2.6+st*.35));g.addColorStop(0,'rgba('+col+',.55)');g.addColorStop(1,'rgba('+col+',0)');x.fillStyle=g;x.beginPath();x.arc(v[0],v[1],r*(2.6+st*.35),0,6.283);x.fill();x.restore();
   g=x.createRadialGradient(v[0]-r*.3,v[1]-r*.3,r*.1,v[0],v[1],r);g.addColorStop(0,'#ffffff');g.addColorStop(.6,'rgb('+col+')');g.addColorStop(1,'rgba('+col+',.7)');
-  x.fillStyle=g;x.beginPath();x.arc(v[0],v[1],r*pulse,0,6.283);x.fill();
+  x.fillStyle=g;x.beginPath();x.arc(v[0],v[1],r*pulse,0,6.283);x.fill();x.globalAlpha=1;
+  if(ah.hush){const hg=x.createRadialGradient(AH.M+AH.W/2,AH.M+AH.H/2,AH.H*.22,AH.M+AH.W/2,AH.M+AH.H/2,AH.H*.62);hg.addColorStop(0,'rgba(0,0,0,0)');hg.addColorStop(1,'rgba(0,0,0,.55)');x.fillStyle=hg;x.fillRect(AH.M,AH.M,AH.W,AH.H);}
   // a quiet rally counter
-  if((p.rl||0)>=4&&ah.ph==='play'){x.save();x.globalAlpha=.18;x.fillStyle=AH_COL.ivory;x.font='700 40px Jost, sans-serif';x.textAlign='center';x.fillText('RALLY '+p.rl,AH.M+AH.W/2,AH.M+AH.H/2-24);x.restore();}
+  if((p.rl||0)>=4&&ah.ph==='play'&&!ah.hush){x.save();x.globalAlpha=.18;x.fillStyle=AH_COL.ivory;x.font='700 40px Jost, sans-serif';x.textAlign='center';x.fillText('RALLY '+p.rl,AH.M+AH.W/2,AH.M+AH.H/2-24);x.restore();}
 }
 /* ═══════ INVADERS: DUEL ═══════
    Two ships on opposite sides, one fleet between them, 90 seconds, highest score wins. Both shoot at the same fleet at the same time, and what you
@@ -7076,7 +7127,7 @@ function ivStep(ah,dt){
   if(!iv.fleet)ivSpawn(iv);
   const ph=ivPhaseAt(el);if(ph!==iv.phase){iv.phase=ph;}
   if(!iv.finalSaid&&el>=60){iv.finalSaid=true;ah.out.push({t:'IV_BANNER',text:'FINAL WAVE'});}
-  if(!iv.lastSaid&&el>=80){iv.lastSaid=true;ah.out.push({t:'IV_BANNER',text:'LAST STAND'});}
+  if(!iv.lastSaid&&el>=80){iv.lastSaid=true;ah.out.push({t:'IV_BANNER',text:'LAST STAND'});ah.stats.lsLead=ah.score[0]>ah.score[1]?0:ah.score[1]>ah.score[0]?1:-1;}
   for(let s=0;s<2;s++){iv.stun[s]=Math.max(0,iv.stun[s]-dt);iv.sh[s]=Math.max(0,iv.sh[s]-dt);iv.shcd[s]=Math.max(0,iv.shcd[s]-dt);iv.cd[s]=Math.max(0,iv.cd[s]-dt);}
   // buttons of the guest (counters, so that a lost message is not a lost button)
   const net=ah.net;
@@ -7146,7 +7197,7 @@ function ivStep(ah,dt){
   if(iv.left<=0){
     if(ah.score[0]===ah.score[1]){iv.left=10;iv.ot++;ah.out.push({t:'IV_BANNER',text:'OVERTIME'});}
     else{
-      ah.over=true;ah.winSeat=ah.score[0]>ah.score[1]?0:1;ahSetPhase(ah,'over',3.2);ah.overAt=Date.now();AHS.hum.off();ah.out.push({t:'WIN',seat:ah.winSeat});
+      ah.over=true;ah.winSeat=ah.score[0]>ah.score[1]?0:1;ah.stats.rev=(ah.stats.lsLead!=null&&ah.stats.lsLead>=0&&ah.stats.lsLead!==ah.winSeat)?1:0;ahSetPhase(ah,'over',3.2);ah.overAt=Date.now();AHS.hum.off();ah.out.push({t:'WIN',seat:ah.winSeat});
       const st=ah.stats;st.fastest=Math.max(iv.bestCombo[0],iv.bestCombo[1])/.0185;st.bestRally=iv.kills[0]+iv.kills[1];st.saves=iv.att[0]+iv.att[1];st.perfect=iv.dod[0]+iv.dod[1];
     }
   }
@@ -7342,11 +7393,45 @@ function ivDrawWorld(ah,x,V,sim,fx){
     else{x.fillStyle='#ff5a4a';const d=(h.vy>0?1:-1)*(flipped?-1:1);x.beginPath();x.moveTo(v[0],v[1]+14*d);x.lineTo(v[0]+9,v[1]-8*d);x.lineTo(v[0]-9,v[1]-8*d);x.closePath();x.fill();x.strokeStyle='#ffe3a0';x.lineWidth=1.6;x.stroke();}
     x.restore();}
   // the two ships
-  for(let s=0;s<2;s++){const p=sim.pad[s],v=V(p.x,p.y),top=!(v[1]>AH.M+AH.H/2);const col=(s===bottomSeat)?AH_COL.me[0]:'#e86bff';v.up=top;ivShip(x,v,col,iv.stun[s]>0,iv.sh[s],tm);}
+  for(let s=0;s<2;s++){const p=sim.pad[s],v=V(p.x,p.y),top=!(v[1]>AH.M+AH.H/2);const col=(s===bottomSeat)?AH_COL.me[0]:'#e86bff';v.up=top;
+    if(iv.combo[s]>=25){x.save();x.globalCompositeOperation='lighter';const fg=x.createRadialGradient(v[0],v[1],10,v[0],v[1],70);fg.addColorStop(0,'rgba(255,217,138,'+(.35+.2*Math.sin(tm*14))+')');fg.addColorStop(1,'rgba(255,217,138,0)');x.fillStyle=fg;x.beginPath();x.arc(v[0],v[1],70,0,6.283);x.fill();x.restore();}
+    ivShip(x,v,col,iv.stun[s]>0,iv.sh[s],tm);}
   // the combo, quietly, above each ship
   for(let s=0;s<2;s++){if(iv.combo[s]>=3){const p=sim.pad[s],v=V(p.x,p.y),top=!(v[1]>AH.M+AH.H/2);x.save();x.globalAlpha=.8;x.fillStyle=iv.combo[s]>=15?'#ffd98a':'#F4EBD0';x.font='700 26px Jost, sans-serif';x.textAlign='center';x.fillText('×'+iv.combo[s],v[0],v[1]+(top?62:-48));x.restore();}}
 }
 
+/* ── Arcade records and achievements: the best numbers of this table, kept on this device (no coins, no levels) ── */
+const AR_REC={
+  airhockey:[['fastest','Fastest shot','km/h'],['bestRally','Longest rally','hits'],['saves','Most saves in a match',''],['comeback','Biggest comeback','goals']],
+  pong:[['fastest','Fastest ball','km/h'],['bestRally','Longest rally','returns'],['perfect','Most perfect returns',''],['comeback','Biggest comeback','games']],
+  invaders:[['topscore','Highest score','pts'],['fastest','Highest combo','hits'],['bestRally','Most aliens destroyed',''],['saves','Most attacks sent','']]
+};
+function arAll(){try{return JSON.parse(localStorage.getItem('ct_ar')||'{}')||{};}catch(e){return{};}}
+function arFlag(id){const a=arAll();return !!(a.flags&&a.flags[id]);}
+function arPlayed(){const a=arAll();return a.played||{};}
+function ahResultObj(ah){const st=ah.stats;return{fastest:ahStatFast(ah),bestRally:st.bestRally,saves:st.saves,perfect:st.perfect||0,comeback:st.comeback?st.comeback.from:0,rev:st.rev?1:0};}
+// called on every device when a match ends. Returns the records that were beaten.
+function arRecordUpdate(game,names,winnerName,score,rs){
+  const a=arAll();a.rec=a.rec||{};a.flags=a.flags||{};a.played=a.played||{};a.played[game]=(a.played[game]||0)+1;
+  const won=[],set=(key,v,by)=>{const r=a.rec[game]=a.rec[game]||{};if(v>0&&(!r[key]||v>r[key].v)){r[key]={v,by,at:new Date().toISOString()};won.push(key);}};
+  const by=(names||[]).join(' vs ');
+  (AR_REC[game]||[]).forEach(([k])=>{if(k==='topscore')set(k,Math.max(score[0]||0,score[1]||0),winnerName||by);else set(k,(rs&&rs[k])||0,by);});
+  const w=names.indexOf(winnerName),ws=score&&w>=0?score[w]:0,ls=score&&w>=0?score[1-w]:0;
+  if(game==='airhockey'&&rs&&rs.comeback>=4)a.flags['ah-comeback']=true;
+  if(game==='pong'){if(ws===3&&ls===0)a.flags['pg-clean']=true;if(rs&&rs.bestRally>=20)a.flags['pg-epic']=true;}
+  if(game==='invaders'){if(rs&&rs.rev)a.flags['iv-reversal']=true;if(rs&&rs.fastest>=25)a.flags['iv-fever']=true;}
+  if(a.played.airhockey&&a.played.pong&&a.played.invaders)a.flags['ar-three']=true;
+  try{localStorage.setItem('ct_ar',JSON.stringify(a));}catch(e){}
+  return won;
+}
+function arRecordsHTML(){
+  const a=arAll(),rec=a.rec||{};
+  const names={airhockey:['🏒','Air Hockey'],pong:['🏓','Pong'],invaders:['👾','Invaders: Duel']};
+  const rows=Object.keys(AR_REC).map(g=>{
+    const list=(AR_REC[g]).filter(([k])=>rec[g]&&rec[g][k]);if(!list.length)return'';
+    return`<div class="ar-game"><div class="ar-gn">${names[g][0]} ${names[g][1]}</div>${list.map(([k,l,u])=>`<div class="ar-row"><span>${l}</span><b>${rec[g][k].v}${u?' '+u:''}</b><em>${esc(rec[g][k].by)}</em></div>`).join('')}</div>`;}).join('');
+  return`<div class="panel ar-panel" style="margin:0 1.2rem 1.2rem;"><div class="panel-lbl">Arcade records</div>${rows||'<div class="ar-none">Play a match and the first records of your table will appear here.</div>'}</div>`;
+}
 function ahDraw(ah,now){
   const cv=ah.cv;if(!cv)return;
   const x=cv.getContext('2d');if(!ah.scale)ahSizeCanvas();
@@ -7402,6 +7487,11 @@ function ahDraw(ah,now){
   if(fx.flash>0){x.save();x.globalAlpha=fx.flash*.22;x.fillStyle='#fff';x.fillRect(0,0,AH.W+2*M,AH.H+2*M);x.restore();}
   // a small mark under my paddle until I touch the screen (so the player knows what to move)
   if(ah.ph==='play'&&!ah.my.touch&&!ah.touched&&ah.mode!=='duo'){const me=ah.sim.pad[ah.mode==='guest'?1:0],v=V(me.x,me.y);x.save();x.globalAlpha=.5+.3*Math.sin(now/260);x.strokeStyle=AH_COL.ivory;x.lineWidth=2;x.setLineDash([8,8]);x.beginPath();x.arc(v[0],v[1],AH.R+16,0,6.283);x.stroke();x.restore();}
+  // the lights go on: a short entrance (about a second), then the VS card
+  { const age=performance.now()-(ah.born||0);
+    if(age<1500){const a=Math.pow(Math.max(0,1-age/1100),1.6);x.save();x.setTransform(1,0,0,1,0,0);x.globalAlpha=a;x.fillStyle='#020605';x.fillRect(0,0,cv.width,cv.height);x.restore();
+      x.save();x.globalAlpha=Math.max(0,Math.min(1,age/400))*Math.max(0,1-(age-900)/500);x.textAlign='center';x.textBaseline='middle';x.font='700 62px Cinzel, Georgia, serif';x.fillStyle=AH_COL.gold;x.shadowColor='rgba(230,195,106,.8)';x.shadowBlur=22;
+      x.fillText(ah.kind==='invaders'?'INVADERS: DUEL':ah.kind==='pong'?'NEON DUEL':'NEON ARENA',cx,cy-40);x.restore();}}
   // the table trembles on a hard hit
   if(fx.shake>.05){const a=fx.shake;cv.style.transform='translate('+(Math.random()-.5)*a*1.6+'px,'+(Math.random()-.5)*a*1.6+'px)';}else if(cv.style.transform)cv.style.transform='';
 }
@@ -25521,6 +25611,7 @@ function onSrvCore(state){
         if(state.winner!==prevWinner){
           if(state.winner===G.myPid){G.tw++;localStorage.setItem('ct_tw',G.tw);}
           const nms=(state.players||[]).map(p=>p.name),sc=(state.ah&&state.ah.score)||[0,0];
+          try{const nr=arRecordUpdate(state.gameId,nms,state.winnerName,sc,(state.ah&&state.ah.stats)||{});if(nr.length)setTimeout(()=>toast('🏆 New Arcade record'),900);}catch(e){}
           addHistory({game:state.gameId,winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),players:nms,mode:'online',
             moment:state.moment||`${state.winnerName} won ${Math.max(sc[0],sc[1])}–${Math.min(sc[0],sc[1])}.`,
             stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions,ah:Object.assign({score:sc},state.ah&&state.ah.stats?state.ah.stats:{},{dur:(state.ah&&state.ah.dur)||0})}});
@@ -26180,6 +26271,7 @@ function rGamesCategoryList(){
     <div class="topbar"><button class="back-btn" data-a="games-back">← Games</button><span class="top-title">${cat.icon} ${esc(cat.name)}</span><div class="top-right">${sndBtn()}</div></div>
     <div style="padding:1.1rem 1.2rem .2rem;font-size:.82rem;color:var(--paper3);">Pick a game to start playing at your table.</div>
     <div class="v10-games" style="padding:1rem 1.2rem 1.5rem;">${cards}</div>
+    ${cat.id==='arcade'?arRecordsHTML():''}
     <div class="v10-actions" style="padding:0 1.2rem 2rem;">
       <button class="btn btn-gold v10-cta" data-a="local">${currentGame()&&currentGame().onlineOnly?'🌐 Invite everyone':'🏠 Play together'}</button>
       ${currentGame()&&currentGame().onlineOnly?'':'<button class="btn btn-ghost" data-a="online">🌐 Invite remotely</button>'}
@@ -29390,6 +29482,7 @@ document.addEventListener('click',e=>{
   else if(/^bw(dbg|cell|dep|ship|decoytool|minetool|rotate|auto|quick|clear|ready|tab|assist|fire|cancel|tool|scan|torpset|launch|silent|reppick|reprotate|rep|repgo|bot|rp|finale)$/.test(a)){bwTap(a,t);}
   else if(/^gt(roll|die|sum|bonus|skip|bank|reroll|run|shield|item|stop|dare|safe|revenge|go|cancel|secret|secretopen|secretclose|type|slot|place|disarmmode|disarm|recover)$/.test(a)){gtTap(a,t);}
   else if(a==='ah-ready'){ahReadyTap();}
+  else if(a==='ah-mode'){ahSetMode(t.getAttribute('data-m'));}
   else if(a==='crcell'){crTap(+t.getAttribute('data-i'));}
   else if(a==='crarm'){
     const cr=G.isOnline?(G.srv&&G.srv.cr):G.cr;if(!cr||cr.over||G.crSeq)return;

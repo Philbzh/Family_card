@@ -5643,6 +5643,54 @@ async function runPresentation(A,W,frame){
       try{G.isOnline=false;G.selGame='invaders';G.lp=[{id:1,name:'Phil',avatar:'🦊'},{id:2,name:'Robo',avatar:'🐼',bot:'gentle'}];G.ah=null;const html=F('rAirHockeyTable')();F('ahStop')();return /id="ah-cv"/.test(html)&&/data-b="shield"/.test(html)&&/data-b="attack"/.test(html)&&/Invaders: Duel/.test(html);}
       finally{const g=F('G');g.isOnline=k.on;g.lp=k.lp;g.selGame=k.sel;g.ah=k.ah;}})());
   });
+  suite('Arcade — records, achievements, Mayhem, the match-point hush and the lights going on',()=>{
+    const F=n=>W.eval(n),AH=F('AH');
+    const keep=W.localStorage.getItem('ct_ar'),keepMode=W.localStorage.getItem('ct_ah_mode');
+    try{
+      W.localStorage.removeItem('ct_ar');
+      let won=F('arRecordUpdate')('airhockey',['Phil','Anna'],'Phil',[7,5],{fastest:41,bestRally:14,saves:3,comeback:0});
+      check('the first match sets the first records of the table',won.includes('fastest')&&won.includes('bestRally')&&F('arAll')().rec.airhockey.fastest.v===41);
+      won=F('arRecordUpdate')('airhockey',['Phil','Anna'],'Anna',[5,7],{fastest:30,bestRally:20,saves:1,comeback:0});
+      const r=F('arAll')().rec.airhockey;
+      check('only a better number beats a record (a slower shot does not, a longer rally does), and it remembers who',r.fastest.v===41&&r.bestRally.v===20&&won.join()==='bestRally'&&/Anna/.test(r.bestRally.by));
+      F('arRecordUpdate')('invaders',['Phil','Anna'],'Phil',[2410,1980],{fastest:27,bestRally:210,saves:14,rev:1});
+      const a=F('arAll')();
+      check('Invaders keeps the highest score of the winner, the best combo, and sets the Fever and Last Stand achievements',a.rec.invaders.topscore.v===2410&&a.rec.invaders.fastest.v===27&&a.flags['iv-fever']&&a.flags['iv-reversal']);
+      F('arRecordUpdate')('pong',['Phil','Anna'],'Phil',[3,0],{fastest:60,bestRally:21,perfect:5,comeback:0});
+      const a2=F('arAll')();
+      check('a 3–0 win in Pong is Never Blink, a 20-return rally is Epic Rally, and playing all three games is Arcade Regular',a2.flags['pg-clean']&&a2.flags['pg-epic']&&a2.flags['ar-three']);
+      F('arRecordUpdate')('airhockey',['Phil','Anna'],'Phil',[7,6],{fastest:20,bestRally:3,saves:0,comeback:4});
+      check('winning from four goals down is Wall of Steel',F('arFlag')('ah-comeback'));
+      check('the achievements are on the trophy list and unlocked by those flags',['ah-comeback','pg-clean','pg-epic','iv-reversal','iv-fever','ar-three'].every(id=>{const x=F('ACHIEVEMENTS').find(y=>y.id===id);return x&&x.check()===true;}));
+      const html=F('arRecordsHTML')();
+      check('the Arcade room shows the records of the table, game by game, with who holds them',/Arcade records/.test(html)&&/Air Hockey/.test(html)&&/Invaders/.test(html)&&/Longest rally/.test(html)&&/Anna/.test(html));
+      W.localStorage.removeItem('ct_ar');
+      check('with no matches the panel invites you to play',/first records of your table/.test(F('arRecordsHTML')()));
+    }finally{if(keep==null)W.localStorage.removeItem('ct_ar');else W.localStorage.setItem('ct_ar',keep);}
+    // Mayhem: optional, rare, announced, and only the puck is touched
+    try{
+      W.localStorage.removeItem('ct_ah_mode');
+      check('Classic is the default, Mayhem is a choice that is remembered',F('ahMayhemPref')()===false&&(F('ahSetMode')('mayhem'),F('ahMayhemPref')()===true));
+      const h=F('ahNew')('bot');h.mode='bot';h.mayhem=true;h.sim=F('ahNewSim')();h.sim.p.vx=300;h.sim.p.vy=700;
+      let evs=[];for(let i=0;i<60*60&&evs.length<3;i++){h.out=[];F('ahMayhemTick')(h,1/60);evs=evs.concat(h.out);h.sim.p.vx=300;h.sim.p.vy=700;}
+      check('about once every 15–25 seconds of play something happens to the puck (overcharge or curve), announced by an event',evs.length>=2&&evs.every(e=>e.t==='OVERCHARGE'||e.t==='CURVEBALL'));
+      const h2=F('ahNew')('bot');h2.mode='bot';h2.mayhem=false;h2.ph='ready';
+      check('in Classic the table has no events, and a one-device game offers the Classic / Mayhem switch before the match',(()=>{F('ahSetMode')('classic');const G=F('G'),k={on:G.isOnline,lp:G.lp,sel:G.selGame,ah:G.ah};try{G.isOnline=false;G.selGame='airhockey';G.lp=[{id:1,name:'Phil',avatar:'🦊'},{id:2,name:'Robo',avatar:'🐼',bot:'gentle'}];G.ah=null;F('rAirHockeyTable')();const cl=F('G').ah.mayhem===false;F('ahPaintOverlay')?0:0;F('ahStop')();return cl;}finally{const g=F('G');g.isOnline=k.on;g.lp=k.lp;g.selGame=k.sel;g.ah=k.ah;}})());
+      check('an overcharge makes the puck faster but never beyond the top speed',(()=>{const q=F('ahNew')('bot');q.mayhem=true;q.sim=F('ahNewSim')();q.sim.p.vx=0;q.sim.p.vy=2500;q.mmT=0;q.out=[];F('ahMayhemTick')(q,.01);const sp=Math.hypot(q.sim.p.vx,q.sim.p.vy);return sp<=AH.MAXV+1&&(q.out.length===0||q.out[0].t==='CURVEBALL'||sp>=2500);})());
+    }finally{if(keepMode==null)W.localStorage.removeItem('ct_ah_mode');else W.localStorage.setItem('ct_ah_mode',keepMode);}
+    // Pong: the quiet at match point
+    const pg=()=>{const q=F('ahNew')('bot');q.kind='pong';q.mode='bot';q.sim=F('ahNewSim')('pong');return q;};
+    let q=pg();q.score=[2,1];q.pts=[3,1];
+    check('at 40–15 in the third game for the leader the next point is a match point',F('ahPongThreat')(q)===true);
+    q.pts=[2,2];check('and not when the point cannot end the match',F('ahPongThreat')(q)===false);
+    q=pg();q.ph='serve';q.pt=.01;q.score=[2,0];q.pts=[3,0];q.lastGoal={seat:0,x:300};q.out=[];F('ahHostTick')(q,.05,[{x:300,y:0},{x:300,y:0}]);
+    check('the ball served on a match point is announced as FINAL POINT',q.out.some(e=>e.t==='FINAL_POINT'));
+    q=pg();q.ph='play';q.sim.p.rl=9;q.spT=.01;q.out=[];F('ahPongSpecial')(q,.05);
+    check('a long rally sometimes turns the ball into a ghost or makes it pulse (rare, only visual)',q.out.length===1&&(q.out[0].t==='BALL_GHOST'||q.out[0].t==='BALL_PULSE'));
+    q=pg();q.sim.p.rl=2;q.spT=.01;q.out=[];F('ahPongSpecial')(q,.05);
+    check('...never in the first returns of a rally',q.out.length===0);
+    check('every table opens with the lights going on (an entrance of about a second)',(()=>{const z=F('ahNew')('bot');return typeof z.born==='number'&&performance.now()-z.born<2000;})());
+  });
   suite('Chain Reaction (Fun) — the two powers',()=>{
     const F=n=>W.eval(n);
     const crNew=F('crNew'),crPlay=F('crPlay'),crPowerTargets=F('crPowerTargets'),crClone=F('crClone');
