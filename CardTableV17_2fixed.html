@@ -4651,6 +4651,7 @@ const GAMES=[
      '<b>The fleet fights back</b> and every wave is stronger: faster, swinging deeper towards your side, shooting more often. It is <b>drawn towards whoever is ahead</b>, so the leader must dodge more. Win a wave (more kills) for <b>+50</b>.',
      '<b>Combos:</b> every hit that does not miss builds your combo and multiplies your points; one shot that finds nothing, or a hit on you, breaks it. Shielded aliens take three hits, <b>bombers</b> are worth more, and the <b>commander</b> is worth a lot.',
      '<b>Hit your opponent through the fleet:</b> a bomber you destroy sends its bomb to <b>them</b>; good play fills your <b>⚡ attack</b> meter, and a full meter sends a wall of missiles with one safe lane. A commander you shoot stuns them for a moment.',
+     '<b>Surprises:</b> <b>splitters</b> (orange) break into two drones when shot, a <b>laser</b> locks onto your ship and fires down your column (step out of the line, or shield), every fourth wave brings a <b>BOSS</b> with a bar of its own, and some aliens leave a <b>power-up</b> that falls to you: <b>» rapid fire</b>, <b>3 triple shot</b>, <b>+ repair or shield</b>.',
      '<b>Defence:</b> move out of the way, or press <b>🛡</b> for a short shield (it needs a few seconds to recharge). A hit costs points and stuns your ship. Tied at the end? <b>Overtime.</b>']},
   {id:'pool',cat:'arcade',icon:'🎱',name:'Pool',players:'2',dur:'8–15 min',diff:'medium',deal:0,minP:2,maxP:2,cover:'assets/games/pool.jpg',
    rules:['<b>Aim. Control. Clear the table.</b> 8-ball for two: pocket all your balls (<b>solids</b> or <b>stripes</b>, decided by the first ball you sink after the break), then the black <b>8-ball</b>. Pocket it before that, or foul while sinking it, and you lose.',
@@ -5120,6 +5121,7 @@ const ACHIEVEMENTS=[
   {id:'pg-epic',icon:'🔥',name:'Epic Rally',desc:'A Pong rally of 20 returns',check:()=>arFlag('pg-epic')},
   {id:'iv-reversal',icon:'👾',name:'Last Stand',desc:'Won Invaders: Duel after being behind at 80 seconds',check:()=>arFlag('iv-reversal')},
   {id:'iv-team',icon:'🤝',name:'Brothers in Arms',desc:'Defeated the Invaders fleet together as a team',check:()=>arFlag('iv-team')},
+  {id:'iv-boss',icon:'👹',name:'Boss Slayer',desc:'Destroyed the boss of the Invaders fleet',check:()=>arFlag('iv-boss')},
   {id:'iv-fever',icon:'⚡',name:'Fever',desc:'A 25-hit combo in Invaders: Duel',check:()=>arFlag('iv-fever')},
   {id:'ar-three',icon:'🕹️',name:'Arcade Regular',desc:'Played Air Hockey, Pong and Invaders: Duel',check:()=>arFlag('ar-three')},
   {id:'bw-first',icon:'⚓',name:'Into the Blackwater',desc:'Played a game of Blackwater',check:()=>getHistory().some(h=>h.game==='blackwater')},
@@ -7123,13 +7125,13 @@ function ahDrawPongWorld(ah,x,V,sim,fx,gl){
    Defence is a short SHIELD (and your own feet). Runs on the arcade module (a 'kind' of match): the host simulates, the guest gets the fleet,
    the bullets and the hazards in the snapshots and only moves its own ship itself (that is the one thing that must feel instant). */
 const IV={COLS:8,ROWS:5,DX:56,DY:44,TIME:90,FIRE_CD:.19,BV:1050,BOMBV:430,ATTV:470,STUN:1.1,SHT:1.4,SHCD:9,HW:34};
-const IV_T={b:{hp:1,pts:10},s:{hp:3,pts:30},m:{hp:1,pts:25},c:{hp:6,pts:120}};
-function ivNew(){return{left:IV.TIME,t:0,phase:1,wave:0,fleet:null,bul:[],hz:[],warn:[],cd:[0,0],stun:[0,0],sh:[0,0],shcd:[0,0],meter:[0,0],ready:[false,false],combo:[0,0],bestCombo:[0,0],kills:[0,0],att:[0,0],dod:[0,0],fire:[false,false],bsSeen:[0,0],baSeen:[0,0],bombT:2.5,leanY:0,wk:[0,0],afT:3,hull:5,target:8,finalSaid:false,lastSaid:false,ot:0};}
+const IV_T={x:{hp:2,pts:20},b:{hp:1,pts:10},s:{hp:3,pts:30},m:{hp:1,pts:25},c:{hp:6,pts:120}};
+function ivNew(){return{left:IV.TIME,t:0,phase:1,wave:0,fleet:null,bul:[],hz:[],warn:[],cd:[0,0],stun:[0,0],sh:[0,0],shcd:[0,0],meter:[0,0],ready:[false,false],combo:[0,0],bestCombo:[0,0],kills:[0,0],att:[0,0],dod:[0,0],fire:[false,false],bsSeen:[0,0],baSeen:[0,0],bombT:2.5,leanY:0,wk:[0,0],afT:3,hull:5,target:8,pu:[],pwk:['',''],pwt:[0,0],ls:null,lsT:14,boss:null,bosses:0,finalSaid:false,lastSaid:false,ot:0};}
 function ivPhaseAt(t){return t<25?1:t<50?2:t<70?3:4;}
 // a new fleet for the current phase: 8 columns, 4-5 rows, drones first and then shields, bombers, a commander
-function ivSpawn(iv){
-  const ph=iv.phase,cells=[];
-  const rows=ph===1?4:5;
+function ivSpawn(iv,ah){
+  const ph=iv.phase,cells=[],bossWave=(iv.wave+1)%4===0;
+  const rows=bossWave?2:ph===1?4:5;
   for(let r=0;r<IV.ROWS;r++)for(let c=0;c<IV.COLS;c++){
     let t=null;
     if(r<rows){
@@ -7137,10 +7139,12 @@ function ivSpawn(iv){
       if(ph>=3){if(r<2)t='s';else if(r===rows-1)t=(c%2)?'m':'b';}
       if(ph===4&&r===0&&(c===3||c===4))t='c';
       if(ph===4&&r===1&&(c===0||c===7))t='m';
+      if(ph>=2&&!bossWave&&r===(ph>=3?2:1)&&(c===1||c===6))t='x';
     }
     cells.push(t?{t,hp:IV_T[t].hp}:null);
   }
   iv.fleet={cells,t0:iv.t};iv.wave++;
+  if(bossWave){const hp=ah&&ah.coop?80:60;iv.boss={hp,max:hp,ft:3.2};if(ah)ah.out.push({t:'IV_BOSS'});}
 }
 function ivPos(iv,r,c){
   const f=iv.fleet,tt=iv.t-(f?f.t0:0),w=.8+.3*(iv.phase-1)+.07*Math.min(10,iv.wave),A=(AH.W-60-(IV.COLS-1)*IV.DX)/2,amp=Math.min(95,24+iv.wave*8);
@@ -7148,6 +7152,7 @@ function ivPos(iv,r,c){
   const arrive=Math.max(0,1-tt/1.2);
   return{x:AH.W/2+Math.sin(iv.t*w)*A+(c-(IV.COLS-1)/2)*IV.DX,y:AH.H/2+(iv.leanY||0)+amp*Math.sin(iv.t*.7)+(r-(IV.ROWS-1)/2)*IV.DY-arrive*arrive*420};
 }
+function ivBossPos(iv){return{x:AH.W/2+Math.sin(iv.t*.8)*(AH.W/2-110),y:AH.H/2+58+Math.sin(iv.t*.5)*18+(iv.leanY||0)*.3};}
 function ivAlive(iv){let n=0;for(const c of iv.fleet.cells)if(c)n++;return n;}
 function ivShipX(sim,seat){return sim.pad[seat].x;}
 // ── the shield and the attack (called by buttons, by the bot and by the guest's counters)
@@ -7176,7 +7181,7 @@ function ivHurt(ah,seat,x,why){
 function ivStep(ah,dt){
   const sim=ah.sim,iv=sim.iv;iv.t+=dt;iv.left-=dt;
   const el=IV.TIME-iv.left;
-  if(!iv.fleet)ivSpawn(iv);
+  if(!iv.fleet)ivSpawn(iv,ah);
   const ph=ivPhaseAt(el);if(ph!==iv.phase){iv.phase=ph;}
   if(!ah.coop&&!iv.finalSaid&&el>=60){iv.finalSaid=true;ah.out.push({t:'IV_BANNER',text:'FINAL WAVE'});}
   if(!ah.coop&&!iv.lastSaid&&el>=80){iv.lastSaid=true;ah.out.push({t:'IV_BANNER',text:'LAST STAND'});ah.stats.lsLead=ah.score[0]>ah.score[1]?0:ah.score[1]>ah.score[0]?1:-1;}
@@ -7186,13 +7191,15 @@ function ivStep(ah,dt){
   if(ah.mode==='host'){if((net.gbs||0)>iv.bsSeen[1]){iv.bsSeen[1]=net.gbs;ivDoShield(ah,1);}if((net.gba||0)>iv.baSeen[1]){iv.baSeen[1]=net.gba;ivDoAttack(ah,1);}}
   // firing: hold the finger down
   for(let s=0;s<2;s++){
-    if(iv.fire[s]&&iv.cd[s]<=0&&iv.stun[s]<=0){iv.cd[s]=IV.FIRE_CD;const pd=sim.pad[s];iv.bul.push({x:pd.x,y:pd.y+(s===0?-30:30),vy:s===0?-IV.BV:IV.BV,o:s});ah.out.push({t:'IV_SHOT',seat:s});}
+    if(iv.fire[s]&&iv.cd[s]<=0&&iv.stun[s]<=0){iv.cd[s]=iv.pwk[s]==='r'?IV.FIRE_CD*.5:IV.FIRE_CD;const pd=sim.pad[s],vy=s===0?-IV.BV:IV.BV,by=pd.y+(s===0?-30:30);iv.bul.push({x:pd.x,y:by,vy,vx:0,o:s});
+      if(iv.pwk[s]==='t'){iv.bul.push({x:pd.x-14,y:by,vy,vx:-150,o:s});iv.bul.push({x:pd.x+14,y:by,vy,vx:150,o:s});}
+      ah.out.push({t:'IV_SHOT',seat:s});}
   }
   // the fleet is replaced when it is almost gone
-  if(ivAlive(iv)<=3){
+  if(ivAlive(iv)<=3&&!iv.boss){
     if(ah.coop){ah.score[0]+=25;ah.score[1]+=25;ah.out.push({t:'IV_WAVEWIN',seat:-1,n:iv.wave});if(iv.wave>=iv.target){ivEnd(ah,true);return;}}
     else if(iv.wk[0]!==iv.wk[1]){const ws=iv.wk[0]>iv.wk[1]?0:1;ah.score[ws]+=50;ah.out.push({t:'IV_WAVEWIN',seat:ws,n:iv.wave});}
-    iv.wk=[0,0];ivSpawn(iv);ah.out.push({t:'IV_WAVE',n:iv.wave});
+    iv.wk=[0,0];ivSpawn(iv,ah);ah.out.push({t:'IV_WAVE',n:iv.wave});
   }
   // the fleet is drawn towards whoever is ahead (the leader has to work harder; the one behind gets room to come back)
   const targetLean=ah.coop?0:Math.max(-90,Math.min(90,(ah.score[0]-ah.score[1])/5));
@@ -7200,7 +7207,21 @@ function ivStep(ah,dt){
   // bullets
   const cells=iv.fleet.cells,keep=[];
   for(const b of iv.bul){
-    b.y+=b.vy*dt;let hit=false;
+    b.y+=b.vy*dt;b.x+=(b.vx||0)*dt;let hit=false;
+    if(iv.boss){const bp=ivBossPos(iv);
+      if(Math.abs(b.x-bp.x)<66&&Math.abs(b.y-bp.y)<32){
+        hit=true;iv.boss.hp--;const o=b.o;iv.combo[o]++;iv.bestCombo[o]=Math.max(iv.bestCombo[o],iv.combo[o]);
+        ah.score[o]+=8;const wasFull=iv.meter[o]>=100;iv.meter[o]=Math.min(100,iv.meter[o]+3);
+        if(!wasFull&&iv.meter[o]>=100){iv.ready[o]=true;ah.out.push({t:'IV_READY',seat:o});}
+        if(ah.coop){iv.meter[1-o]=iv.meter[o];iv.ready[1-o]=iv.ready[o];}
+        if(iv.boss.hp<=0){
+          iv.boss=null;iv.bosses++;iv.kills[o]++;iv.wk[o]+=3;
+          if(ah.coop){ah.score[0]+=150;ah.score[1]+=150;iv.meter=[100,100];iv.ready=[true,true];}else{ah.score[o]+=300;iv.meter[o]=100;iv.ready[o]=true;}
+          for(let k=0;k<2;k++)iv.pu.push({x:bp.x+(k?50:-50),y:bp.y,vy:o===0?170:-170,k:k?'t':'r',o});
+          ah.out.push({t:'IV_BOSSDOWN',seat:o,x:bp.x,y:bp.y});
+        }else ah.out.push({t:'IV_HIT',seat:o,x:b.x,y:b.y});
+      }
+    }
     for(let r=0;r<IV.ROWS&&!hit;r++)for(let c=0;c<IV.COLS;c++){
       const cell=cells[r*IV.COLS+c];if(!cell)continue;
       const p=ivPos(iv,r,c);
@@ -7214,6 +7235,12 @@ function ivStep(ah,dt){
           if(!wasFull&&iv.meter[o]>=100){iv.ready[o]=true;ah.out.push({t:'IV_READY',seat:o});}
           if(ah.coop){iv.meter[1-o]=iv.meter[o];iv.ready[1-o]=iv.ready[o];if(!wasFull&&iv.meter[o]>=100)ah.out.push({t:'IV_READY',seat:1-o});}
           ah.out.push({t:'IV_KILL',seat:o,x:p.x,y:p.y,k:cell.t,pts});
+          // a splitter breaks into two drones in the free cells next to it
+          if(cell.t==='x'){let n=0;const free=[[r,c-1],[r,c+1],[r+1,c],[r-1,c]];
+            for(const [rr,cc] of free){if(n>=2)break;if(rr<0||rr>=IV.ROWS||cc<0||cc>=IV.COLS)continue;const ix=rr*IV.COLS+cc;if(!cells[ix]){cells[ix]={t:'b',hp:1};n++;}}
+            ah.out.push({t:'IV_SPLIT',x:p.x,y:p.y,n});}
+          // now and then an alien leaves a power-up that falls towards the pilot who shot it
+          else if(Math.random()<.08){iv.pu.push({x:p.x,y:p.y,vy:o===0?190:-190,k:['r','t','h'][Math.floor(Math.random()*3)],o});}
           if(cell.t==='m'&&!ah.coop){ // a bomber that dies sends its bomb to the OTHER player
             const v=1-o,ty=sim.pad[v].y,T=Math.abs(ty-p.y)/IV.BOMBV;
             iv.hz.push({k:'bomb',x:p.x,y:p.y,vx:(sim.pad[v].x-p.x)/Math.max(.6,T),vy:v===0?IV.BOMBV:-IV.BOMBV,from:o});ah.out.push({t:'IV_BOMB',seat:v,x:p.x,y:p.y});
@@ -7224,7 +7251,7 @@ function ivStep(ah,dt){
       }
     }
     if(hit)continue;
-    if(b.y<-20||b.y>AH.H+20){iv.combo[b.o]=0;continue;}   // a shot that found nothing breaks the combo
+    if(b.y<-20||b.y>AH.H+20||b.x<-20||b.x>AH.W+20){if(!b.vx)iv.combo[b.o]=0;continue;}   // side shots of a triple shot vanish quietly   // a shot that found nothing breaks the combo
     keep.push(b);
   }
   iv.bul=keep;
@@ -7263,6 +7290,50 @@ function ivStep(ah,dt){
     hk.push(h);
   }
   iv.hz=hk;
+  // the sniper laser: it tracks a ship, locks on, then fires a beam down that column (move out, or shield)
+  iv.lsT-=dt;
+  if(!iv.ls&&iv.lsT<=0&&el>=40&&ah.ph==='play'){
+    const lead=ah.coop||ah.score[0]===ah.score[1]?-1:ah.score[0]>ah.score[1]?0:1;
+    const v=lead<0?(Math.random()<.5?0:1):(Math.random()<.66?lead:1-lead);
+    iv.ls={v,x:sim.pad[v].x,t:1.4,f:0,hit:0};iv.lsT=11+Math.random()*6;ah.out.push({t:'IV_LASERWARN',seat:v});
+  }
+  if(iv.ls){
+    const ls=iv.ls,pd=sim.pad[ls.v];
+    if(ls.f<=0){
+      if(ls.t>.45)ls.x+=(pd.x-ls.x)*Math.min(1,dt*7);
+      ls.t-=dt;
+      if(ls.t<=0){ls.f=.4;ah.out.push({t:'IV_LASERFIRE',seat:ls.v,x:ls.x});}
+    }else{
+      ls.f-=dt;
+      if(!ls.hit&&Math.abs(pd.x-ls.x)<IV.HW+8){ls.hit=1;ivHurt(ah,ls.v,ls.x,'las');}
+      if(ls.f<=0)iv.ls=null;
+    }
+  }
+  // the boss shoots a fan of bolts at one pilot
+  if(iv.boss){
+    iv.boss.ft-=dt;
+    if(iv.boss.ft<=0){
+      const bp=ivBossPos(iv),lead=ah.coop||ah.score[0]===ah.score[1]?-1:ah.score[0]>ah.score[1]?0:1;
+      const v=lead<0?(Math.random()<.5?0:1):(Math.random()<.6?lead:1-lead);
+      iv.boss.ft=iv.boss.hp<iv.boss.max/2?1.5:2.3;
+      for(let k=-2;k<=2;k++)iv.hz.push({k:'ash',x:bp.x,y:bp.y,vx:k*70+(sim.pad[v].x-bp.x)*.12,vy:(v===0?1:-1)*(300+iv.wave*12),from:-1});
+      ah.out.push({t:'IV_ASH',seat:v});
+    }
+  }
+  // power-ups fall towards the pilot who earned them
+  const puKeep=[];
+  for(const q of iv.pu){
+    q.y+=q.vy*dt;const pd=sim.pad[q.o];
+    if(Math.abs(q.y-pd.y)<30&&Math.abs(q.x-pd.x)<IV.HW+10){
+      if(q.k==='h'){if(ah.coop)iv.hull=Math.min(5,iv.hull+1);else{iv.sh[q.o]=2.5;iv.shcd[q.o]=0;}}
+      else{iv.pwk[q.o]=q.k;iv.pwt[q.o]=7;}
+      ah.out.push({t:'IV_PICK',seat:q.o,k:q.k,x:q.x,y:q.y});continue;
+    }
+    if(q.y<-30||q.y>AH.H+30)continue;
+    puKeep.push(q);
+  }
+  iv.pu=puKeep;
+  for(let s=0;s<2;s++){if(iv.pwt[s]>0){iv.pwt[s]-=dt;if(iv.pwt[s]<=0){iv.pwt[s]=0;iv.pwk[s]='';}}}
   // the end
   if(!ah.coop&&iv.left<=0){
     if(ah.score[0]===ah.score[1]){iv.left=10;iv.ot++;ah.out.push({t:'IV_BANNER',text:'OVERTIME'});}
@@ -7280,7 +7351,7 @@ function ivHostTick(ah,dt,tg){
   iv.fire[1]=ah.ph==='play'&&(ah.mode==='bot'?!!(ah.bot.fire):ah.mode==='duo'?!!ah.touch[1]:!!ah.guestFire);
   if(ah.ph==='ready'){if(ah.mode!=='guest'&&ah.ready[0]&&(ah.ready[1]||ah.mode==='bot'||ah.mode==='duo')){ahSetPhase(ah,'count',3.2);ah.cdLast=4;}}
   else if(ah.ph==='count'){ah.pt-=dt;const n=Math.ceil(ah.pt);if(n!==ah.cdLast&&n>=1&&n<=3){ah.cdLast=n;ah.out.push({t:'COUNT',n});}
-    if(ah.pt<=0){ahSetPhase(ah,'play',0);ah.out.push({t:'COUNT',n:0});ah.stats.start=Date.now();ivSpawn(iv);ah.out.push({t:'IV_INTRO'});}}
+    if(ah.pt<=0){ahSetPhase(ah,'play',0);ah.out.push({t:'COUNT',n:0});ah.stats.start=Date.now();ivSpawn(iv,ah);ah.out.push({t:'IV_INTRO'});}}
   else if(ah.ph==='play')ivStep(ah,dt);
   else if(ah.ph==='over')ah.pt-=dt;
 }
@@ -7298,7 +7369,10 @@ function ivBotTarget(ah,dt){
     for(let r=0;r<IV.ROWS;r++)for(let c=0;c<IV.COLS;c++){const cl=iv.fleet.cells[r*IV.COLS+c];if(!cl)continue;const p=ivPos(iv,r,c);
       // the top player hits the row nearest to it first, so rows with a low index are the ones it can reach
       const sc=IV_T[cl.t].pts*(cl.hp?1/cl.hp:1)+40-Math.abs(p.x-pd.x)*.08+(IV.ROWS-r)*4;if(sc>bs){bs=sc;best=p;}}
+    if(iv.boss){const bp=ivBossPos(iv);best=bp;}
     b.goal=best?best.x+(Math.random()-.5)*lv.err*2:AH.W/2;
+    for(const q of iv.pu){if(q.o===1&&Math.abs(q.y-pd.y)<420){b.goal=q.x;break;}}
+    if(iv.ls&&iv.ls.v===1&&Math.abs(iv.ls.x-pd.x)<80&&(iv.ls.t<.8||iv.ls.f>0)){b.goal=iv.ls.x<pd.x?Math.min(AH.W-40,iv.ls.x+110):Math.max(40,iv.ls.x-110);if(Math.random()<lv.shield*.4)ivDoShield(ah,1);}
     // a bomb or a missile coming: step aside, or put the shield up
     let danger=null;for(const h of iv.hz){if(h.vy<0&&h.y>pd.y&&h.y-pd.y<340&&Math.abs(h.x-pd.x)<62){danger=h;break;}}
     if(danger){b.goal=danger.x<pd.x?Math.min(AH.W-40,pd.x+95):Math.max(40,pd.x-95);if(h2(danger,pd)&&Math.random()<lv.shield)ivDoShield(ah,1);}
@@ -7316,7 +7390,8 @@ function ivGuestTick(ah,dt){
   if(t){const st=sim.iv&&sim.iv.stun?sim.iv.stun[1]:0;ahMovePad(sim.pad[1],1,t.x,0,dt*(st>0?.22:1),'invaders');}
   // glide the other ship, the bullets and the hazards between two snapshots
   const iv=sim.iv;if(iv){
-    for(const b of iv.bul)b.y+=b.vy*dt;
+    for(const b of iv.bul){b.y+=b.vy*dt;b.x+=(b.vx||0)*dt;}
+    for(const q of iv.pu||[])q.y+=q.vy*dt;
     for(const h of iv.hz){h.x+=h.vx*dt;h.y+=h.vy*dt;}
     iv.t+=ah.ph==='play'?dt:0;
   }
@@ -7325,7 +7400,7 @@ function ivSnapshot(ah){
   const iv=ah.sim.iv,f=iv.fleet;
   let fs='';if(f)for(const c of f.cells)fs+=c?c.t+c.hp:'..';
   return{L:Math.round(iv.left*10)/10,t:Math.round(iv.t*100)/100,ph:iv.phase,fs,fo:f?Math.round((iv.t-f.t0)*100)/100:0,
-    bl:iv.bul.map(b=>[Math.round(b.x),Math.round(b.y),b.vy,b.o]),hz:iv.hz.map(h=>[Math.round(h.x),Math.round(h.y),Math.round(h.vx),h.vy,h.k==='bomb'?0:h.k==='ash'?2:1]),ly:Math.round(iv.leanY),wv:iv.wave,hl:iv.hull,
+    bl:iv.bul.map(b=>[Math.round(b.x),Math.round(b.y),b.vy,b.o,b.vx||0]),pu:iv.pu.map(q=>[Math.round(q.x),Math.round(q.y),q.vy,q.k,q.o]),pw:[iv.pwk.slice(),iv.pwt.map(v=>Math.round(v*10)/10)],ls:iv.ls?[iv.ls.v,Math.round(iv.ls.x),Math.round(iv.ls.t*100)/100,Math.round(iv.ls.f*100)/100]:null,bs:iv.boss?[iv.boss.hp,iv.boss.max]:null,bk:iv.bosses,hz:iv.hz.map(h=>[Math.round(h.x),Math.round(h.y),Math.round(h.vx),h.vy,h.k==='bomb'?0:h.k==='ash'?2:1]),ly:Math.round(iv.leanY),wv:iv.wave,hl:iv.hull,
     wn:iv.warn.map(w=>[w.victim,w.lane,Math.round(w.t*100)/100]),m:iv.meter.map(Math.round),cb:iv.combo,st:iv.stun.map(x=>Math.round(x*100)/100),sh:iv.sh.map(x=>Math.round(x*100)/100),cd:iv.shcd.map(x=>Math.round(x*10)/10),bc:iv.bestCombo,ot:iv.ot};
 }
 function ivApplySnapshot(ah,m){
@@ -7334,7 +7409,9 @@ function ivApplySnapshot(ah,m){
   // the fleet
   const cells=[];for(let i=0;i<IV.COLS*IV.ROWS;i++){const t=d.fs[i*2],h=d.fs[i*2+1];cells.push(t&&t!=='.'?{t,hp:+h}:null);}
   iv.fleet={cells,t0:d.t-d.fo};
-  iv.bul=d.bl.map(a=>({x:a[0],y:a[1],vy:a[2],o:a[3]}));
+  iv.bul=d.bl.map(a=>({x:a[0],y:a[1],vy:a[2],o:a[3],vx:a[4]||0}));
+  iv.pu=(d.pu||[]).map(a=>({x:a[0],y:a[1],vy:a[2],k:a[3],o:a[4]}));if(d.pw){iv.pwk=d.pw[0];iv.pwt=d.pw[1];}
+  iv.ls=d.ls?{v:d.ls[0],x:d.ls[1],t:d.ls[2],f:d.ls[3]}:null;iv.boss=d.bs?{hp:d.bs[0],max:d.bs[1],ft:9}:null;iv.bosses=d.bk||0;
   iv.hz=d.hz.map(a=>({x:a[0],y:a[1],vx:a[2],vy:a[3],k:a[4]===2?'ash':a[4]?'msl':'bomb'}));iv.leanY=d.ly||0;iv.wave=d.wv||iv.wave;iv.hull=d.hl==null?iv.hull:d.hl;
   iv.warn=d.wn.map(a=>({victim:a[0],lane:a[1],t:a[2]}));
   iv.meter=d.m;iv.combo=d.cb;iv.stun=d.st;iv.sh=d.sh;iv.shcd=d.cd;iv.bestCombo=d.bc;iv.ot=d.ot;
@@ -7394,6 +7471,12 @@ function ivEmit(ah,name,d){
     case'IV_INTRO':if(ah.coop){ahBanner(ah,'ONE TEAM · ONE FLEET','hold the line together',AH_COL.gold,2000);setTimeout(()=>{if(G.ah===ah)ahBanner(ah,'REACH WAVE '+ah.sim.iv.target,'five hits and the hull is gone',AH_COL.ivory,2200);},2200);break;}
     {const rv=ah.mode==='duo'?'':((ah.players[ah.mode==='guest'?0:1]&&ah.players[ah.mode==='guest'?0:1].name)||'');ahBanner(ah,'ONE FLEET · TWO PILOTS','it attacks you both',AH_COL.gold,2000);setTimeout(()=>{if(G.ah===ah)ahBanner(ah,'SHOOT THE ALIENS','send the trouble to '+(rv||'your rival'),AH_COL.ivory,2200);},2200);break;}
     case'IV_BANNER':ahBanner(ah,d.text,'',AH_COL.gold,1500);AHS.ivWave();break;
+    case'IV_BOSS':AHS.ivSiren();ahBanner(ah,'BOSS','bring it down',AH_COL.red||'#ff6a55',1800);shake(6);break;
+    case'IV_BOSSDOWN':AHS.ivNova();fx.flash=1;shake(12);haptic([60,40,120]);ahBanner(ah,'BOSS DOWN',ah.coop?'+150 each':'+300',AH_COL.gold,1800);for(let i=0;i<22;i++)ahSpark(ah,d.x+ahRnd(-70,70),d.y+ahRnd(-30,30),5,i%2?'#ff4f6d':'#ffd98a',560,1.2);ahRing(ah,d.x,d.y,170,'rgba(255,200,120,.9)',.6);break;
+    case'IV_SPLIT':ahSpark(ah,d.x,d.y,16,'#ff9f5f',380,1);ahRing(ah,d.x,d.y,64,'rgba(255,170,100,.85)',.4);break;
+    case'IV_LASERWARN':if(d.seat===bottomSeat||ah.mode==='duo'){AHS.ivSiren();ahBanner(ah,'LASER LOCK','move out of the line',AH_COL.red||'#ff6a55',1100);}break;
+    case'IV_LASERFIRE':AHS.ivWall();shake(d.seat===bottomSeat||ah.mode==='duo'?7:3);fx.flash=Math.max(fx.flash,.2);break;
+    case'IV_PICK':if(d.seat===bottomSeat||ah.mode==='duo'){AHS.ivReady();haptic(20);ahBanner(ah,d.k==='r'?'RAPID FIRE':d.k==='t'?'TRIPLE SHOT':ah.coop?'HULL REPAIRED':'SHIELD UP','',AH_COL.gold,800);}ahSpark(ah,d.x,d.y,10,'#ffe9a0',300,.8);break;
   }
 }
 // ── drawing
@@ -7420,7 +7503,7 @@ function ivBuildStatic(ah){
   ah.statik=c;
 }
 function ivAlien(x,t,hp,cx,cy,tm,hot){
-  const col=t==='b'?'#5ff0c0':t==='s'?'#a58bff':t==='m'?'#ffb347':'#ff6bd8',s=t==='c'?1.5:1;
+  const col=t==='b'?'#5ff0c0':t==='s'?'#a58bff':t==='m'?'#ffb347':t==='x'?'#ff9f5f':'#ff6bd8',s=t==='c'?1.5:1;
   x.save();x.translate(cx,cy);x.scale(s,s);
   x.shadowColor=col;x.shadowBlur=10;x.strokeStyle=col;x.lineWidth=2.4;x.lineJoin='round';x.fillStyle='rgba(6,16,20,.85)';
   const wob=Math.sin(tm*6+cx*.05)*2;
@@ -7431,6 +7514,7 @@ function ivAlien(x,t,hp,cx,cy,tm,hot){
   x.shadowBlur=0;x.fillStyle=col;x.beginPath();x.arc(-6,-4,2.2,0,6.283);x.arc(6,-4,2.2,0,6.283);x.fill();
   if(t==='s'){x.strokeStyle='rgba(180,160,255,'+(.4+.2*hp)+')';x.lineWidth=1.6;for(let i=0;i<hp;i++){x.beginPath();x.arc(0,-2,22+i*3.4,Math.PI*1.1,Math.PI*1.9);x.stroke();}}
   if(t==='m'){x.fillStyle='#ff6a55';x.beginPath();x.arc(0,16,4.5,0,6.283);x.fill();}
+  if(t==='x'){x.strokeStyle='#ffe3c0';x.lineWidth=2;x.beginPath();x.moveTo(0,-12);x.lineTo(-3,-3);x.lineTo(3,3);x.lineTo(0,8);x.stroke();if(hp<2){x.strokeStyle='#ff6a55';x.beginPath();x.moveTo(-14,-6);x.lineTo(-6,2);x.moveTo(14,-6);x.lineTo(7,3);x.stroke();}}
   if(t==='c'){x.strokeStyle='#ffd98a';x.lineWidth=2;x.beginPath();x.moveTo(-12,-14);x.lineTo(-7,-22);x.lineTo(0,-15);x.lineTo(7,-22);x.lineTo(12,-14);x.stroke();}
   x.restore();
 }
@@ -7457,6 +7541,26 @@ function ivDrawWorld(ah,x,V,sim,fx){
   }
   // the fleet
   for(let r=0;r<IV.ROWS;r++)for(let c=0;c<IV.COLS;c++){const cl=iv.fleet.cells[r*IV.COLS+c];if(!cl)continue;const p=ivPos(iv,r,c),v=V(p.x,p.y);ivAlien(x,cl.t,cl.hp,v[0],v[1],tm);}
+  // the boss
+  if(iv.boss){const bp=ivBossPos(iv),v=V(bp.x,bp.y),fr=iv.boss.hp/iv.boss.max;
+    x.save();x.translate(v[0],v[1]);x.shadowColor='#ff4f6d';x.shadowBlur=22;x.strokeStyle='#ff4f6d';x.lineWidth=3;x.fillStyle='rgba(20,6,12,.92)';x.lineJoin='round';
+    x.beginPath();x.moveTo(-70,8);x.lineTo(-52,-10);x.lineTo(-24,-24);x.lineTo(24,-24);x.lineTo(52,-10);x.lineTo(70,8);x.lineTo(40,24);x.lineTo(-40,24);x.closePath();x.fill();x.stroke();
+    x.shadowBlur=0;x.fillStyle='#ffd0d8';x.beginPath();x.arc(-18,-6,5,0,6.283);x.arc(18,-6,5,0,6.283);x.fill();
+    for(let i=-3;i<=3;i++){x.fillStyle=((Math.floor(tm*6)+i)%2)?'#ffb347':'#ff4f6d';x.beginPath();x.arc(i*18,14,3.2,0,6.283);x.fill();}
+    x.restore();
+    x.save();x.fillStyle='rgba(0,0,0,.6)';x.fillRect(v[0]-70,v[1]-46,140,9);x.fillStyle=fr>.5?'#7ff5d2':fr>.25?'#ffb347':'#ff4f6d';x.fillRect(v[0]-69,v[1]-45,138*fr,7);x.strokeStyle='rgba(244,235,208,.6)';x.lineWidth=1;x.strokeRect(v[0]-70,v[1]-46,140,9);
+    x.font='700 16px Jost, sans-serif';x.textAlign='center';x.fillStyle='#F4EBD0';x.fillText('BOSS',v[0],v[1]-52);x.restore();}
+  // the sniper laser
+  if(iv.ls){const ls=iv.ls,y0=V(0,ls.v===0?AH.H:0)[1],y1=V(0,AH.H/2)[1],lx=V(ls.x,0)[0],top=Math.min(y0,y1),h=Math.abs(y1-y0);
+    x.save();
+    if(ls.f>0){x.globalCompositeOperation='lighter';const g=x.createLinearGradient(lx-40,0,lx+40,0);g.addColorStop(0,'rgba(255,60,50,0)');g.addColorStop(.5,'rgba(255,230,210,.95)');g.addColorStop(1,'rgba(255,60,50,0)');x.fillStyle=g;x.fillRect(lx-40,top,80,h);x.fillStyle='rgba(255,255,255,.9)';x.fillRect(lx-7,top,14,h);}
+    else{const lock=ls.t<=.45,a=lock?.55+.4*Math.abs(Math.sin(tm*40)):.25+.2*Math.abs(Math.sin(tm*10));x.strokeStyle='rgba(255,70,55,'+a+')';x.lineWidth=lock?4:2;x.setLineDash([12,10]);x.beginPath();x.moveTo(lx,top);x.lineTo(lx,top+h);x.stroke();
+      x.setLineDash([]);x.strokeStyle='rgba(255,70,55,'+a+')';x.lineWidth=2.4;const ty=ls.v===bottomSeat?top+h-60:top+60;x.beginPath();x.arc(lx,ty,24,0,6.283);x.stroke();x.beginPath();x.moveTo(lx-34,ty);x.lineTo(lx+34,ty);x.moveTo(lx,ty-34);x.lineTo(lx,ty+34);x.stroke();}
+    x.restore();}
+  // power-ups
+  for(const q of iv.pu){const v=V(q.x,q.y),col=q.k==='r'?'#ffd24a':q.k==='t'?'#7ff5d2':'#ff8fb0',ch=q.k==='r'?'»':q.k==='t'?'3':'+';
+    x.save();x.shadowColor=col;x.shadowBlur=16;x.fillStyle='rgba(8,18,22,.9)';x.strokeStyle=col;x.lineWidth=2.6;x.beginPath();x.arc(v[0],v[1],14+Math.sin(tm*8)*1.2,0,6.283);x.fill();x.stroke();
+    x.shadowBlur=0;x.fillStyle=col;x.font='800 19px Jost, sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(ch,v[0],v[1]+1);x.restore();}
   // bullets
   x.save();x.globalCompositeOperation='lighter';x.lineCap='round';
   for(const b of iv.bul){const v=V(b.x,b.y),col=b.o===bottomSeat?'rgba(90,230,255,':ah.coop?'rgba(255,217,138,':'rgba(240,120,255,',len=-Math.sign(b.vy)*(flipped?-1:1)*16;
@@ -7472,8 +7576,9 @@ function ivDrawWorld(ah,x,V,sim,fx){
   for(let s=0;s<2;s++){const p=sim.pad[s],v=V(p.x,p.y),top=!(v[1]>AH.M+AH.H/2);const col=(s===bottomSeat)?AH_COL.me[0]:(ah.coop?'#ffd98a':'#e86bff');v.up=top;
     {const nm=ah.mode==='duo'?((ah.players[s]&&ah.players[s].name)||''):(s===bottomSeat?'YOU':((ah.players[s]&&ah.players[s].name)||'RIVAL'));x.save();x.font='700 20px Jost, sans-serif';x.textAlign='center';x.fillStyle=col;x.globalAlpha=.8;x.fillText(String(nm).toUpperCase().slice(0,12),v[0],v[1]+(top?-34:50));x.restore();}
     if(iv.combo[s]>=25){x.save();x.globalCompositeOperation='lighter';const fg=x.createRadialGradient(v[0],v[1],10,v[0],v[1],70);fg.addColorStop(0,'rgba(255,217,138,'+(.35+.2*Math.sin(tm*14))+')');fg.addColorStop(1,'rgba(255,217,138,0)');x.fillStyle=fg;x.beginPath();x.arc(v[0],v[1],70,0,6.283);x.fill();x.restore();}
+    if(iv.pwk&&iv.pwk[s]){const pc=iv.pwk[s]==='r'?'255,210,74':'127,245,210';x.save();x.globalCompositeOperation='lighter';x.strokeStyle='rgba('+pc+','+(.45+.3*Math.sin(tm*12))+')';x.lineWidth=3;x.beginPath();x.arc(v[0],v[1],46,0,6.283);x.stroke();x.restore();x.save();x.font='700 17px Jost, sans-serif';x.textAlign='center';x.fillStyle='rgb('+pc+')';x.globalAlpha=.9;x.fillText((iv.pwk[s]==='r'?'RAPID ':'TRIPLE ')+Math.ceil(iv.pwt[s]),v[0],v[1]+(top?84:-70));x.restore();}
     ivShip(x,v,col,iv.stun[s]>0,iv.sh[s],tm);}
-  if(ah.coop){x.save();x.font='700 22px Jost, sans-serif';x.textAlign='center';x.fillStyle='#F4EBD0';x.globalAlpha=.85;let hp='';for(let i=0;i<5;i++)hp+=(i+1<=Math.ceil(iv.hull-.01)?'●':'○');x.fillStyle=iv.hull<=2?'#ff7a6a':'#F4EBD0';x.fillText('HULL '+hp,AH.M+AH.W/2,AH.M+36);x.restore();}
+  if(ah.coop){x.save();x.font='700 22px Jost, sans-serif';x.textAlign='center';x.fillStyle='#F4EBD0';x.globalAlpha=.85;let hp='';for(let i=0;i<5;i++)hp+=(i+1<=Math.ceil(iv.hull-.01)?'●':'○');x.fillStyle=iv.hull<=2?'#ff7a6a':'#F4EBD0';x.fillText('HULL '+hp,AH.M+AH.W/2,AH.M+18);x.restore();}
   // the combo, quietly, above each ship
   for(let s=0;s<2;s++){if(iv.combo[s]>=3){const p=sim.pad[s],v=V(p.x,p.y),top=!(v[1]>AH.M+AH.H/2);x.save();x.globalAlpha=.8;x.fillStyle=iv.combo[s]>=15?'#ffd98a':'#F4EBD0';x.font='700 26px Jost, sans-serif';x.textAlign='center';x.fillText('×'+iv.combo[s],v[0],v[1]+(top?62:-48));x.restore();}}
 }
@@ -7488,7 +7593,7 @@ const AR_REC={
 function arAll(){try{return JSON.parse(localStorage.getItem('ct_ar')||'{}')||{};}catch(e){return{};}}
 function arFlag(id){const a=arAll();return !!(a.flags&&a.flags[id]);}
 function arPlayed(){const a=arAll();return a.played||{};}
-function ahResultObj(ah){const st=ah.stats;return{fastest:ahStatFast(ah),bestRally:st.bestRally,saves:st.saves,perfect:st.perfect||0,comeback:st.comeback?st.comeback.from:0,rev:st.rev?1:0,team:ah.team?1:0,won:ah.teamWon?1:0,wave:ah.team&&ah.sim.iv?Math.min(ah.sim.iv.wave,ah.sim.iv.target):0,teamScore:ah.team?ah.score[0]+ah.score[1]:0};}
+function ahResultObj(ah){const st=ah.stats;return{fastest:ahStatFast(ah),bestRally:st.bestRally,saves:st.saves,perfect:st.perfect||0,comeback:st.comeback?st.comeback.from:0,rev:st.rev?1:0,team:ah.team?1:0,won:ah.teamWon?1:0,wave:ah.team&&ah.sim.iv?Math.min(ah.sim.iv.wave,ah.sim.iv.target):0,bosses:ah.sim&&ah.sim.iv?ah.sim.iv.bosses||0:0,teamScore:ah.team?ah.score[0]+ah.score[1]:0};}
 // called on every device when a match ends. Returns the records that were beaten.
 function arRecordUpdate(game,names,winnerName,score,rs){
   const a=arAll();a.rec=a.rec||{};a.flags=a.flags||{};a.played=a.played||{};a.played[game]=(a.played[game]||0)+1;
@@ -7499,7 +7604,7 @@ function arRecordUpdate(game,names,winnerName,score,rs){
   if(game==='airhockey'&&rs&&rs.comeback>=4)a.flags['ah-comeback']=true;
   if(game==='pool'){if(rs&&rs.bestRally>=7)a.flags['pl-clear']=true;if(rs&&rs.perfect>=3)a.flags['pl-break']=true;}
   if(game==='pong'){if(ws===3&&ls===0)a.flags['pg-clean']=true;if(rs&&rs.bestRally>=20)a.flags['pg-epic']=true;}
-  if(game==='invaders'){if(rs&&rs.team&&rs.won)a.flags['iv-team']=true;if(rs&&rs.rev)a.flags['iv-reversal']=true;if(rs&&rs.fastest>=25)a.flags['iv-fever']=true;}
+  if(game==='invaders'){if(rs&&rs.team&&rs.won)a.flags['iv-team']=true;if(rs&&rs.rev)a.flags['iv-reversal']=true;if(rs&&rs.fastest>=25)a.flags['iv-fever']=true;if(rs&&rs.bosses>=1)a.flags['iv-boss']=true;}
   if(a.played.airhockey&&a.played.pong&&a.played.invaders)a.flags['ar-three']=true;
   try{localStorage.setItem('ct_ar',JSON.stringify(a));}catch(e){}
   return won;

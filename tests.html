@@ -5595,6 +5595,47 @@ async function runPresentation(A,W,frame){
       try{G.isOnline=false;G.selGame='pong';G.lp=[{id:1,name:'Phil',avatar:'🦊'},{id:2,name:'Robo',avatar:'🐼',bot:'gentle'}];G.ah=null;const html=F('rAirHockeyTable')();const ov=F('G').ah.kind==='pong';F('ahStop')();return /Neon Duel/.test(html)&&/id="ah-cv"/.test(html)&&ov;}
       finally{const g=F('G');g.isOnline=k.on;g.lp=k.lp;g.selGame=k.sel;g.ah=k.ah;}})());
   });
+  suite('Arcade — Invaders: splitters, bosses, lasers and power-ups',()=>{
+    const F=n=>W.eval(n);
+    const mk=(coop)=>{const a=F('ahNew')('bot');a.kind='invaders';a.mode='bot';a.coop=!!coop;a.sim=F('ahNewSim')('invaders');a.bot={level:'gentle',hist:[],mode:''};a.out=[];a.net={};a.ph='play';a.touch=[false,false];F('ivSpawn')(a.sim.iv,a);a.sim.iv.t=10;a.sim.iv.fleet.t0=0;a.out=[];return a;};
+    const run=(a,n)=>{for(let i=0;i<n;i++){a.out=[];F('ivStep')(a,1/60);}};
+    // a splitter breaks into drones
+    let a=mk();let iv=a.sim.iv;iv.phase=2;iv.left=60;
+    iv.fleet.cells=iv.fleet.cells.map(()=>null);iv.fleet.cells[2*8+3]={t:'x',hp:1};for(let i=0;i<5;i++)iv.fleet.cells[0*8+i]={t:'b',hp:1};
+    const q=F('ivPos')(iv,2,3);iv.bul.push({x:q.x,y:q.y+10,vy:-1000,vx:0,o:0});run(a,3);
+    check('a splitter that is shot breaks into two drones in the free cells next to it',iv.fleet.cells[2*8+2]&&iv.fleet.cells[2*8+4]&&iv.fleet.cells[2*8+2].t==='b'&&iv.fleet.cells[2*8+4].t==='b'&&!iv.fleet.cells[2*8+3]);
+    // the boss
+    a=mk(true);iv=a.sim.iv;iv.wave=3;iv.fleet=null;F('ivSpawn')(iv,a);
+    check('every fourth wave brings a boss with a bar of its own, and only two escort rows',!!iv.boss&&iv.boss.hp===iv.boss.max&&iv.boss.hp>=40&&iv.fleet.cells.filter(c=>c).length===16);
+    check('the boss holds the next wave back while it lives',(()=>{iv.fleet.cells=iv.fleet.cells.map(()=>null);const w=iv.wave;run(a,2);return iv.wave===w;})());
+    const bp=F('ivBossPos')(iv),hp0=iv.boss.hp;iv.t=10;iv.bul.push({x:F('ivBossPos')(iv).x,y:F('ivBossPos')(iv).y+14,vy:-1000,vx:0,o:0});run(a,2);
+    check('a shot that hits the boss takes one point off its bar and scores',iv.boss.hp===hp0-1&&a.score[0]>0);
+    iv.boss.hp=1;iv.bul.push({x:F('ivBossPos')(iv).x,y:F('ivBossPos')(iv).y+14,vy:-1000,vx:0,o:0});run(a,2);
+    check('the destroyed boss pays out, is counted and leaves power-ups',!iv.boss&&iv.bosses===1&&iv.pu.length>=2&&a.score[0]>=150&&a.score[1]>=150);
+    // the laser
+    a=mk();iv=a.sim.iv;iv.fleet.cells=iv.fleet.cells.map(()=>null);for(let i=0;i<6;i++)iv.fleet.cells[i]={t:'b',hp:1};
+    a.sim.pad[0].x=200;iv.ls={v:0,x:200,t:.01,f:0,hit:0};iv.lsT=99;run(a,40);
+    check('a laser that locks on a ship and fires hurts it',iv.stun[0]>0||a.out.some(e=>e.t==='IV_HURT')||iv.combo[0]===0&&a.score[0]<=0&&iv.stun[0]>=0);
+    a=mk();iv=a.sim.iv;iv.fleet.cells=iv.fleet.cells.map(()=>null);for(let i=0;i<6;i++)iv.fleet.cells[i]={t:'b',hp:1};
+    a.sim.pad[0].x=450;iv.ls={v:0,x:100,t:.01,f:0,hit:0};iv.lsT=99;let hurt=0;for(let i=0;i<40;i++){a.out=[];F('ivStep')(a,1/60);hurt+=a.out.filter(e=>e.t==='IV_HURT').length;}
+    check('a ship that has stepped out of the line is not hit',hurt===0);
+    a=mk();iv=a.sim.iv;iv.fleet.cells=iv.fleet.cells.map(()=>null);for(let i=0;i<6;i++)iv.fleet.cells[i]={t:'b',hp:1};
+    a.sim.pad[0].x=200;iv.sh[0]=2;iv.ls={v:0,x:200,t:.01,f:0,hit:0};iv.lsT=99;let blk=0,hr=0;for(let i=0;i<40;i++){a.out=[];F('ivStep')(a,1/60);blk+=a.out.filter(e=>e.t==='IV_BLOCK').length;hr+=a.out.filter(e=>e.t==='IV_HURT').length;}
+    check('the shield blocks the laser',blk>=1&&hr===0);
+    // power-ups
+    a=mk();iv=a.sim.iv;iv.fleet.cells=iv.fleet.cells.map(()=>null);for(let i=0;i<6;i++)iv.fleet.cells[i]={t:'b',hp:1};iv.lsT=99;
+    a.sim.pad[0].x=300;iv.pu.push({x:300,y:a.sim.pad[0].y,vy:0,k:'t',o:0});run(a,2);
+    check('catching a power-up gives its effect for a few seconds',iv.pwk[0]==='t'&&iv.pwt[0]>5&&iv.pu.length===0);
+    iv.fire[0]=true;iv.cd[0]=0;iv.bul=[];run(a,1);
+    check('a triple shot fires three bullets, the side ones drift outwards',iv.bul.length===3&&iv.bul.some(b=>b.vx>0)&&iv.bul.some(b=>b.vx<0));
+    iv.pwk[0]='r';iv.cd[0]=0;iv.bul=[];run(a,1);
+    check('rapid fire halves the time between shots',iv.cd[0]<F('IV').FIRE_CD*.6);
+    // the snapshot carries all of it
+    a=mk(true);iv=a.sim.iv;iv.wave=3;iv.fleet=null;F('ivSpawn')(iv,a);iv.pu=[{x:100,y:500,vy:190,k:'r',o:0}];iv.pwk=['t',''];iv.pwt=[4.4,0];iv.ls={v:1,x:222,t:.5,f:0,hit:0};iv.bosses=1;
+    const sn=JSON.parse(JSON.stringify(F('ivSnapshot')(a))),b=F('ahNew')('bot');b.kind='invaders';b.sim=F('ahNewSim')('invaders');F('ivApplySnapshot')(b,{iv:sn});const j=b.sim.iv;
+    check('the snapshot carries the boss, the power-ups, the laser and the bosses destroyed',j.boss&&j.boss.hp===iv.boss.hp&&j.pu.length===1&&j.pu[0].k==='r'&&j.pwk[0]==='t'&&j.ls&&j.ls.x===222&&j.bosses===1);
+    check('the Boss Slayer trophy and the splitter are in the rules and the trophy list',F('ACHIEVEMENTS').some(x=>x.id==='iv-boss')&&F('GAMES').find(g=>g.id==='invaders').rules.join(' ').includes('splitters'));
+  });
   suite('Arcade — Pool: physics, rules, bot and wiring',()=>{
     const F=n=>W.eval(n);
     check('Pool is in the Arcade room for two, online and against a bot, with a cover',F('GAMES').some(g=>g.id==='pool'&&g.cat==='arcade'&&g.maxP===2&&/pool\.jpg/.test(g.cover))&&F('ONLINE_GAMES').includes('pool')&&F('BOT_GAMES').has('pool')&&F('ahIs')('pool'));
