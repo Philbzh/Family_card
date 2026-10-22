@@ -1558,6 +1558,7 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 /* ── Arcade: Air Hockey (Neon Arena) ── */
 .game-airhockey .ah-felt{background:radial-gradient(ellipse at 50% 40%,#0c2220 0%,#06100e 70%,#030908 100%);border-radius:0;box-shadow:none;border:0;display:flex;flex-direction:column;}
 .ah-stage{position:relative;flex:1 1 auto;min-height:0;width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.game-pool .ah-cv{will-change:auto !important;}
 .ah-cv{display:block;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;will-change:transform;}
 .ah-hud{position:absolute;left:10px;z-index:3;display:flex;align-items:center;gap:.45rem;padding:.2rem .65rem .2rem .25rem;border-radius:999px;background:rgba(5,14,12,.74);border:1px solid rgba(230,195,106,.35);backdrop-filter:blur(4px);pointer-events:none;}
 .ah-hud-top{top:8px;}.ah-hud-bot{bottom:8px;}
@@ -7755,7 +7756,7 @@ function plCanAct(){
 }
 function plBanner(g,text,sub,col,ms){g.fx.banners.push({text,sub:sub||'',col:col||'#E6C36A',t:performance.now(),ms:ms||1300});if(g.fx.banners.length>3)g.fx.banners.shift();}
 function plSpark(g,x,y,n,col,spd){if(typeof gtAnim==='function'&&gtAnim()==='off')return;for(let i=0;i<n;i++){const a=Math.random()*6.283,s=(.3+Math.random()*.7)*spd;g.fx.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:0,life:.3+Math.random()*.4,col});}while(g.fx.parts.length>140)g.fx.parts.shift();}
-function plDisp(balls){return balls.map(b=>({id:b.id,x:b.x,y:b.y,on:b.on,rot:0,fall:null}));}
+function plDisp(balls,old){return balls.map(b=>{const o=old&&old.find(q=>q.id===b.id);return{id:b.id,x:b.x,y:b.y,on:b.on,rot:0,fall:null,m:o&&o.m?o.m:plM0(b.id),dirty:true};});}
 function plNewG(mode){
   const online=mode==='host'||mode==='guest',st=online&&G.srv?G.srv:null;
   const pl=(st&&st.pl)||plNew();
@@ -7769,7 +7770,7 @@ function plReplay(np){
   const g=G.pl;if(!g||!g.live)return;
   if(g.lastShot===np.shot.id)return;g.lastShot=np.shot.id;
   const prev=np.prev,sim=plSim(prev,{angle:np.shot.angle,power:np.shot.power,sx:np.shot.sx,sy:np.shot.sy},{record:true});
-  g.disp=plDisp(prev);g.aim.power=0;g.bihPos=null;g.remote=null;
+  g.disp=plDisp(prev,g.disp);g.aim.power=0;g.bihPos=null;g.remote=null;
   g.anim={frames:sim.frames,events:sim.res.events,evi:0,t0:performance.now(),np,isBreak:np.n===1,first:true,shot:np.shot};
   PLS.cue(np.shot.power);if(np.n===1){PLS.breakShot();g.fx.shake=12;g.fx.flash=.5;plBanner(g,'BREAK','',null,1100);}
   plSetBusy(true);
@@ -7780,7 +7781,7 @@ function plAnimStep(g,now){
   const dt0=a.last==null?0:Math.min(.05,Math.max(0,(now-a.last)/1000));a.last=now;a.el=(a.el||0)+dt0*(a.slow>0?.28:1);if(a.slow>0)a.slow-=dt0;
   const el=a.el,fi=Math.floor(el*60),n=a.frames.length;
   const f=a.frames[Math.min(fi,n-1)];
-  for(let i=0;i<g.disp.length;i++){const d=g.disp[i],was=d.on;d.x=f[i*4];d.y=f[i*4+1];d.on=f[i*4+2]>.5;d.rot=f[i*4+3];if(was&&!d.on){d.fall={x:d.x,y:d.y,t:now};}}
+  for(let i=0;i<g.disp.length;i++){const d=g.disp[i],was=d.on,ox=d.x,oy=d.y;d.x=f[i*4];d.y=f[i*4+1];d.on=f[i*4+2]>.5;d.rot=f[i*4+3];if(d.on&&(d.x!==ox||d.y!==oy)){d.m=plRoll(d.m,d.x-ox,d.y-oy);d.dirty=true;}if(was&&!d.on){d.fall={x:d.x,y:d.y,t:now};}}
   // the sounds and sparks of the moments of this shot, at their time
   while(a.evi<a.events.length&&a.events[a.evi].t<=el){
     const e=a.events[a.evi++];
@@ -7792,7 +7793,7 @@ function plAnimStep(g,now){
 }
 function plAnimEnd(g){
   const a=g.anim,np=a.np,old=g.pl;g.anim=null;
-  g.pl=np;g.disp=plDisp(np.balls);
+  g.pl=np;g.disp=plDisp(np.balls,g.disp);
   // what happened: said in a few words
   const names=plPlayers().map(p=>p.name),sol=gr=>gr==='solid'?'SOLIDS':'STRIPES';
   if(np.foul){PLS.foul();plBanner(g,'FOUL',np.foul,'#ff7a6a',1700);haptic([40,30,70]);}
@@ -7855,7 +7856,7 @@ function plMaybeBot(g){
   setTimeout(()=>{
     if(G.pl!==g||!g.live)return;
     const pl=g.pl;
-    if(pl.bih){const sp=plBotPlace(pl);const np0=JSON.parse(JSON.stringify(pl));np0.balls[0]={id:0,x:sp.x,y:sp.y,on:true};np0.bih=false;g.pl=np0;g.disp=plDisp(np0.balls);}
+    if(pl.bih){const sp=plBotPlace(pl);const np0=JSON.parse(JSON.stringify(pl));np0.balls[0]={id:0,x:sp.x,y:sp.y,on:true};np0.bih=false;g.pl=np0;g.disp=plDisp(np0.balls,g.disp);}
     const shot=plBotShot(g.pl,g.bot.level);
     g.aim.ang=shot.angle;g.aim.power=0;g.botAim=shot;
     // the cue is drawn back for a moment, then the shot goes
@@ -7871,7 +7872,7 @@ function plShoot(){
 }
 function plPlace(){
   const g=G.pl;if(!g||!g.pl.bih||!g.bihPos)return;
-  const np=JSON.parse(JSON.stringify(g.pl));np.balls[0]={id:0,x:g.bihPos.x,y:g.bihPos.y,on:true};np.bih=false;g.pl=np;g.disp=plDisp(np.balls);g.bihPos=null;g.aim.ang=-Math.PI/2;g.aim.power=0;
+  const np=JSON.parse(JSON.stringify(g.pl));np.balls[0]={id:0,x:g.bihPos.x,y:g.bihPos.y,on:true};np.bih=false;g.pl=np;g.disp=plDisp(np.balls,g.disp);g.bihPos=null;g.aim.ang=-Math.PI/2;g.aim.power=0;
 }
 function plTakeShot(shot){
   const g=G.pl;if(!g||!g.live)return;
@@ -8067,30 +8068,66 @@ function plDrawCue(x,cx,cy,ang,pw,al){
   x.fillStyle='#4a86b8';x.beginPath();x.arc(sx,sy,3,0,6.283);x.fill();
   x.restore();
 }
+/* ── the balls as little spheres: each one carries an orientation that rolls with its movement, and a sprite is shaded per pixel ── */
+const PL_RGB={};
+function plRgb(id){if(PL_RGB[id])return PL_RGB[id];const hex=id===0?'#f6f1e2':id===8?'#16181a':PL_COL[id>8?id-8:id],n=parseInt(hex.slice(1),16);return PL_RGB[id]=[(n>>16)&255,(n>>8)&255,n&255];}
+const PL_GLYPH={};
+function plGlyph(id){
+  if(PL_GLYPH[id])return PL_GLYPH[id];
+  const c=document.createElement('canvas');c.width=c.height=48;const q=c.getContext('2d');
+  q.fillStyle='#fff';q.fillRect(0,0,48,48);q.fillStyle='#111';q.font='800 30px Jost, Arial, sans-serif';q.textAlign='center';q.textBaseline='middle';q.fillText(String(id),24,26);
+  return PL_GLYPH[id]=q.getImageData(0,0,48,48).data;
+}
+// the starting orientation of a ball: its number faces the player, turned a little differently for each ball
+function plM0(id){const a=id*2.399,c=Math.cos(a),s=Math.sin(a);return[c,-s,0,s,c,0,0,0,1];}
+// the ball rolls: a movement (dx,dy) turns it about the axis across the movement by dist/R
+function plRoll(m,dx,dy){
+  const d=Math.hypot(dx,dy);if(d<1e-4)return m;
+  const ang=d/PL.R,ax=-dy/d,ay=dx/d,c=Math.cos(ang),s=Math.sin(ang),t=1-c;
+  const r=[t*ax*ax+c,t*ax*ay,ay*s, t*ax*ay,t*ay*ay+c,-ax*s, -ay*s,ax*s,c],o=new Array(9);
+  for(let i=0;i<3;i++)for(let j=0;j<3;j++)o[i*3+j]=r[i*3]*m[j]+r[i*3+1]*m[3+j]+r[i*3+2]*m[6+j];
+  return o;
+}
+function plSprite(id,m,S){
+  const cv=document.createElement('canvas');cv.width=cv.height=S;const q=cv.getContext('2d'),img=q.createImageData(S,S),d=img.data;
+  const col=plRgb(id),gl=id>0?plGlyph(id):null,half=S/2;
+  const lx=-.45,ly=-.55,lz=.7,ll=Math.hypot(lx,ly,lz),L=[lx/ll,ly/ll,lz/ll],hx=L[0],hy=L[1],hz=L[2]+1,hl=Math.hypot(hx,hy,hz),H=[hx/hl,hy/hl,hz/hl];
+  for(let py=0;py<S;py++)for(let px=0;px<S;px++){
+    const u=(px+.5-half)/half,v=(py+.5-half)/half,r2=u*u+v*v;if(r2>1.04)continue;
+    const rr=Math.sqrt(r2),al=Math.min(1,Math.max(0,(1-rr)*half)),w=Math.sqrt(Math.max(0,1-r2));
+    const p0=m[0]*u+m[3]*v+m[6]*w,p1=m[1]*u+m[4]*v+m[7]*w,p2=m[2]*u+m[5]*v+m[8]*w;
+    let R=col[0],G2=col[1],B=col[2];
+    if(id>8){const k=Math.min(1,Math.max(0,(.52-Math.abs(p1))/.06));R=246+(R-246)*k;G2=241+(G2-241)*k;B=226+(B-226)*k;}
+    if(id>0){
+      const cz=Math.abs(p2);
+      if(cz>.86){
+        const e=Math.min(1,(cz-.86)/.025);R+=(250-R)*e;G2+=(248-G2)*e;B+=(240-B)*e;
+        const sg=p2>0?1:-1,tu=(p0*sg)/.5*.5+.5,tv=p1/.5*.5+.5;
+        if(tu>0&&tu<1&&tv>0&&tv<1){const dk=1-gl[((tv*48|0)*48+(tu*48|0))*4]/255;R+=(17-R)*dk*e;G2+=(17-G2)*dk*e;B+=(17-B)*dk*e;}
+      }
+    }else if(Math.abs(p2)>.965){R=190;G2=50;B=40;}
+    let df=u*L[0]+v*L[1]+w*L[2];if(df<0)df=0;
+    let light=.34+.78*df;light*=.55+.45*Math.sqrt(w);
+    let sp=u*H[0]+v*H[1]+w*H[2];sp=sp>0?Math.pow(sp,60)*.85:0;
+    const wu=(u+.3)/.36,wv=(v+.42)/.15,we=wu*wu+wv*wv,win=we<1?(1-we)*.5:0;
+    const bounce=v>.35?(v-.35)*.28:0;
+    d[(py*S+px)*4]=Math.min(255,R*light+sp*255+win*255+bounce*60);
+    d[(py*S+px)*4+1]=Math.min(255,G2*light+sp*255+win*255+bounce*120);
+    d[(py*S+px)*4+2]=Math.min(255,B*light+sp*255+win*255+bounce*70);
+    d[(py*S+px)*4+3]=al*255;
+  }
+  q.putImageData(img,0,0);return cv;
+}
 function plDrawBall(x,b,sc){
-  const R=PL.R,id=b.id,col=id===0?'#f6f1e2':id===8?'#14161a':(PL_COL[id>8?id-8:id]);
+  const R=PL.R,id=b.id;
   // the shadow falls away from the lamp, soft at its edge
   const sdx=(b.x-PL.W/2)*.03+2,sdy=(b.y-PL.H*.4)*.03+5;
   const sg=x.createRadialGradient(b.x+sdx,b.y+sdy,R*.3,b.x+sdx,b.y+sdy,R*1.4);sg.addColorStop(0,'rgba(0,0,0,.55)');sg.addColorStop(.6,'rgba(0,0,0,.28)');sg.addColorStop(1,'rgba(0,0,0,0)');
   x.fillStyle=sg;x.beginPath();x.arc(b.x+sdx,b.y+sdy,R*1.4,0,6.283);x.fill();
-  x.save();x.translate(b.x,b.y);
-  // the ball itself
-  x.beginPath();x.arc(0,0,R,0,6.283);x.fillStyle=id>8?'#f6f1e2':col;x.fill();x.save();x.clip();
-  if(id>8){x.rotate(b.rot*.8);x.fillStyle=col;x.fillRect(-R,-R*.46,R*2,R*.92);x.rotate(-b.rot*.8);}
-  // the number disc rolls with the ball
-  if(id>0){const ox=Math.cos(b.rot*.9)*R*.35,oy=Math.sin(b.rot*.9)*R*.35*.7;x.fillStyle='#fffaf0';x.beginPath();x.arc(ox,oy,R*.46,0,6.283);x.fill();x.fillStyle='#111';x.font='700 '+Math.round(R*.62)+'px Jost, sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(String(id),ox,oy+.5);}
-  // round shading: lit upper left, dark at the lower right edge
-  const sh=x.createRadialGradient(-R*.35,-R*.4,R*.1,0,0,R*1.15);sh.addColorStop(0,'rgba(255,255,255,.28)');sh.addColorStop(.45,'rgba(255,255,255,0)');sh.addColorStop(.8,'rgba(0,0,0,.28)');sh.addColorStop(1,'rgba(0,0,0,.6)');
-  x.fillStyle=sh;x.fillRect(-R,-R,2*R,2*R);
-  // the green of the cloth bounces a little light back up at the bottom
-  const bl=x.createRadialGradient(R*.2,R*.85,0,R*.2,R*.85,R*.7);bl.addColorStop(0,'rgba(140,210,160,.22)');bl.addColorStop(1,'rgba(140,210,160,0)');x.fillStyle=bl;x.fillRect(-R,-R,2*R,2*R);
-  // the window of the lamp reflected in the gloss
-  x.save();x.rotate(-.7);const wg=x.createRadialGradient(-R*.05,-R*.52,0,-R*.05,-R*.52,R*.42);wg.addColorStop(0,'rgba(255,255,255,.85)');wg.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=wg;x.beginPath();x.ellipse(-R*.05,-R*.52,R*.4,R*.16,0,0,6.283);x.fill();x.restore();
-  x.restore();
-  // a hard specular spot and a thin rim
-  x.fillStyle='rgba(255,255,255,.95)';x.beginPath();x.arc(-R*.38,-R*.42,R*.08,0,6.283);x.fill();
-  x.lineWidth=.8;x.strokeStyle='rgba(0,0,0,.5)';x.beginPath();x.arc(0,0,R,0,6.283);x.stroke();
-  x.restore();
+  const S=Math.max(20,Math.ceil(2*R*(sc||1)*1.4));
+  if(!b.m)b.m=plM0(id);
+  if(!b.sp||b.dirty||b.spS!==S){b.sp=plSprite(id,b.m,S);b.spS=S;b.dirty=false;}
+  x.drawImage(b.sp,b.x-R*1.0,b.y-R*1.0,2*R,2*R);
 }
 function plDraw(g,now){
   const cv=g.cv;if(!cv)return;const x=cv.getContext('2d');if(!g.scale)plSize();if(!g.statik)plBuildStatic(g);
@@ -8128,7 +8165,7 @@ function plDraw(g,now){
       let bk=0,bd=1e9;for(let k=0;k<6;k++){const d=Math.hypot(b.fall.x-PL_POCKETS[k][0],b.fall.y-PL_POCKETS[k][1]);if(d<bd){bd=d;bk=k;}}
       const pc=PL_POCKETS[bk],cap=(bk>=4?PL.PS:PL.PC)+3,e=Math.min(1,u*1.7),px=b.fall.x+(pc[0]-b.fall.x)*e*e,py=b.fall.y+(pc[1]-b.fall.y)*e*e,s2=1-u*.5;
       x.save();x.beginPath();x.arc(pc[0],pc[1],cap,0,6.283);x.clip();x.translate(px,py);x.scale(s2,s2);x.translate(-px,-py);
-      plDrawBall(x,{id:b.id,x:px,y:py,rot:(b.rot||0)+u*3},sc);x.fillStyle='rgba(0,0,0,'+(u*.85)+')';x.beginPath();x.arc(px,py,PL.R,0,6.283);x.fill();x.restore();}}
+      plDrawBall(x,{id:b.id,x:px,y:py,rot:0,m:b.m},sc);x.fillStyle='rgba(0,0,0,'+(u*.85)+')';x.beginPath();x.arc(px,py,PL.R,0,6.283);x.fill();x.restore();}}
   }
   // the cue lies above the balls; the other player's cue is shown live while they aim
   if(cueDraw)plDrawCue(x,cue.x,cue.y,cueDraw.ang,cueDraw.pw,1);
