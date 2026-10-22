@@ -5506,6 +5506,16 @@ async function runPresentation(A,W,frame){
       F('ahOnBroadcast')({k:'rd',id:'room1'});
       check('a READY from the guest is remembered',ahH.ready[1]===true);
     }finally{G_.ah=keepAh;}
+    check('a fresh online host can send its snapshot (it crashed once on a missing event list) and the snapshot carries what the guest needs',(()=>{
+      const G=F('G'),keep=G.ah,sent=[];const ah=F('ahNew')('host');ah.id='r9';G.ah=ah;
+      const keepSend=W.ahSend;W.eval('window.__ahSent=[];var __oldSend=ahSend;ahSend=function(m){window.__ahSent.push(m);};');
+      try{F('ahHostSnapshot')(ah);const m=W.__ahSent[0];return !!m&&m.k==='st'&&Array.isArray(m.p)&&Array.isArray(m.a)&&Array.isArray(m.sc)&&Array.isArray(m.ev)&&m.ph==='ready';}
+      finally{W.eval('ahSend=__oldSend;');G.ah=keep;}
+    })());
+    check('silence before the match began never forfeits it (only a running match can be forfeited)',(()=>{
+      const ah=F('ahNew')('guest');ah.net.lost=true;ah.net.lostAt=performance.now()-60000;ah.net.lastRx=performance.now()-60000;ah.ph='ready';
+      F('ahCheckLink')(ah);return !ah.net.forfeited&&!ah.over;
+    })());
     // the table renders for a one-device game and shows the VS card with READY
     check('the table renders a canvas and the VS card for a one-device game',(()=>{
       const G=F('G'),keep={on:G.isOnline,lp:G.lp,sel:G.selGame,ah:G.ah,scr:G.scr};

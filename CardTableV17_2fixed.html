@@ -6256,7 +6256,7 @@ function ahNew(mode){
   const players=online?((st&&st.players)||[]):G.lp;
   const sc=(st&&st.ah&&st.ah.score)||[0,0];
   return{mode,id:(st&&st.ah&&st.ah.id)||String(Date.now()),live:true,over:false,overAt:0,sim:ahNewSim(),score:sc.slice(),seat:mode==='guest'?1:0,
-    ph:'ready',pt:0,ready:[false,false],t0:Date.now(),
+    ph:'ready',pt:0,ready:[false,false],t0:Date.now(),evHist:[],evn:0,out:[],
     tgt:[null,null],my:{x:AH.W/2,y:AH.H-130,touch:false},
     net:{seq:0,lastRx:0,lastTx:0,rtt:120,hold:0,seen:{},evs:[],evn:0,lost:false,lostAt:0,lastSt:0},
     bot:{level:(players[1]&&players[1].bot)||'gentle',hist:[],mode:''},
@@ -6449,7 +6449,7 @@ function ahCorrectPuck(ah,m){
 }
 function ahHostSnapshot(ah){
   const net=ah.net,sim=ah.sim;
-  const ev=ah.evHist.slice(-8);
+  const ev=(ah.evHist||[]).slice(-8);
   ahSend({k:'st',i:++net.seq,ph:ah.ph,pt:Math.round(ah.pt*1000)/1000,sc:ah.score,rd:ah.ready,w:ah.winSeat,
     p:[Math.round(sim.p.x*10)/10,Math.round(sim.p.y*10)/10,Math.round(sim.p.vx),Math.round(sim.p.vy)],
     a:[Math.round(sim.pad[0].x*10)/10,Math.round(sim.pad[0].y*10)/10],b:[Math.round(sim.pad[1].x),Math.round(sim.pad[1].y)],
@@ -6495,9 +6495,11 @@ function ahAttach(){
     // heartbeat + the stream to the other device, independent of the frame rate
     ah.net.timer=setInterval(()=>{
       const a=G.ah;if(!a||!a.live||a!==ah){clearInterval(ah.net.timer);return;}
+      try{
       if(a.mode==='host'){ahHostSnapshot(a);}
       else{const m=a.my;ahSend({k:'in',x:m.x,y:m.y,seq:++a.net.seq,ts:Math.round(performance.now())});if(!a.ready[1]&&a.readyTap)ahSend({k:'rd'});}
       ahCheckLink(a);
+      }catch(e){console.error('ah net',e);}
     },1000/AH.ST_HZ);
   }
 }
@@ -6619,7 +6621,8 @@ function ahCheckLink(ah){
   if(ah.ph==='over'||ah.over){net.lost=false;return;}
   if(quiet>3500&&!net.lost){net.lost=true;net.lostAt=now;ahPaintOverlay();}
   else if(quiet<=1500&&net.lost){net.lost=false;ahPaintOverlay();ahBanner(ah,'MATCH RESUMED','',AH_COL.gold,1000);}
-  if(net.lost&&now-net.lostAt>25000&&!net.forfeited){net.forfeited=true;ahForfeit(ah);}
+  // a match that never began (still on the READY card) is never decided by a silence
+  if(net.lost&&now-net.lostAt>25000&&!net.forfeited&&ah.ph!=='ready'&&ah.stats.start){net.forfeited=true;ahForfeit(ah);}
 }
 function ahForfeit(ah){
   // after a long silence the device that is still connected takes the match
