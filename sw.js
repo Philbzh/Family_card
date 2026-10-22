@@ -3,7 +3,7 @@
 // app shell itself. Multiplayer still needs a live connection (Supabase requests are always
 // passed straight through to the network, never cached), so this is about the shell — the HTML,
 // icons, and manifest — not about playing an online game with no signal.
-const CACHE_NAME = 'our-table-v55';
+const CACHE_NAME = 'our-table-v56';
 // Pictures live in their OWN cache, which a new app version does not throw away: the ~12 MB of covers,
 // room pictures and avatars used to be downloaded again from scratch on every visit (network-first with
 // no-store) and again on every release, so on a slow connection the home screen painted only the top strip
@@ -12,7 +12,7 @@ const CACHE_NAME = 'our-table-v55';
 const ASSET_CACHE = 'our-table-assets-v1';
 // Pictures replaced in place under the same name: dropped from ASSET_CACHE on every activation so the new file is fetched (a few hundred KB;
 // leaving a name in this list is harmless). Without this, devices that had already loaded the old picture kept showing it for ever.
-const REPLACED_ASSETS = ['./assets/games/blackwater.jpg','./assets/games/airhockey.jpg','./assets/games/pong.jpg','./assets/games/invaders.jpg','./assets/rooms/arcade.jpg'];
+const REPLACED_ASSETS = ['./assets/games/blackwater.jpg','./assets/games/airhockey.jpg','./assets/games/pong.jpg','./assets/games/invaders.jpg','./assets/games/pool.jpg','./assets/rooms/arcade.jpg'];
 const APP_SHELL = [
   './CardTableV17_2fixed.html',
   './manifest.json',

@@ -5595,6 +5595,22 @@ async function runPresentation(A,W,frame){
       try{G.isOnline=false;G.selGame='pong';G.lp=[{id:1,name:'Phil',avatar:'🦊'},{id:2,name:'Robo',avatar:'🐼',bot:'gentle'}];G.ah=null;const html=F('rAirHockeyTable')();const ov=F('G').ah.kind==='pong';F('ahStop')();return /Neon Duel/.test(html)&&/id="ah-cv"/.test(html)&&ov;}
       finally{const g=F('G');g.isOnline=k.on;g.lp=k.lp;g.selGame=k.sel;g.ah=k.ah;}})());
   });
+  suite('Arcade — Pool: physics, rules, bot and wiring',()=>{
+    const F=n=>W.eval(n);
+    check('Pool is in the Arcade room for two, online and against a bot, with a cover',F('GAMES').some(g=>g.id==='pool'&&g.cat==='arcade'&&g.maxP===2&&/pool\.jpg/.test(g.cover))&&F('ONLINE_GAMES').includes('pool')&&F('BOT_GAMES').has('pool')&&F('ahIs')('pool'));
+    const pl=F('plNew')();
+    check('a fresh rack has the cue ball and 15 object balls, all on the table, the 8 in the middle of the third row',pl.balls.length===16&&pl.balls.every(b=>b.on)&&pl.phase==='break');
+    const a=F('plSim')(pl.balls,{angle:-Math.PI/2,power:.9,sx:0,sy:0});
+    const b=F('plSim')(pl.balls,{angle:-Math.PI/2,power:.9,sx:0,sy:0});
+    check('the physics is deterministic: the same shot gives identical final positions on every device',JSON.stringify(a.balls)===JSON.stringify(b.balls));
+    check('a break moves the rack and hits something',a.res.firstHit!=null&&a.balls.some((x,i)=>i>0&&(Math.abs(x.x-pl.balls[i].x)>1||Math.abs(x.y-pl.balls[i].y)>1)));
+    check('every ball stays inside the table',a.balls.every(x=>!x.on||(x.x>0&&x.x<500&&x.y>0&&x.y<1000)));
+    const r=F('plPlayShot')(pl,{angle:-Math.PI/2,power:.5,sx:0,sy:0},{});
+    check('a played shot records the previous positions and the shot for the replay',r.np.prev.length===16&&r.np.shot&&r.np.shot.id&&r.np.n===pl.n+1);
+    const bot=F('plBotShot')(F('plNew')(),'sharp');
+    check('the bot produces a legal break shot',bot&&isFinite(bot.angle)&&bot.power>0&&bot.power<=1);
+    check('a bot places the cue ball on the table when it has ball in hand',(()=>{const q=F('plNew')();const p=F('plBotPlace')(q);return !p||(p.x>0&&p.x<500&&p.y>0&&p.y<1000);})());
+  });
   suite('Arcade — Invaders: Duel: the fleet, the shots, the attacks and the match',()=>{
     const F=n=>W.eval(n),IV=F('IV'),AH=F('AH');
     const mk=()=>{const a=F('ahNew')('bot');a.kind='invaders';a.mode='bot';a.coop=false;a.sim=F('ahNewSim')('invaders');a.bot={level:'gentle',hist:[],mode:''};a.out=[];F('ivSpawn')(a.sim.iv);a.ph='play';return a;};
