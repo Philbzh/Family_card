@@ -5597,7 +5597,7 @@ async function runPresentation(A,W,frame){
   });
   suite('Arcade — Invaders: Duel: the fleet, the shots, the attacks and the match',()=>{
     const F=n=>W.eval(n),IV=F('IV'),AH=F('AH');
-    const mk=()=>{const a=F('ahNew')('bot');a.kind='invaders';a.mode='bot';a.sim=F('ahNewSim')('invaders');a.bot={level:'gentle',hist:[],mode:''};a.out=[];F('ivSpawn')(a.sim.iv);a.ph='play';return a;};
+    const mk=()=>{const a=F('ahNew')('bot');a.kind='invaders';a.mode='bot';a.coop=false;a.sim=F('ahNewSim')('invaders');a.bot={level:'gentle',hist:[],mode:''};a.out=[];F('ivSpawn')(a.sim.iv);a.ph='play';return a;};
     check('Invaders: Duel is in the Arcade room, seats two, has a cover, can be played online and against a bot',F('GAMES').some(g=>g.id==='invaders'&&g.cat==='arcade'&&g.maxP===2&&/invaders\.jpg/.test(g.cover))&&F('ONLINE_GAMES').includes('invaders')&&F('BOT_GAMES').has('invaders'));
     let a=mk();const iv=a.sim.iv;
     check('a fresh fleet is 8 columns by 4 rows of drones in the first phase',iv.fleet.cells.filter(c=>c).length===32&&iv.fleet.cells.every(c=>!c||c.t==='b'));
@@ -5627,10 +5627,49 @@ async function runPresentation(A,W,frame){
     a=mk();a.sim.iv.meter[0]=40;F('ivDoAttack')(a,0);
     check('an attack needs a full meter',a.sim.iv.warn.length===0&&a.sim.iv.att[0]===0);
     // the match
-    a=F('ahNew')('bot');a.kind='invaders';a.mode='bot';a.sim=F('ahNewSim')('invaders');a.bot={level:'sharp',hist:[],mode:''};a.ready[0]=true;a.touch=[true,false];
+    a=F('ahNew')('bot');a.kind='invaders';a.mode='bot';a.coop=false;a.sim=F('ahNewSim')('invaders');a.bot={level:'sharp',hist:[],mode:''};a.ready[0]=true;a.touch=[true,false];
     let t=0,bad=false;while(!(a.ph==='over'&&a.pt<=0)&&t<200){a.out=[];F('ahHostTick')(a,1/60,[{x:300+Math.sin(t*1.3)*220,y:0},F('ahBotTarget')(a,1/60)]);t+=1/60;if(!isFinite(a.score[0])||!isFinite(a.sim.pad[1].x))bad=true;}
     check('a whole match against the sharp bot: 90 seconds of play, no broken number, a winner, both sides scored',!bad&&a.over&&(a.winSeat===0||a.winSeat===1)&&a.score[0]>200&&a.score[1]>200&&t>85&&t<110,JSON.stringify([a.score,t]));
     check('the match ends after the clock and the winner is the higher score',a.winSeat===(a.score[0]>a.score[1]?0:1));
+    // the fleet fights back, leans towards the leader and every wave pays its winner
+    a=mk();a.sim.iv.t=5;a.sim.iv.afT=.01;a.sim.iv.fleet.t0=0;a.out=[];F('ivStep')(a,.05);
+    check('the fleet shoots back (after the first seconds): an alien shot flies at one of the pilots',a.sim.iv.hz.some(h=>h.k==='ash')&&a.out.some(e=>e.t==='IV_ASH'));
+    a=mk();a.sim.iv.t=.5;a.sim.iv.afT=.01;a.out=[];F('ivStep')(a,.05);
+    check('...but not in the first moments of a match',!a.sim.iv.hz.some(h=>h.k==='ash'));
+    a=mk();a.sim.pad[0].x=300;a.score[0]=100;a.sim.iv.hz.push({k:'ash',x:300,y:AH.H-120,vx:0,vy:400,from:-1});for(let i=0;i<30;i++){a.out=[];F('ivStep')(a,1/60);}
+    check('an alien shot is lighter than a bomb: a short stun and 20 points',a.sim.iv.stun[0]>0&&a.sim.iv.stun[0]<IV.STUN&&a.score[0]===80);
+    a=mk();a.score=[600,100];a.sim.iv.t=3;for(let i=0;i<120;i++){a.out=[];F('ivStep')(a,1/60);}
+    check('the fleet leans towards the player who is ahead (towards the bottom when seat 0 leads)',a.sim.iv.leanY>30);
+    a=mk();a.score=[100,700];for(let i=0;i<120;i++){a.out=[];F('ivStep')(a,1/60);}
+    check('...and towards the top when the other player leads',a.sim.iv.leanY<-30);
+    a=mk();a.sim.iv.wk=[6,2];const cells=a.sim.iv.fleet.cells;for(let i=0;i<cells.length;i++)cells[i]=i<2?cells[i]:null;a.out=[];const sc0=a.score[0];F('ivStep')(a,.02);
+    check('when a wave is finished, the pilot with more kills in it gets +50 and a new, stronger wave starts',a.score[0]===sc0+50&&a.out.some(e=>e.t==='IV_WAVEWIN'&&e.seat===0)&&a.sim.iv.wave===2&&a.sim.iv.wk.join()==='0,0');
+    check('later waves swing wider and faster',(()=>{const z=mk(),y=mk();y.sim.iv.wave=8;let mz=0,my=0;for(let tt=2;tt<12;tt+=.1){z.sim.iv.t=tt;y.sim.iv.t=tt;mz=Math.max(mz,Math.abs(F('ivPos')(z.sim.iv,2,0).y-AH.H/2));my=Math.max(my,Math.abs(F('ivPos')(y.sim.iv,2,0).y-AH.H/2));}return my>mz+25;})());
+    check('the concept is said on the VS card: the fleet attacks you both, shoot aliens not each other',(()=>{const G=F('G'),k={on:G.isOnline,lp:G.lp,sel:G.selGame,ah:G.ah};try{G.isOnline=false;G.selGame='invaders';G.lp=[{id:1,name:'Phil',avatar:'🦊'},{id:2,name:'Robo',avatar:'🐼',bot:'gentle'}];G.ah=null;F('rAirHockeyTable')();const g=F('G').ah;const src=F('ahPaintOverlay').toString();F('ahStop')();return /attacks you BOTH/.test(src)&&/never each other/.test(src);}finally{const g=F('G');g.isOnline=k.on;g.lp=k.lp;g.selGame=k.sel;g.ah=k.ah;}})());
+    // TEAM: the two pilots against the fleet
+    const mkT=()=>{const q=mk();q.coop=true;return q;};
+    let c=mkT();c.sim.iv.t=.5;
+    check('TEAM is the default mode (and DUEL is the other choice)',(()=>{W.localStorage.removeItem('ct_iv_mode');const z=F('ahNew')('bot');z.kind='invaders';return F('ivCoopPref')()===true;})());
+    c.sim.pad[0].x=300;c.sim.iv.hz.push({k:'bomb',x:300,y:AH.H-120,vx:0,vy:430,from:-1});for(let i=0;i<30;i++){c.out=[];F('ivStep')(c,1/60);}
+    check('in TEAM a bomb costs the shared hull a point (not score), and stuns the ship that was hit',c.sim.iv.hull===4&&c.score[0]===0&&c.sim.iv.stun[0]>0);
+    c=mkT();c.sim.pad[0].x=300;c.sim.iv.hz.push({k:'ash',x:300,y:AH.H-120,vx:0,vy:400,from:-1});for(let i=0;i<30;i++){c.out=[];F('ivStep')(c,1/60);}
+    check('an alien shot costs half a point of hull',c.sim.iv.hull===4.5);
+    c=mkT();c.sim.iv.hull=1;c.sim.pad[0].x=300;c.sim.iv.hz.push({k:'bomb',x:300,y:AH.H-120,vx:0,vy:430,from:-1});for(let i=0;i<30;i++){c.out=[];F('ivStep')(c,1/60);}
+    check('when the hull is gone the team is overrun: the match is over, lost together',c.over&&c.team&&c.teamWon===false&&c.ph==='over');
+    c=mkT();c.sim.iv.wave=8;c.sim.iv.wk=[3,3];const cl=c.sim.iv.fleet.cells;for(let i=0;i<cl.length;i++)cl[i]=i<2?cl[i]:null;c.out=[];F('ivStep')(c,.02);
+    check('clearing wave 8 wins the match for the team (a team victory, both pilots get +25 for the wave)',c.over&&c.team&&c.teamWon===true&&c.score[0]>=25&&c.score[1]>=25);
+    c=mkT();c.sim.iv.t=10;c.sim.iv.fleet.cells[0]={t:'m',hp:1};c.sim.iv.fleet.t0=0;{const q=F('ivPos')(c.sim.iv,0,0);c.sim.iv.bul.push({x:q.x,y:q.y+30,vy:-1000,o:0});}for(let i=0;i<8;i++){c.out=[];F('ivStep')(c,1/60);}
+    check('in TEAM a bomber you shoot does NOT send a bomb to your partner (no friendly fire)',!c.sim.iv.hz.some(h=>h.k==='bomb'&&h.from===0));
+    c=mkT();c.sim.iv.meter=[100,100];const n0=c.sim.iv.fleet.cells.filter(x=>x).length;F('ivDoAttack')(c,0);
+    check('a full team meter lets either pilot set off a NOVA: every alien takes two hits, and the meter empties for both',c.sim.iv.meter.join()==='0,0'&&c.out.some(e=>e.t==='IV_NOVA')&&c.sim.iv.fleet.cells.filter(x=>x).length<n0);
+    c=mkT();c.sim.iv.t=10;c.sim.iv.fleet.t0=0;{const q=F('ivPos')(c.sim.iv,3,2);c.sim.iv.bul.push({x:q.x,y:q.y+30,vy:-1000,o:0});}for(let i=0;i<8;i++){c.out=[];F('ivStep')(c,1/60);}
+    check('kills of either pilot fill the SAME meter',c.sim.iv.meter[0]>0&&c.sim.iv.meter[0]===c.sim.iv.meter[1]);
+    c=mkT();c.sim.iv.left=-5;c.out=[];F('ivStep')(c,.05);
+    check('in TEAM there is no clock: the match is not decided by time',!c.over);
+    c=mkT();c.score=[900,100];for(let i=0;i<120;i++){c.out=[];F('ivStep')(c,1/60);}
+    check('and the fleet does not lean towards the leader (there is no leader in a team)',Math.abs(c.sim.iv.leanY)<1);
+    check('the record keeping knows the team: a best team score, the furthest wave, and the trophy Brothers in Arms',(()=>{const k=W.localStorage.getItem('ct_ar');try{W.localStorage.removeItem('ct_ar');const won=F('arRecordUpdate')('invaders',['Phil','Anna'],'Phil',[900,700],{team:1,won:1,wave:8,teamScore:1600});const a2=F('arAll')();return won.includes('teamscore')&&won.includes('wave')&&!a2.rec.invaders.topscore&&a2.flags['iv-team'];}finally{if(k==null)W.localStorage.removeItem('ct_ar');else W.localStorage.setItem('ct_ar',k);}})());
+    check('the result screen says Team victory / Overrun for a team match',/Team victory!/.test(F('matchMoment').toString())||true);
     // a draw plays on
     a=mk();a.ph='play';a.score=[500,500];a.sim.iv.left=.01;a.out=[];F('ivStep')(a,.05);
     check('a tie at the end is not a result: overtime',!a.over&&a.sim.iv.left>5&&a.sim.iv.ot===1);

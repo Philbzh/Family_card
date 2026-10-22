@@ -4624,7 +4624,9 @@ const GAMES=[
      'The ball <b>evolves</b> during a rally: it gets faster, leaves a trail, and later it starts to <b>curve</b>. A long rally is dangerous and a score goes to whoever misses.',
      'On <b>one device</b> play a bot (Gentle or Sharp) or share the screen (each plays their own half with a finger). Online, your own paddle never waits for the network; a lost connection <b>pauses</b> the match.']},
   {id:'invaders',cat:'arcade',icon:'👾',name:'Invaders: Duel',players:'2',dur:'2 min',diff:'medium',deal:0,minP:2,maxP:2,cover:'assets/games/invaders.jpg',
-   rules:['<b>Shoot the fleet. Survive the return.</b> You and your opponent sit on opposite sides, with one alien fleet in between. <b>Hold your finger down to fire</b> and slide it to move. <b>Highest score after 90 seconds wins.</b>',
+   rules:['<b>TEAM or DUEL, you choose before the match.</b> In <b>TEAM</b> (the default) you fight <b>together</b> against the fleet from opposite sides: you share the hull (five hits and it is over), the attack meter fills for both of you and releases a <b>NOVA</b> that hits every alien on the field, and your goal is to hold out to <b>wave 8</b>. In <b>DUEL</b> you are rivals:',
+     '<b>DUEL:</b> one fleet, two pilots, one winner. You and your opponent are <b>rivals</b>, not a team, but the alien fleet in the middle attacks <b>both</b> of you. You never shoot at each other: you shoot the fleet, and the <b>highest score after 90 seconds wins</b>. <b>Hold your finger down to fire</b> and slide it to move.',
+     '<b>The fleet fights back</b> and every wave is stronger: faster, swinging deeper towards your side, shooting more often. It is <b>drawn towards whoever is ahead</b>, so the leader must dodge more. Win a wave (more kills) for <b>+50</b>.',
      '<b>Combos:</b> every hit that does not miss builds your combo and multiplies your points; one shot that finds nothing, or a hit on you, breaks it. Shielded aliens take three hits, <b>bombers</b> are worth more, and the <b>commander</b> is worth a lot.',
      '<b>Hit your opponent through the fleet:</b> a bomber you destroy sends its bomb to <b>them</b>; good play fills your <b>⚡ attack</b> meter, and a full meter sends a wall of missiles with one safe lane. A commander you shoot stuns them for a moment.',
      '<b>Defence:</b> move out of the way, or press <b>🛡</b> for a short shield (it needs a few seconds to recharge). A hit costs points and stuns your ship. Tied at the end? <b>Overtime.</b>']},
@@ -5088,6 +5090,7 @@ const ACHIEVEMENTS=[
   {id:'pg-clean',icon:'🏓',name:'Never Blink',desc:'Won a Pong match 3–0 in games',check:()=>arFlag('pg-clean')},
   {id:'pg-epic',icon:'🔥',name:'Epic Rally',desc:'A Pong rally of 20 returns',check:()=>arFlag('pg-epic')},
   {id:'iv-reversal',icon:'👾',name:'Last Stand',desc:'Won Invaders: Duel after being behind at 80 seconds',check:()=>arFlag('iv-reversal')},
+  {id:'iv-team',icon:'🤝',name:'Brothers in Arms',desc:'Defeated the Invaders fleet together as a team',check:()=>arFlag('iv-team')},
   {id:'iv-fever',icon:'⚡',name:'Fever',desc:'A 25-hit combo in Invaders: Duel',check:()=>arFlag('iv-fever')},
   {id:'ar-three',icon:'🕹️',name:'Arcade Regular',desc:'Played Air Hockey, Pong and Invaders: Duel',check:()=>arFlag('ar-three')},
   {id:'bw-first',icon:'⚓',name:'Into the Blackwater',desc:'Played a game of Blackwater',check:()=>getHistory().some(h=>h.game==='blackwater')},
@@ -6348,6 +6351,8 @@ const AHS={
   intro(){bwSn(1.1,180,2600,{type:'bandpass',q:.9,v:.1,a:.5,rev:.5});bwSt(90,200,1,{v:.12,a:.4,rev:.4});},
   pulse(){bwSt(300,600,.35,{type:'sine',v:.1,a:.03,rev:.5});},
   charge(){bwSt(200,1100,.5,{type:'sawtooth',v:.12,lp:1500,a:.05,rev:.4});bwSn(.5,1200,5000,{type:'bandpass',q:1.2,v:.1,a:.2,rev:.3});},
+  ivAsh(){bwSt(900,500,.1,{type:'square',v:.035,lp:2200,a:.003});},
+  ivNova(){bwCrack(.8,0,.4);bwSn(1.6,5000,100,{v:.9,a:.003,rev:.6,long:true});bwSt(80,26,1.6,{v:1,dist:1,a:.004,rev:.4,long:true});bwSt(300,1200,.5,{type:'sawtooth',v:.15,lp:2000,a:.05,rev:.4});},
   ivShot(mine){bwSt(1500,620,.07,{type:'square',v:mine?.05:.02,lp:3600,a:.002,rev:.1});},
   ivHit(){bwSt(380,200,.07,{v:.18,a:.002});bwSn(.04,5000,2000,{type:'highpass',v:.1,a:.001});},
   ivKill(k){bwSn(.25,4200,300,{v:.3,a:.002,rev:.25});bwSt(260,80,.22,{v:.45,dist:.5,a:.003});if(k==='c'){bwSt(70,38,.7,{v:.6,dist:1,a:.004,rev:.4,long:true});bwClang(.1,300,1.1,0,.4);}if(k==='m')bwSt(900,300,.25,{type:'sawtooth',v:.1,lp:1600,a:.004,rev:.3});},
@@ -6394,7 +6399,7 @@ function ahNew(mode){
   const players=online?((st&&st.players)||[]):G.lp;
   const sc=(st&&st.ah&&st.ah.score)||[0,0];
   return{mode,id:(st&&st.ah&&st.ah.id)||String(Date.now()),live:true,kind,over:false,overAt:0,sim:ahNewSim(kind),score:sc.slice(),seat:mode==='guest'?1:0,
-    ph:'ready',pt:0,ready:[false,false],t0:Date.now(),evHist:[],evn:0,out:[],pts:[0,0],touch:[false,false],mayhem:kind==='airhockey'&&mode!=='guest'&&ahMayhemPref(),born:performance.now(),
+    ph:'ready',pt:0,ready:[false,false],t0:Date.now(),evHist:[],evn:0,out:[],pts:[0,0],touch:[false,false],mayhem:kind==='airhockey'&&mode!=='guest'&&ahMayhemPref(),coop:kind==='invaders'&&mode!=='guest'&&ivCoopPref(),born:performance.now(),
     tgt:[null,null],my:{x:AH.W/2,y:AH.H-130,touch:false},
     net:{seq:0,lastRx:0,lastTx:0,rtt:120,hold:0,seen:{},evs:[],evn:0,lost:false,lostAt:0,lastSt:0},
     bot:{level:(players[1]&&players[1].bot)||'gentle',hist:[],mode:''},
@@ -6522,11 +6527,14 @@ function ahGoal(ah,seat,speed){
 // the numbers of the finished match, for the result screen (this device's own run, or the room's record online)
 function ahResultStats(){
   const st=G.isOnline&&G.srv?G.srv.ah:G.ahResult;if(!st)return{score:[0,0],fastest:0,bestRally:0,saves:0,dur:0};
-  const x=st.stats||st;return{score:st.score||[0,0],fastest:x.fastest||0,bestRally:x.bestRally||0,saves:x.saves||0,perfect:x.perfect||0,dur:st.dur||0};
+  const x=st.stats||st;return{team:x.team||0,won:x.won||0,wave:x.wave||0,teamScore:x.teamScore||0,score:st.score||[0,0],fastest:x.fastest||0,bestRally:x.bestRally||0,saves:x.saves||0,perfect:x.perfect||0,dur:st.dur||0};
 }
 // the moment line for the result screen
+function ivCoopPref(){try{return localStorage.getItem('ct_iv_mode')!=='duel';}catch(e){return true;}}
 function ahMayhemPref(){try{return localStorage.getItem('ct_ah_mode')==='mayhem';}catch(e){return false;}}
-function ahSetMode(m){try{localStorage.setItem('ct_ah_mode',m==='mayhem'?'mayhem':'classic');}catch(e){}const ah=G.ah;if(ah&&ah.mode!=='guest'&&ah.ph==='ready'){ah.mayhem=m==='mayhem';ahPaintOverlay();}}
+function ahSetMode(m){
+  if(m==='team'||m==='duel'){try{localStorage.setItem('ct_iv_mode',m);}catch(e){}const a=G.ah;if(a&&a.kind==='invaders'&&a.mode!=='guest'&&a.ph==='ready'){a.coop=m==='team';ahPaintOverlay();}return;}
+  try{localStorage.setItem('ct_ah_mode',m==='mayhem'?'mayhem':'classic');}catch(e){}const ah=G.ah;if(ah&&ah.mode!=='guest'&&ah.ph==='ready'){ah.mayhem=m==='mayhem';ahPaintOverlay();}}
 // every 14 to 24 seconds of play, one thing happens to the puck: it gets hot (faster) or it bends. Both players see it announced.
 function ahMayhemTick(ah,dt){
   ah.mmT=(ah.mmT==null?16:ah.mmT)-dt;
@@ -6540,6 +6548,7 @@ function ahMayhemTick(ah,dt){
 function ahStatFast(ah){return ah.kind==='invaders'?Math.max((ah.sim.iv&&ah.sim.iv.bestCombo[0])||0,(ah.sim.iv&&ah.sim.iv.bestCombo[1])||0):Math.round(ah.stats.fastest*.0185);}
 function ahMomentText(ah,names){
   const st=ah.stats,w=ah.winSeat,n=i=>names[i]||'Someone';
+  if(ah.team){const sc=ah.score[0]+ah.score[1];return ah.teamWon?`${n(0)} and ${n(1)} defeated the fleet together: ${sc} points.`:`${n(0)} and ${n(1)} held out to wave ${Math.min(ah.sim.iv.wave,ah.sim.iv.target)}: ${sc} points.`;}
   if(ah.kind==='invaders'){const bc=Math.max(ah.sim.iv.bestCombo[0],ah.sim.iv.bestCombo[1]);const d=Math.abs(ah.score[0]-ah.score[1]);if(bc>=15)return`${n(w)} won ${ah.score[w]}–${ah.score[1-w]}; the best combo was ${bc} hits.`;if(d<=60)return`${n(w)} won by ${d} points in the last seconds.`;return`${n(w)} won ${ah.score[w]}–${ah.score[1-w]}.`;}
   if(st.comeback)return`${n(st.comeback.seat)} came back from ${st.comeback.from} goals down.`;
   if(ah.kind==='pong'){if(st.comeback)return`${n(st.comeback.seat)} came back from ${st.comeback.from} games down.`;if(st.bestRally>=12)return`A ${st.bestRally}-return rally. ${n(w)} took the match ${ah.score[w]}–${ah.score[1-w]} in games.`;if(st.perfect>=6)return`${n(w)} won with ${st.perfect} perfect returns.`;return`${n(w)} won ${ah.score[w]}–${ah.score[1-w]} in games.`;}
@@ -6624,7 +6633,7 @@ function ahOnBroadcast(m){
     // events (the last few ride along in every snapshot, so a lost message does not lose a goal)
     (m.ev||[]).forEach(e=>{if(!net.seen[e.i]){net.seen[e.i]=1;ahApplyEvent(ah,e);}});
     if(m.i>net.lastSt||net.lastSt-m.i>100){net.lastSt=m.i;
-      ah.score=m.sc;ah.pts=m.pp||[0,0];ah.mayhem=!!m.mm;ah.ready=m.rd;
+      ah.score=m.sc;ah.pts=m.pp||[0,0];ah.mayhem=!!m.mm;ah.coop=!!m.co;ah.ready=m.rd;if(m.ph==='over'&&ah.coop){ah.team=true;ah.teamWon=!!m.tw;}
       if(ah.ph!==m.ph){ah.ph=m.ph;ah.pt=m.pt;}else ah.pt=m.pt;
       const sim=ah.sim,tn=performance.now();
       let hx=m.a[0],hy=m.a[1];
@@ -6664,7 +6673,7 @@ function ahCorrectPuck(ah,m){
 function ahHostSnapshot(ah){
   const net=ah.net,sim=ah.sim;
   const ev=(ah.evHist||[]).slice(-8);
-  ahSend({k:'st',i:++net.seq,ph:ah.ph,pt:Math.round(ah.pt*1000)/1000,sc:ah.score,pp:ah.pts||[0,0],mm:ah.mayhem?1:0,rd:ah.ready,w:ah.winSeat,
+  ahSend({k:'st',i:++net.seq,ph:ah.ph,pt:Math.round(ah.pt*1000)/1000,sc:ah.score,pp:ah.pts||[0,0],mm:ah.mayhem?1:0,co:ah.coop?1:0,tw:ah.teamWon?1:0,rd:ah.ready,w:ah.winSeat,
     p:[Math.round(sim.p.x*10)/10,Math.round(sim.p.y*10)/10,Math.round(sim.p.vx),Math.round(sim.p.vy),Math.round((sim.p.w||0)*100)/100,sim.p.rl||0],
     a:[Math.round(sim.pad[0].x*10)/10,Math.round(sim.pad[0].y*10)/10],b:[Math.round(sim.pad[1].x),Math.round(sim.pad[1].y)],
     ts:ah.guestTs,ev,iv:ah.kind==='invaders'?ivSnapshot(ah):undefined});
@@ -6859,7 +6868,7 @@ function ahFinish(ah,forfeit){
   if(G.isOnline){
     if(!G.srv)return;
     const st=JSON.parse(JSON.stringify(G.srv));
-    st.players.forEach((p,i)=>{p.c4Result=i===w?'win':'loss';p.totalScore=ah.score[i];});
+    st.players.forEach((p,i)=>{p.c4Result=ah.team?(ah.teamWon?'win':'loss'):(i===w?'win':'loss');p.totalScore=ah.score[i];});
     st.winner=st.players[w].id;st.winnerName=st.players[w].name;st.winnerAv=st.players[w].avatar;st.moment=moment;
     st.ah=Object.assign({},st.ah||{},{id:ah.id,score:ah.score.slice(),dur,stats:ahResultObj(ah)});
     st.lastAct=esc(st.winnerName)+' won the match.';st._ts=Date.now();
@@ -6872,7 +6881,7 @@ function ahFinish(ah,forfeit){
 }
 function ahEndLocal(ah){
   const w=ah.winSeat,players=G.lp,names=players.map(p=>p.name);
-  players.forEach((p,i)=>{p.c4Result=i===w?'win':'loss';p.totalScore=ah.score[i];});
+  players.forEach((p,i)=>{p.c4Result=ah.team?(ah.teamWon?'win':'loss'):(i===w?'win':'loss');p.totalScore=ah.score[i];});
   G.ahMoment=ah.result.moment;G.ahResult=Object.assign({score:ah.score.slice(),dur:ah.result.dur},ahResultObj(ah));
   G.tw++;localStorage.setItem('ct_tw',G.tw);
   addHistory({game:ah.kind,winner:players[w].name,winnerAvatar:players[w].avatar,date:new Date().toISOString(),players:names,moment:G.ahMoment,
@@ -6894,8 +6903,8 @@ function ahPaintOverlay(){
     const ivm=ah.kind==='invaders';
     html=`<div class="ah-card"><div class="ah-kick">${ivm?'INVADERS: DUEL':pgm?'NEON DUEL':'NEON ARENA'}</div>
       <div class="ah-vs"><div class="ah-pl">${avHTML(a.avatar)}<span>${esc(a.name||'')}</span></div><b>VS</b><div class="ah-pl">${avHTML(b.avatar)}<span>${esc(b.name||'')}</span></div></div>
-      <ul class="ah-rules">${ivm?`<li>Destroy the fleet, build combos</li><li>Attack your opponent</li><li>Highest score in 90 seconds wins</li>`:pgm?`<li>Return the ball</li><li>Score like tennis: 15, 30, 40, game</li><li>First to ${AH.GAMES} games wins</li>`:`<li>Move your paddle</li><li>Protect your goal</li><li>First to ${AH.WIN} wins</li>`}</ul>
-      ${ah.kind==='airhockey'?(ah.mode==='guest'?`<div class="ah-modes"><span class="on">${ah.mayhem?'MAYHEM':'CLASSIC'}</span></div>`:`<div class="ah-modes"><button class="${ah.mayhem?'':'on'}" data-a="ah-mode" data-m="classic">CLASSIC</button><button class="${ah.mayhem?'on':''}" data-a="ah-mode" data-m="mayhem">MAYHEM</button></div>`):''}
+      <ul class="ah-rules">${ivm&&ah.coop?`<li>You are a team against the fleet</li><li>Share the hull: five hits and it is over</li><li>Hold out to wave 8, fill the meter for a NOVA</li>`:ivm?`<li>The fleet attacks you BOTH</li><li>Shoot aliens for points, never each other</li><li>Send bombs and missiles to your rival</li>`:pgm?`<li>Return the ball</li><li>Score like tennis: 15, 30, 40, game</li><li>First to ${AH.GAMES} games wins</li>`:`<li>Move your paddle</li><li>Protect your goal</li><li>First to ${AH.WIN} wins</li>`}</ul>
+      ${ah.kind==='invaders'?(ah.mode==='guest'?`<div class="ah-modes"><span class="on">${ah.coop?'TEAM':'DUEL'}</span></div>`:`<div class="ah-modes"><button class="${ah.coop?'on':''}" data-a="ah-mode" data-m="team">TEAM</button><button class="${ah.coop?'':'on'}" data-a="ah-mode" data-m="duel">DUEL</button></div>`):ah.kind==='airhockey'?(ah.mode==='guest'?`<div class="ah-modes"><span class="on">${ah.mayhem?'MAYHEM':'CLASSIC'}</span></div>`:`<div class="ah-modes"><button class="${ah.mayhem?'':'on'}" data-a="ah-mode" data-m="classic">CLASSIC</button><button class="${ah.mayhem?'on':''}" data-a="ah-mode" data-m="mayhem">MAYHEM</button></div>`):''}
       <button class="btn btn-gold ah-ready${meReady?' on':''}" data-a="ah-ready">${meReady?(ah.mode==='guest'||ah.mode==='host'?'WAITING…':'READY'):'READY'}</button>
       ${ah.mode==='duo'?'<div class="ah-hint">Two players, one table: each plays their own half with a finger.</div>':ah.mode==='bot'?`<div class="ah-hint">${ivm?'Hold your finger down to fire, slide to move. 🛡 shield, ⚡ attack when it is full.':pgm?'You are at the bottom. Slide your finger left and right.':'You are at the bottom. Drag your finger to move the paddle.'}</div>`:'<div class="ah-hint">You are at the bottom. Drag to move.</div>'}
     </div>`;
@@ -6907,8 +6916,8 @@ function ahStatusLine(ah){
   const el=document.getElementById('ah-status');if(!el)return;
   const pg=ah.kind==='pong',inv=ah.kind==='invaders';
   const ivl=inv&&ah.sim.iv?Math.max(0,Math.ceil(ah.sim.iv.left)):0,tf=Math.floor(ivl/60)+':'+String(ivl%60).padStart(2,'0');
-  const t=inv?tf+(ah.sim.iv&&ah.sim.iv.ot?' · OVERTIME':''):pg?'Games '+ah.score[0]+' – '+ah.score[1]:ah.score[0]+' – '+ah.score[1];
-  const txt=ah.ph==='ready'?(inv?'90 seconds':pg?`First to ${AH.GAMES} games`:`First to ${AH.WIN}`):t;
+  const t=inv&&ah.coop&&ah.sim.iv?'WAVE '+Math.min(ah.sim.iv.wave,ah.sim.iv.target)+'/'+ah.sim.iv.target:inv?tf+(ah.sim.iv&&ah.sim.iv.ot?' · OVERTIME':''):pg?'Games '+ah.score[0]+' – '+ah.score[1]:ah.score[0]+' – '+ah.score[1];
+  const txt=ah.ph==='ready'?(inv?(ah.coop?'Team: 8 waves':'90 seconds'):pg?`First to ${AH.GAMES} games`:`First to ${AH.WIN}`):t;
   if(el._t!==txt){el._t=txt;el.textContent=txt;}
   const top=document.getElementById('ah-sc-top'),bot=document.getElementById('ah-sc-bot');
   const v=pg?(ah.mode==='guest'?[ahPtsText(ah,0),ahPtsText(ah,1)]:[ahPtsText(ah,1),ahPtsText(ah,0)]):(ah.mode==='guest'?[ah.score[0],ah.score[1]]:[ah.score[1],ah.score[0]]);
@@ -7084,7 +7093,7 @@ function ahDrawPongWorld(ah,x,V,sim,fx,gl){
    the bullets and the hazards in the snapshots and only moves its own ship itself (that is the one thing that must feel instant). */
 const IV={COLS:8,ROWS:5,DX:56,DY:44,TIME:90,FIRE_CD:.19,BV:1050,BOMBV:430,ATTV:470,STUN:1.1,SHT:1.4,SHCD:9,HW:34};
 const IV_T={b:{hp:1,pts:10},s:{hp:3,pts:30},m:{hp:1,pts:25},c:{hp:6,pts:120}};
-function ivNew(){return{left:IV.TIME,t:0,phase:1,wave:0,fleet:null,bul:[],hz:[],warn:[],cd:[0,0],stun:[0,0],sh:[0,0],shcd:[0,0],meter:[0,0],ready:[false,false],combo:[0,0],bestCombo:[0,0],kills:[0,0],att:[0,0],dod:[0,0],fire:[false,false],bsSeen:[0,0],baSeen:[0,0],bombT:2.5,finalSaid:false,lastSaid:false,ot:0};}
+function ivNew(){return{left:IV.TIME,t:0,phase:1,wave:0,fleet:null,bul:[],hz:[],warn:[],cd:[0,0],stun:[0,0],sh:[0,0],shcd:[0,0],meter:[0,0],ready:[false,false],combo:[0,0],bestCombo:[0,0],kills:[0,0],att:[0,0],dod:[0,0],fire:[false,false],bsSeen:[0,0],baSeen:[0,0],bombT:2.5,leanY:0,wk:[0,0],afT:3,hull:5,target:8,finalSaid:false,lastSaid:false,ot:0};}
 function ivPhaseAt(t){return t<25?1:t<50?2:t<70?3:4;}
 // a new fleet for the current phase: 8 columns, 4-5 rows, drones first and then shields, bombers, a commander
 function ivSpawn(iv){
@@ -7103,22 +7112,34 @@ function ivSpawn(iv){
   iv.fleet={cells,t0:iv.t};iv.wave++;
 }
 function ivPos(iv,r,c){
-  const f=iv.fleet,tt=iv.t-(f?f.t0:0),w=.8+.3*(iv.phase-1),A=(AH.W-60-(IV.COLS-1)*IV.DX)/2;
+  const f=iv.fleet,tt=iv.t-(f?f.t0:0),w=.8+.3*(iv.phase-1)+.07*Math.min(10,iv.wave),A=(AH.W-60-(IV.COLS-1)*IV.DX)/2,amp=Math.min(95,24+iv.wave*8);
   // a new fleet glides in from above the arena
   const arrive=Math.max(0,1-tt/1.2);
-  return{x:AH.W/2+Math.sin(iv.t*w)*A+(c-(IV.COLS-1)/2)*IV.DX,y:AH.H/2+24*Math.sin(iv.t*.7)+(r-(IV.ROWS-1)/2)*IV.DY-arrive*arrive*420};
+  return{x:AH.W/2+Math.sin(iv.t*w)*A+(c-(IV.COLS-1)/2)*IV.DX,y:AH.H/2+(iv.leanY||0)+amp*Math.sin(iv.t*.7)+(r-(IV.ROWS-1)/2)*IV.DY-arrive*arrive*420};
 }
 function ivAlive(iv){let n=0;for(const c of iv.fleet.cells)if(c)n++;return n;}
 function ivShipX(sim,seat){return sim.pad[seat].x;}
 // ── the shield and the attack (called by buttons, by the bot and by the guest's counters)
 function ivDoShield(ah,seat){const iv=ah.sim.iv;if(ah.ph!=='play'||iv.sh[seat]>0||iv.shcd[seat]>0||iv.stun[seat]>0)return;iv.sh[seat]=IV.SHT;iv.shcd[seat]=IV.SHCD;ah.out.push({t:'IV_SHIELD',seat});}
-function ivDoAttack(ah,seat){const iv=ah.sim.iv;if(ah.ph!=='play'||iv.meter[seat]<100)return;iv.meter[seat]=0;iv.ready[seat]=false;iv.att[seat]++;
+function ivEnd(ah,won){
+  if(ah.over)return;const iv=ah.sim.iv;
+  ah.over=true;ah.team=true;ah.teamWon=won;ah.winSeat=0;ahSetPhase(ah,'over',3.2);ah.overAt=Date.now();AHS.hum.off();ah.out.push({t:'WIN',seat:0});
+  const st=ah.stats;st.fastest=Math.max(iv.bestCombo[0],iv.bestCombo[1])/.0185;st.bestRally=iv.kills[0]+iv.kills[1];st.saves=iv.att[0]+iv.att[1];st.perfect=iv.dod[0]+iv.dod[1];
+}
+function ivDoAttack(ah,seat){const iv=ah.sim.iv;if(ah.ph!=='play'||iv.meter[seat]<100)return;
+  if(ah.coop){ // a NOVA: the team's meter, and every alien on the field takes two hits
+    iv.meter=[0,0];iv.ready=[false,false];iv.att[seat]++;let n=0;const cells=iv.fleet.cells;
+    for(let i=0;i<cells.length;i++){const c=cells[i];if(!c)continue;c.hp-=2;if(c.hp<=0){cells[i]=null;n++;ah.score[seat]+=Math.round(IV_T[c.t].pts*.5);iv.kills[seat]++;iv.wk[seat]++;}}
+    ah.out.push({t:'IV_NOVA',seat,n});return;}
+  iv.meter[seat]=0;iv.ready[seat]=false;iv.att[seat]++;
   iv.warn.push({victim:1-seat,from:seat,lane:Math.floor(Math.random()*8),t:.75});ah.out.push({t:'IV_ATTACK',seat,victim:1-seat,lane:iv.warn[iv.warn.length-1].lane});}
 function ivHurt(ah,seat,x,why){
   const iv=ah.sim.iv;
   if(iv.sh[seat]>0){iv.dod[seat]++;ah.out.push({t:'IV_BLOCK',seat,x,y:ah.sim.pad[seat].y});return;}
-  iv.stun[seat]=IV.STUN;iv.combo[seat]=0;ah.score[seat]=Math.max(0,ah.score[seat]-40);
-  ah.out.push({t:'IV_HURT',seat,x,y:ah.sim.pad[seat].y,why});
+  const light=why==='ash';
+  iv.stun[seat]=light?IV.STUN*.6:IV.STUN;iv.combo[seat]=0;if(!ah.coop)ah.score[seat]=Math.max(0,ah.score[seat]-(light?20:40));
+  ah.out.push({t:'IV_HURT',seat,x,y:ah.sim.pad[seat].y,why,hull:iv.hull});
+  if(ah.coop){iv.hull=Math.max(0,iv.hull-(light?.5:1));if(iv.hull<=0)ivEnd(ah,false);}
 }
 // ── one step of the match
 function ivStep(ah,dt){
@@ -7126,8 +7147,8 @@ function ivStep(ah,dt){
   const el=IV.TIME-iv.left;
   if(!iv.fleet)ivSpawn(iv);
   const ph=ivPhaseAt(el);if(ph!==iv.phase){iv.phase=ph;}
-  if(!iv.finalSaid&&el>=60){iv.finalSaid=true;ah.out.push({t:'IV_BANNER',text:'FINAL WAVE'});}
-  if(!iv.lastSaid&&el>=80){iv.lastSaid=true;ah.out.push({t:'IV_BANNER',text:'LAST STAND'});ah.stats.lsLead=ah.score[0]>ah.score[1]?0:ah.score[1]>ah.score[0]?1:-1;}
+  if(!ah.coop&&!iv.finalSaid&&el>=60){iv.finalSaid=true;ah.out.push({t:'IV_BANNER',text:'FINAL WAVE'});}
+  if(!ah.coop&&!iv.lastSaid&&el>=80){iv.lastSaid=true;ah.out.push({t:'IV_BANNER',text:'LAST STAND'});ah.stats.lsLead=ah.score[0]>ah.score[1]?0:ah.score[1]>ah.score[0]?1:-1;}
   for(let s=0;s<2;s++){iv.stun[s]=Math.max(0,iv.stun[s]-dt);iv.sh[s]=Math.max(0,iv.sh[s]-dt);iv.shcd[s]=Math.max(0,iv.shcd[s]-dt);iv.cd[s]=Math.max(0,iv.cd[s]-dt);}
   // buttons of the guest (counters, so that a lost message is not a lost button)
   const net=ah.net;
@@ -7137,7 +7158,14 @@ function ivStep(ah,dt){
     if(iv.fire[s]&&iv.cd[s]<=0&&iv.stun[s]<=0){iv.cd[s]=IV.FIRE_CD;const pd=sim.pad[s];iv.bul.push({x:pd.x,y:pd.y+(s===0?-30:30),vy:s===0?-IV.BV:IV.BV,o:s});ah.out.push({t:'IV_SHOT',seat:s});}
   }
   // the fleet is replaced when it is almost gone
-  if(ivAlive(iv)<=3)ivSpawn(iv),ah.out.push({t:'IV_WAVE',n:iv.wave});
+  if(ivAlive(iv)<=3){
+    if(ah.coop){ah.score[0]+=25;ah.score[1]+=25;ah.out.push({t:'IV_WAVEWIN',seat:-1,n:iv.wave});if(iv.wave>=iv.target){ivEnd(ah,true);return;}}
+    else if(iv.wk[0]!==iv.wk[1]){const ws=iv.wk[0]>iv.wk[1]?0:1;ah.score[ws]+=50;ah.out.push({t:'IV_WAVEWIN',seat:ws,n:iv.wave});}
+    iv.wk=[0,0];ivSpawn(iv);ah.out.push({t:'IV_WAVE',n:iv.wave});
+  }
+  // the fleet is drawn towards whoever is ahead (the leader has to work harder; the one behind gets room to come back)
+  const targetLean=ah.coop?0:Math.max(-90,Math.min(90,(ah.score[0]-ah.score[1])/5));
+  iv.leanY+=(targetLean-iv.leanY)*Math.min(1,dt*1.4);
   // bullets
   const cells=iv.fleet.cells,keep=[];
   for(const b of iv.bul){
@@ -7150,15 +7178,16 @@ function ivStep(ah,dt){
         if([5,10,15,25].includes(iv.combo[o]))ah.out.push({t:'IV_COMBO',seat:o,n:iv.combo[o]});
         if(cell.hp<=0){
           const mult=Math.min(3,1+Math.floor(iv.combo[o]/5)*.5),pts=Math.round(IV_T[cell.t].pts*mult);
-          ah.score[o]+=pts;iv.kills[o]++;cells[r*IV.COLS+c]=null;
+          ah.score[o]+=pts;iv.kills[o]++;iv.wk[o]++;cells[r*IV.COLS+c]=null;
           const wasFull=iv.meter[o]>=100;iv.meter[o]=Math.min(100,iv.meter[o]+pts*.5+([5,10,15,25].includes(iv.combo[o])?10:0));
           if(!wasFull&&iv.meter[o]>=100){iv.ready[o]=true;ah.out.push({t:'IV_READY',seat:o});}
+          if(ah.coop){iv.meter[1-o]=iv.meter[o];iv.ready[1-o]=iv.ready[o];if(!wasFull&&iv.meter[o]>=100)ah.out.push({t:'IV_READY',seat:1-o});}
           ah.out.push({t:'IV_KILL',seat:o,x:p.x,y:p.y,k:cell.t,pts});
-          if(cell.t==='m'){ // a bomber that dies sends its bomb to the OTHER player
+          if(cell.t==='m'&&!ah.coop){ // a bomber that dies sends its bomb to the OTHER player
             const v=1-o,ty=sim.pad[v].y,T=Math.abs(ty-p.y)/IV.BOMBV;
             iv.hz.push({k:'bomb',x:p.x,y:p.y,vx:(sim.pad[v].x-p.x)/Math.max(.6,T),vy:v===0?IV.BOMBV:-IV.BOMBV,from:o});ah.out.push({t:'IV_BOMB',seat:v,x:p.x,y:p.y});
           }
-          if(cell.t==='c'){iv.stun[1-o]=Math.max(iv.stun[1-o],IV.STUN*1.2);ah.out.push({t:'IV_CMD',seat:o,x:p.x,y:p.y});}
+          if(cell.t==='c'&&!ah.coop){iv.stun[1-o]=Math.max(iv.stun[1-o],IV.STUN*1.2);ah.out.push({t:'IV_CMD',seat:o,x:p.x,y:p.y});}
         }else ah.out.push({t:'IV_HIT',seat:o,x:p.x,y:p.y});
         break;
       }
@@ -7168,6 +7197,16 @@ function ivStep(ah,dt){
     keep.push(b);
   }
   iv.bul=keep;
+  // the fleet shoots back: the front alien of a random column, mostly at the leader
+  iv.afT-=dt;
+  if(iv.afT<=0&&iv.t>3){
+    const wv=Math.max(1,iv.wave);iv.afT=Math.max(.45,1.5-wv*.09)*(.7+Math.random()*.6);
+    const lead=ah.coop||ah.score[0]===ah.score[1]?-1:ah.score[0]>ah.score[1]?0:1;
+    const v=lead<0?(Math.random()<.5?0:1):(Math.random()<.66?lead:1-lead);
+    const cols=[];for(let c=0;c<IV.COLS;c++)cols.push(c);cols.sort(()=>Math.random()-.5);
+    for(const c of cols){let best=null;for(let r=0;r<IV.ROWS;r++){const cl=cells[r*IV.COLS+c];if(!cl)continue;const p=ivPos(iv,r,c);if(!best||(v===0?p.y>best.y:p.y<best.y))best=p;}
+      if(best){iv.hz.push({k:'ash',x:best.x,y:best.y,vx:Math.random()<.5?0:(sim.pad[v].x-best.x)*.12,vy:(v===0?1:-1)*(300+wv*22),from:-1});ah.out.push({t:'IV_ASH',seat:v});break;}}
+  }
   // the bombers of the fleet drop a bomb now and then, at a random player
   iv.bombT-=dt;
   if(iv.bombT<=0&&iv.phase>=3){
@@ -7194,7 +7233,7 @@ function ivStep(ah,dt){
   }
   iv.hz=hk;
   // the end
-  if(iv.left<=0){
+  if(!ah.coop&&iv.left<=0){
     if(ah.score[0]===ah.score[1]){iv.left=10;iv.ot++;ah.out.push({t:'IV_BANNER',text:'OVERTIME'});}
     else{
       ah.over=true;ah.winSeat=ah.score[0]>ah.score[1]?0:1;ah.stats.rev=(ah.stats.lsLead!=null&&ah.stats.lsLead>=0&&ah.stats.lsLead!==ah.winSeat)?1:0;ahSetPhase(ah,'over',3.2);ah.overAt=Date.now();AHS.hum.off();ah.out.push({t:'WIN',seat:ah.winSeat});
@@ -7210,7 +7249,7 @@ function ivHostTick(ah,dt,tg){
   iv.fire[1]=ah.ph==='play'&&(ah.mode==='bot'?!!(ah.bot.fire):ah.mode==='duo'?!!ah.touch[1]:!!ah.guestFire);
   if(ah.ph==='ready'){if(ah.mode!=='guest'&&ah.ready[0]&&(ah.ready[1]||ah.mode==='bot'||ah.mode==='duo')){ahSetPhase(ah,'count',3.2);ah.cdLast=4;}}
   else if(ah.ph==='count'){ah.pt-=dt;const n=Math.ceil(ah.pt);if(n!==ah.cdLast&&n>=1&&n<=3){ah.cdLast=n;ah.out.push({t:'COUNT',n});}
-    if(ah.pt<=0){ahSetPhase(ah,'play',0);ah.out.push({t:'COUNT',n:0});ah.stats.start=Date.now();ivSpawn(iv);}}
+    if(ah.pt<=0){ahSetPhase(ah,'play',0);ah.out.push({t:'COUNT',n:0});ah.stats.start=Date.now();ivSpawn(iv);ah.out.push({t:'IV_INTRO'});}}
   else if(ah.ph==='play')ivStep(ah,dt);
   else if(ah.ph==='over')ah.pt-=dt;
 }
@@ -7255,7 +7294,7 @@ function ivSnapshot(ah){
   const iv=ah.sim.iv,f=iv.fleet;
   let fs='';if(f)for(const c of f.cells)fs+=c?c.t+c.hp:'..';
   return{L:Math.round(iv.left*10)/10,t:Math.round(iv.t*100)/100,ph:iv.phase,fs,fo:f?Math.round((iv.t-f.t0)*100)/100:0,
-    bl:iv.bul.map(b=>[Math.round(b.x),Math.round(b.y),b.vy,b.o]),hz:iv.hz.map(h=>[Math.round(h.x),Math.round(h.y),Math.round(h.vx),h.vy,h.k==='bomb'?0:1]),
+    bl:iv.bul.map(b=>[Math.round(b.x),Math.round(b.y),b.vy,b.o]),hz:iv.hz.map(h=>[Math.round(h.x),Math.round(h.y),Math.round(h.vx),h.vy,h.k==='bomb'?0:h.k==='ash'?2:1]),ly:Math.round(iv.leanY),wv:iv.wave,hl:iv.hull,
     wn:iv.warn.map(w=>[w.victim,w.lane,Math.round(w.t*100)/100]),m:iv.meter.map(Math.round),cb:iv.combo,st:iv.stun.map(x=>Math.round(x*100)/100),sh:iv.sh.map(x=>Math.round(x*100)/100),cd:iv.shcd.map(x=>Math.round(x*10)/10),bc:iv.bestCombo,ot:iv.ot};
 }
 function ivApplySnapshot(ah,m){
@@ -7265,7 +7304,7 @@ function ivApplySnapshot(ah,m){
   const cells=[];for(let i=0;i<IV.COLS*IV.ROWS;i++){const t=d.fs[i*2],h=d.fs[i*2+1];cells.push(t&&t!=='.'?{t,hp:+h}:null);}
   iv.fleet={cells,t0:d.t-d.fo};
   iv.bul=d.bl.map(a=>({x:a[0],y:a[1],vy:a[2],o:a[3]}));
-  iv.hz=d.hz.map(a=>({x:a[0],y:a[1],vx:a[2],vy:a[3],k:a[4]?'msl':'bomb'}));
+  iv.hz=d.hz.map(a=>({x:a[0],y:a[1],vx:a[2],vy:a[3],k:a[4]===2?'ash':a[4]?'msl':'bomb'}));iv.leanY=d.ly||0;iv.wave=d.wv||iv.wave;iv.hull=d.hl==null?iv.hull:d.hl;
   iv.warn=d.wn.map(a=>({victim:a[0],lane:a[1],t:a[2]}));
   iv.meter=d.m;iv.combo=d.cb;iv.stun=d.st;iv.sh=d.sh;iv.shcd=d.cd;iv.bestCombo=d.bc;iv.ot=d.ot;
   iv.ready=[d.m[0]>=100,d.m[1]>=100];
@@ -7300,7 +7339,7 @@ function ivBindButtons(ah){
 // ── what the table does with each moment
 function ivEmit(ah,name,d){
   const fx=ah.fx,bottomSeat=ah.mode==='guest'?1:0,mine=s=>s===bottomSeat||ah.mode==='duo';
-  const col=s=>s===bottomSeat?AH_COL.me[0]:'#e86bff';
+  const col=s=>s===bottomSeat?AH_COL.me[0]:(ah.coop?'#ffd98a':'#e86bff');
   const shake=n=>{if(typeof gtFxOn==='function'&&gtFxOn('light'))fx.shake=Math.max(fx.shake,n);};
   switch(name){
     case'IV_SHOT':if(mine(d.seat)&&ah.mode!=='guest'||d.seat===ah.seat)AHS.ivShot(true);break;
@@ -7317,7 +7356,12 @@ function ivEmit(ah,name,d){
     case'IV_HURT':AHS.ivHurt();ahSpark(ah,d.x,d.y,28,'#ff6a55',560,1.2);ahRing(ah,d.x,d.y,120,'rgba(255,100,80,.9)',.5);if(d.seat===bottomSeat||ah.mode==='duo'){shake(8);haptic([50,30,80]);}fx.flash=Math.max(fx.flash,.35);break;
     case'IV_DODGE':if(d.seat===bottomSeat){ahBanner(ah,'PERFECT DODGE','',AH_COL.ivory,700);AHS.ivDodge();}break;
     case'IV_CMD':AHS.ivHurt();shake(5);break;
-    case'IV_WAVE':if(d.n>1){ahBanner(ah,'NEW WAVE','',AH_COL.ivory,900);AHS.ivWave();}break;
+    case'IV_WAVE':if(d.n>1){ahBanner(ah,'WAVE '+d.n,'stronger and faster',AH_COL.ivory,1100);AHS.ivWave();}break;
+    case'IV_NOVA':{AHS.ivNova();fx.flash=1;shake(9);haptic([60,40,100]);ahBanner(ah,'NOVA',d.n+' aliens down',AH_COL.gold,1300);for(let i=0;i<14;i++)ahSpark(ah,ahRnd(60,540),ahRnd(300,700),3,'#ffd98a',420,1);break;}
+    case'IV_WAVEWIN':if(d.seat<0){ahBanner(ah,'WAVE '+d.n+' CLEARED','+25 each',AH_COL.gold,1200);AHS.ivWave();break;}{const nm=(ah.players[d.seat]&&ah.players[d.seat].name)||'';ahBanner(ah,'WAVE WON',(ah.mode==='duo'||d.seat!==bottomSeat?nm:'YOU')+'  +50',AH_COL.gold,1300);break;}
+    case'IV_ASH':if(d.seat===bottomSeat||ah.mode==='duo')AHS.ivAsh();break;
+    case'IV_INTRO':if(ah.coop){ahBanner(ah,'ONE TEAM · ONE FLEET','hold the line together',AH_COL.gold,2000);setTimeout(()=>{if(G.ah===ah)ahBanner(ah,'REACH WAVE '+ah.sim.iv.target,'five hits and the hull is gone',AH_COL.ivory,2200);},2200);break;}
+    {const rv=ah.mode==='duo'?'':((ah.players[ah.mode==='guest'?0:1]&&ah.players[ah.mode==='guest'?0:1].name)||'');ahBanner(ah,'ONE FLEET · TWO PILOTS','it attacks you both',AH_COL.gold,2000);setTimeout(()=>{if(G.ah===ah)ahBanner(ah,'SHOOT THE ALIENS','send the trouble to '+(rv||'your rival'),AH_COL.ivory,2200);},2200);break;}
     case'IV_BANNER':ahBanner(ah,d.text,'',AH_COL.gold,1500);AHS.ivWave();break;
   }
 }
@@ -7384,18 +7428,21 @@ function ivDrawWorld(ah,x,V,sim,fx){
   for(let r=0;r<IV.ROWS;r++)for(let c=0;c<IV.COLS;c++){const cl=iv.fleet.cells[r*IV.COLS+c];if(!cl)continue;const p=ivPos(iv,r,c),v=V(p.x,p.y);ivAlien(x,cl.t,cl.hp,v[0],v[1],tm);}
   // bullets
   x.save();x.globalCompositeOperation='lighter';x.lineCap='round';
-  for(const b of iv.bul){const v=V(b.x,b.y),col=b.o===bottomSeat?'rgba(90,230,255,':'rgba(240,120,255,',len=-Math.sign(b.vy)*(flipped?-1:1)*16;
+  for(const b of iv.bul){const v=V(b.x,b.y),col=b.o===bottomSeat?'rgba(90,230,255,':ah.coop?'rgba(255,217,138,':'rgba(240,120,255,',len=-Math.sign(b.vy)*(flipped?-1:1)*16;
     x.strokeStyle=col+'.25)';x.lineWidth=8;x.beginPath();x.moveTo(v[0],v[1]);x.lineTo(v[0],v[1]+len);x.stroke();x.strokeStyle=col+'1)';x.lineWidth=3;x.beginPath();x.moveTo(v[0],v[1]);x.lineTo(v[0],v[1]+len);x.stroke();}
   x.restore();
   // bombs and missiles
   for(const h of iv.hz){const v=V(h.x,h.y);x.save();x.shadowColor='#ff5a4a';x.shadowBlur=14;
-    if(h.k==='bomb'){x.fillStyle='#ff6a55';x.beginPath();x.arc(v[0],v[1],10,0,6.283);x.fill();x.strokeStyle='#ffe3a0';x.lineWidth=2;x.stroke();x.fillStyle='#fff3c0';x.beginPath();x.arc(v[0]-3,v[1]-3,3,0,6.283);x.fill();}
+    if(h.k==='ash'){x.shadowColor='#ffb347';x.shadowBlur=10;x.strokeStyle='#ffb347';x.lineWidth=3.2;x.lineCap='round';const d=(h.vy>0?1:-1)*(flipped?-1:1);x.beginPath();x.moveTo(v[0],v[1]-9*d);x.lineTo(v[0]+3,v[1]-3*d);x.lineTo(v[0]-3,v[1]+3*d);x.lineTo(v[0],v[1]+9*d);x.stroke();}
+    else if(h.k==='bomb'){x.fillStyle='#ff6a55';x.beginPath();x.arc(v[0],v[1],10,0,6.283);x.fill();x.strokeStyle='#ffe3a0';x.lineWidth=2;x.stroke();x.fillStyle='#fff3c0';x.beginPath();x.arc(v[0]-3,v[1]-3,3,0,6.283);x.fill();}
     else{x.fillStyle='#ff5a4a';const d=(h.vy>0?1:-1)*(flipped?-1:1);x.beginPath();x.moveTo(v[0],v[1]+14*d);x.lineTo(v[0]+9,v[1]-8*d);x.lineTo(v[0]-9,v[1]-8*d);x.closePath();x.fill();x.strokeStyle='#ffe3a0';x.lineWidth=1.6;x.stroke();}
     x.restore();}
   // the two ships
-  for(let s=0;s<2;s++){const p=sim.pad[s],v=V(p.x,p.y),top=!(v[1]>AH.M+AH.H/2);const col=(s===bottomSeat)?AH_COL.me[0]:'#e86bff';v.up=top;
+  for(let s=0;s<2;s++){const p=sim.pad[s],v=V(p.x,p.y),top=!(v[1]>AH.M+AH.H/2);const col=(s===bottomSeat)?AH_COL.me[0]:(ah.coop?'#ffd98a':'#e86bff');v.up=top;
+    {const nm=ah.mode==='duo'?((ah.players[s]&&ah.players[s].name)||''):(s===bottomSeat?'YOU':((ah.players[s]&&ah.players[s].name)||'RIVAL'));x.save();x.font='700 20px Jost, sans-serif';x.textAlign='center';x.fillStyle=col;x.globalAlpha=.8;x.fillText(String(nm).toUpperCase().slice(0,12),v[0],v[1]+(top?-34:50));x.restore();}
     if(iv.combo[s]>=25){x.save();x.globalCompositeOperation='lighter';const fg=x.createRadialGradient(v[0],v[1],10,v[0],v[1],70);fg.addColorStop(0,'rgba(255,217,138,'+(.35+.2*Math.sin(tm*14))+')');fg.addColorStop(1,'rgba(255,217,138,0)');x.fillStyle=fg;x.beginPath();x.arc(v[0],v[1],70,0,6.283);x.fill();x.restore();}
     ivShip(x,v,col,iv.stun[s]>0,iv.sh[s],tm);}
+  if(ah.coop){x.save();x.font='700 22px Jost, sans-serif';x.textAlign='center';x.fillStyle='#F4EBD0';x.globalAlpha=.85;let hp='';for(let i=0;i<5;i++)hp+=(i+1<=Math.ceil(iv.hull-.01)?'●':'○');x.fillStyle=iv.hull<=2?'#ff7a6a':'#F4EBD0';x.fillText('HULL '+hp,AH.M+AH.W/2,AH.M+36);x.restore();}
   // the combo, quietly, above each ship
   for(let s=0;s<2;s++){if(iv.combo[s]>=3){const p=sim.pad[s],v=V(p.x,p.y),top=!(v[1]>AH.M+AH.H/2);x.save();x.globalAlpha=.8;x.fillStyle=iv.combo[s]>=15?'#ffd98a':'#F4EBD0';x.font='700 26px Jost, sans-serif';x.textAlign='center';x.fillText('×'+iv.combo[s],v[0],v[1]+(top?62:-48));x.restore();}}
 }
@@ -7404,22 +7451,22 @@ function ivDrawWorld(ah,x,V,sim,fx){
 const AR_REC={
   airhockey:[['fastest','Fastest shot','km/h'],['bestRally','Longest rally','hits'],['saves','Most saves in a match',''],['comeback','Biggest comeback','goals']],
   pong:[['fastest','Fastest ball','km/h'],['bestRally','Longest rally','returns'],['perfect','Most perfect returns',''],['comeback','Biggest comeback','games']],
-  invaders:[['topscore','Highest score','pts'],['fastest','Highest combo','hits'],['bestRally','Most aliens destroyed',''],['saves','Most attacks sent','']]
+  invaders:[['teamscore','Best team score','pts'],['wave','Furthest wave (team)',''],['topscore','Highest score (duel)','pts'],['fastest','Highest combo','hits'],['bestRally','Most aliens destroyed',''],['saves','Most attacks sent','']]
 };
 function arAll(){try{return JSON.parse(localStorage.getItem('ct_ar')||'{}')||{};}catch(e){return{};}}
 function arFlag(id){const a=arAll();return !!(a.flags&&a.flags[id]);}
 function arPlayed(){const a=arAll();return a.played||{};}
-function ahResultObj(ah){const st=ah.stats;return{fastest:ahStatFast(ah),bestRally:st.bestRally,saves:st.saves,perfect:st.perfect||0,comeback:st.comeback?st.comeback.from:0,rev:st.rev?1:0};}
+function ahResultObj(ah){const st=ah.stats;return{fastest:ahStatFast(ah),bestRally:st.bestRally,saves:st.saves,perfect:st.perfect||0,comeback:st.comeback?st.comeback.from:0,rev:st.rev?1:0,team:ah.team?1:0,won:ah.teamWon?1:0,wave:ah.team&&ah.sim.iv?Math.min(ah.sim.iv.wave,ah.sim.iv.target):0,teamScore:ah.team?ah.score[0]+ah.score[1]:0};}
 // called on every device when a match ends. Returns the records that were beaten.
 function arRecordUpdate(game,names,winnerName,score,rs){
   const a=arAll();a.rec=a.rec||{};a.flags=a.flags||{};a.played=a.played||{};a.played[game]=(a.played[game]||0)+1;
   const won=[],set=(key,v,by)=>{const r=a.rec[game]=a.rec[game]||{};if(v>0&&(!r[key]||v>r[key].v)){r[key]={v,by,at:new Date().toISOString()};won.push(key);}};
   const by=(names||[]).join(' vs ');
-  (AR_REC[game]||[]).forEach(([k])=>{if(k==='topscore')set(k,Math.max(score[0]||0,score[1]||0),winnerName||by);else set(k,(rs&&rs[k])||0,by);});
+  (AR_REC[game]||[]).forEach(([k])=>{if(k==='topscore'){if(!(rs&&rs.team))set(k,Math.max(score[0]||0,score[1]||0),winnerName||by);}else if(k==='teamscore')set(k,(rs&&rs.teamScore)||0,by);else set(k,(rs&&rs[k])||0,by);});
   const w=names.indexOf(winnerName),ws=score&&w>=0?score[w]:0,ls=score&&w>=0?score[1-w]:0;
   if(game==='airhockey'&&rs&&rs.comeback>=4)a.flags['ah-comeback']=true;
   if(game==='pong'){if(ws===3&&ls===0)a.flags['pg-clean']=true;if(rs&&rs.bestRally>=20)a.flags['pg-epic']=true;}
-  if(game==='invaders'){if(rs&&rs.rev)a.flags['iv-reversal']=true;if(rs&&rs.fastest>=25)a.flags['iv-fever']=true;}
+  if(game==='invaders'){if(rs&&rs.team&&rs.won)a.flags['iv-team']=true;if(rs&&rs.rev)a.flags['iv-reversal']=true;if(rs&&rs.fastest>=25)a.flags['iv-fever']=true;}
   if(a.played.airhockey&&a.played.pong&&a.played.invaders)a.flags['ar-three']=true;
   try{localStorage.setItem('ct_ar',JSON.stringify(a));}catch(e){}
   return won;
@@ -7476,12 +7523,12 @@ function ahDraw(ah,now){
     x.restore();});
   // the end: the winner's half is lit and the word is said
   if(ah.ph==='over'&&ah.winSeat!=null){
-    const winBottom=(ah.mode==='guest'?1:0)===ah.winSeat;const win=ah.mode==='duo'?true:ah.winSeat===ah.seat;
+    const winBottom=ah.team?true:(ah.mode==='guest'?1:0)===ah.winSeat;const win=ah.team?!!ah.teamWon:ah.mode==='duo'?true:ah.winSeat===ah.seat;
     const col=ah.mode==='duo'?(winBottom?'67,225,255':'255,154,77'):(win?'67,225,255':'255,154,77');
     const k=ahClamp((3.2-ah.pt)/.8,0,1);
     x.save();x.globalCompositeOperation='lighter';const g=x.createLinearGradient(0,winBottom?M+AH.H:M,0,winBottom?M+AH.H*.35:M+AH.H*.65);g.addColorStop(0,'rgba('+col+','+(.38*k)+')');g.addColorStop(1,'rgba('+col+',0)');x.fillStyle=g;x.fillRect(M,M,AH.W,AH.H);x.restore();
     x.save();x.globalAlpha=k;x.textAlign='center';x.textBaseline='middle';x.font='700 104px Cinzel, Georgia, serif';x.fillStyle=win?AH_COL.gold:AH_COL.ivory;x.shadowColor=win?'rgba(230,195,106,.9)':'rgba(255,255,255,.4)';x.shadowBlur=30;
-    x.fillText(ah.mode==='duo'?'WINNER':(win?'VICTORY':'DEFEAT'),cx,cy);x.restore();
+    x.fillText(ah.team?(win?'FLEET DEFEATED':'OVERRUN'):ah.mode==='duo'?'WINNER':(win?'VICTORY':'DEFEAT'),cx,cy);x.restore();
   }
   // goal flash
   if(fx.flash>0){x.save();x.globalAlpha=fx.flash*.22;x.fillStyle='#fff';x.fillRect(0,0,AH.W+2*M,AH.H+2*M);x.restore();}
@@ -28545,7 +28592,7 @@ function rMatchEnd(){
   const ahr=ahIs(G.isOnline?G.srv?.gameId:G.selGame)?ahResultStats():null;
   const ahPong=(G.isOnline?G.srv?.gameId:G.selGame)==='pong',ahInv=(G.isOnline?G.srv?.gameId:G.selGame)==='invaders';
   const statChips=ahr?`<div class="tonight-stats">
-    <div class="tonight-stat"><div class="ts-val">${ahr.score[0]}–${ahr.score[1]}</div><div class="ts-lbl">🏒 Final score</div></div>
+    <div class="tonight-stat"><div class="ts-val">${ahr.team?(ahr.score[0]+ahr.score[1]):ahr.score[0]+'–'+ahr.score[1]}</div><div class="ts-lbl">${ahr.team?'👾 Team score · wave '+ahr.wave:'🏒 Final score'}</div></div>
     <div class="tonight-stat"><div class="ts-val">${ahr.fastest||'–'}</div><div class="ts-lbl">${ahInv?'🔥 Best combo (hits)':ahPong?'⚡ Top ball speed (km/h)':'⚡ Fastest shot (km/h)'}</div></div>
     <div class="tonight-stat"><div class="ts-val">${ahr.bestRally||'–'}</div><div class="ts-lbl">${ahInv?'👾 Aliens destroyed':'🔁 Longest rally'}</div></div>
     <div class="tonight-stat"><div class="ts-val">${ahInv?(ahr.saves||0):ahPong?(ahr.perfect||0):(ahr.saves||0)}</div><div class="ts-lbl">${ahInv?'⚡ Attacks sent':ahPong?'🎯 Perfect returns':'🧤 Saves'}</div></div>
@@ -28560,7 +28607,7 @@ function rMatchEnd(){
   return`<div id="s-matchend" class="scr on">
     <div class="topbar"><span class="top-title" style="font-family:var(--serif);">Tonight at Our Table</span><div class="top-right">${sndBtn()}</div></div>
     <div class="res-body">
-      <div class="winner-banner" style="--acc:${MOMENT_ACCENT[G.isOnline?G.srv?.gameId:G.selGame]||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${avChar(sorted[0]?.avatar)} ${c4Draw?'A draw!':esc(sorted[0]?.name||'')+' won!'}</div><button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div>
+      <div class="winner-banner" style="--acc:${MOMENT_ACCENT[G.isOnline?G.srv?.gameId:G.selGame]||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${avChar(sorted[0]?.avatar)} ${(ahr&&ahr.team)?(ahr.won?'Team victory!':'Overrun!'):c4Draw?'A draw!':esc(sorted[0]?.name||'')+' won!'}</div><button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div>
       ${statChips}
       <div class="panel" style="text-align:center;margin-bottom:.8rem;"><div class="panel-lbl">TABLE MOMENT</div><div style="font-family:var(--serif);font-size:1.1rem;color:var(--paper);margin:.2rem 0;">${matchMoment(sorted)}</div></div>
       ${isGT?gtResultsHTML():''}${isBW?bwResultsHTML():''}
