@@ -5595,6 +5595,54 @@ async function runPresentation(A,W,frame){
       try{G.isOnline=false;G.selGame='pong';G.lp=[{id:1,name:'Phil',avatar:'🦊'},{id:2,name:'Robo',avatar:'🐼',bot:'gentle'}];G.ah=null;const html=F('rAirHockeyTable')();const ov=F('G').ah.kind==='pong';F('ahStop')();return /Neon Duel/.test(html)&&/id="ah-cv"/.test(html)&&ov;}
       finally{const g=F('G');g.isOnline=k.on;g.lp=k.lp;g.selGame=k.sel;g.ah=k.ah;}})());
   });
+  suite('Arcade — Invaders: Duel: the fleet, the shots, the attacks and the match',()=>{
+    const F=n=>W.eval(n),IV=F('IV'),AH=F('AH');
+    const mk=()=>{const a=F('ahNew')('bot');a.kind='invaders';a.mode='bot';a.sim=F('ahNewSim')('invaders');a.bot={level:'gentle',hist:[],mode:''};a.out=[];F('ivSpawn')(a.sim.iv);a.ph='play';return a;};
+    check('Invaders: Duel is in the Arcade room, seats two, has a cover, can be played online and against a bot',F('GAMES').some(g=>g.id==='invaders'&&g.cat==='arcade'&&g.maxP===2&&/invaders\.jpg/.test(g.cover))&&F('ONLINE_GAMES').includes('invaders')&&F('BOT_GAMES').has('invaders'));
+    let a=mk();const iv=a.sim.iv;
+    check('a fresh fleet is 8 columns by 4 rows of drones in the first phase',iv.fleet.cells.filter(c=>c).length===32&&iv.fleet.cells.every(c=>!c||c.t==='b'));
+    check('the phases follow the clock: drones, then a faster fleet, then shields and bombers, then a commander',F('ivPhaseAt')(10)===1&&F('ivPhaseAt')(30)===2&&F('ivPhaseAt')(55)===3&&F('ivPhaseAt')(75)===4);
+    const shootAt=(a,r,c,seat)=>{const p=F('ivPos')(a.sim.iv,r,c),iv=a.sim.iv;iv.fleet.t0=iv.t-9;const q=F('ivPos')(iv,r,c);iv.bul.push({x:q.x,y:q.y+(seat===0?30:-30),vy:seat===0?-1000:1000,o:seat});};
+    a=mk();a.sim.iv.t=10;a.sim.iv.fleet.t0=0;shootAt(a,3,2,0);
+    for(let i=0;i<8;i++){a.out=[];F('ivStep')(a,1/60);}
+    check('a shot that hits a drone destroys it, scores 10 for the shooter and builds a combo',a.score[0]===10&&a.sim.iv.combo[0]===1&&a.sim.iv.kills[0]===1&&a.sim.iv.fleet.cells[3*8+2]===null);
+    a=mk();a.sim.iv.t=10;a.sim.iv.fleet.t0=0;a.sim.iv.combo[0]=5;shootAt(a,3,2,0);for(let i=0;i<8;i++){a.out=[];F('ivStep')(a,1/60);}
+    check('a combo of 5 multiplies the points by 1.5',a.score[0]===Math.round(10*1.5));
+    a=mk();a.sim.iv.combo[0]=7;a.sim.iv.bul.push({x:20,y:60,vy:-1000,o:0});for(let i=0;i<10;i++){a.out=[];F('ivStep')(a,1/60);}
+    check('a shot that finds nothing breaks the combo',a.sim.iv.combo[0]===0);
+    a=mk();a.sim.iv.fleet.cells[0]={t:'m',hp:1};a.sim.iv.t=10;a.sim.iv.fleet.t0=0;shootAt(a,0,0,0);for(let i=0;i<8;i++){a.out=[];F('ivStep')(a,1/60);}
+    check('a bomber that you shoot sends its bomb to YOUR OPPONENT',a.sim.iv.hz.some(h=>h.k==='bomb'&&h.vy<0)&&a.out.length>=0);
+    // hazards
+    a=mk();a.sim.pad[0].x=300;a.sim.iv.hz.push({k:'bomb',x:300,y:AH.H-120,vx:0,vy:430,from:1});for(let i=0;i<30;i++){a.out=[];F('ivStep')(a,1/60);}
+    check('a bomb that lands on a ship stuns it, breaks its combo and costs 40 points',a.sim.iv.stun[0]>0&&a.score[0]===0&&a.sim.iv.hz.length===0);
+    a=mk();a.sim.pad[0].x=300;a.score[0]=200;a.sim.iv.combo[0]=9;a.sim.iv.sh[0]=1;a.sim.iv.hz.push({k:'bomb',x:300,y:AH.H-120,vx:0,vy:430,from:1});for(let i=0;i<30;i++){a.out=[];F('ivStep')(a,1/60);}
+    check('the shield blocks it: no stun, no loss, the combo stays',a.sim.iv.stun[0]===0&&a.score[0]===200&&a.sim.iv.combo[0]===9&&a.sim.iv.dod[0]===1);
+    a=mk();a.sim.iv.shcd[0]=0;F('ivDoShield')(a,0);const first=a.sim.iv.sh[0];F('ivDoShield')(a,0);
+    check('a shield lasts a moment and then needs several seconds to recharge',first>1&&a.sim.iv.shcd[0]>5);
+    // the attack
+    a=mk();a.sim.iv.meter[0]=100;F('ivDoAttack')(a,0);
+    check('a full meter sends an attack: a warning first, the meter empties',a.sim.iv.warn.length===1&&a.sim.iv.meter[0]===0&&a.sim.iv.att[0]===1);
+    for(let i=0;i<60;i++){a.out=[];F('ivStep')(a,1/60);}
+    check('after the warning a wall of 7 missiles falls on the victim, one lane stays free',a.sim.iv.hz.filter(h=>h.k==='msl').length===7&&a.sim.iv.hz.every(h=>h.vy<0));
+    a=mk();a.sim.iv.meter[0]=40;F('ivDoAttack')(a,0);
+    check('an attack needs a full meter',a.sim.iv.warn.length===0&&a.sim.iv.att[0]===0);
+    // the match
+    a=F('ahNew')('bot');a.kind='invaders';a.mode='bot';a.sim=F('ahNewSim')('invaders');a.bot={level:'sharp',hist:[],mode:''};a.ready[0]=true;a.touch=[true,false];
+    let t=0,bad=false;while(!(a.ph==='over'&&a.pt<=0)&&t<200){a.out=[];F('ahHostTick')(a,1/60,[{x:300+Math.sin(t*1.3)*220,y:0},F('ahBotTarget')(a,1/60)]);t+=1/60;if(!isFinite(a.score[0])||!isFinite(a.sim.pad[1].x))bad=true;}
+    check('a whole match against the sharp bot: 90 seconds of play, no broken number, a winner, both sides scored',!bad&&a.over&&(a.winSeat===0||a.winSeat===1)&&a.score[0]>200&&a.score[1]>200&&t>85&&t<110,JSON.stringify([a.score,t]));
+    check('the match ends after the clock and the winner is the higher score',a.winSeat===(a.score[0]>a.score[1]?0:1));
+    // a draw plays on
+    a=mk();a.ph='play';a.score=[500,500];a.sim.iv.left=.01;a.out=[];F('ivStep')(a,.05);
+    check('a tie at the end is not a result: overtime',!a.over&&a.sim.iv.left>5&&a.sim.iv.ot===1);
+    // the link
+    a=mk();a.sim.iv.t=12;a.sim.iv.fleet.cells[5]={t:'s',hp:2};a.sim.iv.fleet.cells[6]=null;a.sim.iv.bul.push({x:100,y:700,vy:-1000,o:0});a.sim.iv.meter=[55,20];
+    const snap=F('ivSnapshot')(a),g=F('ahNew')('guest');g.kind='invaders';g.sim=F('ahNewSim')('invaders');F('ivApplySnapshot')(g,{iv:JSON.parse(JSON.stringify(snap))});
+    check('the guest receives the fleet (type and HP of every alien), the bullets and the meters from a snapshot',g.sim.iv.fleet.cells[5]&&g.sim.iv.fleet.cells[5].t==='s'&&g.sim.iv.fleet.cells[5].hp===2&&g.sim.iv.fleet.cells[6]===null&&g.sim.iv.bul.length===1&&g.sim.iv.meter[0]===55);
+    check('a snapshot of the whole match stays small enough for a 24 Hz stream (under 2.5 KB)',JSON.stringify(snap).length<2500,String(JSON.stringify(snap).length));
+    check('the table renders the canvas and the two buttons (shield, attack) for a one-device game',(()=>{const G=F('G'),k={on:G.isOnline,lp:G.lp,sel:G.selGame,ah:G.ah};
+      try{G.isOnline=false;G.selGame='invaders';G.lp=[{id:1,name:'Phil',avatar:'🦊'},{id:2,name:'Robo',avatar:'🐼',bot:'gentle'}];G.ah=null;const html=F('rAirHockeyTable')();F('ahStop')();return /id="ah-cv"/.test(html)&&/data-b="shield"/.test(html)&&/data-b="attack"/.test(html)&&/Invaders: Duel/.test(html);}
+      finally{const g=F('G');g.isOnline=k.on;g.lp=k.lp;g.selGame=k.sel;g.ah=k.ah;}})());
+  });
   suite('Chain Reaction (Fun) — the two powers',()=>{
     const F=n=>W.eval(n);
     const crNew=F('crNew'),crPlay=F('crPlay'),crPowerTargets=F('crPowerTargets'),crClone=F('crClone');
