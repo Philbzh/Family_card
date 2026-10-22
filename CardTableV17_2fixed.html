@@ -27299,6 +27299,7 @@ function oAnotherBtnHTML(){
 // game (same players, same room) or leave. Everybody else waits for the host.
 function resButtonsHTML(){
   if(!G.isOnline)return'<div class="res-btns"><button class="btn btn-gold btn-full" data-a="rematch">🔥 Rematch</button><button class="btn btn-ghost btn-full" data-a="newgame">New Game</button></div>';
+  if(!G.isHost&&G.srv&&ahIs(G.srv.gameId))return'<div class="res-btns"><button class="btn btn-gold btn-full" data-a="o-rematch">🔥 Rematch</button><button class="btn btn-ghost btn-full" data-a="newgame">Leave the table</button></div>';
   if(!G.isHost){
     const host=((G.srv&&G.srv.players||[]).find(p=>p.id===(G.srv&&G.srv.host))||{}).name||'the host';
     return`<div class="res-btns"><div class="slot-result" style="padding:.6rem;">Waiting for ${esc(host)} to start the next game…</div><button class="btn btn-ghost btn-full" data-a="newgame">Leave the table</button></div>`;
@@ -27532,7 +27533,7 @@ function oStartGame(rs){
 // the new state carries a rematchId (stamped onto the very next 'game' write, see dbWrite) that onSrv recognises.
 let _rematchStamp=0,_rematchSeen=0;
 async function oRematch(){
-  if(!G.isOnline||!G.isHost){toast('Only the host can start the rematch');return;}
+  if(!G.isOnline||(!G.isHost&&!(G.srv&&ahIs(G.srv.gameId)))){toast('Only the host can start the rematch');return;}
   if(_onlineBusy)return;_onlineBusy=true;
   try{
     const rs=await dbRead(G.roomId);if(!rs||!rs.players||rs.players.length<2)return;
