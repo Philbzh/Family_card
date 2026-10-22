@@ -1611,7 +1611,7 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 /* ── Arcade: 8-Ball ── */
 .ah-sc.pl-grp{display:inline-flex;align-items:center;gap:2px;font-size:.7rem;}
 .pl-tag{letter-spacing:.14em;font-size:.55rem;margin-right:4px;color:#E6C36A;}
-.pl-mb{display:inline-block;width:15px;height:15px;border-radius:50%;background:var(--c);color:#fff;font:700 8px/15px Jost,sans-serif;text-align:center;font-style:normal;box-shadow:inset -2px -2px 3px rgba(0,0,0,.4),0 1px 2px rgba(0,0,0,.5);text-shadow:0 0 2px #000;}
+.pl-mb{display:inline-block;width:21px;height:21px;border-radius:50%;background:var(--c);color:#fff;font:700 10px/21px Jost,sans-serif;text-align:center;font-style:normal;box-shadow:inset -2px -2px 3px rgba(0,0,0,.4),0 1px 2px rgba(0,0,0,.5);text-shadow:0 0 2px #000;}
 .pl-mb.st{background:linear-gradient(#f6f1e2 0 26%,var(--c) 26% 74%,#f6f1e2 74%);}
 .pl-mb.off{opacity:.2;filter:grayscale(.7);}
 .pl-mb.fresh{animation:pl-gone .9s ease-out both;}
@@ -8135,6 +8135,7 @@ function plDraw(g,now){
   x.setTransform(1,0,0,1,0,0);x.drawImage(g.statik,0,0);x.setTransform(sc,0,0,sc,0,0);x.translate(M,M);
   const my=plCanAct()||!!g.botAim,cue=g.disp[0];let cueDraw=null;
   if(plCanAct()&&pl.bih&&!g.bihPos&&!g.anim)g.bihPos=cue.on?{x:cue.x,y:cue.y}:{x:PL.W/2,y:PL.H*.74};
+  const mineSeat=g.mode==='bot'?0:(g.mode==='host'||g.mode==='guest'?g.seat:pl.turn),mineGrp=pl.groups[mineSeat];
   const bihMine=plCanAct()&&pl.bih&&!g.anim&&!!g.bihPos,nowP=performance.now(),rm=g.remote&&nowP-g.remote.t<1500&&!plCanAct()&&!g.anim&&!pl.over&&g.mode!=='bot'&&g.mode!=='duo'&&pl.turn!==g.seat?g.remote:null;
   // the aiming line and the cue
   if(my&&cue.on&&!g.anim&&!pl.over&&!(pl.bih)){
@@ -8160,6 +8161,7 @@ function plDraw(g,now){
   // the balls (the ones that have gone into a pocket fade away in it)
   for(const b of g.disp){
     if(b.on&&!((bihMine||(rm&&rm.b))&&b.id===0))plDrawBall(x,b,sc);
+    if(b.on&&b.id>0&&mineGrp&&!g.anim&&(plGroup(b.id)===mineGrp||(b.id===8&&plLeft(pl,mineSeat)===0))){const pu=.5+.5*Math.sin(nowP/380);x.save();x.lineWidth=2.4;x.strokeStyle='rgba(255,214,110,'+(.6+pu*.35)+')';x.shadowColor='rgba(255,200,80,.9)';x.shadowBlur=8;x.beginPath();x.arc(b.x,b.y,PL.R+4.5+pu*1.2,0,6.283);x.stroke();x.restore();}
     else if(b.fall){const u=(now-b.fall.t)/560;if(u<1){
       // the ball rolls into the pocket and drops: it is only seen inside the mouth, smaller and darker as it goes
       let bk=0,bd=1e9;for(let k=0;k<6;k++){const d=Math.hypot(b.fall.x-PL_POCKETS[k][0],b.fall.y-PL_POCKETS[k][1]);if(d<bd){bd=d;bk=k;}}
