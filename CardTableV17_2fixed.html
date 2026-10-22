@@ -1555,6 +1555,36 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 .cr-cell.ready .cr-orbs{animation:cr-wob .5s ease-in-out infinite;}
 @keyframes cr-wob{0%,100%{transform:rotate(-7deg);}50%{transform:rotate(7deg);}}
 @keyframes cr-ready{0%,100%{filter:brightness(1);}50%{filter:brightness(1.35) drop-shadow(0 0 5px rgba(255,170,60,.9));}}
+/* ── Arcade: Air Hockey (Neon Arena) ── */
+.game-airhockey .ah-felt{background:radial-gradient(ellipse at 50% 40%,#0c2220 0%,#06100e 70%,#030908 100%);border-radius:0;box-shadow:none;border:0;display:flex;flex-direction:column;}
+.ah-stage{position:relative;flex:1 1 auto;min-height:0;width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.ah-cv{display:block;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;will-change:transform;}
+.ah-hud{position:absolute;left:10px;z-index:3;display:flex;align-items:center;gap:.45rem;padding:.2rem .65rem .2rem .25rem;border-radius:999px;background:rgba(5,14,12,.74);border:1px solid rgba(230,195,106,.35);backdrop-filter:blur(4px);pointer-events:none;}
+.ah-hud-top{top:8px;}.ah-hud-bot{bottom:8px;}
+.ah-hud .ah-av .av-img{width:26px;height:26px;border-radius:50%;}
+.ah-hud .ah-nm{font-size:.8rem;color:var(--paper,#f4ebd0);max-width:9ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ah-hud .ah-sc{font-family:'Cinzel',serif;color:#E6C36A;font-size:1.2rem;min-width:1.1ch;text-align:center;}
+.ah-hud-top .ah-sc{color:#ff9a4d;}.ah-hud-bot .ah-sc{color:#43e1ff;}
+.ah-sc.pop{animation:ah-pop .4s ease-out;}
+@keyframes ah-pop{0%{transform:scale(1.9);}100%{transform:scale(1);}}
+.ah-over{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:none;align-items:center;justify-content:center;z-index:5;}
+.ah-over.on{display:flex;background:radial-gradient(ellipse at 50% 50%,rgba(3,10,9,.55),rgba(3,10,9,.86));backdrop-filter:blur(2px);animation:ah-fade .4s ease-out;}
+@keyframes ah-fade{from{opacity:0;}to{opacity:1;}}
+.ah-card{width:min(86%,380px);text-align:center;padding:1.2rem 1rem 1rem;border-radius:22px;background:linear-gradient(180deg,rgba(14,34,32,.9),rgba(5,14,12,.92));border:1px solid rgba(230,195,106,.45);box-shadow:0 20px 50px -18px #000,inset 0 0 0 1px rgba(255,255,255,.04);}
+.ah-kick{font-family:'Cinzel',serif;letter-spacing:.35em;font-size:.8rem;color:#43e1ff;text-shadow:0 0 14px rgba(67,225,255,.6);margin-bottom:.7rem;}
+.ah-vs{display:flex;align-items:center;justify-content:center;gap:.8rem;margin-bottom:.8rem;}
+.ah-vs b{font-family:'Cinzel',serif;color:#E6C36A;font-size:1.2rem;}
+.ah-pl{display:flex;flex-direction:column;align-items:center;gap:.25rem;font-size:.85rem;color:var(--paper,#f4ebd0);}
+.ah-pl .av-img{width:54px;height:54px;border-radius:50%;border:2px solid rgba(230,195,106,.6);}
+.ah-rules{list-style:none;margin:.2rem 0 .9rem;padding:0;font-size:.92rem;color:var(--paper2,#d9cfae);line-height:1.7;}
+.ah-rules li:before{content:'◆ ';color:#E6C36A;font-size:.6em;vertical-align:middle;}
+.ah-ready{min-width:60%;font-family:'Cinzel',serif;letter-spacing:.22em;}
+.ah-ready.on{opacity:.75;}
+.ah-hint{margin-top:.7rem;font-size:.76rem;color:var(--paper3,#9a9378);}
+.ah-lost .ah-big{font-family:'Cinzel',serif;font-size:1.05rem;letter-spacing:.14em;color:#ff9a4d;}
+.ah-lost .ah-sub{margin-top:.6rem;font-size:.85rem;letter-spacing:.3em;color:#F4EBD0;animation:ah-blink 1.2s infinite;}
+@keyframes ah-blink{50%{opacity:.35;}}
+.v10-gc--airhockey{background:linear-gradient(160deg,rgba(67,225,255,.25),rgba(8,24,24,.4));border-top-color:#43e1ff;}
 .cr-well.shk-s{animation:cr-shk-s .22s ease-out both;}
 .cr-well.shk-m{animation:cr-shk-m .34s ease-out both;}
 .cr-well.shk-l{animation:cr-shk-l .55s cubic-bezier(.36,.07,.19,.97) both;}
@@ -4087,7 +4117,7 @@ function dbResetTs(){_seenTs=[];_lts=0;}
 const _seenTalk=new Set(); // ids of table-talk entries (reactions/messages) already animated, so onSrv diffing never replays one twice
 const SB=()=>{
   if(typeof supabase==='undefined')return null;
-  try{return _sb||(_sb=supabase.createClient(SB_URL,SB_KEY));}catch(e){return null;}
+  try{return _sb||(_sb=supabase.createClient(SB_URL,SB_KEY,{realtime:{params:{eventsPerSecond:45}}}));}catch(e){return null;}
 };
 // Every byte the online renderer walks enters through dbRead, and it enters as whatever JSON happens
 // to be sitting in that row — which is not necessarily a game. The room id is a short code anyone
@@ -4182,7 +4212,7 @@ function isPlayerAbsent(pid,graceMs){
   return since!=null&&(Date.now()-since)>=(graceMs||0);
 }
 // The people at the table are not just names: while somebody else is on turn their avatar is there, thinking (and, in Blackwater, aiming).
-const PEER_NO_TURN=new Set(['roulette','slots','bingo','drawit','vault','escape','battle','hotbomb']);
+const PEER_NO_TURN=new Set(['airhockey','roulette','slots','bingo','drawit','vault','escape','battle','hotbomb']);
 function peerSend(kind){try{if(_ch&&G.isOnline&&G.myPid)_ch.send({type:'broadcast',event:'pk',payload:{pid:G.myPid,kind}});}catch(e){}}
 function peerOnBroadcast(p){if(!p||!p.pid||p.pid===G.myPid)return;G.peer={pid:p.pid,kind:p.kind,at:Date.now()};peerThinkTick();}
 function peerThinkTick(){
@@ -4213,7 +4243,7 @@ function _onPresenceSync(){
     if(_presentPids.has(pid))delete _absentSince[pid];
     else if(_absentSince[pid]==null)_absentSince[pid]=Date.now();
   });
-  if(!bwSeqBusy())render();
+  if(!bwSeqBusy()&&!ahLive())render();
 }
 // What to do with each snapshot the poll / realtime channel hands back. A snapshot this device has not seen is
 // applied. One it HAS seen is normally either the state already on screen or an old read arriving late, and is
@@ -4244,6 +4274,7 @@ function dbSub(id,cb){
       .on('presence',{event:'sync'},_onPresenceSync)
       .on('broadcast',{event:'pk'},msg=>peerOnBroadcast(msg&&msg.payload))
       .on('broadcast',{event:'dw'},msg=>dwOnBroadcast(msg&&msg.payload))
+      .on('broadcast',{event:'ah'},msg=>{try{ahOnBroadcast(msg&&msg.payload);}catch(e){}})
       .subscribe(status=>{if(status==='SUBSCRIBED')_ch.track({pid:G.myPid});});
   }
   if(_poll)clearInterval(_poll);
@@ -4253,7 +4284,7 @@ function dbSub(id,cb){
   // otherwise a player who's merely gone quiet (no new state to trigger a render) would stay stuck
   // showing "may be away" long past the point the skip button should have appeared.
   if(_awayTick)clearInterval(_awayTick);
-  _awayTick=setInterval(()=>{if(Object.keys(_absentSince).length&&!bwSeqBusy())render();oRoulCheckStuckSpin();},4000);
+  _awayTick=setInterval(()=>{if(Object.keys(_absentSince).length&&!bwSeqBusy()&&!ahLive())render();oRoulCheckStuckSpin();},4000);
 }
 // keepSeat=true means "I am walking away from this screen", not "I am done with this game". Tapping
 // Home used to be irreversible: it wiped ct_online_session, and join() refuses any room already in
@@ -4456,7 +4487,7 @@ const REACTION_GAME={
   liarsdice:['👀','😏','😈'],skull:['👀','😏','😈'],texas:['😎','😏','👀'],fivecard:['😎','😏','👀'],blackjack:['🤞','😎','😱'],
   farkle:['🤞','😱','💀'],pig:['🤞','😱','💀'],bust:['🤞','😱','💀'],yahtzee:['🤞','🎉','🙏'],dicedual:['😈','🔥','💀'],summit:['💪','😱','🙏'],
   slots:['🤞','🎉','🙏'],roulette:['🤞','😱','🎉'],bingo:['🤞','🎉','🙄'],shutbox:['🤞','😱','🙏'],tension:['😱','🤞','💥'],hotbomb:['💥','😱','🤞'],
-  fourrow:['😏','👀','🔥'],mayhem:['💥','🤯','😈'],chainreaction:['💥','🤯','😱'],gauntlet:['😈','😱','💥'],abyss:['😱','😂','😈'],blackwater:['😏','👀','💥'],vault:['🤔','👀','🙏'],escape:['🤔','👀','🫣'],drawit:['😂','🤔','🙈'],
+  fourrow:['😏','👀','🔥'],mayhem:['💥','🤯','😈'],chainreaction:['💥','🤯','😱'],gauntlet:['😈','😱','💥'],abyss:['😱','😂','😈'],blackwater:['😏','👀','💥'],airhockey:['🔥','🤯','👏'],vault:['🤔','👀','🙏'],escape:['🤔','👀','🫣'],drawit:['😂','🤔','🙈'],
   maumau:['😈','😏','🙄'],uno:['😈','😏','🙄'],lepouilleux:['👀','😏','🙈'],battle:['🔥','💪','😎']
 };
 // The strip's order for a game: its own three first, then the usual order, no repeats.
@@ -4559,6 +4590,11 @@ const GAMES=[
      'A destroyed ship stays on the map as <b>wreckage</b>. Sink all five ships to win. With one ship left it is your <b>LAST STAND</b> — you can still win.',
      '<b>🧭 Help:</b> <b>Family</b> shows where a hit ship could continue and greys out squares no ship can be on; <b>Standard</b> only greys them out; <b>Expert</b> gives no help.',
      'Play online (two devices, each with its own secret fleet) or on one device against a bot (<b>Gentle</b> is an Officer who only fires, <b>Sharp</b> an Admiral who also uses sonar, torpedoes and silent running).']},
+  {id:'airhockey',cat:'arcade',icon:'🏒',name:'Air Hockey',players:'2',dur:'3–6 min',diff:'medium',deal:0,minP:2,maxP:2,cover:'assets/games/airhockey.jpg',
+   rules:['<b>Hit. Defend. Dominate.</b> A glass table, one puck, two paddles. Drag your finger and your paddle follows. <b>First to 7 goals wins.</b>',
+     'Your paddle stays in <b>your half</b> (the bottom of the screen). A fast sweep gives the puck more speed than a gentle push, and <b>where</b> you hit it decides where it goes.',
+     'Playing <b>online</b> every device shows you at the bottom; the table is run by the room host and your own paddle never waits for the network. If a connection drops, the match <b>pauses</b> instead of ending.',
+     'On <b>one device</b> you can play a bot (<b>Gentle</b> or <b>Sharp</b>), or two people can share the screen: each plays their own half with a finger.']},
   {id:'abyss',cat:'party',icon:'🌌',name:'The Abyss',players:'2–6',dur:'10–20 min',diff:'easy',deal:0,minP:2,maxP:6,cover:'assets/games/abyss.jpg',
    rules:['<b>Snakes and Ladders for grown-ups.</b> A winding board of <b>100 squares</b>; the first player to reach the top wins. On your turn <b>roll two dice</b> and walk the total — no exact roll needed at the end.',
      '<b>🪜 Ladders</b> carry you up (a <b>🚀</b> is a long one). <b>🕳️ Pits</b> drop you down the dashed red line. A <b>🌑 black hole</b> swallows you — straight back to the start.',
@@ -4655,7 +4691,7 @@ const GAMES=[
 ];
 // Single source of truth for which unlocked games have online-multiplayer support, so the "online"
 // gate and the local-only badge on a game's card can never drift out of sync with each other.
-const ONLINE_GAMES=['maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice','summit','hotbomb','vault','bust','escape','shutbox','fourrow','skull','tension','mayhem','chainreaction','gauntlet','abyss','blackwater'];
+const ONLINE_GAMES=['airhockey','maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice','summit','hotbomb','vault','bust','escape','shutbox','fourrow','skull','tension','mayhem','chainreaction','gauntlet','abyss','blackwater'];
 // The Games tab groups its (growing) roster into these, rather than one long scroll -- every GAMES
 // entry's `cat` must be one of these ids. Order here is the order the category tiles are shown in.
 const GAME_CATEGORIES=[
@@ -4663,6 +4699,7 @@ const GAME_CATEGORIES=[
   {id:'dice',icon:'🎲',name:'Dice Games',desc:'Roll, hold, chase your luck'},
   {id:'casino',icon:'🎰',name:'Casino Games',desc:'Bet chips, play the table'},
   {id:'classic',icon:'🎯',name:'Classic Games',desc:'Family favorites, pure chance'},
+  {id:'arcade',icon:'🏒',name:'Arcade',desc:'Fast hands. Sharp minds.'},
   {id:'party',icon:'🎉',name:'Party Games',desc:'Create, guess, laugh together'},
   {id:'coop',icon:'🔐',name:'Co-op Adventures',desc:'Escape together, one screen each'},
 ];
@@ -5402,7 +5439,7 @@ function checkpointLocalMatch(){
   if(G.isOnline)return;
   if(G.scr==='table'){
     try{
-      const snap={...G,drawSelections:Array.from(G.drawSelections||[])};
+      const snap={...G,ah:null,drawSelections:Array.from(G.drawSelections||[])};
       localStorage.setItem('ct_resume',JSON.stringify({ts:Date.now(),snap}));
     }catch(e){}
   } else if(G.scr==='matchend'||G.scr==='yahtzeeend'){
@@ -6002,6 +6039,7 @@ function lDeal(){
   if(game.id==='gauntlet'){lDealGauntlet();return;}
   if(game.id==='abyss'){lDealAbyss();return;}
   if(game.id==='blackwater'){lDealBlackwater();return;}
+  if(game.id==='airhockey'){lDealAirHockey();return;}
   if(game.id==='bingo'){lDealBingo();return;}
   if(game.id==='lepouilleux'){lDealBlackPeter();return;}
   if(game.id==='dicedual'){lDealDiceDuel();return;}
@@ -6063,8 +6101,752 @@ function lStartMatch(){
   G.gp++;localStorage.setItem('ct_gp',G.gp);G.matchStats=freshMatchStats();
   lDeal();
   const dealer=G.lp[G.lstart];
+  if(G.selGame==='airhockey')return;   // the arcade has its own entrance (the VS card and READY)
   v14Intro(G.selGame,dealer.name,dealer.avatar);
   SFX.shuffle();
+}
+
+/* ═══════ ARCADE — shared arcade engine + AIR HOCKEY (NEON ARENA) ═══════
+   Design: one self-contained module with its own canvas and loop (a render() would destroy the canvas, so automatic redraws are held
+   while a match is live, see ahLive). Physics runs on a FIXED 240 Hz step. ONLINE: the simulating device (players[0]) is
+   authoritative; the other device predicts its own paddle and the puck locally, so nothing waits for a round trip. Both stream over
+   the room's live broadcast channel (event 'ah', ~30 Hz); the database row only holds the setup, the score after each goal and the result.
+   Guest corrections: the host's puck snapshot is advanced by the measured one-way latency and blended in; after the guest's own paddle
+   touches the puck, corrections are held back for about a round trip so nothing rubber-bands.
+   Coordinates are "sim" coordinates (600x1000, seat 0 defends the bottom). Each viewer sees ITSELF at the bottom (seat 1 draws mirrored). */
+const AH={W:600,H:1000,R:46,PR:30,GOAL:236,WIN:7,DT:1/240,MAXV:2700,PADMAX:3600,M:34,ST_HZ:24};
+const AH_COL={me:['#43e1ff','#0b6f8a'],opp:['#ff9a4d','#8f3a12'],gold:'#E6C36A',ivory:'#F4EBD0'};
+let _ahEndAt=0;
+function ahLive(){return !!(G.ah&&G.ah.live&&G.scr==='table'&&!(G.isOnline&&G.srv&&G.srv.winner)&&!(!G.isOnline&&G.ah.over&&G.ah.overAt&&Date.now()-G.ah.overAt>2600));}
+const ahRnd=(a,b)=>a+Math.random()*(b-a);
+const ahClamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ── the world (pure: used by the host, by the guest's prediction, by the bot and by the tests) ── */
+function ahNewSim(){return{p:{x:AH.W/2,y:AH.H/2,vx:0,vy:0},pad:[{x:AH.W/2,y:AH.H-130,vx:0,vy:0},{x:AH.W/2,y:130,vx:0,vy:0}],t:0};}
+// a paddle chases its target (a fast, critically damped follow with a speed limit): the finger drives it, and its own velocity is what it gives the puck
+function ahMovePad(pd,idx,tx,ty,dt){
+  const R=AH.R;tx=ahClamp(tx,R,AH.W-R);
+  ty=idx===0?ahClamp(ty,AH.H/2+R,AH.H-R):ahClamp(ty,R,AH.H/2-R);
+  const k=1-Math.exp(-dt*58);let mx=(tx-pd.x)*k,my=(ty-pd.y)*k;
+  const maxd=AH.PADMAX*dt,d=Math.hypot(mx,my);if(d>maxd){mx*=maxd/d;my*=maxd/d;}
+  pd.x+=mx;pd.y+=my;pd.vx=mx/dt;pd.vy=my/dt;
+}
+// one step of the puck. Returns nothing; pushes events {t:'hit'|'wall'|'post'|'goal',...} into ev
+function ahStepPuck(s,dt,ev,opt){
+  const p=s.p,r=AH.PR,W=AH.W,H=AH.H,gx0=(W-AH.GOAL)/2,gx1=(W+AH.GOAL)/2;
+  p.x+=p.vx*dt;p.y+=p.vy*dt;
+  const f=Math.exp(-.2*dt);p.vx*=f;p.vy*=f;
+  if(p.x<r){p.x=r;if(p.vx<0){const sp=-p.vx;p.vx=sp*.95;ev.push({t:'wall',s:sp,x:p.x,y:p.y});}}
+  else if(p.x>W-r){p.x=W-r;if(p.vx>0){const sp=p.vx;p.vx=-sp*.95;ev.push({t:'wall',s:sp,x:p.x,y:p.y});}}
+  const inGoal=p.x>gx0&&p.x<gx1;
+  if(p.y<r&&!inGoal){p.y=r;if(p.vy<0){const sp=-p.vy;p.vy=sp*.95;ev.push({t:'wall',s:sp,x:p.x,y:p.y});}}
+  if(p.y>H-r&&!inGoal){p.y=H-r;if(p.vy>0){const sp=p.vy;p.vy=-sp*.95;ev.push({t:'wall',s:sp,x:p.x,y:p.y});}}
+  // the posts of the two goals
+  for(const post of [[gx0,0],[gx1,0],[gx0,H],[gx1,H]]){
+    const dx=p.x-post[0],dy=p.y-post[1],d=Math.hypot(dx,dy);
+    if(d<r&&d>1e-6){const nx=dx/d,ny=dy/d;p.x=post[0]+nx*r;p.y=post[1]+ny*r;const vn=p.vx*nx+p.vy*ny;
+      if(vn<0){p.vx-=1.9*vn*nx;p.vy-=1.9*vn*ny;ev.push({t:'post',s:-vn,x:p.x,y:p.y});}}
+  }
+  // the two paddles: the puck bounces off the moving paddle (its velocity is added), which is what makes a shot a shot
+  for(let i=0;i<2;i++){
+    const pd=s.pad[i],dx=p.x-pd.x,dy=p.y-pd.y,d=Math.hypot(dx,dy),m=AH.R+r;
+    if(d<m&&d>1e-6){
+      const nx=dx/d,ny=dy/d;p.x=pd.x+nx*m;p.y=pd.y+ny*m;
+      const rvx=p.vx-pd.vx,rvy=p.vy-pd.vy,vn=rvx*nx+rvy*ny;
+      if(vn<0){p.vx-=1.9*vn*nx;p.vy-=1.9*vn*ny;ev.push({t:'hit',pad:i,s:-vn,x:p.x,y:p.y,px:pd.vx,py:pd.vy});}
+    }
+  }
+  // a paddle may press the puck against a wall, but never through it
+  if(p.x<r){p.x=r;if(p.vx<0)p.vx=0;}else if(p.x>W-r){p.x=W-r;if(p.vx>0)p.vx=0;}
+  if(!(p.x>gx0&&p.x<gx1)){if(p.y<r){p.y=r;if(p.vy<0)p.vy=0;}else if(p.y>H-r){p.y=H-r;if(p.vy>0)p.vy=0;}}
+  const sp=Math.hypot(p.vx,p.vy);if(sp>AH.MAXV){p.vx*=AH.MAXV/sp;p.vy*=AH.MAXV/sp;}
+  if(p.y<-r*.5&&!(opt&&opt.noGoal)){ev.push({t:'goal',seat:0,s:sp});}
+  else if(p.y>H+r*.5&&!(opt&&opt.noGoal)){ev.push({t:'goal',seat:1,s:sp});}
+}
+// advance the world by `dt` (any size: it is cut into 1/240 s steps). tg = [target0,target1] as {x,y} or null (keep the paddle where it is)
+function ahAdvance(s,dt,tg,ev,opt){
+  let left=dt;
+  while(left>1e-9){
+    const h=Math.min(AH.DT,left);left-=h;
+    for(let i=0;i<2;i++){const t=tg&&tg[i];if(t)ahMovePad(s.pad[i],i,t.x,t.y,h);}
+    if(!(opt&&opt.freezePuck))ahStepPuck(s,h,ev,opt);
+    s.t+=h;
+  }
+}
+// put the puck down on the side of the player who conceded (at rest, a little in front of the goal)
+function ahServe(s,loserSeat){s.p.x=AH.W/2;s.p.y=loserSeat===0?AH.H*.68:AH.H*.32;s.p.vx=0;s.p.vy=0;}
+
+/* ── the bot: it only ever sees what a player sees (the puck, delayed by its reaction time) ── */
+const AH_BOTS={gentle:{delay:.2,vmax:1500,err:60,aggr:.35},sharp:{delay:.11,vmax:2500,err:24,aggr:.8}};
+function ahBotTarget(ah,dt){
+  const b=ah.bot,lv=AH_BOTS[b.level]||AH_BOTS.gentle,s=ah.sim,pd=s.pad[1];
+  // what it sees: the puck as it was `delay` ago
+  b.hist.push({t:s.t,x:s.p.x,y:s.p.y,vx:s.p.vx,vy:s.p.vy});
+  while(b.hist.length>2&&b.hist[1].t<s.t-lv.delay)b.hist.shift();
+  const o=b.hist[0],W=AH.W,H=AH.H,R=AH.R,r=AH.PR;
+  let tx=W/2,ty=130;
+  const toward=o.vy<-60,inMine=o.y<H/2;
+  if(b.cool>0){b.cool-=dt;b.mode='';b.hitT=0;return ahBotMove(b,pd,W/2,150,lv,dt);}
+  if(o.y<H/2+45&&Math.abs(o.vy)<420){
+    // the puck is slow in my half: line up behind it and hit it towards the far goal
+    const gx=W/2+ahRnd(-1,1)*(b.aim||0)*70,gy=H;
+    let ux=gx-o.x,uy=gy-o.y;const ul=Math.hypot(ux,uy)||1;ux/=ul;uy/=ul;
+    let bx=o.x-ux*(R+r+34),by=o.y-uy*(R+r+34);
+    const edge=R+r+14;
+    if(o.x<edge||o.x>W-edge||o.y<edge){
+      // against a wall or in a corner: the swing must come ALONG the wall (a push into it only pins the puck)
+      const inw=o.x<W/2?1:-1;
+      if(o.y<edge){ux=inw*.95;uy=.3;}else{ux=inw*.35;uy=.94;}
+      const ul2=Math.hypot(ux,uy);ux/=ul2;uy/=ul2;
+      bx=o.x-ux*(R+r+34);by=o.y-uy*(R+r+34);
+      bx=Math.max(R+4,Math.min(W-R-4,bx));by=Math.max(R+4,by);
+    }
+    const dist=Math.hypot(bx-pd.x,by-pd.y);
+    if(b.mode!=='hit'&&dist>34)b.mode='set';
+    if(b.mode==='hit'){b.hitT=(b.hitT||0)+dt;if(b.hitT>.55){b.cool=.8;b.hitT=0;b.mode='';}}
+    if(dist<=34||b.mode==='hit'){b.mode='hit';tx=o.x+ux*30;ty=o.y+uy*30;if(Math.hypot(o.x-pd.x,o.y-pd.y)>R+r+70||!inMine)b.mode='';}
+    else{tx=bx;ty=by;}
+    if(lv.aggr<.5&&Math.random()<.002)b.mode='';
+  }else if(toward){
+    // it is coming: stand where it will cross my defensive line
+    const dy=o.y-150;let x=o.x+o.vx*(dy/-o.vy);
+    let xx=x%(2*(W-2*r));if(xx<0)xx+=2*(W-2*r);x=r+(xx>(W-2*r)?2*(W-2*r)-xx:xx);
+    tx=x;ty=Math.max(R+10,Math.min(210,o.y>H/2?150:Math.max(R+10,o.y-170)));
+    b.mode='';
+  }else{
+    tx=W/2+(o.x-W/2)*.35;ty=140;b.mode='';
+  }
+  b.nx=(b.nx||0)+(Math.random()-.5)*lv.err*.9*dt*10;b.nx=ahClamp(b.nx,-lv.err,lv.err);
+  if(toward&&b.mode!=='hit'&&!(o.y<H/2+45&&Math.abs(o.vy)<420))tx+=b.nx;
+  return ahBotMove(b,pd,tx,ty,lv,dt);
+}
+// the bot moves its target no faster than its own top speed
+function ahBotMove(b,pd,tx,ty,lv,dt){
+  const cx=b.cx==null?pd.x:b.cx,cy=b.cy==null?pd.y:b.cy,dx=tx-cx,dy=ty-cy,d=Math.hypot(dx,dy),mv=lv.vmax*dt;
+  if(d>mv){b.cx=cx+dx/d*mv;b.cy=cy+dy/d*mv;}else{b.cx=tx;b.cy=ty;}
+  return{x:b.cx,y:b.cy};
+}
+
+/* ── sounds: the Blackwater engine with an air-table character (a thunk, a glass tick, a deep goal, a quiet hum) ── */
+const AHS={
+  hit(s){s=ahClamp(s,0,1);
+    bwSn(.03,6500,2200,{type:'highpass',v:.08+.22*s,a:.001});
+    bwSt(230+90*s,85,.09+.1*s,{v:.16+.55*s,dist:.5,a:.002,rev:.08});
+    if(s>.72){bwSt(1500,950,.05,{v:.14,a:.001,rev:.3});bwCrack(.25,0,.15);}
+  },
+  wall(s){s=ahClamp(s,0,1);bwSt(1000+300*s,520,.045,{v:.05+.12*s,a:.001,rev:.15});bwSn(.03,4200,1500,{type:'bandpass',q:1.5,v:.04+.1*s,a:.001});},
+  post(s){bwClang(.1+.1*ahClamp(s,0,1),880,.7,0,.35);bwCrack(.18,0,.1);},
+  goal(mine){bwSt(105,38,.7,{v:.9,dist:1,a:.003,rev:.35,long:true});bwSn(1.0,4200,180,{v:.55,a:.003,rev:.5});bwCrack(.4,0,.25);
+    if(mine){[0,120,240].forEach((d,i)=>bwSt(660*Math.pow(1.26,i),660*Math.pow(1.26,i),.5,{type:'triangle',v:.1,d:140+d,a:.004,rev:.45}));}
+    else{bwSt(300,150,.7,{type:'triangle',v:.1,d:140,a:.01,rev:.4});}},
+  count(n){bwSt(n>0?520:880,n>0?520:880,n>0?.14:.42,{v:n>0?.16:.22,a:.003,rev:.35});if(n===0)bwSn(.5,1200,5200,{type:'bandpass',q:.7,v:.14,a:.1,rev:.3});},
+  matchPoint(){BWS.beat();setTimeout(()=>BWS.beat(),420);},
+  save(){bwSt(900,1500,.12,{v:.12,a:.003,rev:.4});bwSt(1350,2250,.2,{v:.1,d:80,a:.003,rev:.45});},
+  hum:{src:null,g:null,on(){
+      const ac=bwAc();if(!ac||this.src)return;
+      try{const s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();s.buffer=bwNoise(ac,'brown');s.loop=true;f.type='lowpass';f.frequency.value=360;g.gain.value=0;g.gain.linearRampToValueAtTime(.07,ac.currentTime+.8);s.connect(f);f.connect(g);bwTo(ac,g,{});s.start();this.src=s;this.g=g;}catch(e){}
+    },off(){const s=this.src,g=this.g;this.src=null;this.g=null;if(!s)return;try{g.gain.linearRampToValueAtTime(0,bwAc().currentTime+.35);setTimeout(()=>{try{s.stop();}catch(e){}},450);}catch(e){try{s.stop();}catch(e2){}}}}
+};
+
+/* ── state of the module on this device ── */
+function ahNew(mode){
+  // mode: 'bot' (one device, a bot), 'duo' (one device, two fingers, one on each half), 'host' / 'guest' (online)
+  const online=mode==='host'||mode==='guest';
+  const st=online&&G.srv?G.srv:null;
+  const players=online?((st&&st.players)||[]):G.lp;
+  const sc=(st&&st.ah&&st.ah.score)||[0,0];
+  return{mode,id:(st&&st.ah&&st.ah.id)||String(Date.now()),live:true,over:false,overAt:0,sim:ahNewSim(),score:sc.slice(),seat:mode==='guest'?1:0,
+    ph:'ready',pt:0,ready:[false,false],t0:Date.now(),
+    tgt:[null,null],my:{x:AH.W/2,y:AH.H-130,touch:false},
+    net:{seq:0,lastRx:0,lastTx:0,rtt:120,hold:0,seen:{},evs:[],evn:0,lost:false,lostAt:0,lastSt:0},
+    bot:{level:(players[1]&&players[1].bot)||'gentle',hist:[],mode:''},
+    fx:{parts:[],rings:[],banners:[],trail:[],glow:[0,0],shake:0,flash:0,pulse:0},
+    stats:{rally:0,bestRally:0,fastest:0,saves:0,hits:[0,0],maxDeficit:[0,0],goalsRow:[0,0],last:-1,moments:[],comeback:null},
+    players:players.slice(0,2),cv:null,raf:0,lastFrame:0,acc:0,pointers:{},matchPoint:false};
+}
+function ahTop(){return G.ah;}
+
+/* ── events: what the table does with each moment (sound, light, particles, a short banner, a haptic tap, a hint of reactions) ── */
+function ahBanner(ah,text,sub,col,ms){ah.fx.banners.push({text,sub:sub||'',col:col||AH_COL.gold,t:performance.now(),ms:ms||1100});if(ah.fx.banners.length>3)ah.fx.banners.shift();}
+function ahSpark(ah,x,y,n,col,spd,life){
+  if(typeof gtAnim==='function'&&gtAnim()==='off')return;
+  const k=(typeof gtAnim==='function'&&gtAnim()==='light')?.5:1;
+  for(let i=0,m=Math.round(n*k);i<m;i++){const a=ahRnd(0,6.283),sp=ahRnd(.3,1)*spd;ah.fx.parts.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,l:0,life:ahRnd(.25,.6)*(life||1),col});}
+  while(ah.fx.parts.length>180)ah.fx.parts.shift();
+}
+function ahRing(ah,x,y,r1,col,life){ah.fx.rings.push({x,y,r1,col,l:0,life:life||.45});if(ah.fx.rings.length>14)ah.fx.rings.shift();}
+// seat-aware: "me" is the seat this device plays (for the mirrored view), in duo mode both seats are "mine"
+function ahMe(ah){return ah.seat;}
+function ahEmit(ah,name,d){
+  d=d||{};const fx=ah.fx,mineSeat=ahMe(ah),bottomSeat=ah.mode==='guest'?1:0;
+  const shake=n=>{if(typeof gtFxOn==='function'&&gtFxOn('light'))fx.shake=Math.max(fx.shake,n);};
+  switch(name){
+    case'HIT':{const s=ahClamp(d.s/2300,0,1),bot=d.pad===bottomSeat;AHS.hit(s);ahSpark(ah,d.x,d.y,Math.round(4+10*s),bot?AH_COL.me[0]:AH_COL.opp[0],300+500*s);
+      if(s>.45){fx.glow[bot?0:1]=Math.max(fx.glow[bot?0:1],.5+.5*s);}
+      if(s>.55){shake(2+4*s);haptic(s>.8?[16]:[8]);}
+      if(s>.88)ahRing(ah,d.x,d.y,70,'rgba(244,235,208,.8)',.4);
+      break;}
+    case'WALL':{const s=ahClamp(d.s/2000,0,1);AHS.wall(s);if(s>.3)ahSpark(ah,d.x,d.y,3,'#dfe9ee',160+200*s,.6);break;}
+    case'POST':{AHS.post(d.s/1800);ahSpark(ah,d.x,d.y,10,AH_COL.gold,420);ahRing(ah,d.x,d.y,60,'rgba(230,195,106,.9)',.4);shake(5);ahBanner(ah,'POST!','',AH_COL.gold,800);break;}
+    case'GOAL':{
+      const bot=d.seat===bottomSeat,col=bot?AH_COL.me[0]:AH_COL.opp[0];
+      AHS.goal(ah.mode==='duo'?true:bot);haptic([40,30,70]);shake(10);fx.flash=1;
+      const gy=d.seat===0?0:AH.H;fx.glow[bot?0:1]=1;
+      ahSpark(ah,AH.W/2,d.seat===0?20:AH.H-20,46,col,720,1.4);ahRing(ah,AH.W/2,gy,260,bot?'rgba(67,225,255,.9)':'rgba(255,154,77,.9)',.8);
+      if(!d.over)ahBanner(ah,'GOAL','',col,1300);
+      if(typeof BWFX!=='undefined'&&BWFX.react)setTimeout(()=>{try{BWFX.react(bot?['👏','🔥','🤯']:['😱','😭','🙈']);}catch(e){}},500);
+      break;}
+    case'COUNT':AHS.count(d.n);break;
+    case'MATCH_POINT':ahBanner(ah,'MATCH POINT','',AH_COL.gold,1300);AHS.matchPoint();ah.matchPoint=true;break;
+    case'SAVE':AHS.save();ahBanner(ah,d.late?'LAST-SECOND SAVE':'GREAT SAVE','',AH_COL.ivory,1100);ahSpark(ah,d.x,d.y,16,AH_COL.ivory,500);break;
+    case'FAST':ahBanner(ah,'RIFLE SHOT',Math.round(d.kmh)+' km/h','#ff7a5a',1000);break;
+    case'STREAK':ahBanner(ah,d.n+' IN A ROW','',AH_COL.gold,1100);break;
+    case'COMEBACK':ahBanner(ah,'COMEBACK','from '+d.from+' down',AH_COL.gold,1500);break;
+    case'TIED':ahBanner(ah,'TIED','',AH_COL.ivory,900);break;
+    case'WIN':fx.flash=1;haptic([50,40,50,40,140]);break;
+  }
+}
+
+/* ── the rules of a match (run by the simulating device only; the other device follows) ── */
+function ahGoal(ah,seat,speed){
+  const st=ah.stats,sc=ah.score;sc[seat]++;
+  st.fastest=Math.max(st.fastest,speed);st.rally=0;
+  st.goalsRow[seat]++;st.goalsRow[1-seat]=0;
+  const def=sc[1-seat]-sc[seat];   // how far the scorer was behind before this goal (positive: it was behind)
+  st.maxDeficit[seat]=Math.max(st.maxDeficit[seat],sc[1-seat]-(sc[seat]-1));
+  const over0=sc[seat]>=AH.WIN;
+  const ev=[{t:'GOAL',seat,s:speed,over:over0}];
+  const kmh=speed*.0185;if(speed>2100)ev.push({t:'FAST',kmh:kmh});
+  if(st.goalsRow[seat]===3)ev.push({t:'STREAK',n:3});
+  if(sc[0]===sc[1]&&sc[0]>0)ev.push({t:'TIED'});
+  const over=sc[seat]>=AH.WIN;
+  if(!over&&!ah.mpSaid&&(sc[0]===AH.WIN-1||sc[1]===AH.WIN-1)){ah.mpSaid=true;ev.push({t:'MATCH_POINT'});}
+  if(over){ah.over=true;ah.winSeat=seat;const comeback=st.maxDeficit[seat]>=3?st.maxDeficit[seat]:0;if(comeback){st.comeback={seat,from:comeback};ev.push({t:'COMEBACK',from:comeback});}}
+  return{ev,over};
+}
+// the numbers of the finished match, for the result screen (this device's own run, or the room's record online)
+function ahResultStats(){
+  const st=G.isOnline&&G.srv?G.srv.ah:G.ahResult;if(!st)return{score:[0,0],fastest:0,bestRally:0,saves:0,dur:0};
+  const x=st.stats||st;return{score:st.score||[0,0],fastest:x.fastest||0,bestRally:x.bestRally||0,saves:x.saves||0,dur:st.dur||0};
+}
+// the moment line for the result screen
+function ahMomentText(ah,names){
+  const st=ah.stats,w=ah.winSeat,n=i=>names[i]||'Someone';
+  if(st.comeback)return`${n(st.comeback.seat)} came back from ${st.comeback.from} goals down.`;
+  if(st.saves>=3)return`${n(0)} and ${n(1)}: ${st.saves} great saves.`;
+  if(st.fastest>2100)return`${n(w)} fired a ${Math.round(st.fastest*.0185)} km/h shot. Final ${ah.score[0]}–${ah.score[1]}.`;
+  if(st.bestRally>=12)return`A ${st.bestRally}-hit rally. ${n(w)} took it ${ah.score[w]}–${ah.score[1-w]}.`;
+  return`${n(w)} won ${ah.score[w]}–${ah.score[1-w]}.`;
+}
+// phase machine of the simulating device
+function ahSetPhase(ah,ph,t){ah.ph=ph;ah.pt=t||0;ah.phAt=ah.sim.t;}
+function ahHostTick(ah,dt,tg){
+  const sim=ah.sim,ev=[];
+  if(ah.ph==='ready'){
+    ahAdvance(sim,dt,tg,ev,{freezePuck:true});
+    if(ah.mode!=='guest'&&ah.ready[0]&&(ah.ready[1]||ah.mode==='bot'||ah.mode==='duo')){ahSetPhase(ah,'count',3.2);ah.cdLast=4;}
+  }else if(ah.ph==='count'){
+    ahAdvance(sim,dt,tg,ev,{freezePuck:true});ah.pt-=dt;
+    const n=Math.ceil(ah.pt);if(n!==ah.cdLast&&n>=1&&n<=3){ah.cdLast=n;ah.out.push({t:'COUNT',n});}
+    if(ah.pt<=0){ahSetPhase(ah,'play',0);ah.out.push({t:'COUNT',n:0});ah.stats.start=Date.now();AHS.hum.on();
+      // the opening: the puck drifts a little towards one side (a fair coin), and the race is on
+      sim.p.vx=ahRnd(-70,70);sim.p.vy=(Math.random()<.5?-1:1)*ahRnd(300,380);}
+  }else if(ah.ph==='serve'){
+    ahAdvance(sim,dt,tg,ev,{freezePuck:true});ah.pt-=dt;
+    if(ah.pt<=0){ahSetPhase(ah,'play',0);}
+  }else if(ah.ph==='play'){
+    ahAdvance(sim,dt,tg,ev);
+    for(const e of ev){
+      if(e.t==='goal'){
+        const g=ahGoal(ah,e.seat,e.s);ah.out.push(...g.ev);
+        ah.sim.p.vx=ah.sim.p.vy=0;ah.lastGoal={seat:e.seat,x:sim.p.x};
+        if(g.over){ahSetPhase(ah,'over',3.2);ah.overAt=Date.now();AHS.hum.off();ah.out.push({t:'WIN',seat:e.seat});}
+        else{ahSetPhase(ah,'goal',1.7);}
+        ah.persist=true;break;
+      }
+      if(e.t==='hit'){
+        // a paddle that keeps pressing on the puck (or a rattle against a wall) is one touch, not a hundred
+        ah.lastHit=ah.lastHit||[-9,-9];if(e.s<140||sim.t-ah.lastHit[e.pad]<.07){ah.lastHit[e.pad]=sim.t;continue;}ah.lastHit[e.pad]=sim.t;
+        const st=ah.stats;st.hits[e.pad]++;st.rally++;st.bestRally=Math.max(st.bestRally,st.rally);
+        // a save: a fast puck that was coming at this paddle's goal is stopped or turned
+        const p=sim.p,towardMe=e.pad===0?p.vy<0:p.vy>0;
+        const gy=e.pad===0?AH.H:0,dist=Math.abs(p.y-gy);
+        if(ah.prevSpeed&&ah.prevSpeed.v>1500&&ah.prevSpeed.toward===e.pad&&dist<230&&towardMe){st.saves++;ah.out.push({t:'SAVE',late:ah.score[1-e.pad]>=AH.WIN-1,x:e.x,y:e.y,seat:e.pad});}
+        ah.out.push({t:'HIT',pad:e.pad,s:e.s,x:e.x,y:e.y});
+      }else if(e.t==='wall'){ah.lastWall=ah.lastWall||0;if(e.s>120&&sim.t-ah.lastWall>.05){ah.lastWall=sim.t;ah.out.push({t:'WALL',s:e.s,x:e.x,y:e.y});}}
+      else if(e.t==='post')ah.out.push({t:'POST',s:e.s,x:e.x,y:e.y});
+    }
+    const sp=Math.hypot(sim.p.vx,sim.p.vy);ah.prevSpeed={v:sp,toward:sim.p.vy>0?0:1};
+    const sq=ah.stuckAt;
+    if(!sq||Math.hypot(sim.p.x-sq.x,sim.p.y-sq.y)>40){ah.stuckAt={x:sim.p.x,y:sim.p.y};ah.stuckT=0;}
+    else{ah.stuckT+=dt;if(ah.stuckT>2.2){ah.stuckT=0;ah.stuckAt=null;ahServe(sim,sim.p.y>AH.H/2?0:1);ahSetPhase(ah,'serve',.9);ah.out.push({t:'READYGO'});}}
+    ah.dead=sp<45?(ah.dead||0)+dt:0;
+    if(ah.dead>4){ah.dead=0;sim.p.vx=ahRnd(-60,60);sim.p.vy=(sim.p.y>AH.H/2?-1:1)*320;}   // nobody is playing it: it drifts back towards the middle
+  }else if(ah.ph==='goal'){
+    ahAdvance(sim,dt,tg,ev,{freezePuck:true});ah.pt-=dt;
+    if(ah.pt<=0){ahServe(sim,ah.lastGoal?1-ah.lastGoal.seat:0);ahSetPhase(ah,'serve',.9);ah.out.push({t:'READYGO'});}
+  }else if(ah.ph==='over'){
+    ahAdvance(sim,dt,tg,ev,{freezePuck:true});ah.pt-=dt;
+  }
+}
+
+/* ── networking (online): small, frequent, and never waited for ── */
+function ahSend(msg){try{if(_ch&&G.isOnline){msg.id=G.ah&&G.ah.id;_ch.send({type:'broadcast',event:'ah',payload:msg});}}catch(e){}}
+function ahOnBroadcast(m){
+  const ah=G.ah;if(!ah||!m||m.id!==ah.id||!ah.live)return;
+  const net=ah.net;net.lastRx=performance.now();
+  if(ah.mode==='host'){
+    if(m.k==='in'){
+      const prev=net.gin,t=performance.now();let vx=0,vy=0;
+      if(prev&&t-prev.t<250&&t>prev.t){const dt=(t-prev.t)/1000;vx=(m.x-prev.x)/dt;vy=(m.y-prev.y)/dt;vx=net.gvx=(net.gvx||0)*.5+vx*.5;vy=net.gvy=(net.gvy||0)*.5+vy*.5;}
+      net.gin={x:m.x,y:m.y,t};
+      const lead=ahClamp(net.rtt/2000,0,.1);   // the paddle is already about one way ahead of what we were told
+      ah.tgt[1]={x:m.x+ahClamp(vx*lead,-70,70),y:m.y+ahClamp(vy*lead,-70,70)};net.guestSeq=m.seq;ah.guestTs=m.ts;
+    }
+    else if(m.k==='rd'){ah.ready[1]=true;}
+  }else if(ah.mode==='guest'&&m.k==='st'){
+    const now=performance.now();
+    if(m.ts){const rtt=now-m.ts;if(rtt>0&&rtt<2000)net.rtt=net.rtt*.8+rtt*.2;}
+    // events (the last few ride along in every snapshot, so a lost message does not lose a goal)
+    (m.ev||[]).forEach(e=>{if(!net.seen[e.i]){net.seen[e.i]=1;ahApplyEvent(ah,e);}});
+    if(m.i>net.lastSt||net.lastSt-m.i>100){net.lastSt=m.i;
+      ah.score=m.sc;ah.ready=m.rd;
+      if(ah.ph!==m.ph){ah.ph=m.ph;ah.pt=m.pt;}else ah.pt=m.pt;
+      const sim=ah.sim,tn=performance.now();
+      let hx=m.a[0],hy=m.a[1];
+      if(ah.hostPrev&&tn-ah.hostPrev.t<250&&tn>ah.hostPrev.t){const dt=(tn-ah.hostPrev.t)/1000,lead=ahClamp(net.rtt/2000,0,.1);ah.hostV=[(hx-ah.hostPrev.x)/dt*.5+(ah.hostV?ah.hostV[0]:0)*.5,(hy-ah.hostPrev.y)/dt*.5+(ah.hostV?ah.hostV[1]:0)*.5];hx+=ahClamp(ah.hostV[0]*lead,-70,70);hy+=ahClamp(ah.hostV[1]*lead,-70,70);}
+      ah.hostPrev={x:m.a[0],y:m.a[1],t:tn};
+      sim.pad[0].x=hx;sim.pad[0].y=hy;
+      ahCorrectPuck(ah,m);
+      if(m.ph==='over'&&!ah.over){ah.over=true;ah.winSeat=m.w;ah.overAt=Date.now();}
+    }
+  }
+}
+function ahApplyEvent(ah,e){
+  if(e.t==='GOAL'){ah.score[e.seat]=Math.max(ah.score[e.seat],ah.score[e.seat]);}
+  if(e.t==='HIT'){ah.stats.hits[e.pad]++;}
+  // the guest predicts its own hits locally: do not play them twice
+  if(e.t==='HIT'&&e.pad===ah.seat&&ah.net.localHitAt&&performance.now()-ah.net.localHitAt<ah.net.rtt+250)return;
+  if(e.t==='WALL'&&ah.net.localWallAt&&performance.now()-ah.net.localWallAt<ah.net.rtt+200)return;
+  // events travel in sim coordinates
+  ahEmit(ah,e.t,Object.assign({},e));
+  if(e.t==='WIN')AHS.hum.off();
+  if(e.t==='COUNT'&&e.n===0)AHS.hum.on();
+}
+// bring the host's puck snapshot forward by the one-way latency, then blend it into the local prediction
+function ahCorrectPuck(ah,m){
+  const sim=ah.sim,net=ah.net;
+  if(m.ph!=='play'){sim.p.x=m.p[0];sim.p.y=m.p[1];sim.p.vx=m.p[2];sim.p.vy=m.p[3];sim.pad[0].vx=sim.pad[0].vy=0;ah.vis={x:0,y:0};return;}
+  const bx=sim.p.x,by=sim.p.y;
+  const L=ahClamp(net.rtt/2000,0,.18);
+  const tmp={p:{x:m.p[0],y:m.p[1],vx:m.p[2],vy:m.p[3]},pad:[{x:m.a[0],y:m.a[1],vx:0,vy:0},{x:sim.pad[1].x,y:sim.pad[1].y,vx:sim.pad[1].vx,vy:sim.pad[1].vy}],t:0};
+  ahAdvance(tmp,L,null,[],{noGoal:true});
+  const p=sim.p,dx=tmp.p.x-p.x,dy=tmp.p.y-p.y,err=Math.hypot(dx,dy),holding=performance.now()<net.hold;
+  if(err>320||(!holding&&err>190)){p.x=tmp.p.x;p.y=tmp.p.y;p.vx=tmp.p.vx;p.vy=tmp.p.vy;}
+  else{const k=holding?.12:.4;p.x+=dx*k;p.y+=dy*k;p.vx+=(tmp.p.vx-p.vx)*k;p.vy+=(tmp.p.vy-p.vy)*k;}
+  // what the eye sees: keep drawing where the puck WAS and let that gap melt away over a few frames (a hard snap is only for a serve or a goal)
+  const v=ah.vis||(ah.vis={x:0,y:0});v.x+=bx-p.x;v.y+=by-p.y;const vm=Math.hypot(v.x,v.y);if(vm>260||m.ph!=='play'){v.x=0;v.y=0;}
+}
+function ahHostSnapshot(ah){
+  const net=ah.net,sim=ah.sim;
+  const ev=ah.evHist.slice(-8);
+  ahSend({k:'st',i:++net.seq,ph:ah.ph,pt:Math.round(ah.pt*1000)/1000,sc:ah.score,rd:ah.ready,w:ah.winSeat,
+    p:[Math.round(sim.p.x*10)/10,Math.round(sim.p.y*10)/10,Math.round(sim.p.vx),Math.round(sim.p.vy)],
+    a:[Math.round(sim.pad[0].x*10)/10,Math.round(sim.pad[0].y*10)/10],b:[Math.round(sim.pad[1].x),Math.round(sim.pad[1].y)],
+    ts:ah.guestTs,ev});
+}
+
+/* ── the screen ── */
+function ahPlayers(){return G.isOnline?(G.srv&&G.srv.players)||[]:G.lp;}
+function rAirHockeyTable(){
+  const online=G.isOnline,players=ahPlayers();
+  const mySeat=online?Math.max(0,players.findIndex(q=>q.id===G.myPid)):0;
+  const mode=online?(mySeat===0?'host':'guest'):(players[1]&&players[1].bot?'bot':'duo');
+  if(!G.ah||!G.ah.live||G.ah.mode!==mode||(online&&G.srv&&G.srv.ah&&G.srv.ah.id&&G.srv.ah.id!==G.ah.id)){ahStop();G.ah=ahNew(mode);G.ah.seat=online?mySeat:0;}
+  const ah=G.ah,me=players[ah.seat]||{name:'You',avatar:null},opp=players[1-ah.seat]||{name:'—',avatar:null};
+  const av=p=>p&&p.avatar?avHTML(p.avatar):'';
+  const topP=mode==='duo'?players[1]:opp,botP=mode==='duo'?players[0]:me;
+  setTimeout(ahAttach,0);
+  return`<div id="s-table" class="scr on game-airhockey">
+    <div class="game-bar">
+      <div class="gb-game">🏒 <span>Neon Arena</span></div>
+      <div class="gb-turn" id="ah-status">First to ${AH.WIN}</div>
+      <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
+    </div>
+    <div class="felt-table ah-felt" style="flex:1 1 auto;min-height:0;max-height:none;padding:0;">
+      <div class="ah-stage" id="ah-stage">
+        <canvas id="ah-cv" class="ah-cv" aria-label="Air hockey table"></canvas>
+        <div class="ah-hud ah-hud-top${mode==='duo'?' flip':''}"><span class="ah-av">${av(topP)}</span><span class="ah-nm">${esc(topP?topP.name:'')}</span><b class="ah-sc" id="ah-sc-top">0</b></div>
+        <div class="ah-hud ah-hud-bot"><span class="ah-av">${av(botP)}</span><span class="ah-nm">${esc(botP?botP.name:'')}</span><b class="ah-sc" id="ah-sc-bot">0</b></div>
+        <div class="ah-over" id="ah-over"></div>
+      </div>
+    </div>
+    ${talkStripHTML()}
+  </div>`;
+}
+// (re)attach the canvas, the input and the loop to the DOM that render() just built
+function ahAttach(){
+  const ah=G.ah;if(!ah||!ah.live)return;
+  const cv=document.getElementById('ah-cv');if(!cv)return;
+  if(ah.cv!==cv){ah.cv=cv;ah.statik=null;ahBindInput(cv);ahSizeCanvas();}
+  ahPaintOverlay();
+  if(!ah.raf){ah.lastFrame=performance.now();ah.raf=requestAnimationFrame(ahFrame);}
+  if(G.isOnline&&!ah.net.timer){
+    // heartbeat + the stream to the other device, independent of the frame rate
+    ah.net.timer=setInterval(()=>{
+      const a=G.ah;if(!a||!a.live||a!==ah){clearInterval(ah.net.timer);return;}
+      if(a.mode==='host'){ahHostSnapshot(a);}
+      else{const m=a.my;ahSend({k:'in',x:m.x,y:m.y,seq:++a.net.seq,ts:Math.round(performance.now())});if(!a.ready[1]&&a.readyTap)ahSend({k:'rd'});}
+      ahCheckLink(a);
+    },1000/AH.ST_HZ);
+  }
+}
+function ahSizeCanvas(){
+  const ah=G.ah;if(!ah||!ah.cv)return;
+  const st=document.getElementById('ah-stage');if(!st)return;
+  const r=st.getBoundingClientRect(),M=AH.M,cw=AH.W+2*M,ch=AH.H+2*M;
+  const sc=Math.min(r.width/cw,r.height/ch),dpr=Math.min(2,window.devicePixelRatio||1);
+  const w=Math.floor(cw*sc),h=Math.floor(ch*sc);
+  ah.cv.style.width=w+'px';ah.cv.style.height=h+'px';ah.cv.width=Math.round(w*dpr);ah.cv.height=Math.round(h*dpr);
+  ah.scale=sc*dpr;ah.cssScale=sc;ah.statik=null;
+  const ov=document.getElementById('ah-over');if(ov){ov.style.width=w+'px';ov.style.height=h+'px';}
+}
+window.addEventListener('resize',()=>{try{if(G.ah&&G.ah.live)ahSizeCanvas();}catch(e){}});
+function ahStop(){
+  const ah=G.ah;if(!ah)return;
+  ah.live=false;if(ah.raf)cancelAnimationFrame(ah.raf);ah.raf=0;if(ah.net&&ah.net.timer)clearInterval(ah.net.timer);
+  AHS.hum.off();G.ah=null;
+}
+
+/* ── input: the finger IS the paddle (the paddle follows it as fast as physics allows) ── */
+function ahBindInput(cv){
+  const ah=G.ah;
+  cv.style.touchAction='none';
+  const toSim=(e)=>{
+    const r=cv.getBoundingClientRect(),M=AH.M,sx=(e.clientX-r.left)/r.width*(AH.W+2*M)-M,sy=(e.clientY-r.top)/r.height*(AH.H+2*M)-M;
+    return ah.seat===1&&ah.mode==='guest'?{x:AH.W-sx,y:AH.H-sy}:{x:sx,y:sy};
+  };
+  const handle=(e)=>{
+    if(!G.ah||G.ah!==ah||ah.ph==='over')return;
+    const p=toSim(e);
+    if(ah.mode==='duo'){
+      const seat=p.y<AH.H/2?1:0;
+      // a finger drives the paddle of the half where it went down, until it lifts
+      if(e.type==='pointerdown')ah.pointers[e.pointerId]=seat;
+      const sd=ah.pointers[e.pointerId]!=null?ah.pointers[e.pointerId]:seat;
+      ah.tgt[sd]={x:p.x,y:p.y};ah.touched=true;
+    }else{ah.my.x=p.x;ah.my.y=p.y;ah.my.touch=true;if(ah.mode==='bot'||ah.mode==='host')ah.tgt[0]={x:p.x,y:p.y};else ah.tgt[ah.seat]={x:p.x,y:p.y};}
+  };
+  cv.addEventListener('pointerdown',e=>{e.preventDefault();try{cv.setPointerCapture(e.pointerId);}catch(x){}handle(e);},{passive:false});
+  cv.addEventListener('pointermove',e=>{
+    if(e.cancelable)e.preventDefault();
+    const list=e.getCoalescedEvents?e.getCoalescedEvents():null;
+    if(list&&list.length){for(const c of list)handle(Object.assign({},{clientX:c.clientX,clientY:c.clientY,pointerId:e.pointerId,type:'pointermove'}));}
+    else handle(e);
+  },{passive:false});
+  const up=e=>{delete ah.pointers[e.pointerId];};
+  cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+  cv.addEventListener('contextmenu',e=>e.preventDefault());
+}
+
+/* ── the frame loop ── */
+function ahFrame(now){
+  const ah=G.ah;if(!ah||!ah.live){return;}
+  ah.raf=requestAnimationFrame(ahFrame);
+  const cv=document.getElementById('ah-cv');
+  if(!cv){if(G.scr!=='table'||!(G.selGame==='airhockey'||(G.isOnline&&G.srv&&G.srv.gameId==='airhockey')))ahStop();return;}
+  if(cv!==ah.cv){ahAttach();if(!ah.cv)return;}
+  let dt=Math.min(.05,(now-ah.lastFrame)/1000);ah.lastFrame=now;if(dt<=0)return;
+  if(document.hidden)return;
+  const net=ah.net;
+  // the link: if the other device has gone quiet the match freezes (no instant forfeit)
+  const frozen=G.isOnline&&net.lost&&ah.ph!=='over';
+  if(!frozen){
+    ah.out=[];
+    if(ah.mode==='guest')ahGuestTick(ah,dt);else ahLocalTick(ah,dt);
+    for(const e of ah.out){ah.evHist=ah.evHist||[];e.i=++ah.evn||(ah.evn=1);ah.evHist.push(e);if(ah.evHist.length>20)ah.evHist.shift();ahEmit(ah,e.t,e);}
+    if(ah.persist){ah.persist=false;ahPersist(ah);}
+  }
+  ahFxStep(ah,dt);ahDraw(ah,now);ahStatusLine(ah);
+  if(ah.over&&!ah.endHandled&&ah.mode!=='guest'&&ah.ph==='over'&&ah.pt<=0)ahFinish(ah);
+}
+function ahLocalTick(ah,dt){
+  const sim=ah.sim;
+  const tg=[ah.tgt[0],ah.tgt[1]];
+  if(ah.mode==='bot'){
+    if(ah.ph==='ready'||ah.ph==='count'||ah.ph==='serve'||ah.ph==='goal'||ah.ph==='over')tg[1]=ahBotHome(ah);
+    else tg[1]=ahBotTarget(ah,dt);
+  }
+  if(!tg[0])tg[0]={x:sim.pad[0].x,y:sim.pad[0].y};
+  if(!tg[1])tg[1]={x:sim.pad[1].x,y:sim.pad[1].y};
+  ahHostTick(ah,dt,tg);
+}
+function ahBotHome(ah){const p=ah.sim.pad[1];return{x:AH.W/2,y:130};}
+// the guest simulates everything locally from the last snapshot, with its own paddle driven by its own finger (so it feels immediate)
+function ahGuestTick(ah,dt){
+  if(ah.vis){const f=Math.exp(-dt*11);ah.vis.x*=f;ah.vis.y*=f;}
+  const sim=ah.sim,tg=[null,ah.tgt[1]||{x:sim.pad[1].x,y:sim.pad[1].y}];
+  // the host's paddle is placed (not driven): its position comes from the snapshots; the guest's prediction treats it as moving
+  const ev=[];
+  const before={x:sim.pad[0].x,y:sim.pad[0].y};
+  ah.pt-=dt;
+  if(ah.ph==='play'){
+    // the host paddle velocity from the snapshots (smoothed) so that a hit on it bounces believably
+    sim.pad[0].vx=(sim.pad[0].x-(ah.lastHostX==null?sim.pad[0].x:ah.lastHostX))/Math.max(dt,1/120);sim.pad[0].vy=(sim.pad[0].y-(ah.lastHostY==null?sim.pad[0].y:ah.lastHostY))/Math.max(dt,1/120);
+    ah.lastHostX=sim.pad[0].x;ah.lastHostY=sim.pad[0].y;
+    ahAdvance(sim,dt,[null,tg[1]],ev,{noGoal:true});
+    for(const e of ev){
+      if(e.t==='hit'&&e.pad===ah.seat){
+        // a real strike: for about a round trip the host has not seen it yet, so its snapshots are only blended in lightly
+        if(e.s>350){ah.net.hold=performance.now()+ah.net.rtt*.55+60;ah.net.localHitAt=performance.now();}
+        if(e.s>=140&&(!ah.net.lastLocalHit||performance.now()-ah.net.lastLocalHit>70)){ah.net.lastLocalHit=performance.now();ah.out.push({t:'HIT',pad:e.pad,s:e.s,x:e.x,y:e.y,local:1});}
+      }
+      else if(e.t==='wall'){ah.net.localWallAt=performance.now();ah.out.push({t:'WALL',s:e.s,x:e.x,y:e.y});}
+    }
+  }else{ahAdvance(sim,dt,[null,tg[1]],ev,{freezePuck:true,noGoal:true});}
+}
+// ahPersist: the simulating device writes the score to the room after each goal (so a reload resumes the match)
+function ahPersist(ah){
+  if(!G.isOnline||ah.mode!=='host'||!G.srv)return;
+  const st=Object.assign({},G.srv);st.ah=Object.assign({},st.ah||{},{id:ah.id,score:ah.score.slice()});st._ts=Date.now();G.srv=st;
+  try{dbWrite(G.roomId,st);}catch(e){}
+}
+// the link watchdog (online)
+function ahCheckLink(ah){
+  const net=ah.net,now=performance.now();
+  if(!net.lastRx){net.lastRx=now;return;}
+  const quiet=now-net.lastRx;
+  if(ah.ph==='over'||ah.over){net.lost=false;return;}
+  if(quiet>3500&&!net.lost){net.lost=true;net.lostAt=now;ahPaintOverlay();}
+  else if(quiet<=1500&&net.lost){net.lost=false;ahPaintOverlay();ahBanner(ah,'MATCH RESUMED','',AH_COL.gold,1000);}
+  if(net.lost&&now-net.lostAt>25000&&!net.forfeited){net.forfeited=true;ahForfeit(ah);}
+}
+function ahForfeit(ah){
+  // after a long silence the device that is still connected takes the match
+  const winSeat=ah.seat;ah.over=true;ah.winSeat=winSeat;ah.forfeit=true;ah.overAt=Date.now();ah.ph='over';ah.pt=0;
+  ahFinish(ah,true);
+}
+// the end of a match: build the result and (online) write it to the room; the result screen follows
+function ahFinish(ah,forfeit){
+  if(ah.endHandled)return;ah.endHandled=true;
+  const players=ahPlayers(),names=players.map(p=>p.name),w=ah.winSeat;
+  const moment=forfeit?`${names[w]} stayed; the opponent’s connection never came back.`:ahMomentText(ah,names);
+  const dur=ah.stats.start?Math.round((Date.now()-ah.stats.start)/1000):0;
+  ah.result={moment,dur,score:ah.score.slice()};
+  if(G.isOnline){
+    if(!G.srv)return;
+    const st=JSON.parse(JSON.stringify(G.srv));
+    st.players.forEach((p,i)=>{p.c4Result=i===w?'win':'loss';p.totalScore=ah.score[i];});
+    st.winner=st.players[w].id;st.winnerName=st.players[w].name;st.winnerAv=st.players[w].avatar;st.moment=moment;
+    st.ah=Object.assign({},st.ah||{},{id:ah.id,score:ah.score.slice(),dur,stats:{fastest:Math.round(ah.stats.fastest*.0185),bestRally:ah.stats.bestRally,saves:ah.stats.saves}});
+    st.lastAct=esc(st.winnerName)+' won the match.';st._ts=Date.now();
+    // this device's own end flow first (onSrv compares with the OLD state and runs the history entry and the result screen), then the room
+    try{onSrv(st);}catch(e){}
+    try{dbWrite(G.roomId,st);}catch(e){}
+  }else{
+    ahEndLocal(ah);
+  }
+}
+function ahEndLocal(ah){
+  const w=ah.winSeat,players=G.lp,names=players.map(p=>p.name);
+  players.forEach((p,i)=>{p.c4Result=i===w?'win':'loss';p.totalScore=ah.score[i];});
+  G.ahMoment=ah.result.moment;G.ahResult={score:ah.score.slice(),dur:ah.result.dur,fastest:Math.round(ah.stats.fastest*.0185),bestRally:ah.stats.bestRally,saves:ah.stats.saves};
+  G.tw++;localStorage.setItem('ct_tw',G.tw);
+  addHistory({game:'airhockey',winner:players[w].name,winnerAvatar:players[w].avatar,date:new Date().toISOString(),players:names,moment:G.ahMoment,
+    stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions,ah:{score:ah.score.slice(),dur:ah.result.dur,fastest:Math.round(ah.stats.fastest*.0185),bestRally:ah.stats.bestRally,saves:ah.stats.saves}}});
+  setTimeout(()=>{if(G.selGame==='airhockey'&&G.scr==='table'){ahStop();G.scr='matchend';render();}},400);
+}
+
+/* ── overlays (HTML on top of the canvas): the VS card with the three-line rules and READY, the lost-link notice, the result flash ── */
+function ahPaintOverlay(){
+  const ah=G.ah,ov=document.getElementById('ah-over');if(!ah||!ov)return;
+  const players=ahPlayers(),a=players[0]||{},b=players[1]||{};
+  let html='';
+  if(ah.net.lost){html=`<div class="ah-card ah-lost"><div class="ah-big">OPPONENT CONNECTION LOST</div><div class="ah-sub">RECONNECTING…</div></div>`;}
+  else if(ah.ph==='ready'){
+    const left=ah.mode==='guest'?b:a,right=ah.mode==='guest'?a:b,iAm=ah.mode==='guest'?1:0;
+    const meReady=!!ah.ready[iAm]||(ah.mode!=='host'&&ah.mode!=='guest'&&ah.readyTap);
+    html=`<div class="ah-card"><div class="ah-kick">NEON ARENA</div>
+      <div class="ah-vs"><div class="ah-pl">${avHTML(a.avatar)}<span>${esc(a.name||'')}</span></div><b>VS</b><div class="ah-pl">${avHTML(b.avatar)}<span>${esc(b.name||'')}</span></div></div>
+      <ul class="ah-rules"><li>Move your paddle</li><li>Protect your goal</li><li>First to ${AH.WIN} wins</li></ul>
+      <button class="btn btn-gold ah-ready${meReady?' on':''}" data-a="ah-ready">${meReady?(ah.mode==='guest'||ah.mode==='host'?'WAITING…':'READY'):'READY'}</button>
+      ${ah.mode==='duo'?'<div class="ah-hint">Two players, one table: each plays their own half with a finger.</div>':ah.mode==='bot'?'<div class="ah-hint">You are at the bottom. Drag your finger to move the paddle.</div>':'<div class="ah-hint">You are at the bottom. Drag to move.</div>'}
+    </div>`;
+  }
+  if(ov.dataset.h!==html){ov.dataset.h=html;ov.innerHTML=html;}
+  ov.classList.toggle('on',!!html);
+}
+function ahStatusLine(ah){
+  const el=document.getElementById('ah-status');if(!el)return;
+  const t=ah.score[0]+' – '+ah.score[1];
+  const txt=ah.ph==='ready'?`First to ${AH.WIN}`:t;
+  if(el._t!==txt){el._t=txt;el.textContent=txt;}
+  const top=document.getElementById('ah-sc-top'),bot=document.getElementById('ah-sc-bot');
+  const v=ah.mode==='guest'?[ah.score[0],ah.score[1]]:[ah.score[1],ah.score[0]];
+  if(top&&top.textContent!==String(v[0])){top.textContent=v[0];top.classList.remove('pop');void top.offsetWidth;top.classList.add('pop');}
+  if(bot&&bot.textContent!==String(v[1])){bot.textContent=v[1];bot.classList.remove('pop');void bot.offsetWidth;bot.classList.add('pop');}
+  // the ready overlay disappears when play begins
+  const ov=document.getElementById('ah-over');if(ov&&ah.ph!=='ready'&&!ah.net.lost&&ov.classList.contains('on')){ahPaintOverlay();}
+  if(ah.ph==='ready'&&ov&&!ov.classList.contains('on')&&!ah.net.lost)ahPaintOverlay();
+}
+// READY (a button action wired in the click handler)
+function ahReadyTap(){
+  const ah=G.ah;if(!ah||ah.ph!=='ready')return;
+  SFX.chip&&SFX.chip();
+  if(ah.mode==='guest'){ah.readyTap=true;ah.ready[1]=true;ahSend({k:'rd'});}
+  else{ah.ready[0]=true;ah.readyTap=true;if(ah.mode==='host'&&!ah.ready[1])ahBanner(ah,'WAITING FOR OPPONENT','',AH_COL.ivory,1500);}
+  ahPaintOverlay();
+}
+
+/* ── drawing ── */
+function ahV(ah,x,y){const M=AH.M;return ah.mode==='guest'?[M+AH.W-x,M+AH.H-y]:[M+x,M+y];}
+function ahBuildStatic(ah){
+  const M=AH.M,cw=AH.W+2*M,ch=AH.H+2*M,sc=ah.scale;
+  const c=document.createElement('canvas');c.width=Math.round(cw*sc);c.height=Math.round(ch*sc);
+  const x=c.getContext('2d');x.scale(sc,sc);
+  const rr=(px,py,w,h,r)=>{x.beginPath();x.moveTo(px+r,py);x.arcTo(px+w,py,px+w,py+h,r);x.arcTo(px+w,py+h,px,py+h,r);x.arcTo(px,py+h,px,py,r);x.arcTo(px,py,px+w,py,r);x.closePath();};
+  // the room around the table
+  let g=x.createRadialGradient(cw/2,ch/2,100,cw/2,ch/2,ch*.75);g.addColorStop(0,'#0d2723');g.addColorStop(1,'#050b09');x.fillStyle=g;x.fillRect(0,0,cw,ch);
+  // the frame: brushed metal with a gold edge
+  rr(6,6,cw-12,ch-12,46);g=x.createLinearGradient(0,0,cw,ch);g.addColorStop(0,'#2b3a3b');g.addColorStop(.5,'#141f20');g.addColorStop(1,'#26363a');x.fillStyle=g;x.fill();
+  x.lineWidth=3.5;g=x.createLinearGradient(0,0,0,ch);g.addColorStop(0,'#f2d98d');g.addColorStop(.5,'#9a7a30');g.addColorStop(1,'#f2d98d');x.strokeStyle=g;x.stroke();
+  x.lineWidth=1;x.strokeStyle='rgba(244,235,208,.18)';rr(13,13,cw-26,ch-26,40);x.stroke();
+  // the playing surface: dark glass
+  rr(M,M,AH.W,AH.H,26);g=x.createLinearGradient(0,M,0,M+AH.H);g.addColorStop(0,'#0a1d1d');g.addColorStop(.5,'#0b2625');g.addColorStop(1,'#07181a');x.fillStyle=g;x.fill();
+  x.save();rr(M,M,AH.W,AH.H,26);x.clip();
+  // the air holes
+  x.fillStyle='rgba(180,240,240,.06)';for(let py=M+12;py<M+AH.H;py+=22)for(let px=M+((Math.round(py/22)%2)?22:11);px<M+AH.W;px+=22){x.beginPath();x.arc(px,py,1.15,0,6.283);x.fill();}
+  // light from above: a soft reflection band
+  g=x.createLinearGradient(M,M,M+AH.W,M+AH.H*.6);g.addColorStop(0,'rgba(255,255,255,0)');g.addColorStop(.42,'rgba(255,255,255,.045)');g.addColorStop(.5,'rgba(255,255,255,.085)');g.addColorStop(.58,'rgba(255,255,255,.03)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(M,M,AH.W,AH.H);
+  // the two halves' tint: mine (bottom) cool, theirs (top) warm
+  g=x.createLinearGradient(0,M+AH.H/2,0,M+AH.H);g.addColorStop(0,'rgba(67,225,255,0)');g.addColorStop(1,'rgba(67,225,255,.075)');x.fillStyle=g;x.fillRect(M,M+AH.H/2,AH.W,AH.H/2);
+  g=x.createLinearGradient(0,M,0,M+AH.H/2);g.addColorStop(0,'rgba(255,154,77,.07)');g.addColorStop(1,'rgba(255,154,77,0)');x.fillStyle=g;x.fillRect(M,M,AH.W,AH.H/2);
+  // markings
+  x.strokeStyle='rgba(230,195,106,.32)';x.lineWidth=2.2;x.beginPath();x.moveTo(M,M+AH.H/2);x.lineTo(M+AH.W,M+AH.H/2);x.stroke();
+  x.beginPath();x.arc(M+AH.W/2,M+AH.H/2,86,0,6.283);x.stroke();x.fillStyle='rgba(230,195,106,.4)';x.beginPath();x.arc(M+AH.W/2,M+AH.H/2,7,0,6.283);x.fill();
+  x.lineWidth=2;x.strokeStyle='rgba(67,225,255,.3)';x.beginPath();x.arc(M+AH.W/2,M+AH.H,130,Math.PI,0);x.stroke();
+  x.strokeStyle='rgba(255,154,77,.3)';x.beginPath();x.arc(M+AH.W/2,M,130,0,Math.PI);x.stroke();
+  // soft vignette inside the glass
+  g=x.createRadialGradient(M+AH.W/2,M+AH.H/2,AH.H*.25,M+AH.W/2,M+AH.H/2,AH.H*.72);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,.45)');x.fillStyle=g;x.fillRect(M,M,AH.W,AH.H);
+  x.restore();
+  // the two goals: a dark slot in the rail
+  const gx0=M+(AH.W-AH.GOAL)/2;
+  for(const [gy,col] of [[M-24,'255,154,77'],[M+AH.H-4,'67,225,255']]){
+    rr(gx0,gy,AH.GOAL,28,10);x.fillStyle='#02090a';x.fill();x.strokeStyle='rgba('+col+',.55)';x.lineWidth=2;x.stroke();
+  }
+  // posts
+  x.fillStyle='#d8c58a';for(const [px,py] of [[gx0,M],[gx0+AH.GOAL,M],[gx0,M+AH.H],[gx0+AH.GOAL,M+AH.H]]){x.beginPath();x.arc(px,py,7,0,6.283);x.fill();}
+  // rim of the glass
+  x.lineWidth=2;x.strokeStyle='rgba(244,235,208,.22)';rr(M,M,AH.W,AH.H,26);x.stroke();
+  ah.statik=c;
+}
+function ahDraw(ah,now){
+  const cv=ah.cv;if(!cv)return;
+  const x=cv.getContext('2d');if(!ah.scale)ahSizeCanvas();
+  if(!ah.statik)ahBuildStatic(ah);
+  const sc=ah.scale,M=AH.M,sim=ah.sim,fx=ah.fx;
+  x.setTransform(1,0,0,1,0,0);x.drawImage(ah.statik,0,0);
+  x.setTransform(sc,0,0,sc,0,0);
+  const mineBottom=ah.mode!=='duo'; // in duo the bottom player is seat 0 (cyan) and the top is seat 1 (orange)
+  const V=(px,py)=>ahV(ah,px,py);
+  // the rails light up where the puck hit and in the goals
+  const rail=(col,a,y0)=>{x.save();x.globalCompositeOperation='lighter';const g=x.createLinearGradient(0,y0,0,y0+(y0<M+AH.H/2?170:-170));g.addColorStop(0,'rgba('+col+','+a+')');g.addColorStop(1,'rgba('+col+',0)');x.fillStyle=g;x.fillRect(M,Math.min(y0,y0+(y0<M+AH.H/2?170:-170)),AH.W,170);x.restore();};
+  const gl=fx.glow;
+  rail('67,225,255',.1+.32*gl[0],M+AH.H);rail('255,154,77',.1+.32*gl[1],M);
+  // big faint scores in each half
+  x.save();x.font='700 230px Cinzel, Georgia, serif';x.textAlign='center';x.textBaseline='middle';
+  const sTop=ah.mode==='guest'?ah.score[0]:ah.score[1],sBot=ah.mode==='guest'?ah.score[1]:ah.score[0];
+  x.fillStyle='rgba(255,154,77,.075)';x.fillText(String(sTop),M+AH.W/2,M+AH.H*.27);
+  x.fillStyle='rgba(67,225,255,.075)';x.fillText(String(sBot),M+AH.W/2,M+AH.H*.73);
+  x.restore();
+  // the puck as the eye sees it (guest: smoothed towards the corrected place)
+  const pv={x:sim.p.x+(ah.vis?ah.vis.x:0),y:sim.p.y+(ah.vis?ah.vis.y:0)};
+  // the puck's trail
+  const sp=Math.hypot(sim.p.vx,sim.p.vy);
+  if(ah.ph==='play'||ah.ph==='goal'){fx.trail.push([pv.x,pv.y,sp]);if(fx.trail.length>16)fx.trail.shift();}else fx.trail.length=0;
+  if(fx.trail.length>2&&sp>900){x.save();x.globalCompositeOperation='lighter';
+    for(let i=1;i<fx.trail.length;i++){const a=fx.trail[i-1],b=fx.trail[i],t=i/fx.trail.length,va=V(a[0],a[1]),vb=V(b[0],b[1]);
+      x.strokeStyle='rgba(120,235,255,'+(.4*t*ahClamp((b[2]-800)/1600,0,1))+')';x.lineWidth=AH.PR*1.3*t;x.lineCap='round';x.beginPath();x.moveTo(va[0],va[1]);x.lineTo(vb[0],vb[1]);x.stroke();}
+    x.restore();}
+  // shadows
+  const shadow=(px,py,r)=>{const v=V(px,py);x.save();x.fillStyle='rgba(0,0,0,.42)';x.beginPath();x.ellipse(v[0]+r*.16,v[1]+r*.26,r*1.02,r*.92,0,0,6.283);x.fill();x.restore();};
+  shadow(sim.pad[0].x,sim.pad[0].y,AH.R);shadow(sim.pad[1].x,sim.pad[1].y,AH.R);shadow(pv.x,pv.y,AH.PR);
+  // the paddles
+  const paddle=(pd,cols,glow)=>{
+    const v=V(pd.x,pd.y),R=AH.R;
+    x.save();x.shadowColor=cols[0];x.shadowBlur=14+22*glow;
+    let g=x.createRadialGradient(v[0]-R*.3,v[1]-R*.35,R*.1,v[0],v[1],R);g.addColorStop(0,cols[0]);g.addColorStop(.62,cols[1]);g.addColorStop(1,'#04100f');
+    x.fillStyle=g;x.beginPath();x.arc(v[0],v[1],R,0,6.283);x.fill();x.restore();
+    x.lineWidth=2.4;x.strokeStyle='rgba(244,235,208,.55)';x.beginPath();x.arc(v[0],v[1],R-3,0,6.283);x.stroke();
+    // the handle
+    g=x.createRadialGradient(v[0]-R*.14,v[1]-R*.18,R*.04,v[0],v[1],R*.52);g.addColorStop(0,'#fbfbf2');g.addColorStop(.5,cols[0]);g.addColorStop(1,cols[1]);
+    x.fillStyle=g;x.beginPath();x.arc(v[0],v[1],R*.5,0,6.283);x.fill();
+    x.lineWidth=1.5;x.strokeStyle='rgba(0,0,0,.35)';x.stroke();
+  };
+  const bottomSeat=ah.mode==='guest'?1:0;
+  const seatCols=s=>(s===bottomSeat)?AH_COL.me:AH_COL.opp;
+  paddle(sim.pad[0],seatCols(0),gl[bottomSeat===0?0:1]);paddle(sim.pad[1],seatCols(1),gl[bottomSeat===1?0:1]);
+  // the puck: dark glass with an ivory rim, lit when it is fast
+  { const v=V(pv.x,pv.y),r=AH.PR,hot=ahClamp((sp-700)/1700,0,1);
+    x.save();x.shadowColor=hot>0?'rgba(120,235,255,'+(.4+.5*hot)+')':'rgba(0,0,0,0)';x.shadowBlur=10+30*hot;
+    let g=x.createRadialGradient(v[0]-r*.35,v[1]-r*.4,r*.1,v[0],v[1],r);g.addColorStop(0,'#5b6c70');g.addColorStop(.55,'#1b2629');g.addColorStop(1,'#080e10');
+    x.fillStyle=g;x.beginPath();x.arc(v[0],v[1],r,0,6.283);x.fill();x.restore();
+    x.lineWidth=2.4;x.strokeStyle='rgba(244,235,208,.85)';x.beginPath();x.arc(v[0],v[1],r-2,0,6.283);x.stroke();
+    x.lineWidth=1.2;x.strokeStyle='rgba(244,235,208,.3)';x.beginPath();x.arc(v[0],v[1],r*.58,0,6.283);x.stroke();
+    ah.puckAng=(ah.puckAng||0)+sp*.0012*(1/60);
+    x.fillStyle='rgba(244,235,208,.55)';x.beginPath();x.arc(v[0]+Math.cos(ah.puckAng)*r*.58,v[1]+Math.sin(ah.puckAng)*r*.58,2.2,0,6.283);x.fill();
+  }
+  // sparks and rings
+  x.save();x.globalCompositeOperation='lighter';
+  for(const p of fx.parts){const u=p.l/p.life,v=V(p.x,p.y);x.globalAlpha=Math.max(0,1-u);x.strokeStyle=p.col;x.lineWidth=2.4*(1-u*.6);x.lineCap='round';x.beginPath();x.moveTo(v[0],v[1]);x.lineTo(v[0]-p.vx*.03*(ah.mode==='guest'?-1:1),v[1]-p.vy*.03*(ah.mode==='guest'?-1:1));x.stroke();}
+  for(const r of fx.rings){const u=r.l/r.life,v=V(r.x,r.y);x.globalAlpha=Math.max(0,1-u)*.9;x.strokeStyle=r.col;x.lineWidth=3*(1-u*.7);x.beginPath();x.arc(v[0],v[1],10+(r.r1-10)*(1-(1-u)*(1-u)),0,6.283);x.stroke();}
+  x.restore();x.globalAlpha=1;
+  // the countdown and the banners
+  const cx=M+AH.W/2,cy=M+AH.H/2;
+  if(ah.ph==='count'||(ah.ph==='serve'&&ah.pt>.35)){
+    const n=ah.ph==='count'?Math.ceil(ah.pt):0,frac=ah.ph==='count'?ah.pt-Math.floor(ah.pt):1;
+    if(ah.ph==='count'&&n>=1&&n<=3){x.save();x.globalAlpha=.9*Math.min(1,frac*3+.2);x.font='700 '+Math.round(300+60*(1-frac))+'px Cinzel, Georgia, serif';x.fillStyle=AH_COL.ivory;x.textAlign='center';x.textBaseline='middle';x.shadowColor='rgba(67,225,255,.8)';x.shadowBlur=30;x.fillText(String(n),cx,cy);x.restore();}
+  }
+  if(ah.ph==='serve'&&ah.pt>0&&ah.pt<.9||(ah.ph==='play'&&ah.stats.start&&Date.now()-ah.stats.start<900)){const k=ah.ph==='serve'?ah.pt/.9:1-(Date.now()-ah.stats.start)/900;if(k>0){x.save();x.globalAlpha=Math.min(1,k*1.5);x.font='700 150px Cinzel, Georgia, serif';x.fillStyle=AH_COL.gold;x.textAlign='center';x.textBaseline='middle';x.shadowColor='rgba(230,195,106,.7)';x.shadowBlur=24;x.fillText(ah.ph==='serve'?'':'GO',cx,cy);x.restore();}}
+  const nowT=performance.now();
+  fx.banners=fx.banners.filter(b=>nowT-b.t<b.ms+250);
+  fx.banners.forEach((b,i)=>{
+    if(!b.text)return;const u=(nowT-b.t)/b.ms,a=u<.12?u/.12:u>1?Math.max(0,1-(u-1)*4):1,sz=b.text.length>9?66:96;
+    x.save();x.globalAlpha=a;x.textAlign='center';x.textBaseline='middle';x.font='700 '+sz+'px Cinzel, Georgia, serif';x.fillStyle=b.col;x.shadowColor=b.col;x.shadowBlur=26;
+    const yy=cy-(ah.ph==='goal'?0:90)+i*8;x.fillText(b.text,cx,yy);
+    if(b.sub){x.font='600 34px Jost, sans-serif';x.shadowBlur=8;x.fillStyle=AH_COL.ivory;x.fillText(b.sub,cx,yy+sz*.72);}
+    x.restore();});
+  // the end: the winner's half is lit and the word is said
+  if(ah.ph==='over'&&ah.winSeat!=null){
+    const winBottom=(ah.mode==='guest'?1:0)===ah.winSeat;const win=ah.mode==='duo'?true:ah.winSeat===ah.seat;
+    const col=ah.mode==='duo'?(winBottom?'67,225,255':'255,154,77'):(win?'67,225,255':'255,154,77');
+    const k=ahClamp((3.2-ah.pt)/.8,0,1);
+    x.save();x.globalCompositeOperation='lighter';const g=x.createLinearGradient(0,winBottom?M+AH.H:M,0,winBottom?M+AH.H*.35:M+AH.H*.65);g.addColorStop(0,'rgba('+col+','+(.38*k)+')');g.addColorStop(1,'rgba('+col+',0)');x.fillStyle=g;x.fillRect(M,M,AH.W,AH.H);x.restore();
+    x.save();x.globalAlpha=k;x.textAlign='center';x.textBaseline='middle';x.font='700 104px Cinzel, Georgia, serif';x.fillStyle=win?AH_COL.gold:AH_COL.ivory;x.shadowColor=win?'rgba(230,195,106,.9)':'rgba(255,255,255,.4)';x.shadowBlur=30;
+    x.fillText(ah.mode==='duo'?'WINNER':(win?'VICTORY':'DEFEAT'),cx,cy);x.restore();
+  }
+  // goal flash
+  if(fx.flash>0){x.save();x.globalAlpha=fx.flash*.22;x.fillStyle='#fff';x.fillRect(0,0,AH.W+2*M,AH.H+2*M);x.restore();}
+  // a small mark under my paddle until I touch the screen (so the player knows what to move)
+  if(ah.ph==='play'&&!ah.my.touch&&!ah.touched&&ah.mode!=='duo'){const me=ah.sim.pad[ah.mode==='guest'?1:0],v=V(me.x,me.y);x.save();x.globalAlpha=.5+.3*Math.sin(now/260);x.strokeStyle=AH_COL.ivory;x.lineWidth=2;x.setLineDash([8,8]);x.beginPath();x.arc(v[0],v[1],AH.R+16,0,6.283);x.stroke();x.restore();}
+  // the table trembles on a hard hit
+  if(fx.shake>.05){const a=fx.shake;cv.style.transform='translate('+(Math.random()-.5)*a*1.6+'px,'+(Math.random()-.5)*a*1.6+'px)';}else if(cv.style.transform)cv.style.transform='';
+}
+function ahFxStep(ah,dt){
+  const fx=ah.fx;
+  for(const p of fx.parts){p.l+=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.93;p.vy*=.93;}
+  fx.parts=fx.parts.filter(p=>p.l<p.life);
+  for(const r of fx.rings)r.l+=dt;fx.rings=fx.rings.filter(r=>r.l<r.life);
+  fx.glow[0]=Math.max(0,fx.glow[0]-dt*2.2);fx.glow[1]=Math.max(0,fx.glow[1]-dt*2.2);
+  fx.shake=Math.max(0,fx.shake-dt*28);fx.flash=Math.max(0,fx.flash-dt*3.2);
+}
+
+/* ── starting a match ── */
+function lDealAirHockey(){
+  if(G.lp.length>2)G.lp=G.lp.slice(0,2);
+  G.lp.forEach(p=>{p.totalScore=0;p.c4Result=null;});
+  G.ahMoment='';ahStop();G.ah=null;
+  G.scr='table';
 }
 
 /* ═══════ YAHTZEE ENGINE ═══════ */
@@ -7776,7 +8558,7 @@ function rTourOv(){
    waits its turn behind a bigger moment, and it stays still for anyone who asked their device for less motion.
    For online games stageOnSrv() spots the same moments in the room state, so EVERY device sees them, not only
    the one that rolled. */
-const STAGE_TAGS={maumau:'Match, shed, shout Mau!',texas:'Read the table.',fivecard:'Draw to the best hand.',blackjack:'Beat the dealer to 21.',battle:'Flip. Win. Repeat.',yahtzee:'Five dice. Thirteen chances.',roulette:'Place your bets.',dicedual:'Roll. Strike. Survive.',uno:'Match the colour. Shout UNO!',farkle:'How much will you risk?',bingo:'Keep your eyes on your card.',lepouilleux:'Don’t get stuck with the Old Maid.',slots:'Pull the lever.',pig:'One roll too many…',drawit:'Draw. Guess. Laugh.',liarsdice:'Trust nobody.',summit:'How far will you go?',hotbomb:'Pass it. Don’t hold it.',vault:'Nobody cracks it alone.',bust:'One more!',escape:'Enter. Explore. Solve.',shutbox:'Close them all.',fourrow:'Four. In. A. Row.',skull:'Flower or skull?',tension:'Pull. Push. Survive.',mayhem:'Four in a row. No mercy.',chainreaction:'Light the fuse. Watch it go.',gauntlet:'Run. Risk. Outsmart. Survive.',abyss:'Climb, fall, bump. Reach the top.',blackwater:'Find them. Fool them. Fire.'};
+const STAGE_TAGS={airhockey:'Hit. Defend. Dominate.',maumau:'Match, shed, shout Mau!',texas:'Read the table.',fivecard:'Draw to the best hand.',blackjack:'Beat the dealer to 21.',battle:'Flip. Win. Repeat.',yahtzee:'Five dice. Thirteen chances.',roulette:'Place your bets.',dicedual:'Roll. Strike. Survive.',uno:'Match the colour. Shout UNO!',farkle:'How much will you risk?',bingo:'Keep your eyes on your card.',lepouilleux:'Don’t get stuck with the Old Maid.',slots:'Pull the lever.',pig:'One roll too many…',drawit:'Draw. Guess. Laugh.',liarsdice:'Trust nobody.',summit:'How far will you go?',hotbomb:'Pass it. Don’t hold it.',vault:'Nobody cracks it alone.',bust:'One more!',escape:'Enter. Explore. Solve.',shutbox:'Close them all.',fourrow:'Four. In. A. Row.',skull:'Flower or skull?',tension:'Pull. Push. Survive.',mayhem:'Four in a row. No mercy.',chainreaction:'Light the fuse. Watch it go.',gauntlet:'Run. Risk. Outsmart. Survive.',abyss:'Climb, fall, bump. Reach the top.',blackwater:'Find them. Fool them. Fire.'};
 const STAGE_TONES={
   good:{c:'95,214,138',buzz:[20,40,20]},bad:{c:'255,90,78',buzz:[40,50,40]},gold:{c:'244,201,93',buzz:[20,30,60]},
   hot:{c:'255,138,47',buzz:[15,30,15]},cool:{c:'126,200,242',buzz:[15]}
@@ -23204,7 +23986,7 @@ function runCountUps(){
    and against what state", and botAct() dispatches to the one per-game function that makes it. */
 // Every game listed here can seat a bot. Anything not here (there is nothing, currently) simply
 // never offers the button, and the driver below stays dormant for it.
-const BOT_GAMES=new Set(['maumau','uno','texas','fivecard','blackjack','yahtzee','battle','roulette','dicedual','farkle','bingo','lepouilleux','slots','pig','liarsdice','summit','hotbomb','bust','shutbox','fourrow','tension','mayhem','chainreaction','gauntlet','abyss','blackwater']);
+const BOT_GAMES=new Set(['maumau','uno','texas','fivecard','blackjack','yahtzee','battle','roulette','dicedual','farkle','bingo','lepouilleux','slots','pig','liarsdice','summit','hotbomb','bust','shutbox','fourrow','tension','mayhem','chainreaction','gauntlet','abyss','blackwater','airhockey']);
 let _botTimer=null,_botSig=null;
 function isBotPlayer(p){return!!(p&&p.bot);}
 // A full table can still gain a bot by converting an empty seat — Battle seats exactly two, so
@@ -23227,6 +24009,7 @@ function clearBotTurn(){clearTimeout(_botTimer);_botTimer=null;_botSig=null;}
 // means one move gets scheduled per situation, not one per render.
 function botPendingSig(){
   const g=G.selGame;
+  if(g==='airhockey')return null;   // the arcade bot is driven by the table's own loop, not by turns
   if(g==='roulette'){
     // No turn order at a roulette table — bots put their chips down once per spin, then wait for
     // whoever's actually holding the phone to pull the trigger.
@@ -24161,6 +24944,20 @@ function onSrvCore(state){
         if(Date.now()<_gtEndAt){G.scr='table';render();return;}
         G.scr='matchend';render();return;
       }
+      if(state.gameId==='airhockey'){
+        if(state.winner!==prevWinner){
+          if(state.winner===G.myPid){G.tw++;localStorage.setItem('ct_tw',G.tw);}
+          const nms=(state.players||[]).map(p=>p.name),sc=(state.ah&&state.ah.score)||[0,0];
+          addHistory({game:'airhockey',winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),players:nms,mode:'online',
+            moment:state.moment||`${state.winnerName} won ${Math.max(sc[0],sc[1])}–${Math.min(sc[0],sc[1])}.`,
+            stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions,ah:Object.assign({score:sc},state.ah&&state.ah.stats?state.ah.stats:{},{dur:(state.ah&&state.ah.dur)||0})}});
+          // the table plays its own finale first; the result screen follows
+          _ahEndAt=Date.now()+(G.ah&&G.ah.live?3200:600);
+          setTimeout(()=>{if(G.isOnline&&G.srv&&G.srv.gameId==='airhockey'&&G.srv.winner){ahStop();G.scr='matchend';render();}},(_ahEndAt-Date.now())+80);
+        }
+        if(Date.now()<_ahEndAt){G.scr='table';return;}
+        G.scr='matchend';render();return;
+      }
       if(state.gameId==='blackwater'){
         if(state.winner!==prevWinner){
           SFX.win();v14WinnerBurst();celebrateWin(state.winnerName,state.winnerAv);fxPulse('gold');
@@ -24840,7 +25637,7 @@ function homeFamilyHTML(history){
   const chips=fam.map(m=>`<div class="home-fam"><div class="home-fam-av">${top===m.name?'<i class="home-crown" aria-hidden="true">👑</i>':''}${avHTML(m.avatar||AVATARS[0])}</div><b>${esc(m.name.slice(0,12))}</b><small>${m.wins} win${m.wins!==1?'s':''}</small></div>`).join('')+(fam.length<2?'<div class="home-fam home-fam-add" data-a="nav-family" role="button" tabindex="0"><div class="home-fam-av">+</div><b>Add family</b><small>seat everyone</small></div>':'');
   return`<div class="v10-section"><div class="v10-section-title">Around your table</div><div class="v10-section-note v10-section-link" data-a="nav-family" role="button" tabindex="0">Family →</div></div><div class="home-family">${chips}</div>`;
 }
-const HOME_ROOM_COLORS={cards:'95,214,138',dice:'79,214,201',casino:'239,118,136',classic:'234,201,118',party:'242,149,76',coop:'224,176,64'};
+const HOME_ROOM_COLORS={cards:'95,214,138',dice:'79,214,201',casino:'239,118,136',classic:'234,201,118',party:'242,149,76',coop:'224,176,64',arcade:'67,225,255'};
 // One room tile, used on the home page and on the Games tab so both look the same: the room's picture
 // (assets/rooms/<category>.jpg), a golden frame, and the name / games / count over a dark fade.
 function roomTileHTML(c,action){
@@ -25202,6 +25999,13 @@ function oStartGame(rs){
         G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }
+      if(rs.gameId==='airhockey'){
+        const players=rs.players.slice(0,2).map(p=>({...p,totalScore:0,c4Result:null}));
+        const gs={phase:'game',gameId:'airhockey',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
+          ah:{id:'ah'+Date.now().toString(36)+Math.floor(Math.random()*1e4),score:[0,0]},winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
+        G.srv=gs;G.ah=null;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
       if(rs.gameId==='blackwater'){
         const players=rs.players.slice(0,2).map(p=>({...p,totalScore:0,c4Result:null,bwLeft:5}));
         const gs={phase:'game',gameId:'blackwater',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
@@ -25428,6 +26232,7 @@ function rTable(){
   if(_tblGameId==='gauntlet')return rGauntletTable();
   if(_tblGameId==='abyss')return rAbyssTable();
   if(_tblGameId==='blackwater')return rBlackwaterTable();
+  if(_tblGameId==='airhockey')return rAirHockeyTable();
   if(_tblGameId==='mayhem')return rMayhemTable();
   if(_tblGameId==='skull')return rSkullTable();
   if(_tblGameId==='tension')return rTensionTable();
@@ -27038,6 +27843,7 @@ function matchMoment(sorted){
   if((G.isOnline?G.srv?.gameId:G.selGame)==='abyss'){const mm=G.isOnline?(G.srv&&G.srv.moment):G.abMoment;if(mm)return esc(mm);}
   if((G.isOnline?G.srv?.gameId:G.selGame)==='blackwater'){const mm=G.isOnline?(G.srv&&G.srv.moment):G.bwMoment;if(mm)return esc(mm);}
   if((G.isOnline?G.srv?.gameId:G.selGame)==='chainreaction'){const mm=G.isOnline?(G.srv&&G.srv.moment):G.crMoment;if(mm)return esc(mm);}
+  if((G.isOnline?G.srv?.gameId:G.selGame)==='airhockey'){const mm=G.isOnline?(G.srv&&G.srv.moment):G.ahMoment;if(mm)return esc(mm);}
   if((G.isOnline?G.srv?.gameId:G.selGame)==='tension'&&winner)return esc(tnMoment(winner));
   const ms=G.matchStats;
   if(ms.comebacks>0)return `${esc(winner?.name||'')} came back to win the table.`;
@@ -27063,7 +27869,7 @@ function rMatchEnd(){
   const isGT=(G.isOnline?G.srv?.gameId:G.selGame)==='gauntlet';
   const isAB=(G.isOnline?G.srv?.gameId:G.selGame)==='abyss';
   const isBW=(G.isOnline?G.srv?.gameId:G.selGame)==='blackwater';
-  const isC4=['fourrow','mayhem','chainreaction','gauntlet','abyss','blackwater'].includes(G.isOnline?G.srv?.gameId:G.selGame);
+  const isC4=['fourrow','mayhem','chainreaction','gauntlet','abyss','blackwater','airhockey'].includes(G.isOnline?G.srv?.gameId:G.selGame);
   const isSK=(G.isOnline?G.srv?.gameId:G.selGame)==='skull';
   const isTN=(G.isOnline?G.srv?.gameId:G.selGame)==='tension';
   const c4Draw=isC4&&players.every(p=>p.c4Result==='draw');
@@ -27071,7 +27877,14 @@ function rMatchEnd(){
   const sorted=[...players].sort((a,b)=>isTN?tnRankKey(b)-tnRankKey(a):isSK?skRankKey(b)-skRankKey(a):isSB?stbRankKey(a)-stbRankKey(b):isHB?hbRankKey(b)-hbRankKey(a):isSM?smRank(b)-smRank(a):isLD?((b.dice?.length||0)-(a.dice?.length||0)||(b.ldOutAt||0)-(a.ldOutAt||0)):isBattle?((b.hand?.length||0)-(a.hand?.length||0)):chipGame?((b.chips||0)-(a.chips||0)):((b.totalScore||0)-(a.totalScore||0)));
   const rows=sorted.map((p,i)=>`<div class="sr${i===0?' win':''}"><span class="sr-rank">${['🥇','🥈','🥉','④','⑤','⑥','⑦','⑧'][i]||i+1}</span><span class="sr-av">${avHTML(p.avatar)}</span><span class="sr-name">${esc(p.name)}</span><span class="sr-delta" style="color:var(--paper3);">${isBW?((p.bwLeft||0)+' ship'+((p.bwLeft||0)!==1?'s':'')+' left'):isAB?(p.abPos>=100?'reached the top':'square '+(p.abPos||0)):isGT?(p.gtHome===1?'1 runner home':(p.gtHome||0)+' runners home'):isCR?(p.crRank===1?'last one standing':'knocked out on move '+(p.crOutAt||'?')):isSK?(p.sk&&p.sk.out?'out of discs':((p.sk&&(p.sk.hand.length+p.sk.stack.length))||0)+' discs left'):isTN?((p.tnCol||0)+' collapse'+((p.tnCol||0)!==1?'s':'')):isSB?(p.stbTiles===0?'shut the box!':(p.stbTiles||0)+' tile'+((p.stbTiles||0)!==1?'s':'')+' up'):(p.roundsWon||0)+' win'+((p.roundsWon||0)!==1?'s':'')}</span>${isC4?'<span class="sr-pts">'+(p.c4Result==='win'?'🏆':p.c4Result==='draw'?'½':'—')+'</span>':''}<span class="sr-pts"${isC4?' hidden':''} data-count="${isSK?((p.sk&&p.sk.pts)||0):isSB?(p.stbScore||0):isHB?(p.strikes||0):isSM?(p.order||[]).length:isLD?(p.dice?.length||0):isBattle?(p.hand?.length||0):chipGame?p.chips:(p.totalScore||0)}" data-count-suffix="${isSK?' ⭐':isSB?' pts':isHB?' 💥':isSM?' 🚩 · '+(p.cr||0)+' 💎':isLD?' 🎲':isBattle?' cards':chipGame?'c':''}">${isSK?((p.sk&&p.sk.pts)||0)+' ⭐':isSB?(p.stbScore||0)+' pts':isHB?(p.strikes||0)+' 💥':isSM?(p.order||[]).length+' 🚩 · '+(p.cr||0)+' 💎':isLD?(p.dice?.length||0)+' 🎲':isBattle?(p.hand?.length||0)+' cards':chipGame?p.chips+'c':p.totalScore||0}</span></div>`).join('');
   const ms=G.matchStats;
-  const statChips=`<div class="tonight-stats">
+  const ahr=(G.isOnline?G.srv?.gameId:G.selGame)==='airhockey'?ahResultStats():null;
+  const statChips=ahr?`<div class="tonight-stats">
+    <div class="tonight-stat"><div class="ts-val">${ahr.score[0]}–${ahr.score[1]}</div><div class="ts-lbl">🏒 Final score</div></div>
+    <div class="tonight-stat"><div class="ts-val">${ahr.fastest||'–'}</div><div class="ts-lbl">⚡ Fastest shot (km/h)</div></div>
+    <div class="tonight-stat"><div class="ts-val">${ahr.bestRally||'–'}</div><div class="ts-lbl">🔁 Longest rally</div></div>
+    <div class="tonight-stat"><div class="ts-val">${ahr.saves||0}</div><div class="ts-lbl">🧤 Saves</div></div>
+    <div class="tonight-stat"><div class="ts-val">${fmtPlayTime((ahr.dur||0)*1000)}</div><div class="ts-lbl">⏱ Play Time</div></div>
+  </div>`:`<div class="tonight-stats">
     <div class="tonight-stat"><div class="ts-val">${sorted[0]?.roundsWon||0}</div><div class="ts-lbl">🏆 Rounds Won</div></div>
     <div class="tonight-stat"><div class="ts-val">${ms.comebacks}</div><div class="ts-lbl">🔄 Comebacks</div></div>
     <div class="tonight-stat"><div class="ts-val">${ms.cardsPlayed}</div><div class="ts-lbl">🃏 Cards Played</div></div>
@@ -27643,7 +28456,7 @@ function render(){
   // A render rebuilds #app, canvas included, which would drop the artist's pen mid-stroke -- and online
   // the artist's own snapshot write echoes straight back as a state update. Hold it until the pen lifts.
   if(_dwPenDown){_dwPendingRender=true;return;}
-  if(_bwAutoRender&&bwSeqBusy())return;   // Blackwater: the show in progress draws the final picture itself when it ends
+  if(_bwAutoRender&&(bwSeqBusy()||ahLive()))return;   // Blackwater: the show in progress draws the final picture itself when it ends
   // Same idea for a guesser mid-word: presence blips and away-ticks also call render(), and each rebuild
   // would dismiss the iPad keyboard. Held until the field loses focus.
   if(document.activeElement&&(document.activeElement.id==='dw-guess-input'||(document.activeElement.id==='talk-input'&&G.selGame==='drawit'))&&G.scr==='table'){_dwPendingRender=true;return;}
@@ -28002,6 +28815,7 @@ document.addEventListener('click',e=>{
   else if(a==='guest-toggle'){G.guestGame=!G.guestGame;SFX.chip();render();}
   else if(/^bw(dbg|cell|dep|ship|decoytool|minetool|rotate|auto|quick|clear|ready|tab|assist|fire|cancel|tool|scan|torpset|launch|silent|reppick|reprotate|rep|repgo|bot|rp|finale)$/.test(a)){bwTap(a,t);}
   else if(/^gt(roll|die|sum|bonus|skip|bank|reroll|run|shield|item|stop|dare|safe|revenge|go|cancel|secret|secretopen|secretclose|type|slot|place|disarmmode|disarm|recover)$/.test(a)){gtTap(a,t);}
+  else if(a==='ah-ready'){ahReadyTap();}
   else if(a==='crcell'){crTap(+t.getAttribute('data-i'));}
   else if(a==='crarm'){
     const cr=G.isOnline?(G.srv&&G.srv.cr):G.cr;if(!cr||cr.over||G.crSeq)return;

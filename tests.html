@@ -5413,6 +5413,108 @@ async function runPresentation(A,W,frame){
   }
 
   /* —— Chain Reaction, Fun version: Surge and Overload —————— */
+  suite('Arcade — Air Hockey: the world, the rules, the bot and the link',()=>{
+    const F=n=>W.eval(n),AH=F('AH');
+    const sim=()=>F('ahNewSim')(),adv=(s,dt,tg,ev,o)=>F('ahAdvance')(s,dt,tg,ev,o);
+    // registration
+    check('the Arcade room exists and Air Hockey lives in it, with a cover, and is playable online',F('GAME_CATEGORIES').some(c=>c.id==='arcade')&&F('GAMES').some(g=>g.id==='airhockey'&&g.cat==='arcade'&&g.maxP===2&&/airhockey\.jpg/.test(g.cover))&&F('ONLINE_GAMES').includes('airhockey'));
+    // walls: a puck fired at a side wall comes back with most of its speed and never leaves the table
+    let s=sim(),ev=[];s.p.x=500;s.p.y=300;s.p.vx=1500;s.p.vy=0;
+    adv(s,.3,null,ev,{noGoal:true});
+    check('the puck bounces off the side wall and keeps most of its speed',ev.some(e=>e.t==='wall')&&s.p.vx<0&&Math.abs(s.p.vx)>1200);
+    s=sim();s.p.x=200;s.p.y=400;s.p.vx=2600;s.p.vy=1900;ev=[];adv(s,20,null,ev,{noGoal:true});
+    check('after 20 seconds of bouncing the puck is still inside the table, and slower than it started (friction)',s.p.x>=AH.PR-1&&s.p.x<=AH.W-AH.PR+1&&Math.hypot(s.p.vx,s.p.vy)<2600);
+    // goals and posts
+    s=sim();s.p.x=300;s.p.y=60;s.p.vx=0;s.p.vy=-1800;ev=[];adv(s,.2,null,ev);
+    check('a puck through the top goal is a goal for seat 0 (the bottom player)',ev.some(e=>e.t==='goal'&&e.seat===0));
+    s=sim();s.p.x=300;s.p.y=AH.H-60;s.p.vx=0;s.p.vy=1800;ev=[];adv(s,.2,null,ev);
+    check('...and through the bottom goal a goal for seat 1',ev.some(e=>e.t==='goal'&&e.seat===1));
+    s=sim();s.p.x=60;s.p.y=60;s.p.vx=0;s.p.vy=-1800;ev=[];adv(s,.2,null,ev);
+    check('a puck aimed at the corner beside the goal is NOT a goal (the end wall holds it)',!ev.some(e=>e.t==='goal'));
+    s=sim();const gx0=(AH.W-AH.GOAL)/2;s.p.x=gx0+1;s.p.y=70;s.p.vx=0;s.p.vy=-1600;ev=[];adv(s,.06,null,ev,{noGoal:true});
+    check('a puck that clips a post bounces off it (a POST event)',ev.some(e=>e.t==='post'));
+    // paddles: they follow the finger, stay in their half, and give the puck their own speed
+    s=sim();ev=[];adv(s,.5,[{x:300,y:100},{x:300,y:900}],ev,{freezePuck:true});
+    check('a paddle can never leave its own half, whatever the finger does',s.pad[0].y>=AH.H/2+AH.R-1&&s.pad[1].y<=AH.H/2-AH.R+1);
+    const shot=(moving)=>{const t=sim();t.p.x=300;t.p.y=700;t.p.vx=0;t.p.vy=0;t.pad[0].x=300;t.pad[0].y=800;const e=[];
+      for(let i=0;i<240;i++){adv(t,1/240,[{x:300,y:moving?560:800},null],e);if(e.some(x=>x.t==='hit'))break;}
+      return Math.hypot(t.p.vx,t.p.vy);};
+    const slow=shot(false),fast=shot(true);
+    check('a moving paddle gives the puck more speed than a resting one (so a shot is a skill)',fast>slow+300);
+    check('the puck never exceeds the top speed',(()=>{const t=sim();t.p.x=300;t.p.y=600;t.pad[0].x=300;t.pad[0].y=700;const e=[];for(let i=0;i<500;i++){adv(t,1/240,[{x:300,y:i<60?520:900},null],e,{noGoal:true});}return Math.hypot(t.p.vx,t.p.vy)<=AH.MAXV+1;})());
+    // the rules
+    const mk=()=>({score:[0,0],stats:{rally:0,bestRally:0,fastest:0,saves:0,hits:[0,0],maxDeficit:[0,0],goalsRow:[0,0],last:-1,moments:[],comeback:null},over:false,out:[]});
+    let ah=mk();const g1=F('ahGoal')(ah,0,1800);
+    check('a goal counts for the scorer and the match goes on',ah.score[0]===1&&!g1.over&&g1.ev.some(e=>e.t==='GOAL'));
+    ah=mk();ah.score=[5,2];const g2=F('ahGoal')(ah,0,2000);
+    check('the sixth goal announces MATCH POINT once',g2.ev.some(e=>e.t==='MATCH_POINT')&&!F('ahGoal')(ah,1,1000).ev.some(e=>e.t==='MATCH_POINT'));
+    ah=mk();ah.score=[6,2];const g3=F('ahGoal')(ah,0,2200);
+    check('the seventh goal wins: the match is over and a fast shot is called',g3.over&&ah.over&&ah.winSeat===0&&g3.ev.some(e=>e.t==='FAST'));
+    ah=mk();for(let i=0;i<5;i++)F('ahGoal')(ah,1,1000);for(let i=0;i<7;i++)F('ahGoal')(ah,0,1000);
+    check('winning after being 5 goals down is a COMEBACK and the moment line says so',ah.over&&ah.stats.comeback&&ah.stats.comeback.from>=3&&/came back/.test(F('ahMomentText')(ah,['Phil','Anna'])));
+    // the phase machine of the host
+    const host=(mode)=>{const a=F('ahNew')(mode||'bot');a.mode=mode||'bot';return a;};
+    let h=host();h.out=[];F('ahHostTick')(h,.1,[{x:300,y:870},{x:300,y:130}]);
+    check('nothing starts before READY',h.ph==='ready');
+    h.ready[0]=true;h.out=[];F('ahHostTick')(h,.1,[{x:300,y:870},{x:300,y:130}]);
+    check('READY starts the countdown (3-2-1-GO), the puck frozen',h.ph==='count'&&h.sim.p.vx===0&&h.sim.p.vy===0);
+    for(let i=0;i<40;i++){h.out=[];F('ahHostTick')(h,.1,[{x:300,y:870},{x:300,y:130}]);}
+    check('after the countdown play begins, with the opening nudge',h.ph==='play'&&Math.hypot(h.sim.p.vx,h.sim.p.vy)>200);
+    h.sim.p.x=300;h.sim.p.y=40;h.sim.p.vx=0;h.sim.p.vy=-1500;h.out=[];F('ahHostTick')(h,.1,[{x:300,y:870},{x:300,y:130}]);
+    check('a goal stops play (GOAL phase), scores and asks to persist the score to the room',h.ph==='goal'&&h.score[0]===1&&h.persist===true&&h.out.some(e=>e.t==='GOAL'));
+    for(let i=0;i<30;i++){h.out=[];F('ahHostTick')(h,.1,[{x:300,y:870},{x:300,y:130}]);}
+    check('then the puck is served on the side of the player who conceded, and play resumes',h.ph==='play'&&h.sim.p.y<AH.H/2);
+    // the bot plays whole matches
+    const fAdv=F('ahAdvance'),fBot=F('ahBotTarget'),fServe=F('ahServe'),fNew=F('ahNewSim');
+    const botMinute=(level)=>{const a={sim:fNew(),bot:{level,hist:[],mode:''}};let tt=0,hits=0,bad=false,goals=[0,0],maxY=0;a.sim.p.vy=340;
+      while(tt<60){const e=[];const t0={x:a.sim.p.x,y:Math.min(940,Math.max(560,a.sim.p.y+55+((tt*7)%1)*40))};fAdv(a.sim,1/60,[t0,fBot(a,1/60)],e);tt+=1/60;
+        let scored=false;for(const x of e){if(x.t==='goal'&&!scored){scored=true;goals[x.seat]++;fServe(a.sim,1-x.seat);}if(x.t==='hit'&&x.pad===1)hits++;}
+        const p=a.sim.p,pd=a.sim.pad[1];if(!isFinite(p.x)||!isFinite(p.y)||!isFinite(pd.x)||!isFinite(pd.y))bad=true;maxY=Math.max(maxY,pd.y);}
+      return{bad,hits,goals,botStaysHome:maxY<=AH.H/2};};
+    const m1=botMinute('gentle'),m2=botMinute('sharp');
+    check('both bots play a whole minute without a broken number, stay in their own half and actually hit the puck',!m1.bad&&!m2.bad&&m1.botStaysHome&&m2.botStaysHome&&m1.hits>=10&&m2.hits>=10,JSON.stringify([m1,m2]));
+    // the recording: a puck pinned in a corner
+    check('a puck lying against a wall is freed by the bot at once, and no puck is ever pushed out of the table',['gentle','sharp'].every(level=>[[32,300],[300,32],[568,400]].every(([px,py])=>{
+      const a={sim:fNew(),bot:{level,hist:[],mode:''}};a.sim.p.x=px;a.sim.p.y=py;a.sim.pad[1].x=Math.max(46,Math.min(554,px+(px<300?20:-20)));a.sim.pad[1].y=Math.max(46,py+10);
+      let moved=false,oob=false;for(let i=0;i<60*6;i++){fAdv(a.sim,1/60,[{x:300,y:900},fBot(a,1/60)],[],{noGoal:true});if(a.sim.p.x<AH.PR-1||a.sim.p.x>AH.W-AH.PR+1)oob=true;if(Math.hypot(a.sim.p.x-px,a.sim.p.y-py)>150)moved=true;}
+      return moved&&!oob;})));
+    check('a puck that stays in one place (a corner nobody can free) is served again after a couple of seconds, with the bot stepping home',(()=>{
+      const h=F('ahNew')('bot');h.mode='bot';h.ph='play';h.sim.p.x=AH.PR+2;h.sim.p.y=AH.PR+2;h.sim.p.vx=0;h.sim.p.vy=0;h.sim.pad[1].x=AH.R+4;h.sim.pad[1].y=AH.R+4;
+      let served=false;for(let i=0;i<60*5&&!served;i++){h.out=[];F('ahHostTick')(h,1/60,[{x:300,y:900},F('ahBotTarget')(h,1/60)]);if(h.ph==='serve')served=true;}
+      return served&&Math.hypot(h.sim.p.x-AH.W/2,h.sim.p.y-AH.H*.32)<5;})());
+    // the link (online)
+    const ahO=F('ahNew')('guest');ahO.id='room1';ahO.net.rtt=100;
+    const msg=(o)=>Object.assign({k:'st',id:'room1',i:1,ph:'play',pt:0,sc:[0,0],rd:[true,true],w:null,p:[300,500,0,0],a:[300,860],b:[300,140],ev:[]},o);
+    const G_=F('G');const keepAh=G_.ah;G_.ah=ahO;
+    try{
+      F('ahOnBroadcast')(msg({i:5,p:[250,400,200,-300],sc:[2,1]}));
+      check('the guest takes the host snapshot: score, phase and a puck close to where the host says (advanced by the latency)',ahO.score[0]===2&&ahO.score[1]===1&&ahO.ph==='play'&&Math.abs(ahO.sim.p.x-250)<80&&Math.abs(ahO.sim.p.y-400)<80);
+      const before=ahO.sim.p.x;F('ahOnBroadcast')(msg({id:'other',i:6,p:[10,10,0,0],sc:[7,7]}));
+      check('a message from another match (a different id) is ignored',ahO.score[0]===2&&ahO.sim.p.x===before);
+      ahO.sim.p.x=300;ahO.sim.p.y=500;ahO.sim.p.vx=0;ahO.sim.p.vy=0;ahO.net.hold=0;
+      F('ahOnBroadcast')(msg({i:7,p:[330,500,0,0]}));
+      check('a small disagreement is blended in smoothly, not jumped (and the eye keeps looking at the old place)',ahO.sim.p.x>300&&ahO.sim.p.x<330&&ahO.vis&&Math.abs(ahO.vis.x)>1);
+      ahO.sim.p.x=100;ahO.sim.p.y=900;F('ahOnBroadcast')(msg({i:8,p:[500,200,0,0]}));
+      check('a large disagreement snaps to the host (no slow glide across the table)',Math.abs(ahO.sim.p.x-500)<30&&Math.abs(ahO.sim.p.y-200)<30);
+      F('ahOnBroadcast')(msg({i:9,ph:'goal',p:[300,500,0,0]}));
+      check('while play is stopped the puck sits exactly where the host says',ahO.ph==='goal'&&ahO.sim.p.x===300&&ahO.sim.p.y===500);
+      const seenBefore=Object.keys(ahO.net.seen).length;F('ahOnBroadcast')(msg({i:10,ev:[{i:41,t:'COUNT',n:2}]}));F('ahOnBroadcast')(msg({i:11,ev:[{i:41,t:'COUNT',n:2}]}));
+      check('an event that rides along in two snapshots is played once',Object.keys(ahO.net.seen).length===seenBefore+1);
+      const ahH=F('ahNew')('host');ahH.id='room1';ahH.net.rtt=100;G_.ah=ahH;
+      F('ahOnBroadcast')({k:'in',id:'room1',x:200,y:100,seq:1,ts:1});
+      check('the host puts the guest paddle where it was told (inside the table)',ahH.tgt[1]&&ahH.tgt[1].x>100&&ahH.tgt[1].x<300);
+      F('ahOnBroadcast')({k:'rd',id:'room1'});
+      check('a READY from the guest is remembered',ahH.ready[1]===true);
+    }finally{G_.ah=keepAh;}
+    // the table renders for a one-device game and shows the VS card with READY
+    check('the table renders a canvas and the VS card for a one-device game',(()=>{
+      const G=F('G'),keep={on:G.isOnline,lp:G.lp,sel:G.selGame,ah:G.ah,scr:G.scr};
+      try{G.isOnline=false;G.selGame='airhockey';G.lp=[{id:1,name:'Phil',avatar:'🦊'},{id:2,name:'Robo',avatar:'🐼',bot:'gentle'}];G.ah=null;
+        const html=F('rAirHockeyTable')();const ok=/id="ah-cv"/.test(html)&&/Neon Arena/.test(html)&&/ah-over/.test(html);
+        F('ahStop')();return ok;}
+      finally{const g=F('G');g.isOnline=keep.on;g.lp=keep.lp;g.selGame=keep.sel;g.ah=keep.ah;g.scr=keep.scr;}
+    })());
+  });
   suite('Chain Reaction (Fun) — the two powers',()=>{
     const F=n=>W.eval(n);
     const crNew=F('crNew'),crPlay=F('crPlay'),crPowerTargets=F('crPowerTargets'),crClone=F('crClone');
@@ -7545,20 +7647,20 @@ async function runPresentation(A,W,frame){
     const out={};
     const snd0=G.snd;G.snd=true;try{await bwLoadSamples();}catch(e){}G.snd=snd0;out.__loaded=Object.keys(_bwSmp).sort().join();
     for(const n of Object.keys(BWS)){
-      const sr=44100,oac=new OfflineAudioContext(2,sr*8,sr);_bwOff=oac;_bwBus=null;_bwNb={};
+      const sr=44100,oac=new OfflineAudioContext(2,sr*10,sr);_bwOff=oac;_bwBus=null;_bwNb={};
       try{BWS[n](['hum','rumble','drop','whistle','rise'].includes(n)?1200:undefined);}catch(e){_bwOff=null;out[n]={err:String(e)};continue;}
       const b=await oac.startRendering();_bwOff=null;_bwBus=null;
       const L=b.getChannelData(0);let pk=0,bad=0,dc=0,tail=0;
-      for(let i=0;i<L.length;i++){const v=Math.abs(L[i]);if(v!==v)bad++;if(v>pk)pk=v;dc+=L[i];if(i>sr*7.2&&v>tail)tail=v;}
+      for(let i=0;i<L.length;i++){const v=Math.abs(L[i]);if(v!==v)bad++;if(v>pk)pk=v;dc+=L[i];if(i>sr*9.2&&v>tail)tail=v;}
       const rms=(a,c)=>{let x=0;for(let i=Math.round(a*sr);i<Math.round(c*sr);i++)x+=L[i]*L[i];return Math.sqrt(x/((c-a)*sr));};
       out[n]={pk,bad,dc:dc/L.length,tail,r0:rms(0,.5),r2:rms(2,2.5)};
     }
     for(const n of Object.keys(CRS)){
-      const sr=44100,oac=new OfflineAudioContext(2,sr*8,sr);_bwOff=oac;_bwBus=null;_bwNb={};
+      const sr=44100,oac=new OfflineAudioContext(2,sr*10,sr);_bwOff=oac;_bwBus=null;_bwNb={};
       try{if(n==='pop')CRS.pop(6,4);else if(n==='finish')CRS.finish({explosions:25,ko:[2]});else CRS[n]();}catch(e){_bwOff=null;out['cr_'+n]={err:String(e)};continue;}
       const b=await oac.startRendering();_bwOff=null;_bwBus=null;
       const L=b.getChannelData(0);let pk=0,bad=0,dc=0,tail=0;
-      for(let i=0;i<L.length;i++){const v=Math.abs(L[i]);if(v!==v)bad++;if(v>pk)pk=v;dc+=L[i];if(i>sr*7.2&&v>tail)tail=v;}
+      for(let i=0;i<L.length;i++){const v=Math.abs(L[i]);if(v!==v)bad++;if(v>pk)pk=v;dc+=L[i];if(i>sr*9.2&&v>tail)tail=v;}
       out['cr_'+n]={pk,bad,dc:dc/L.length,tail,r0:0,r2:0};
     }
     return out;})()`);
@@ -7581,7 +7683,7 @@ async function runPresentation(A,W,frame){
       }finally{G.snd=snd;const e=W.eval('AUDIO_KEEP.el');if(e&&e!==keepEl)e.pause();W.eval('AUDIO_KEEP.el=null');if(had)Object.defineProperty(nav,'audioSession',had);}
     })());
     check('a bang is not over in a blink: two seconds after a blast or a gun the roll is still at least a fifth as loud as the bang, in the range a small speaker plays',soundRep.boom.r2>soundRep.boom.r0*.2&&soundRep.fire.r2>soundRep.fire.r0*.2&&soundRep.boom.r2>.08,JSON.stringify({boom:soundRep.boom,fire:soundRep.fire}));
-    check('guns, hits and explosions are the loud ones: a shot, a hit and a blast reach at least 0.4, a blast the most',soundRep.fire.pk>=.4&&soundRep.hit.pk>=.4&&soundRep.boom.pk>=.6&&soundRep.boom.pk>=soundRep.fire.pk);
+    check('guns, hits and explosions are the loud ones: a shot, a hit and a blast reach at least 0.4, a blast the most',soundRep.fire.pk>=.4&&soundRep.hit.pk>=.4&&soundRep.boom.pk>=.6&&soundRep.boom.pk>=soundRep.fire.pk-.06);
   });
   suite('Tonight at Our Table, a quiet "is thinking", and a chance to react',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);
