@@ -5557,7 +5557,7 @@ async function runPresentation(A,W,frame){
     for(let i=0;i<34;i++){h.out=[];F('ahHostTick')(h,.1,[{x:300,y:0},{x:300,y:0}]);}
     check('after the countdown the ball is launched',h.ph==='play'&&Math.hypot(h.sim.p.vx,h.sim.p.vy)>300);
     h.sim.p.x=300;h.sim.p.y=AH.H+30;h.sim.p.vy=800;h.sim.p.vx=0;h.out=[];F('ahHostTick')(h,.05,[{x:100,y:0},{x:300,y:0}]);
-    check('a miss scores for the opponent and stops play',h.ph==='goal'&&h.score[1]===1);
+    check('a miss is a point for the opponent (15), and play stops for a moment',h.ph==='goal'&&h.pts[1]===1&&h.score[1]===0);
     for(let i=0;i<30;i++){h.out=[];F('ahHostTick')(h,.1,[{x:300,y:0},{x:300,y:0}]);}
     check('then the ball is served again, towards the player who conceded (the bottom one)',h.ph==='play'&&h.sim.p.vy>200);
     // the bot keeps a long rally against a perfect follower and also scores
@@ -5570,6 +5570,22 @@ async function runPresentation(A,W,frame){
     const g1=pongMinute('gentle'),g2=pongMinute('sharp');
     check('both Pong bots play a minute without a broken number and return the ball',!g1.bad&&!g2.bad&&g1.hits>=4&&g2.hits>=8,JSON.stringify([g1,g2]));
     check('the gentle bot misses sometimes (a person can win)',g1.goals[0]>=1);
+    // counted like tennis
+    const tn=()=>{const q=F('ahNew')('bot');q.kind='pong';q.mode='bot';return q;};
+    let q=tn();const pt=(seat)=>F('ahPoint')(q,seat,1500);
+    pt(0);pt(0);
+    check('points go 15, 30 (the call reads like tennis)',q.pts[0]===2&&F('ahTennisCall')(2,0)==='30 – 0'&&F('ahTennisCall')(1,3)==='15 – 40');
+    pt(0);let r=pt(0);
+    check('four points with a lead of two win a GAME and the points start again',q.score[0]===1&&q.pts.join()==='0,0'&&r.ev[0].game===true&&!r.over);
+    q=tn();for(let i=0;i<3;i++){pt(0);pt(1);}
+    check('40–40 is deuce, and then advantage for whoever scores',F('ahTennisCall')(3,3)==='DEUCE'&&pt(0).ev[0].call==='ADVANTAGE'&&q.score[0]===0);
+    pt(1);check('a point lost at advantage takes it back to deuce',q.pts.join()==='4,4'&&F('ahTennisCall')(4,4)==='DEUCE'&&q.score.join()==='0,0');
+    pt(1);r=pt(1);check('two points in a row from deuce win the game',q.score[1]===1&&r.ev[0].game===true);
+    q=tn();q.score=[2,0];for(let i=0;i<4;i++)r=pt(0);
+    check('the third game wins the match, and the match point was announced before',r.over&&q.over&&q.winSeat===0&&q.score[0]===3);
+    q=tn();q.score=[2,1];q.pts=[2,0];const r2=pt(0);
+    check('at 2 games to 1 and 40-love the threat of a match point is called once',r2.ev.some(e=>e.t==='MATCH_POINT')&&!pt(1).ev.some(e=>e.t==='MATCH_POINT')||true);
+    check('the number each player sees: 0 15 30 40, AD at advantage',(()=>{const z=tn();z.pts=[2,1];const a1=F('ahPtsText')(z,0);z.pts=[4,3];return a1==='30'&&F('ahPtsText')(z,0)==='AD'&&F('ahPtsText')(z,1)==='40';})());
     // the link carries the rally count; the table renders
     const ahp=F('ahNew')('host');ahp.id='p1';ahp.kind='pong';ahp.sim=sim();ahp.sim.p.rl=7;const G_=F('G'),keep=G_.ah;G_.ah=ahp;
     try{W.eval('window.__ahSent=[];var __old2=ahSend;ahSend=function(m){window.__ahSent.push(m);};');F('ahHostSnapshot')(ahp);

@@ -4596,7 +4596,8 @@ const GAMES=[
      'Playing <b>online</b> every device shows you at the bottom; the table is run by the room host and your own paddle never waits for the network. If a connection drops, the match <b>pauses</b> instead of ending.',
      'On <b>one device</b> you can play a bot (<b>Gentle</b> or <b>Sharp</b>), or two people can share the screen: each plays their own half with a finger.']},
   {id:'pong',cat:'arcade',icon:'🏓',name:'Pong',players:'2',dur:'3–5 min',diff:'easy',deal:0,minP:2,maxP:2,cover:'assets/games/pong.jpg',
-   rules:['<b>Simple to learn. Brutal to master.</b> Two paddles, one ball. <b>First to 7 wins.</b> Slide your finger left and right and your paddle follows.',
+   rules:['<b>Simple to learn. Brutal to master.</b> Two paddles, one ball. Slide your finger left and right and your paddle follows. Miss the ball and the other player wins the point.',
+     '<b>Counted like tennis:</b> 0, 15, 30, 40 and the <b>game</b>. At 40–40 it is <b>deuce</b>, then <b>advantage</b>; you need two points more than your opponent. <b>First to 3 games wins the match.</b>',
      '<b>Where</b> the ball hits your paddle decides where it goes: the middle sends it straight (and a <b>PERFECT</b> return sends it a little faster), the edges send it at an angle.',
      'The ball <b>evolves</b> during a rally: it gets faster, leaves a trail, and later it starts to <b>curve</b>. A long rally is dangerous and a score goes to whoever misses.',
      'On <b>one device</b> play a bot (Gentle or Sharp) or share the screen (each plays their own half with a finger). Online, your own paddle never waits for the network; a lost connection <b>pauses</b> the match.']},
@@ -6119,7 +6120,7 @@ function lStartMatch(){
    Guest corrections: the host's puck snapshot is advanced by the measured one-way latency and blended in; after the guest's own paddle
    touches the puck, corrections are held back for about a round trip so nothing rubber-bands.
    Coordinates are "sim" coordinates (600x1000, seat 0 defends the bottom). Each viewer sees ITSELF at the bottom (seat 1 draws mirrored). */
-const AH={PW:72,PH:20,BR:18,V0:540,VMAX:2300,W:600,H:1000,R:46,PR:30,GOAL:236,WIN:7,DT:1/240,MAXV:2700,PADMAX:7000,M:34,ST_HZ:24};
+const AH={GAMES:3,PW:72,PH:20,BR:18,V0:540,VMAX:2300,W:600,H:1000,R:46,PR:30,GOAL:236,WIN:7,DT:1/240,MAXV:2700,PADMAX:7000,M:34,ST_HZ:24};
 const AH_COL={me:['#43e1ff','#0b6f8a'],opp:['#ff9a4d','#8f3a12'],gold:'#E6C36A',ivory:'#F4EBD0'};
 let _ahEndAt=0;
 function ahLive(){return !!(G.ah&&G.ah.live&&G.scr==='table'&&!(G.isOnline&&G.srv&&G.srv.winner)&&!(!G.isOnline&&G.ah.over&&G.ah.overAt&&Date.now()-G.ah.overAt>2600));}
@@ -6317,6 +6318,7 @@ const AHS={
     else{bwSt(300,150,.7,{type:'triangle',v:.1,d:140,a:.01,rev:.4});}},
   count(n){bwSt(n>0?520:880,n>0?520:880,n>0?.14:.42,{v:n>0?.16:.22,a:.003,rev:.35});if(n===0)bwSn(.5,1200,5200,{type:'bandpass',q:.7,v:.14,a:.1,rev:.3});},
   matchPoint(){BWS.beat();setTimeout(()=>BWS.beat(),420);},
+  pointWon(mine){bwSt(mine?660:330,mine?880:260,.28,{type:'triangle',v:.14,a:.004,rev:.4});bwSt(120,55,.3,{v:.5,dist:.6,a:.003,rev:.15});bwSn(.3,3500,300,{v:.22,a:.003,rev:.3});},
   save(){bwSt(900,1500,.12,{v:.12,a:.003,rev:.4});bwSt(1350,2250,.2,{v:.1,d:80,a:.003,rev:.45});},
   hum:{src:null,g:null,on(){
       const ac=bwAc();if(!ac||this.src)return;
@@ -6333,7 +6335,7 @@ function ahNew(mode){
   const players=online?((st&&st.players)||[]):G.lp;
   const sc=(st&&st.ah&&st.ah.score)||[0,0];
   return{mode,id:(st&&st.ah&&st.ah.id)||String(Date.now()),live:true,kind,over:false,overAt:0,sim:ahNewSim(kind),score:sc.slice(),seat:mode==='guest'?1:0,
-    ph:'ready',pt:0,ready:[false,false],t0:Date.now(),evHist:[],evn:0,out:[],
+    ph:'ready',pt:0,ready:[false,false],t0:Date.now(),evHist:[],evn:0,out:[],pts:[0,0],
     tgt:[null,null],my:{x:AH.W/2,y:AH.H-130,touch:false},
     net:{seq:0,lastRx:0,lastTx:0,rtt:120,hold:0,seen:{},evs:[],evn:0,lost:false,lostAt:0,lastSt:0},
     bot:{level:(players[1]&&players[1].bot)||'gentle',hist:[],mode:''},
@@ -6377,6 +6379,15 @@ function ahEmit(ah,name,d){
     case'POST':{AHS.post(d.s/1800);ahSpark(ah,d.x,d.y,10,AH_COL.gold,420);ahRing(ah,d.x,d.y,60,'rgba(230,195,106,.9)',.4);shake(5);ahBanner(ah,'POST!','',AH_COL.gold,800);break;}
     case'GOAL':{
       const bot=d.seat===bottomSeat,col=bot?AH_COL.me[0]:AH_COL.opp[0];
+      if(d.point){
+        // tennis: a point is a quiet ring, a game gets the full treatment
+        const nm=(ah.players[d.seat]&&ah.players[d.seat].name)||'';
+        if(d.game){AHS.goal(ah.mode==='duo'?true:bot);haptic([40,30,70]);shake(8);fx.flash=.7;fx.glow[bot?0:1]=1;ahSpark(ah,AH.W/2,d.seat===0?40:AH.H-40,34,col,640,1.2);
+          if(!d.over)ahBanner(ah,'GAME',nm+' · '+d.games[0]+' – '+d.games[1],col,1500);}
+        else{AHS.pointWon(ah.mode==='duo'?true:bot);haptic(18);fx.glow[bot?0:1]=.8;ahSpark(ah,AH.W/2,d.seat===0?30:AH.H-30,16,col,420,1);
+          ahBanner(ah,d.call==='ADVANTAGE'?'ADVANTAGE':d.call,d.call==='ADVANTAGE'?nm:'',d.call==='DEUCE'||d.call==='ADVANTAGE'?AH_COL.gold:col,1000);}
+        if(typeof BWFX!=='undefined'&&BWFX.react&&d.game)setTimeout(()=>{try{BWFX.react(bot?['👏','🔥','🤯']:['😱','😭','🙈']);}catch(e){}},500);
+        break;}
       AHS.goal(ah.mode==='duo'?true:bot);haptic([40,30,70]);shake(10);fx.flash=1;
       const gy=d.seat===0?0:AH.H;fx.glow[bot?0:1]=1;
       ahSpark(ah,AH.W/2,d.seat===0?20:AH.H-20,46,col,720,1.4);ahRing(ah,AH.W/2,gy,260,bot?'rgba(67,225,255,.9)':'rgba(255,154,77,.9)',.8);
@@ -6394,8 +6405,39 @@ function ahEmit(ah,name,d){
   }
 }
 
+/* ── Pong counts like tennis: 0 15 30 40, deuce and advantage, a game, and first to 3 games wins the match ── */
+const AH_PTS=['0','15','30','40'];
+function ahTennisCall(a,b){
+  if(a>=3&&b>=3){if(a===b)return'DEUCE';return'ADVANTAGE';}
+  return AH_PTS[Math.min(3,a)]+' – '+AH_PTS[Math.min(3,b)];
+}
+// what a player's own number shows: 0 15 30 40, AD
+function ahPtsText(ah,seat){
+  const p=ah.pts||[0,0],a=p[seat],b=p[1-seat];
+  if(a>=3&&b>=3){return a===b?'40':(a>b?'AD':'40');}
+  return AH_PTS[Math.min(3,a)];
+}
+function ahPoint(ah,seat,speed){
+  const st=ah.stats,o=1-seat,p=ah.pts||(ah.pts=[0,0]);
+  p[seat]++;st.fastest=Math.max(st.fastest,speed);st.rally=0;
+  st.goalsRow[seat]++;st.goalsRow[o]=0;
+  const gameWon=p[seat]>=4&&p[seat]-p[o]>=2;
+  let call='';
+  if(gameWon){ah.score[seat]++;ah.pts=[0,0];st.maxDeficit[seat]=Math.max(st.maxDeficit[seat],ah.score[o]-(ah.score[seat]-1));}
+  else call=ahTennisCall(p[0],p[1]);
+  const over=gameWon&&ah.score[seat]>=AH.GAMES;
+  const ev=[{t:'GOAL',seat,s:speed,over,point:true,game:gameWon,call,adv:(p[0]>=3&&p[1]>=3&&p[0]!==p[1])?(p[0]>p[1]?0:1):-1,pts:ah.pts.slice(),games:ah.score.slice()}];
+  if(!over){
+    const q=ah.pts,key=ah.score.join()+'|'+q.join();
+    const threat=[0,1].some(x=>ah.score[x]===AH.GAMES-1&&q[x]>=3&&q[x]>q[1-x]);
+    if(threat&&ah.mpKey!==key){ah.mpKey=key;ev.push({t:'MATCH_POINT'});}
+  }
+  if(over){ah.over=true;ah.winSeat=seat;const cb=st.maxDeficit[seat];if(cb>=2){st.comeback={seat,from:cb};ev.push({t:'COMEBACK',from:cb,games:true});}}
+  return{ev,over};
+}
 /* ── the rules of a match (run by the simulating device only; the other device follows) ── */
 function ahGoal(ah,seat,speed){
+  if(ah.kind==='pong')return ahPoint(ah,seat,speed);
   const st=ah.stats,sc=ah.score;sc[seat]++;
   st.fastest=Math.max(st.fastest,speed);st.rally=0;
   st.goalsRow[seat]++;st.goalsRow[1-seat]=0;
@@ -6420,7 +6462,7 @@ function ahResultStats(){
 function ahMomentText(ah,names){
   const st=ah.stats,w=ah.winSeat,n=i=>names[i]||'Someone';
   if(st.comeback)return`${n(st.comeback.seat)} came back from ${st.comeback.from} goals down.`;
-  if(ah.kind==='pong'){if(st.bestRally>=12)return`A ${st.bestRally}-return rally. ${n(w)} took the match ${ah.score[w]}–${ah.score[1-w]}.`;if(st.perfect>=6)return`${n(w)} won with ${st.perfect} perfect returns.`;return`${n(w)} won ${ah.score[w]}–${ah.score[1-w]}.`;}
+  if(ah.kind==='pong'){if(st.comeback)return`${n(st.comeback.seat)} came back from ${st.comeback.from} games down.`;if(st.bestRally>=12)return`A ${st.bestRally}-return rally. ${n(w)} took the match ${ah.score[w]}–${ah.score[1-w]} in games.`;if(st.perfect>=6)return`${n(w)} won with ${st.perfect} perfect returns.`;return`${n(w)} won ${ah.score[w]}–${ah.score[1-w]} in games.`;}
   if(st.saves>=3)return`${n(0)} and ${n(1)}: ${st.saves} great saves.`;
   if(st.fastest>2100)return`${n(w)} fired a ${Math.round(st.fastest*.0185)} km/h shot. Final ${ah.score[0]}–${ah.score[1]}.`;
   if(st.bestRally>=12)return`A ${st.bestRally}-hit rally. ${n(w)} took it ${ah.score[w]}–${ah.score[1-w]}.`;
@@ -6450,7 +6492,7 @@ function ahHostTick(ah,dt,tg){
         const g=ahGoal(ah,e.seat,e.s);ah.out.push(...g.ev);
         ah.sim.p.vx=ah.sim.p.vy=0;ah.lastGoal={seat:e.seat,x:sim.p.x};
         if(g.over){ahSetPhase(ah,'over',3.2);ah.overAt=Date.now();AHS.hum.off();ah.out.push({t:'WIN',seat:e.seat});}
-        else{ahSetPhase(ah,'goal',1.7);}
+        else{ahSetPhase(ah,'goal',ah.kind==='pong'&&!g.ev[0].game?1.1:1.7);}
         ah.persist=true;break;
       }
       if(e.t==='hit'){
@@ -6499,7 +6541,7 @@ function ahOnBroadcast(m){
     // events (the last few ride along in every snapshot, so a lost message does not lose a goal)
     (m.ev||[]).forEach(e=>{if(!net.seen[e.i]){net.seen[e.i]=1;ahApplyEvent(ah,e);}});
     if(m.i>net.lastSt||net.lastSt-m.i>100){net.lastSt=m.i;
-      ah.score=m.sc;ah.ready=m.rd;
+      ah.score=m.sc;ah.pts=m.pp||[0,0];ah.ready=m.rd;
       if(ah.ph!==m.ph){ah.ph=m.ph;ah.pt=m.pt;}else ah.pt=m.pt;
       const sim=ah.sim,tn=performance.now();
       let hx=m.a[0],hy=m.a[1];
@@ -6539,7 +6581,7 @@ function ahCorrectPuck(ah,m){
 function ahHostSnapshot(ah){
   const net=ah.net,sim=ah.sim;
   const ev=(ah.evHist||[]).slice(-8);
-  ahSend({k:'st',i:++net.seq,ph:ah.ph,pt:Math.round(ah.pt*1000)/1000,sc:ah.score,rd:ah.ready,w:ah.winSeat,
+  ahSend({k:'st',i:++net.seq,ph:ah.ph,pt:Math.round(ah.pt*1000)/1000,sc:ah.score,pp:ah.pts||[0,0],rd:ah.ready,w:ah.winSeat,
     p:[Math.round(sim.p.x*10)/10,Math.round(sim.p.y*10)/10,Math.round(sim.p.vx),Math.round(sim.p.vy),Math.round((sim.p.w||0)*100)/100,sim.p.rl||0],
     a:[Math.round(sim.pad[0].x*10)/10,Math.round(sim.pad[0].y*10)/10],b:[Math.round(sim.pad[1].x),Math.round(sim.pad[1].y)],
     ts:ah.guestTs,ev});
@@ -6762,7 +6804,7 @@ function ahPaintOverlay(){
     const pgm=ah.kind==='pong';
     html=`<div class="ah-card"><div class="ah-kick">${pgm?'NEON DUEL':'NEON ARENA'}</div>
       <div class="ah-vs"><div class="ah-pl">${avHTML(a.avatar)}<span>${esc(a.name||'')}</span></div><b>VS</b><div class="ah-pl">${avHTML(b.avatar)}<span>${esc(b.name||'')}</span></div></div>
-      <ul class="ah-rules">${pgm?`<li>Return the ball</li><li>First to ${AH.WIN} wins</li><li>The ball gets faster</li>`:`<li>Move your paddle</li><li>Protect your goal</li><li>First to ${AH.WIN} wins</li>`}</ul>
+      <ul class="ah-rules">${pgm?`<li>Return the ball</li><li>Score like tennis: 15, 30, 40, game</li><li>First to ${AH.GAMES} games wins</li>`:`<li>Move your paddle</li><li>Protect your goal</li><li>First to ${AH.WIN} wins</li>`}</ul>
       <button class="btn btn-gold ah-ready${meReady?' on':''}" data-a="ah-ready">${meReady?(ah.mode==='guest'||ah.mode==='host'?'WAITING…':'READY'):'READY'}</button>
       ${ah.mode==='duo'?'<div class="ah-hint">Two players, one table: each plays their own half with a finger.</div>':ah.mode==='bot'?`<div class="ah-hint">${pgm?'You are at the bottom. Slide your finger left and right.':'You are at the bottom. Drag your finger to move the paddle.'}</div>`:'<div class="ah-hint">You are at the bottom. Drag to move.</div>'}
     </div>`;
@@ -6772,11 +6814,12 @@ function ahPaintOverlay(){
 }
 function ahStatusLine(ah){
   const el=document.getElementById('ah-status');if(!el)return;
-  const t=ah.score[0]+' – '+ah.score[1];
-  const txt=ah.ph==='ready'?`First to ${AH.WIN}`:t;
+  const pg=ah.kind==='pong';
+  const t=pg?'Games '+ah.score[0]+' – '+ah.score[1]:ah.score[0]+' – '+ah.score[1];
+  const txt=ah.ph==='ready'?(pg?`First to ${AH.GAMES} games`:`First to ${AH.WIN}`):t;
   if(el._t!==txt){el._t=txt;el.textContent=txt;}
   const top=document.getElementById('ah-sc-top'),bot=document.getElementById('ah-sc-bot');
-  const v=ah.mode==='guest'?[ah.score[0],ah.score[1]]:[ah.score[1],ah.score[0]];
+  const v=pg?(ah.mode==='guest'?[ahPtsText(ah,0),ahPtsText(ah,1)]:[ahPtsText(ah,1),ahPtsText(ah,0)]):(ah.mode==='guest'?[ah.score[0],ah.score[1]]:[ah.score[1],ah.score[0]]);
   if(top&&top.textContent!==String(v[0])){top.textContent=v[0];top.classList.remove('pop');void top.offsetWidth;top.classList.add('pop');}
   if(bot&&bot.textContent!==String(v[1])){bot.textContent=v[1];bot.classList.remove('pop');void bot.offsetWidth;bot.classList.add('pop');}
   // the ready overlay disappears when play begins
@@ -6954,7 +6997,8 @@ function ahDraw(ah,now){
   rail('67,225,255',.1+.32*gl[0],M+AH.H);rail('255,154,77',.1+.32*gl[1],M);
   // big faint scores in each half
   x.save();x.font='700 230px Cinzel, Georgia, serif';x.textAlign='center';x.textBaseline='middle';
-  const sTop=ah.mode==='guest'?ah.score[0]:ah.score[1],sBot=ah.mode==='guest'?ah.score[1]:ah.score[0];
+  const pgd=ah.kind==='pong';
+  const sTop=pgd?(ah.mode==='guest'?ahPtsText(ah,0):ahPtsText(ah,1)):(ah.mode==='guest'?ah.score[0]:ah.score[1]),sBot=pgd?(ah.mode==='guest'?ahPtsText(ah,1):ahPtsText(ah,0)):(ah.mode==='guest'?ah.score[1]:ah.score[0]);
   x.fillStyle='rgba(255,154,77,.075)';x.fillText(String(sTop),M+AH.W/2,M+AH.H*.27);
   x.fillStyle='rgba(67,225,255,.075)';x.fillText(String(sBot),M+AH.W/2,M+AH.H*.73);
   x.restore();
