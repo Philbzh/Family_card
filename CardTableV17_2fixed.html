@@ -9917,6 +9917,12 @@ function ahDraw(ah,now){
   fx.banners=fx.banners.filter(b=>nowT-b.t<b.ms+250);
   fx.banners.forEach((b,i)=>{
     if(!b.text)return;const u=(nowT-b.t)/b.ms,a=u<.12?u/.12:u>1?Math.max(0,1-(u-1)*4):1,sz=b.text.length>9?66:96;
+    if(ah.kind==='invaders'&&ah.ph==='play'){
+      // in Invaders the middle of the screen is where the fleet is: the messages become a slim line along the top edge
+      x.save();x.globalAlpha=a*.92;x.textAlign='center';x.textBaseline='middle';x.font='700 22px Cinzel, Georgia, serif';
+      const line=b.text+(b.sub?'   ·   '+b.sub:''),tw=Math.min(AH.W-40,x.measureText(line).width+36),yy=M+26+i*38;
+      x.fillStyle='rgba(6,12,10,.7)';x.beginPath();if(x.roundRect)x.roundRect(cx-tw/2,yy-17,tw,34,17);else x.rect(cx-tw/2,yy-17,tw,34);x.fill();
+      x.strokeStyle=b.col;x.globalAlpha=a*.5;x.lineWidth=1.5;x.stroke();x.globalAlpha=a*.95;x.fillStyle=b.col;x.fillText(line,cx,yy+1,AH.W-60);x.restore();return;}
     x.save();x.globalAlpha=a;x.textAlign='center';x.textBaseline='middle';x.font='700 '+sz+'px Cinzel, Georgia, serif';x.fillStyle=b.col;x.shadowColor=b.col;x.shadowBlur=26;
     const yy=cy-(ah.ph==='goal'?0:90)+i*8;x.fillText(b.text,cx,yy);
     if(b.sub){x.font='600 34px Jost, sans-serif';x.shadowBlur=8;x.fillStyle=AH_COL.ivory;x.fillText(b.sub,cx,yy+sz*.72);}
