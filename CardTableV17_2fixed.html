@@ -4682,7 +4682,7 @@ const GAMES=[
   {id:'pool',cat:'arcade',icon:'🎱',name:'Pool',players:'2',dur:'8–15 min',diff:'medium',deal:0,minP:2,maxP:2,cover:'assets/games/pool.jpg',
    rules:['<b>Two rule sets, chosen with the RULES button before the break.</b> <b>BLACKBALL</b> (English pool: 7 red balls, 7 yellow balls, the black; a smaller table with tighter pockets). After a foul your opponent gets <b>two visits</b> and puts the white ball anywhere in the <b>D</b>. The black must go in <b>the pocket where your last ball went in</b> (marked in gold), or you lose; <b>BLACKBALL · ANY</b> lets the black go in any pocket. <b>AMERICAN</b> is numbered 8-ball: solids and stripes, ball in hand anywhere after a foul.',
      '<b>Aim. Control. Clear the table.</b> 8-ball for two: pocket all your balls (<b>solids</b> or <b>stripes</b>, decided by the first ball you sink after the break), then the black <b>8-ball</b>. Pocket it before that, or foul while sinking it, and you lose.',
-     '<b>To shoot:</b> put a finger on the <b>shaft of the cue</b> (the gold ring) and turn it around the white ball: your finger stays away from the balls you need to see. You can also tap or drag on the table to aim straight at a spot. Pull the <b>power bar</b> at the right edge down and let go to shoot. The small ball at the left is the <b>spin</b>: the dot is where the cue hits the ball (up = follow, down = draw, sideways = side spin; a double tap centres it). The <b>AIM</b> button changes how much the aiming line shows (Family, Challenge, Pro).',
+     '<b>To shoot:</b> put a finger on the <b>shaft of the cue</b> (the gold ring) and turn it around the white ball: your finger stays away from the balls you need to see. You can also tap or drag on the table to aim straight at a spot. Pull the <b>power bar</b> at the right edge down and let go to shoot. The small ball at the left is the <b>spin</b>: the dot is where the cue hits the ball (up = follow, down = draw, sideways = side spin; a double tap centres it). The <b>AIM</b> button sets how much the aiming line shows (Family, Challenge, Pro). Like the RULES button it is chosen <b>before the break</b>, is <b>the same for both players</b>, and is locked once the game has started.',
      '<b>Keep going</b> while you sink one of your balls. <b>Fouls</b> (the cue ball is sunk, no ball hit, the wrong ball hit first, nothing reaches a cushion) give your opponent <b>ball in hand</b>: they place the cue ball anywhere and press <b>PLACE</b>. Any pocket counts, no calling.',
      'On <b>one device</b> play the bot (Gentle or Sharp) or take turns with a person. Online, the shooter plays the shot and both devices watch the same replay.']},
   {id:'abyss',cat:'party',icon:'🌌',name:'The Abyss',players:'2–6',dur:'10–20 min',diff:'easy',deal:0,minP:2,maxP:6,cover:'assets/games/abyss.jpg',
@@ -7663,9 +7663,9 @@ function plRack(rules){
   for(let r=0;r<5;r++)for(let c=0;c<=r;c++)b.push({id:order[k++],x:PL.W/2+(c-r/2)*dx,y:PL.H*.28-r*dy,on:true});
   return b;
 }
-function plNew(rules){
+function plNew(rules,assist){
   rules=rules==='bb'||rules==='ba'?rules:'us';
-  return{v:1,n:0,rules,visits:1,lastPocket:[null,null],balls:plRack(rules),turn:0,groups:[null,null],phase:'break',bih:false,shot:null,prev:null,res:null,over:false,winner:-1,foul:'',msg:'BREAK',
+  return{v:1,n:0,rules,assist:assist==='challenge'||assist==='pro'?assist:'family',visits:1,lastPocket:[null,null],balls:plRack(rules),turn:0,groups:[null,null],phase:'break',bih:false,shot:null,prev:null,res:null,over:false,winner:-1,foul:'',msg:'BREAK',
     stats:{run:[0,0],bestRun:[0,0],fouls:[0,0],pots:[0,0],longest:0,breakPots:0,shots:0}};
 }
 const plLeft=(pl,seat)=>{const g=pl.groups[seat];return g?pl.balls.filter(b=>b.on&&plGroup(b.id)===g).length:7;};
@@ -7889,7 +7889,9 @@ const PLS={
   breakShot(){bwCrack(.9,0,.4);bwSt(90,34,.8,{v:.9,dist:.8,a:.003,rev:.35,long:true});bwSn(.9,5000,250,{v:.5,a:.003,rev:.5});}
 };
 function plLive(){return !!(G.pl&&G.pl.live&&G.scr==='table'&&(!(G.isOnline&&G.srv&&G.srv.winner)||G.pl.anim||G.pl.finale));}
-function plAssist(){try{return localStorage.getItem('ct_pl_assist')||'family';}catch(e){return'family';}}
+// the aiming help (Family / Challenge / Pro) is a rule of the TABLE: chosen before the break, the same for both players, locked once the game has started
+function plAssistPref(){try{const v=localStorage.getItem('ct_pl_assist');return v==='challenge'||v==='pro'?v:'family';}catch(e){return'family';}}
+function plAssist(pl){const v=pl&&pl.assist;return v==='challenge'||v==='pro'?v:'family';}
 const PL_CLOTHS={green:{a:'#14804f',b:'#0a4a2e',c1:'#0f5a35',c2:'#0a4528'},blue:{a:'#1a5fa0',b:'#0b2f58',c1:'#124a80',c2:'#0a3260'},burgundy:{a:'#9a2638',b:'#4a0d17',c1:'#7a1c2c',c2:'#4f1019'}};
 function plCloth(){try{const v=localStorage.getItem('ct_pl_cloth');return PL_CLOTHS[v]?v:'green';}catch(e){return'green';}}
 function plNextCloth(){const v=plCloth(),n=v==='green'?'blue':v==='blue'?'burgundy':'green';try{localStorage.setItem('ct_pl_cloth',n);}catch(e){}if(G.pl)G.pl.statik=null;const b=document.getElementById('pl-clothbtn');if(b)b.textContent='CLOTH: '+n.toUpperCase();return n;}
@@ -7897,11 +7899,17 @@ function plRulesLabel(r){return r==='us'?'RULES: AMERICAN':r==='ba'?'RULES: BLAC
 function plNextRules(){
   const g=G.pl;if(!g||g.pl.n!==0||g.anim||g.mode==='guest')return;
   const v=g.pl.rules,n=v==='bb'?'ba':v==='ba'?'us':'bb';try{localStorage.setItem('ct_pl_rules',n);}catch(e){}
-  if(G.isOnline)oFastMutate(state=>{if(!state.pl||state.pl.n!==0)return false;state.pl=plNew(n);return true;},()=>{},()=>{});
-  else{g.pl=plNew(n);g.disp=plDisp(g.pl.balls,null);g.statik=null;g.bihPos=null;}
+  if(G.isOnline)oFastMutate(state=>{if(!state.pl||state.pl.n!==0)return false;state.pl=plNew(n,state.pl.assist);return true;},()=>{},()=>{});
+  else{g.pl=plNew(n,g.pl.assist);g.disp=plDisp(g.pl.balls,null);g.statik=null;g.bihPos=null;}
   const b=document.getElementById('pl-rulesbtn');if(b)b.textContent=plRulesLabel(n);
 }
-function plNext(){const v=plAssist(),n=v==='family'?'challenge':v==='challenge'?'pro':'family';try{localStorage.setItem('ct_pl_assist',n);}catch(e){}return n;}
+function plNext(){
+  const g=G.pl;if(!g||g.pl.n!==0||g.anim||g.mode==='guest')return;   // locked once the game has started, and only the host / the player at the device chooses
+  const v=plAssist(g.pl),n=v==='family'?'challenge':v==='challenge'?'pro':'family';try{localStorage.setItem('ct_pl_assist',n);}catch(e){}
+  if(G.isOnline)oFastMutate(state=>{if(!state.pl||state.pl.n!==0)return false;state.pl.assist=n;return true;},()=>{},()=>{});
+  else g.pl.assist=n;
+  const b=document.getElementById('pl-assistbtn');if(b){b._t=null;b.textContent='AIM: '+n.toUpperCase();}
+}
 function plPlayers(){return ahPlayers();}
 function plMySeat(g){return g.mode==='host'||g.mode==='guest'?g.seat:g.pl.turn;}
 function plCanAct(){
@@ -7915,7 +7923,7 @@ function plSpark(g,x,y,n,col,spd){if(typeof gtAnim==='function'&&gtAnim()==='off
 function plDisp(balls,old){return balls.map(b=>{const o=old&&old.find(q=>q.id===b.id);return{id:b.id,x:b.x,y:b.y,on:b.on,rot:0,fall:null,m:o&&o.m?o.m:plM0(b.id),dirty:true};});}
 function plNewG(mode){
   const online=mode==='host'||mode==='guest',st=online&&G.srv?G.srv:null;
-  const pl=(st&&st.pl)||plNew(plRulesPref());
+  const pl=(st&&st.pl)||plNew(plRulesPref(),plAssistPref());
   return{live:true,mode,seat:online?Math.max(0,ahPlayers().findIndex(p=>p.id===G.myPid)):0,pl,disp:plDisp(pl.balls),aim:{ang:-Math.PI/2,power:0,sx:0,sy:0},anim:null,
     fx:{parts:[],banners:[],chalk:[],shake:0,flash:0},bihPos:null,cv:null,raf:0,born:performance.now(),finale:null,lastShot:st&&st.pl&&st.pl.shot?st.pl.shot.id:null,
     bot:{level:(ahPlayers()[1]&&ahPlayers()[1].bot)||'gentle'},botBusy:false,msgAt:0};
@@ -8049,7 +8057,7 @@ function rPoolTable(){
   if(!G.pl||!G.pl.live||G.pl.mode!==mode){plStop();G.pl=plNewG(mode);}
   const g=G.pl,av=p=>p&&p.avatar?avHTML(p.avatar):'';
   setTimeout(plAttach,0);
-  const a=plAssist();
+  const a=plAssist(g.pl);
   return`<div id="s-table" class="scr on game-airhockey game-pool">
     <div class="game-bar">
       <div class="gb-game">🎱 <span>8-Ball</span></div>
@@ -8173,7 +8181,7 @@ function plHud(g){
   if(pw)pw.style.height=Math.round(g.aim.power*100)+'%';
   if(dot){dot.style.left=(50+g.aim.sx*50)+'%';dot.style.top=(50-g.aim.sy*50)+'%';}
   const rbn=document.getElementById('pl-rulesbtn');if(rbn){const sh=pl.n===0&&!g.anim&&g.mode!=='guest';if(rbn._s!==sh){rbn._s=sh;rbn.style.display=sh?'block':'none';}}
-  const btn=document.getElementById('pl-assistbtn');if(btn){const t='AIM: '+plAssist().toUpperCase();if(btn._t!==t){btn._t=t;btn.textContent=t;}}
+  const btn=document.getElementById('pl-assistbtn');if(btn){const lockd=pl.n>0||g.mode==='guest',t='AIM: '+plAssist(pl).toUpperCase()+(lockd?' 🔒':'');if(btn._t!==t){btn._t=t;btn.textContent=t;}if(btn._l!==lockd){btn._l=lockd;btn.disabled=lockd;btn.style.opacity=lockd?'.75':'';}}
 }
 function plBuildStatic(g){
   const M=PL.M,cw=PL.W+2*M,ch=PL.H+2*M,sc=g.scale,c=document.createElement('canvas');c.width=Math.round(cw*sc);c.height=Math.round(ch*sc);
@@ -8311,7 +8319,7 @@ function plDraw(g,now){
   const bihMine=plCanAct()&&pl.bih&&!g.anim&&!!g.bihPos,nowP=performance.now(),rm=g.remote&&nowP-g.remote.t<1500&&!plCanAct()&&!g.anim&&!pl.over&&g.mode!=='bot'&&g.mode!=='duo'&&pl.turn!==g.seat?g.remote:null;
   // the aiming line and the cue
   if(my&&cue.on&&!g.anim&&!pl.over&&!(pl.bih)){
-    const lv=plAssist(),ang=g.aim.ang,ray=plRay(g.disp,cue.x,cue.y,ang,2600);
+    const lv=plAssist(pl),ang=g.aim.ang,ray=plRay(g.disp,cue.x,cue.y,ang,2600);
     const len=lv==='family'?ray.t:lv==='challenge'?Math.min(ray.t,520):Math.min(ray.t,230);
     x.save();x.setLineDash([10,9]);x.lineWidth=2;x.strokeStyle='rgba(255,255,255,.7)';x.beginPath();x.moveTo(cue.x,cue.y);x.lineTo(cue.x+Math.cos(ang)*len,cue.y+Math.sin(ang)*len);x.stroke();x.setLineDash([]);
     // little ticks every 100 units, to judge the distance of the shot
@@ -10326,7 +10334,7 @@ function stageOnSrv(prev,state){
     else if(g==='abyss'&&prev.ab&&state.ab&&state.ab.moves>prev.ab.moves&&state.ab.fx){
       showAfter(()=>G.abSeq,x=>abRunSeq(x,false,null),state.ab,'ab');
     }
-    else if(g==='pool'&&state.pl&&state.pl.n===0&&prev.pl&&state.pl.rules!==prev.pl.rules&&G.pl){G.pl.pl=state.pl;G.pl.disp=plDisp(state.pl.balls,null);G.pl.statik=null;const rb=document.getElementById('pl-rulesbtn');if(rb)rb.textContent=plRulesLabel(state.pl.rules);}
+    else if(g==='pool'&&state.pl&&state.pl.n===0&&prev.pl&&(state.pl.rules!==prev.pl.rules||state.pl.assist!==prev.pl.assist)&&G.pl){G.pl.pl=state.pl;G.pl.disp=plDisp(state.pl.balls,null);G.pl.statik=null;const rb=document.getElementById('pl-rulesbtn');if(rb)rb.textContent=plRulesLabel(state.pl.rules);const ab=document.getElementById('pl-assistbtn');if(ab){ab._t=null;ab.textContent='AIM: '+plAssist(state.pl).toUpperCase();}}
     else if(g==='pool'&&state.pl&&state.pl.shot&&(!prev.pl||!prev.pl.shot||prev.pl.shot.id!==state.pl.shot.id)){plReplay(state.pl);}
     else if(g==='blackwater'&&prev.bw&&state.bw&&state.bw.moves>prev.bw.moves&&state.bw.fx){
       const bwS=state.bw;
@@ -27613,7 +27621,7 @@ function oStartGame(rs){
       if(ahIs(rs.gameId)){
         const players=rs.players.slice(0,2).map(p=>({...p,totalScore:0,c4Result:null}));
         const gs={phase:'game',gameId:rs.gameId,host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
-          ah:{id:'ah'+Date.now().toString(36)+Math.floor(Math.random()*1e4),score:[0,0]},pl:rs.gameId==='pool'?plNew(plRulesPref()):undefined,winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
+          ah:{id:'ah'+Date.now().toString(36)+Math.floor(Math.random()*1e4),score:[0,0]},pl:rs.gameId==='pool'?plNew(plRulesPref(),plAssistPref()):undefined,winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
         G.srv=gs;G.ah=null;G.pl=null;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }

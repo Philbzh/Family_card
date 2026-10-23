@@ -5647,6 +5647,15 @@ async function runPresentation(A,W,frame){
       const rows=rowsN.map(n=>{const r=bs.slice(k,k+n).map(b=>col(b.id)).join('');k+=n;return r;});
       // our table has the apex towards the player, so each row is read from the other side
       return rows.map(r=>[...r].reverse().join('')).join('/')==='Y/RY/YBR/RYRY/YRYRR';})());
+    // the aiming help is a rule of the table, the same for both players
+    check('the aiming help is part of the game state (default Family) and a chosen level travels with it',F('plNew')('us').assist==='family'&&F('plNew')('bb','pro').assist==='pro'&&F('plAssist')(F('plNew')('us','challenge'))==='challenge'&&F('plAssist')(null)==='family');
+    check('changing the rule set before the break keeps the chosen aiming help',(()=>{const g0=F('plNew')('us','pro');const g1=F('plNew')('bb',g0.assist);return g1.assist==='pro';})());
+    check('the aiming help can be changed before the break and is locked afterwards',(()=>{
+      const k={on:F('G').isOnline,sel:F('G').selGame,lp:F('G').lp,pl:F('G').pl};
+      try{const G=F('G');G.isOnline=false;G.selGame='pool';G.lp=[{name:'A',avatar:'🙂'},{name:'B',avatar:'🙂',isBot:true}];F('plStop')();G.pl=F('plNewG')('bot');
+        const before=G.pl.pl.assist;F('plNext')();const mid=G.pl.pl.assist;G.pl.pl.n=3;F('plNext')();const after=G.pl.pl.assist;F('plStop')();
+        return before==='family'&&mid==='challenge'&&after==='challenge';}
+      finally{const G=F('G');G.isOnline=k.on;G.selGame=k.sel;G.lp=k.lp;G.pl=null;}})());
     check('the American game stays the default rule set',F('plRulesPref')()==='us');
     check('the American rack is unchanged and is the default of plNew',F('plNew')().rules==='us'&&F('plNew')().balls[5].id===3||F('plNew')().balls.find(b=>b.id===8));
     check('Blackball has tighter pockets than the American game',F('PL').PCb<F('PL').PC&&F('PL').PSb<F('PL').PS);
