@@ -5700,6 +5700,21 @@ async function runPresentation(A,W,frame){
       check('the achievements and the records of the Fairground exist',['fg-popstar','fg-dead','fg-jackpot'].every(id=>F('ACHIEVEMENTS').some(a=>a.id===id))&&F('AR_REC').balloonblast.length===4);
     }finally{back(k0);}
   });
+  suite('Fairground: the human is never locked out after the bot run',()=>{
+    const F=n=>W.eval(n),G=()=>F('G');
+    const k0=[G().isOnline,G().selGame,G().lp,G().lstart,G().scr,G().fg];
+    try{
+      for(const kind of ['marksman','balloonblast','hoopfever']){
+        let bad=0,runs=0;
+        for(let m=0;m<8;m++){
+          const g=G();g.isOnline=false;g.selGame=kind;g.lstart=1;g.lp=[{id:1,name:'P',avatar:'x',hand:[],totalScore:0},{id:2,name:'B',avatar:'x',hand:[],totalScore:0,bot:'sharp'}];
+          F('fgStop')();const f=F('fgNew')(kind);g.fg=f;f.run.dur=10;f.run.left=10;let st=0,done=false;
+          while(f.phase!=='over'&&st++<6000&&!done){F('fgStep')(f,1/60);if(f.phase==='play'&&f.turn===0&&f.run.active){runs++;if(!F('fgAimable')(f)||!F('fgCanAct')(f))bad++;done=true;}}
+        }
+        check('when the bot shoots first, the human can aim and shoot as soon as their own run starts ('+kind+')',runs===8&&bad===0);
+      }
+    }finally{const g=G();F('fgStop')();g.isOnline=k0[0];g.selGame=k0[1];g.lp=k0[2];g.lstart=k0[3];g.scr=k0[4];g.fg=null;}
+  });
   suite('Fairground: the LEVEL button works in every booth',()=>{
     const F=n=>W.eval(n),G=()=>F('G');
     const k0=[G().isOnline,G().selGame,G().lp,G().lstart,G().scr,G().fg];
