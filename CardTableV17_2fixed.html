@@ -6531,6 +6531,13 @@ function ahNew(mode){
 function ahTop(){return G.ah;}
 
 /* ── events: what the table does with each moment (sound, light, particles, a short banner, a haptic tap, a hint of reactions) ── */
+// a slim translucent message line: used in the busy games so that the middle of the screen stays free for the play
+function fgPill(x,cx,y,text,sub,col,a,maxW,fs){
+  fs=fs||22;x.save();x.textAlign='center';x.textBaseline='middle';x.font='700 '+fs+'px Cinzel, Georgia, serif';
+  const line=text+(sub?'   ·   '+sub:''),tw=Math.min(maxW,x.measureText(line).width+36),h=fs+12;
+  x.globalAlpha=a*.92;x.fillStyle='rgba(6,12,10,.72)';x.beginPath();if(x.roundRect)x.roundRect(cx-tw/2,y-h/2,tw,h,h/2);else x.rect(cx-tw/2,y-h/2,tw,h);x.fill();
+  x.strokeStyle=col;x.globalAlpha=a*.5;x.lineWidth=1.5;x.stroke();x.globalAlpha=a*.97;x.fillStyle=col;x.fillText(line,cx,y+1,maxW-20);x.restore();
+}
 function ahBanner(ah,text,sub,col,ms){ah.fx.banners.push({text,sub:sub||'',col:col||AH_COL.gold,t:performance.now(),ms:ms||1100});if(ah.fx.banners.length>3)ah.fx.banners.shift();}
 function ahSpark(ah,x,y,n,col,spd,life){
   if(typeof gtAnim==='function'&&gtAnim()==='off')return;
@@ -8466,7 +8473,7 @@ function plDraw(g,now){
   // sparks, banners, shake
   x.save();x.globalCompositeOperation='lighter';for(const p of g.fx.parts){const u=p.l/p.life;x.globalAlpha=Math.max(0,1-u);x.strokeStyle=p.col;x.lineWidth=2.2;x.lineCap='round';x.beginPath();x.moveTo(p.x,p.y);x.lineTo(p.x-p.vx*.03,p.y-p.vy*.03);x.stroke();}x.restore();x.globalAlpha=1;
   const nowT=performance.now();g.fx.banners=g.fx.banners.filter(b=>nowT-b.t<b.ms+250);
-  g.fx.banners.forEach((b,i)=>{const u=(nowT-b.t)/b.ms,a=u<.12?u/.12:u>1?Math.max(0,1-(u-1)*4):1;x.save();x.globalAlpha=a;x.textAlign='center';x.textBaseline='middle';x.font='700 '+(b.text.length>12?44:62)+'px Cinzel, Georgia, serif';x.fillStyle=b.col||'#E6C36A';x.shadowColor=b.col||'#E6C36A';x.shadowBlur=22;x.fillText(b.text,PL.W/2,PL.H/2-60+i*10);if(b.sub){x.font='600 26px Jost, sans-serif';x.shadowBlur=6;x.fillStyle='#F4EBD0';x.fillText(b.sub,PL.W/2,PL.H/2-60+44+i*10);}x.restore();});
+  g.fx.banners.forEach((b,i)=>{const u=(nowT-b.t)/b.ms,a=u<.12?u/.12:u>1?Math.max(0,1-(u-1)*4):1;if(g.pl&&!g.pl.over&&b.text){fgPill(x,PL.W/2,34+i*40,b.text,b.sub,b.col||'#E6C36A',a,PL.W-60,24);return;}x.save();x.globalAlpha=a;x.textAlign='center';x.textBaseline='middle';x.font='700 '+(b.text.length>12?44:62)+'px Cinzel, Georgia, serif';x.fillStyle=b.col||'#E6C36A';x.shadowColor=b.col||'#E6C36A';x.shadowBlur=22;x.fillText(b.text,PL.W/2,PL.H/2-60+i*10);if(b.sub){x.font='600 26px Jost, sans-serif';x.shadowBlur=6;x.fillStyle='#F4EBD0';x.fillText(b.sub,PL.W/2,PL.H/2-60+44+i*10);}x.restore();});
   if(g.fx.flash>0){x.save();x.globalAlpha=g.fx.flash*.18;x.fillStyle='#fff';x.fillRect(-M,-M,PL.W+2*M,PL.H+2*M);x.restore();}
   // the entrance: the lights come on
   const age=performance.now()-g.born;if(age<1300){x.save();x.setTransform(1,0,0,1,0,0);x.globalAlpha=Math.pow(Math.max(0,1-age/1000),1.6);x.fillStyle='#020605';x.fillRect(0,0,cv.width,cv.height);x.restore();}
@@ -9169,7 +9176,7 @@ function fgDrawTail(g,x,cv,now){
   for(const tx of g.fx.texts){const u=(now-tx.t)/tx.ms;if(u>1)continue;x.save();x.globalAlpha=u<.7?1:1-(u-.7)/.3;x.textAlign='center';x.textBaseline='middle';x.font='700 '+tx.sz+'px Cinzel, Georgia, serif';x.strokeStyle='rgba(0,0,0,.6)';x.lineWidth=5;x.lineJoin='round';const yy=tx.y-u*54;x.strokeText(tx.txt,tx.x,yy);x.fillStyle=tx.col;x.fillText(tx.txt,tx.x,yy);x.restore();}
   g.fx.texts=g.fx.texts.filter(tx=>now-tx.t<tx.ms);
   g.fx.banners=g.fx.banners.filter(b=>now-b.t<b.ms+250);
-  g.fx.banners.forEach((b,i)=>{const u=(now-b.t)/b.ms,a=u<.12?u/.12:u>1?Math.max(0,1-(u-1)*4):1,sc2=u<.12?.8+u/.12*.2:1;x.save();x.globalAlpha=a;x.translate(W/2,H*.34+i*118);x.scale(sc2,sc2);x.textAlign='center';x.textBaseline='middle';x.font='700 '+(b.text.length>11?46:64)+'px Cinzel, Georgia, serif';x.fillStyle=b.col;x.shadowColor=b.col;x.shadowBlur=24;x.strokeStyle='rgba(0,0,0,.55)';x.lineWidth=7;x.lineJoin='round';x.strokeText(b.text,0,0);x.fillText(b.text,0,0);
+  g.fx.banners.forEach((b,i)=>{const u=(now-b.t)/b.ms,a=u<.12?u/.12:u>1?Math.max(0,1-(u-1)*4):1;if(b.text&&(g.phase==='play'||g.phase==='rapid'||g.phase==='final')){fgPill(x,W/2,126+i*38,b.text,b.sub,b.col,a,W-90,21);return;}const sc2=u<.12?.8+u/.12*.2:1;x.save();x.globalAlpha=a;x.translate(W/2,H*.34+i*118);x.scale(sc2,sc2);x.textAlign='center';x.textBaseline='middle';x.font='700 '+(b.text.length>11?46:64)+'px Cinzel, Georgia, serif';x.fillStyle=b.col;x.shadowColor=b.col;x.shadowBlur=24;x.strokeStyle='rgba(0,0,0,.55)';x.lineWidth=7;x.lineJoin='round';x.strokeText(b.text,0,0);x.fillText(b.text,0,0);
     if(b.sub){x.shadowBlur=6;x.font='600 24px Jost, sans-serif';x.fillStyle='#F4EBD0';x.fillText(b.sub,0,46);}x.restore();});
   if(g.fx.flash>0){x.save();x.globalAlpha=g.fx.flash*.2;x.fillStyle='#fff6d6';x.fillRect(0,0,W,H);x.restore();}
   // the slow-motion final: the edges go dark
@@ -9917,12 +9924,7 @@ function ahDraw(ah,now){
   fx.banners=fx.banners.filter(b=>nowT-b.t<b.ms+250);
   fx.banners.forEach((b,i)=>{
     if(!b.text)return;const u=(nowT-b.t)/b.ms,a=u<.12?u/.12:u>1?Math.max(0,1-(u-1)*4):1,sz=b.text.length>9?66:96;
-    if(ah.kind==='invaders'&&ah.ph==='play'){
-      // in Invaders the middle of the screen is where the fleet is: the messages become a slim line along the top edge
-      x.save();x.globalAlpha=a*.92;x.textAlign='center';x.textBaseline='middle';x.font='700 22px Cinzel, Georgia, serif';
-      const line=b.text+(b.sub?'   ·   '+b.sub:''),tw=Math.min(AH.W-40,x.measureText(line).width+36),yy=M+26+i*38;
-      x.fillStyle='rgba(6,12,10,.7)';x.beginPath();if(x.roundRect)x.roundRect(cx-tw/2,yy-17,tw,34,17);else x.rect(cx-tw/2,yy-17,tw,34);x.fill();
-      x.strokeStyle=b.col;x.globalAlpha=a*.5;x.lineWidth=1.5;x.stroke();x.globalAlpha=a*.95;x.fillStyle=b.col;x.fillText(line,cx,yy+1,AH.W-60);x.restore();return;}
+    if(ah.ph==='play'||ah.ph==='serve'){fgPill(x,cx,M+26+i*38,b.text,b.sub,b.col,a,AH.W-40);return;}
     x.save();x.globalAlpha=a;x.textAlign='center';x.textBaseline='middle';x.font='700 '+sz+'px Cinzel, Georgia, serif';x.fillStyle=b.col;x.shadowColor=b.col;x.shadowBlur=26;
     const yy=cy-(ah.ph==='goal'?0:90)+i*8;x.fillText(b.text,cx,yy);
     if(b.sub){x.font='600 34px Jost, sans-serif';x.shadowBlur=8;x.fillStyle=AH_COL.ivory;x.fillText(b.sub,cx,yy+sz*.72);}
