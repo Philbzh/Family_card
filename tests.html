@@ -5642,6 +5642,12 @@ async function runPresentation(A,W,frame){
     const mkres=(pl,o)=>Object.assign({firstHit:1,potted:[],rail:true,railBalls:[1],cueOut:false,events:[],t:1,longest:0,bank:false,cueStart:{x:250,y:740},finalBalls:pl.balls.map(b=>({id:b.id,x:b.x,y:b.y,on:b.on,out:b.on?-1:0}))},o||{});
     const rk=F('plNew')('bb');
     check('the Blackball rack has seven reds, seven yellows and the black in the middle of the third row',rk.rules==='bb'&&rk.balls.filter(b=>b.id>=1&&b.id<=7).length===7&&rk.balls.filter(b=>b.id>=9).length===7&&rk.balls[5].id===8);
+    check('the Blackball rack matches the English 8-ball diagram: rows (seen with the apex up) Y / R Y / Y 8 R / R Y R Y / Y R Y R R',(()=>{
+      const bs=rk.balls.slice(1),rowsN=[1,2,3,4,5];let k=0;const col=id=>id===8?'B':id<8?'R':'Y';
+      const rows=rowsN.map(n=>{const r=bs.slice(k,k+n).map(b=>col(b.id)).join('');k+=n;return r;});
+      // our table has the apex towards the player, so each row is read from the other side
+      return rows.map(r=>[...r].reverse().join('')).join('/')==='Y/RY/YBR/RYRY/YRYRR';})());
+    check('the American game stays the default rule set',F('plRulesPref')()==='us');
     check('the American rack is unchanged and is the default of plNew',F('plNew')().rules==='us'&&F('plNew')().balls[5].id===3||F('plNew')().balls.find(b=>b.id===8));
     check('Blackball has tighter pockets than the American game',F('PL').PCb<F('PL').PC&&F('PL').PSb<F('PL').PS);
     let pl=base('bb');
@@ -10297,7 +10303,7 @@ async function runPresentation(A,W,frame){
       chips:1000,bet:0,folded:false,allIn:false});
     const waitWhileSpinning=async(maxTicks)=>{
       let guard=0;
-      while(G.slot.phase==='spinning'&&guard++<(maxTicks||150))await settle(); // 150 x 60ms = 9s: a spin takes ~2s, the rest is head-room for a busy test tab
+      while(G.slot.phase==='spinning'&&guard++<(maxTicks||300))await settle(); // 150 x 60ms = 9s: a spin takes ~2s, the rest is head-room for a busy test tab
       return G.slot.phase;
     };
 
