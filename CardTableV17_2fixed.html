@@ -9881,13 +9881,26 @@ function hfBuild(g){
   x.save();x.beginPath();x.rect(0,fy,W,H-fy);x.clip();
   for(let i=-16;i<=16;i++){const bx=vx+i*66;x.strokeStyle=(i%2)?'rgba(30,16,6,.5)':'rgba(255,224,170,.12)';x.lineWidth=(i%2)?1.6:1.2;x.beginPath();x.moveTo(vx+(bx-vx)*((fy-vy)/(H-vy)),fy);x.lineTo(bx,H);x.stroke();}
   for(let j=0;j<20;j++){const u=Math.pow(j/19,1.7),yy=fy+u*(H-fy);x.strokeStyle='rgba(30,16,6,.38)';x.lineWidth=1+u*1.4;x.beginPath();x.moveTo(0,yy);x.lineTo(W,yy);x.stroke();}
-  // the painted court: the key under the hoop, the free-throw circle and the three-point line
-  x.strokeStyle='rgba(244,235,208,.75)';x.lineWidth=3.4;x.lineJoin='round';
-  const kx=HF.HX,kt=fy+22,kb=H-8;
-  x.fillStyle='rgba(120,30,28,.28)';x.beginPath();x.moveTo(kx-96,kt);x.lineTo(kx+96,kt);x.lineTo(kx+190,kb);x.lineTo(kx-190,kb);x.closePath();x.fill();x.stroke();
-  x.beginPath();x.ellipse(kx,kt,96,26,0,0,6.283);x.stroke();
-  x.beginPath();x.ellipse(kx,fy+8,420,86,0,Math.PI*.04,Math.PI*.96);x.stroke();
-  x.beginPath();x.moveTo(0,kb-2);x.lineTo(W,kb-2);x.stroke();
+  // the painted court, to scale (38.5 px per metre, seen from the side): the baseline behind the hoop, the key with its free-throw circle, the
+  // half circle under the basket and the three-point line, which passes exactly through the MID spot
+  {const cy=800,ky=12,bx=HF.HX+61,rimx=HF.HX;     // the centre line of the court, the depth squeeze, the baseline, the foot of the basket
+   x.strokeStyle='rgba(244,235,208,.82)';x.lineWidth=3.2;x.lineJoin='round';x.lineCap='round';
+   // the key: 4.9 m wide, from the baseline to the free-throw line, 5.8 m
+   const ft=bx-223,kw=2.45*ky;
+   x.fillStyle='rgba(150,34,30,.30)';x.fillRect(ft,cy-kw,bx-ft,kw*2);x.strokeRect(ft,cy-kw,bx-ft,kw*2);
+   // the free-throw circle: radius 1.8 m
+   x.beginPath();x.ellipse(ft,cy,69,1.8*ky,0,0,6.283);x.stroke();
+   // the restricted area under the basket: 1.25 m
+   x.beginPath();x.ellipse(rimx,cy,48,1.25*ky,0,Math.PI/2,Math.PI*1.5);x.stroke();
+   // the three-point line: 6.75 m round the basket, straight to the baseline 6.6 m from the centre line
+   const R3=6.75*38.5,t0=Math.acos(-55/R3),t1=Math.PI*2-t0;
+   x.beginPath();x.moveTo(bx,cy-6.6*ky);x.lineTo(rimx-55,cy-6.6*ky);x.ellipse(rimx,cy,R3,6.75*ky,0,t1,t0,true);x.lineTo(bx,cy+6.6*ky);x.stroke();
+   // the baseline and the sidelines
+   x.beginPath();x.moveTo(bx,cy-7.5*ky);x.lineTo(bx,cy+7.5*ky);x.stroke();
+   x.lineWidth=2.6;x.beginPath();x.moveTo(0,cy-7.5*ky);x.lineTo(bx,cy-7.5*ky);x.moveTo(0,cy+7.5*ky);x.lineTo(bx,cy+7.5*ky);x.stroke();
+   // the centre of the court: the lamps make a pool of light on the boards
+   x.fillStyle='rgba(255,236,190,.05)';x.beginPath();x.ellipse(rimx-120,cy,260,70,0,0,6.283);x.fill();
+  }
   // the shine of the floodlights on the boards
   x.globalCompositeOperation='lighter';
   for(const lx of HF_LAMPS){const sg=x.createLinearGradient(0,fy,0,H);sg.addColorStop(0,'rgba(255,214,150,0)');sg.addColorStop(.4,'rgba(255,214,150,.16)');sg.addColorStop(1,'rgba(255,214,150,0)');x.fillStyle=sg;x.beginPath();x.moveTo(lx-8,fy);x.lineTo(lx+8,fy);x.lineTo(lx+60,H);x.lineTo(lx-60,H);x.closePath();x.fill();}
@@ -9899,8 +9912,8 @@ function hfBuild(g){
     x.fillStyle='rgba(0,0,0,.3)';x.beginPath();x.ellipse(s.x,sy2,30,9,0,0,6.283);x.fill();
     x.fillStyle='rgba(244,235,208,.95)';x.font='700 11px Jost, sans-serif';x.fillText(s.nm,s.x,sy2-1);x.font='700 15px Cinzel, Georgia, serif';x.fillStyle='#ffe3a0';x.fillText('×'+s.m,s.x,sy2+22);});
   // the stanchion that carries the backboard: a padded post standing on the court
-  const px=W-26;gr=x.createLinearGradient(px-14,0,px+14,0);gr.addColorStop(0,'#10141c');gr.addColorStop(.5,'#3a4254');gr.addColorStop(1,'#0c0f16');x.fillStyle=gr;x.fillRect(px-14,HF.HY-80,28,fy+80-(HF.HY-80));
-  x.fillStyle=brass(0,10);x.fillRect(px-16,HF.HY-84,32,8);x.fillStyle='rgba(0,0,0,.5)';x.fillRect(px-16,fy+76,32,6);
+  const px=W-26;gr=x.createLinearGradient(px-14,0,px+14,0);gr.addColorStop(0,'#10141c');gr.addColorStop(.5,'#3a4254');gr.addColorStop(1,'#0c0f16');x.fillStyle=gr;x.fillRect(px-14,HF.HY-80,28,812-(HF.HY-80));
+  x.fillStyle=brass(0,10);x.fillRect(px-16,HF.HY-84,32,8);x.fillStyle='rgba(0,0,0,.55)';x.beginPath();x.ellipse(px,812,26,7,0,0,6.283);x.fill();
   // the edges fall into the dark
   const vg=x.createRadialGradient(W/2,H*.5,H*.3,W/2,H*.5,H*.82);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.55)');x.fillStyle=vg;x.fillRect(0,0,W,H);
   g.statik=c;
@@ -9909,6 +9922,12 @@ const HF_LAMPS=[110,300,490];
 function hfDrawLights(g,x){
   const t=g.t,intro=g.phase==='intro',fy=560;
   x.save();x.globalCompositeOperation='lighter';
+  // smoke drifting through the light
+  for(let i=0;i<9;i++){const sx=((i*173+t*(8+i%3*4))%(FG.W+240))-120,sy=220+((i*97)%260)+Math.sin(t*.4+i)*20,sr=110+(i%4)*22,hg=x.createRadialGradient(sx,sy,4,sx,sy,sr);hg.addColorStop(0,'rgba(200,214,236,.055)');hg.addColorStop(1,'rgba(200,214,236,0)');x.fillStyle=hg;x.beginPath();x.arc(sx,sy,sr,0,6.283);x.fill();}
+  // the fire along the far edge of the court
+  {const heat=(g.fire&&g.fire[g.turn]?1:g.mode==='jackpot'||g.mode==='gold'?.65:.28);
+   for(let i=0;i<30;i++){const fx=i*(FG.W/29),ph=i*1.7+t*(3+i%4*.6),h=(16+30*heat)*(.55+.45*Math.sin(ph))*(.7+.3*Math.sin(i*2.1)),fg=x.createLinearGradient(0,fy-h,0,fy+6);fg.addColorStop(0,'rgba(255,90,20,0)');fg.addColorStop(.5,'rgba(255,140,40,'+(.22+.3*heat)+')');fg.addColorStop(1,'rgba(255,214,120,'+(.35+.3*heat)+')');x.fillStyle=fg;x.beginPath();x.moveTo(fx-12,fy+6);x.quadraticCurveTo(fx-3,fy-h*.6,fx+Math.sin(ph)*5,fy-h);x.quadraticCurveTo(fx+3,fy-h*.5,fx+12,fy+6);x.closePath();x.fill();}
+   const eg=x.createLinearGradient(0,fy-4,0,fy+60);eg.addColorStop(0,'rgba(255,150,50,'+(.18+.14*heat)+')');eg.addColorStop(1,'rgba(255,150,50,0)');x.fillStyle=eg;x.fillRect(0,fy-4,FG.W,64);}
   HF_LAMPS.forEach((lx,i)=>{const on=!intro||g.pt>.3+i*.5;if(!on)return;const fl=.95+.05*Math.sin(t*6+i*2);
     const cg=x.createLinearGradient(0,118,0,fy+120);cg.addColorStop(0,'rgba(255,232,190,'+(.3*fl)+')');cg.addColorStop(1,'rgba(255,232,190,0)');x.fillStyle=cg;x.beginPath();x.moveTo(lx-40,118);x.lineTo(lx+40,118);x.lineTo(lx+190,fy+120);x.lineTo(lx-190,fy+120);x.closePath();x.fill();
     const rg=x.createRadialGradient(lx,105,2,lx,105,70);rg.addColorStop(0,'rgba(255,248,226,'+(.95*fl)+')');rg.addColorStop(.3,'rgba(255,220,150,'+(.4*fl)+')');rg.addColorStop(1,'rgba(255,200,120,0)');x.fillStyle=rg;x.beginPath();x.arc(lx,105,70,0,6.283);x.fill();});
