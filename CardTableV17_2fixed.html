@@ -401,6 +401,18 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
    focus style below still gets a visible ring for keyboard users, without ever fighting a more
    specific rule (die, roulette cell, hand card, etc.) that wants its own custom treatment. */
 :where([role="button"]):focus-visible{outline:2px solid var(--gold2);outline-offset:2px;border-radius:8px;}
+.v10-game-card.sel{outline:3px solid #E6C36A;outline-offset:3px;box-shadow:0 0 0 1px rgba(255,236,190,.7),0 0 30px rgba(230,195,106,.6),0 16px 34px -10px rgba(0,0,0,.75) !important;transform:translateY(-3px) scale(1.025);z-index:2;}
+.v10-game-card.sel::after{content:'✓';position:absolute;top:9px;right:9px;width:28px;height:28px;border-radius:50%;background:linear-gradient(180deg,#f6e2a0,#c9a24a);color:#2a1a08;font:800 16px/28px Jost,sans-serif;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.65);}
+.v10-games.has-sel .v10-game-card:not(.sel){filter:saturate(.7) brightness(.8);}
+.v10-playbar{position:sticky;bottom:0;z-index:20;display:flex;flex-wrap:wrap;align-items:center;gap:.6rem .9rem;padding:.75rem 1.2rem calc(.75rem + env(safe-area-inset-bottom,0px));background:linear-gradient(180deg,rgba(7,13,10,.0),rgba(7,13,10,.92) 28%);backdrop-filter:blur(6px);border-top:1px solid rgba(230,195,106,.3);}
+.v10-playbar.on{border-top-color:rgba(230,195,106,.7);}
+.v10-pb-info{display:flex;align-items:center;gap:.7rem;min-width:0;flex:1 1 220px;}
+.v10-pb-thumb{flex:0 0 auto;width:40px;height:54px;border-radius:7px;background:#14201a center/cover;border:1.5px solid #c9a24a;display:flex;align-items:center;justify-content:center;font-size:1.4rem;box-shadow:0 4px 12px rgba(0,0,0,.6);}
+.v10-pb-txt{display:flex;flex-direction:column;min-width:0;}
+.v10-pb-txt b{font-family:var(--serif);font-size:1.02rem;color:#F4EBD0;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.v10-pb-txt small{font-size:.68rem;color:var(--paper3,#9db09f);letter-spacing:.06em;}
+.v10-playbar:not(.on) .v10-pb-btns{opacity:.55;}
+.v10-pb-btns{display:flex;gap:.5rem;flex:1 1 280px;}.v10-pb-btns .btn{flex:1;margin:0;}
 .v10-game-card.locked{opacity:.42;cursor:default;}
 .v10-game-card.locked:hover{transform:none;}
 .v10-card-watermark{position:absolute;right:-.6rem;bottom:-1.3rem;font-size:6rem;line-height:1;opacity:.22;pointer-events:none;transform:rotate(-8deg);filter:saturate(1.4);}
@@ -28750,9 +28762,10 @@ function gameCardHTML(g){
   const onlyOnline=!!g.onlineOnly;
   const label=`${g.name}, ${g.players} players, ${g.dur}${g.locked?', coming soon':localOnly?', pass-and-play only':''}`;
   const a11y=g.locked?'':`role="button" tabindex="0" aria-label="${esc(label)}"`;
-  return g.cover?`<div class="v10-game-card has-cover v10-gc--${g.id}${g.locked?' locked':''}" data-a="${g.locked?'':'pick'}" data-gid="${g.id}" style="background-image:url('${g.cover}')" ${a11y}>
+  const sel=!g.locked&&G.pickedId===g.id&&G.selGame===g.id?' sel':'';
+  return g.cover?`<div class="v10-game-card has-cover v10-gc--${g.id}${g.locked?' locked':''}${sel}" data-a="${g.locked?'':'pick'}" data-gid="${g.id}" style="background-image:url('${g.cover}')" ${a11y}>
       ${g.locked?'<div class="v10-card-tag cover-tag">Coming soon</div>':onlyOnline?'<div class="v10-card-tag cover-tag">🌐 Online · one device each</div>':localOnly?'<div class="v10-card-tag cover-tag">📱 Pass &amp; play only</div>':''}
-    </div>`:`<div class="v10-game-card v10-gc--${g.id}${g.locked?' locked':''}" data-a="${g.locked?'':'pick'}" data-gid="${g.id}" ${a11y}>
+    </div>`:`<div class="v10-game-card v10-gc--${g.id}${g.locked?' locked':''}${sel}" data-a="${g.locked?'':'pick'}" data-gid="${g.id}" ${a11y}>
       <div class="v10-card-watermark">${g.icon}</div>
       <div><div class="v10-card-icon">${g.icon}</div><div class="v10-card-name">${g.name}</div><div class="v10-card-meta">${g.players} · ${g.dur}</div></div>
       <div class="v10-card-tag">${g.locked?'Coming soon':onlyOnline?'🌐 Online · one device each':localOnly?'📱 Pass & play only':(g.diff==='easy'?'Easy to learn':g.diff==='medium'?'A little strategy':'For seasoned players')}</div>
@@ -28775,14 +28788,18 @@ function rGamesCategoryTiles(){
 function rGamesCategoryList(){
   const cat=GAME_CATEGORIES.find(c=>c.id===G.gamesCat)||GAME_CATEGORIES[0];
   const cards=GAMES.filter(g=>g.cat===cat.id&&!g.hidden).map(gameCardHTML).join('');
+  const chosen=GAMES.find(g=>g.id===G.pickedId&&g.id===G.selGame&&g.cat===cat.id&&!g.locked)||null;
   return`<div id="s-games" class="scr on" style="overflow-y:auto;">
     <div class="topbar"><button class="back-btn" data-a="games-back">← Games</button><span class="top-title">${cat.icon} ${esc(cat.name)}</span><div class="top-right">${sndBtn()}</div></div>
     <div style="padding:1.1rem 1.2rem .2rem;font-size:.82rem;color:var(--paper3);">Pick a game to start playing at your table.</div>
-    <div class="v10-games" style="padding:1rem 1.2rem 1.5rem;">${cards}</div>
+    <div class="v10-games${chosen?' has-sel':''}" style="padding:1rem 1.2rem 1.5rem;">${cards}</div>
     ${cat.id==='arcade'?arRecordsHTML():''}
-    <div class="v10-actions" style="padding:0 1.2rem 2rem;">
-      <button class="btn btn-gold v10-cta" data-a="local">${currentGame()&&currentGame().onlineOnly?'🌐 Invite everyone':'🏠 Play together'}</button>
-      ${currentGame()&&currentGame().onlineOnly?'':'<button class="btn btn-ghost" data-a="online">🌐 Invite remotely</button>'}
+    <div class="v10-playbar${chosen?' on':''}">
+      <div class="v10-pb-info">${chosen?`<span class="v10-pb-thumb" style="${chosen.cover?`background-image:url('${chosen.cover}')`:''}">${chosen.cover?'':chosen.icon}</span><span class="v10-pb-txt"><b>${esc(chosen.name)}</b><small>${chosen.players} players · ${chosen.dur}</small></span>`:`<span class="v10-pb-txt"><b>Pick a game</b><small>Tap one of the pictures above</small></span>`}</div>
+      <div class="v10-pb-btns">
+        <button class="btn btn-gold v10-cta" data-a="${chosen?'local':'pick-first'}">${chosen&&chosen.onlineOnly?'🌐 Invite everyone':'🏠 Play together'}</button>
+        ${chosen&&chosen.onlineOnly?'':`<button class="btn btn-ghost" data-a="${chosen?'online':'pick-first'}">🌐 Invite remotely</button>`}
+      </div>
     </div>
   </div>`;
 }
@@ -31849,7 +31866,8 @@ document.addEventListener('click',e=>{
     if(!ONLINE_GAMES.includes(G.selGame)){toast('⚠️ Online play is not available for this game yet.');return;}
     G.scr='online';render();
   }
-  else if(a==='pick'){pickGame(t.getAttribute('data-gid'));render();}
+  else if(a==='pick'){pickGame(t.getAttribute('data-gid'));G.pickedId=G.selGame;render();}
+  else if(a==='pick-first'){toast('Pick a game first');}
   else if(a==='tonight-go'){
     const gid=t.getAttribute('data-gid');
     const keep=(G.lp||[]).filter(p=>(p.name&&p.name.trim())||p.bot).map(p=>({name:p.name,avatar:p.avatar,bot:p.bot}));
