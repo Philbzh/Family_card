@@ -5709,6 +5709,7 @@ async function runPresentation(A,W,frame){
         const f=F('fgNew')(kind);g.fg=f;f.diff='family';let err=null;
         try{F('fgNextDiff')();}catch(e){err=e;}
         check('pressing LEVEL before the first shot in '+kind+' changes the level without an error and resizes what is on screen',!err&&f.diff==='skill'&&(f.balloons||f.targets||[]).every(x=>x.r>0));
+        if(f.run){const d0=f.run.dur;F('fgNextDur')();check('the TIME button cycles 10, 30, 60 in '+kind+' before the first shot',f.run.dur!==d0&&f.run.left===f.run.dur);}
         f.thrown=1;F('fgNextDiff')();
         check('after the first shot the level of '+kind+' is locked',f.diff==='skill');
       }
@@ -5719,13 +5720,13 @@ async function runPresentation(A,W,frame){
     const keep=()=>[G().isOnline,G().selGame,G().lp,G().lstart,G().scr,G().fg];
     const back=k=>{const g=G();F('fgStop')();g.isOnline=k[0];g.selGame=k[1];g.lp=k[2];g.lstart=k[3];g.scr=k[4];g.fg=null;};
     const mkLp=(n,bots)=>{const a=[];for(let i=0;i<n;i++)a.push({id:i+1,name:'P'+i,avatar:'x',hand:[],totalScore:0,bot:bots&&bots.includes(i)?'sharp':undefined});return a;};
-    const mk=(n,bots,diff)=>{const g=G();g.isOnline=false;g.selGame='marksman';g.lstart=0;g.lp=mkLp(n,bots);const f=F('fgNew')('marksman');f.targets=[];f.phase='play';f.pt=0;f.blockLeft=f.players.map(()=>5);f.wind={v:0,target:0,t:1e9};if(diff)f.diff=diff;return f;};
+    const mk=(n,bots,diff)=>{const g=G();g.isOnline=false;g.selGame='marksman';g.lstart=0;g.lp=mkLp(n,bots);const f=F('fgNew')('marksman');f.targets=[];f.phase='play';f.pt=0;F('fgRunBegin')(f);f.run.pre=0;f.run.active=true;f.wind={v:0,target:0,t:1e9};if(diff)f.diff=diff;return f;};
     const run=(f,n)=>{for(let i=0;i<n;i++)F('fgStep')(f,1/60);};
     check('Marksman is in the Fairground for one or two players, with a bot and a cover; its rules speak of breathing, wind and rings',F('GAMES').some(g=>g.id==='marksman'&&g.cat==='fairground'&&g.minP===1&&g.maxP===2&&/marksman\.jpg/.test(g.cover)&&/wind/i.test(g.rules.join(' '))&&/ring/i.test(g.rules.join(' ')))&&F('BOT_GAMES').has('marksman'));
     const k0=keep();
     try{
       check('the ring of a hit: 10 in the very middle down to 6 at the edge, nothing outside',[0,.1,.3,.5,.7,.95,1.2].map(u=>F('msRing')(u*20,20)).join()==='10,10,9,8,7,6,0');
-      check('the match is three stages of five shots with two rapid fires and the final shot',F('MS_PLAN').map(x=>x.k+(x.n||'')).join()==='shots5,rapid,shots5,rapid,shots5,final'&&F('MS_PLAN').filter(x=>x.st).map(x=>x.st).join()==='1,2,3');
+      check('the match is a timed run for each player, 10, 30 or 60 seconds',(()=>{const h=mk(1);return F('FG_DURS').join()==='10,30,60'&&[10,30,60].includes(h.run.dur);})());
       let f=mk(1);
       check('stage 1 has static targets (stars, bottles, a bell), stage 2 moving ones, stage 3 only the small far row',(()=>{F('msStageLayout')(f,1);const a=f.targets.map(t=>t.k);F('msStageLayout')(f,2);const b=f.targets.map(t=>t.k);F('msStageLayout')(f,3);const c=f.targets;return a.includes('bottle')&&a.includes('bell')&&!a.includes('duck')&&b.includes('duck')&&b.includes('disc')&&c.every(t=>t.row===0)&&c.length>=5;})());
       // an X in the middle of a bottle: ring 10 x the value of the target (10)
@@ -5754,20 +5755,22 @@ async function runPresentation(A,W,frame){
       check('holding still steadies the sight',(()=>{f.aim.on=true;for(let i=0;i<90;i++){f.aim.mv=0;F('fgStep')(f,1/60);}return f.steady>.98;})());
       check('moving the finger shakes the steadiness off again',(()=>{for(let i=0;i<40;i++){f.aim.mv=900;F('fgStep')(f,1/60);}return f.steady<.2;})());
       check('holding the sight still for too long tires the arm: the sight starts to shake again',(()=>{f.diff='skill';f.steady=0;f.hold=0;for(let i=0;i<60*4;i++){f.aim.on=true;f.aim.mv=0;F('fgStep')(f,1/60);}return f.hold>2&&f.aim.tired===true;})());
-      // rapid fire
-      f=mk(1);f.phase='play';f.blockLeft=[0];f.thrown=1;f.advMark=-1;run(f,5);
-      check('after the last shot of a round the rapid fire begins: six seconds, shots are free',f.phase==='rapid'&&f.rapid.left>5&&f.rapid.left<=6.01);
-      const dartsBefore=f.darts[0];let p=null;for(let i=0;i<90&&!p;i++){F('fgStep')(f,1/60);p=f.targets.find(x=>x.k==='popup'&&F('msHittable')(f,x));}
-      if(p){f.aim.on=false;F('msShoot')(f,p.x,p.y);run(f,50);}
-      check('a rapid-fire hit pays the ring value times the target (here 10 x 14 = 140) and does not use up a shot',!p||(f.score[0]===140&&f.darts[0]===dartsBefore&&f.rapid.hits>=1));
-      // the shoot-off: a tie at the end is settled by one more star each
-      f=mk(2);f.score=[500,500];f.phase='final';f.pt=2;f.finalDone=[true,false];f.turn=1;f.so=0;
-      const fin=F('msTarget')(f,'final',1,300,{vx:0,tr:true,y:520});f.final=fin;f.fls.push({sx:300,sy:900,ax:900,ay:100,wx:0,t0:f.t-.3,T:.1,owner:1,fin:true,rapid:false,done:true,miss:true});run(f,30);
-      check('a tie after the final shot starts a SHOOT-OFF instead of ending the match',f.phase==='final'&&f.so===1&&f.finalDone.every(x=>!x));
-      // the bots play whole matches and the sharp one is better
-      f=mk(2,[0,1]);f.bots=['gentle','sharp'];f.t=10;F('msStageLayout')(f,1);let n2=0;while(f.phase!=='over'&&n2++<90000)F('fgStep')(f,1/60);
-      check('two bots play a whole match: all three stages, both rapid fires and the final shot',f.phase==='over'&&f.darts[0]===0&&f.darts[1]===0&&f.finalDone.every(x=>x));
-      check('the sharp bot reads the wind better and beats the gentle one over several matches',(()=>{let a=0,c=0;for(let r=0;r<4;r++){const h=mk(2,[0,1]);h.bots=['gentle','sharp'];h.t=10;F('msStageLayout')(h,1);h.wind={v:0,target:0,t:1};let n=0;while(h.phase!=='over'&&n++<90000)F('fgStep')(h,1/60);a+=h.score[0];c+=h.score[1];}return c>a;})());
+      // timed run, stages by the clock, the power shot
+      f=mk(1);F('msStageLayout')(f,1);f.run.dur=60;f.run.left=60;run(f,2);
+      check('a run starts on stage 1 and moves to moving targets after a third of the time',f.stage===1&&(()=>{f.run.left=30;run(f,2);return f.stage===2;})());
+      f=mk(2);f.t=10;f.turn=0;let tg=F('msTarget')(f,'bottle',2,300);F('msShoot')(f,300,tg.y);run(f,70);tg=F('msTarget')(f,'bottle',2,300);F('msShoot')(f,300,tg.y);run(f,70);
+      check('the same player keeps shooting: no change of player after a shot',f.turn===0&&f.hits[0]===2);
+      f.run.left=.01;run(f,150);
+      check('when the time is up the other player gets their own run',f.turn===1&&f.run.done[0]);
+      f=mk(1);f.t=10;f.targets=[];const gd=F('msTarget')(f,'gold',0,300,{vx:0,y:330});F('msShoot')(f,300,330);run(f,70);
+      check('hitting the golden duck switches on the POWER SHOT',f.power&&f.power.owner===0&&f.hits[0]===1);
+      f.targets=[];const ta=F('msTarget')(f,'bottle',2,200),tb=F('msTarget')(f,'bottle',2,260),tc=F('msTarget')(f,'bottle',2,320);f.wind={v:0,target:0,t:1e9};
+      F('msShoot')(f,260,ta.y);run(f,70);
+      check('with the power on, one pellet blasts all the targets around it',f.hits[0]===4&&!ta.alive&&!tb.alive&&!tc.alive);
+      f.power.until=f.t-1;run(f,3);
+      check('the power disappears after its time and the rifle is normal again',f.power===null);
+      f=mk(2,[0,1]);f.bots=['gentle','sharp'];f.t=10;let n2=0;f.run.dur=10;f.run.left=10;while(f.phase!=='over'&&n2++<30000)F('fgStep')(f,1/60);
+      check('two bots each shoot their run and the match ends',f.phase==='over'&&f.run.done.every(x=>x)&&f.thrown>=4);
       f=mk(2);f.score=[1500,2200];f.hits=[8,10];f.perfects=[1,2];f.bestStreak=[2,3];f.rapidBest=[4,6];f.phase='over';G().fg=f;G().scr='table';
       F('fgEnd')(f);
       check('the end of a match shows the results with the Marksman figures',G().lp[1].c4Result==='win'&&G().lp[0].c4Result==='loss'&&G().scr==='matchend'&&/dead centre/i.test(F('fgChipsHTML')())&&/rapid fire/i.test(F('fgChipsHTML')()));
