@@ -8996,8 +8996,25 @@ function fgBoothStatic(g,title,sub,shelves,pal){
   const sc=g.scale,W=FG.W,H=FG.H,c=document.createElement('canvas');c.width=Math.round(W*sc);c.height=Math.round(H*sc);
   const x=c.getContext('2d');x.scale(sc,sc);
   const brass=(y0,y1)=>{const b=x.createLinearGradient(0,y0,0,y1);b.addColorStop(0,'#f6e2a0');b.addColorStop(.35,'#c9a24a');b.addColorStop(.7,'#7d5c1c');b.addColorStop(1,'#d9b660');return b;};
+  let gr;
+  if(pal.panel){
+    // a quiet panelled wall: deep walnut, tall framed panels with a brass inlay, pools of lamp light
+    let wg=x.createLinearGradient(0,0,0,H);wg.addColorStop(0,'#1a130d');wg.addColorStop(.6,'#120d08');wg.addColorStop(1,'#080604');x.fillStyle=wg;x.fillRect(0,0,W,H);
+    const n=3,pw=140,gap=14,x0=(W-(n*pw+(n-1)*gap))/2;
+    for(let k=0;k<n;k++){
+      const px=x0+k*(pw+gap),py=236,ph=420;
+      const fg=x.createLinearGradient(px,0,px+pw,0);fg.addColorStop(0,'#2a1d11');fg.addColorStop(.5,'#3a2916');fg.addColorStop(1,'#241911');x.fillStyle=fg;x.fillRect(px,py,pw,ph);
+      const ig=x.createLinearGradient(0,py,0,py+ph);ig.addColorStop(0,'#150f09');ig.addColorStop(.5,'#241810');ig.addColorStop(1,'#120c07');x.fillStyle=ig;x.fillRect(px+10,py+10,pw-20,ph-20);
+      x.strokeStyle='rgba(201,162,74,.55)';x.lineWidth=1.4;x.strokeRect(px+10.5,py+10.5,pw-21,ph-21);x.strokeStyle='rgba(255,236,190,.1)';x.lineWidth=1;x.strokeRect(px+1.5,py+1.5,pw-3,ph-3);
+      x.fillStyle='rgba(0,0,0,.35)';x.fillRect(px-3,py+ph,pw+6,6);
+    }
+    // the lamp pools
+    x.save();x.globalCompositeOperation='lighter';
+    for(let k=0;k<4;k++){const lx=90+k*140,lg=x.createRadialGradient(lx,260,10,lx,300,220);lg.addColorStop(0,'rgba(255,205,130,.16)');lg.addColorStop(1,'rgba(255,205,130,0)');x.fillStyle=lg;x.fillRect(0,100,W,560);}
+    x.restore();
+  }else{
   // the wall: deep button-tufted leather
-  let gr=x.createLinearGradient(0,0,0,H);gr.addColorStop(0,fgShade(lea,-.25));gr.addColorStop(.5,lea);gr.addColorStop(1,fgShade(lea,-.55));x.fillStyle=gr;x.fillRect(0,0,W,H);
+  gr=x.createLinearGradient(0,0,0,H);gr.addColorStop(0,fgShade(lea,-.25));gr.addColorStop(.5,lea);gr.addColorStop(1,fgShade(lea,-.55));x.fillStyle=gr;x.fillRect(0,0,W,H);
   const D=64;
   x.save();x.beginPath();x.rect(0,0,W,H);x.clip();
   for(let k=-H;k<W+H;k+=D){
@@ -9019,6 +9036,7 @@ function fgBoothStatic(g,title,sub,shelves,pal){
     const bg=x.createRadialGradient(cx-1.5,cy-1.5,.5,cx,cy,4.2);bg.addColorStop(0,'#fff2c0');bg.addColorStop(.5,'#c9a24a');bg.addColorStop(1,'#6e5016');x.fillStyle=bg;x.beginPath();x.arc(cx,cy,3.6,0,6.283);x.fill();
   }
   x.restore();
+  }
   // the ledges: mahogany with a brass lip and a pool of light under each
   for(const y of shelves){
     const lg=x.createLinearGradient(0,y+16,0,y+90);lg.addColorStop(0,'rgba(0,0,0,.5)');lg.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=lg;x.fillRect(30,y+16,W-60,74);
@@ -9818,49 +9836,90 @@ function hfToggleFmt(){
   fgStop();render();
 }
 function hfBuild(g){
-  fgBoothStatic(g,'HOOP FEVER','S H O O T O U T  ·  H O R S E',[],{drape:'#1a2a52',leather:'#2a1a12',wall:['#0d1b16','#08130f','#040a07']});
-  // the counter becomes a polished court: boards, a line, and the three spots
+  fgBoothStatic(g,'HOOP FEVER','S H O O T O U T  ·  H O R S E',[],{drape:'#1a2a52',panel:true});
   const sc=g.scale,x=g.statik.getContext('2d');x.save();x.setTransform(sc,0,0,sc,0,0);
-  const cy=FG.H-96,W=FG.W,H=FG.H;
-  const gr=x.createLinearGradient(0,cy,0,H);gr.addColorStop(0,'#a8763a');gr.addColorStop(.5,'#8a5a28');gr.addColorStop(1,'#4a2e14');x.fillStyle=gr;x.fillRect(0,cy,W,96);
-  x.strokeStyle='rgba(40,22,8,.45)';x.lineWidth=1.4;for(let i=0;i<9;i++){x.beginPath();x.moveTo(0,cy+8+i*11);x.lineTo(W,cy+8+i*11);x.stroke();}
-  for(let i=0;i<14;i++){x.beginPath();x.moveTo(i*46+((i*7)%11),cy);x.lineTo(i*46+((i*7)%11),H);x.stroke();}
-  x.fillStyle='rgba(255,236,190,.25)';x.fillRect(0,cy,W,3);x.fillStyle='#d4af58';x.fillRect(0,cy+3,W,3);
+  const W=FG.W,H=FG.H,fy=640,vx=W/2,vy=250;
+  // the floor: polished walnut and maple boards running to the back wall
+  let gr=x.createLinearGradient(0,fy,0,H);gr.addColorStop(0,'#3a2412');gr.addColorStop(.35,'#7a4f26');gr.addColorStop(1,'#b07a3c');x.fillStyle=gr;x.fillRect(58,fy,W-116,H-fy);
+  x.save();x.beginPath();x.rect(58,fy,W-116,H-fy);x.clip();
+  for(let i=-14;i<=14;i++){const bx=vx+i*70,x2=vx+(bx-vx)*(vx+0)/vx;x.strokeStyle=(i%2)?'rgba(30,16,6,.5)':'rgba(255,224,170,.12)';x.lineWidth=(i%2)?1.6:1.2;x.beginPath();x.moveTo(vx+(bx-vx)*((fy-vy)/(H-vy)),fy);x.lineTo(bx,H);x.stroke();}
+  for(let j=0;j<18;j++){const u=Math.pow(j/17,1.7),yy=fy+u*(H-fy);x.strokeStyle='rgba(30,16,6,.38)';x.lineWidth=1+u*1.4;x.beginPath();x.moveTo(0,yy);x.lineTo(W,yy);x.stroke();}
+  // the shine of the lamps on the boards
+  x.globalCompositeOperation='lighter';
+  for(const lx of [120,260,400,520]){const sg=x.createLinearGradient(0,fy,0,H);sg.addColorStop(0,'rgba(255,214,150,.0)');sg.addColorStop(.4,'rgba(255,214,150,.14)');sg.addColorStop(1,'rgba(255,214,150,.0)');x.fillStyle=sg;x.beginPath();x.moveTo(lx-6,fy);x.lineTo(lx+6,fy);x.lineTo(lx+46,H);x.lineTo(lx-46,H);x.closePath();x.fill();}
+  x.restore();
+  // the painted court: a cream line and the arc, then the three spots
+  x.strokeStyle='rgba(244,235,208,.55)';x.lineWidth=3;x.beginPath();x.ellipse(HF.HX,fy+6,380,70,0,Math.PI*.1,Math.PI*.9);x.stroke();
+  // the baseboard in brass where the wall meets the floor
+  x.fillStyle='rgba(0,0,0,.5)';x.fillRect(58,fy-4,W-116,8);
+  const bb=x.createLinearGradient(0,fy-10,0,fy);bb.addColorStop(0,'#f6e2a0');bb.addColorStop(.5,'#9a7a30');bb.addColorStop(1,'#5a4216');x.fillStyle=bb;x.fillRect(58,fy-10,W-116,7);
+  // the three spots, painted in gold on the boards
   x.textAlign='center';
-  HF_SPOTS.forEach((s,i)=>{x.strokeStyle='rgba(244,235,208,.85)';x.lineWidth=3;x.beginPath();x.ellipse(s.x,cy+27,32,11,0,0,6.283);x.stroke();x.fillStyle='rgba(244,235,208,.9)';x.font='700 12px Jost, sans-serif';x.fillText(s.nm,s.x,cy+24);x.font='700 15px Cinzel, Georgia, serif';x.fillStyle='#ffe3a0';x.fillText('×'+s.m,s.x,cy+44);});
+  HF_SPOTS.forEach(s=>{const sy=fy+160;
+    x.save();x.shadowColor='rgba(255,200,90,.6)';x.shadowBlur=14;x.strokeStyle='#e8c25a';x.lineWidth=3.2;x.beginPath();x.ellipse(s.x,sy,34,12,0,0,6.283);x.stroke();x.restore();
+    x.fillStyle='rgba(0,0,0,.25)';x.beginPath();x.ellipse(s.x,sy,30,9,0,0,6.283);x.fill();
+    x.fillStyle='rgba(244,235,208,.92)';x.font='700 11px Jost, sans-serif';x.fillText(s.nm,s.x,sy-1);x.font='700 15px Cinzel, Georgia, serif';x.fillStyle='#ffe3a0';x.fillText('×'+s.m,s.x,sy+22);});
+  // the vignette over the whole booth again, so the floor sits in the same light
+  const vg=x.createRadialGradient(W/2,H*.5,H*.28,W/2,H*.5,H*.8);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.5)');x.fillStyle=vg;x.fillRect(0,0,W,H);
   x.restore();
 }
-function hfDrawBall(x,px,py,rot,r){
-  x.save();x.translate(px,py);x.rotate(rot);
-  const bg=x.createRadialGradient(-r*.35,-r*.4,r*.1,0,0,r*1.15);bg.addColorStop(0,'#e0904a');bg.addColorStop(.5,'#b85a1e');bg.addColorStop(1,'#5a250a');x.fillStyle=bg;x.beginPath();x.arc(0,0,r,0,6.283);x.fill();
-  x.strokeStyle='rgba(20,8,2,.9)';x.lineWidth=1.8;x.beginPath();x.moveTo(-r,0);x.lineTo(r,0);x.moveTo(0,-r);x.lineTo(0,r);x.stroke();
-  x.beginPath();x.arc(-r*1.18,0,r*.98,-1.08,1.08);x.stroke();x.beginPath();x.arc(r*1.18,0,r*.98,Math.PI-1.08,Math.PI+1.08);x.stroke();
+function hfDrawBall(x,px,py,rot,r,speed){
+  x.save();x.translate(px,py);
+  // the ball itself: warm leather with a soft light from the top left
+  x.save();x.rotate(rot);
+  const bg=x.createRadialGradient(-r*.4,-r*.45,r*.05,0,0,r*1.12);bg.addColorStop(0,'#f0a860');bg.addColorStop(.35,'#d46f26');bg.addColorStop(.75,'#8f3d10');bg.addColorStop(1,'#3e1704');x.fillStyle=bg;x.beginPath();x.arc(0,0,r,0,6.283);x.fill();
+  x.save();x.beginPath();x.arc(0,0,r,0,6.283);x.clip();
+  // the pebbled leather
+  x.fillStyle='rgba(20,6,0,.16)';for(let i=0;i<46;i++){const a=i*2.399,d=Math.sqrt(i/46)*r*.95;x.beginPath();x.arc(Math.cos(a)*d,Math.sin(a)*d,1.1,0,6.283);x.fill();}
+  // the seams
+  x.strokeStyle='#1c0a02';x.lineWidth=Math.max(1.6,r*.075);x.lineCap='round';
+  x.beginPath();x.moveTo(-r,0);x.lineTo(r,0);x.stroke();x.beginPath();x.moveTo(0,-r);x.lineTo(0,r);x.stroke();
+  x.beginPath();x.arc(-r*1.35,0,r*1.02,-.95,.95);x.stroke();x.beginPath();x.arc(r*1.35,0,r*1.02,Math.PI-.95,Math.PI+.95);x.stroke();
+  x.restore();x.restore();
+  // the light and the shade, which do not turn with the ball
+  const sh=x.createRadialGradient(r*.3,r*.35,r*.2,0,0,r*1.05);sh.addColorStop(0,'rgba(0,0,0,0)');sh.addColorStop(1,'rgba(0,0,0,.5)');x.fillStyle=sh;x.beginPath();x.arc(0,0,r,0,6.283);x.fill();
+  const hl=x.createRadialGradient(-r*.42,-r*.46,0,-r*.42,-r*.46,r*.5);hl.addColorStop(0,'rgba(255,240,210,.6)');hl.addColorStop(1,'rgba(255,240,210,0)');x.fillStyle=hl;x.beginPath();x.arc(-r*.42,-r*.46,r*.5,0,6.283);x.fill();
+  x.strokeStyle='rgba(255,214,150,.35)';x.lineWidth=1.4;x.beginPath();x.arc(0,0,r-.7,Math.PI*.95,Math.PI*1.6);x.stroke();
   x.restore();
-  x.save();x.translate(px,py);x.fillStyle='rgba(255,255,255,.2)';x.beginPath();x.ellipse(-r*.38,-r*.42,r*.22,r*.14,-.7,0,6.283);x.fill();
-  const rg=x.createRadialGradient(0,0,r*.6,0,0,r*1.05);rg.addColorStop(0,'rgba(0,0,0,0)');rg.addColorStop(1,'rgba(0,0,0,.4)');x.fillStyle=rg;x.beginPath();x.arc(0,0,r,0,6.283);x.fill();x.restore();
 }
 function hfDrawHoop(g,x,front){
   const hx=g.hx,hw=g.hw,hy=HF.HY,t=g.t,gold=g.mode==='gold'||g.mode==='jackpot',fire=g.fire[g.turn];
+  const rimA=gold?['#fff2b8','#e8c25a','#8a6416']:['#ffb070','#ee5a1e','#7a2308'];
   if(!front){
-    // a spotlight on the hoop
-    x.save();x.globalCompositeOperation='lighter';const sl=x.createRadialGradient(hx,hy-20,10,hx,hy-20,200);sl.addColorStop(0,'rgba(255,226,170,.16)');sl.addColorStop(1,'rgba(255,226,170,0)');x.fillStyle=sl;x.beginPath();x.arc(hx,hy-20,200,0,6.283);x.fill();x.restore();
-    // the glass backboard
-    const bx=hx+hw+10;
-    x.save();x.shadowColor='rgba(0,0,0,.5)';x.shadowBlur=14;x.shadowOffsetX=-4;
-    const gr=x.createLinearGradient(bx,0,bx+16,0);gr.addColorStop(0,gold?'rgba(244,217,138,.85)':'rgba(190,225,235,.55)');gr.addColorStop(1,gold?'rgba(184,137,42,.9)':'rgba(120,160,175,.7)');
-    x.fillStyle=gr;x.beginPath();x.moveTo(bx,hy-126);x.lineTo(bx+16,hy-134);x.lineTo(bx+16,hy+34);x.lineTo(bx,hy+30);x.closePath();x.fill();x.restore();
-    x.strokeStyle=gold?'#fff2b8':'rgba(244,240,226,.9)';x.lineWidth=2.4;x.beginPath();x.moveTo(bx,hy-126);x.lineTo(bx+16,hy-134);x.lineTo(bx+16,hy+34);x.lineTo(bx,hy+30);x.closePath();x.stroke();
-    x.strokeStyle='rgba(244,240,226,.85)';x.lineWidth=2;x.beginPath();x.moveTo(bx+1,hy-58);x.lineTo(bx+1,hy+10);x.moveTo(bx+1,hy-58);x.lineTo(bx+15,hy-62);x.stroke();
-    x.strokeStyle='#8a7440';x.lineWidth=6;x.lineCap='round';x.beginPath();x.moveTo(hx+hw,hy);x.lineTo(bx,hy+2);x.stroke();
-    if(fire){x.save();x.globalCompositeOperation='lighter';for(let i=0;i<6;i++){const a=t*9+i*1.9,fx=hx+Math.sin(a)*hw*.8,fy=hy-8-Math.abs(Math.sin(a*1.3))*40;const fg=x.createRadialGradient(fx,fy,2,fx,fy,26);fg.addColorStop(0,'rgba(255,200,90,.7)');fg.addColorStop(1,'rgba(255,90,20,0)');x.fillStyle=fg;x.beginPath();x.arc(fx,fy,26,0,6.283);x.fill();}x.restore();}
-    x.strokeStyle=gold?'#e8c25a':'#c9a24e';x.lineWidth=6;x.lineCap='round';x.beginPath();x.ellipse(hx,hy,hw,9,0,Math.PI,Math.PI*2);x.stroke();
+    // the spotlight on the hoop
+    x.save();x.globalCompositeOperation='lighter';const sl=x.createRadialGradient(hx,hy-30,10,hx,hy-30,260);sl.addColorStop(0,'rgba(255,226,170,.22)');sl.addColorStop(1,'rgba(255,226,170,0)');x.fillStyle=sl;x.beginPath();x.arc(hx,hy-30,260,0,6.283);x.fill();x.restore();
+    // the backboard: thick glass in a brass frame, on a brass arm
+    const bx=hx+hw+10,top=hy-150,bot=hy+44,wall=FG.W-58;
+    x.save();x.strokeStyle='#7d5c1c';x.lineWidth=9;x.lineCap='round';x.beginPath();x.moveTo(bx+16,hy-40);x.lineTo(wall,hy-70);x.moveTo(bx+16,hy+10);x.lineTo(wall,hy+30);x.stroke();
+    x.strokeStyle='#e0bd62';x.lineWidth=3;x.beginPath();x.moveTo(bx+16,hy-42);x.lineTo(wall,hy-72);x.moveTo(bx+16,hy+8);x.lineTo(wall,hy+28);x.stroke();x.restore();
+    x.save();x.shadowColor='rgba(0,0,0,.6)';x.shadowBlur=18;x.shadowOffsetX=-5;
+    const gl=x.createLinearGradient(bx,0,bx+18,0);gl.addColorStop(0,gold?'rgba(244,222,150,.7)':'rgba(190,226,238,.55)');gl.addColorStop(.5,gold?'rgba(255,240,190,.5)':'rgba(230,246,252,.4)');gl.addColorStop(1,gold?'rgba(184,137,42,.85)':'rgba(110,150,168,.75)');
+    x.fillStyle=gl;x.beginPath();x.moveTo(bx,top);x.lineTo(bx+18,top-8);x.lineTo(bx+18,bot);x.lineTo(bx,bot-4);x.closePath();x.fill();x.restore();
+    // the brass frame, the shooter's square and a streak of reflected light
+    const fr=x.createLinearGradient(0,top,0,bot);fr.addColorStop(0,'#f6e2a0');fr.addColorStop(.5,'#b8923a');fr.addColorStop(1,'#f0d27a');x.strokeStyle=fr;x.lineWidth=3;x.beginPath();x.moveTo(bx,top);x.lineTo(bx+18,top-8);x.lineTo(bx+18,bot);x.lineTo(bx,bot-4);x.closePath();x.stroke();
+    x.strokeStyle=gold?'#fff2b8':'rgba(255,140,70,.95)';x.lineWidth=2.4;x.beginPath();x.moveTo(bx+1,hy-62);x.lineTo(bx+17,hy-67);x.lineTo(bx+17,hy+6);x.lineTo(bx+1,hy+8);x.closePath();x.stroke();
+    x.save();x.globalAlpha=.35;x.fillStyle='#fff';x.beginPath();x.moveTo(bx+4,top+6);x.lineTo(bx+9,top+3);x.lineTo(bx+9,top+60);x.lineTo(bx+4,top+66);x.closePath();x.fill();x.restore();
+    // the bracket that holds the rim to the glass
+    x.strokeStyle='#8a6a28';x.lineWidth=7;x.lineCap='round';x.beginPath();x.moveTo(hx+hw,hy);x.lineTo(bx,hy+2);x.stroke();
+    if(fire){x.save();x.globalCompositeOperation='lighter';for(let i=0;i<6;i++){const a=t*9+i*1.9,fx=hx+Math.sin(a)*hw*.8,fy=hy-8-Math.abs(Math.sin(a*1.3))*44;const fg=x.createRadialGradient(fx,fy,2,fx,fy,28);fg.addColorStop(0,'rgba(255,200,90,.75)');fg.addColorStop(1,'rgba(255,90,20,0)');x.fillStyle=fg;x.beginPath();x.arc(fx,fy,28,0,6.283);x.fill();}x.restore();}
+    // the back half of the rim
+    x.lineCap='round';
+    for(const [w,c] of [[10,'rgba(0,0,0,.5)'],[8,rimA[2]],[5,rimA[1]],[2,rimA[0]]]){x.strokeStyle=c;x.lineWidth=w;x.beginPath();x.ellipse(hx,hy+(w===10?3:0),hw,9,0,Math.PI,Math.PI*2);x.stroke();}
   }else{
     const kick=g.netKick,sw=Math.sin((t-g.netT)*16)*10*kick*kick;
-    x.strokeStyle='rgba(244,240,226,.8)';x.lineWidth=1.3;x.lineCap='round';
-    const N=10;for(let i=0;i<=N;i++){const u=i/N,tx=hx-hw+u*hw*2,bx2=hx-hw*.5+u*hw*1.0+sw;x.beginPath();x.moveTo(tx,hy+2);x.quadraticCurveTo((tx+bx2)/2+sw*.4,hy+36,bx2,hy+68);x.stroke();}
-    for(let j=1;j<=4;j++){const v=j/5,yy=hy+2+v*66,wd=hw*(1-v*.5);x.beginPath();x.moveTo(hx-wd+sw*v,yy);x.quadraticCurveTo(hx+sw*v*1.1,yy+6,hx+wd+sw*v,yy);x.stroke();}
-    x.strokeStyle=gold?'#f2d27a':'#d9b45e';x.lineWidth=7;x.beginPath();x.ellipse(hx,hy,hw,9,0,0,Math.PI);x.stroke();
-    x.fillStyle='rgba(255,255,255,.3)';x.fillRect(hx-hw+6,hy+7,10,2);
+    // the net: a knotted mesh that narrows, in cream with a little shade
+    x.lineCap='round';const N=12;
+    for(let pass=0;pass<2;pass++){
+      x.strokeStyle=pass?'rgba(250,246,232,.92)':'rgba(0,0,0,.35)';x.lineWidth=pass?1.5:2.6;
+      for(let i=0;i<=N;i++){const u=i/N,tx=hx-hw+u*hw*2,bx2=hx-hw*.52+u*hw*1.04+sw;x.beginPath();x.moveTo(tx,hy+3);x.quadraticCurveTo((tx+bx2)/2+sw*.4,hy+38,bx2,hy+74);x.stroke();}
+      for(let j=1;j<=6;j++){const v=j/7,yy=hy+3+v*70,wd=hw*(1-v*.48);x.beginPath();x.moveTo(hx-wd+sw*v,yy);
+        for(let k=1;k<=8;k++){const kx=hx-wd+(k/8)*wd*2+sw*v,ky=yy+(k%2?3.5:-1);x.lineTo(kx,ky);}
+        x.stroke();}
+    }
+    x.fillStyle='rgba(255,255,255,.7)';for(let j=1;j<=6;j++){const v=j/7,yy=hy+3+v*70,wd=hw*(1-v*.48);for(let k=0;k<=6;k++){const kx=hx-wd+(k/6)*wd*2+sw*v;x.beginPath();x.arc(kx,yy,1.3,0,6.283);x.fill();}}
+    // the front half of the rim, heavy and lit from above
+    for(const [w,c] of [[10,'rgba(0,0,0,.45)'],[8,rimA[2]],[5.5,rimA[1]],[2,rimA[0]]]){x.strokeStyle=c;x.lineWidth=w;x.beginPath();x.ellipse(hx,hy+(w===10?3:0),hw,9,0,0,Math.PI);x.stroke();}
+    x.fillStyle='rgba(255,255,255,.45)';x.fillRect(hx-hw+8,hy+6,14,2);
   }
 }
 function hfDraw(g,now){
@@ -9869,14 +9928,18 @@ function hfDraw(g,now){
   x.setTransform(1,0,0,1,0,0);x.drawImage(g.statik,0,0);x.setTransform(sc,0,0,sc,0,0);
   fgDrawBulbs(g,x);
   // the chosen spot glows on the court, and the stand the ball waits on
-  const cy=H-96;x.save();x.strokeStyle='rgba(255,217,106,'+(.6+.3*Math.sin(t*4))+')';x.lineWidth=4;x.shadowColor='rgba(255,200,80,.8)';x.shadowBlur=12;x.beginPath();x.ellipse(sp.x,cy+46,38,16,0,0,6.283);x.stroke();x.restore();
-  x.fillStyle='#2a1b0d';x.fillRect(sp.x-6,sp.y+32,12,cy-sp.y-32+4);x.fillStyle='#b8923a';x.beginPath();x.ellipse(sp.x,sp.y+30,32,8,0,0,6.283);x.fill();
+  const sy=800;x.save();x.strokeStyle='rgba(255,230,140,'+(.7+.3*Math.sin(t*4))+')';x.lineWidth=4;x.shadowColor='rgba(255,200,80,.95)';x.shadowBlur=18;x.beginPath();x.ellipse(sp.x,sy,38,14,0,0,6.283);x.stroke();x.restore();
+  {const pg=x.createLinearGradient(sp.x-6,0,sp.x+6,0);pg.addColorStop(0,'#5a4216');pg.addColorStop(.5,'#f0d27a');pg.addColorStop(1,'#5a4216');x.fillStyle=pg;x.fillRect(sp.x-4,sp.y+34,8,sy-sp.y-34);
+   const cg=x.createLinearGradient(0,sp.y+26,0,sp.y+38);cg.addColorStop(0,'#f6e2a0');cg.addColorStop(1,'#7d5c1c');x.fillStyle=cg;x.beginPath();x.ellipse(sp.x,sp.y+31,30,9,0,0,6.283);x.fill();x.strokeStyle='rgba(0,0,0,.4)';x.lineWidth=1.2;x.stroke();}
   hfDrawHoop(g,x,false);
   const b=g.ball,R=HF.R;
   if(b){
     const hgt=Math.max(0,Math.min(1,(HF.FLOOR-b.y)/600));x.fillStyle='rgba(0,0,0,'+(.38*(1-hgt))+')';x.beginPath();x.ellipse(b.x,HF.FLOOR+R*.9,R*(1.1-hgt*.5),R*.22,0,0,6.283);x.fill();
+    // a faint trail while the ball is fast
+    const tr=g.btrail||(g.btrail=[]);if(b.st==='fly'&&(!tr.length||Math.hypot(tr[tr.length-1].x-b.x,tr[tr.length-1].y-b.y)>10)){tr.push({x:b.x,y:b.y});if(tr.length>9)tr.shift();}
+    x.save();for(let i=0;i<tr.length;i++){x.globalAlpha=.06+.1*i/tr.length;x.fillStyle='#ffb070';x.beginPath();x.arc(tr[i].x,tr[i].y,R*(.45+.5*i/tr.length),0,6.283);x.fill();}x.restore();
     hfDrawBall(x,b.x,b.y,b.rot,R);
-  }else if(g.phase!=='over'){
+  }else if(g.phase!=='over'){g.btrail=[];
     const bob=Math.sin(t*2.6)*3,pl=g.pull;let px=sp.x,py=sp.y+bob;if(pl){px=sp.x+pl.dx*.18;py=sp.y+pl.dy*.18;}
     hfDrawBall(x,px,py,0,R);
   }
