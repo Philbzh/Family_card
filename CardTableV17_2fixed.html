@@ -7654,18 +7654,20 @@ const PL_COL={1:'#f2c230',2:'#2f5fd0',3:'#d23a2e',4:'#6b3fa0',5:'#f28a2e',6:'#1f
 function plGroup(id){return id===0?'cue':id===8?'black':id<8?'solid':'stripe';}
 const plBB=pl=>!!pl&&(pl.rules==='bb'||pl.rules==='ba');   // Blackball (English pool): reds and yellows, two visits, the black in the pocket of your last ball
 let PL_BBNOW=false;
+// who breaks: the other player than last time (a coin toss for the first game of a visit)
+function plNextStarter(){const last=G.isOnline&&G.srv&&G.srv.pl&&G.srv.pl.starter!=null?G.srv.pl.starter:G.plLast;const f=last==null?(Math.random()<.5?0:1):1-last;G.plLast=f;return f;}
 function plRulesPref(){try{const v=localStorage.getItem('ct_pl_rules');return v==='bb'||v==='ba'?v:'us';}catch(e){return'us';}}
 function plRack(rules){
   const b=[{id:0,x:PL.W/2,y:PL.H*.74,on:true}];
   let order=[1,9,2,10,8,3,11,4,12,5,13,6,14,15,7];
-  if(rules==='bb'||rules==='ba'){let r=1,y=9;order=[...'YYRRBYYRYRRRYRY'].map(ch=>ch==='B'?8:ch==='R'?r++:y++);}   // as in the English 8-ball rack diagram (seen from the breaker's end): yellow at the apex, the black in the middle of the third row, a red and a yellow in the back corners
+  if(rules==='bb'||rules==='ba'){let r=1,y=9;order=[...'YRYYBRRYRYYRYRR'].map(ch=>ch==='B'?8:ch==='R'?r++:y++);}   // exactly as in the English 8-ball rack diagram, every row read left to right: yellow at the apex, the black in the middle of the third row, a red and a yellow in the back corners
   const dy=Math.sqrt(3)*PL.R*1.015,dx=PL.R*2.03;let k=0;
   for(let r=0;r<5;r++)for(let c=0;c<=r;c++)b.push({id:order[k++],x:PL.W/2+(c-r/2)*dx,y:PL.H*.28-r*dy,on:true});
   return b;
 }
-function plNew(rules,assist){
-  rules=rules==='bb'||rules==='ba'?rules:'us';
-  return{v:1,n:0,rules,assist:assist==='challenge'||assist==='pro'?assist:'family',visits:1,lastPocket:[null,null],balls:plRack(rules),turn:0,groups:[null,null],phase:'break',bih:false,shot:null,prev:null,res:null,over:false,winner:-1,foul:'',msg:'BREAK',
+function plNew(rules,assist,first){
+  rules=rules==='bb'||rules==='ba'?rules:'us';first=first===1?1:0;
+  return{v:1,n:0,starter:first,rules,assist:assist==='challenge'||assist==='pro'?assist:'family',visits:1,lastPocket:[null,null],balls:plRack(rules),turn:first,groups:[null,null],phase:'break',bih:false,shot:null,prev:null,res:null,over:false,winner:-1,foul:'',msg:'BREAK',
     stats:{run:[0,0],bestRun:[0,0],fouls:[0,0],pots:[0,0],longest:0,breakPots:0,shots:0}};
 }
 const plLeft=(pl,seat)=>{const g=pl.groups[seat];return g?pl.balls.filter(b=>b.on&&plGroup(b.id)===g).length:7;};
@@ -7899,8 +7901,8 @@ function plRulesLabel(r){return r==='us'?'RULES: AMERICAN':r==='ba'?'RULES: BLAC
 function plNextRules(){
   const g=G.pl;if(!g||g.pl.n!==0||g.anim||g.mode==='guest')return;
   const v=g.pl.rules,n=v==='bb'?'ba':v==='ba'?'us':'bb';try{localStorage.setItem('ct_pl_rules',n);}catch(e){}
-  if(G.isOnline)oFastMutate(state=>{if(!state.pl||state.pl.n!==0)return false;state.pl=plNew(n,state.pl.assist);return true;},()=>{},()=>{});
-  else{g.pl=plNew(n,g.pl.assist);g.disp=plDisp(g.pl.balls,null);g.statik=null;g.bihPos=null;}
+  if(G.isOnline)oFastMutate(state=>{if(!state.pl||state.pl.n!==0)return false;state.pl=plNew(n,state.pl.assist,state.pl.starter);return true;},()=>{},()=>{});
+  else{g.pl=plNew(n,g.pl.assist,g.pl.starter);g.disp=plDisp(g.pl.balls,null);g.statik=null;g.bihPos=null;}
   const b=document.getElementById('pl-rulesbtn');if(b)b.textContent=plRulesLabel(n);
 }
 function plNext(){
@@ -7923,7 +7925,8 @@ function plSpark(g,x,y,n,col,spd){if(typeof gtAnim==='function'&&gtAnim()==='off
 function plDisp(balls,old){return balls.map(b=>{const o=old&&old.find(q=>q.id===b.id);return{id:b.id,x:b.x,y:b.y,on:b.on,rot:0,fall:null,m:o&&o.m?o.m:plM0(b.id),dirty:true};});}
 function plNewG(mode){
   const online=mode==='host'||mode==='guest',st=online&&G.srv?G.srv:null;
-  const pl=(st&&st.pl)||plNew(plRulesPref(),plAssistPref());
+  const pl=(st&&st.pl)||plNew(plRulesPref(),plAssistPref(),plNextStarter());
+  if(st&&st.pl&&st.pl.starter!=null)G.plLast=st.pl.starter;
   return{live:true,mode,seat:online?Math.max(0,ahPlayers().findIndex(p=>p.id===G.myPid)):0,pl,disp:plDisp(pl.balls),aim:{ang:-Math.PI/2,power:0,sx:0,sy:0},anim:null,
     fx:{parts:[],banners:[],chalk:[],shake:0,flash:0},bihPos:null,cv:null,raf:0,born:performance.now(),finale:null,lastShot:st&&st.pl&&st.pl.shot?st.pl.shot.id:null,
     bot:{level:(ahPlayers()[1]&&ahPlayers()[1].bot)||'gentle'},botBusy:false,msgAt:0};
@@ -8284,7 +8287,7 @@ function plSprite(id,m,S,bb){
         const sg=p2>0?1:-1,tu=(p0*sg)/.5*.5+.5,tv=p1/.5*.5+.5;
         if(tu>0&&tu<1&&tv>0&&tv<1){const dk=1-gl[((tv*48|0)*48+(tu*48|0))*4]/255;R+=(17-R)*dk*e;G2+=(17-G2)*dk*e;B+=(17-B)*dk*e;}
       }
-    }else if(id===0&&Math.abs(p2)>.965){R=190;G2=50;B=40;}else if(bb&&id!==8&&Math.abs(p2)>.95){R*=.5;G2*=.5;B*=.5;}   // a small dark spot, so the roll of a plain ball can be seen
+    }else if(id===0&&Math.abs(p2)>.965){R=190;G2=50;B=40;}else if(bb&&id!==8&&Math.abs(p2)>.965){R*=.8;G2*=.8;B*=.8;}   // a small dark spot, so the roll of a plain ball can be seen
     let df=u*L[0]+v*L[1]+w*L[2];if(df<0)df=0;
     let light=.34+.78*df;light*=.55+.45*Math.sqrt(w);
     let sp=u*H[0]+v*H[1]+w*H[2];sp=sp>0?Math.pow(sp,60)*.85:0;
@@ -27621,7 +27624,7 @@ function oStartGame(rs){
       if(ahIs(rs.gameId)){
         const players=rs.players.slice(0,2).map(p=>({...p,totalScore:0,c4Result:null}));
         const gs={phase:'game',gameId:rs.gameId,host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
-          ah:{id:'ah'+Date.now().toString(36)+Math.floor(Math.random()*1e4),score:[0,0]},pl:rs.gameId==='pool'?plNew(plRulesPref(),plAssistPref()):undefined,winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
+          ah:{id:'ah'+Date.now().toString(36)+Math.floor(Math.random()*1e4),score:[0,0]},pl:rs.gameId==='pool'?plNew(plRulesPref(),plAssistPref(),plNextStarter()):undefined,winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
         G.srv=gs;G.ah=null;G.pl=null;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }

@@ -5642,11 +5642,10 @@ async function runPresentation(A,W,frame){
     const mkres=(pl,o)=>Object.assign({firstHit:1,potted:[],rail:true,railBalls:[1],cueOut:false,events:[],t:1,longest:0,bank:false,cueStart:{x:250,y:740},finalBalls:pl.balls.map(b=>({id:b.id,x:b.x,y:b.y,on:b.on,out:b.on?-1:0}))},o||{});
     const rk=F('plNew')('bb');
     check('the Blackball rack has seven reds, seven yellows and the black in the middle of the third row',rk.rules==='bb'&&rk.balls.filter(b=>b.id>=1&&b.id<=7).length===7&&rk.balls.filter(b=>b.id>=9).length===7&&rk.balls[5].id===8);
-    check('the Blackball rack matches the English 8-ball diagram: rows (seen with the apex up) Y / R Y / Y 8 R / R Y R Y / Y R Y R R',(()=>{
+    check('the Blackball rack matches the English 8-ball diagram: rows read left to right Y / R Y / Y 8 R / R Y R Y / Y R Y R R',(()=>{
       const bs=rk.balls.slice(1),rowsN=[1,2,3,4,5];let k=0;const col=id=>id===8?'B':id<8?'R':'Y';
       const rows=rowsN.map(n=>{const r=bs.slice(k,k+n).map(b=>col(b.id)).join('');k+=n;return r;});
-      // our table has the apex towards the player, so each row is read from the other side
-      return rows.map(r=>[...r].reverse().join('')).join('/')==='Y/RY/YBR/RYRY/YRYRR';})());
+      return rows.join('/')==='Y/RY/YBR/RYRY/YRYRR';})());
     // the aiming help is a rule of the table, the same for both players
     check('the aiming help is part of the game state (default Family) and a chosen level travels with it',F('plNew')('us').assist==='family'&&F('plNew')('bb','pro').assist==='pro'&&F('plAssist')(F('plNew')('us','challenge'))==='challenge'&&F('plAssist')(null)==='family');
     check('changing the rule set before the break keeps the chosen aiming help',(()=>{const g0=F('plNew')('us','pro');const g1=F('plNew')('bb',g0.assist);return g1.assist==='pro';})());
@@ -5656,6 +5655,8 @@ async function runPresentation(A,W,frame){
         const before=G.pl.pl.assist;F('plNext')();const mid=G.pl.pl.assist;G.pl.pl.n=3;F('plNext')();const after=G.pl.pl.assist;F('plStop')();
         return before==='family'&&mid==='challenge'&&after==='challenge';}
       finally{const G=F('G');G.isOnline=k.on;G.selGame=k.sel;G.lp=k.lp;G.pl=null;}})());
+    check('who breaks alternates from game to game, and the starter is kept in the game state',(()=>{const G=F('G'),k=[G.srv,G.plLast];try{G.srv=null;G.plLast=null;const a=F('plNextStarter')(),b=F('plNextStarter')(),c=F('plNextStarter')();return (a===0||a===1)&&b===1-a&&c===a&&F('plNew')('us','family',1).turn===1&&F('plNew')('us','family',1).starter===1&&F('plNew')().turn===0;}finally{G.srv=k[0];G.plLast=k[1];}})());
+    check('online, the next starter is the other player than in the finished game',(()=>{const G=F('G'),k=[G.srv,G.plLast,G.isOnline];try{G.isOnline=true;G.srv={pl:{starter:1}};const a=F('plNextStarter')();G.srv={pl:{starter:0}};const b=F('plNextStarter')();return a===0&&b===1;}finally{G.srv=k[0];G.plLast=k[1];G.isOnline=k[2];}})());
     check('the American game stays the default rule set',F('plRulesPref')()==='us');
     check('the American rack is unchanged and is the default of plNew',F('plNew')().rules==='us'&&F('plNew')().balls[5].id===3||F('plNew')().balls.find(b=>b.id===8));
     check('Blackball has tighter pockets than the American game',F('PL').PCb<F('PL').PC&&F('PL').PSb<F('PL').PS);
