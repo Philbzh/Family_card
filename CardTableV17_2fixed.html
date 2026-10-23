@@ -4308,7 +4308,7 @@ function isPlayerAbsent(pid,graceMs){
   return since!=null&&(Date.now()-since)>=(graceMs||0);
 }
 // The people at the table are not just names: while somebody else is on turn their avatar is there, thinking (and, in Blackwater, aiming).
-const PEER_NO_TURN=new Set(['invaders','pong','airhockey','roulette','slots','bingo','drawit','vault','escape','battle','hotbomb']);
+const PEER_NO_TURN=new Set(['balloonblast','marksman','hoopfever','invaders','pong','airhockey','roulette','slots','bingo','drawit','vault','escape','battle','hotbomb']);
 function peerSend(kind){try{if(_ch&&G.isOnline&&G.myPid)_ch.send({type:'broadcast',event:'pk',payload:{pid:G.myPid,kind}});}catch(e){}}
 function peerOnBroadcast(p){if(!p||!p.pid||p.pid===G.myPid)return;G.peer={pid:p.pid,kind:p.kind,at:Date.now()};peerThinkTick();}
 function peerThinkTick(){
@@ -4372,6 +4372,7 @@ function dbSub(id,cb){
       .on('broadcast',{event:'dw'},msg=>dwOnBroadcast(msg&&msg.payload))
       .on('broadcast',{event:'ah'},msg=>{try{ahOnBroadcast(msg&&msg.payload);}catch(e){}})
       .on('broadcast',{event:'pl'},msg=>{try{plOnBroadcast(msg&&msg.payload);}catch(e){}})
+      .on('broadcast',{event:'fg'},msg=>{try{fgOnBroadcast(msg&&msg.payload);}catch(e){}})
       .subscribe(status=>{if(status==='SUBSCRIBED')_ch.track({pid:G.myPid});});
   }
   if(_poll)clearInterval(_poll);
@@ -4828,7 +4829,7 @@ const GAMES=[
 ];
 // Single source of truth for which unlocked games have online-multiplayer support, so the "online"
 // gate and the local-only badge on a game's card can never drift out of sync with each other.
-const ONLINE_GAMES=['pool','invaders','pong','airhockey','maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice','summit','hotbomb','vault','bust','escape','shutbox','fourrow','skull','tension','mayhem','chainreaction','gauntlet','abyss','blackwater'];
+const ONLINE_GAMES=['balloonblast','marksman','hoopfever','pool','invaders','pong','airhockey','maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice','summit','hotbomb','vault','bust','escape','shutbox','fourrow','skull','tension','mayhem','chainreaction','gauntlet','abyss','blackwater'];
 // The Games tab groups its (growing) roster into these, rather than one long scroll -- every GAMES
 // entry's `cat` must be one of these ids. Order here is the order the category tiles are shown in.
 const GAME_CATEGORIES=[
@@ -6277,7 +6278,7 @@ let _ahEndAt=0;
 function ahLive(){return !!(G.ah&&G.ah.live&&G.scr==='table'&&!(G.isOnline&&G.srv&&G.srv.winner)&&!(!G.isOnline&&G.ah.over&&G.ah.overAt&&Date.now()-G.ah.overAt>2600));}
 const ahRnd=(a,b)=>a+Math.random()*(b-a);
 // the two games of the arcade that share this module
-function ahIs(id){return id==='airhockey'||id==='pong'||id==='invaders'||id==='pool';}
+function ahIs(id){return id==='airhockey'||id==='pong'||id==='invaders'||id==='pool'||fgIs(id);}
 function ahKindOf(id){return id==='pong'?'pong':id==='invaders'?'invaders':'airhockey';}
 function ahGameId(){return G.isOnline?(G.srv&&G.srv.gameId):G.selGame;}
 // Pong Evolution: the ball grows more dangerous as a rally goes on
@@ -8483,7 +8484,7 @@ function fgIs(id){return FG_IDS.includes(id);}
 const FG_DIFF={family:{r:1.3,v:.8,jit:0,pre:true,name:'FAMILY'},skill:{r:1.05,v:1,jit:4,pre:false,name:'SKILL'},expert:{r:.85,v:1.28,jit:8,pre:false,name:'EXPERT'}};
 const FG_DURS=[10,30,60];
 function fgDurPref(){try{const v=+localStorage.getItem('ct_fg_dur');return FG_DURS.includes(v)?v:60;}catch(e){return 60;}}
-function fgNextDur(){const g=G.fg;if(!g||g.thrown>0||!g.run)return;const n=FG_DURS[(FG_DURS.indexOf(g.run.dur)+1)%3];g.run.dur=n;g.run.left=n;try{localStorage.setItem('ct_fg_dur',String(n));}catch(e){}const bt=document.getElementById('fg-timebtn');if(bt){bt._t=null;bt.textContent='TIME: '+n+' s';}}
+function fgNextDur(){const g=G.fg;if(!g||g.thrown>0||!g.run)return;if(g.net&&g.net.seat!==0){toast('The host chooses the time');return;}const n=FG_DURS[(FG_DURS.indexOf(g.run.dur)+1)%3];g.run.dur=n;g.run.left=n;try{localStorage.setItem('ct_fg_dur',String(n));}catch(e){}const bt=document.getElementById('fg-timebtn');if(bt){bt._t=null;bt.textContent='TIME: '+n+' s';}}
 function fgDiffPref(){try{const v=localStorage.getItem('ct_fg_diff');return FG_DIFF[v]?v:'family';}catch(e){return'family';}}
 function fgLive(){return !!(G.fg&&G.fg.live&&G.scr==='table');}
 const FG_B={std:{r:34,pts:100,w:58,nm:'BALLOON'},small:{r:22,pts:250,w:20,nm:'SMALL'},fast:{r:27,pts:500,w:9,nm:'FAST'},gold:{r:25,pts:400,w:6,nm:'JOKER'},rainbow:{r:29,pts:150,w:0,nm:'RAINBOW'},black:{r:30,pts:-200,w:8,nm:'BLACK'},chain:{r:25,pts:150,w:0,nm:'CHAIN'},jackpot:{r:19,pts:5000,w:0,nm:'JACKPOT'},final:{r:17,pts:2500,w:0,nm:'FINAL'}};
@@ -8519,7 +8520,7 @@ const FGS={
 /* ── a new game ── */
 function fgNew(kind){return kind==='marksman'?msNew():kind==='hoopfever'?hfNew():fgNewBB();}
 function fgNewBB(){
-  const players=G.lp.slice(0,4),n=players.length;
+  const players=fgPlayersFor(4),n=players.length;
   const g={live:true,kind:'balloonblast',n,diff:fgDiffPref(),players,bots:players.map(p=>p.bot?(p.bot==='sharp'?'sharp':'gentle'):null),
     turn:(G.lstart||0)%n,darts:players.map(()=>999),score:players.map(()=>0),streak:players.map(()=>0),bestStreak:players.map(()=>0),perfects:players.map(()=>0),hits:players.map(()=>0),jack:players.map(()=>0),
     bonus:players.map(()=>0),finalDone:players.map(()=>false),thrown:0,risk:players.map(()=>false),chainC:players.map(()=>-1),chainN:players.map(()=>0),wind:{v:0,target:40,t:2},
@@ -8566,10 +8567,94 @@ function fgThrow(g,ax,ay){
   g.fx.zoom=final?.05:0;FGS.throw();haptic(8);
   return true;
 }
-function fgBanner(g,text,sub,col,ms){g.fx.banners.push({text,sub:sub||'',col:col||'#E6C36A',t:performance.now(),ms:ms||1100});if(g.fx.banners.length>3)g.fx.banners.shift();}
-function fgText(g,x,y,txt,col,sz){g.fx.texts.push({x,y,txt,col:col||'#F4EBD0',t:performance.now(),ms:1100,sz:sz||30});if(g.fx.texts.length>14)g.fx.texts.shift();}
-function fgBurst(g,x,y,col,n,spd){for(let i=0;i<n;i++){const a=Math.random()*6.283,s=(.35+Math.random()*.65)*spd;g.fx.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-60,l:0,life:.6+Math.random()*.7,col,sz:3+Math.random()*6,rot:Math.random()*6.28,vr:(Math.random()-.5)*14});}while(g.fx.parts.length>260)g.fx.parts.shift();}
-function fgRing(g,x,y,r,col){g.fx.rings.push({x,y,r,col,l:0,life:.45});if(g.fx.rings.length>8)g.fx.rings.shift();}
+
+/* ═══════ FAIRGROUND ONLINE: one after the other, everybody else watches the shooter live ═══════
+   Each device runs the booth. The device whose turn it is simulates and sends a snapshot about ten times a second (scores, clock, targets or balloons,
+   the ball, the sight) plus the last effects and sounds; the others apply the snapshot, move things on a little between two snapshots and replay the
+   effects. When a run ends the next shooter's device takes over from the last snapshot. The last shooter's device writes the result to the room. */
+const FG_NET_KEYS={all:['turn','phase','pt','t','score','streak','bestStreak','perfects','hits','jack','thrown','wind','run','diff','slow','over','moment'],
+  balloonblast:['balloons','fl','chainN','chainC','risk','bonus'],marksman:['targets','fls','power','stage','steady','xs','ringSum','ringN','rapidBest'],
+  hoopfever:['ball','spot','form','mode','hx','hw','pull','rimTouched','fire']};
+function fgPlayersFor(max){return (G.isOnline?ahPlayers():G.lp).slice(0,max);}
+function fgNetOn(g){return !!(g&&g.net&&g.net.on&&G.isOnline);}
+function fgNetWatch(g){return !!(g&&g.net&&g.net.on&&G.isOnline&&g.turn!==g.net.seat);}
+function fgNetInit(g){
+  if(!G.isOnline||!g)return;const sp=ahPlayers(),seat=Math.max(0,sp.findIndex(q=>q.id===G.myPid));
+  g.net={on:true,id:G.srv&&G.srv.ah&&G.srv.ah.id,seat,seq:0,lastI:0,seen:{},hist:[],evn:0,act:g.turn===seat,tail:0,acc:0,rep:false,got:false};
+}
+function fgNetEv(g,a){const N=g&&g.net;if(!N||!N.on||!N.act||N.rep)return;a.unshift(++N.evn);N.hist.push(a);if(N.hist.length>26)N.hist.shift();}
+function fgNetSnap(g){
+  const N=g.net,kv={};
+  for(const k of FG_NET_KEYS.all.concat(FG_NET_KEYS[g.kind]||[]))if(g[k]!==undefined)kv[k]=g[k];
+  const a=g.aim||{};
+  const m={k:'st',id:N.id,seat:N.seat,i:++N.seq,s:kv,aim:{x:a.x,y:a.y,sx:a.sx,sy:a.sy,on:a.on,tired:a.tired},ev:N.hist.slice(-18)};
+  return JSON.parse(JSON.stringify(m,(k,v)=>typeof v==='number'?Math.round(v*100)/100:v));
+}
+function fgNetTick(g,dt){
+  const N=g.net;if(!fgNetOn(g))return;
+  const act=g.turn===N.seat;
+  if(N.act&&!act){N.tail=3;N.acc=1;}
+  N.act=act;
+  if(!act){if(N.tail<=0)return;N.tail-=dt;}
+  N.acc+=dt;if(N.acc<.09)return;N.acc=0;
+  try{if(_ch)_ch.send({type:'broadcast',event:'fg',payload:fgNetSnap(g)});}catch(e){}
+}
+// a snapshot from the shooter
+function fgNetApply(g,m){
+  const N=g.net;if(!fgNetOn(g)||!m||m.k!=='st'||m.id!==N.id||m.seat===N.seat)return false;
+  if(g.turn===N.seat)return false;                      // it is my run: I am the authority
+  if(m.i<=N.lastI&&N.lastI-m.i<500)return false;
+  N.lastI=m.i;N.seq=Math.max(N.seq,m.i);N.got=true;
+  if(m.s&&m.s.turn===m.seat)N.tail=0;
+  const keys=FG_NET_KEYS.all.concat(FG_NET_KEYS[g.kind]||[]);
+  for(const k of keys)if(m.s&&m.s[k]!==undefined)g[k]=m.s[k];
+  if(m.aim)Object.assign(g.aim,m.aim);
+  N.rep=true;
+  try{for(const e of m.ev||[]){if(N.seen[e[0]])continue;N.seen[e[0]]=1;fgNetReplay(g,e);}}finally{N.rep=false;}
+  return true;
+}
+function fgNetReplay(g,e){
+  const t=e[1];
+  if(t==='b')fgBanner(g,e[2],e[3],e[4],e[5]);
+  else if(t==='t')fgText(g,e[2],e[3],e[4],e[5],e[6]);
+  else if(t==='p')fgBurst(g,e[2],e[3],e[4],Math.min(60,e[5]),e[6]);
+  else if(t==='r')fgRing(g,e[2],e[3],e[4],e[5]);
+  else if(t==='s'){const f=FGS[e[2]];if(f)try{f.apply(FGS,e.slice(3));}catch(x){}}
+}
+function fgOnBroadcast(m){const g=G.fg;if(!g)return;try{fgNetApply(g,m);}catch(e){}}
+// between two snapshots: keep things moving, and the effects going
+function fgNetPassive(g,dt){
+  g.t+=dt;if(g.phase==='intro'&&!g.net.got)g.pt+=dt;
+  if(g.kind==='balloonblast'){const w=g.wind?g.wind.v*.5:0;for(const b of g.balloons||[])if(!b.popped){b.bx+=(b.vx+w)*dt;b.by+=b.vy*dt;}}
+  else if(g.kind==='marksman'){for(const t of g.targets||[])if(t.alive&&(t.k==='duck'||t.k==='gold'||t.k==='decoy'||t.k==='disc'||t.k==='final'))t.x+=t.vx*dt;}
+  else if(g.kind==='hoopfever'){g.hx=hfHoopX(g,g.t);const b=g.ball;if(b&&b.st==='fly'){let r=dt;while(r>0){const h=Math.min(HF.DT,r);hfCore(b,h,g.hx,g.hw);r-=h;}}}
+  for(const p of g.fx.parts){p.l+=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=520*dt;p.vx*=.985;p.rot+=p.vr*dt;}g.fx.parts=g.fx.parts.filter(p=>p.l<p.life);
+  for(const r of g.fx.rings)r.l+=dt;g.fx.rings=g.fx.rings.filter(r=>r.l<r.life);
+  g.fx.shake=Math.max(0,g.fx.shake-dt*28);g.fx.flash=Math.max(0,g.fx.flash-dt*2.2);g.fx.zoom=Math.max(0,g.fx.zoom-dt*.1);
+}
+// the last shooter's device ends the match for everybody
+function fgNetFinish(g){
+  if(g.netEnded)return;g.netEnded=true;
+  const n=g.n,sc=g.score.slice(),top=Math.max(...sc),winners=sc.map((v,i)=>v===top?i:-1).filter(i=>i>=0),w=winners[0];
+  const bn=g.kind==='marksman'?'shooting gallery':g.kind==='hoopfever'?'basketball booth':'balloon booth';
+  const mom=g.moment||(winners.length>1?`A tie at the ${bn}.`:`${g.players[w].name} won the ${bn} with ${top}.`);
+  const res={kind:g.kind,rapidBest:(g.rapidBest||[]).slice(),score:sc,perfects:g.perfects.slice(),hits:g.hits.slice(),bestStreak:g.bestStreak.slice(),jack:g.jack.slice(),dur:Math.round((Date.now()-g.stats.start)/1000),topscore:top,names:g.players.map(p=>p.name)};
+  FGS.win();
+  if(!G.srv)return;
+  const st=JSON.parse(JSON.stringify(G.srv));
+  st.players.forEach((p,i)=>{if(i>=n)return;p.totalScore=sc[i];p.c4Result=winners.length>1&&winners.includes(i)?'draw':w===i?'win':'loss';});
+  st.winner=st.players[w].id;st.winnerName=st.players[w].name;st.winnerAv=st.players[w].avatar;st.moment=mom;
+  st.ah=Object.assign({},st.ah||{},{score:sc,dur:res.dur,stats:{perfect:Math.max(...g.perfects),bestRally:Math.max(...g.bestStreak),saves:g.kind==='marksman'?Math.max(...(g.rapidBest||[0])):Math.max(...g.jack),team:0,fg:res}});
+  st.lastAct=esc(st.winnerName)+(winners.length>1?' tied.':' won the match.');st._ts=Date.now();
+  try{onSrv(st);}catch(e){}
+  try{dbWrite(G.roomId,st);}catch(e){}
+}
+// the sounds are recorded for the watchers too
+for(const k of Object.keys(FGS)){const f=FGS[k];if(typeof f!=='function')continue;FGS[k]=function(){try{const g=G.fg;if(g&&g.net&&g.net.act&&!g.net.rep)fgNetEv(g,['s',k].concat(Array.prototype.slice.call(arguments).filter(v=>typeof v==='number')));}catch(e){}return f.apply(this,arguments);};}
+function fgBanner(g,text,sub,col,ms){fgNetEv(g,['b',text,sub||'',col||null,ms||null]);g.fx.banners.push({text,sub:sub||'',col:col||'#E6C36A',t:performance.now(),ms:ms||1100});if(g.fx.banners.length>3)g.fx.banners.shift();}
+function fgText(g,x,y,txt,col,sz){fgNetEv(g,['t',Math.round(x),Math.round(y),txt,col||null,sz||null]);g.fx.texts.push({x,y,txt,col:col||'#F4EBD0',t:performance.now(),ms:1100,sz:sz||30});if(g.fx.texts.length>14)g.fx.texts.shift();}
+function fgBurst(g,x,y,col,n,spd){fgNetEv(g,['p',Math.round(x),Math.round(y),col,n,spd]);for(let i=0;i<n;i++){const a=Math.random()*6.283,s=(.35+Math.random()*.65)*spd;g.fx.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-60,l:0,life:.6+Math.random()*.7,col,sz:3+Math.random()*6,rot:Math.random()*6.28,vr:(Math.random()-.5)*14});}while(g.fx.parts.length>260)g.fx.parts.shift();}
+function fgRing(g,x,y,r,col){fgNetEv(g,['r',Math.round(x),Math.round(y),Math.round(r),col]);g.fx.rings.push({x,y,r,col,l:0,life:.45});if(g.fx.rings.length>8)g.fx.rings.shift();}
 // where the dart lands: a balloon is hit if the dart arrives inside it at that moment (balloons move, so the shot has to lead them)
 function fgLand(g){
   const f=g.fl;f.done=true;const ax=f.ax,ay=f.ay;let best=null,bs=1e9,near=false;
@@ -8622,7 +8707,7 @@ function fgPop(g,b){
 }
 /* ── the turns ── */
 /* ── timed runs: each player shoots as much as possible for a set time, then the next one; at the end the scores are compared ── */
-function fgRunInit(g,dur){const n=g.n;g.run={dur,left:dur,order:g.players.map((p,i)=>((G.lstart||0)+i)%n),idx:0,active:false,pre:0,done:g.players.map(()=>false),tick:99};g.turn=g.run.order[0];}
+function fgRunInit(g,dur){const n=g.n;g.run={dur,left:dur,order:g.players.map((p,i)=>(((G.isOnline?0:G.lstart)||0)+i)%n),idx:0,active:false,pre:0,done:g.players.map(()=>false),tick:99};g.turn=g.run.order[0];}
 function fgRunBegin(g){
   const R=g.run;g.turn=R.order[R.idx];R.left=R.dur;R.active=false;R.pre=1.7;R.tick=99;g.streak[g.turn]=0;
   if(g.chainN){g.chainN[g.turn]=0;g.chainC[g.turn]=-1;}g.jackSpawned=false;g.lastTurnSaid=-1;
@@ -8657,7 +8742,7 @@ function fgNextTurn(g){
   }
 }
 /* ── one step of the world ── */
-function fgStep(g,dt){if(g.kind==='marksman')msStep(g,dt);else if(g.kind==='hoopfever')hfStep(g,dt);else fgStepBB(g,dt);}
+function fgStep(g,dt){if(fgNetWatch(g)){fgNetPassive(g,dt);return;}if(g.kind==='marksman')msStep(g,dt);else if(g.kind==='hoopfever')hfStep(g,dt);else fgStepBB(g,dt);}
 function fgDraw(g,now){if(g.kind==='marksman')msDraw(g,now);else if(g.kind==='hoopfever')hfDraw(g,now);else fgDrawBB(g,now);}
 function fgStepBB(g,dt){
   g.pt+=dt;
@@ -8753,6 +8838,7 @@ function fgBot(g,dt){
 /* ── the end of the match ── */
 function fgEnd(g){
   if(G.fg!==g||!g.live)return;
+  if(fgNetOn(g)){fgNetFinish(g);return;}
   const n=g.n,sc=g.score.slice(),top=Math.max(...sc),winners=sc.map((s,i)=>s===top?i:-1).filter(i=>i>=0);
   G.lp.forEach((p,i)=>{if(i>=n)return;p.totalScore=sc[i];p.c4Result=(n===1)?'win':(winners.length>1&&winners.includes(i))?'draw':winners[0]===i?'win':'loss';});
   const w=winners[0],bestS=Math.max(...g.bestStreak),perf=Math.max(...g.perfects),jk=Math.max(...g.jack);
@@ -8784,7 +8870,8 @@ function lDealFair(){
 const FG_MAXP=4;
 function fgShade(hex,k){const n=parseInt(hex.slice(1),16);let r=(n>>16)&255,g=(n>>8)&255,b=n&255;const t=k<0?0:255,a=Math.abs(k);r=Math.round(r+(t-r)*a);g=Math.round(g+(t-g)*a);b=Math.round(b+(t-b)*a);return'rgb('+r+','+g+','+b+')';}
 function rFairTable(){
-  if(!G.fg||!G.fg.live)G.fg=fgNew(G.selGame);
+  const gid=G.isOnline?(G.srv&&G.srv.gameId)||G.selGame:G.selGame;
+  if(!G.fg||!G.fg.live||(G.isOnline&&(!G.fg.net||!G.srv||!G.srv.ah||G.fg.net.id!==G.srv.ah.id))||(!G.isOnline&&G.fg.net)){fgStop();G.fg=fgNew(gid);fgNetInit(G.fg);}
   const g=G.fg,players=g.players,gm=GAMES.find(x=>x.id===g.kind)||{icon:'🎪',name:'Fairground'};
   setTimeout(fgAttach,0);
   return`<div id="s-table" class="scr on game-airhockey game-fair">
@@ -8799,7 +8886,7 @@ function rFairTable(){
         <div class="fg-hud" id="fg-hud">${players.map((p,i)=>`<div class="fg-p" id="fg-p${i}"><span class="ah-av">${p.avatar?avHTML(p.avatar):''}</span><b class="fg-nm">${esc(p.name)}</b><b class="fg-sc" id="fg-s${i}">0</b><i class="fg-ch" id="fg-c${i}"></i><span class="fg-d" id="fg-d${i}"></span></div>`).join('')}</div>
         ${g.run&&g.fmt!=='horse'?'<button class="pl-assist fg-time" data-a="fg-time" id="fg-timebtn">TIME: '+g.run.dur+' s</button>':''}
         <button class="pl-assist fg-diff" data-a="fg-diff" id="fg-diffbtn">LEVEL: ${FG_DIFF[g.diff].name}</button>
-        ${g.kind==='balloonblast'?'<button class="pl-assist fg-risk" data-a="fg-risk" id="fg-riskbtn">RISK ×2</button>':''}${g.kind==='hoopfever'?'<button class="pl-assist fg-risk" data-a="fg-fmt" id="fg-fmtbtn">MODE: '+(g.fmt==='horse'?'HORSE':'SHOOTOUT')+'</button>':''}
+        ${g.kind==='balloonblast'?'<button class="pl-assist fg-risk" data-a="fg-risk" id="fg-riskbtn">RISK ×2</button>':''}${g.kind==='hoopfever'&&!G.isOnline?'<button class="pl-assist fg-risk" data-a="fg-fmt" id="fg-fmtbtn">MODE: '+(g.fmt==='horse'?'HORSE':'SHOOTOUT')+'</button>':''}
       </div>
     </div>
     ${talkStripHTML()}
@@ -8807,7 +8894,7 @@ function rFairTable(){
 }
 function fgToggleRisk(){const g=G.fg;if(!g||g.kind!=='balloonblast'||g.phase!=='play'||!fgCanAct(g))return;g.risk[g.turn]=!g.risk[g.turn];}
 function fgNextDiff(){
-  const g=G.fg;if(!g||g.thrown>0)return;
+  const g=G.fg;if(!g||g.thrown>0)return;if(g.net&&g.net.seat!==0){toast('The host chooses the level');return;}
   const o=['family','skill','expert'],n=o[(o.indexOf(g.diff)+1)%3];g.diff=n;try{localStorage.setItem('ct_fg_diff',n);}catch(e){}
   const d=FG_DIFF[n];
   for(const b of g.balloons||[])b.r=FG_B[b.k].r*d.r;               // the balloons of Balloon Blast
@@ -8826,7 +8913,7 @@ function fgSize(){
   const w=Math.floor(FG.W*sc),h=Math.floor(FG.H*sc);g.cv.style.width=w+'px';g.cv.style.height=h+'px';g.cv.width=Math.round(w*dpr);g.cv.height=Math.round(h*dpr);g.scale=sc*dpr;g.statik=null;
 }
 window.addEventListener('resize',()=>{try{if(G.fg&&G.fg.live)fgSize();}catch(e){}});
-function fgCanAct(g){if(g&&g.kind==='marksman')return msCanAct(g);if(g&&g.kind==='hoopfever')return hfCanAct(g);return g&&g.live&&fgRunActive(g)&&(g.phase==='play'||(g.phase==='final'&&g.final))&&!g.fl&&g.wait<=0&&!g.bots[g.turn]&&!g.over&&!g.botAim;}
+function fgCanAct(g){if(fgNetWatch(g))return false;if(g&&g.kind==='marksman')return msCanAct(g);if(g&&g.kind==='hoopfever')return hfCanAct(g);return g&&g.live&&fgRunActive(g)&&(g.phase==='play'||(g.phase==='final'&&g.final))&&!g.fl&&g.wait<=0&&!g.bots[g.turn]&&!g.over&&!g.botAim;}
 function fgFire(g,x,y){return g.kind==='marksman'?msShoot(g,x,y):fgThrow(g,x,y);}
 function fgBindInput(cv){
   const g=G.fg;cv.style.touchAction='none';
@@ -8847,9 +8934,9 @@ function fgFrame(now){
   if(cv!==g.cv){fgAttach();if(!g.cv)return;}
   if(document.hidden)return;
   const dt=Math.min(.05,Math.max(0,(now-g.last)/1000));g.last=now;
-  fgStep(g,dt);
+  fgStep(g,dt);fgNetTick(g,dt);
   // the sight trembles a little on the harder levels
-  if(g.kind!=='marksman'){const j=FG_DIFF[g.diff].jit;g.aim.sx=g.aim.x+Math.sin(g.t*5.3)*j+Math.sin(g.t*11.1)*j*.4;g.aim.sy=g.aim.y+Math.cos(g.t*4.1)*j+Math.cos(g.t*9.7)*j*.4;}
+  if(g.kind!=='marksman'&&!fgNetWatch(g)){const j=FG_DIFF[g.diff].jit;g.aim.sx=g.aim.x+Math.sin(g.t*5.3)*j+Math.sin(g.t*11.1)*j*.4;g.aim.sy=g.aim.y+Math.cos(g.t*4.1)*j+Math.cos(g.t*9.7)*j*.4;}
   if(g.phase==='play'&&g.lastTurnSaid!==g.turn){g.lastTurnSaid=g.turn;if(g.n>1&&g.thrown>0){FGS.turn();fgBanner(g,g.players[g.turn].name.toUpperCase(),'your '+fgWord(g),null,650);}}
   fgDraw(g,now);fgHud(g);
 }
@@ -8980,7 +9067,7 @@ function fgDrawBB(g,now){
   }
   if(f&&f.done&&f.miss&&!f.stuck){f.stuck=true;(g.stuck=g.stuck||[]).push({x:f.ax,y:f.ay,a:-1.45+(Math.random()-.5)*.3,t:now});}
   // the sight
-  if(fgCanAct(g)||(g.aim.on&&g.bots[g.turn])){
+  if(fgCanAct(g)||(g.aim.on&&(g.bots[g.turn]||fgNetWatch(g)))){
     const ax=g.aim.sx!=null?g.aim.sx:g.aim.x,ay=g.aim.sy!=null?g.aim.sy:g.aim.y,d=FG_DIFF[g.diff];
     if(d.pre&&(g.aim.on||g.bots[g.turn]===null)){x.save();x.setLineDash([6,9]);x.strokeStyle='rgba(255,236,190,.35)';x.lineWidth=1.6;x.beginPath();x.moveTo(W/2,H+30);x.lineTo(ax,ay);x.stroke();x.restore();}
     if(g.aim.on||g.bots[g.turn]){
@@ -9045,7 +9132,7 @@ const MS_WIND={1:90,2:120,3:190};
 const MS_LVL={family:{sway:9,wind:.55,ghost:true},skill:{sway:19,wind:1,ghost:false},expert:{sway:28,wind:1.4,ghost:false}};
 function msRing(d,r){const u=d/r;return u<=.18?10:u<=.36?9:u<=.54?8:u<=.72?7:u<=1?6:0;}
 function msNew(){
-  const players=G.lp.slice(0,2),n=players.length;
+  const players=fgPlayersFor(2),n=players.length;
   const g={live:true,kind:'marksman',n,diff:fgDiffPref(),players,bots:players.map(p=>p.bot?(p.bot==='sharp'?'sharp':'gentle'):null),
     turn:(G.lstart||0)%n,darts:players.map(()=>999),score:players.map(()=>0),streak:players.map(()=>0),bestStreak:players.map(()=>0),perfects:players.map(()=>0),hits:players.map(()=>0),jack:players.map(()=>0),
     rapidBest:players.map(()=>0),bonus:players.map(()=>0),finalDone:players.map(()=>false),xs:players.map(()=>0),ringSum:players.map(()=>0),ringN:players.map(()=>0),thrown:0,phase:'intro',pt:0,t:0,bid:0,targets:[],fls:[],wait:0,slow:1,final:null,cv:null,raf:0,scale:0,statik:null,born:performance.now(),
@@ -9091,7 +9178,7 @@ function msHittable(g,t){
   return true;
 }
 function msCanAct(g){
-  if(!g||!g.live||g.over||g.bots[g.turn]||g.botAim)return false;
+  if(!g||!g.live||g.over||g.bots[g.turn]||g.botAim||fgNetWatch(g))return false;
   if(g.phase==='rapid')return true;
   if(g.run&&!fgRunActive(g))return false;
   return (g.phase==='play'||(g.phase==='final'&&g.final))&&!g.fls.length&&g.wait<=0&&!g.needAdv;
@@ -9375,7 +9462,7 @@ function msDraw(g,now){
   {const ax=g.aim.sx!=null?g.aim.sx:g.aim.x,ay=g.aim.sy!=null?g.aim.sy:g.aim.y,ang=Math.atan2(ay-(H-20),ax-W/2);
     x.save();x.translate(W/2,H-24);x.rotate(ang+Math.PI/2);const gr=x.createLinearGradient(-9,0,9,0);gr.addColorStop(0,'#14181a');gr.addColorStop(.4,'#5a6268');gr.addColorStop(1,'#0c0e10');x.fillStyle=gr;x.fillRect(-8,-70,16,86);x.fillStyle='#b8923a';x.fillRect(-10,-74,20,7);x.fillStyle='#3c2512';x.fillRect(-13,8,26,26);x.fillStyle='rgba(255,226,170,.25)';x.fillRect(-8,-70,3,86);x.restore();}
   // the sight, with its steadiness
-  if(msCanAct(g)||(g.aim.on&&g.bots[g.turn])||(g.phase==='rapid'&&!g.bots[g.turn]&&g.aim.on)){
+  if(msCanAct(g)||(g.aim.on&&(g.bots[g.turn]||fgNetWatch(g)))||(g.phase==='rapid'&&!g.bots[g.turn]&&g.aim.on)){
     const ax=g.aim.sx!=null?g.aim.sx:g.aim.x,ay=g.aim.sy!=null?g.aim.sy:g.aim.y;
     if(g.aim.on||g.bots[g.turn]){
       const human=!g.bots[g.turn],st=human?g.steady:.6,still=st>=.98&&!g.aim.tired,col=g.aim.tired?'255,120,90':still?'140,240,170':'255,220,130';
@@ -9415,7 +9502,7 @@ const HF_FORM={family:null,skill:.10,expert:.06};
 function fgWord(g){return g.kind==='marksman'?'shot':g.kind==='hoopfever'?'ball':'dart';}
 function hfFmtPref(){try{return localStorage.getItem('ct_hf_fmt')==='horse'?'horse':'shootout';}catch(e){return'shootout';}}
 function hfNew(){
-  const players=G.lp.slice(0,4),n=players.length,horse=hfFmtPref()==='horse'&&n>=2;
+  const players=fgPlayersFor(4),n=players.length,horse=!G.isOnline&&hfFmtPref()==='horse'&&n>=2;
   const start=(G.lstart||0)%n;
   const g={live:true,kind:'hoopfever',n,diff:fgDiffPref(),players,bots:players.map(p=>p.bot?(p.bot==='sharp'?'sharp':'gentle'):null),fmt:horse?'horse':'shootout',
     turn:start,darts:players.map(()=>horse?5:999),score:players.map(()=>0),streak:players.map(()=>0),bestStreak:players.map(()=>0),perfects:players.map(()=>0),hits:players.map(()=>0),jack:players.map(()=>0),
@@ -9429,7 +9516,7 @@ function hfNew(){
 function hfSpot(g){return HF_SPOTS[g.spot];}
 function hfModeNow(g){if(g.fmt==='horse')return'normal';const k=HF.BALLS-g.darts[g.turn];return HF_ROUNDS[Math.min(HF.BALLS-1,Math.max(0,k))];}
 function hfHoopX(g,t){const m=HF_MODE[g.mode];return HF.HX+(m.mv?Math.sin(t*1.15)*m.mv:0);}
-function hfCanAct(g){return !!(g&&g.live&&g.phase==='play'&&fgRunActive(g)&&!g.ball&&g.wait<=0&&!g.over&&!g.bots[g.turn]&&!g.botAim);}
+function hfCanAct(g){return !!(g&&g.live&&!fgNetWatch(g)&&g.phase==='play'&&fgRunActive(g)&&!g.ball&&g.wait<=0&&!g.over&&!g.bots[g.turn]&&!g.botAim);}
 // the spot can be chosen before a ball (in HORSE only by whoever sets the challenge)
 function hfCanPick(g){return hfCanAct(g)&&(g.fmt==='shootout'||g.horse.step==='set');}
 function hfPickSpot(g,i){if(!hfCanPick(g)||i<0||i>2||g.spot===i)return false;g.spot=i;FGS.turn();return true;}
@@ -27962,8 +28049,9 @@ function onSrvCore(state){
             moment:state.moment||`${state.winnerName} won ${Math.max(sc[0],sc[1])}–${Math.min(sc[0],sc[1])}.`,
             stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions,ah:Object.assign({score:sc},state.ah&&state.ah.stats?state.ah.stats:{},{dur:(state.ah&&state.ah.dur)||0})}});
           // the table plays its own finale first; the result screen follows
+          if(fgIs(state.gameId)){G.fgResult=(state.ah&&state.ah.stats&&state.ah.stats.fg)||null;G.ahMoment=state.moment||'';fgStop();}
           _ahEndAt=Date.now()+(G.ah&&G.ah.live?3200:plLive()?plEndWaitMs():600);
-          setTimeout(()=>{if(G.isOnline&&G.srv&&ahIs(G.srv.gameId)&&G.srv.winner){ahStop();plStop();G.scr='matchend';render();}},(_ahEndAt-Date.now())+80);
+          setTimeout(()=>{if(G.isOnline&&G.srv&&ahIs(G.srv.gameId)&&G.srv.winner){ahStop();plStop();fgStop();G.scr='matchend';render();}},(_ahEndAt-Date.now())+80);
         }
         if(Date.now()<_ahEndAt){G.scr='table';return;}
         G.scr='matchend';render();return;
@@ -29020,10 +29108,10 @@ function oStartGame(rs){
         return;
       }
       if(ahIs(rs.gameId)){
-        const players=rs.players.slice(0,2).map(p=>({...p,totalScore:0,c4Result:null}));
+        const players=rs.players.slice(0,fgIs(rs.gameId)?((GAMES.find(x=>x.id===rs.gameId)||{}).maxP||2):2).map(p=>({...p,totalScore:0,c4Result:null}));
         const gs={phase:'game',gameId:rs.gameId,host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
           arSeries:rs.arSeries||null,ah:{id:'ah'+Date.now().toString(36)+Math.floor(Math.random()*1e4),score:[0,0]},pl:rs.gameId==='pool'?plNew(plRulesPref(),plAssistPref(),plNextStarter()):undefined,winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
-        G.srv=gs;G.ah=null;G.pl=null;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        G.srv=gs;G.ah=null;G.pl=null;G.fg=null;G.fgResult=null;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }
       if(rs.gameId==='blackwater'){
@@ -30900,7 +30988,7 @@ function rMatchEnd(){
   const ms=G.matchStats;
   const ahr=ahIs(G.isOnline?G.srv?.gameId:G.selGame)?ahResultStats():null;
   const ahPool=(G.isOnline?G.srv?.gameId:G.selGame)==='pool',ahPong=(G.isOnline?G.srv?.gameId:G.selGame)==='pong',ahInv=(G.isOnline?G.srv?.gameId:G.selGame)==='invaders';
-  const statChips=fgIs(G.selGame)&&G.fgResult?fgChipsHTML():ahr?`<div class="tonight-stats">
+  const statChips=fgIs(G.isOnline?G.srv?.gameId:G.selGame)&&G.fgResult?fgChipsHTML():ahr?`<div class="tonight-stats">
     <div class="tonight-stat"><div class="ts-val">${ahr.team?(ahr.score[0]+ahr.score[1]):ahr.score[0]+'–'+ahr.score[1]}</div><div class="ts-lbl">${ahr.team?'👾 Team score · wave '+ahr.wave:ahPool?'🎱 Balls potted':'🏒 Final score'}</div></div>
     <div class="tonight-stat"><div class="ts-val">${ahr.fastest||'–'}</div><div class="ts-lbl">${ahPool?'📏 Longest pot (cm)':ahInv?'🔥 Best combo (hits)':ahPong?'⚡ Top ball speed (km/h)':'⚡ Fastest shot (km/h)'}</div></div>
     <div class="tonight-stat"><div class="ts-val">${ahr.bestRally||'–'}</div><div class="ts-lbl">${ahPool?'🎱 Best run (balls)':ahInv?'👾 Aliens destroyed':'🔁 Longest rally'}</div></div>

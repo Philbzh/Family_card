@@ -5777,6 +5777,42 @@ async function runPresentation(A,W,frame){
       check('the Marksman records and the Quick Draw trophy exist',F('AR_REC').marksman.length===4&&F('ACHIEVEMENTS').some(a=>a.id==='ms-rapid'));
     }finally{back(k0);}
   });
+  suite('Fairground online: one after the other, the others watch',()=>{
+    const F=n=>W.eval(n),G=()=>F('G');
+    const keep=()=>[G().isOnline,G().srv,G().myPid,G().fg,G().roomId,G().scr,G().selGame];
+    const back=k=>{const g=G();try{F('fgStop')();}catch(e){}g.isOnline=k[0];g.srv=k[1];g.myPid=k[2];g.fg=k[3];g.roomId=k[4];g.scr=k[5];g.selGame=k[6];};
+    const k0=keep();
+    const oSrv=F('onSrv'),oDb=F('dbWrite');
+    try{
+      for(const kind of ['balloonblast','marksman','hoopfever']){
+        const g=G();g.isOnline=true;g.selGame=kind;g.roomId='T';g.srv={gameId:kind,phase:'game',players:[{id:'a',name:'Ann',avatar:'x',totalScore:0},{id:'b',name:'Ben',avatar:'x',totalScore:0}],ah:{id:'t1',score:[0,0]},winner:null};
+        g.myPid='a';const g1=F('fgNew')(kind);F('fgNetInit')(g1);g.myPid='b';const g2=F('fgNew')(kind);F('fgNetInit')(g2);
+        check(kind+': both devices know their seat; seat 0 shoots first, seat 1 watches',g1.net.seat===0&&g2.net.seat===1&&!F('fgNetWatch')(g1)&&F('fgNetWatch')(g2));
+        g.fg=g1;g1.phase='play';g1.pt=0;F('fgRunBegin')(g1);g1.run.pre=0;g1.run.active=true;g1.score[0]=300;g1.hits[0]=3;F('fgBanner')(g1,'HELLO','',null,500);
+        const m=F('fgNetSnap')(g1);
+        check(kind+': the watcher takes over score, clock and phase from a snapshot',F('fgNetApply')(g2,m)&&g2.score[0]===300&&g2.turn===0&&g2.phase==='play'&&g2.run.left>50);
+        check(kind+': the watcher replays the effects (a banner) and cannot shoot',g2.fx.banners.some(b=>b.text==='HELLO')&&!F('fgCanAct')(g2));
+        check(kind+': the shooter ignores snapshots (his run, his authority) and an old snapshot is dropped',!F('fgNetApply')(g1,m)&&!F('fgNetApply')(g2,m));
+        g.fg=g1;g1.run.left=.01;for(let i=0;i<240&&g1.turn===0;i++)F('fgStep')(g1,1/60);
+        check(kind+': when the time is up the run passes to the other seat',g1.turn===1&&g1.run.done[0]===true&&F('fgNetWatch')(g1));
+        g1.net.acc=1;const m2=F('fgNetSnap')(g1);F('fgNetApply')(g2,m2);
+        check(kind+': the other device takes the turn from the snapshot and can shoot after the get-ready pause',g2.turn===1&&!F('fgNetWatch')(g2)&&g2.score[0]===g1.score[0]);
+        g.fg=g2;g2.run.pre=0;g2.run.active=true;g2.run.left=.01;g2.score[1]=450;for(let i=0;i<300&&g2.phase!=='over';i++)F('fgStep')(g2,1/60);
+        check(kind+': after the last run the game is over on the last shooter\'s device',g2.phase==='over');
+      }
+      // watchers keep things moving between two snapshots
+      let g=G();g.myPid='b';g.srv.gameId='balloonblast';const w=F('fgNew')('balloonblast');F('fgNetInit')(w);w.balloons=[];const bb=F('fgSpawn')(w,{k:'std',side:false});bb.vx=0;bb.vy=-100;const y0=bb.by;w.turn=0;
+      F('fgNetPassive')(w,.5);
+      check('between snapshots the watcher moves the balloons on',bb.by<y0-40);
+      // the result
+      let cap=null;W.eval('onSrv=function(s){window.__cap=s;}');
+      g.myPid='b';g.srv.gameId='marksman';const e=F('fgNew')('marksman');F('fgNetInit')(e);e.score=[120,340];e.hits=[2,5];e.phase='over';g.fg=e;F('fgNetFinish')(e);
+      cap=W.__cap;
+      check('the last shooter writes the result to the room: the winner, the scores and the stats for everybody',cap&&cap.winner==='b'&&cap.players[1].c4Result==='win'&&cap.players[0].c4Result==='loss'&&cap.ah.score.join()==='120,340'&&cap.ah.stats.fg.topscore===340);
+      check('a draw is recorded as a draw',(()=>{W.__cap=null;const t=F('fgNew')('marksman');F('fgNetInit')(t);t.score=[200,200];t.phase='over';g.fg=t;F('fgNetFinish')(t);return W.__cap&&W.__cap.players.every(p=>p.c4Result==='draw');})());
+      check('the Fairground games are playable online and use the arcade result flow',['balloonblast','marksman','hoopfever'].every(id=>F('ONLINE_GAMES').includes(id)&&F('ahIs')(id)));
+    }finally{W.__o=[oSrv];W.eval('onSrv=window.__o[0];window.__cap=null');back(k0);}
+  });
   suite('Fairground: Hoop Fever, the shootout and HORSE',()=>{
     const F=n=>W.eval(n),G=()=>F('G');
     const keep=()=>[G().isOnline,G().selGame,G().lp,G().lstart,G().scr,G().fg];
