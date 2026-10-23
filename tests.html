@@ -5636,6 +5636,52 @@ async function runPresentation(A,W,frame){
     check('the snapshot carries the boss, the power-ups, the laser and the bosses destroyed',j.boss&&j.boss.hp===iv.boss.hp&&j.pu.length===1&&j.pu[0].k==='r'&&j.pwk[0]==='t'&&j.ls&&j.ls.x===222&&j.bosses===1);
     check('the Boss Slayer trophy and the splitter are in the rules and the trophy list',F('ACHIEVEMENTS').some(x=>x.id==='iv-boss')&&F('GAMES').find(g=>g.id==='invaders').rules.join(' ').includes('splitters'));
   });
+  suite('Fairground: the engine and Balloon Blast',()=>{
+    const F=n=>W.eval(n),G=()=>F('G');
+    const keep=()=>[G().isOnline,G().selGame,G().lp,G().lstart,G().scr,G().fg];
+    const back=k=>{const g=G();F('fgStop')();g.isOnline=k[0];g.selGame=k[1];g.lp=k[2];g.lstart=k[3];g.scr=k[4];g.fg=null;};
+    const mkLp=(n,bots)=>{const a=[];for(let i=0;i<n;i++)a.push({id:i+1,name:'P'+i,avatar:'x',hand:[],totalScore:0,bot:bots&&bots.includes(i)?'sharp':undefined});return a;};
+    const mk=(n,bots,diff)=>{const g=G();g.isOnline=false;g.selGame='balloonblast';g.lstart=0;g.lp=mkLp(n,bots);const f=F('fgNew')();f.balloons=[];f.phase='play';f.pt=0;if(diff)f.diff=diff;return f;};
+    check('the Fairground is a room of its own with Balloon Blast in it (1 to 4 players, bot allowed)',F('GAME_CATEGORIES').some(c=>c.id==='fairground'&&/Fairground Games/.test(c.name))&&F('GAMES').some(g=>g.id==='balloonblast'&&g.cat==='fairground'&&g.minP===1&&g.maxP===4&&/balloonblast\.jpg/.test(g.cover))&&F('BOT_GAMES').has('balloonblast')&&F('fgIs')('balloonblast')&&!F('fgIs')('pool'));
+    const k0=keep();
+    try{
+      let f=mk(1);
+      check('a new game gives every player ten darts and no score',f.darts[0]===10&&f.score[0]===0);
+      check('the streak multiplier is x1, x2, x3 and at most x4',[1,2,3,4,5,9].map(F('fgMult')).join()==='1,2,3,4,4,4'||[0,1,2,3,4,9].map(F('fgMult')).join()==='1,1,2,3,4,4');
+      f=mk(1);f.t=10;const b=F('fgSpawn')(f,{k:'std',side:false});b.bx=300;b.by=400;b.vx=0;b.vy=0;b.sw=0;
+      F('fgThrow')(f,300,400);for(let i=0;i<80;i++)F('fgStep')(f,1/60);
+      check('a dart that arrives inside a balloon bursts it: 100 x1 x1.5 for a perfect hit',f.score[0]===150&&f.perfects[0]===1&&f.hits[0]===1);
+      f=mk(1);f.t=10;const m=F('fgSpawn')(f,{k:'std',side:false});m.bx=100;m.by=400;m.vx=120;m.vy=0;m.sw=0;
+      F('fgThrow')(f,100,400);for(let i=0;i<80;i++)F('fgStep')(f,1/60);
+      check('a balloon that is moving is not hit by a dart aimed where it was: the shot has to lead it',f.score[0]===0&&f.hits[0]===0);
+      f=mk(1);f.t=10;const m2=F('fgSpawn')(f,{k:'std',side:false});m2.bx=100;m2.by=400;m2.vx=120;m2.vy=0;m2.sw=0;const lead=F('fgFut')(f,m2,F('fgFlight')(400));
+      F('fgThrow')(f,lead.x,lead.y);for(let i=0;i<80;i++)F('fgStep')(f,1/60);
+      check('aiming where it will be hits',f.hits[0]===1);
+      f=mk(1);f.t=10;
+      const shoot=(k,off)=>{const bb=F('fgSpawn')(f,{k,side:false});bb.bx=300;bb.by=420;bb.vx=0;bb.vy=0;bb.sw=0;F('fgThrow')(f,300+(off||0),420);for(let i=0;i<70;i++)F('fgStep')(f,1/60);};
+      shoot('std',20);const a1=f.score[0];f.balloons=[];shoot('std',20);const a2=f.score[0]-a1;
+      check('two hits in a row score double the second time (x2)',a1===100&&a2===200&&f.streak[0]===2);
+      f.balloons=[];shoot('black',0);
+      check('a black balloon costs 200 and breaks the streak',f.score[0]===100&&f.streak[0]===0);
+      f.balloons=[];shoot('rainbow',20);const afterR=f.score[0];f.balloons=[];shoot('std',20);
+      check('a rainbow balloon doubles the points of the next darts (here 100 x2 for the streak x2 for the bonus)',f.score[0]-afterR===400);
+      f=mk(2);f.darts=[1,1];f.turn=0;f.t=10;
+      const shootAny=()=>{const bb=F('fgSpawn')(f,{k:'std',side:false});bb.bx=300;bb.by=420;bb.vx=0;bb.vy=0;bb.sw=0;F('fgThrow')(f,310,420);for(let i=0;i<70;i++)F('fgStep')(f,1/60);};
+      shootAny();
+      check('the turn passes to the next player after a dart',f.turn===1&&f.phase==='play');
+      f.balloons=[];shootAny();for(let i=0;i<120;i++)F('fgStep')(f,1/60);
+      check('when every dart is thrown the final shot begins, one special balloon for each',f.phase==='final'||f.phase==='over');
+      let guard=0;while(f.phase!=='over'&&guard++<4000){if(f.phase==='final'&&f.final&&F('fgCanAct')(f)){const fb=f.final,p=F('fgFut')(f,fb,F('fgFlight')(fb.by)*2.1);F('fgThrow')(f,p.x,p.y);}F('fgStep')(f,1/60);}
+      check('after both final shots the game is over',f.phase==='over'&&f.over===true);
+      f=mk(1,[0]);f.bots=['sharp'];f.t=10;let n2=0;while(f.phase!=='over'&&n2++<30000)F('fgStep')(f,1/60);
+      check('a bot plays all its darts and the final shot, and scores something',f.phase==='over'&&f.darts[0]===0&&f.hits[0]>=1);
+      f=mk(2);f.score=[900,300];f.hits=[5,2];f.perfects=[1,0];f.bestStreak=[3,1];f.jack=[0,0];f.phase='over';G().fg=f;G().scr='table';
+      F('fgEnd')(f);
+      check('the end of a match gives the winner and the loser, records the result and shows the results screen',G().lp[0].c4Result==='win'&&G().lp[1].c4Result==='loss'&&G().lp[0].totalScore===900&&G().scr==='matchend'&&G().fgResult&&G().fgResult.topscore===900&&/Top score/.test(F('fgChipsHTML')()));
+      check('Family balloons are bigger than Expert ones',(()=>{const a=mk(1,null,'family'),c=mk(1,null,'expert');const x=F('fgSpawn')(a,{k:'std',side:false}),y=F('fgSpawn')(c,{k:'std',side:false});return x.r>y.r;})());
+      check('the achievements and the records of the Fairground exist',['fg-popstar','fg-dead','fg-jackpot'].every(id=>F('ACHIEVEMENTS').some(a=>a.id===id))&&F('AR_REC').balloonblast.length===4);
+    }finally{back(k0);}
+  });
   suite('Arcade series: best of 3 across rematches',()=>{
     const F=n=>W.eval(n);
     const G=()=>F('G');
