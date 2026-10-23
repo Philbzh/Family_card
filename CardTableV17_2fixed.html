@@ -1620,6 +1620,7 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 .ah-modes .on{background:rgba(230,195,106,.18);border-color:#E6C36A;color:#F4EBD0;}
 /* ── Arcade: 8-Ball ── */
 .ah-sc.pl-grp{display:inline-flex;align-items:center;gap:2px;font-size:.7rem;}
+.ah-hud.act{box-shadow:0 0 0 2px rgba(255,214,110,.85),0 0 16px rgba(255,200,80,.55);}
 .pl-tag{letter-spacing:.14em;font-size:.55rem;margin-right:4px;color:#E6C36A;}
 .pl-mb{display:inline-block;width:21px;height:21px;border-radius:50%;background:var(--c);color:#fff;font:700 10px/21px Jost,sans-serif;text-align:center;font-style:normal;box-shadow:inset -2px -2px 3px rgba(0,0,0,.4),0 1px 2px rgba(0,0,0,.5);text-shadow:0 0 2px #000;}
 .pl-mb.st{background:linear-gradient(#f6f1e2 0 26%,var(--c) 26% 74%,#f6f1e2 74%);}
@@ -7760,15 +7761,15 @@ function plResolve(pl,res){
   np.lastPocket=np.lastPocket||[null,null];
   if(own.length){const fb=res.finalBalls.find(x=>x.id===own[own.length-1]);if(fb&&fb.out>=0)np.lastPocket[me]=fb.out;}
   if(foul){
-    st.fouls[me]++;st.run[me]=0;np.turn=opp;np.bih=true;np.visits=bb?2:1;msg='FOUL: '+foul+(bb?' · 2 VISITS':'');
+    st.fouls[me]++;st.run[me]=0;np.turn=opp;np.bih=true;np.visits=bb?2:1;np.second=false;msg='FOUL: '+foul+(bb?' · 2 VISITS':'');
   }else if(!over&&own.length){
     st.pots[me]+=own.length;st.run[me]+=own.length;st.bestRun[me]=Math.max(st.bestRun[me],st.run[me]);msg=msg||(own.length>1?'BEAUTIFUL SHOT':'');
   }else if(!over&&isBreak&&pots.length){
     msg=msg||'BREAK POTS - KEEP SHOOTING';
   }else if(!over){
     st.run[me]=0;np.bih=false;
-    if(bb&&(pl.visits||1)>1){np.visits=(pl.visits||1)-1;}   // the second visit: the same player shoots again
-    else{np.turn=opp;np.visits=1;}
+    if(bb&&(pl.visits||1)>1){np.visits=(pl.visits||1)-1;np.second=true;}   // the second visit: the same player shoots again
+    else{np.turn=opp;np.visits=1;np.second=false;}
   }
   if(isBreak){st.breakPots=pots.length;}
   np.groups=groups;np.phase='play';np.foul=foul;np.msg=msg;np.over=over;np.winner=winner;
@@ -7902,7 +7903,7 @@ function plNewG(mode){
   const online=mode==='host'||mode==='guest',st=online&&G.srv?G.srv:null;
   const pl=(st&&st.pl)||plNew(plRulesPref());
   return{live:true,mode,seat:online?Math.max(0,ahPlayers().findIndex(p=>p.id===G.myPid)):0,pl,disp:plDisp(pl.balls),aim:{ang:-Math.PI/2,power:0,sx:0,sy:0},anim:null,
-    fx:{parts:[],banners:[],shake:0,flash:0},bihPos:null,cv:null,raf:0,born:performance.now(),finale:null,lastShot:st&&st.pl&&st.pl.shot?st.pl.shot.id:null,
+    fx:{parts:[],banners:[],chalk:[],shake:0,flash:0},bihPos:null,cv:null,raf:0,born:performance.now(),finale:null,lastShot:st&&st.pl&&st.pl.shot?st.pl.shot.id:null,
     bot:{level:(ahPlayers()[1]&&ahPlayers()[1].bot)||'gentle'},botBusy:false,msgAt:0};
 }
 function plStop(){const g=G.pl;if(!g)return;g.live=false;if(g.raf)cancelAnimationFrame(g.raf);g.raf=0;G.pl=null;}
@@ -7913,6 +7914,7 @@ function plReplay(np){
   const prev=np.prev,sim=plSim(prev,{angle:np.shot.angle,power:np.shot.power,sx:np.shot.sx,sy:np.shot.sy,bb:np.shot.bb},{record:true});
   g.disp=plDisp(prev,g.disp);g.aim.power=0;g.bihPos=null;g.remote=null;
   g.anim={frames:sim.frames,events:sim.res.events,evi:0,t0:performance.now(),np,isBreak:np.n===1,first:true,shot:np.shot};
+  {const c0=prev[0];if(c0&&c0.on){const n=np.n===1?24:7;for(let i=0;i<n;i++){const a=Math.random()*6.283,sp=20+Math.random()*60;g.fx.chalk.push({x:c0.x+Math.cos(np.shot.angle+Math.PI)*(PL.R+6),y:c0.y+Math.sin(np.shot.angle+Math.PI)*(PL.R+6),vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-10,l:0,life:.8+Math.random()*.6,r:3+Math.random()*5});}}}
   PLS.cue(np.shot.power);if(np.n===1){PLS.breakShot();g.fx.shake=12;g.fx.flash=.5;plBanner(g,'BREAK','',null,1100);}
   plSetBusy(true);
 }
@@ -8122,6 +8124,7 @@ function plFrame(now){
   if(g.anim)plAnimStep(g,now);
   // the particles and the table's shake
   for(const p of g.fx.parts){p.l+=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.93;p.vy*=.93;}g.fx.parts=g.fx.parts.filter(p=>p.l<p.life);
+  for(const c of g.fx.chalk){c.l+=dt;c.x+=c.vx*dt;c.y+=c.vy*dt;c.vx*=.95;c.vy*=.95;}g.fx.chalk=g.fx.chalk.filter(c=>c.l<c.life);
   g.fx.shake=Math.max(0,g.fx.shake-dt*30);g.fx.flash=Math.max(0,g.fx.flash-dt*2.5);
   plDraw(g,now);plHud(g);
   if(G.isOnline&&_ch&&plCanAct()&&!g.anim&&now-(g.sentAt||0)>80){g.sentAt=now;const bp=g.pl.bih?g.bihPos:null;try{_ch.send({type:'broadcast',event:'pl',payload:{seat:g.seat,n:g.pl.n,a:+g.aim.ang.toFixed(3),p:+g.aim.power.toFixed(2),x:+g.aim.sx.toFixed(2),y:+g.aim.sy.toFixed(2),b:bp?[Math.round(bp.x),Math.round(bp.y)]:null}});}catch(e){}}
@@ -8140,7 +8143,7 @@ function plHud(g){
   else if(g.mode==='bot')txt=pl.turn===0?(pl.bih?'Ball in hand: drag the white ball, then PLACE':pl.phase==='break'?'Your break':'Your shot'):'Robo is playing…';
   else if(g.mode==='duo')txt=(players[pl.turn]?players[pl.turn].name:'')+(pl.bih?': ball in hand':pl.phase==='break'?': break':'’s shot');
   else txt=pl.turn===g.seat?(pl.bih?'Ball in hand: drag the white ball, then PLACE':pl.phase==='break'?'Your break':'Your shot'):(players[pl.turn]?players[pl.turn].name:'')+' is playing…';
-  if(!pl.over&&!g.anim&&plBB(pl)){const ms=g.mode==='bot'?0:(g.mode==='host'||g.mode==='guest'?g.seat:pl.turn);if((pl.visits||1)>1)txt+=' · 2 visits';if(pl.rules==='bb'&&pl.groups[pl.turn]&&plLeft(pl,pl.turn)===0&&pl.lastPocket&&pl.lastPocket[pl.turn]!=null&&pl.turn===ms)txt+=' · black in the gold pocket';}
+  if(!pl.over&&!g.anim&&plBB(pl)){const ms=g.mode==='bot'?0:(g.mode==='host'||g.mode==='guest'?g.seat:pl.turn);if((pl.visits||1)>1)txt+=' · visit 1 of 2';else if(pl.second)txt+=' · visit 2 of 2';if(pl.rules==='bb'&&pl.groups[pl.turn]&&plLeft(pl,pl.turn)===0&&pl.lastPocket&&pl.lastPocket[pl.turn]!=null&&pl.turn===ms)txt+=' · black in the gold pocket';}
   if(st&&st._t!==txt){st._t=txt;st.textContent=txt;}
   const lab=sd=>{const gr=pl.groups[sd];if(!gr)return'<span class="pl-tag">OPEN</span>';
     const bbh=plBB(pl);let h='<span class="pl-tag">'+(bbh?(gr==='solid'?'REDS':'YELLOWS'):(gr==='solid'?'SOLIDS':'STRIPES'))+'</span>';
@@ -8148,6 +8151,7 @@ function plHud(g){
     for(let n=1;n<=7;n++){const id=gr==='solid'?n:n+8,on=pl.balls.some(b=>b.id===id&&b.on),fresh=!on&&!g.trayOff[id]&&g.trayInit;if(!on)g.trayOff[id]=1;h+='<i class="pl-mb'+(gr==='stripe'&&!bbh?' st':'')+(on?'':' off')+(fresh?' fresh':'')+'" style="--c:'+(bbh?(gr==='solid'?'#d0281f':'#f0c52a'):PL_COL[n])+'">'+(bbh?'':id)+'</i>';}
     g.trayInit=true;
     return h;};
+  {const hb=document.querySelector('.ah-hud-bot'),ht=document.querySelector('.ah-hud-top'),bs0=g.mode==='guest'?1:0,live=!pl.over&&!g.anim;if(hb)hb.classList.toggle('act',live&&pl.turn===bs0);if(ht)ht.classList.toggle('act',live&&pl.turn!==bs0);}
   const bs=g.mode==='guest'?1:0,a=document.getElementById('pl-sc0'),b=document.getElementById('pl-sc1');
   const la=lab(bs),lb=lab(1-bs);
   if(a&&a._t!==la){a._t=la;a.innerHTML=la;a.classList.add('pl-grp');}if(b&&b._t!==lb){b._t=lb;b.innerHTML=lb;b.classList.add('pl-grp');}
@@ -8296,6 +8300,8 @@ function plDraw(g,now){
     const lv=plAssist(),ang=g.aim.ang,ray=plRay(g.disp,cue.x,cue.y,ang,2600);
     const len=lv==='family'?ray.t:lv==='challenge'?Math.min(ray.t,520):Math.min(ray.t,230);
     x.save();x.setLineDash([10,9]);x.lineWidth=2;x.strokeStyle='rgba(255,255,255,.7)';x.beginPath();x.moveTo(cue.x,cue.y);x.lineTo(cue.x+Math.cos(ang)*len,cue.y+Math.sin(ang)*len);x.stroke();x.setLineDash([]);
+    // little ticks every 100 units, to judge the distance of the shot
+    {const nx=-Math.sin(ang),ny=Math.cos(ang);x.strokeStyle='rgba(255,255,255,.55)';x.lineWidth=1.6;for(let d=100;d<len-20;d+=100){const tx=cue.x+Math.cos(ang)*d,ty=cue.y+Math.sin(ang)*d,hw=d%500===0?9:5;x.beginPath();x.moveTo(tx-nx*hw,ty-ny*hw);x.lineTo(tx+nx*hw,ty+ny*hw);x.stroke();}}
     if(ray.kind==='ball'&&len>=ray.t-1){
       // where the cue ball meets the ball: a ghost ball, and the way the object ball will go
       x.strokeStyle='rgba(255,255,255,.85)';x.lineWidth=1.8;x.beginPath();x.arc(ray.px,ray.py,PL.R,0,6.283);x.stroke();
@@ -8337,6 +8343,8 @@ function plDraw(g,now){
   if(pl.rules==='bb'&&mineGrp&&!g.anim&&!pl.over&&plLeft(pl,mineSeat)===0&&pl.lastPocket&&pl.lastPocket[mineSeat]!=null&&pl.turn===mineSeat){const pc=PL_POCKETS[pl.lastPocket[mineSeat]],pu=.5+.5*Math.sin(nowP/300);x.save();x.strokeStyle='rgba(255,214,110,'+(.55+pu*.4)+')';x.lineWidth=4;x.shadowColor='rgba(255,200,80,.95)';x.shadowBlur=14;x.beginPath();x.arc(pc[0],pc[1],PL.PC+10+pu*3,0,6.283);x.stroke();x.restore();}
   // the pocketed balls of each player along the bottom of the table (small)
   const done=[[],[]];for(const b of g.pl.balls){if(!b.on&&b.id>0&&b.id!==8){const s=pl.groups[0]&&plGroup(b.id)===pl.groups[0]?0:pl.groups[1]&&plGroup(b.id)===pl.groups[1]?1:-1;if(s>=0)done[s].push(b.id);}}
+  // the chalk of the cue tip drifts away
+  for(const c of g.fx.chalk){const u=c.l/c.life;x.fillStyle='rgba(150,190,230,'+(.32*(1-u))+')';x.beginPath();x.arc(c.x,c.y,c.r*(1+u*1.8),0,6.283);x.fill();}
   // sparks, banners, shake
   x.save();x.globalCompositeOperation='lighter';for(const p of g.fx.parts){const u=p.l/p.life;x.globalAlpha=Math.max(0,1-u);x.strokeStyle=p.col;x.lineWidth=2.2;x.lineCap='round';x.beginPath();x.moveTo(p.x,p.y);x.lineTo(p.x-p.vx*.03,p.y-p.vy*.03);x.stroke();}x.restore();x.globalAlpha=1;
   const nowT=performance.now();g.fx.banners=g.fx.banners.filter(b=>nowT-b.t<b.ms+250);
