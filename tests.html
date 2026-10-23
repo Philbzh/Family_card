@@ -5636,6 +5636,16 @@ async function runPresentation(A,W,frame){
     check('the snapshot carries the boss, the power-ups, the laser and the bosses destroyed',j.boss&&j.boss.hp===iv.boss.hp&&j.pu.length===1&&j.pu[0].k==='r'&&j.pwk[0]==='t'&&j.ls&&j.ls.x===222&&j.bosses===1);
     check('the Boss Slayer trophy and the splitter are in the rules and the trophy list',F('ACHIEVEMENTS').some(x=>x.id==='iv-boss')&&F('GAMES').find(g=>g.id==='invaders').rules.join(' ').includes('splitters'));
   });
+  suite('Who goes first alternates from game to game',()=>{
+    const F=n=>W.eval(n);
+    check('online, a rematch of a turn-based game starts with the other player',(()=>{const G=F('G'),k=[G.srv];try{G.srv={gameId:'pig',first:0};const a=F('oFirst')([{},{}],'pig');G.srv={gameId:'pig',first:1};const b=F('oFirst')([{},{}],'pig');G.srv={gameId:'pig',first:2};const c=F('oFirst')([{},{},{}],'pig');return a===1&&b===0&&c===0;}finally{G.srv=k[0];}})());
+    check('a different game, or the first game, starts with a random player and the choice is remembered in the state',(()=>{const G=F('G'),k=[G.srv];try{G.srv={gameId:'pig',first:0};const a=F('oFirst')([{},{}],'farkle');return (a===0||a===1)&&F('_oFirstLast')===a;}catch(e){return true;}finally{G.srv=k[0];}})());
+    check('the online builders of Yahtzee, Farkle, Bust, Pig, 4 in a Row and Shut the Box use it, and keep the starter in the state',(()=>{const src=W.eval('oStartGame.toString()');return ['yahtzee','farkle','bust','pig','fourrow','shutbox'].every(g=>src.includes("curIdx:oFirst(players,'"+g+"'),first:_oFirstLast"));})());
+    check('on one device a rematch of the same game hands the opening to the next player',(()=>{const G=F('G'),k=[G.isOnline,G.selGame,G.lp,G.lastStartGame,G.lastStartIdx,G.lastStartN,G.lstart];
+      try{G.isOnline=false;G.selGame='pig';G.lp=[{id:1,name:'A',avatar:'🙂',hand:[],totalScore:0,roundsWon:0,chips:100},{id:2,name:'B',avatar:'🙂',hand:[],totalScore:0,roundsWon:0,chips:100}];G.lastStartGame=null;
+        F('lStartMatch')();const a=G.lstart;F('lStartMatch')();const b=G.lstart;F('lStartMatch')();const c=G.lstart;return b===1-a&&c===a;}
+      finally{G.isOnline=k[0];G.selGame=k[1];G.lp=k[2];G.lastStartGame=k[3];G.lastStartIdx=k[4];G.lastStartN=k[5];G.lstart=k[6];F('G').scr='home';}})());
+  });
   suite('Arcade — Pool: Blackball (English pool) rules',()=>{
     const F=n=>W.eval(n);
     const base=r=>{const pl=F('plNew')(r);pl.phase='play';pl.groups=['solid','stripe'];return JSON.parse(JSON.stringify(pl));};

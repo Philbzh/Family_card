@@ -6198,7 +6198,8 @@ function lStartMatch(){
   G.lround=1;
   // The Cut: who deals first is picked at random, not always seat 1, and the reveal is the point —
   // ties the dealer button (poker's blind assignment) to the same seat as the pass-and-play start.
-  G.lstart=rnd(0,G.lp.length-1);G.dealer=G.lstart;
+  G.lstart=(G.lastStartGame===G.selGame&&G.lastStartN===G.lp.length&&G.lastStartIdx!=null)?(G.lastStartIdx+1)%G.lp.length:rnd(0,G.lp.length-1);G.dealer=G.lstart;   // a rematch of the same game: the next player opens
+  G.lastStartGame=G.selGame;G.lastStartN=G.lp.length;G.lastStartIdx=G.lstart;
   G.gp++;localStorage.setItem('ct_gp',G.gp);G.matchStats=freshMatchStats();
   lDeal();
   const dealer=G.lp[G.lstart];
@@ -27504,6 +27505,9 @@ function resButtonsHTML(){
   return'<div class="res-btns"><button class="btn btn-gold btn-full" data-a="o-rematch">🔥 Rematch — same players</button><button class="btn btn-ghost btn-full" data-a="o-another">🎲 Play another game'+(G.anotherOpen?' ▴':' ▾')+'</button><button class="btn btn-ghost btn-full" data-a="newgame">Leave the table</button></div>'+picker;
 }
 /* ── Online: start a game from a room state (the lobby's Start button, and Rematch / Play another game) ── */
+// Who goes first in a turn-based online game: the other player than in the game just finished (a rematch alternates), random for a new game.
+let _oFirstLast=0;
+function oFirst(players,gameId){const n=players.length,prev=G.srv&&G.srv.gameId===gameId&&G.srv.first!=null?G.srv.first:null;const f=prev==null?rnd(0,n-1):(prev+1)%n;_oFirstLast=f;return f;}
 function oStartGame(rs){
   const minP=((GAMES.find(g=>g.id===(rs&&rs.gameId))||{}).minP)||2;
   if(!rs||!rs.players||rs.players.length<minP){toast('Need at least '+minP+' players');return;}
@@ -27547,13 +27551,13 @@ function oStartGame(rs){
       }
       if(rs.gameId==='yahtzee'){
         const players=rs.players.map(p=>({...p,scorecard:yFreshScorecard()}));
-        const gs={phase:'game',gameId:'yahtzee',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,ydice:[1,1,1,1,1],yheld:[false,false,false,false,false],yrolls:0,yLastRolled:[],winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
+        const gs={phase:'game',gameId:'yahtzee',host:rs.host,hr:rs.hr||G.hr,players,curIdx:oFirst(players,'yahtzee'),first:_oFirstLast,ydice:[1,1,1,1,1],yheld:[false,false,false,false,false],yrolls:0,yLastRolled:[],winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
         G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }
       if(rs.gameId==='farkle'){
         const players=rs.players.map(p=>({...p,totalScore:0,fkOnBoard:false}));
-        const gs={phase:'game',gameId:'farkle',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
+        const gs={phase:'game',gameId:'farkle',host:rs.host,hr:rs.hr||G.hr,players,curIdx:oFirst(players,'farkle'),first:_oFirstLast,
           fk:{dice:fkFreshDiceArr(),selected:new Array(6).fill(false),turnTotal:0,hasRolled:false,
             lastRolled:[],busted:false,finalRoundActive:false,finalRoundEndSeat:null},
           winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
@@ -27562,7 +27566,7 @@ function oStartGame(rs){
       }
       if(rs.gameId==='bust'){
         const players=rs.players.map(p=>({...p,totalScore:0,bstOnBoard:false}));
-        const gs={phase:'game',gameId:'bust',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
+        const gs={phase:'game',gameId:'bust',host:rs.host,hr:rs.hr||G.hr,players,curIdx:oFirst(players,'bust'),first:_oFirstLast,
           bst:bstFreshTurnState(),
           winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
         G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
@@ -27607,7 +27611,7 @@ function oStartGame(rs){
       }
       if(rs.gameId==='pig'){
         const players=rs.players.map(p=>({...p,totalScore:0}));
-        const gs={phase:'game',gameId:'pig',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
+        const gs={phase:'game',gameId:'pig',host:rs.host,hr:rs.hr||G.hr,players,curIdx:oFirst(players,'pig'),first:_oFirstLast,
           pig:{die:1,turnTotal:0,hasRolled:false,busted:false},
           winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
         G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
@@ -27659,14 +27663,14 @@ function oStartGame(rs){
       }
       if(rs.gameId==='fourrow'){
         const players=rs.players.slice(0,2).map(p=>({...p,totalScore:0,c4Result:null}));
-        const gs={phase:'game',gameId:'fourrow',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
+        const gs={phase:'game',gameId:'fourrow',host:rs.host,hr:rs.hr||G.hr,players,curIdx:oFirst(players,'fourrow'),first:_oFirstLast,
           c4:c4NewGame(c4Mode()),winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
         G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }
       if(rs.gameId==='shutbox'){
         const players=rs.players.map(p=>({...p,totalScore:0,stbScore:null,stbTiles:null}));
-        const gs={phase:'game',gameId:'shutbox',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
+        const gs={phase:'game',gameId:'shutbox',host:rs.host,hr:rs.hr||G.hr,players,curIdx:oFirst(players,'shutbox'),first:_oFirstLast,
           stb:stbNewTurn(),winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
         G.srv=gs;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
