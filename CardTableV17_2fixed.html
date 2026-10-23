@@ -8671,12 +8671,12 @@ function fgLand(g){
   if(best){
     best.hit=g.t;best.hitBy=f.owner;best.perfect=best.d<=best.r*.34;best.risk=f.risk;
     const p=fgPos(best,g.t);best.dx=ax-p.x;best.dy=ay-p.y;FGS.thunk();FGS.stretch();
-    g.wait=g.run?.14:.5;
+    g.wait=g.run?.05:.5;
   }else{
     f.miss=true;g.streak[f.owner]=0;g.chainN[f.owner]=0;g.chainC[f.owner]=-1;
     if(f.risk){g.score[f.owner]=Math.max(0,g.score[f.owner]-50);fgBanner(g,'RISK LOST','−50 · chain lost','#ff8a7a',1000);FGS.black();}
     if(near){FGS.near();fgText(g,ax,ay-14,'NEAR MISS','#ffcf8a',24);}else{FGS.miss();fgText(g,ax,ay-14,'MISS','#9aa89c',22);}
-    FGS.thunk();g.wait=g.run?.12:.45;
+    FGS.thunk();g.wait=g.run?.05:.45;
   }
 }
 function fgMult(streak){return streak>=4?4:streak>=3?3:streak>=2?2:1;}
@@ -8922,15 +8922,16 @@ function fgSize(){
 window.addEventListener('resize',()=>{try{if(G.fg&&G.fg.live)fgSize();}catch(e){}});
 function fgCanAct(g){if(fgNetWatch(g))return false;if(g&&g.kind==='marksman')return msCanAct(g);if(g&&g.kind==='hoopfever')return hfCanAct(g);return g&&g.live&&fgRunActive(g)&&(g.phase==='play'||(g.phase==='final'&&g.final))&&!g.fl&&g.wait<=0&&!g.bots[g.turn]&&!g.over&&!g.botAim;}
 function fgFire(g,x,y){return g.kind==='marksman'?msShoot(g,x,y):fgThrow(g,x,y);}
+function fgAimable(g){return !!(g&&g.live&&!g.over&&g.phase==='play'&&!fgNetWatch(g)&&!g.bots[g.turn]&&!g.botAim&&fgRunActive(g));}
 function fgBindInput(cv){
   const g=G.fg;cv.style.touchAction='none';
   if(g.kind==='hoopfever'){hfBindInput(cv,g);return;}
   const toW=e=>{const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width*FG.W,y:(e.clientY-r.top)/r.height*FG.H};};
   const setAim=e=>{const p=toW(e),nx=Math.max(22,Math.min(FG.W-22,p.x)),ny=Math.max(70,Math.min(FG.H-100,p.y-92)),nw=performance.now(),dd=Math.hypot(nx-g.aim.x,ny-g.aim.y),dtm=Math.max(8,nw-(g.aim.lt||nw-16));g.aim.mv=dd/dtm*1000;g.aim.lt=nw;g.aim.x=nx;g.aim.y=ny;};   // the sight sits above the finger, so the finger never hides it
   let down=false;
-  cv.addEventListener('pointerdown',e=>{e.preventDefault();if(!G.fg||G.fg!==g||!fgCanAct(g))return;if(g.kind==='marksman'&&g.phase==='rapid')g.aim.rapid=true;down=true;try{cv.setPointerCapture(e.pointerId);}catch(x){}g.aim.on=true;setAim(e);},{passive:false});
+  cv.addEventListener('pointerdown',e=>{e.preventDefault();if(!G.fg||G.fg!==g||!(fgCanAct(g)||fgAimable(g)))return;if(g.kind==='marksman'&&g.phase==='rapid')g.aim.rapid=true;down=true;try{cv.setPointerCapture(e.pointerId);}catch(x){}g.aim.on=true;setAim(e);},{passive:false});
   cv.addEventListener('pointermove',e=>{if(down&&G.fg===g){if(e.cancelable)e.preventDefault();setAim(e);}},{passive:false});
-  const up=()=>{if(!down)return;down=false;if(G.fg!==g)return;if(g.aim.on&&fgCanAct(g)){g.aim.on=false;fgFire(g,g.aim.sx!=null?g.aim.sx:g.aim.x,g.aim.sy!=null?g.aim.sy:g.aim.y);}else g.aim.on=false;};
+  const up=()=>{if(!down)return;down=false;if(G.fg!==g)return;const ax=g.aim.sx!=null?g.aim.sx:g.aim.x,ay=g.aim.sy!=null?g.aim.sy:g.aim.y;if(g.aim.on&&fgCanAct(g)){g.aim.on=false;fgFire(g,ax,ay);}else{if(g.aim.on&&fgAimable(g))g.pend={x:ax,y:ay,t:performance.now()};g.aim.on=false;}};
   cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',()=>{down=false;g.aim.on=false;});
 }
 function fgFrame(now){
@@ -8942,6 +8943,7 @@ function fgFrame(now){
   if(document.hidden)return;
   const dt=Math.min(.05,Math.max(0,(now-g.last)/1000));g.last=now;
   fgStep(g,dt);fgNetTick(g,dt);
+  if(g.pend){const age=performance.now()-g.pend.t;if(age>650||!fgAimable(g))g.pend=null;else if(fgCanAct(g)){const q=g.pend;g.pend=null;fgFire(g,q.x,q.y);}}
   // the sight trembles a little on the harder levels
   if(g.kind!=='marksman'&&!fgNetWatch(g)){const j=FG_DIFF[g.diff].jit;g.aim.sx=g.aim.x+Math.sin(g.t*5.3)*j+Math.sin(g.t*11.1)*j*.4;g.aim.sy=g.aim.y+Math.cos(g.t*4.1)*j+Math.cos(g.t*9.7)*j*.4;}
   if(g.phase==='play'&&g.lastTurnSaid!==g.turn){g.lastTurnSaid=g.turn;if(g.n>1&&g.thrown>0){FGS.turn();fgBanner(g,g.players[g.turn].name.toUpperCase(),'your '+fgWord(g),null,650);}}
@@ -9121,7 +9123,7 @@ function fgDrawBB(g,now){
   }
   if(f&&f.done&&f.miss&&!f.stuck){f.stuck=true;(g.stuck=g.stuck||[]).push({x:f.ax,y:f.ay,a:-1.45+(Math.random()-.5)*.3,t:now});}
   // the sight
-  if(fgCanAct(g)||(g.aim.on&&(g.bots[g.turn]||fgNetWatch(g)))){
+  if(fgCanAct(g)||g.aim.on){
     const ax=g.aim.sx!=null?g.aim.sx:g.aim.x,ay=g.aim.sy!=null?g.aim.sy:g.aim.y,d=FG_DIFF[g.diff];
     if(d.pre&&(g.aim.on||g.bots[g.turn]===null)){x.save();x.setLineDash([6,9]);x.strokeStyle='rgba(255,236,190,.35)';x.lineWidth=1.6;x.beginPath();x.moveTo(W/2,H+30);x.lineTo(ax,ay);x.stroke();x.restore();}
     if(g.aim.on||g.bots[g.turn]){
@@ -9239,7 +9241,7 @@ function msCanAct(g){
   if(!g||!g.live||g.over||g.bots[g.turn]||g.botAim||fgNetWatch(g))return false;
   if(g.phase==='rapid')return true;
   if(g.run&&!fgRunActive(g))return false;
-  return (g.phase==='play'||(g.phase==='final'&&g.final))&&!g.fls.length&&g.wait<=0&&!g.needAdv;
+  return (g.phase==='play'||(g.phase==='final'&&g.final))&&(g.run?(g.cool||0)<=0:!g.fls.length)&&g.wait<=0&&!g.needAdv;
 }
 function msFlight(ay,fin){return (.2+.2*Math.max(0,Math.min(1,1-ay/FG.H)))*(fin?2.2:1);}
 // the wind pushes the pellet sideways: more over a longer flight
@@ -9252,7 +9254,8 @@ function msShoot(g,ax,ay){
   g.fls.push({sx:FG.W/2,sy:FG.H+10,ax,ay,wx:msDrift(g,ay,T),t0:g.t,T,owner:g.turn,fin,rapid,done:false});
   if(!rapid&&!fin){g.darts[g.turn]=Math.max(0,g.darts[g.turn]-1);g.blockLeft[g.turn]=Math.max(0,g.blockLeft[g.turn]-1);}
   if(rapid)g.rapid.cool=.2;
-  g.thrown++;g.steady=0;g.hold=0;g.fx.zoom=fin?.05:0;FGS.shot();haptic(7);return true;
+  if(g.run){g.cool=.16;g.steady*=.35;}else g.steady=0;
+  g.thrown++;g.hold=0;g.fx.zoom=fin?.05:0;FGS.shot();haptic(7);return true;
 }
 function msLand(g,f){
   f.done=true;const ax=f.ax+(f.wx||0),ay=f.ay;let best=null,bs=1e9,near=false;
@@ -9272,7 +9275,7 @@ function msLand(g,f){
     if(near){FGS.near();fgText(g,ax,ay-12,'CLOSE','#ffcf8a',22);}else{FGS.miss();fgText(g,ax,ay-12,'MISS','#9aa89c',20);}
     FGS.thunk();f.miss=true;
   }
-  if(!f.rapid)g.wait=.55;
+  if(!f.rapid)g.wait=g.run?.04:.55;
 }
 function msScore(g,t,f){
   const o=f.owner,T=MS_T[t.k],val=msRing(t.d,t.r),col=t.k==='gold'||t.k==='final'?'#ffd96a':t.k==='decoy'?'#ff8a7a':t.k==='bottle'?'#7fd7c8':'#e9dfc4';
@@ -9309,7 +9312,7 @@ function msAdvance(g){
   else if(it.k==='final'){g.phase='final';g.pt=0;msStageLayout(g,0);g.finalDone=g.players.map(()=>false);g.turn=(G.lstart||0)%n;g.final=null;fgBanner(g,g.so?'SHOOT-OFF':'FINAL SHOT',g.so?'one star, closest to the centre wins':'one golden star each',null,1700);FGS.go();}
 }
 function msStep(g,dt){
-  g.pt+=dt;
+  g.pt+=dt;g.cool=Math.max(0,(g.cool||0)-dt);
   const slowNow=g.fls.some(f=>f.fin&&!f.done);g.slow+=((slowNow?.5:1)-g.slow)*Math.min(1,dt*6);const wdt=dt*g.slow;g.t+=wdt;
   const d=FG_DIFF[g.diff],lv=MS_LVL[g.diff];
   if(g.phase==='intro'){
@@ -9331,7 +9334,7 @@ function msStep(g,dt){
   // the sight: it drifts with your breathing; hold still and it settles, hold too long and your arm tires
   if(g.aim.on&&!g.bots[g.turn]){
     g.aim.mv*=Math.pow(.2,dt);   // a finger that has stopped sending moves is a still finger
-    if(g.aim.mv<70){g.steady=Math.min(1,g.steady+dt/1.1);if(g.steady>=1)g.hold+=dt;}
+    if(g.aim.mv<110){g.steady=Math.min(1,g.steady+dt/(g.run?.55:1.1));if(g.steady>=1)g.hold+=dt;}
     else{g.steady=Math.max(0,g.steady-dt*3);g.hold=0;}
   }else{g.steady=Math.max(0,g.steady-dt*2);g.hold=0;}
   const tire=Math.max(0,g.hold-.9),A=lv.sway*(1-.88*g.steady)+tire*lv.sway*1.1;
@@ -9520,7 +9523,7 @@ function msDraw(g,now){
   {const ax=g.aim.sx!=null?g.aim.sx:g.aim.x,ay=g.aim.sy!=null?g.aim.sy:g.aim.y,ang=Math.atan2(ay-(H-20),ax-W/2);
     x.save();x.translate(W/2,H-24);x.rotate(ang+Math.PI/2);const gr=x.createLinearGradient(-9,0,9,0);gr.addColorStop(0,'#14181a');gr.addColorStop(.4,'#5a6268');gr.addColorStop(1,'#0c0e10');x.fillStyle=gr;x.fillRect(-8,-70,16,86);x.fillStyle='#b8923a';x.fillRect(-10,-74,20,7);x.fillStyle='#3c2512';x.fillRect(-13,8,26,26);x.fillStyle='rgba(255,226,170,.25)';x.fillRect(-8,-70,3,86);x.restore();}
   // the sight, with its steadiness
-  if(msCanAct(g)||(g.aim.on&&(g.bots[g.turn]||fgNetWatch(g)))||(g.phase==='rapid'&&!g.bots[g.turn]&&g.aim.on)){
+  if(msCanAct(g)||g.aim.on||(g.phase==='rapid'&&!g.bots[g.turn]&&g.aim.on)){
     const ax=g.aim.sx!=null?g.aim.sx:g.aim.x,ay=g.aim.sy!=null?g.aim.sy:g.aim.y;
     if(g.aim.on||g.bots[g.turn]){
       const human=!g.bots[g.turn],st=human?g.steady:.6,still=st>=.98&&!g.aim.tired,col=g.aim.tired?'255,120,90':still?'140,240,170':'255,220,130';

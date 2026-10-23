@@ -5755,6 +5755,12 @@ async function runPresentation(A,W,frame){
       check('holding still steadies the sight',(()=>{f.aim.on=true;for(let i=0;i<90;i++){f.aim.mv=0;F('fgStep')(f,1/60);}return f.steady>.98;})());
       check('moving the finger shakes the steadiness off again',(()=>{for(let i=0;i<40;i++){f.aim.mv=900;F('fgStep')(f,1/60);}return f.steady<.2;})());
       check('holding the sight still for too long tires the arm: the sight starts to shake again',(()=>{f.diff='skill';f.steady=0;f.hold=0;for(let i=0;i<60*4;i++){f.aim.on=true;f.aim.mv=0;F('fgStep')(f,1/60);}return f.hold>2&&f.aim.tired===true;})());
+      // quick shooting: a short reload instead of waiting for the pellet to land
+      f=mk(1);f.t=10;f.wind={v:0,target:0,t:1e9};F('msShoot')(f,300,500);
+      check('right after a shot you reload for a moment',!F('msCanAct')(f)&&f.cool>0);
+      run(f,14);
+      check('after the short reload you can shoot again while the first pellet is still flying',F('msCanAct')(f)&&f.fls.some(x=>!x.done));
+      check('a shot let go too early is kept for a moment (a pending shot) and the sight shows while you aim',(()=>{f.pend={x:300,y:400,t:performance.now()};return F('fgAimable')(f)&&f.pend.x===300;})());
       // timed run, stages by the clock, the power shot
       f=mk(1);F('msStageLayout')(f,1);f.run.dur=60;f.run.left=60;run(f,2);
       check('a run starts on stage 1 and moves to moving targets after a third of the time',f.stage===1&&(()=>{f.run.left=30;run(f,2);return f.stage===2;})());
