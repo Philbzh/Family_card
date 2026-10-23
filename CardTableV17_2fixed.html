@@ -9835,7 +9835,33 @@ function hfToggleFmt(){
   const n=g.fmt==='horse'?'shootout':'horse';try{localStorage.setItem('ct_hf_fmt',n);}catch(e){}
   fgStop();render();
 }
+function hfBuildPic(g,bg){
+  const sc=g.scale,W=FG.W,H=FG.H,c=document.createElement('canvas');c.width=Math.round(W*sc);c.height=Math.round(H*sc);
+  const x=c.getContext('2d');x.scale(sc,sc);
+  x.fillStyle='#030305';x.fillRect(0,0,W,H);
+  // the picture hangs a little lower, so that the centre line of the court is the line the ball bounces on
+  const gr=x.createLinearGradient(0,0,0,HF_SP.dy+40);gr.addColorStop(0,'#020204');gr.addColorStop(1,'#07060a');x.fillStyle=gr;x.fillRect(0,0,W,HF_SP.dy+40);
+  x.drawImage(bg,0,HF_SP.dy,W,H);
+  const top=x.createLinearGradient(0,HF_SP.dy-4,0,HF_SP.dy+70);top.addColorStop(0,'rgba(2,2,4,1)');top.addColorStop(1,'rgba(2,2,4,0)');x.fillStyle=top;x.fillRect(0,HF_SP.dy-4,W,74);
+  // the three spots, in gold on the boards
+  x.textAlign='center';
+  HF_SPOTS.forEach(sp=>{const sy2=800;
+    x.save();x.shadowColor='rgba(255,200,90,.7)';x.shadowBlur=14;x.strokeStyle='#e8c25a';x.lineWidth=3.2;x.beginPath();x.ellipse(sp.x,sy2,34,12,0,0,6.283);x.stroke();x.restore();
+    x.fillStyle='rgba(0,0,0,.35)';x.beginPath();x.ellipse(sp.x,sy2,30,9,0,0,6.283);x.fill();
+    x.fillStyle='rgba(244,235,208,.95)';x.font='700 11px Jost, sans-serif';x.fillText(sp.nm,sp.x,sy2-1);x.font='700 15px Cinzel, Georgia, serif';x.fillStyle='#ffe3a0';x.fillText('×'+sp.m,sp.x,sy2+22);});
+  // the post that carries the backboard, from the picture of the post: the steel top, the padded body stretched to the floor, the base plate
+  const ps=hfImg('hf_post.png');
+  if(ps){const k=40/HF_SP.bd,sx=ps.width-HF_SP.bd,px=FG.W-58,top0=330,bot0=812,topH=90,padSrc0=150,padSrc1=428,baseH=ps.height-padSrc1;
+    x.drawImage(ps,sx,60,HF_SP.bd,topH,px,top0,40,topH*k);
+    x.drawImage(ps,sx,padSrc0,HF_SP.bd,padSrc1-padSrc0,px,top0+topH*k,40,bot0-baseH*k-(top0+topH*k));
+    x.drawImage(ps,sx,padSrc1,HF_SP.bd,baseH,px,bot0-baseH*k,40,baseH*k);
+    const cg=x.createLinearGradient(px,0,px+40,0);cg.addColorStop(0,'#8d98ad');cg.addColorStop(.5,'#e6ecf6');cg.addColorStop(1,'#667087');x.fillStyle=cg;x.fillRect(px+2,top0-6,36,8);}
+  // the edges fall into the dark
+  const vg=x.createRadialGradient(W/2,H*.5,H*.34,W/2,H*.5,H*.85);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.5)');x.fillStyle=vg;x.fillRect(0,0,W,H);
+  g.statik=c;
+}
 function hfBuild(g){
+  const bgp=hfImg('hoopfever_bg.jpg');if(bgp&&hfImg('hf_post.png')){hfBuildPic(g,bgp);return;}
   // a private indoor arena at night: steel trusses and floodlights, dark stands, a glowing courtside band, a polished court
   const sc=g.scale,W=FG.W,H=FG.H,c=document.createElement('canvas');c.width=Math.round(W*sc);c.height=Math.round(H*sc);
   const x=c.getContext('2d');x.scale(sc,sc);
@@ -9919,21 +9945,29 @@ function hfBuild(g){
   g.statik=c;
 }
 const HF_LAMPS=[110,300,490];
+// the pictures made for the game: the arena, the ball, the hoop (red and golden) and the post
+const HF_IMGS={};
+function hfImg(n){let e=HF_IMGS[n];if(!e){e=HF_IMGS[n]=new Image();e.onload=()=>{if(G.fg&&G.fg.kind==='hoopfever')G.fg.statik=null;};e.src='assets/games/'+n;}return e.complete&&e.naturalWidth?e:null;}
+const HF_SP={cx:113,cy:166,w:226,bd:104,dy:150};   // the rim centre and width in the hoop picture, the width of the post picture, how far the arena picture is moved down
 function hfDrawLights(g,x){
-  const t=g.t,intro=g.phase==='intro',fy=560;
+  const t=g.t,intro=g.phase==='intro',fy=560,pic=!!(hfImg('hoopfever_bg.jpg')&&hfImg('hf_post.png'));
   x.save();x.globalCompositeOperation='lighter';
   // smoke drifting through the light
   for(let i=0;i<9;i++){const sx=((i*173+t*(8+i%3*4))%(FG.W+240))-120,sy=220+((i*97)%260)+Math.sin(t*.4+i)*20,sr=110+(i%4)*22,hg=x.createRadialGradient(sx,sy,4,sx,sy,sr);hg.addColorStop(0,'rgba(200,214,236,.055)');hg.addColorStop(1,'rgba(200,214,236,0)');x.fillStyle=hg;x.beginPath();x.arc(sx,sy,sr,0,6.283);x.fill();}
   // the fire along the far edge of the court
-  {const heat=(g.fire&&g.fire[g.turn]?1:g.mode==='jackpot'||g.mode==='gold'?.65:.28);
+  {const heat=(g.fire&&g.fire[g.turn]?1:g.mode==='jackpot'||g.mode==='gold'?.65:.28);const fy=pic?646:560;
    for(let i=0;i<30;i++){const fx=i*(FG.W/29),ph=i*1.7+t*(3+i%4*.6),h=(16+30*heat)*(.55+.45*Math.sin(ph))*(.7+.3*Math.sin(i*2.1)),fg=x.createLinearGradient(0,fy-h,0,fy+6);fg.addColorStop(0,'rgba(255,90,20,0)');fg.addColorStop(.5,'rgba(255,140,40,'+(.22+.3*heat)+')');fg.addColorStop(1,'rgba(255,214,120,'+(.35+.3*heat)+')');x.fillStyle=fg;x.beginPath();x.moveTo(fx-12,fy+6);x.quadraticCurveTo(fx-3,fy-h*.6,fx+Math.sin(ph)*5,fy-h);x.quadraticCurveTo(fx+3,fy-h*.5,fx+12,fy+6);x.closePath();x.fill();}
    const eg=x.createLinearGradient(0,fy-4,0,fy+60);eg.addColorStop(0,'rgba(255,150,50,'+(.18+.14*heat)+')');eg.addColorStop(1,'rgba(255,150,50,0)');x.fillStyle=eg;x.fillRect(0,fy-4,FG.W,64);}
-  HF_LAMPS.forEach((lx,i)=>{const on=!intro||g.pt>.3+i*.5;if(!on)return;const fl=.95+.05*Math.sin(t*6+i*2);
+  if(!pic)HF_LAMPS.forEach((lx,i)=>{const on=!intro||g.pt>.3+i*.5;if(!on)return;const fl=.95+.05*Math.sin(t*6+i*2);
     const cg=x.createLinearGradient(0,118,0,fy+120);cg.addColorStop(0,'rgba(255,232,190,'+(.3*fl)+')');cg.addColorStop(1,'rgba(255,232,190,0)');x.fillStyle=cg;x.beginPath();x.moveTo(lx-40,118);x.lineTo(lx+40,118);x.lineTo(lx+190,fy+120);x.lineTo(lx-190,fy+120);x.closePath();x.fill();
     const rg=x.createRadialGradient(lx,105,2,lx,105,70);rg.addColorStop(0,'rgba(255,248,226,'+(.95*fl)+')');rg.addColorStop(.3,'rgba(255,220,150,'+(.4*fl)+')');rg.addColorStop(1,'rgba(255,200,120,0)');x.fillStyle=rg;x.beginPath();x.arc(lx,105,70,0,6.283);x.fill();});
   x.restore();
 }
 function hfDrawBall(x,px,py,rot,r,speed){
+  const bi=hfImg('hf_ball.png');
+  if(bi){x.save();x.translate(px,py);x.rotate(rot);const d=r*2.06;x.drawImage(bi,-d/2,-d/2,d,d);x.restore();
+    x.save();x.translate(px,py);const sh=x.createRadialGradient(r*.3,r*.35,r*.25,0,0,r*1.05);sh.addColorStop(0,'rgba(0,0,0,0)');sh.addColorStop(1,'rgba(0,0,0,.42)');x.fillStyle=sh;x.beginPath();x.arc(0,0,r,0,6.283);x.fill();
+    const hl=x.createRadialGradient(-r*.4,-r*.45,0,-r*.4,-r*.45,r*.5);hl.addColorStop(0,'rgba(255,240,210,.4)');hl.addColorStop(1,'rgba(255,240,210,0)');x.fillStyle=hl;x.beginPath();x.arc(-r*.4,-r*.45,r*.5,0,6.283);x.fill();x.restore();return;}
   x.save();x.translate(px,py);
   // the ball itself: warm leather with a soft light from the top left
   x.save();x.rotate(rot);
@@ -9954,6 +9988,21 @@ function hfDrawBall(x,px,py,rot,r,speed){
 }
 function hfDrawHoop(g,x,front){
   const hx=g.hx,hw=g.hw,hy=HF.HY,t=g.t,gold=g.mode==='gold'||g.mode==='jackpot',fire=g.fire[g.turn];
+  const hs=hfImg(gold?'hf_goldhoop.png':'hf_hoop.png');
+  if(hs){
+    const k=(2*hw)/HF_SP.w,dx=hx-HF_SP.cx*k,dy=hy-HF_SP.cy*k;
+    if(!front){
+      x.save();x.globalCompositeOperation='lighter';const sl=x.createRadialGradient(hx,hy-30,10,hx,hy-30,260);sl.addColorStop(0,'rgba(255,226,170,.2)');sl.addColorStop(1,'rgba(255,226,170,0)');x.fillStyle=sl;x.beginPath();x.arc(hx,hy-30,260,0,6.283);x.fill();x.restore();
+      // the arms that join the backboard to the post
+      const bx=hx+(hs.width-6-HF_SP.cx)*k,wl=FG.W-60;for(const ay of [hy-52,hy+8]){const ag=x.createLinearGradient(0,ay-5,0,ay+5);ag.addColorStop(0,'#8d98ad');ag.addColorStop(.5,'#e6ecf6');ag.addColorStop(1,'#4a5266');x.fillStyle=ag;x.fillRect(bx,ay-5,wl-bx,10);}
+      x.drawImage(hs,dx,dy,hs.width*k,hs.height*k);
+      if(fire){x.save();x.globalCompositeOperation='lighter';for(let i=0;i<6;i++){const a=t*9+i*1.9,fx=hx+Math.sin(a)*hw*.8,fy=hy-8-Math.abs(Math.sin(a*1.3))*44;const fg=x.createRadialGradient(fx,fy,2,fx,fy,28);fg.addColorStop(0,'rgba(255,200,90,.75)');fg.addColorStop(1,'rgba(255,90,20,0)');x.fillStyle=fg;x.beginPath();x.arc(fx,fy,28,0,6.283);x.fill();}x.restore();}
+      return;
+    }
+    const kick=g.netKick,sw=Math.sin((t-g.netT)*16)*10*kick*kick;
+    x.save();x.beginPath();x.rect(0,hy+3,hx+hw+4,400);x.clip();x.translate(hx,hy);x.transform(1,0,sw/60,1,0,0);x.translate(-hx,-hy);x.drawImage(hs,dx,dy,hs.width*k,hs.height*k);x.restore();
+    return;
+  }
   const rimA=gold?['#fff2b8','#e8c25a','#8a6416']:['#ffb070','#ee5a1e','#7a2308'];
   if(!front){
     // the spotlight on the hoop
