@@ -8087,6 +8087,46 @@ async function runPresentation(A,W,frame){
       try{delete W.document.hidden;}catch(e2){}
     }
   });
+  suite('Blackwater — the first-game guide and the optional turn timer',()=>{
+    const F=n=>W.eval(n),G=()=>F('G');
+    const ls=W.localStorage;const keepG=ls.getItem('ct_bw_guided'),keepB=ls.getItem('ct_bw_bot'),keepR=ls.getItem('ct_bw_rules');
+    try{
+      ls.removeItem('ct_bw_guided');ls.removeItem('ct_bw_bot');
+      check('the guide is on in the very first game',F('bwGuideOn')()===true);
+      const bw=F('bwNew')();
+      check('step 1 while the fleet is being placed, step 2 on the first turn, step 3 before any scan, step 4 afterwards',(()=>{
+        const b1=F('bwNew')();const s1=F('bwGuideStep')(b1,1,false);
+        const b2=F('bwNew')();b2.phase='battle';b2.cur=1;const s2=F('bwGuideStep')(b2,1,true);
+        b2.shots[1][12]=1;const s3=F('bwGuideStep')(b2,1,true);
+        b2.scans[0].push({n:3});const s4=F('bwGuideStep')(b2,1,true);
+        return s1===1&&s2===2&&s3===3&&s4===4;})());
+      check('the guide card names its step and has a skip button',(()=>{const b=F('bwNew')();const h=F('bwGuideHTML')(b,1,false);return /GUIDE 1 \/ 4/.test(h)&&/data-a="bw-guide-x"/.test(h);})());
+      check('in the first game the opponent on one device is the Cadet, unless another one was chosen',(()=>{const g=G();const k=g.bwBotLvl;try{g.isOnline=false;g.bwBotLvl='';const a=F('bwBotLvl')();g.bwBotLvl='admiral';const b=F('bwBotLvl')();return a==='cadet'&&b==='admiral';}finally{g.bwBotLvl=k;}})());
+      ls.setItem('ct_bw_guided','1');
+      check('after the guide is dismissed it does not come back, and the normal opponent applies',F('bwGuideOn')()===false&&F('bwGuideHTML')(F('bwNew')(),1,false)===''&&(()=>{const g=G();const k=g.bwBotLvl;try{g.isOnline=false;g.bwBotLvl='';g.lp=[{},{bot:'sharp'}];return F('bwBotLvl')()==='admiral';}finally{g.bwBotLvl=k;}})());
+      // the turn timer
+      check('the turn timer is a rule of the sea: Off, 30, 60 or 90 seconds, kept in the rules and shown on the options panel',(()=>{
+        ls.removeItem('ct_bw_rules');const a=F('bwRules')().timer;F('bwSetRule')('timer',60);const b=F('bwRules')().timer;F('bwSetRule')('timer',45);const c=F('bwRules')().timer;const h=F('bwOptionsHTML')();return a===0&&b===60&&c===0&&/data-a="bw-timer"/.test(h)&&/Turn timer/.test(h);})());
+      check('the game carries the timer in its rules',(()=>{ls.setItem('ct_bw_rules',JSON.stringify({timer:30}));return F('bwNew')(undefined,F('bwRules')()).rules.timer===30;})());
+      const mkOnline=(timer,cur,tAt)=>{const g=G();g.isOnline=true;g.myPid='p1';const b=F('bwNew')(undefined,{timer});b.phase='battle';b.cur=cur;b.tAt=tAt;g.srv={gameId:'blackwater',players:[{id:'p1',name:'Anna'},{id:'p2',name:'Ben'}],bw:b,winner:null};};
+      const gk=[G().isOnline,G().srv,G().myPid],ivWas=W.eval('_bwTimerIv');
+      W.eval('clearInterval(_bwTimerIv);_bwTimerIv=0;_bwAutoBusy=true');   // the real clock must not act on the pretend game below
+      try{
+        mkOnline(30,1,111);let st=F('bwTimerState')();
+        check('on my turn the clock runs down from the limit and nothing fires early',st&&st.mine&&st.left<=30000&&st.left>29000&&st.fire===false);
+        mkOnline(30,1,222);F('bwTimerState')();W.eval('_bwTSeen=Date.now()-31000');st=F('bwTimerState')();
+        check('when my time is up my own device fires for me',st.mine&&st.left<=0&&st.fire===true);
+        mkOnline(30,2,333);F('bwTimerState')();W.eval('_bwTSeen=Date.now()-32000');st=F('bwTimerState')();
+        check('the other device waits a few seconds longer before it plays for someone who has left',!st.mine&&st.fire===false);
+        W.eval('_bwTSeen=Date.now()-35000');st=F('bwTimerState')();
+        check('then it plays for them',!st.mine&&st.fire===true);
+        mkOnline(0,1,444);
+        check('without a timer there is no clock',F('bwTimerState')()===null);
+      }finally{const g=G();g.isOnline=gk[0];g.srv=gk[1];g.myPid=gk[2];W.eval('_bwAutoBusy=false;_bwTAt=null');if(ivWas)W.eval('bwTimerStart()');const el=W.document.getElementById('bw-timer');if(el)el.remove();}
+    }finally{
+      keepG===null?ls.removeItem('ct_bw_guided'):ls.setItem('ct_bw_guided',keepG);keepB===null?ls.removeItem('ct_bw_bot'):ls.setItem('ct_bw_bot',keepB);keepR===null?ls.removeItem('ct_bw_rules'):ls.setItem('ct_bw_rules',keepR);
+    }
+  });
   suite('Blackwater — the opponent, the show and the battle again',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);
     const tap=(a,attrs)=>{const b=W.document.createElement('button');b.setAttribute('data-a',a);Object.entries(attrs||{}).forEach(([k,v])=>b.setAttribute(k,v));W.document.body.appendChild(b);b.click();b.remove();};
@@ -8094,7 +8134,7 @@ async function runPresentation(A,W,frame){
     const human=(id,n,i,bot)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,...(bot?{bot}:{})});
     const keepHist=W.localStorage.getItem('ct_history'),keepName=G.myName,keepBot=W.localStorage.getItem('ct_bw_bot');
     try{
-      W.localStorage.removeItem('ct_bw_bot');
+      W.localStorage.removeItem('ct_bw_bot');W.localStorage.setItem('ct_bw_guided','1');   // the first-game guide (and its gentler default opponent) is a separate suite below
       G.isOnline=false;G.srv=null;G.selGame='blackwater';G.bwSeq=null;G.bwInstant=true;G.myName='Phil';
       G.lp=[human(1,'Phil',0),human(2,'Anna',1,'sharp')];F('lDealBlackwater')();
       let d=doc();

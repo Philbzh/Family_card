@@ -1642,6 +1642,13 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 .ar-s-sc i{font-style:normal;color:var(--paper3,#9db09f);}
 .ar-s-sub{font-size:.72rem;color:var(--paper3,#9db09f);margin-top:.3rem;}
 .ar-s-win{margin-top:.45rem;font-family:var(--serif);font-size:1.05rem;color:var(--gold2,#E6C36A);}
+.bw-guide{margin:.4rem .6rem 0;padding:.65rem .8rem;border-radius:14px;border:1px solid rgba(230,195,106,.6);background:linear-gradient(180deg,rgba(60,48,16,.7),rgba(14,22,18,.85));display:grid;grid-template-columns:1fr auto;gap:.2rem .8rem;align-items:center;}
+.bw-g-t{grid-column:1/-1;font-size:.58rem;letter-spacing:.28em;color:#E6C36A;}
+.bw-g-x{font-size:.82rem;line-height:1.4;color:#F4EBD0;}
+.bw-g-btn{padding:.4rem .75rem;border-radius:999px;border:1px solid rgba(230,195,106,.55);background:rgba(8,17,14,.7);color:#F4EBD0;font-size:.7rem;letter-spacing:.06em;white-space:nowrap;}
+#bw-timer{position:fixed;top:calc(env(safe-area-inset-top,0px) + 74px);right:10px;z-index:60;padding:.3rem .8rem;border-radius:999px;background:rgba(8,17,14,.88);border:1px solid rgba(230,195,106,.6);color:#F4EBD0;font:700 .78rem 'Jost',sans-serif;letter-spacing:.06em;pointer-events:none;}
+#bw-timer.low{border-color:#ff6a55;color:#ff9a8a;animation:bwTimerPulse .8s ease-in-out infinite;}
+@keyframes bwTimerPulse{50%{box-shadow:0 0 14px rgba(255,106,85,.6);}}
 .pl-tag{letter-spacing:.14em;font-size:.55rem;margin-right:4px;color:#E6C36A;}
 .pl-mb{display:inline-block;width:21px;height:21px;border-radius:50%;background:var(--c);color:#fff;font:700 10px/21px Jost,sans-serif;text-align:center;font-style:normal;box-shadow:inset -2px -2px 3px rgba(0,0,0,.4),0 1px 2px rgba(0,0,0,.5);text-shadow:0 0 2px #000;}
 .pl-mb.st{background:linear-gradient(#f6f1e2 0 26%,var(--c) 26% 74%,#f6f1e2 74%);}
@@ -4361,6 +4368,7 @@ function dbSub(id,cb){
   // otherwise a player who's merely gone quiet (no new state to trigger a render) would stay stuck
   // showing "may be away" long past the point the skip button should have appeared.
   if(_awayTick)clearInterval(_awayTick);
+  bwTimerStart();
   _awayTick=setInterval(()=>{if(Object.keys(_absentSince).length&&!bwSeqBusy()&&!ahLive()&&!plLive())render();oRoulCheckStuckSpin();},4000);
 }
 // keepSeat=true means "I am walking away from this screen", not "I am done with this game". Tapping
@@ -16550,15 +16558,15 @@ function bwAutoMines(seed,fleet,decoys,smart){
 // The rules of the sea, chosen before the game (the host online): a hit lets you fire again, mines, how many torpedoes each.
 function bwRulesClean(r){
   r=r||{};
-  return{chain:r.chain===undefined?BW_CHAIN:!!r.chain,mines:r.mines===undefined?true:!!r.mines,torp:[1,2,3].includes(r.torp)?r.torp:BW_AMMO.torp};
+  return{chain:r.chain===undefined?BW_CHAIN:!!r.chain,mines:r.mines===undefined?true:!!r.mines,torp:[1,2,3].includes(r.torp)?r.torp:BW_AMMO.torp,timer:[30,60,90].includes(r.timer)?r.timer:0};
 }
 function bwRules(){let r=null;try{r=JSON.parse(localStorage.getItem('ct_bw_rules')||'null');}catch(e){}return bwRulesClean(r);}
-function bwSetRule(k,v){const r=bwRules();if(k==='torp')r.torp=v;else if(k==='chain'||k==='mines')r[k]=!r[k];try{localStorage.setItem('ct_bw_rules',JSON.stringify(bwRulesClean(r)));}catch(e){}}
-function bwRulesText(r){const a=[];if(!r.chain)a.push('one shot a turn');if(!r.mines)a.push('no mines');if(r.torp!==BW_AMMO.torp)a.push(r.torp+' torpedo'+(r.torp>1?'es':''));return a.join(' · ');}
+function bwSetRule(k,v){const r=bwRules();if(k==='torp')r.torp=v;else if(k==='timer')r.timer=v;else if(k==='chain'||k==='mines')r[k]=!r[k];try{localStorage.setItem('ct_bw_rules',JSON.stringify(bwRulesClean(r)));}catch(e){}}
+function bwRulesText(r){const a=[];if(!r.chain)a.push('one shot a turn');if(!r.mines)a.push('no mines');if(r.torp!==BW_AMMO.torp)a.push(r.torp+' torpedo'+(r.torp>1?'es':''));if(r.timer)a.push(r.timer+' s a turn');return a.join(' · ');}
 function bwOptionsHTML(){
   const r=bwRules();
   const tog=(k,name,desc)=>`<div class="hr-tog${r[k]?' on':''}" data-a="bw-rule" data-k="${k}"><div class="hr-row"><span class="hr-nm">${name}</span><span class="hr-chk">${r[k]?'✓':''}</span></div><span class="hr-desc">${desc}</span></div>`;
-  return`<div class="panel"><div class="panel-lbl">Rules of the sea</div><div class="hr-grid">${tog('chain','A hit lets you fire again','Keep firing until you miss. Off: one shot a turn, as in the classic game.')}${tog('mines','💥 Mines','Each admiral hides two in empty water. Off: a plain sea.')}<div class="hr-tog"><div class="hr-row"><span class="hr-nm">🚀 Torpedoes each</span></div><span class="hr-desc bw-torps">${[1,2,3].map(n=>`<button class="bw-bot${r.torp===n?' on':''}" data-a="bw-torp" data-n="${n}" aria-pressed="${r.torp===n}"><b>${n}</b></button>`).join('')}</span></div></div></div>`;
+  return`<div class="panel"><div class="panel-lbl">Rules of the sea</div><div class="hr-grid">${tog('chain','A hit lets you fire again','Keep firing until you miss. Off: one shot a turn, as in the classic game.')}${tog('mines','💥 Mines','Each admiral hides two in empty water. Off: a plain sea.')}<div class="hr-tog"><div class="hr-row"><span class="hr-nm">🚀 Torpedoes each</span></div><span class="hr-desc bw-torps">${[1,2,3].map(n=>`<button class="bw-bot${r.torp===n?' on':''}" data-a="bw-torp" data-n="${n}" aria-pressed="${r.torp===n}"><b>${n}</b></button>`).join('')}</span></div><div class="hr-tog"><div class="hr-row"><span class="hr-nm">⏱ Turn timer (online games)</span></div><span class="hr-desc">When the time is up, the fleet fires for you.</span><span class="hr-desc bw-torps">${[0,30,60,90].map(n=>`<button class="bw-bot${r.timer===n?' on':''}" data-a="bw-timer" data-n="${n}" aria-pressed="${r.timer===n}"><b>${n?n+'s':'Off'}</b></button>`).join('')}</span></div></div></div>`;
 }
 function bwNew(seed,rules){
   rules=bwRulesClean(rules);
@@ -17154,8 +17162,27 @@ function bwLegendHTML(){
 }
 const BW_WX={fog:['🌫','Fog','your deduction help is off'],storm:['⛈','Storm','sonar is blurred: it answers for 5×5'],calm:['☀️','Calm','sonar counts only real ships']};
 /* ── Blackwater: the table ── */
+function bwGuideOn(){try{return localStorage.getItem('ct_bw_guided')!=='1';}catch(e){return false;}}
+// The first game: short hints that follow what is on the screen, and the gentlest opponent (the Cadet) unless you chose another one
+function bwGuideStep(bw,viewer,mineTurn){
+  if(!bwGuideOn()||!bw||bw.over)return 0;
+  if(bw.phase==='deploy')return 1;
+  const opp=3-viewer,fired=(bw.shots[opp-1]||[]).some(v=>v>0);
+  if(!fired&&mineTurn)return 2;
+  if(!((bw.scans&&bw.scans[viewer-1])||[]).length&&mineTurn)return 3;
+  return fired?4:0;
+}
+function bwGuideHTML(bw,viewer,mineTurn){
+  const step=bwGuideStep(bw,viewer,mineTurn);if(!step)return'';
+  const T={1:'<b>Place your fleet.</b> Tap a ship, then tap the sea (Rotate turns it), or press <b>Auto</b>. Press <b>Fleet Ready</b> when you are happy.',
+    2:'<b>Your turn to fire.</b> Tap a square in <b>Enemy waters</b> to aim, then press <b>FIRE</b>. A hit lets you fire again; a miss passes the turn.',
+    3:'<b>Tip:</b> the <b>Sonar</b> and the <b>Depth charge</b> are free scans. They tell you how many squares of an area hold something, not which ones. Then you still fire.',
+    4:'<b>You know the basics.</b> Torpedoes, decoys, mines, silent running and the weather are explained under "What is what?" at the bottom. Good hunting!'};
+  return`<div class="bw-guide"><div class="bw-g-t">GUIDE ${step} / 4</div><div class="bw-g-x">${T[step]}</div><button class="bw-g-btn" data-a="bw-guide-x">${step===4?'Got it':'Skip the guide'}</button></div>`;
+}
 function bwBotLvl(){
   const m=G.bwBotLvl;if(['cadet','officer','commander','admiral'].includes(m))return m;
+  if(bwGuideOn()&&!G.isOnline)return'cadet';
   return bwBotLevel(G.lp&&G.lp[1]&&G.lp[1].bot);
 }
 function bwBotChooserHTML(){
@@ -17283,6 +17310,7 @@ function rBlackwaterTable(){
   const wxchip=wx&&bw.phase==='battle'&&!bw.over?`<div class="bw-wx wx-${wx.kind}" role="status">${BW_WX[wx.kind][0]} <b>${BW_WX[wx.kind][1]}</b> — ${BW_WX[wx.kind][2]} · ${wx.left} round${wx.left!==1?'s':''} left</div>`:'';
   return`<div id="s-table" class="scr on game-gauntlet game-blackwater">
     ${gb}
+    ${bwGuideHTML(bw,viewer,mineTurn)}
     <div class="y-standings-strip">${pills}</div>
     <div class="felt-table gt-felt bw-felt${mineTurn?' my-turn':''}" style="flex:0 0 auto;min-height:0;max-height:none;padding:.55rem .6rem;gap:.5rem;">
       <div class="bw-cam">
@@ -17519,6 +17547,7 @@ async function oBwMutate(mutate){
     const state=await dbRead(G.roomId);if(!state||!state.bw||state.gameId!=='blackwater')return false;
     const expectedTs=state._ts;
     if(!mutate(state))return false;
+    if(state.bw)state.bw.tAt=Date.now();   // the clock of the turn (the optional turn timer) starts again with every move
     onSrv(state);
     if(await dbWriteIfUnchanged(G.roomId,expectedTs,state))return true;
   }
@@ -17578,7 +17607,7 @@ function oBwFinish(state){
   state.lastAct=esc(wp.name)+' destroyed the enemy fleet.';
 }
 // An away player: their fleet is placed for them, and their moves are the Officer's.
-async function oBwAuto(){
+async function oBwAuto(reason){
   await oBwMutate(state=>{
     const bw=state.bw;if(!bw||state.winner)return false;
     if(bw.phase==='deploy'){
@@ -17586,17 +17615,39 @@ async function oBwAuto(){
       const dd=f?bwAutoDecoys(bw.seed+i*5+1,f,true):[];
       if(bw.ready[i]||!f||!bwDeploy(bw,i+1,f,dd,bw.noMines?[]:bwAutoMines(bw.seed+i*5+2,f,dd,true)))return false;
       state.curIdx=bwWaitIdx(bw);
-      state.lastAct=esc(state.players[i].name)+' was deployed automatically (away too long).';
+      state.lastAct=esc(state.players[i].name)+(reason==='time'?' was deployed automatically (time ran out).':' was deployed automatically (away too long).');
       return true;
     }
     const seat=bw.cur,n=bwBotShot(bw,seat,'officer');
     if(n<0||!bwFire(bw,seat,n))return false;
-    state.lastAct=esc(state.players[seat-1].name)+' was skipped (away too long).';
+    state.lastAct=esc(state.players[seat-1].name)+(reason==='time'?' ran out of time: the fleet fired.':' was skipped (away too long).');
     state.curIdx=bw.cur-1;
     if(bw.over)oBwFinish(state);
     return true;
   });
 }
+/* ── Blackwater: the optional turn timer (online) ──
+   The clock of a turn is state.bw.tAt (restarted by every move). Each device measures from the moment IT saw that value, so
+   clock differences between devices do not matter. When the time is up, the player's own device fires for them; if that device
+   is away, the other device does it a few seconds later. Every move is a compare-and-swap write, so a double trigger is harmless. */
+let _bwTSeen=0,_bwTAt=null,_bwAutoBusy=false,_bwTimerIv=0;
+function bwTimerState(){
+  const s=G.isOnline&&G.srv;if(!s||s.gameId!=='blackwater'||s.winner)return null;
+  const bw=s.bw;if(!bw||bw.over||bw.phase!=='battle'||!bw.rules||!bw.rules.timer||!bw.tAt)return null;
+  if(_bwTAt!==bw.tAt){_bwTAt=bw.tAt;_bwTSeen=Date.now();}
+  const total=bw.rules.timer*1000,left=total-(Date.now()-_bwTSeen),idx=bw.cur-1,mine=(s.players||[])[idx]&&s.players[idx].id===G.myPid;
+  return{left,mine,total,name:((s.players||[])[idx]||{}).name||'',fire:mine?left<=0:left<=-4000};
+}
+function bwTimerTick(){
+  const st=bwTimerState();let el=document.getElementById('bw-timer');
+  if(!st||G.scr!=='table'){if(el)el.remove();return;}
+  if(!el){el=document.createElement('div');el.id='bw-timer';document.body.appendChild(el);}
+  const sec=Math.max(0,Math.ceil(st.left/1000)),txt='⏱ '+sec+'s · '+(st.mine?'your turn':st.name);
+  if(el._t!==txt){el._t=txt;el.textContent=txt;}
+  el.className=st.left<10000?'low':'';
+  if(st.fire&&G.roomId&&!_bwAutoBusy&&!bwSeqBusy()){_bwAutoBusy=true;oBwAuto('time').finally(()=>setTimeout(()=>{_bwAutoBusy=false;},2000));}
+}
+function bwTimerStart(){if(_bwTimerIv)clearInterval(_bwTimerIv);_bwTimerIv=setInterval(()=>{try{bwTimerTick();}catch(e){}},500);}
 /* ── Blackwater: the actions, shown in real time ── */
 function bwNoise(ms,vol){
   try{if(!G.snd)return;_ac=_ac||new(window.AudioContext||window.webkitAudioContext)();if(_ac.state==='suspended')_ac.resume();
@@ -30496,6 +30547,8 @@ document.addEventListener('click',e=>{
   else if(a==='gt-mode'){gtSetMode(t.getAttribute('data-m'));render();}
   else if(a==='bw-rule'){bwSetRule(t.getAttribute('data-k'));SFX.chip();render();}
   else if(a==='bw-torp'){bwSetRule('torp',+t.getAttribute('data-n'));SFX.chip();render();}
+  else if(a==='bw-timer'){bwSetRule('timer',+t.getAttribute('data-n'));SFX.chip();render();}
+  else if(a==='bw-guide-x'){try{localStorage.setItem('ct_bw_guided','1');}catch(e){}SFX.chip();render();}
   else if(a==='gt-anim'){gtAnimNext();SFX.chip();render();}
   else if(a==='abroll'||a==='abtrick'||a==='abtarget'||a==='abcancel'||a==='abcell'){abTap(a,t);}
   else if(a==='ab-reach'){abReachSet(!abReachOn());SFX.chip();render();}
