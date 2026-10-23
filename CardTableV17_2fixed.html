@@ -4665,7 +4665,7 @@ const GAMES=[
      '<b>Defence:</b> move out of the way, or press <b>🛡</b> for a short shield (it needs a few seconds to recharge). A hit costs points and stuns your ship. Tied at the end? <b>Overtime.</b>']},
   {id:'pool',cat:'arcade',icon:'🎱',name:'Pool',players:'2',dur:'8–15 min',diff:'medium',deal:0,minP:2,maxP:2,cover:'assets/games/pool.jpg',
    rules:['<b>Aim. Control. Clear the table.</b> 8-ball for two: pocket all your balls (<b>solids</b> or <b>stripes</b>, decided by the first ball you sink after the break), then the black <b>8-ball</b>. Pocket it before that, or foul while sinking it, and you lose.',
-     '<b>To shoot:</b> drag a finger on the table to aim at it. Pull the <b>power bar</b> at the right edge down and let go to shoot. The small ball at the left is the <b>spin</b>: the dot is where the cue hits the ball (up = follow, down = draw, sideways = side spin; a double tap centres it). The <b>AIM</b> button changes how much the aiming line shows (Family, Challenge, Pro).',
+     '<b>To shoot:</b> put a finger on the <b>shaft of the cue</b> (the gold ring) and turn it around the white ball: your finger stays away from the balls you need to see. You can also tap or drag on the table to aim straight at a spot. Pull the <b>power bar</b> at the right edge down and let go to shoot. The small ball at the left is the <b>spin</b>: the dot is where the cue hits the ball (up = follow, down = draw, sideways = side spin; a double tap centres it). The <b>AIM</b> button changes how much the aiming line shows (Family, Challenge, Pro).',
      '<b>Keep going</b> while you sink one of your balls. <b>Fouls</b> (the cue ball is sunk, no ball hit, the wrong ball hit first, nothing reaches a cushion) give your opponent <b>ball in hand</b>: they place the cue ball anywhere and press <b>PLACE</b>. Any pocket counts, no calling.',
      'On <b>one device</b> play the bot (Gentle or Sharp) or take turns with a person. Online, the shooter plays the shot and both devices watch the same replay.']},
   {id:'abyss',cat:'party',icon:'🌌',name:'The Abyss',players:'2–6',dur:'10–20 min',diff:'easy',deal:0,minP:2,maxP:6,cover:'assets/games/abyss.jpg',
@@ -8044,18 +8044,23 @@ window.addEventListener('resize',()=>{try{if(G.pl&&G.pl.live)plSize();}catch(e){
 function plBindInput(cv){
   const g=G.pl;cv.style.touchAction='none';
   const toT=e=>{const r=cv.getBoundingClientRect(),M=PL.M;return{x:(e.clientX-r.left)/r.width*(PL.W+2*M)-M,y:(e.clientY-r.top)/r.height*(PL.H+2*M)-M};};
-  let down=false;
-  const handle=e=>{
+  let down=false,mode='aim',off=0;
+  // is the finger on the cue's shaft (the long stick behind the cue ball)?
+  const shaftHit=p=>{const c=g.disp[0];if(!c||!c.on||g.pl.bih)return false;const ux=Math.cos(g.aim.ang),uy=Math.sin(g.aim.ang),back=PL.R+8+g.aim.power*110,rx=p.x-c.x,ry=p.y-c.y,along=-(rx*ux+ry*uy),perp=Math.abs(-rx*uy+ry*ux);return along>back*.4&&along<back+500&&perp<70;};
+  const handle=(e,first)=>{
     if(!G.pl||G.pl!==g||!plCanAct())return;
     const p=toT(e);
+    if(first&&!g.pl.bih){const c0=g.disp[0];mode=shaftHit(p)?'shaft':'aim';if(mode==='shaft')off=g.aim.ang-Math.atan2(c0.y-p.y,c0.x-p.x);}
     if(g.pl.bih){
       const x=Math.max(PL.R+2,Math.min(PL.W-PL.R-2,p.x)),y=Math.max(PL.R+2,Math.min(PL.H-PL.R-2,p.y));
       if(!g.pl.balls.some(b=>b.on&&b.id!==0&&Math.hypot(b.x-x,b.y-y)<2.2*PL.R))g.bihPos={x,y};
       return;
     }
-    const c=g.disp[0];g.aim.ang=Math.atan2(p.y-c.y,p.x-c.x);
+    const c=g.disp[0];
+    if(mode==='shaft'){if(Math.hypot(p.x-c.x,p.y-c.y)>40)g.aim.ang=Math.atan2(c.y-p.y,c.x-p.x)+off;}   // the finger holds the far end of the cue: it turns about the cue ball, finger well away from the balls
+    else g.aim.ang=Math.atan2(p.y-c.y,p.x-c.x);
   };
-  cv.addEventListener('pointerdown',e=>{e.preventDefault();down=true;try{cv.setPointerCapture(e.pointerId);}catch(x){}handle(e);},{passive:false});
+  cv.addEventListener('pointerdown',e=>{e.preventDefault();down=true;try{cv.setPointerCapture(e.pointerId);}catch(x){}handle(e,true);},{passive:false});
   cv.addEventListener('pointermove',e=>{if(down){if(e.cancelable)e.preventDefault();handle(e);}},{passive:false});
   const up=()=>{down=false;};cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
   // the power: pull down along the bar and let go to shoot
@@ -8285,7 +8290,13 @@ function plDraw(g,now){
       plDrawBall(x,{id:b.id,x:px,y:py,rot:0,m:b.m},sc);x.fillStyle='rgba(0,0,0,'+(u*.85)+')';x.beginPath();x.arc(px,py,PL.R,0,6.283);x.fill();x.restore();}}
   }
   // the cue lies above the balls; the other player's cue is shown live while they aim
-  if(cueDraw)plDrawCue(x,cue.x,cue.y,cueDraw.ang,cueDraw.pw,1);
+  if(cueDraw){plDrawCue(x,cue.x,cue.y,cueDraw.ang,cueDraw.pw,1);
+    // a grip on the shaft: hold it here and turn the cue about the ball
+    if(plCanAct()&&!g.anim){const ux=Math.cos(cueDraw.ang),uy=Math.sin(cueDraw.ang),back=PL.R+8+cueDraw.pw*110;let d=back+300;
+      while(d>back+110){const gx=cue.x-ux*d,gy=cue.y-uy*d;if(gx>-10&&gx<PL.W+10&&gy>-10&&gy<PL.H+30)break;d-=20;}
+      const gx=cue.x-ux*d,gy=cue.y-uy*d,pu=.5+.5*Math.sin(nowP/420);
+      x.save();x.strokeStyle='rgba(255,214,110,'+(.45+pu*.35)+')';x.lineWidth=2.4;x.shadowColor='rgba(255,200,80,.8)';x.shadowBlur=8;x.beginPath();x.arc(gx,gy,17+pu*2,0,6.283);x.stroke();
+      x.lineWidth=2;for(const sgn of [-1,1]){const a0=cueDraw.ang+Math.PI/2*sgn;x.beginPath();x.arc(gx,gy,27,a0-.35,a0+.35);x.stroke();}x.restore();}}
   else if(rm&&!rm.b&&cue.on){const dA=Math.atan2(Math.sin(rm.ang-rm.va),Math.cos(rm.ang-rm.va));rm.va+=dA*.35;rm.vp+=(rm.pw-rm.vp)*.35;
     x.save();x.setLineDash([8,10]);x.lineWidth=1.6;x.strokeStyle='rgba(255,255,255,.28)';x.beginPath();x.moveTo(cue.x,cue.y);x.lineTo(cue.x+Math.cos(rm.va)*170,cue.y+Math.sin(rm.va)*170);x.stroke();x.restore();
     plDrawCue(x,cue.x,cue.y,rm.va,rm.vp,.95);}
