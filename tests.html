@@ -5641,12 +5641,12 @@ async function runPresentation(A,W,frame){
     const keep=()=>[G().isOnline,G().selGame,G().lp,G().lstart,G().scr,G().fg];
     const back=k=>{const g=G();F('fgStop')();g.isOnline=k[0];g.selGame=k[1];g.lp=k[2];g.lstart=k[3];g.scr=k[4];g.fg=null;};
     const mkLp=(n,bots)=>{const a=[];for(let i=0;i<n;i++)a.push({id:i+1,name:'P'+i,avatar:'x',hand:[],totalScore:0,bot:bots&&bots.includes(i)?'sharp':undefined});return a;};
-    const mk=(n,bots,diff)=>{const g=G();g.isOnline=false;g.selGame='balloonblast';g.lstart=0;g.lp=mkLp(n,bots);const f=F('fgNew')();f.balloons=[];f.phase='play';f.pt=0;if(diff)f.diff=diff;return f;};
+    const mk=(n,bots,diff)=>{const g=G();g.isOnline=false;g.selGame='balloonblast';g.lstart=0;g.lp=mkLp(n,bots);const f=F('fgNew')();f.balloons=[];f.phase='play';f.pt=0;if(diff)f.diff=diff;F('fgRunBegin')(f);f.run.pre=0;f.run.active=true;return f;};
     check('the Fairground is a room of its own with Balloon Blast in it (1 to 4 players, bot allowed)',F('GAME_CATEGORIES').some(c=>c.id==='fairground'&&/Fairground Games/.test(c.name))&&F('GAMES').some(g=>g.id==='balloonblast'&&g.cat==='fairground'&&g.minP===1&&g.maxP===4&&/balloonblast\.jpg/.test(g.cover))&&F('BOT_GAMES').has('balloonblast')&&F('fgIs')('balloonblast')&&!F('fgIs')('pool'));
     const k0=keep();
     try{
       let f=mk(1);
-      check('a new game gives every player ten darts and no score',f.darts[0]===10&&f.score[0]===0);
+      check('a new game gives every player a 60-second run and no score',f.run.dur===60&&f.run.left===60&&f.score[0]===0);
       check('the streak multiplier is x1, x2, x3 and at most x4',[1,2,3,4,5,9].map(F('fgMult')).join()==='1,2,3,4,4,4'||[0,1,2,3,4,9].map(F('fgMult')).join()==='1,1,2,3,4,4');
       f=mk(1);f.t=10;const b=F('fgSpawn')(f,{k:'std',side:false});b.bx=300;b.by=400;b.vx=0;b.vy=0;b.sw=0;
       F('fgThrow')(f,300,400);for(let i=0;i<80;i++)F('fgStep')(f,1/60);
@@ -5681,16 +5681,18 @@ async function runPresentation(A,W,frame){
       check('a risk dart that misses costs 50 and the chain',f.score[0]===250&&f.chainN[0]===0);
       f=mk(1);f.wind={v:90,target:90,t:1e9};const bw=F('fgSpawn')(f,{k:'std',side:false});bw.vx=0;bw.vy=0;bw.sw=0;bw.bx=300;const x0=bw.bx;for(let i=0;i<60;i++)F('fgStep')(f,1/60);
       check('the wind pushes the balloons sideways',bw.bx>x0+20);
-      f=mk(2);f.darts=[1,1];f.turn=0;f.t=10;
+      f=mk(2);f.turn=0;f.t=10;
       const shootAny=()=>{const bb=F('fgSpawn')(f,{k:'std',side:false});bb.bx=300;bb.by=420;bb.vx=0;bb.vy=0;bb.sw=0;F('fgThrow')(f,310,420);for(let i=0;i<70;i++)F('fgStep')(f,1/60);};
-      shootAny();
-      check('the turn passes to the next player after a dart',f.turn===1&&f.phase==='play');
-      f.balloons=[];shootAny();for(let i=0;i<120;i++)F('fgStep')(f,1/60);
-      check('when every dart is thrown the final shot begins, one special balloon for each',f.phase==='final'||f.phase==='over');
-      let guard=0;while(f.phase!=='over'&&guard++<4000){if(f.phase==='final'&&f.final&&F('fgCanAct')(f)){const fb=f.final,p=F('fgFut')(f,fb,F('fgFlight')(fb.by)*2.1);F('fgThrow')(f,p.x,p.y);}F('fgStep')(f,1/60);}
-      check('after both final shots the game is over',f.phase==='over'&&f.over===true);
-      f=mk(1,[0]);f.bots=['sharp'];f.t=10;let n2=0;while(f.phase!=='over'&&n2++<30000)F('fgStep')(f,1/60);
-      check('a bot plays all its darts and the final shot, and scores something',f.phase==='over'&&f.darts[0]===0&&f.hits[0]>=1);
+      shootAny();f.balloons=[];shootAny();
+      check('in a timed run the same player keeps throwing: no turn change after a dart',f.turn===0&&f.hits[0]===2);
+      f.run.left=0.01;for(let i=0;i<120&&f.turn===0;i++)F('fgStep')(f,1/60);
+      check('when the 60 seconds are over the next player gets their own run',f.turn===1&&f.run.done[0]===true&&f.run.idx===1);
+      f.run.active=true;f.run.pre=0;f.run.left=0.01;for(let i=0;i<200&&f.phase!=='over';i++)F('fgStep')(f,1/60);
+      check('after the last run the game is over',f.phase==='over'&&f.over===true);
+      f=mk(1);f.run.active=false;f.run.pre=1;
+      check('nobody can throw during the get-ready pause',!F('fgCanAct')(f));
+      f=mk(1,[0]);f.bots=['sharp'];f.t=10;let n2=0;while(f.phase!=='over'&&n2++<20000)F('fgStep')(f,1/60);
+      check('a bot plays its whole 60 seconds and scores something',f.phase==='over'&&f.hits[0]>=3&&f.thrown>=8);
       f=mk(2);f.score=[900,300];f.hits=[5,2];f.perfects=[1,0];f.bestStreak=[3,1];f.jack=[0,0];f.phase='over';G().fg=f;G().scr='table';
       F('fgEnd')(f);
       check('the end of a match gives the winner and the loser, records the result and shows the results screen',G().lp[0].c4Result==='win'&&G().lp[1].c4Result==='loss'&&G().lp[0].totalScore===900&&G().scr==='matchend'&&G().fgResult&&G().fgResult.topscore===900&&/Top score/.test(F('fgChipsHTML')()));
@@ -5720,7 +5722,6 @@ async function runPresentation(A,W,frame){
     const mk=(n,bots,diff)=>{const g=G();g.isOnline=false;g.selGame='marksman';g.lstart=0;g.lp=mkLp(n,bots);const f=F('fgNew')('marksman');f.targets=[];f.phase='play';f.pt=0;f.blockLeft=f.players.map(()=>5);f.wind={v:0,target:0,t:1e9};if(diff)f.diff=diff;return f;};
     const run=(f,n)=>{for(let i=0;i<n;i++)F('fgStep')(f,1/60);};
     check('Marksman is in the Fairground for one or two players, with a bot and a cover; its rules speak of breathing, wind and rings',F('GAMES').some(g=>g.id==='marksman'&&g.cat==='fairground'&&g.minP===1&&g.maxP===2&&/marksman\.jpg/.test(g.cover)&&/wind/i.test(g.rules.join(' '))&&/ring/i.test(g.rules.join(' ')))&&F('BOT_GAMES').has('marksman'));
-    check('Hoop Fever waits as coming soon until it gets the same treatment',F('GAMES').find(g=>g.id==='hoopfever').locked===true);
     const k0=keep();
     try{
       check('the ring of a hit: 10 in the very middle down to 6 at the edge, nothing outside',[0,.1,.3,.5,.7,.95,1.2].map(u=>F('msRing')(u*20,20)).join()==='10,10,9,8,7,6,0');
@@ -5773,47 +5774,65 @@ async function runPresentation(A,W,frame){
       check('the Marksman records and the Quick Draw trophy exist',F('AR_REC').marksman.length===4&&F('ACHIEVEMENTS').some(a=>a.id==='ms-rapid'));
     }finally{back(k0);}
   });
-  suite('Fairground: Hoop Fever, the carnival basketball',()=>{
+  suite('Fairground: Hoop Fever, the shootout and HORSE',()=>{
     const F=n=>W.eval(n),G=()=>F('G');
     const keep=()=>[G().isOnline,G().selGame,G().lp,G().lstart,G().scr,G().fg];
-    const back=k=>{const g=G();F('fgStop')();g.isOnline=k[0];g.selGame=k[1];g.lp=k[2];g.lstart=k[3];g.scr=k[4];g.fg=null;};
-    const mkLp=(n,bots)=>{const a=[];for(let i=0;i<n;i++)a.push({id:i+1,name:'P'+i,avatar:'x',hand:[],totalScore:0,bot:bots&&bots.includes(i)?'sharp':undefined});return a;};
-    const mk=(n,bots)=>{const g=G();g.isOnline=false;g.selGame='hoopfever';g.lstart=0;g.lp=mkLp(n,bots);const f=F('fgNew')('hoopfever');f.phase='play';f.pt=0;f.mode='normal';f.hw=48;f.hx=F('HF').HX;return f;};
+    const back=k=>{const g=G();F('fgStop')();g.isOnline=k[0];g.selGame=k[1];g.lp=k[2];g.lstart=k[3];g.scr=k[4];g.fg=null;try{W.localStorage.removeItem('ct_hf_fmt');}catch(e){}};
+    const mkLp=(n,bots)=>{const a=[];for(let i=0;i<n;i++)a.push({id:i+1,name:'P'+i,avatar:'x',hand:[],totalScore:0,bot:bots&&bots.includes(i)?(i%2?'sharp':'gentle'):undefined});return a;};
+    const mk=(n,bots,fmt)=>{const g=G();g.isOnline=false;g.selGame='hoopfever';g.lstart=0;g.lp=mkLp(n,bots);try{W.localStorage.setItem('ct_hf_fmt',fmt||'shootout');}catch(e){}const f=F('fgNew')('hoopfever');f.phase='play';f.pt=0;f.mode='normal';f.hw=48;f.hx=F('HF').HX;f.diff='skill';if(f.run){F('fgRunBegin')(f);f.run.pre=0;f.run.active=true;}return f;};
     const fly=(f,vx,vy)=>{F('hfLaunch')(f,vx,vy);const b=f.ball;let n=0;while(b.st==='fly'&&n++<4000)F('hfPhysics')(f,F('HF').DT);return b;};
-    check('Hoop Fever is in the Fairground for one to four players, with a bot and a cover',F('GAMES').some(g=>g.id==='hoopfever'&&g.cat==='fairground'&&g.minP===1&&g.maxP===4&&/hoopfever\.jpg/.test(g.cover))&&F('BOT_GAMES').has('hoopfever')&&F('fgIs')('hoopfever'));
+    const shot=(f)=>{const p=F('hfPlan')(f);if(!p)return fly(f,300,-500);return fly(f,Math.cos(p.th)*p.v,-Math.sin(p.th)*p.v);};
+    check('Hoop Fever is open in the Fairground for one to four players, with a bot and a cover',F('GAMES').some(g=>g.id==='hoopfever'&&g.cat==='fairground'&&g.minP===1&&g.maxP===4&&!g.locked&&/hoopfever\.jpg/.test(g.cover)&&/HORSE/.test(g.rules.join(' ')))&&F('BOT_GAMES').has('hoopfever')&&F('fgIs')('hoopfever'));
     const k0=keep();
     try{
-      let f=mk(1);const HF=F('HF');
-      check('each player has twelve balls and the hoop changes: normal, moving, small, golden and the jackpot hoop for the last ball',f.darts[0]===12&&F('HF_ROUNDS').length===12&&F('HF_ROUNDS')[0]==='normal'&&F('HF_ROUNDS')[11]==='jackpot'&&['moving','small','gold'].every(m=>F('HF_ROUNDS').includes(m)));
-      // a ball on a good arc into the middle of the hoop is a clean swish
-      const th=74*Math.PI/180,v=F('hfSolve')(f,th,HF.HX,HF.HY+6);
-      let b=fly(f,Math.cos(th)*v,-Math.sin(th)*v);
-      check('a ball on a good high arc drops through the middle: a basket, and a SWISH if nothing was touched (100 x1 x1.5)',b.scored&&!b.touched&&f.score[0]===150&&f.perfects[0]===1&&f.hits[0]===1&&f.streak[0]===1);
-      // a weak throw falls short and is a miss
+      const HF=F('HF'),TH=74*Math.PI/180;
+      check('there are three spots on the counter, close x1, mid x2 and deep x3, and the shootout is a 60-second run',F('HF_SPOTS').map(s=>s.m).join()==='1,2,3'&&mk(1).run.dur===60);
+      let f=mk(1);
+      check('the hoop changes with the clock: normal, moving, small, golden and the jackpot hoop at the end',[0,20,35,50,58].map(F('hfModeAt')).join()==='normal,moving,small,gold,jackpot');
+      f=mk(1);f.spot=1;let b=shot(f);
+      check('a good high arc from the mid spot is a clean swish: 100 x2 (mid) x1.5 = 300',b.scored&&!b.touched&&f.score[0]===300&&f.perfects[0]===1);
+      f=mk(1);f.spot=0;b=shot(f);
+      check('the same shot from the close spot pays 100 x1 x1.5 = 150',b.scored&&f.score[0]===150);
+      f=mk(1);f.spot=2;b=shot(f);
+      check('and from the deep spot 100 x3 x1.5 = 450: the harder the spot, the more it pays',b.scored&&f.score[0]===450);
+      f=mk(1);f.spot=0;shot(f);f.ball=null;const s1=f.score[0];b=shot(f);
+      check('a second make in a row builds the hot hand: x1.25 on the next one',b.scored&&f.score[0]-s1===Math.round(100*1*1.25*1.5)&&f.streak[0]===2);
       f=mk(1);b=fly(f,300,-500);
-      check('a weak throw falls short: no basket, the streak stays at zero',!b.scored&&f.score[0]===0&&f.streak[0]===0&&b.st==='done');
-      // the rim: a ball dropped onto the near rim bounces away
+      check('a weak throw falls short: no basket and the streak is gone',!b.scored&&f.score[0]===0&&f.streak[0]===0&&b.st==='done');
       f=mk(1);F('hfLaunch')(f,0,0);b=f.ball;b.x=HF.HX-f.hw;b.y=HF.HY-60;b.vy=400;b.vx=0;b.above=true;b.py=b.y;let n=0;while(b.st==='fly'&&b.rim===0&&n++<2000)F('hfPhysics')(f,HF.DT);
-      check('the ball bounces off the rim and it counts as touched',b.rim>=1&&b.touched);
-      // the backboard
+      check('the ball bounces off the rim and then counts as touched (no swish)',b.rim>=1&&b.touched);
       f=mk(1);F('hfLaunch')(f,0,0);b=f.ball;b.x=f.hx+f.hw-10;b.y=HF.HY-60;b.vx=700;b.vy=0;b.py=b.y;n=0;while(b.vx>0&&n++<500)F('hfPhysics')(f,HF.DT);
       check('the backboard throws the ball back',b.vx<0&&b.touched);
-      // a ball coming up from below does not score
       f=mk(1);F('hfLaunch')(f,0,0);b=f.ball;b.x=f.hx;b.y=HF.HY+120;b.vy=-1100;b.vx=0;b.py=b.y;n=0;while(b.y>HF.HY-200&&n++<1000)F('hfPhysics')(f,HF.DT);
       check('a ball that goes up through the hoop from below is not a basket',!b.scored);
-      // streaks and the hoop on fire
-      f=mk(1);f.darts=[12];let ok=0;for(let i=0;i<5;i++){f.ball=null;const t2=F('hfSolve')(f,th,HF.HX,HF.HY+6);const bb=fly(f,Math.cos(th)*t2,-Math.sin(th)*t2);if(bb.scored)ok++;}
-      check('five baskets in a row set the hoop on fire and the streak multiplies (x2, x3, x4)',ok===5&&f.streak[0]===5&&f.fire[0]===true&&f.score[0]===150+300+450+600+600);
-      f=mk(1);f.mode='gold';let b2=fly(f,Math.cos(th)*F('hfSolve')(f,th,HF.HX,HF.HY+6),-Math.sin(th)*F('hfSolve')(f,th,HF.HX,HF.HY+6));
-      check('the golden hoop pays double (200 x1.5 for a swish)',b2.scored&&f.score[0]===300);
-      f=mk(1);f.mode='small';f.hw=37;let b3=fly(f,Math.cos(th)*F('hfSolve')(f,th,HF.HX,HF.HY+6),-Math.sin(th)*F('hfSolve')(f,th,HF.HX,HF.HY+6));
-      check('the small hoop is narrower and pays more per basket (150 base)',b3.scored&&f.score[0]>=150);
-      // the pull of a finger is turned into a shot
-      check('pulling down and to the left sends the ball up and to the right, harder the further you pull',(()=>{const a=F('hfVelocity')(60,-100),c=F('hfVelocity')(120,-200);return a.vx>0&&a.vy<0&&Math.hypot(c.vx,c.vy)>Math.hypot(a.vx,a.vy);})());
-      // a whole game with the bots
+      // the spot is chosen before the ball
+      f=mk(1);check('tapping a spot moves the ball to it',F('hfPickSpot')(f,2)&&f.spot===2&&F('hfSpot')(f).x===85);
+      // the form meter
+      f=mk(1);f.form={on:true,t0:f.t};
+      check('the form needle runs up and down; it is in the green in the middle of its run',(()=>{const a=[];for(let i=0;i<4;i++){f.t=f.form.t0+i*.275;a.push(+F('hfFormPos')(f).toFixed(2));}return a.join()==='0,.5,1,.5'.replace('0,.5,1,.5','0,0.5,1,0.5')||a.join()==='0,0.5,1,0.5';})());
+      check('released in the green there is no error; released at the end of its run the ball is thrown off',(()=>{f.diff='skill';f.t=f.form.t0+.275;const a=F('hfFormError')(f);f.t=f.form.t0+.05;const c=F('hfFormError')(f);return a.a===0&&a.s===0&&c.e>.5;})());
+      check('the Family level has no form meter',(()=>{f.diff='family';f.t=f.form.t0+.05;const a=F('hfFormError')(f);return a.a===0&&a.s===0;})());
+      // HORSE: set, match, letters, the last one standing
+      f=mk(3,null,'horse');
+      check('in HORSE everybody has five lives and the first player sets the shot',f.fmt==='horse'&&f.darts.join()==='5,5,5'&&f.horse.step==='set'&&f.turn===0);
+      f.spot=1;b=shot(f);F('hfAdvance')(f,b);
+      check('a make sets the challenge: the others must match it from the same spot',f.horse.step==='follow'&&f.horse.spot===1&&f.horse.queue.join()==='1,2'&&f.turn===1&&f.spot===1);
+      f.ball=null;b=fly(f,300,-500);F('hfAdvance')(f,b);
+      check('a follower who misses takes a letter and the next follower is up',f.horse.letters[1]===1&&f.darts[1]===4&&f.turn===2);
+      f.ball=null;b=shot(f);F('hfAdvance')(f,b);
+      check('when everyone has had their turn the leader sets again',f.horse.step==='set'&&f.turn===0&&f.horse.lead===0);
+      f.ball=null;b=fly(f,300,-500);F('hfAdvance')(f,b);
+      check('a leader who misses passes the lead to the next player',f.horse.lead===1&&f.turn===1&&f.horse.step==='set');
+      f=mk(2,null,'horse');f.horse.letters=[0,4];f.darts=[5,1];f.horse.step='follow';f.horse.spot=1;f.horse.queue=[1];f.horse.qi=0;f.turn=1;f.horse.lead=0;
+      b=fly(f,300,-500);F('hfAdvance')(f,b);
+      check('the fifth letter puts a player out and the last one standing wins HORSE',f.phase==='over'&&f.score[0]>f.score[1]&&/outlasted|spelled/.test(f.moment));
+      // a whole game with bots in both formats
       f=mk(2,[0,1]);f.bots=['gentle','sharp'];let n2=0;while(f.phase!=='over'&&n2++<90000)F('fgStep')(f,1/60);
-      check('two bots play all twelve balls each and the game ends',f.phase==='over'&&f.darts[0]===0&&f.darts[1]===0);
-      check('the sharp bot is clearly better than the gentle one over several games',(()=>{let a=0,c=0;for(let r=0;r<4;r++){const h=mk(2,[0,1]);h.bots=['gentle','sharp'];let n=0;while(h.phase!=='over'&&n++<90000)F('fgStep')(h,1/60);a+=h.score[0];c+=h.score[1];}return c>a;})());
+      check('two bots each play their 60 seconds and the shootout ends',f.phase==='over'&&f.run.done.every(x=>x)&&f.thrown>=10);
+      check('the sharp bot is clearly better than the gentle one in the shootout',(()=>{let a=0,c=0;for(let r=0;r<4;r++){const h=mk(2,[0,1]);h.bots=['gentle','sharp'];let n=0;while(h.phase!=='over'&&n++<90000)F('fgStep')(h,1/60);a+=h.score[0];c+=h.score[1];}return c>a;})());
+      f=mk(2,[0,1],'horse');f.bots=['gentle','sharp'];n2=0;while(f.phase!=='over'&&n2++<200000)F('fgStep')(f,1/60);
+      check('two bots play HORSE to the end: one of them is out and the other wins',f.phase==='over'&&f.horse.letters.some(l=>l>=5));
+      check('HORSE needs two players: on one it stays a shootout',(()=>{const h=mk(1,null,'horse');return h.fmt==='shootout';})());
       f=mk(2);f.score=[1800,900];f.hits=[9,5];f.perfects=[4,1];f.bestStreak=[4,2];f.jack=[0,0];f.phase='over';G().fg=f;G().scr='table';
       F('fgEnd')(f);
       check('the end of a game shows the results with the basketball figures',G().lp[0].c4Result==='win'&&G().scr==='matchend'&&/Baskets/.test(F('fgChipsHTML')())&&/swishes/.test(F('fgChipsHTML')()));
