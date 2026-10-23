@@ -5636,6 +5636,45 @@ async function runPresentation(A,W,frame){
     check('the snapshot carries the boss, the power-ups, the laser and the bosses destroyed',j.boss&&j.boss.hp===iv.boss.hp&&j.pu.length===1&&j.pu[0].k==='r'&&j.pwk[0]==='t'&&j.ls&&j.ls.x===222&&j.bosses===1);
     check('the Boss Slayer trophy and the splitter are in the rules and the trophy list',F('ACHIEVEMENTS').some(x=>x.id==='iv-boss')&&F('GAMES').find(g=>g.id==='invaders').rules.join(' ').includes('splitters'));
   });
+  suite('Arcade — Pool: Blackball (English pool) rules',()=>{
+    const F=n=>W.eval(n);
+    const base=r=>{const pl=F('plNew')(r);pl.phase='play';pl.groups=['solid','stripe'];return JSON.parse(JSON.stringify(pl));};
+    const mkres=(pl,o)=>Object.assign({firstHit:1,potted:[],rail:true,railBalls:[1],cueOut:false,events:[],t:1,longest:0,bank:false,cueStart:{x:250,y:740},finalBalls:pl.balls.map(b=>({id:b.id,x:b.x,y:b.y,on:b.on,out:b.on?-1:0}))},o||{});
+    const rk=F('plNew')('bb');
+    check('the Blackball rack has seven reds, seven yellows and the black in the middle of the third row',rk.rules==='bb'&&rk.balls.filter(b=>b.id>=1&&b.id<=7).length===7&&rk.balls.filter(b=>b.id>=9).length===7&&rk.balls[5].id===8);
+    check('the American rack is unchanged and is the default of plNew',F('plNew')().rules==='us'&&F('plNew')().balls[5].id===3||F('plNew')().balls.find(b=>b.id===8));
+    check('Blackball has tighter pockets than the American game',F('PL').PCb<F('PL').PC&&F('PL').PSb<F('PL').PS);
+    let pl=base('bb');
+    let np=F('plResolve')(pl,mkres(pl,{firstHit:9,rail:true}));
+    check('a foul in Blackball gives the opponent two visits and the white in hand',np.turn===1&&np.bih&&np.visits===2&&/2 VISITS/.test(np.msg));
+    pl=JSON.parse(JSON.stringify(np));pl.bih=false;
+    np=F('plResolve')(pl,mkres(pl,{firstHit:9,potted:[],rail:true}));
+    check('a miss in the first of two visits leaves the same player at the table for the second',np.turn===1&&np.visits===1);
+    pl=JSON.parse(JSON.stringify(np));
+    np=F('plResolve')(pl,mkres(pl,{firstHit:9,potted:[],rail:true}));
+    check('a miss in the second visit passes the turn',np.turn===0&&np.visits===1);
+    pl=base('us');np=F('plResolve')(pl,mkres(pl,{firstHit:9}));
+    check('American rules are unchanged: a foul is ball in hand and one visit',np.turn===1&&np.bih&&np.visits===1);
+    // the black in the pocket of the last ball
+    pl=base('bb');pl.balls.forEach(b=>{if(b.id>=1&&b.id<=7)b.on=false;});pl.lastPocket=[2,null];
+    let fin=pl.balls.map(b=>({id:b.id,x:b.x,y:b.y,on:b.id===8?false:b.on,out:b.id===8?4:(b.on?-1:0)}));
+    np=F('plResolve')(pl,mkres(pl,{firstHit:8,potted:[8],finalBalls:fin}));
+    check('the black in a different pocket than your last ball loses the game',np.over&&np.winner===1&&np.msg==='WRONG POCKET');
+    fin=pl.balls.map(b=>({id:b.id,x:b.x,y:b.y,on:b.id===8?false:b.on,out:b.id===8?2:(b.on?-1:0)}));
+    np=F('plResolve')(pl,mkres(pl,{firstHit:8,potted:[8],finalBalls:fin}));
+    check('the black in the pocket of your last ball wins',np.over&&np.winner===0);
+    pl.rules='ba';fin=pl.balls.map(b=>({id:b.id,x:b.x,y:b.y,on:b.id===8?false:b.on,out:b.id===8?5:(b.on?-1:0)}));
+    np=F('plResolve')(pl,mkres(pl,{firstHit:8,potted:[8],finalBalls:fin}));
+    check('with the "any pocket" option the black may go in any pocket',np.over&&np.winner===0);
+    // the last pocket is remembered
+    pl=base('bb');pl.balls.find(b=>b.id===3).on=false;
+    fin=pl.balls.map(b=>({id:b.id,x:b.x,y:b.y,on:b.on,out:b.id===3?1:(b.on?-1:0)}));
+    np=F('plResolve')(pl,mkres(pl,{firstHit:3,potted:[3],finalBalls:fin}));
+    check('the pocket of the last ball you potted is remembered',np.lastPocket[0]===1&&np.turn===0);
+    check('the bot places the white inside the D after a foul',(()=>{const q=base('bb');q.bih=true;const t=F('plBotPlace')(q);return t.y>=740&&Math.hypot(t.x-250,t.y-740)<=90;})());
+    check('the bot shoots at the right pocket for the black',(()=>{const q=base('bb');q.balls.forEach(b=>{if(b.id>=1&&b.id<=7)b.on=false;});q.lastPocket=[0,null];const c=F('plCandidates')(q,0,q.balls[0]);return c.every(x=>x.tid===8);})());
+    check('the rules button text exists for all three rule sets',['us','bb','ba'].every(r=>/RULES/.test(F('plRulesLabel')(r))));
+  });
   suite('Arcade — Pool: physics, rules, bot and wiring',()=>{
     const F=n=>W.eval(n);
     check('Pool is in the Arcade room for two, online and against a bot, with a cover',F('GAMES').some(g=>g.id==='pool'&&g.cat==='arcade'&&g.maxP===2&&/pool\.jpg/.test(g.cover))&&F('ONLINE_GAMES').includes('pool')&&F('BOT_GAMES').has('pool')&&F('ahIs')('pool'));

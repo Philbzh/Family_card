@@ -1627,6 +1627,7 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 .pl-mb.fresh{animation:pl-gone .9s ease-out both;}
 @keyframes pl-gone{0%{opacity:1;transform:scale(1.9);filter:none;box-shadow:0 0 12px #E6C36A;}100%{opacity:.2;transform:scale(1);}}
 .pl-assist.pl-cloth{bottom:44px;}
+.pl-assist.pl-rulesbtn{bottom:80px;}
 .pl-power{position:absolute;right:10px;top:16%;bottom:16%;width:46px;z-index:4;border-radius:23px;background:linear-gradient(180deg,rgba(10,30,24,.82),rgba(4,12,10,.9));border:2px solid rgba(230,195,106,.55);touch-action:none;overflow:hidden;box-shadow:0 8px 20px -8px #000;}
 .pl-power i{position:absolute;left:0;right:0;top:0;height:0;background:linear-gradient(180deg,#43e1ff,#E6C36A 60%,#ff6a55);opacity:.85;}
 .pl-power span{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:.55rem;letter-spacing:.16em;color:#F4EBD0;opacity:.8;writing-mode:vertical-rl;margin:0 auto;}
@@ -4664,7 +4665,8 @@ const GAMES=[
      '<b>Surprises:</b> <b>splitters</b> (orange) break into two drones when shot, a <b>laser</b> locks onto your ship and fires down your column (step out of the line, or shield), every fourth wave brings a <b>BOSS</b> with a bar of its own, and some aliens leave a <b>power-up</b> that falls to you: <b>» rapid fire</b>, <b>3 triple shot</b>, <b>+ repair or shield</b>.',
      '<b>Defence:</b> move out of the way, or press <b>🛡</b> for a short shield (it needs a few seconds to recharge). A hit costs points and stuns your ship. Tied at the end? <b>Overtime.</b>']},
   {id:'pool',cat:'arcade',icon:'🎱',name:'Pool',players:'2',dur:'8–15 min',diff:'medium',deal:0,minP:2,maxP:2,cover:'assets/games/pool.jpg',
-   rules:['<b>Aim. Control. Clear the table.</b> 8-ball for two: pocket all your balls (<b>solids</b> or <b>stripes</b>, decided by the first ball you sink after the break), then the black <b>8-ball</b>. Pocket it before that, or foul while sinking it, and you lose.',
+   rules:['<b>Two rule sets, chosen with the RULES button before the break.</b> <b>BLACKBALL</b> (English pool: 7 red balls, 7 yellow balls, the black; a smaller table with tighter pockets). After a foul your opponent gets <b>two visits</b> and puts the white ball anywhere in the <b>D</b>. The black must go in <b>the pocket where your last ball went in</b> (marked in gold), or you lose; <b>BLACKBALL · ANY</b> lets the black go in any pocket. <b>AMERICAN</b> is numbered 8-ball: solids and stripes, ball in hand anywhere after a foul.',
+     '<b>Aim. Control. Clear the table.</b> 8-ball for two: pocket all your balls (<b>solids</b> or <b>stripes</b>, decided by the first ball you sink after the break), then the black <b>8-ball</b>. Pocket it before that, or foul while sinking it, and you lose.',
      '<b>To shoot:</b> put a finger on the <b>shaft of the cue</b> (the gold ring) and turn it around the white ball: your finger stays away from the balls you need to see. You can also tap or drag on the table to aim straight at a spot. Pull the <b>power bar</b> at the right edge down and let go to shoot. The small ball at the left is the <b>spin</b>: the dot is where the cue hits the ball (up = follow, down = draw, sideways = side spin; a double tap centres it). The <b>AIM</b> button changes how much the aiming line shows (Family, Challenge, Pro).',
      '<b>Keep going</b> while you sink one of your balls. <b>Fouls</b> (the cue ball is sunk, no ball hit, the wrong ball hit first, nothing reaches a cushion) give your opponent <b>ball in hand</b>: they place the cue ball anywhere and press <b>PLACE</b>. Any pocket counts, no calling.',
      'On <b>one device</b> play the bot (Gentle or Sharp) or take turns with a person. Online, the shooter plays the shot and both devices watch the same replay.']},
@@ -7631,18 +7633,24 @@ function arRecordsHTML(){
    Turn-based, so it needs no live stream: the shooter computes a shot with the physics below, the room stores the result (the new state, the shot
    and the positions before it), and EVERY device plays the same shot back from the same start (the shooter too). The result on the table is the stored
    one, so a tiny difference between two devices can never put them out of step. The rules (groups, fouls, ball in hand, the 8-ball) are in plResolve. */
-const PL={W:500,H:1000,R:14,M:46,FR:150,MAXV:3300,PC:22,PS:24,DT:1/240};
+const PL={W:500,H:1000,R:14,M:46,FR:150,MAXV:3300,PC:22,PS:24,PCb:18,PSb:20,DT:1/240};
 const PL_POCKETS=[[0,0],[500,0],[0,1000],[500,1000],[-3,500],[503,500]];
 const PL_COL={1:'#f2c230',2:'#2f5fd0',3:'#d23a2e',4:'#6b3fa0',5:'#f28a2e',6:'#1f8a4b',7:'#8b1f2f',8:'#16181a'};
 function plGroup(id){return id===0?'cue':id===8?'black':id<8?'solid':'stripe';}
-function plRack(){
+const plBB=pl=>!!pl&&(pl.rules==='bb'||pl.rules==='ba');   // Blackball (English pool): reds and yellows, two visits, the black in the pocket of your last ball
+let PL_BBNOW=false;
+function plRulesPref(){try{const v=localStorage.getItem('ct_pl_rules');return v==='us'||v==='ba'?v:'bb';}catch(e){return'bb';}}
+function plRack(rules){
   const b=[{id:0,x:PL.W/2,y:PL.H*.74,on:true}];
-  const order=[1,9,2,10,8,3,11,4,12,5,13,6,14,15,7],dy=Math.sqrt(3)*PL.R*1.015,dx=PL.R*2.03;let k=0;
+  let order=[1,9,2,10,8,3,11,4,12,5,13,6,14,15,7];
+  if(rules==='bb'||rules==='ba'){let r=1,y=9;order=[...'RYRRBYYRRYRYRYY'].map(ch=>ch==='B'?8:ch==='R'?r++:y++);}   // black in the middle of the third row, a red and a yellow in the back corners
+  const dy=Math.sqrt(3)*PL.R*1.015,dx=PL.R*2.03;let k=0;
   for(let r=0;r<5;r++)for(let c=0;c<=r;c++)b.push({id:order[k++],x:PL.W/2+(c-r/2)*dx,y:PL.H*.28-r*dy,on:true});
   return b;
 }
-function plNew(){
-  return{v:1,n:0,balls:plRack(),turn:0,groups:[null,null],phase:'break',bih:false,shot:null,prev:null,res:null,over:false,winner:-1,foul:'',msg:'BREAK',
+function plNew(rules){
+  rules=rules==='bb'||rules==='ba'?rules:'us';
+  return{v:1,n:0,rules,visits:1,lastPocket:[null,null],balls:plRack(rules),turn:0,groups:[null,null],phase:'break',bih:false,shot:null,prev:null,res:null,over:false,winner:-1,foul:'',msg:'BREAK',
     stats:{run:[0,0],bestRun:[0,0],fouls:[0,0],pots:[0,0],longest:0,breakPots:0,shots:0}};
 }
 const plLeft=(pl,seat)=>{const g=pl.groups[seat];return g?pl.balls.filter(b=>b.on&&plGroup(b.id)===g).length:7;};
@@ -7699,7 +7707,7 @@ function plSim(balls,shot,opt){
       else if(b.y>H-R&&!zoneY(b.x)){b.y=H-R;if(b.vy>0){const s=b.vy;b.vy=-s*.8;b.vx+=b.sh*s*.2;b.sh*=-.55;rail(b.id,s);}}
       // pockets: a ball whose centre gets into the pocket falls; one that slips through the mouth past the cushion line falls into the nearest pocket (it can never leave the table)
       let pk=-1;
-      for(let k=0;k<6;k++){const p=PL_POCKETS[k],cap=k>=4?PL.PS:PL.PC;if(Math.hypot(b.x-p[0],b.y-p[1])<cap){pk=k;break;}}
+      for(let k=0;k<6;k++){const p=PL_POCKETS[k],cap=k>=4?(shot.bb?PL.PSb:PL.PS):(shot.bb?PL.PCb:PL.PC);if(Math.hypot(b.x-p[0],b.y-p[1])<cap){pk=k;break;}}
       if(pk<0&&(b.x<0||b.x>W||b.y<0||b.y>H)){let bd=1e9;for(let k=0;k<6;k++){const d=Math.hypot(b.x-PL_POCKETS[k][0],b.y-PL_POCKETS[k][1]);if(d<bd){bd=d;pk=k;}}}
       if(pk>=0){
         const p=PL_POCKETS[pk],ps=Math.hypot(b.vx,b.vy);b.on=false;b.out=pk;b.vx=b.vy=0;
@@ -7739,22 +7747,28 @@ function plResolve(pl,res){
   if(pots.includes(8)){
     if(isBreak){ // on the break it goes back on the spot
       const b8=np.balls.find(b=>b.id===8);b8.on=true;b8.x=PL.W/2;b8.y=PL.H*.28-2*Math.sqrt(3)*PL.R*1.015;pots.splice(pots.indexOf(8),1);msg='8-BALL RESPOTTED';
-    }else{over=true;winner=(!foul&&needs8)?me:opp;msg=winner===me?'8-BALL IN':'8-BALL TOO EARLY';}
+    }else{over=true;winner=(!foul&&needs8)?me:opp;msg=winner===me?'8-BALL IN':'8-BALL TOO EARLY';
+      // Blackball: the black has to go in the pocket where your last ball went in
+      if(winner===me&&pl.rules==='bb'&&np.lastPocket&&np.lastPocket[me]!=null){const f8=res.finalBalls.find(x=>x.id===8);if(f8&&f8.out!==np.lastPocket[me]){winner=opp;msg='WRONG POCKET';}}}
   }
   // the final balls on the table
   if(!over&&groups[me]===null&&!foul&&!isBreak){
     const first=pots.find(x=>x!==8);
     if(first!=null){groups[me]=plGroup(first);groups[opp]=plGroup(first)==='solid'?'stripe':'solid';msg='GROUPS SET';}
   }
-  const own=pots.filter(x=>groups[me]&&plGroup(x)===groups[me]);
+  const own=pots.filter(x=>groups[me]&&plGroup(x)===groups[me]),bb=plBB(pl);
+  np.lastPocket=np.lastPocket||[null,null];
+  if(own.length){const fb=res.finalBalls.find(x=>x.id===own[own.length-1]);if(fb&&fb.out>=0)np.lastPocket[me]=fb.out;}
   if(foul){
-    st.fouls[me]++;st.run[me]=0;np.turn=opp;np.bih=true;msg='FOUL: '+foul;
+    st.fouls[me]++;st.run[me]=0;np.turn=opp;np.bih=true;np.visits=bb?2:1;msg='FOUL: '+foul+(bb?' · 2 VISITS':'');
   }else if(!over&&own.length){
     st.pots[me]+=own.length;st.run[me]+=own.length;st.bestRun[me]=Math.max(st.bestRun[me],st.run[me]);msg=msg||(own.length>1?'BEAUTIFUL SHOT':'');
   }else if(!over&&isBreak&&pots.length){
     msg=msg||'BREAK POTS - KEEP SHOOTING';
   }else if(!over){
-    st.run[me]=0;np.turn=opp;np.bih=false;
+    st.run[me]=0;np.bih=false;
+    if(bb&&(pl.visits||1)>1){np.visits=(pl.visits||1)-1;}   // the second visit: the same player shoots again
+    else{np.turn=opp;np.visits=1;}
   }
   if(isBreak){st.breakPots=pots.length;}
   np.groups=groups;np.phase='play';np.foul=foul;np.msg=msg;np.over=over;np.winner=winner;
@@ -7764,13 +7778,14 @@ function plResolve(pl,res){
 }
 // the whole step of a shot: simulate, apply the rules and return the new state with the data for the playback
 function plPlayShot(pl,shot,opt){
+  shot=Object.assign({},shot,{bb:plBB(pl)});
   const sim=plSim(pl.balls,shot,opt);
   sim.res.finalBalls=sim.balls;
   // the longest pot of the shot: distance from the cue ball's start to each pocket-bound object ball is not tracked exactly; the length of the cue's run is a fair measure
   sim.res.longest=Math.round(Math.hypot((sim.res.events.find(e=>e.k==='pocket')||{x:0,y:0}).x-sim.res.cueStart.x,(sim.res.events.find(e=>e.k==='pocket')||{x:0,y:0}).y-sim.res.cueStart.y)/10);
   const np=plResolve(pl,sim.res);
   np.prev=pl.balls.map(b=>({id:b.id,x:b.x,y:b.y,on:b.on}));
-  np.shot={id:'s'+np.n+'-'+Math.floor(Math.random()*1e5),by:pl.turn,angle:shot.angle,power:shot.power,sx:shot.sx||0,sy:shot.sy||0};
+  np.shot={id:'s'+np.n+'-'+Math.floor(Math.random()*1e5),by:pl.turn,angle:shot.angle,power:shot.power,sx:shot.sx||0,sy:shot.sy||0,bb:shot.bb};
   np.res={firstHit:sim.res.firstHit,potted:sim.res.potted,cueOut:sim.res.cueOut,rail:sim.res.rail,bank:sim.res.bank,t:Math.round(sim.res.t*100)/100};
   return{np,sim};
 }
@@ -7801,6 +7816,7 @@ function plCandidates(pl,seat,cue){
   const clear=(ax,ay,bx,by,skip)=>{const dx=bx-ax,dy=by-ay,L=Math.hypot(dx,dy)||1;for(const b of pl.balls){if(!b.on||b.id===0||skip.includes(b.id))continue;const t=((b.x-ax)*dx+(b.y-ay)*dy)/(L*L);if(t<0||t>1)continue;const px=ax+dx*t,py=ay+dy*t;if(Math.hypot(b.x-px,b.y-py)<2*R*.97)return false;}return true;};
   for(const t of tg)for(let k=0;k<6;k++){
     const p=PL_POCKETS[k],px=p[0]<=0?4:p[0]>=PL.W?PL.W-4:p[0],py=p[1]<=0?4:p[1]>=PL.H?PL.H-4:p[1];
+    if(t.id===8&&pl.rules==='bb'&&pl.lastPocket&&pl.lastPocket[seat]!=null&&k!==pl.lastPocket[seat])continue;
     const ux=px-t.x,uy=py-t.y,L=Math.hypot(ux,uy)||1,gx=t.x-ux/L*2*R,gy=t.y-uy/L*2*R;
     if(gx<R||gx>PL.W-R||gy<R||gy>PL.H-R)continue;
     const a=Math.atan2(gy-cue.y,gx-cue.x),cut=Math.abs(Math.atan2(Math.sin(a-Math.atan2(uy,ux)),Math.cos(a-Math.atan2(uy,ux))));
@@ -7839,12 +7855,14 @@ function plBotShot(pl,level){
 function plBotPlace(pl){
   const seat=pl.turn;let best=null,bs=-1e9;
   const R=PL.R,occ=(x,y)=>pl.balls.some(b=>b.on&&b.id!==0&&Math.hypot(b.x-x,b.y-y)<2.3*R);
-  for(let gy=70;gy<PL.H-60;gy+=70)for(let gx=60;gx<PL.W-50;gx+=70){
+  const dd=plBB(pl);
+  for(let gy=dd?PL.H*.74+10:70;gy<(dd?PL.H*.74+88:PL.H-60);gy+=dd?26:70)for(let gx=dd?PL.W/2-80:60;gx<(dd?PL.W/2+81:PL.W-50);gx+=dd?32:70){
+    if(dd&&Math.hypot(gx-PL.W/2,gy-PL.H*.74)>86)continue;
     if(occ(gx,gy))continue;
     const c=plCandidates(pl,seat,{x:gx,y:gy}),s=c.length?(40-c[0].cut*20-c[0].d/150)+c.length*2:-30;
     if(s>bs){bs=s;best={x:gx,y:gy};}
   }
-  return best||{x:PL.W/2,y:PL.H*.72};
+  return best||{x:PL.W/2,y:PL.H*(plBB(pl)?.76:.72)};
 }
 /* ── the table of Pool: state on this device, playback of a shot, the aiming gestures, the drawing ── */
 const PLS={
@@ -7860,6 +7878,14 @@ function plAssist(){try{return localStorage.getItem('ct_pl_assist')||'family';}c
 const PL_CLOTHS={green:{a:'#14804f',b:'#0a4a2e',c1:'#0f5a35',c2:'#0a4528'},blue:{a:'#1a5fa0',b:'#0b2f58',c1:'#124a80',c2:'#0a3260'},burgundy:{a:'#9a2638',b:'#4a0d17',c1:'#7a1c2c',c2:'#4f1019'}};
 function plCloth(){try{const v=localStorage.getItem('ct_pl_cloth');return PL_CLOTHS[v]?v:'green';}catch(e){return'green';}}
 function plNextCloth(){const v=plCloth(),n=v==='green'?'blue':v==='blue'?'burgundy':'green';try{localStorage.setItem('ct_pl_cloth',n);}catch(e){}if(G.pl)G.pl.statik=null;const b=document.getElementById('pl-clothbtn');if(b)b.textContent='CLOTH: '+n.toUpperCase();return n;}
+function plRulesLabel(r){return r==='us'?'RULES: AMERICAN':r==='ba'?'RULES: BLACKBALL · ANY':'RULES: BLACKBALL';}
+function plNextRules(){
+  const g=G.pl;if(!g||g.pl.n!==0||g.anim||g.mode==='guest')return;
+  const v=g.pl.rules,n=v==='bb'?'ba':v==='ba'?'us':'bb';try{localStorage.setItem('ct_pl_rules',n);}catch(e){}
+  if(G.isOnline)oFastMutate(state=>{if(!state.pl||state.pl.n!==0)return false;state.pl=plNew(n);return true;},()=>{},()=>{});
+  else{g.pl=plNew(n);g.disp=plDisp(g.pl.balls,null);g.statik=null;g.bihPos=null;}
+  const b=document.getElementById('pl-rulesbtn');if(b)b.textContent=plRulesLabel(n);
+}
 function plNext(){const v=plAssist(),n=v==='family'?'challenge':v==='challenge'?'pro':'family';try{localStorage.setItem('ct_pl_assist',n);}catch(e){}return n;}
 function plPlayers(){return ahPlayers();}
 function plMySeat(g){return g.mode==='host'||g.mode==='guest'?g.seat:g.pl.turn;}
@@ -7874,7 +7900,7 @@ function plSpark(g,x,y,n,col,spd){if(typeof gtAnim==='function'&&gtAnim()==='off
 function plDisp(balls,old){return balls.map(b=>{const o=old&&old.find(q=>q.id===b.id);return{id:b.id,x:b.x,y:b.y,on:b.on,rot:0,fall:null,m:o&&o.m?o.m:plM0(b.id),dirty:true};});}
 function plNewG(mode){
   const online=mode==='host'||mode==='guest',st=online&&G.srv?G.srv:null;
-  const pl=(st&&st.pl)||plNew();
+  const pl=(st&&st.pl)||plNew(plRulesPref());
   return{live:true,mode,seat:online?Math.max(0,ahPlayers().findIndex(p=>p.id===G.myPid)):0,pl,disp:plDisp(pl.balls),aim:{ang:-Math.PI/2,power:0,sx:0,sy:0},anim:null,
     fx:{parts:[],banners:[],shake:0,flash:0},bihPos:null,cv:null,raf:0,born:performance.now(),finale:null,lastShot:st&&st.pl&&st.pl.shot?st.pl.shot.id:null,
     bot:{level:(ahPlayers()[1]&&ahPlayers()[1].bot)||'gentle'},botBusy:false,msgAt:0};
@@ -7884,7 +7910,7 @@ function plStop(){const g=G.pl;if(!g)return;g.live=false;if(g.raf)cancelAnimatio
 function plReplay(np){
   const g=G.pl;if(!g||!g.live)return;
   if(g.lastShot===np.shot.id)return;g.lastShot=np.shot.id;
-  const prev=np.prev,sim=plSim(prev,{angle:np.shot.angle,power:np.shot.power,sx:np.shot.sx,sy:np.shot.sy},{record:true});
+  const prev=np.prev,sim=plSim(prev,{angle:np.shot.angle,power:np.shot.power,sx:np.shot.sx,sy:np.shot.sy,bb:np.shot.bb},{record:true});
   g.disp=plDisp(prev,g.disp);g.aim.power=0;g.bihPos=null;g.remote=null;
   g.anim={frames:sim.frames,events:sim.res.events,evi:0,t0:performance.now(),np,isBreak:np.n===1,first:true,shot:np.shot};
   PLS.cue(np.shot.power);if(np.n===1){PLS.breakShot();g.fx.shake=12;g.fx.flash=.5;plBanner(g,'BREAK','',null,1100);}
@@ -7910,7 +7936,7 @@ function plAnimEnd(g){
   const a=g.anim,np=a.np,old=g.pl;g.anim=null;
   g.pl=np;g.disp=plDisp(np.balls,g.disp);
   // what happened: said in a few words
-  const names=plPlayers().map(p=>p.name),sol=gr=>gr==='solid'?'SOLIDS':'STRIPES';
+  const names=plPlayers().map(p=>p.name),sol=gr=>plBB(np)?(gr==='solid'?'REDS':'YELLOWS'):(gr==='solid'?'SOLIDS':'STRIPES');
   if(np.foul){PLS.foul();plBanner(g,'FOUL',np.foul,'#ff7a6a',1700);haptic([40,30,70]);}
   else if(!old.groups[0]&&np.groups[0]){
     const sh=old.turn,mine=g.mode==='bot'?0:(g.mode==='host'||g.mode==='guest'?g.seat:-1);
@@ -7922,6 +7948,7 @@ function plAnimEnd(g){
   if(potted.length>=2&&!np.foul)plBanner(g,'BEAUTIFUL SHOT',potted.length+' balls','#F4EBD0',1300);
   else if(a.np.res.bank&&potted.length&&!np.foul)plBanner(g,'BANK SHOT','','#F4EBD0',1100);
   if(np.over){plFinale(g,np);return;}
+  if(plBB(np)&&np.turn===old.turn&&!np.foul&&(old.visits||1)>1&&np.visits===1)plBanner(g,'2ND VISIT','',null,1300);
   g.aim.power=0;g.aim.ang=-Math.PI/2;g.bihPos=null;g.remote=null;
   plSetBusy(false);
   plMaybeBot(g);
@@ -8022,6 +8049,7 @@ function rPoolTable(){
         <div class="pl-spin" id="pl-spin" aria-label="Spin: where the cue hits the ball"><b id="pl-dot"></b></div>
         <button class="pl-assist" data-a="pl-assist" id="pl-assistbtn">AIM: ${a.toUpperCase()}</button>
         <button class="pl-assist pl-cloth" data-a="pl-cloth" id="pl-clothbtn">CLOTH: ${plCloth().toUpperCase()}</button>
+        <button class="pl-assist pl-rulesbtn" data-a="pl-rules" id="pl-rulesbtn">${plRulesLabel(g.pl.rules)}</button>
         <button class="btn btn-gold pl-place" id="pl-place" data-a="pl-place" style="display:none">PLACE</button>
       </div>
     </div>
@@ -8052,7 +8080,8 @@ function plBindInput(cv){
     const p=toT(e);
     if(first&&!g.pl.bih){const c0=g.disp[0];mode=shaftHit(p)?'shaft':'aim';if(mode==='shaft')off=g.aim.ang-Math.atan2(c0.y-p.y,c0.x-p.x);}
     if(g.pl.bih){
-      const x=Math.max(PL.R+2,Math.min(PL.W-PL.R-2,p.x)),y=Math.max(PL.R+2,Math.min(PL.H-PL.R-2,p.y));
+      let x=Math.max(PL.R+2,Math.min(PL.W-PL.R-2,p.x)),y=Math.max(PL.R+2,Math.min(PL.H-PL.R-2,p.y));
+      if(plBB(g.pl)){const cx=PL.W/2,cy=PL.H*.74,rD=90;if(y<cy)y=cy;const dx=x-cx,dy=y-cy,l=Math.hypot(dx,dy);if(l>rD){x=cx+dx/l*rD;y=cy+dy/l*rD;}}   // Blackball: the white goes in the D
       if(!g.pl.balls.some(b=>b.on&&b.id!==0&&Math.hypot(b.x-x,b.y-y)<2.2*PL.R))g.bihPos={x,y};
       return;
     }
@@ -8111,11 +8140,12 @@ function plHud(g){
   else if(g.mode==='bot')txt=pl.turn===0?(pl.bih?'Ball in hand: drag the white ball, then PLACE':pl.phase==='break'?'Your break':'Your shot'):'Robo is playing…';
   else if(g.mode==='duo')txt=(players[pl.turn]?players[pl.turn].name:'')+(pl.bih?': ball in hand':pl.phase==='break'?': break':'’s shot');
   else txt=pl.turn===g.seat?(pl.bih?'Ball in hand: drag the white ball, then PLACE':pl.phase==='break'?'Your break':'Your shot'):(players[pl.turn]?players[pl.turn].name:'')+' is playing…';
+  if(!pl.over&&!g.anim&&plBB(pl)){const ms=g.mode==='bot'?0:(g.mode==='host'||g.mode==='guest'?g.seat:pl.turn);if((pl.visits||1)>1)txt+=' · 2 visits';if(pl.rules==='bb'&&pl.groups[pl.turn]&&plLeft(pl,pl.turn)===0&&pl.lastPocket&&pl.lastPocket[pl.turn]!=null&&pl.turn===ms)txt+=' · black in the gold pocket';}
   if(st&&st._t!==txt){st._t=txt;st.textContent=txt;}
   const lab=sd=>{const gr=pl.groups[sd];if(!gr)return'<span class="pl-tag">OPEN</span>';
-    let h='<span class="pl-tag">'+(gr==='solid'?'SOLIDS':'STRIPES')+'</span>';
+    const bbh=plBB(pl);let h='<span class="pl-tag">'+(bbh?(gr==='solid'?'REDS':'YELLOWS'):(gr==='solid'?'SOLIDS':'STRIPES'))+'</span>';
     g.trayOff=g.trayOff||{};
-    for(let n=1;n<=7;n++){const id=gr==='solid'?n:n+8,on=pl.balls.some(b=>b.id===id&&b.on),fresh=!on&&!g.trayOff[id]&&g.trayInit;if(!on)g.trayOff[id]=1;h+='<i class="pl-mb'+(gr==='stripe'?' st':'')+(on?'':' off')+(fresh?' fresh':'')+'" style="--c:'+PL_COL[n]+'">'+id+'</i>';}
+    for(let n=1;n<=7;n++){const id=gr==='solid'?n:n+8,on=pl.balls.some(b=>b.id===id&&b.on),fresh=!on&&!g.trayOff[id]&&g.trayInit;if(!on)g.trayOff[id]=1;h+='<i class="pl-mb'+(gr==='stripe'&&!bbh?' st':'')+(on?'':' off')+(fresh?' fresh':'')+'" style="--c:'+(bbh?(gr==='solid'?'#d0281f':'#f0c52a'):PL_COL[n])+'">'+(bbh?'':id)+'</i>';}
     g.trayInit=true;
     return h;};
   const bs=g.mode==='guest'?1:0,a=document.getElementById('pl-sc0'),b=document.getElementById('pl-sc1');
@@ -8124,6 +8154,7 @@ function plHud(g){
   if(place){const show=my&&pl.bih&&!!g.bihPos;if(place._s!==show){place._s=show;place.style.display=show?'block':'none';}}
   if(pw)pw.style.height=Math.round(g.aim.power*100)+'%';
   if(dot){dot.style.left=(50+g.aim.sx*50)+'%';dot.style.top=(50-g.aim.sy*50)+'%';}
+  const rbn=document.getElementById('pl-rulesbtn');if(rbn){const sh=pl.n===0&&!g.anim&&g.mode!=='guest';if(rbn._s!==sh){rbn._s=sh;rbn.style.display=sh?'block':'none';}}
   const btn=document.getElementById('pl-assistbtn');if(btn){const t='AIM: '+plAssist().toUpperCase();if(btn._t!==t){btn._t=t;btn.textContent=t;}}
 }
 function plBuildStatic(g){
@@ -8158,6 +8189,7 @@ function plBuildStatic(g){
   x.strokeStyle='rgba(255,255,255,.018)';x.lineWidth=1;for(let i=M;i<M+PL.H;i+=6){x.beginPath();x.moveTo(M,i);x.lineTo(M+PL.W,i);x.stroke();}
   // the lamp over the table: warm light in the middle, falling off towards the rails
   {const lg=x.createRadialGradient(cw/2,ch*.46,40,cw/2,ch*.46,ch*.64);lg.addColorStop(0,'rgba(255,238,190,.16)');lg.addColorStop(.55,'rgba(255,238,190,.03)');lg.addColorStop(1,'rgba(0,0,0,.42)');x.fillStyle=lg;x.fillRect(M,M,PL.W,PL.H);}
+  if(plBB(g.pl)){x.strokeStyle='rgba(255,255,255,.2)';x.lineWidth=1.6;x.beginPath();x.arc(M+PL.W/2,M+PL.H*.74,90,0,Math.PI);x.stroke();}   // the D
   // the head string, the foot spot, the diamonds on the rails
   x.strokeStyle='rgba(255,255,255,.1)';x.lineWidth=1.5;x.beginPath();x.moveTo(M,M+PL.H*.74);x.lineTo(M+PL.W,M+PL.H*.74);x.stroke();
   x.fillStyle='rgba(255,255,255,.22)';x.beginPath();x.arc(M+PL.W/2,M+PL.H*.28,3,0,6.283);x.arc(M+PL.W/2,M+PL.H*.74,3,0,6.283);x.fill();
@@ -8165,7 +8197,8 @@ function plBuildStatic(g){
   for(let i=1;i<8;i++){const y=M+PL.H*i/8;if(i===4)continue;dia(M-27,y);dia(M+PL.W+27,y);}
   for(let i=1;i<4;i++){const px=M+PL.W*i/4;dia(px,M-27);dia(px,M+PL.H+27);}
   // the pockets
-  for(let k=0;k<6;k++){const p=PL_POCKETS[k],cap=k>=4?PL.PS:PL.PC;
+  const bbm=plBB(g.pl);
+  for(let k=0;k<6;k++){const p=PL_POCKETS[k],cap=k>=4?(bbm?PL.PSb:PL.PS):(bbm?PL.PCb:PL.PC);
     const px=M+p[0],py=M+p[1];
     // brass ring, the dark mouth and a soft inner shade
     let pg=x.createRadialGradient(px-4,py-4,cap*.6,px,py,cap+12);pg.addColorStop(0,'#e9cf86');pg.addColorStop(.6,'#a47a2c');pg.addColorStop(1,'#4a3414');
@@ -8208,24 +8241,24 @@ function plRoll(m,dx,dy){
   for(let i=0;i<3;i++)for(let j=0;j<3;j++)o[i*3+j]=r[i*3]*m[j]+r[i*3+1]*m[3+j]+r[i*3+2]*m[6+j];
   return o;
 }
-function plSprite(id,m,S){
+function plSprite(id,m,S,bb){
   const cv=document.createElement('canvas');cv.width=cv.height=S;const q=cv.getContext('2d'),img=q.createImageData(S,S),d=img.data;
-  const col=plRgb(id),gl=id>0?plGlyph(id):null,half=S/2;
+  const col=bb&&id>0&&id!==8?(id<8?[208,40,30]:[240,196,42]):plRgb(id),gl=id>0&&!bb?plGlyph(id):null,half=S/2;
   const lx=-.45,ly=-.55,lz=.7,ll=Math.hypot(lx,ly,lz),L=[lx/ll,ly/ll,lz/ll],hx=L[0],hy=L[1],hz=L[2]+1,hl=Math.hypot(hx,hy,hz),H=[hx/hl,hy/hl,hz/hl];
   for(let py=0;py<S;py++)for(let px=0;px<S;px++){
     const u=(px+.5-half)/half,v=(py+.5-half)/half,r2=u*u+v*v;if(r2>1.04)continue;
     const rr=Math.sqrt(r2),al=Math.min(1,Math.max(0,(1-rr)*half)),w=Math.sqrt(Math.max(0,1-r2));
     const p0=m[0]*u+m[3]*v+m[6]*w,p1=m[1]*u+m[4]*v+m[7]*w,p2=m[2]*u+m[5]*v+m[8]*w;
     let R=col[0],G2=col[1],B=col[2];
-    if(id>8){const k=Math.min(1,Math.max(0,(.52-Math.abs(p1))/.06));R=246+(R-246)*k;G2=241+(G2-241)*k;B=226+(B-226)*k;}
-    if(id>0){
+    if(id>8&&!bb){const k=Math.min(1,Math.max(0,(.52-Math.abs(p1))/.06));R=246+(R-246)*k;G2=241+(G2-241)*k;B=226+(B-226)*k;}
+    if(id>0&&!bb){
       const cz=Math.abs(p2);
       if(cz>.86){
         const e=Math.min(1,(cz-.86)/.025);R+=(250-R)*e;G2+=(248-G2)*e;B+=(240-B)*e;
         const sg=p2>0?1:-1,tu=(p0*sg)/.5*.5+.5,tv=p1/.5*.5+.5;
         if(tu>0&&tu<1&&tv>0&&tv<1){const dk=1-gl[((tv*48|0)*48+(tu*48|0))*4]/255;R+=(17-R)*dk*e;G2+=(17-G2)*dk*e;B+=(17-B)*dk*e;}
       }
-    }else if(Math.abs(p2)>.965){R=190;G2=50;B=40;}
+    }else if(id===0&&Math.abs(p2)>.965){R=190;G2=50;B=40;}else if(bb&&id!==8&&Math.abs(p2)>.95){R*=.5;G2*=.5;B*=.5;}   // a small dark spot, so the roll of a plain ball can be seen
     let df=u*L[0]+v*L[1]+w*L[2];if(df<0)df=0;
     let light=.34+.78*df;light*=.55+.45*Math.sqrt(w);
     let sp=u*H[0]+v*H[1]+w*H[2];sp=sp>0?Math.pow(sp,60)*.85:0;
@@ -8246,7 +8279,7 @@ function plDrawBall(x,b,sc){
   x.fillStyle=sg;x.beginPath();x.arc(b.x+sdx,b.y+sdy,R*1.4,0,6.283);x.fill();
   const S=Math.max(20,Math.ceil(2*R*(sc||1)*1.4));
   if(!b.m)b.m=plM0(id);
-  if(!b.sp||b.dirty||b.spS!==S){b.sp=plSprite(id,b.m,S);b.spS=S;b.dirty=false;}
+  if(!b.sp||b.dirty||b.spS!==S||b.spBB!==PL_BBNOW){b.sp=plSprite(id,b.m,S,PL_BBNOW);b.spS=S;b.spBB=PL_BBNOW;b.dirty=false;}
   x.drawImage(b.sp,b.x-R*1.0,b.y-R*1.0,2*R,2*R);
 }
 function plDraw(g,now){
@@ -8254,7 +8287,8 @@ function plDraw(g,now){
   const sc=g.scale,M=PL.M,pl=g.pl;
   x.setTransform(1,0,0,1,0,0);x.drawImage(g.statik,0,0);x.setTransform(sc,0,0,sc,0,0);x.translate(M,M);
   const my=plCanAct()||!!g.botAim,cue=g.disp[0];let cueDraw=null;
-  if(plCanAct()&&pl.bih&&!g.bihPos&&!g.anim)g.bihPos=cue.on?{x:cue.x,y:cue.y}:{x:PL.W/2,y:PL.H*.74};
+  PL_BBNOW=plBB(pl);
+  if(plCanAct()&&pl.bih&&!g.bihPos&&!g.anim)g.bihPos=cue.on&&!PL_BBNOW?{x:cue.x,y:cue.y}:{x:PL.W/2,y:PL.H*.74+(PL_BBNOW?30:0)};
   const mineSeat=g.mode==='bot'?0:(g.mode==='host'||g.mode==='guest'?g.seat:pl.turn),mineGrp=pl.groups[mineSeat];
   const bihMine=plCanAct()&&pl.bih&&!g.anim&&!!g.bihPos,nowP=performance.now(),rm=g.remote&&nowP-g.remote.t<1500&&!plCanAct()&&!g.anim&&!pl.over&&g.mode!=='bot'&&g.mode!=='duo'&&pl.turn!==g.seat?g.remote:null;
   // the aiming line and the cue
@@ -8285,7 +8319,7 @@ function plDraw(g,now){
     else if(b.fall){const u=(now-b.fall.t)/560;if(u<1){
       // the ball rolls into the pocket and drops: it is only seen inside the mouth, smaller and darker as it goes
       let bk=0,bd=1e9;for(let k=0;k<6;k++){const d=Math.hypot(b.fall.x-PL_POCKETS[k][0],b.fall.y-PL_POCKETS[k][1]);if(d<bd){bd=d;bk=k;}}
-      const pc=PL_POCKETS[bk],cap=(bk>=4?PL.PS:PL.PC)+3,e=Math.min(1,u*1.7),px=b.fall.x+(pc[0]-b.fall.x)*e*e,py=b.fall.y+(pc[1]-b.fall.y)*e*e,s2=1-u*.5;
+      const pc=PL_POCKETS[bk],cap=(bk>=4?(PL_BBNOW?PL.PSb:PL.PS):(PL_BBNOW?PL.PCb:PL.PC))+3,e=Math.min(1,u*1.7),px=b.fall.x+(pc[0]-b.fall.x)*e*e,py=b.fall.y+(pc[1]-b.fall.y)*e*e,s2=1-u*.5;
       x.save();x.beginPath();x.arc(pc[0],pc[1],cap,0,6.283);x.clip();x.translate(px,py);x.scale(s2,s2);x.translate(-px,-py);
       plDrawBall(x,{id:b.id,x:px,y:py,rot:0,m:b.m},sc);x.fillStyle='rgba(0,0,0,'+(u*.85)+')';x.beginPath();x.arc(px,py,PL.R,0,6.283);x.fill();x.restore();}}
   }
@@ -8300,6 +8334,7 @@ function plDraw(g,now){
   else if(rm&&!rm.b&&cue.on){const dA=Math.atan2(Math.sin(rm.ang-rm.va),Math.cos(rm.ang-rm.va));rm.va+=dA*.35;rm.vp+=(rm.pw-rm.vp)*.35;
     x.save();x.setLineDash([8,10]);x.lineWidth=1.6;x.strokeStyle='rgba(255,255,255,.28)';x.beginPath();x.moveTo(cue.x,cue.y);x.lineTo(cue.x+Math.cos(rm.va)*170,cue.y+Math.sin(rm.va)*170);x.stroke();x.restore();
     plDrawCue(x,cue.x,cue.y,rm.va,rm.vp,.95);}
+  if(pl.rules==='bb'&&mineGrp&&!g.anim&&!pl.over&&plLeft(pl,mineSeat)===0&&pl.lastPocket&&pl.lastPocket[mineSeat]!=null&&pl.turn===mineSeat){const pc=PL_POCKETS[pl.lastPocket[mineSeat]],pu=.5+.5*Math.sin(nowP/300);x.save();x.strokeStyle='rgba(255,214,110,'+(.55+pu*.4)+')';x.lineWidth=4;x.shadowColor='rgba(255,200,80,.95)';x.shadowBlur=14;x.beginPath();x.arc(pc[0],pc[1],PL.PC+10+pu*3,0,6.283);x.stroke();x.restore();}
   // the pocketed balls of each player along the bottom of the table (small)
   const done=[[],[]];for(const b of g.pl.balls){if(!b.on&&b.id>0&&b.id!==8){const s=pl.groups[0]&&plGroup(b.id)===pl.groups[0]?0:pl.groups[1]&&plGroup(b.id)===pl.groups[1]?1:-1;if(s>=0)done[s].push(b.id);}}
   // sparks, banners, shake
@@ -10269,6 +10304,7 @@ function stageOnSrv(prev,state){
     else if(g==='abyss'&&prev.ab&&state.ab&&state.ab.moves>prev.ab.moves&&state.ab.fx){
       showAfter(()=>G.abSeq,x=>abRunSeq(x,false,null),state.ab,'ab');
     }
+    else if(g==='pool'&&state.pl&&state.pl.n===0&&prev.pl&&state.pl.rules!==prev.pl.rules&&G.pl){G.pl.pl=state.pl;G.pl.disp=plDisp(state.pl.balls,null);G.pl.statik=null;const rb=document.getElementById('pl-rulesbtn');if(rb)rb.textContent=plRulesLabel(state.pl.rules);}
     else if(g==='pool'&&state.pl&&state.pl.shot&&(!prev.pl||!prev.pl.shot||prev.pl.shot.id!==state.pl.shot.id)){plReplay(state.pl);}
     else if(g==='blackwater'&&prev.bw&&state.bw&&state.bw.moves>prev.bw.moves&&state.bw.fx){
       const bwS=state.bw;
@@ -27554,7 +27590,7 @@ function oStartGame(rs){
       if(ahIs(rs.gameId)){
         const players=rs.players.slice(0,2).map(p=>({...p,totalScore:0,c4Result:null}));
         const gs={phase:'game',gameId:rs.gameId,host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
-          ah:{id:'ah'+Date.now().toString(36)+Math.floor(Math.random()*1e4),score:[0,0]},pl:rs.gameId==='pool'?plNew():undefined,winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
+          ah:{id:'ah'+Date.now().toString(36)+Math.floor(Math.random()*1e4),score:[0,0]},pl:rs.gameId==='pool'?plNew(plRulesPref()):undefined,winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
         G.srv=gs;G.ah=null;G.pl=null;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }
@@ -30372,6 +30408,7 @@ document.addEventListener('click',e=>{
   else if(a==='ah-mode'){ahSetMode(t.getAttribute('data-m'));}
   else if(a==='pl-assist'){plNext();}
   else if(a==='pl-cloth'){plNextCloth();}
+  else if(a==='pl-rules'){plNextRules();}
   else if(a==='pl-place'){plPlace();}
   else if(a==='crcell'){crTap(+t.getAttribute('data-i'));}
   else if(a==='crarm'){
