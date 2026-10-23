@@ -3,7 +3,7 @@
 // app shell itself. Multiplayer still needs a live connection (Supabase requests are always
 // passed straight through to the network, never cached), so this is about the shell — the HTML,
 // icons, and manifest — not about playing an online game with no signal.
-const CACHE_NAME = 'our-table-v79';
+const CACHE_NAME = 'our-table-v80';
 // Pictures live in their OWN cache, which a new app version does not throw away: the ~12 MB of covers,
 // room pictures and avatars used to be downloaded again from scratch on every visit (network-first with
 // no-store) and again on every release, so on a slow connection the home screen painted only the top strip
@@ -26,7 +26,7 @@ const APP_SHELL = [
 // win. Warmed individually and best-effort after activate instead, so a slow/failed image can
 // never take down the shell that actually matters.
 const GAME_COVERS = [
-  './assets/games/balloonblast.jpg','./assets/rooms/fairground.jpg',
+  './assets/games/balloonblast.jpg','./assets/games/marksman.jpg','./assets/rooms/fairground.jpg',
   './assets/ui/home.jpg','./assets/ui/trophies.jpg','./assets/ui/moments.jpg','./assets/ui/family.jpg','./assets/ui/victory.jpg',
   './assets/games/maumau.png','./assets/games/texas.png','./assets/games/fivecard.png',
   './assets/games/blackjack.png','./assets/games/battle.png','./assets/games/yahtzee.jpg',

@@ -5682,6 +5682,55 @@ async function runPresentation(A,W,frame){
       check('the achievements and the records of the Fairground exist',['fg-popstar','fg-dead','fg-jackpot'].every(id=>F('ACHIEVEMENTS').some(a=>a.id===id))&&F('AR_REC').balloonblast.length===4);
     }finally{back(k0);}
   });
+  suite('Fairground: Marksman, the shooting gallery',()=>{
+    const F=n=>W.eval(n),G=()=>F('G');
+    const keep=()=>[G().isOnline,G().selGame,G().lp,G().lstart,G().scr,G().fg];
+    const back=k=>{const g=G();F('fgStop')();g.isOnline=k[0];g.selGame=k[1];g.lp=k[2];g.lstart=k[3];g.scr=k[4];g.fg=null;};
+    const mkLp=(n,bots)=>{const a=[];for(let i=0;i<n;i++)a.push({id:i+1,name:'P'+i,avatar:'x',hand:[],totalScore:0,bot:bots&&bots.includes(i)?'sharp':undefined});return a;};
+    const mk=(n,bots)=>{const g=G();g.isOnline=false;g.selGame='marksman';g.lstart=0;g.lp=mkLp(n,bots);const f=F('fgNew')('marksman');f.targets=[];f.phase='play';f.pt=0;f.blockLeft=f.players.map(()=>5);return f;};
+    check('Marksman is in the Fairground for one or two players, with a bot and a cover',F('GAMES').some(g=>g.id==='marksman'&&g.cat==='fairground'&&g.minP===1&&g.maxP===2&&/marksman\.jpg/.test(g.cover))&&F('BOT_GAMES').has('marksman')&&F('fgIs')('marksman'));
+    const k0=keep();
+    try{
+      let f=mk(1);
+      check('a game is planned as 5 shots, rapid fire, 5 shots, rapid fire, 5 shots and the final shot',F('MS_PLAN').map(x=>x.k+(x.n||'')).join()==='shots5,rapid,shots5,rapid,shots5,final'&&f.darts[0]===15&&f.kind==='marksman');
+      check('the gallery has stars, ducks, bottles, a bell and a disc on three rows',(()=>{const g=F('fgNew')('marksman');const ks=g.targets.map(t=>t.k);return ['star','duck','bottle','bell','disc'].every(k=>ks.includes(k))&&new Set(g.targets.map(t=>t.row)).size===3;})());
+      // a shot into the middle of a target is a bullseye
+      f=mk(1);f.t=10;const t=F('msTarget')(f,'bottle',2,300);
+      F('msShoot')(f,300,t.y);for(let i=0;i<60;i++)F('fgStep')(f,1/60);
+      check('a shot that arrives in the middle of a target is a BULLSEYE: 120 x1 x1.5 = 180',f.score[0]===180&&f.perfects[0]===1&&f.hits[0]===1&&!t.alive);
+      f=mk(1);f.t=10;const t2=F('msTarget')(f,'bottle',2,300);
+      F('msShoot')(f,300,t2.y+t2.r*.8);for(let i=0;i<60;i++)F('fgStep')(f,1/60);
+      check('a shot near the edge still hits but is not a bullseye (120)',f.score[0]===120&&f.perfects[0]===0);
+      f=mk(1);f.t=10;const t3=F('msTarget')(f,'duck',1,100,{vx:150});
+      F('msShoot')(f,100,t3.y);for(let i=0;i<60;i++)F('fgStep')(f,1/60);
+      check('a duck that drifts has to be led: a shot at where it was misses',f.hits[0]===0);
+      f=mk(1);f.t=10;const t4=F('msTarget')(f,'duck',1,100,{vx:150});const lead=F('msFut')(f,t4,F('msFlight')(t4.y,false));
+      F('msShoot')(f,lead.x,lead.y);for(let i=0;i<60;i++)F('fgStep')(f,1/60);
+      check('aiming where it will be hits it',f.hits[0]===1);
+      f=mk(1);f.t=10;const d1=F('msTarget')(f,'decoy',2,300,{tr:true});
+      F('msShoot')(f,300,d1.y);for(let i=0;i<60;i++)F('fgStep')(f,1/60);
+      check('the decoy costs 200 (never below zero) and breaks the streak',f.score[0]===0&&f.streak[0]===0);
+      f=mk(1);f.t=10;const bl=F('msTarget')(f,'bell',2,300,{y:262});
+      F('msShoot')(f,300,262);for(let i=0;i<60;i++)F('fgStep')(f,1/60);
+      check('the bell rings and stays: it can be hit again after a moment',f.hits[0]===1&&bl.alive&&bl.ring>0);
+      // rapid fire
+      f=mk(1);f.phase='play';f.blockLeft=[0];f.thrown=1;f.advMark=-1;for(let i=0;i<5;i++)F('fgStep')(f,1/60);
+      check('after the last shot of a round the rapid fire begins: six seconds, shots are free',f.phase==='rapid'&&f.rapid.left>5&&f.rapid.left<=6.01);
+      const dartsBefore=f.darts[0];let p=null;for(let i=0;i<80&&!p;i++){F('fgStep')(f,1/60);p=f.targets.find(x=>x.k==='popup'&&F('msHittable')(f,x));}
+      if(p){F('msShoot')(f,p.x,p.y);for(let i=0;i<50;i++)F('fgStep')(f,1/60);}
+      check('a rapid-fire hit pays the plain value (300) and does not use up a shot',!p||(f.score[0]>=300&&f.darts[0]===dartsBefore&&f.rapid.hits>=1));
+      let g2=0;while(f.phase==='rapid'&&g2++<2000)F('fgStep')(f,1/60);
+      check('when the six seconds are over the best rapid-fire round is remembered and the next round starts',f.phase==='play'&&f.rapidBest[0]>=0&&f.pi===2);
+      // the bots play whole matches
+      f=mk(2,[0,1]);f.bots=['gentle','sharp'];f.t=10;let n2=0;while(f.phase!=='over'&&n2++<60000)F('fgStep')(f,1/60);
+      check('two bots play a whole match: all rounds, both rapid fires and the final shot',f.phase==='over'&&f.darts[0]===0&&f.darts[1]===0&&f.finalDone.every(x=>x));
+      check('the sharp bot is clearly better than the gentle bot over several matches',(()=>{let a=0,b=0;for(let r=0;r<4;r++){const h=mk(2,[0,1]);h.bots=['gentle','sharp'];h.t=10;let n=0;while(h.phase!=='over'&&n++<60000)F('fgStep')(h,1/60);a+=h.score[0];b+=h.score[1];}return b>a;})());
+      f=mk(2);f.score=[1500,2200];f.hits=[8,10];f.perfects=[1,2];f.bestStreak=[2,3];f.rapidBest=[4,6];f.phase='over';G().fg=f;G().scr='table';
+      F('fgEnd')(f);
+      check('the end of a match shows the results with the Marksman figures',G().lp[1].c4Result==='win'&&G().lp[0].c4Result==='loss'&&G().scr==='matchend'&&/Bullseyes/.test(F('fgChipsHTML')())&&/rapid fire/i.test(F('fgChipsHTML')()));
+      check('the Marksman records and the Quick Draw trophy exist',F('AR_REC').marksman.length===4&&F('ACHIEVEMENTS').some(a=>a.id==='ms-rapid'));
+    }finally{back(k0);}
+  });
   suite('Arcade series: best of 3 across rematches',()=>{
     const F=n=>W.eval(n);
     const G=()=>F('G');
