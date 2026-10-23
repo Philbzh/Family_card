@@ -5636,6 +5636,18 @@ async function runPresentation(A,W,frame){
     check('the snapshot carries the boss, the power-ups, the laser and the bosses destroyed',j.boss&&j.boss.hp===iv.boss.hp&&j.pu.length===1&&j.pu[0].k==='r'&&j.pwk[0]==='t'&&j.ls&&j.ls.x===222&&j.bosses===1);
     check('the Boss Slayer trophy and the splitter are in the rules and the trophy list',F('ACHIEVEMENTS').some(x=>x.id==='iv-boss')&&F('GAMES').find(g=>g.id==='invaders').rules.join(' ').includes('splitters'));
   });
+  suite('Arcade series: best of 3 across rematches',()=>{
+    const F=n=>W.eval(n);
+    const G=()=>F('G');
+    const keep=()=>[G().arSeries,G().arLast,G().isOnline,G().selGame,G().srv];
+    const back=k=>{const g=G();g.arSeries=k[0];g.arLast=k[1];g.isOnline=k[2];g.selGame=k[3];g.srv=k[4];};
+    check('a series can only be started after a match, and that match counts as 1–0',(()=>{const k=keep();try{const g=G();g.arSeries=null;g.arLast=null;const a=F('arSeriesStart')();F('arSeriesAdd')('pool',['Anna','Ben'],'Ben');const b=F('arSeriesStart')();return a===false&&b===true&&g.arSeries.sc[0]===0&&g.arSeries.sc[1]===1&&g.arSeries.target===2&&!g.arSeries.over;}finally{back(k);}})());
+    check('the next matches are added to the series and the series ends when someone reaches two',(()=>{const k=keep();try{const g=G();g.arSeries=null;g.arLast=null;F('arSeriesAdd')('pool',['Anna','Ben'],'Anna');F('arSeriesStart')();F('arSeriesAdd')('pool',['Anna','Ben'],'Ben');const mid=g.arSeries.sc.join('-')+g.arSeries.over;F('arSeriesAdd')('pool',['Anna','Ben'],'Anna');const end=g.arSeries.sc.join('-')+g.arSeries.over;F('arSeriesAdd')('pool',['Anna','Ben'],'Ben');return mid==='1-1false'&&end==='2-1true'&&g.arSeries.sc.join('-')==='2-1';}finally{back(k);}})());
+    check('another game or other players do not count into the series',(()=>{const k=keep();try{const g=G();g.arSeries={id:'x',game:'pool',names:['Anna','Ben'],sc:[1,0],target:2,over:false};F('arSeriesAdd')('airhockey',['Anna','Ben'],'Ben');F('arSeriesAdd')('pool',['Anna','Carl'],'Carl');return g.arSeries.sc.join('-')==='1-0';}finally{back(k);}})());
+    check('the result screen shows the series score or the offer to start one, only for Arcade games',(()=>{const k=keep();try{const g=G();g.isOnline=false;g.selGame='pool';g.arSeries={id:'x',game:'pool',names:['Anna','Ben'],sc:[1,1],target:2,over:false};const a=F('arSeriesHTML')();g.arSeries=null;g.arLast={game:'pool',names:['Anna','Ben'],w:0};const b=F('arSeriesHTML')();g.selGame='yahtzee';const c=F('arSeriesHTML')();return /BEST OF 3/.test(a)&&/ar-s-sc/.test(a)&&/data-a="ar-series"/.test(b)&&c==='';}finally{back(k);}})());
+    check('a finished series is announced with the final score',(()=>{const k=keep();try{const g=G();g.isOnline=false;g.selGame='pool';g.arSeries={id:'x',game:'pool',names:['Anna','Ben'],sc:[2,1],target:2,over:true};return /Anna wins the series 2–1/.test(F('arSeriesHTML')());}finally{back(k);}})());
+    check('the online rematch carries a running series into the new game and a finished one is dropped',(()=>{const src=W.eval('oRematch.toString()');return src.includes('arSeries:(G.arSeries&&!G.arSeries.over&&ahIs(rs.gameId))?G.arSeries:null');})());
+  });
   suite('Who goes first alternates from game to game',()=>{
     const F=n=>W.eval(n);
     check('online, a rematch of a turn-based game starts with the other player',(()=>{const G=F('G'),k=[G.srv];try{G.srv={gameId:'pig',first:0};const a=F('oFirst')([{},{}],'pig');G.srv={gameId:'pig',first:1};const b=F('oFirst')([{},{}],'pig');G.srv={gameId:'pig',first:2};const c=F('oFirst')([{},{},{}],'pig');return a===1&&b===0&&c===0;}finally{G.srv=k[0];}})());

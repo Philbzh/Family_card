@@ -1634,6 +1634,14 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 /* ── Arcade: 8-Ball ── */
 .ah-sc.pl-grp{display:inline-flex;align-items:center;gap:2px;font-size:.7rem;}
 .ah-hud.act{box-shadow:0 0 0 2px rgba(255,214,110,.85),0 0 16px rgba(255,200,80,.55);}
+.ar-series{margin:0 0 .8rem;padding:.8rem 1rem;border-radius:16px;border:1px solid rgba(201,164,92,.45);background:linear-gradient(180deg,rgba(40,32,14,.55),rgba(12,18,14,.7));text-align:center;}
+.ar-s-t{font-size:.6rem;letter-spacing:.3em;color:var(--gold2,#E6C36A);margin-bottom:.35rem;}
+.ar-s-sc{display:flex;align-items:center;justify-content:center;gap:.7rem;font-family:var(--serif);}
+.ar-s-sc span{font-size:.95rem;color:var(--paper,#F4EBD0);max-width:30%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ar-s-sc b{font-size:2rem;color:#fff;min-width:1.4rem;}
+.ar-s-sc i{font-style:normal;color:var(--paper3,#9db09f);}
+.ar-s-sub{font-size:.72rem;color:var(--paper3,#9db09f);margin-top:.3rem;}
+.ar-s-win{margin-top:.45rem;font-family:var(--serif);font-size:1.05rem;color:var(--gold2,#E6C36A);}
 .pl-tag{letter-spacing:.14em;font-size:.55rem;margin-right:4px;color:#E6C36A;}
 .pl-mb{display:inline-block;width:21px;height:21px;border-radius:50%;background:var(--c);color:#fff;font:700 10px/21px Jost,sans-serif;text-align:center;font-style:normal;box-shadow:inset -2px -2px 3px rgba(0,0,0,.4),0 1px 2px rgba(0,0,0,.5);text-shadow:0 0 2px #000;}
 .pl-mb.st{background:linear-gradient(#f6f1e2 0 26%,var(--c) 26% 74%,#f6f1e2 74%);}
@@ -7623,7 +7631,32 @@ function arFlag(id){const a=arAll();return !!(a.flags&&a.flags[id]);}
 function arPlayed(){const a=arAll();return a.played||{};}
 function ahResultObj(ah){const st=ah.stats;return{fastest:ahStatFast(ah),bestRally:st.bestRally,saves:st.saves,perfect:st.perfect||0,comeback:st.comeback?st.comeback.from:0,rev:st.rev?1:0,team:ah.team?1:0,won:ah.teamWon?1:0,wave:ah.team&&ah.sim.iv?Math.min(ah.sim.iv.wave,ah.sim.iv.target):0,bosses:ah.sim&&ah.sim.iv?ah.sim.iv.bosses||0:0,teamScore:ah.team?ah.score[0]+ah.score[1]:0};}
 // called on every device when a match ends. Returns the records that were beaten.
+/* ── Arcade series: "best of 3" across rematches (no coins, no levels; just the score between the same two people) ── */
+function arSeriesAdd(game,names,winner){
+  const w=names.indexOf(winner);if(w<0)return;
+  G.arLast={game,names:names.slice(),w};
+  const s=G.arSeries;
+  if(s&&s.game===game&&s.names.join('|')===names.join('|')&&!s.over){s.sc[w]++;if(s.sc[w]>=s.target)s.over=true;}
+}
+function arSeriesStart(){
+  const l=G.arLast;if(!l)return false;
+  G.arSeries={id:'sr'+Date.now().toString(36)+Math.floor(Math.random()*1e4),game:l.game,names:l.names.slice(),sc:[0,0],target:2,over:false};
+  G.arSeries.sc[l.w]=1;   // the match that was just played counts as the first
+  return true;
+}
+function arSeriesHTML(){
+  const gid=G.isOnline?G.srv&&G.srv.gameId:G.selGame;if(!gid||!ahIs(gid))return'';
+  const s=G.arSeries,l=G.arLast;
+  if(s&&s.game===gid){
+    const lead=s.sc[0]===s.sc[1]?-1:s.sc[0]>s.sc[1]?0:1;
+    const line=s.over?`<div class="ar-s-win">🏆 ${esc(s.names[lead])} wins the series ${Math.max(s.sc[0],s.sc[1])}–${Math.min(s.sc[0],s.sc[1])}</div>`:`<div class="ar-s-sub">First to ${s.target} wins the series</div>`;
+    return`<div class="ar-series"><div class="ar-s-t">BEST OF 3</div><div class="ar-s-sc"><span>${esc(s.names[0])}</span><b>${s.sc[0]}</b><i>–</i><b>${s.sc[1]}</b><span>${esc(s.names[1])}</span></div>${line}</div>`;
+  }
+  if(l&&l.game===gid)return`<button class="btn btn-ghost btn-full" data-a="ar-series">🏆 Make it a best of 3 — this match counts as 1–0</button>`;
+  return'';
+}
 function arRecordUpdate(game,names,winnerName,score,rs){
+  try{arSeriesAdd(game,names,winnerName);}catch(e){}
   const a=arAll();a.rec=a.rec||{};a.flags=a.flags||{};a.played=a.played||{};a.played[game]=(a.played[game]||0)+1;
   const won=[],set=(key,v,by)=>{const r=a.rec[game]=a.rec[game]||{};if(v>0&&(!r[key]||v>r[key].v)){r[key]={v,by,at:new Date().toISOString()};won.push(key);}};
   const by=(names||[]).join(' vs ');
@@ -26326,7 +26359,9 @@ function onSrvCore(state){
   state=sanitiseState(state);
   if(!state)return;
   // A rematch: everybody sitting on the results screen re-enters through the same fresh-start path as the lobby's Start.
-  if(state.rematchId&&state.phase==='game'&&state.rematchId!==_rematchSeen&&G.scr==='matchend'){_rematchSeen=state.rematchId;G.scr='lobby';G.anotherOpen=false;}
+  if(state.rematchId&&state.phase==='game'&&state.rematchId!==_rematchSeen&&G.scr==='matchend'){_rematchSeen=state.rematchId;G.scr='lobby';G.anotherOpen=false;if(ahIs(state.gameId))G.arSeries=state.arSeries?JSON.parse(JSON.stringify(state.arSeries)):null;}
+  // a series started on the other device
+  if(G.isOnline&&ahIs(state.gameId)&&state.arSeries&&state.arSeries.id!==(G.arSeries&&G.arSeries.id)&&G.scr==='matchend')G.arSeries=JSON.parse(JSON.stringify(state.arSeries));
   // The host picked a different game for the same table: the lobby (and rules, options...) must follow.
   if(G.isOnline&&state.gameId&&state.gameId!==G.selGame)G.selGame=state.gameId;
   const prevWinner=G.srv?.winner,wasLobby=G.scr==='lobby';
@@ -27495,6 +27530,10 @@ function oAnotherBtnHTML(){
 // The buttons under every final result. Local: Rematch / New Game. Online host: Rematch (same players), pick another
 // game (same players, same room) or leave. Everybody else waits for the host.
 function resButtonsHTML(){
+  const ser=arSeriesHTML();
+  return ser+resButtonsCore();
+}
+function resButtonsCore(){
   if(!G.isOnline)return'<div class="res-btns"><button class="btn btn-gold btn-full" data-a="rematch">🔥 Rematch</button><button class="btn btn-ghost btn-full" data-a="newgame">New Game</button></div>';
   if(!G.isHost&&G.srv&&ahIs(G.srv.gameId))return'<div class="res-btns"><button class="btn btn-gold btn-full" data-a="o-rematch">🔥 Rematch</button><button class="btn btn-ghost btn-full" data-a="newgame">Leave the table</button></div>';
   if(!G.isHost){
@@ -27628,7 +27667,7 @@ function oStartGame(rs){
       if(ahIs(rs.gameId)){
         const players=rs.players.slice(0,2).map(p=>({...p,totalScore:0,c4Result:null}));
         const gs={phase:'game',gameId:rs.gameId,host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
-          ah:{id:'ah'+Date.now().toString(36)+Math.floor(Math.random()*1e4),score:[0,0]},pl:rs.gameId==='pool'?plNew(plRulesPref(),plAssistPref(),plNextStarter()):undefined,winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
+          arSeries:rs.arSeries||null,ah:{id:'ah'+Date.now().toString(36)+Math.floor(Math.random()*1e4),score:[0,0]},pl:rs.gameId==='pool'?plNew(plRulesPref(),plAssistPref(),plNextStarter()):undefined,winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
         G.srv=gs;G.ah=null;G.pl=null;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }
@@ -27737,7 +27776,7 @@ async function oRematch(){
   if(_onlineBusy)return;_onlineBusy=true;
   try{
     const rs=await dbRead(G.roomId);if(!rs||!rs.players||rs.players.length<2)return;
-    const clean={phase:'lobby',gameId:rs.gameId,host:rs.host,hr:rs.hr,bjBetAmount:rs.bjBetAmount,bigBlind:rs.bigBlind,smallBlind:rs.smallBlind,
+    const clean={arSeries:(G.arSeries&&!G.arSeries.over&&ahIs(rs.gameId))?G.arSeries:null,phase:'lobby',gameId:rs.gameId,host:rs.host,hr:rs.hr,bjBetAmount:rs.bjBetAmount,bigBlind:rs.bigBlind,smallBlind:rs.smallBlind,
       players:rs.players.map(p=>({id:p.id,name:p.name,avatar:p.avatar})),_ts:Date.now()};
     _rematchStamp=Date.now();setTimeout(()=>{_rematchStamp=0;},4000);
     oStartGame(clean);
@@ -30820,7 +30859,8 @@ document.addEventListener('click',e=>{
   // pipeline a normal "Deal the Cards" tap from setup uses, just skipping setup since G.lp is
   // already populated from the match that just ended. Local pass-and-play only: online would need
   // to reset the shared room state for every seated player, which is a bigger, separate change.
-  else if(a==='rematch'){lStartMatch();render();}
+  else if(a==='rematch'){if(G.arSeries&&G.arSeries.over)G.arSeries=null;lStartMatch();render();}
+  else if(a==='ar-series'){if(arSeriesStart()){if(G.isOnline&&G.srv)oFastMutate(state=>{state.arSeries=G.arSeries;return true;},()=>{},()=>{});render();}}
   else if(a==='o-rematch'){oRematch();}
   else if(a==='o-another'){G.anotherOpen=!G.anotherOpen;render();}
   else if(a==='o-switch'){oSwitchGame(t.getAttribute('data-gid'));}
