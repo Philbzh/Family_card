@@ -4231,6 +4231,8 @@ window.onerror=function(msg,src,line,col,err){
   return false;
 };
 window.onunhandledrejection=function(e){
+  // a phone that cannot start its audio device just stays silent: that is not an error worth a red banner
+  var rm=String(e&&e.reason&&e.reason.message?e.reason.message:e&&e.reason);if(/audio device|AudioContext|NotAllowedError|not allowed by the user agent|play\(\) request/i.test(rm)){if(e.preventDefault)e.preventDefault();return;}
   var d=document.createElement('div');
   d.style.cssText='position:fixed;top:0;left:0;right:0;background:#880000;color:white;padding:12px;font-size:13px;font-family:monospace;z-index:9999;word-break:break-all;';
   d.textContent='PROMISE ERROR: '+(e.reason&&e.reason.message?e.reason.message:e.reason);
@@ -4910,7 +4912,7 @@ function audioKeepAlive(){
   try{
     if(!G.snd)return;
     if(!_ac&&(window.AudioContext||window.webkitAudioContext))_ac=new(window.AudioContext||window.webkitAudioContext)();
-    if(_ac&&_ac.state!=='running'&&_ac.state!=='closed')_ac.resume();
+    if(_ac&&_ac.state!=='running'&&_ac.state!=='closed')_acResume();
     if(navigator.audioSession){if(navigator.audioSession.type!=='playback')navigator.audioSession.type='playback';return;}
     if(!AUDIO_KEEP.el){
       const n=2000,b=new Uint8Array(44+n),w=(o,v,l)=>{for(let i=0;i<l;i++)b[o+i]=(v>>(8*i))&255;},t=(o,x)=>{for(let i=0;i<x.length;i++)b[o+i]=x.charCodeAt(i);};
@@ -4923,7 +4925,8 @@ function audioKeepAlive(){
 try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(e){}
 ['pointerdown','touchend','click','keydown'].forEach(ev=>document.addEventListener(ev,audioKeepAlive,{capture:true,passive:true}));
 document.addEventListener('visibilitychange',()=>{try{if(document.hidden){if(AUDIO_KEEP.el)AUDIO_KEEP.el.pause();}else audioKeepAlive();}catch(e){}});
-function tone(f,d,t='sine'){if(!G.snd)return;try{_ac=_ac||new(window.AudioContext||window.webkitAudioContext)();if(_ac.state==='suspended')_ac.resume();const o=_ac.createOscillator(),g=_ac.createGain();o.type=t;o.frequency.value=f;g.gain.value=.065;o.connect(g);g.connect(_ac.destination);o.start();g.gain.exponentialRampToValueAtTime(.0001,_ac.currentTime+(d||.12));o.stop(_ac.currentTime+(d||.12)+.02);}catch(e){}}
+function _acResume(){try{const p=_ac.resume();if(p&&p.catch)p.catch(function(){});}catch(e){}}
+function tone(f,d,t='sine'){if(!G.snd)return;try{_ac=_ac||new(window.AudioContext||window.webkitAudioContext)();if(_ac.state==='suspended')_acResume();const o=_ac.createOscillator(),g=_ac.createGain();o.type=t;o.frequency.value=f;g.gain.value=.065;o.connect(g);g.connect(_ac.destination);o.start();g.gain.exponentialRampToValueAtTime(.0001,_ac.currentTime+(d||.12));o.stop(_ac.currentTime+(d||.12)+.02);}catch(e){}}
 // Ambient Lounge — a very quiet, deliberately simple room-tone bed (soft filtered noise, no pitched
 // content) that plays while you're actually at the table. Kept to noise-only on purpose: a synthesized
 // pad/drone risks sounding subtly off-key with no way for me to proof-listen to it; filtered noise at
@@ -4933,7 +4936,7 @@ function startAmbient(){
   if(_ambNodes||!G.snd||!G.ambientOn)return;
   try{
     _ac=_ac||new(window.AudioContext||window.webkitAudioContext)();
-    if(_ac.state==='suspended')_ac.resume();
+    if(_ac.state==='suspended')_acResume();
     const ac=_ac;
     const len=ac.sampleRate*2;
     const buffer=ac.createBuffer(1,len,ac.sampleRate);
@@ -12024,7 +12027,7 @@ function esTick(sec){if(!G.snd)return;tone(sec%2?1250:980,.014,'square');}
 function esDroneStart(){
   if(_esDrone||!G.snd)return;
   try{
-    _ac=_ac||new(window.AudioContext||window.webkitAudioContext)();if(_ac.state==='suspended')_ac.resume();
+    _ac=_ac||new(window.AudioContext||window.webkitAudioContext)();if(_ac.state==='suspended')_acResume();
     const g=_ac.createGain();g.gain.value=.012;g.connect(_ac.destination);
     const a=_ac.createOscillator(),b=_ac.createOscillator();a.type='sine';b.type='sine';a.frequency.value=55;b.frequency.value=55.6;a.connect(g);b.connect(g);a.start();b.start();
     _esDrone={a,b,g};
@@ -19647,7 +19650,7 @@ function bwTimerTick(){
 function bwTimerStart(){if(_bwTimerIv)clearInterval(_bwTimerIv);_bwTimerIv=setInterval(()=>{try{bwTimerTick();}catch(e){}},500);}
 /* ── Blackwater: the actions, shown in real time ── */
 function bwNoise(ms,vol){
-  try{if(!G.snd)return;_ac=_ac||new(window.AudioContext||window.webkitAudioContext)();if(_ac.state==='suspended')_ac.resume();
+  try{if(!G.snd)return;_ac=_ac||new(window.AudioContext||window.webkitAudioContext)();if(_ac.state==='suspended')_acResume();
     const n=Math.floor(_ac.sampleRate*ms/1000),b=_ac.createBuffer(1,n,_ac.sampleRate),d=b.getChannelData(0);
     for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*(1-i/n);
     const s=_ac.createBufferSource(),g=_ac.createGain();s.buffer=b;g.gain.value=vol||.12;s.connect(g);g.connect(_ac.destination);s.start();}catch(e){}
@@ -19825,7 +19828,7 @@ function bwDimOutside(svg,cells,ms,tone){
    Everything goes through one small "mixing desk": a soft limiter and a room/sea echo (a generated impulse response), so that
    guns, hits and explosions have weight and a tail instead of being single beeps. */
 let _bwOff=null;   // tests render the sounds into an OfflineAudioContext instead of the speakers
-function bwAc(){if(_bwOff)return _bwOff;if(!G.snd)return null;try{_ac=_ac||new(window.AudioContext||window.webkitAudioContext)();if(_ac.state==='suspended')_ac.resume();if(!_bwSmpBusy)setTimeout(bwLoadSamples,0);return _ac;}catch(e){return null;}}
+function bwAc(){if(_bwOff)return _bwOff;if(!G.snd)return null;try{_ac=_ac||new(window.AudioContext||window.webkitAudioContext)();if(_ac.state==='suspended')_acResume();if(!_bwSmpBusy)setTimeout(bwLoadSamples,0);return _ac;}catch(e){return null;}}
 let _bwBus=null;
 function bwBus(ac){
   if(_bwBus&&_bwBus.ac===ac)return _bwBus;
