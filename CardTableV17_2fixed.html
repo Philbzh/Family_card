@@ -9838,26 +9838,28 @@ function hfToggleFmt(){
 function hfBuildPic(g,bg){
   const sc=g.scale,W=FG.W,H=FG.H,c=document.createElement('canvas');c.width=Math.round(W*sc);c.height=Math.round(H*sc);
   const x=c.getContext('2d');x.scale(sc,sc);
-  x.fillStyle='#030305';x.fillRect(0,0,W,H);
-  // the picture hangs a little lower, so that the centre line of the court is the line the ball bounces on
-  const gr=x.createLinearGradient(0,0,0,HF_SP.dy+40);gr.addColorStop(0,'#020204');gr.addColorStop(1,'#07060a');x.fillStyle=gr;x.fillRect(0,0,W,HF_SP.dy+40);
-  x.drawImage(bg,0,HF_SP.dy,W,H);
-  const top=x.createLinearGradient(0,HF_SP.dy-4,0,HF_SP.dy+70);top.addColorStop(0,'rgba(2,2,4,1)');top.addColorStop(1,'rgba(2,2,4,0)');x.fillStyle=top;x.fillRect(0,HF_SP.dy-4,W,74);
+  x.fillStyle='#02050a';x.fillRect(0,0,W,H);
+  // the arena picture fills the height; its baseline lands just behind the hoop
+  const bw=H*bg.naturalWidth/bg.naturalHeight;x.drawImage(bg,-22,0,bw,H);
   // the three spots, in gold on the boards
   x.textAlign='center';
   HF_SPOTS.forEach(sp=>{const sy2=800;
-    x.save();x.shadowColor='rgba(255,200,90,.7)';x.shadowBlur=14;x.strokeStyle='#e8c25a';x.lineWidth=3.2;x.beginPath();x.ellipse(sp.x,sy2,34,12,0,0,6.283);x.stroke();x.restore();
-    x.fillStyle='rgba(0,0,0,.35)';x.beginPath();x.ellipse(sp.x,sy2,30,9,0,0,6.283);x.fill();
-    x.fillStyle='rgba(244,235,208,.95)';x.font='700 11px Jost, sans-serif';x.fillText(sp.nm,sp.x,sy2-1);x.font='700 15px Cinzel, Georgia, serif';x.fillStyle='#ffe3a0';x.fillText('×'+sp.m,sp.x,sy2+22);});
-  // the post that carries the backboard, from the picture of the post: the steel top, the padded body stretched to the floor, the base plate
+    x.save();x.shadowColor='rgba(255,210,110,.8)';x.shadowBlur=14;x.strokeStyle='#f2d27a';x.lineWidth=3.2;x.beginPath();x.ellipse(sp.x,sy2,34,12,0,0,6.283);x.stroke();x.restore();
+    x.fillStyle='rgba(0,0,0,.28)';x.beginPath();x.ellipse(sp.x,sy2,30,9,0,0,6.283);x.fill();
+    x.fillStyle='rgba(255,250,236,.95)';x.font='700 11px Jost, sans-serif';x.fillText(sp.nm,sp.x,sy2-1);x.font='700 15px Cinzel, Georgia, serif';x.fillStyle='#ffe9a8';x.fillText('×'+sp.m,sp.x,sy2+22);});
+  // the post that carries the backboard: the padded base, a long steel mast, the plate
   const ps=hfImg('hf_post.png');
-  if(ps){const k=40/HF_SP.bd,sx=ps.width-HF_SP.bd,px=FG.W-58,top0=330,bot0=812,topH=90,padSrc0=150,padSrc1=428,baseH=ps.height-padSrc1;
-    x.drawImage(ps,sx,60,HF_SP.bd,topH,px,top0,40,topH*k);
-    x.drawImage(ps,sx,padSrc0,HF_SP.bd,padSrc1-padSrc0,px,top0+topH*k,40,bot0-baseH*k-(top0+topH*k));
-    x.drawImage(ps,sx,padSrc1,HF_SP.bd,baseH,px,bot0-baseH*k,40,baseH*k);
-    const cg=x.createLinearGradient(px,0,px+40,0);cg.addColorStop(0,'#8d98ad');cg.addColorStop(.5,'#e6ecf6');cg.addColorStop(1,'#667087');x.fillStyle=cg;x.fillRect(px+2,top0-6,36,8);}
+  if(ps){const k=62/(ps.width-160),sx=160,mx=564,left=mx-(238-sx)*k,topY=300,footY=655;
+    const topH=100,mastH=60,baseSrc0=140,baseH=ps.height-baseSrc0;
+    // the shadow on the floor
+    x.fillStyle='rgba(0,0,0,.38)';x.beginPath();x.ellipse(mx,footY+2,52,11,0,0,6.283);x.fill();
+    const baseDraw=baseH*k;
+    x.drawImage(ps,sx,0,ps.width-sx,topH,left,topY,(ps.width-sx)*k,topH*k);
+    const mastY0=topY+topH*k,mastY1=footY-baseDraw;
+    x.drawImage(ps,sx,topH,ps.width-sx,mastH,left,mastY0,(ps.width-sx)*k,Math.max(4,mastY1-mastY0));
+    x.drawImage(ps,sx,baseSrc0,ps.width-sx,baseH,left,footY-baseDraw,(ps.width-sx)*k,baseDraw);}
   // the edges fall into the dark
-  const vg=x.createRadialGradient(W/2,H*.5,H*.34,W/2,H*.5,H*.85);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.5)');x.fillStyle=vg;x.fillRect(0,0,W,H);
+  const vg=x.createRadialGradient(W/2,H*.5,H*.36,W/2,H*.5,H*.86);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.45)');x.fillStyle=vg;x.fillRect(0,0,W,H);
   g.statik=c;
 }
 function hfBuild(g){
@@ -9945,11 +9947,11 @@ function hfBuild(g){
   g.statik=c;
 }
 const HF_LAMPS=[110,300,490];
-const HF_USE_PIC=false;   // the first arena picture had too much fire; the picture backdrop comes back with the new one
+const HF_USE_PIC=true;
 // the pictures made for the game: the arena, the ball, the hoop (red and golden) and the post
 const HF_IMGS={};
 function hfImg(n){let e=HF_IMGS[n];if(!e){e=HF_IMGS[n]=new Image();e.onload=()=>{if(G.fg&&G.fg.kind==='hoopfever')G.fg.statik=null;};e.src='assets/games/'+n;}return e.complete&&e.naturalWidth?e:null;}
-const HF_SP={cx:113,cy:166,w:226,bd:104,dy:150};   // the rim centre and width in the hoop picture, the width of the post picture, how far the arena picture is moved down
+const HF_SP={red:{cx:104,cy:170,w:203},gold:{cx:109,cy:155,w:212}};   // the rim centre and width in the two hoop pictures
 function hfDrawLights(g,x){
   const t=g.t,intro=g.phase==='intro',fy=560,pic=!!(HF_USE_PIC&&hfImg('hoopfever_bg.jpg')&&hfImg('hf_post.png'));
   x.save();x.globalCompositeOperation='lighter';
@@ -9991,11 +9993,11 @@ function hfDrawHoop(g,x,front){
   const hx=g.hx,hw=g.hw,hy=HF.HY,t=g.t,gold=g.mode==='gold'||g.mode==='jackpot',fire=g.fire[g.turn];
   const hs=hfImg(gold?'hf_goldhoop.png':'hf_hoop.png');
   if(hs){
-    const k=(2*hw)/HF_SP.w,dx=hx-HF_SP.cx*k,dy=hy-HF_SP.cy*k;
+    const M=gold?HF_SP.gold:HF_SP.red,k=(2*hw)/M.w,dx=hx-M.cx*k,dy=hy-M.cy*k;
     if(!front){
       x.save();x.globalCompositeOperation='lighter';const sl=x.createRadialGradient(hx,hy-30,10,hx,hy-30,260);sl.addColorStop(0,'rgba(255,226,170,.2)');sl.addColorStop(1,'rgba(255,226,170,0)');x.fillStyle=sl;x.beginPath();x.arc(hx,hy-30,260,0,6.283);x.fill();x.restore();
       // the arms that join the backboard to the post
-      const bx=hx+(hs.width-6-HF_SP.cx)*k,wl=FG.W-60;for(const ay of [hy-52,hy+8]){const ag=x.createLinearGradient(0,ay-5,0,ay+5);ag.addColorStop(0,'#8d98ad');ag.addColorStop(.5,'#e6ecf6');ag.addColorStop(1,'#4a5266');x.fillStyle=ag;x.fillRect(bx,ay-5,wl-bx,10);}
+      const bx=hx+(hs.width-6-M.cx)*k,wl=FG.W-58;for(const ay of [hy-52,hy+8]){const ag=x.createLinearGradient(0,ay-5,0,ay+5);ag.addColorStop(0,'#8d98ad');ag.addColorStop(.5,'#e6ecf6');ag.addColorStop(1,'#4a5266');x.fillStyle=ag;x.fillRect(bx,ay-5,wl-bx,10);}
       x.drawImage(hs,dx,dy,hs.width*k,hs.height*k);
       if(fire){x.save();x.globalCompositeOperation='lighter';for(let i=0;i<6;i++){const a=t*9+i*1.9,fx=hx+Math.sin(a)*hw*.8,fy=hy-8-Math.abs(Math.sin(a*1.3))*44;const fg=x.createRadialGradient(fx,fy,2,fx,fy,28);fg.addColorStop(0,'rgba(255,200,90,.75)');fg.addColorStop(1,'rgba(255,90,20,0)');x.fillStyle=fg;x.beginPath();x.arc(fx,fy,28,0,6.283);x.fill();}x.restore();}
       return;
