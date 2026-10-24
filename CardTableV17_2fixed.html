@@ -8698,6 +8698,13 @@ function fgThrow(g,ax,ay){
    Each device runs the booth. The device whose turn it is simulates and sends a snapshot about ten times a second (scores, clock, targets or balloons,
    the ball, the sight) plus the last effects and sounds; the others apply the snapshot, move things on a little between two snapshots and replay the
    effects. When a run ends the next shooter's device takes over from the last snapshot. The last shooter's device writes the result to the room. */
+// the pictures made for the booths (the backdrops, the targets, the balloons, the dart, the rifle)
+const FG_IMGS={};
+function fgImg(n){let e=FG_IMGS[n];if(!e){e=FG_IMGS[n]=new Image();e.onload=()=>{if(G.fg&&(G.fg.kind==='marksman'||G.fg.kind==='balloonblast'))G.fg.statik=null;};e.src='assets/games/'+n;}return e.complete&&e.naturalWidth?e:null;}
+function fgPicOn(g){return !!fgImg(g.kind==='marksman'?'ms_bg.jpg':'bb_bg.jpg');}
+function fgCover(x,img,W,H){const k=Math.max(W/img.naturalWidth,H/img.naturalHeight),w=img.naturalWidth*k,h=img.naturalHeight*k;x.drawImage(img,(W-w)/2,(H-h)/2,w,h);}
+// a picture drawn centred at 0,0 with the given width (the height follows)
+function fgSprW(x,img,w){x.drawImage(img,-w/2,-(w*img.naturalHeight/img.naturalWidth)/2,w,w*img.naturalHeight/img.naturalWidth);}
 const FG_NET_KEYS={all:['turn','phase','pt','t','score','streak','bestStreak','perfects','hits','jack','thrown','wind','run','diff','slow','over','moment'],
   balloonblast:['balloons','fl','chainN','chainC','risk','bonus'],marksman:['targets','fls','power','stage','steady','xs','ringSum','ringN','rapidBest'],
   hoopfever:['ball','spot','form','mode','hx','hw','pull','rimTouched','fire','fmt','cont']};
@@ -9096,7 +9103,12 @@ function fgHud(g){
   const bt=document.getElementById('fg-diffbtn');if(bt){const lk=g.thrown>0,t='LEVEL: '+FG_DIFF[g.diff].name+(lk?' 🔒':'');if(bt._t!==t){bt._t=t;bt.textContent=t;}if(bt._l!==lk){bt._l=lk;bt.disabled=lk;bt.style.opacity=lk?'.75':'';}}
 }
 /* ── drawing ── */
-function fgBuildStatic(g){fgBoothStatic(g,'BALLOON BLAST','C O L O U R  ·  C H A I N  ·  N E R V E',[392,628],{drape:'#5b1a22',leather:'#12392c',wall:['#0f1c18','#09130f','#040a07']});}
+function fgBuildStatic(g){
+  const bg=fgImg('bb_bg.jpg');
+  if(bg){const sc=g.scale,W=FG.W,H=FG.H,c=document.createElement('canvas');c.width=Math.round(W*sc);c.height=Math.round(H*sc);const x=c.getContext('2d');x.scale(sc,sc);
+    x.fillStyle='#04060a';x.fillRect(0,0,W,H);fgCover(x,bg,W,H);
+    const vg=x.createRadialGradient(W/2,H*.5,H*.38,W/2,H*.5,H*.88);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.35)');x.fillStyle=vg;x.fillRect(0,0,W,H);g.statik=c;return;}
+  fgBoothStatic(g,'BALLOON BLAST','C O L O U R  ·  C H A I N  ·  N E R V E',[392,628],{drape:'#5b1a22',leather:'#12392c',wall:['#0f1c18','#09130f','#040a07']});}
 function fgBoothStatic(g,title,sub,shelves,pal){
   pal=pal||{};const wl=pal.wall||['#143026','#0d2119','#060f0b'],dr=pal.drape||'#5b1a22',lea=pal.leather||'#12392c';
   const sc=g.scale,W=FG.W,H=FG.H,c=document.createElement('canvas');c.width=Math.round(W*sc);c.height=Math.round(H*sc);
@@ -9193,9 +9205,24 @@ function fgBoothStatic(g,title,sub,shelves,pal){
   const vg2=x.createRadialGradient(W/2,H*.48,H*.3,W/2,H*.48,H*.78);vg2.addColorStop(0,'rgba(0,0,0,0)');vg2.addColorStop(1,'rgba(0,0,0,.55)');x.fillStyle=vg2;x.fillRect(0,0,W,H);
   g.statik=c;
 }
+const FG_BAL_PIC=['bb_red.png','bb_blue.png','bb_ivory.png','bb_green.png','bb_brass.png','bb_slate.png'];
+function fgBalPic(b){
+  const n=b.k==='gold'||b.k==='jackpot'||b.k==='final'?'bb_joker.png':b.k==='black'?'bb_black.png':b.ci>=0&&b.k!=='rainbow'&&b.k!=='chain'?FG_BAL_PIC[b.ci]:null;return n?fgImg(n):null;}
 function fgDrawBalloon(x,b,p,t,g){
   const r=b.r;x.save();x.translate(p.x,p.y);
   const tilt=Math.sin(b.ph+t*b.swf)*.12;x.rotate(tilt);
+  const spn=fgBalPic(b);
+  if(spn){
+    let sx=1,sy=1;if(b.hit&&!b.popped){sx=1-.14*b.st;sy=1+.22*b.st;}x.scale(sx,sy);
+    if(b.k==='fast'){x.strokeStyle='rgba(255,180,120,.35)';x.lineWidth=3;for(let i=0;i<3;i++){const sgn=b.vx>=0?-1:1;x.beginPath();x.moveTo(sgn*(r+4),(i-1)*r*.5);x.lineTo(sgn*(r+30+i*6),(i-1)*r*.5);x.stroke();}}
+    const k=(r*1.86)/spn.naturalWidth*(b.k==='jackpot'||b.k==='final'?1.05:1),bodyH=spn.naturalHeight*.69;   // the body is the upper part, the rest is the string
+    x.drawImage(spn,-spn.naturalWidth*k/2,-bodyH*k/2,spn.naturalWidth*k,spn.naturalHeight*k);
+    if(b.k==='gold'||b.k==='jackpot'||b.k==='final'){x.globalCompositeOperation='lighter';
+      for(let i=0;i<3;i++){const a=t*2.2+i*2.1+b.ph,sx2=Math.cos(a)*r*1.2,sy2=Math.sin(a*1.3)*r*1.3,sv=.5+.5*Math.sin(t*9+i*3);x.fillStyle='rgba(255,230,140,'+(.25+.55*sv)+')';x.beginPath();x.arc(sx2,sy2,2.2+sv*2,0,6.283);x.fill();}
+      if(b.k!=='gold'){const pg=x.createRadialGradient(0,0,r*.6,0,0,r*2.4);pg.addColorStop(0,'rgba(255,214,110,.35)');pg.addColorStop(1,'rgba(255,214,110,0)');x.fillStyle=pg;x.beginPath();x.arc(0,0,r*2.4,0,6.283);x.fill();}
+      x.globalCompositeOperation='source-over';}
+    x.restore();return;
+  }
   // the string
   x.strokeStyle='rgba(236,226,200,.5)';x.lineWidth=1.3;x.beginPath();x.moveTo(0,r*1.08);x.bezierCurveTo(8,r*1.55,-9,r*2.0,3,r*2.5);x.stroke();
   let sx=1,sy=1;if(b.hit&&!b.popped){sx=1-.14*b.st;sy=1+.22*b.st;}
@@ -9233,6 +9260,8 @@ function fgDrawBalloon(x,b,p,t,g){
   x.restore();
 }
 function fgDrawDart(x,px,py,ang,s,al){
+  const dsp=fgImg('bb_dart.png');
+  if(dsp){x.save();x.translate(px,py);x.rotate(ang);x.scale(s,s);x.globalAlpha=al==null?1:al;x.translate(-14,0);x.rotate(Math.PI/2);const L=100,w=L*dsp.naturalWidth/dsp.naturalHeight;x.drawImage(dsp,-w/2,-L/2,w,L);x.restore();return;}
   x.save();x.translate(px,py);x.rotate(ang);x.scale(s,s);x.globalAlpha=al==null?1:al;
   // flights (the feathers), the shaft, the point
   x.fillStyle='#b8322a';x.beginPath();x.moveTo(-34,0);x.lineTo(-48,-9);x.lineTo(-38,-1);x.closePath();x.fill();
@@ -9248,7 +9277,7 @@ function fgDrawBB(g,now){
   const sc=g.scale,W=FG.W,H=FG.H,t=g.t;
   x.setTransform(1,0,0,1,0,0);x.drawImage(g.statik,0,0);x.setTransform(sc,0,0,sc,0,0);
   const intro=g.phase==='intro',lit=intro?Math.min(1,g.pt/1.8):1;
-  fgDrawBulbs(g,x);
+  if(!fgPicOn(g))fgDrawBulbs(g,x);
   // balloons: the chains first (their strings), then every balloon, the ones further down in front
   const list=g.balloons.slice().sort((a,b)=>a.by-b.by);
   x.strokeStyle='rgba(236,226,200,.5)';x.lineWidth=2;
@@ -9332,7 +9361,7 @@ function fgDrawTail(g,x,cv,now){
    still (but not for too long: you tire), a changing WIND pushes the pellet (read the pennant and aim off), every target is scored by RING (10 in the
    middle down to 6), distance and speed make the same ring worth more, and the match has stages: static targets, moving targets, long range in a gusty wind,
    two RAPID FIRE bursts and the FINAL SHOT. A tie is settled by a SHOOT-OFF. Targets are painted steel, brass and glass. */
-const MS_ROWS=[{y:330,s:.72},{y:520,s:.86},{y:700,s:1}];
+const MS_ROWS=[{y:190,s:.78},{y:316,s:.9},{y:442,s:1}];   // the three rails of the range picture are at 219, 345 and 471
 const MS_T={duck:{r:26,m:12},star:{r:24,m:14},bottle:{r:22,m:10},bell:{r:28,m:12},disc:{r:20,m:18},popup:{r:23,m:14},gold:{r:21,m:40},decoy:{r:26,m:-15},final:{r:15,m:90}};
 const MS_PLAN=[{k:'shots',n:5,st:1,nm:'STAGE 1',sub:'static targets'},{k:'rapid'},{k:'shots',n:5,st:2,nm:'STAGE 2',sub:'moving targets'},{k:'rapid'},{k:'shots',n:5,st:3,nm:'STAGE 3',sub:'long range · strong wind'},{k:'final'}];
 const MS_WIND={1:90,2:120,3:190};
@@ -9359,15 +9388,15 @@ function msStageLayout(g,st){
   if(st===1){
     [110,300,490].forEach(x=>msTarget(g,'star',0,x));
     [100,235,365,500].forEach(x=>msTarget(g,'bottle',2,x));
-    msTarget(g,'bell',2,300,{y:262,r0:28,r:28*d.r});
+    msTarget(g,'bell',2,300,{y:MS_ROWS[0].y-60,r0:28,r:28*d.r});
   }else if(st===2){
     [60,260,460].forEach((x,i)=>msTarget(g,'duck',1,x,{vx:(i%2?-1:1)*(110+i*18)*d.v}));
-    msTarget(g,'disc',0,200,{y:272,vx:210*d.v,turnT:1+Math.random()*2});
-    msTarget(g,'disc',1,420,{y:430,vx:-170*d.v,turnT:1+Math.random()*2});
+    msTarget(g,'disc',0,200,{y:MS_ROWS[0].y-50,vx:210*d.v,turnT:1+Math.random()*2});
+    msTarget(g,'disc',1,420,{y:MS_ROWS[1].y-40,vx:-170*d.v,turnT:1+Math.random()*2});
     msTarget(g,'star',0,300);
   }else if(st===3){
-    for(let i=0;i<3;i++)msTarget(g,'disc',0,120+i*180,{y:262+(i%2)*46,vx:(i%2?-1:1)*(150+i*40)*d.v,turnT:.8+Math.random()*1.4,r0:16,r:16*d.r});
-    [110,300,490].forEach(x=>msTarget(g,'star',0,x,{y:384,r0:19,r:19*d.r}));
+    for(let i=0;i<3;i++)msTarget(g,'disc',0,120+i*180,{y:MS_ROWS[0].y-60+(i%2)*46,vx:(i%2?-1:1)*(150+i*40)*d.v,turnT:.8+Math.random()*1.4,r0:16,r:16*d.r});
+    [110,300,490].forEach(x=>msTarget(g,'star',0,x,{y:MS_ROWS[1].y-30,r0:19,r:19*d.r}));
   }
   for(const t of g.targets)t.t0=g.t;
 }
@@ -9580,7 +9609,12 @@ function msBot(g,dt){
   }
 }
 /* ── Marksman: the range on screen (painted steel, brass and glass) ── */
-function msBuild(g){fgBoothStatic(g,'MARKSMAN','P R E C I S I O N  ·  W I N D  ·  N E R V E',[358,552,732],{drape:'#143a2c',leather:'#1d2a24',wall:['#0d1b16','#08130f','#040a07']});}
+function msBuild(g){
+  const bg=fgImg('ms_bg.jpg');
+  if(bg){const sc=g.scale,W=FG.W,H=FG.H,c=document.createElement('canvas');c.width=Math.round(W*sc);c.height=Math.round(H*sc);const x=c.getContext('2d');x.scale(sc,sc);
+    x.fillStyle='#04070a';x.fillRect(0,0,W,H);fgCover(x,bg,W,H);
+    const vg=x.createRadialGradient(W/2,H*.45,H*.35,W/2,H*.45,H*.85);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.4)');x.fillStyle=vg;x.fillRect(0,0,W,H);g.statik=c;return;}
+  fgBoothStatic(g,'MARKSMAN','P R E C I S I O N  ·  W I N D  ·  N E R V E',[219,345,471],{drape:'#143a2c',leather:'#1d2a24',wall:['#0d1b16','#08130f','#040a07']});}
 // the painted rings of a steel target: the value of each ring is what you score
 function msPaint(x,r,col,center){
   x.save();x.lineWidth=Math.max(1,r*.05);
@@ -9601,6 +9635,19 @@ function msDrawTarget(x,t,g){
   }else if(tm-t.t0<.35){const u=Math.max(.01,(tm-t.t0)/.35);x.scale(.4+.6*u,.4+.6*u);x.globalAlpha=Math.min(1,u*1.4);}
   // a soft shadow behind every target
   x.fillStyle='rgba(0,0,0,.28)';x.beginPath();x.ellipse(5,r*1.05,r*.9,r*.16,0,0,6.283);x.fill();
+  {const SP={bottle:['ms_bottle.png',null,3.4],bell:['ms_bell.png',null,3.4],star:['ms_star.png',2.5],final:['ms_star.png',3],disc:['ms_bull.png',2.3],popup:['ms_bull.png',2.3],duck:['ms_duck.png',3],gold:['ms_goldduck.png',3],decoy:['ms_decoy.png',2.3]}[t.k];
+   const im=SP&&fgImg(SP[0]);
+   if(im){
+     if(t.k==='bottle'){const h=r*SP[2];x.drawImage(im,-h*im.naturalWidth/im.naturalHeight/2,-h/2,h*im.naturalWidth/im.naturalHeight,h);}
+     else if(t.k==='bell'){const sw=Math.sin(tm*3+t.ph)*.05+Math.sin((tm-t.ring)*18)*Math.max(0,1-(tm-t.ring)*1.4)*.5*(tm-t.ring<1?1:0),h=r*SP[2];x.translate(0,-h/2);x.rotate(sw);x.drawImage(im,-h*im.naturalWidth/im.naturalHeight/2,0,h*im.naturalWidth/im.naturalHeight,h);}
+     else if(t.k==='duck'||t.k==='gold'){const dir=t.vx>=0?1:-1;x.scale(dir,1);x.translate(0,Math.sin(tm*5+t.ph)*1.6);fgSprW(x,im,r*SP[1]);
+       if(t.k==='gold'){x.globalCompositeOperation='lighter';for(let i=0;i<3;i++){const a=tm*3+i*2.1,sv=.5+.5*Math.sin(tm*9+i*3);x.fillStyle='rgba(255,230,140,'+(.3+.5*sv)+')';x.beginPath();x.arc(Math.cos(a)*r*1.1,Math.sin(a*1.2)*r*.9,2+sv*2,0,6.283);x.fill();}}}
+     else if(t.k==='star'){x.rotate(Math.sin(tm*.8+t.ph)*.12);fgSprW(x,im,r*SP[1]);}
+     else if(t.k==='final'){x.globalCompositeOperation='lighter';const pg=x.createRadialGradient(0,0,r*.4,0,0,r*3);pg.addColorStop(0,'rgba(255,214,110,.5)');pg.addColorStop(1,'rgba(255,214,110,0)');x.fillStyle=pg;x.beginPath();x.arc(0,0,r*3,0,6.283);x.fill();x.globalCompositeOperation='source-over';x.rotate(tm*4);fgSprW(x,im,r*SP[1]);}
+     else if(t.k==='disc'){x.rotate(tm*2);fgSprW(x,im,r*SP[1]);}
+     else if(t.k==='popup'){const up=Math.max(0,Math.min(1,t.up||0));x.translate(0,(1-up)*r*2.6);x.fillStyle='#2a1d0d';x.fillRect(-4,r*.8,8,r*1.6);fgSprW(x,im,r*SP[1]);}
+     else fgSprW(x,im,r*SP[1]);
+     x.restore();return;}}
   switch(t.k){
     case'duck':case'gold':case'decoy':{
       const dir=t.vx>=0?1:-1,gold=t.k==='gold',dec=t.k==='decoy';x.scale(dir,1);const bob=Math.sin(tm*5+t.ph)*1.6;x.translate(0,bob);
@@ -9647,7 +9694,7 @@ function msDraw(g,now){
   const cv=g.cv;if(!cv)return;const x=cv.getContext('2d');if(!g.scale)fgSize();if(!g.statik)msBuild(g);
   const sc=g.scale,W=FG.W,H=FG.H,t=g.t,lv=MS_LVL[g.diff];
   x.setTransform(1,0,0,1,0,0);x.drawImage(g.statik,0,0);x.setTransform(sc,0,0,sc,0,0);
-  fgDrawBulbs(g,x);
+  if(!fgPicOn(g))fgDrawBulbs(g,x);
   // the lamps over the three rows, and a little dust floating in their light
   x.save();x.globalCompositeOperation='lighter';
   for(const R of MS_ROWS){const lg=x.createLinearGradient(0,R.y-110,0,R.y+60);lg.addColorStop(0,'rgba(255,210,130,.0)');lg.addColorStop(.5,'rgba(255,210,130,.07)');lg.addColorStop(1,'rgba(255,210,130,0)');x.fillStyle=lg;x.fillRect(30,R.y-110,W-60,170);}
@@ -9668,7 +9715,8 @@ function msDraw(g,now){
   }
   // the rifle at the bottom, pointing at the sight
   {const ax=g.aim.sx!=null?g.aim.sx:g.aim.x,ay=g.aim.sy!=null?g.aim.sy:g.aim.y,ang=Math.atan2(ay-(H-20),ax-W/2);
-    x.save();x.translate(W/2,H-24);x.rotate(ang+Math.PI/2);const gr=x.createLinearGradient(-9,0,9,0);gr.addColorStop(0,'#14181a');gr.addColorStop(.4,'#5a6268');gr.addColorStop(1,'#0c0e10');x.fillStyle=gr;x.fillRect(-8,-70,16,86);x.fillStyle='#b8923a';x.fillRect(-10,-74,20,7);x.fillStyle='#3c2512';x.fillRect(-13,8,26,26);x.fillStyle='rgba(255,226,170,.25)';x.fillRect(-8,-70,3,86);x.restore();}
+    const rfl=fgImg('ms_rifle.png');if(rfl){x.save();x.translate(W/2,H-6);x.rotate(ang+Math.PI/2);const rh=300,rw=rh*rfl.naturalWidth/rfl.naturalHeight;x.shadowColor='rgba(0,0,0,.6)';x.shadowBlur=14;x.shadowOffsetY=8;x.drawImage(rfl,-rw/2,-rh+30,rw,rh);x.restore();}else{
+    x.save();x.translate(W/2,H-24);x.rotate(ang+Math.PI/2);const gr=x.createLinearGradient(-9,0,9,0);gr.addColorStop(0,'#14181a');gr.addColorStop(.4,'#5a6268');gr.addColorStop(1,'#0c0e10');x.fillStyle=gr;x.fillRect(-8,-70,16,86);x.fillStyle='#b8923a';x.fillRect(-10,-74,20,7);x.fillStyle='#3c2512';x.fillRect(-13,8,26,26);x.fillStyle='rgba(255,226,170,.25)';x.fillRect(-8,-70,3,86);x.restore();}}
   // the sight, with its steadiness
   if(msCanAct(g)||g.aim.on||(g.phase==='rapid'&&!g.bots[g.turn]&&g.aim.on)){
     const ax=g.aim.sx!=null?g.aim.sx:g.aim.x,ay=g.aim.sy!=null?g.aim.sy:g.aim.y;
