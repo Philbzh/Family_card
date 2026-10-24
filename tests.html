@@ -5685,9 +5685,9 @@ async function runPresentation(A,W,frame){
       const shootAny=()=>{const bb=F('fgSpawn')(f,{k:'std',side:false});bb.bx=300;bb.by=420;bb.vx=0;bb.vy=0;bb.sw=0;F('fgThrow')(f,310,420);for(let i=0;i<70;i++)F('fgStep')(f,1/60);};
       shootAny();f.balloons=[];shootAny();
       check('in a timed run the same player keeps throwing: no turn change after a dart',f.turn===0&&f.hits[0]===2);
-      f.run.left=0.01;for(let i=0;i<120&&f.turn===0;i++)F('fgStep')(f,1/60);
+      f.run.left=0.01;for(let i=0;i<900&&f.turn===0;i++)F('fgStep')(f,1/60);
       check('when the 60 seconds are over the next player gets their own run',f.turn===1&&f.run.done[0]===true&&f.run.idx===1);
-      f.run.active=true;f.run.pre=0;f.run.left=0.01;for(let i=0;i<200&&f.phase!=='over';i++)F('fgStep')(f,1/60);
+      f.run.active=true;f.run.pre=0;f.run.left=0.01;for(let i=0;i<900&&f.phase!=='over';i++)F('fgStep')(f,1/60);
       check('after the last run the game is over',f.phase==='over'&&f.over===true);
       f=mk(1);f.run.active=false;f.run.pre=1;
       check('nobody can throw during the get-ready pause',!F('fgCanAct')(f));
@@ -5712,6 +5712,18 @@ async function runPresentation(A,W,frame){
           while(f.phase!=='over'&&st++<6000&&!done){F('fgStep')(f,1/60);if(f.phase==='play'&&f.turn===0&&f.run.active){runs++;if(!F('fgAimable')(f)||!F('fgCanAct')(f))bad++;done=true;}}
         }
         check('when the bot shoots first, the human can aim and shoot as soon as their own run starts ('+kind+')',runs===8&&bad===0);
+      }
+    }finally{const g=G();F('fgStop')();g.isOnline=k0[0];g.selGame=k0[1];g.lp=k0[2];g.lstart=k0[3];g.scr=k0[4];g.fg=null;}
+  });
+  suite('Fairground: the best shot is replayed after the buzzer (Balloon Blast and Marksman)',()=>{
+    const F=n=>W.eval(n),G=()=>F('G');
+    const k0=[G().isOnline,G().selGame,G().lp,G().lstart,G().scr,G().fg];
+    try{
+      for(const kind of ['balloonblast','marksman']){
+        const g=G();g.isOnline=false;g.selGame=kind;g.lstart=0;g.lp=[{id:1,name:'A',avatar:'x',hand:[],totalScore:0,bot:'sharp'},{id:2,name:'B',avatar:'x',hand:[],totalScore:0,bot:'sharp'}];
+        F('fgStop')();const f=F('fgNew')(kind);g.fg=f;f.run.dur=15;f.run.left=15;let st=0,seen=false,idx0=-1;
+        while(f.phase!=='over'&&st++<60*90){F('fgStep')(f,1/60);if(f.replay&&!seen){seen=true;idx0=f.run.idx;check(kind+': after the buzzer the best shot is shown again in slow motion with the figures of the run',f.replay.q.pts>0&&f.replay.stat.hits>=1&&f.run.active===false);}}
+        check(kind+': the replay ends and the next player starts, and the whole match finishes',seen&&f.phase==='over'&&f.run.done.every(x=>x));
       }
     }finally{const g=G();F('fgStop')();g.isOnline=k0[0];g.selGame=k0[1];g.lp=k0[2];g.lstart=k0[3];g.scr=k0[4];g.fg=null;}
   });
@@ -5781,7 +5793,7 @@ async function runPresentation(A,W,frame){
       check('a run starts on stage 1 and moves to moving targets after a third of the time',f.stage===1&&(()=>{f.run.left=30;run(f,2);return f.stage===2;})());
       f=mk(2);f.t=10;f.turn=0;let tg=F('msTarget')(f,'bottle',2,300);F('msShoot')(f,300,tg.y);run(f,70);tg=F('msTarget')(f,'bottle',2,300);F('msShoot')(f,300,tg.y);run(f,70);
       check('the same player keeps shooting: no change of player after a shot',f.turn===0&&f.hits[0]===2);
-      f.run.left=.01;run(f,150);
+      f.run.left=.01;run(f,700);
       check('when the time is up the other player gets their own run',f.turn===1&&f.run.done[0]);
       f=mk(1);f.t=10;f.targets=[];const gd=F('msTarget')(f,'gold',0,300,{vx:0,y:330});F('msShoot')(f,300,330);run(f,70);
       check('hitting the golden duck switches on the POWER SHOT',f.power&&f.power.owner===0&&f.hits[0]===1);
