@@ -5743,7 +5743,7 @@ async function runPresentation(A,W,frame){
     const F=n=>W.eval(n),G=()=>F('G');
     const k0=[G().isOnline,G().selGame,G().lp,G().scr,G().plFlip];
     try{
-      const g=G();g.isOnline=false;g.plFlip=false;g.lp=[{id:1,name:'Mum',avatar:F('AVATARS')[0],hand:[],totalScore:0},{id:2,name:'Son',avatar:F('AVATARS')[1],hand:[],totalScore:0}];g.selGame='pool';F('lDealPool')();g.scr='table';F('render')();
+      const g=G();g.isOnline=false;g.plFlip=false;g.lp=[{id:1,name:'Mum',avatar:F('AVATARS')[0],hand:[],totalScore:0},{id:2,name:'Son',avatar:F('AVATARS')[1],hand:[],totalScore:0}];g.selGame='pool';F('lDealPool')();g.scr='table';F('render')();F('plAttach')();
       const p=G().pl,cv=W.document.getElementById('pl-cv'),btn=W.document.getElementById('pl-flipbtn');
       check('the pool table has an OTHER SIDE button and starts in the normal view',!!btn&&!!cv&&p.flip===false&&!cv.classList.contains('pl-flip'));
       btn.click();
@@ -5755,6 +5755,12 @@ async function runPresentation(A,W,frame){
       check('in the turned view a touch on the screen aims at the same place of the table (the touch is mirrored)',ok||r.width<=10);
       btn.click();
       check('tapping again brings the table back',p.flip===false&&!cv.classList.contains('pl-flip'));
+      // the fine aim: a tap turns the cue by a hair, to the right or to the left
+      {const fe=W.document.getElementById('pl-fine');F('plHud')(p);const b1=fe&&fe.querySelector('button[data-fine="1"]'),b0=fe&&fe.querySelector('button[data-fine="-1"]');
+       const a0=p.aim.ang;if(b1){b1.dispatchEvent(new W.PointerEvent('pointerdown',{pointerId:7,bubbles:true,cancelable:true}));b1.dispatchEvent(new W.PointerEvent('pointerup',{pointerId:7,bubbles:true}));}
+       const a1=p.aim.ang;if(b0){b0.dispatchEvent(new W.PointerEvent('pointerdown',{pointerId:8,bubbles:true,cancelable:true}));b0.dispatchEvent(new W.PointerEvent('pointerup',{pointerId:8,bubbles:true}));}
+       const a2=p.aim.ang;
+       check('the FINE buttons are shown on my turn and one tap turns the aim by about a tenth of a degree to the right and back to the left',!!fe&&fe.style.display==='flex'&&a1-a0>.001&&a1-a0<.01&&Math.abs(a2-a0)<1e-6);}
     }finally{const g=G();try{F('plStop')();}catch(e){}g.isOnline=k0[0];g.selGame=k0[1];g.lp=k0[2];g.scr=k0[3];g.plFlip=k0[4];g.pl=null;}
   });
   suite('Fairground: the LEVEL button works in every booth',()=>{

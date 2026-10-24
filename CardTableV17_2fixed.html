@@ -1728,6 +1728,10 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 .pl-power{position:absolute;right:10px;top:16%;bottom:16%;width:46px;z-index:4;border-radius:23px;background:linear-gradient(180deg,rgba(10,30,24,.82),rgba(4,12,10,.9));border:2px solid rgba(230,195,106,.55);touch-action:none;overflow:hidden;box-shadow:0 8px 20px -8px #000;}
 .pl-power i{position:absolute;left:0;right:0;top:0;height:0;background:linear-gradient(180deg,#43e1ff,#E6C36A 60%,#ff6a55);opacity:.85;}
 .pl-power span{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:.55rem;letter-spacing:.16em;color:#F4EBD0;opacity:.8;writing-mode:vertical-rl;margin:0 auto;}
+.pl-fine{position:absolute;left:12px;bottom:130px;z-index:4;display:none;align-items:center;gap:6px;padding:4px 6px;border-radius:999px;background:rgba(5,14,12,.82);border:1px solid rgba(230,195,106,.5);}
+.pl-fine span{font:700 .55rem 'Cinzel',serif;letter-spacing:.16em;color:#E6C36A;}
+.pl-fine button{width:38px;height:38px;border-radius:50%;border:1px solid rgba(230,195,106,.6);background:linear-gradient(180deg,#2c1f0e,#120b04);color:#F1DFA6;font-size:.9rem;touch-action:none;box-shadow:inset 0 1px 0 rgba(255,236,190,.25);}
+.pl-fine button:active{filter:brightness(1.3);}
 .pl-spin{position:absolute;left:12px;bottom:56px;width:64px;height:64px;z-index:4;border-radius:50%;background:radial-gradient(circle at 38% 32%,#fffaf0,#d9d2bc 60%,#8a8470);border:2px solid rgba(230,195,106,.7);touch-action:none;box-shadow:0 6px 16px -6px #000;}
 .pl-spin:before{content:'';position:absolute;left:50%;top:6px;bottom:6px;width:1px;background:rgba(0,0,0,.25);}
 .pl-spin:after{content:'';position:absolute;top:50%;left:6px;right:6px;height:1px;background:rgba(0,0,0,.25);}
@@ -8233,6 +8237,7 @@ function rPoolTable(){
         <div class="ah-hud ah-hud-top"><span class="ah-av">${av(players[1-mySeat])}</span><span class="ah-nm">${esc(players[1-mySeat]?players[1-mySeat].name:'')}</span><b class="ah-sc" id="pl-sc1">–</b></div>
         <div class="ah-hud ah-hud-bot"><span class="ah-av">${av(players[mySeat])}</span><span class="ah-nm">${esc(players[mySeat]?players[mySeat].name:'')}</span><b class="ah-sc" id="pl-sc0">–</b></div>
         <div class="pl-power" id="pl-power" aria-label="Power: pull down and let go to shoot"><i id="pl-pw"></i><span>PULL</span></div>
+        <div class="pl-fine" id="pl-fine" aria-label="Fine aim"><button type="button" data-fine="-1" aria-label="Aim a little to the left">◀</button><span>FINE</span><button type="button" data-fine="1" aria-label="Aim a little to the right">▶</button></div>
         <div class="pl-spin" id="pl-spin" aria-label="Spin: where the cue hits the ball"><b id="pl-dot"></b></div>
         <button class="pl-assist" data-a="pl-assist" id="pl-assistbtn">AIM: ${a.toUpperCase()}</button>
         <button class="pl-assist pl-cloth" data-a="pl-cloth" id="pl-clothbtn">CLOTH: ${plCloth().toUpperCase()}</button>
@@ -8296,6 +8301,18 @@ function plBindInput(cv){
     const rel=()=>{if(!pd)return;pd=false;const pw=g.aim.power;if(pw>=.05&&plCanAct())plShoot();else g.aim.power=0;};
     pb.addEventListener('pointerup',rel);pb.addEventListener('pointercancel',()=>{pd=false;g.aim.power=0;});
   }
+  // the fine aim: tap for a hair's breadth, hold to turn slowly and then a little faster
+  const fn=document.getElementById('pl-fine');
+  if(fn&&!fn._pl){fn._pl=1;
+    fn.querySelectorAll('button[data-fine]').forEach(bt=>{
+      let tm=0,t0=0;const dir=+bt.getAttribute('data-fine');
+      const nudge=d=>{if(!G.pl||G.pl!==g||!plCanAct()||g.pl.bih)return;g.aim.ang+=dir*d*Math.PI/180;};
+      const stop=()=>{if(tm){clearInterval(tm);tm=0;}};
+      const tick=()=>{const held=performance.now()-t0;nudge(held>1400?.55:held>700?.32:.18);};
+      bt.addEventListener('pointerdown',e=>{e.preventDefault();stop();try{bt.setPointerCapture(e.pointerId);}catch(x){}t0=performance.now();nudge(.12);tm=setInterval(()=>{if(performance.now()-t0>380)tick();},55);},{passive:false});
+      bt.addEventListener('pointerup',stop);bt.addEventListener('pointercancel',stop);bt.addEventListener('pointerleave',stop);
+    });
+  }
   // the spin: where on the cue ball the tip hits
   const sb=document.getElementById('pl-spin');
   if(sb&&!sb._pl){sb._pl=1;let sd=false;
@@ -8330,6 +8347,7 @@ function plHud(g){
   const pl=g.pl,players=plPlayers();
   const st=document.getElementById('pl-status'),place=document.getElementById('pl-place'),pw=document.getElementById('pl-pw'),dot=document.getElementById('pl-dot');
   const my=plCanAct();
+  {const fe=document.getElementById('pl-fine');if(fe){const sh=my&&!pl.bih&&!g.anim&&!pl.over?'flex':'none';if(fe.style.display!==sh)fe.style.display=sh;}}
   let txt;
   if(pl.over)txt='Match over';
   else if(g.anim)txt='…';
