@@ -5794,7 +5794,9 @@ async function runPresentation(A,W,frame){
       stt.mi=0;stt.mp=0;for(let i=0;i<15;i++)F('pbEvent')(p,'bumper',{bm:T.bumpers[0],b:{x:0,y:0}});
       check('fifteen bumper hits finish the first mission',stt.mi===1&&stt.mc===1);
       stt.mi=2;stt.mp=0;const lv0=stt.lvl;for(let i=0;i<30;i++)F('pbEvent')(p,'spin',{b:{vx:0,vy:-600,x:0,y:0},sp:T.spin});
-      check('the third mission of a level wins an extra ball and the next level',stt.lvl===lv0+1&&stt.extra>=1&&stt.mi===0);
+      check('the third mission of a level calls a boss',!!stt.boss&&stt.lvl===lv0&&stt.mi===0);
+      F('pbBoss')(p,5);check('shots hurt the boss',stt.boss.hp<stt.boss.max);
+      F('pbBoss')(p,99999);check('a defeated boss wins an extra ball and the next level',!stt.boss&&stt.lvl===lv0+1&&stt.extra>=1);
       p.phase='play';p.tilted=false;p.nudgeCool=0;const nb={x:236,y:500,vx:0,vy:0,st:'play',id:9e3,stuck:0,tr:[]};p.balls=[nb];F('pbNudge')(p,1);
       check('a nudge throws the ball sideways and a little up, never down',nb.vx>0&&nb.vy<=0);
       p.nudgeCool=0;nb.vx=nb.vy=0;F('pbNudge')(p,0);
@@ -5809,6 +5811,24 @@ async function runPresentation(A,W,frame){
       {F('pbBindInput')();const pt=F('_pbPtr');p.phase='play';pt.set(77,{s:'L',x0:0,y0:0,t0:0,n:0,btn:1,type:'touch'});p.fl.L.on=true;F('pbSyncFlips')(p);const held=p.fl.L.on;
        W.document.dispatchEvent(new W.Event('touchend'));F('pbSyncFlips')(p);
        check('a finger-up that got lost can never leave the left flipper stuck: with no finger on the glass the flipper is let go',held===true&&pt.size===0&&p.fl.L.on===false);p.balls=[nb];}
+      // the tunnels, the secret room and the wizard
+      {p.phase='play';p.tilted=false;p.room=null;stt.secret=false;stt.lastPortal=null;stt.boss=null;const P1=T.portals[0],P2=T.portals[1];P1.t=-9;P2.t=-9;
+       const tb={x:P1.x,y:P1.y,vx:0,vy:0,st:'play',id:9100,stuck:0,tr:[]};p.balls=[tb];const sc0=stt.score;F('pbEvent')(p,'portal',{p:P1,b:tb});
+       check('a ball that falls into a tunnel disappears and scores',tb.st==='tunnel'&&stt.score>sc0);
+       for(let i=0;i<56;i++)F('pbStep')(p,1/60);
+       check('it comes out of the other tunnel with speed',tb.st==='play'&&Math.hypot(tb.x-P2.x,tb.y-P2.y)<60&&Math.hypot(tb.vx,tb.vy)>200);
+       P2.t=-9;tb.st='play';tb.x=P2.x;tb.y=P2.y;F('pbEvent')(p,'portal',{p:P2,b:tb});
+       check('using both tunnels in a row opens the secret room',stt.secret===true);
+       for(let i=0;i<80;i++)F('pbStep')(p,1/60);P1.t=-9;P2.t=-9;tb.st='play';tb.x=P1.x;tb.y=P1.y;F('pbEvent')(p,'portal',{p:P1,b:tb});for(let i=0;i<80;i++)F('pbStep')(p,1/60);
+       check('then the next tunnel leads into the secret room',!!p.room&&tb.st==='room');
+       const sc1=stt.score;for(let i=0;i<60*15&&p.room&&p.room.state==='drop';i++)F('pbStep')(p,1/60);
+       check('the ball in the secret room falls into a prize slot',!!p.room&&p.room.state==='end'&&stt.score>sc1);
+       for(let i=0;i<60*3&&p.room;i++)F('pbStep')(p,1/60);
+       check('after the prize the ball returns to the table',!p.room&&tb.st==='play');
+       p.phase='play';p.balls=[tb];tb.st='play';tb.x=236;tb.y=450;tb.vx=tb.vy=0;p.saveT=99;p.freeze=0;p.slow=0;F('pbWizard')(p);check('the wizard mode makes every shot count triple',!!p.wiz&&p.multi===true);
+       const w0=stt.score;F('pbPts')(p,1000,{flat:1});check('wizard points are tripled',stt.score-w0===3000);
+       p.wiz.t=.01;p.slow=0;p.freeze=0;F('pbStep')(p,1/60);check('the wizard mode ends when its 45 seconds are over',!p.wiz);
+       F('PBS').peg();F('PBS').bumper();p.phase='play';p.tilt=0;p.tilted=false;p.wiz=null;p.multi=false;p.mbQueue=0;p.slow=0;p.freeze=0;p.balls=[nb];p.tilt=6.3;}
       check('a few nudges are allowed, only many in a row tilt the table',!p.tilted);
       for(let i=0;i<4;i++){p.nudgeCool=0;F('pbNudge')(p,-1);}
       check('too many nudges in a row tilt it',p.tilted===true);
