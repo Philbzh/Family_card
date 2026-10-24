@@ -2204,7 +2204,7 @@ function run(A,W){
     // off BOT_GAMES.
     check('it is deliberately NOT a bot game',!A.BOT_GAMES.has('drawit'));
     check('and every other playable game still is',
-      A.GAMES.filter(x=>!x.locked&&x.id!=='drawit'&&!x.onlineOnly).every(x=>A.BOT_GAMES.has(x.id)));
+      A.GAMES.filter(x=>!x.locked&&x.id!=='drawit'&&x.id!=='pinball'&&!x.onlineOnly).every(x=>A.BOT_GAMES.has(x.id)));
     check('it has rules to show',g&&g.rules&&g.rules.length>=3);
   });
 
@@ -5762,6 +5762,24 @@ async function runPresentation(A,W,frame){
        const a2=p.aim.ang;
        check('the FINE buttons are shown on my turn and one tap turns the aim by about a tenth of a degree to the right and back to the left',!!fe&&fe.style.display==='flex'&&a1-a0>.001&&a1-a0<.01&&Math.abs(a2-a0)<1e-6);}
     }finally{const g=G();try{F('plStop')();}catch(e){}g.isOnline=k0[0];g.selGame=k0[1];g.lp=k0[2];g.scr=k0[3];g.plFlip=k0[4];g.pl=null;}
+  });
+  suite('Pinball: the classic table',()=>{
+    const F=n=>W.eval(n),G=()=>F('G');
+    const k0=[G().isOnline,G().selGame,G().lp,G().scr,G().pb];
+    try{
+      const g=G();g.isOnline=false;g.lp=[{id:1,name:'Ann',avatar:F('AVATARS')[0],hand:[],totalScore:0},{id:2,name:'Bo',avatar:F('AVATARS')[1],hand:[],totalScore:0}];g.selGame='pinball';F('lDealPinball')();g.scr='table';F('render')();
+      const p=G().pb;
+      check('pinball starts a hot-seat game with one state per player and the ball in the plunger lane',!!p&&p.n===2&&p.st.length===2&&p.balls[0].st==='plunger');
+      check('the canvas is on the screen',!!W.document.getElementById('pb-cv'));
+      p.phase='play';F('pbLaunch')(p);
+      let top=1e9;for(let i=0;i<240;i++){F('pbStep')(p,1/60);const b=p.balls[0];if(b&&b.y<top)top=b.y;}
+      check('a launched ball climbs the lane and reaches the top of the table',top<300);
+      check('every ball stays inside the table while it plays',p.balls.every(b=>b.x>0&&b.x<500&&b.y>-40));
+      const s0=p.st[0].score;F('pbEvent')(p,'bumper',{bm:F('PB_T').bumpers[0],b:p.balls[0]});
+      check('a pop bumper scores points',p.st[p.turn].score>s0||p.st[0].score>s0);
+      const ft=F('pbFlipTip')({th:F('PB_FL').L.rest},F('PB_FL').L);
+      check('the left flipper rests lower on the outside than at its tip is above the pivot line (it points down to the middle)',ft[1]>F('PB_FL').L.py);
+    }finally{const g=G();try{F('pbStop')();}catch(e){}g.isOnline=k0[0];g.selGame=k0[1];g.lp=k0[2];g.scr=k0[3];g.pb=null;}
   });
   suite('Fairground: the LEVEL button works in every booth',()=>{
     const F=n=>W.eval(n),G=()=>F('G');
