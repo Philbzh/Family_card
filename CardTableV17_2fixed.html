@@ -8539,7 +8539,75 @@ const FGS={
   bell(){bwClang(.16,1320,.7,0,.45);},
   glass(){bwSn(.22,9000,2500,{type:'highpass',v:.22,a:.001,rev:.35});bwClang(.08,2400,.25,0,.3);bwSt(500,120,.1,{v:.15,a:.001});},
   clank(){bwClang(.14,760,.35,0,.3);bwSt(240,90,.1,{v:.14,a:.001});},
-  win(){[0,4,7,12].forEach((s,i)=>bwSt(392*Math.pow(2,s/12),392*Math.pow(2,s/12),.5,{v:.1,d:i*130,a:.01,rev:.4}));}
+  win(){[0,4,7,12].forEach((s,i)=>bwSt(392*Math.pow(2,s/12),392*Math.pow(2,s/12),.5,{v:.1,d:i*130,a:.01,rev:.4}));},
+  // Hoop Fever: dry, close sounds of a real ball in a real hall
+  hfFloor(v){hfSnd.bounce(v);},hfBoard(v){hfSnd.board(v);},hfRim(v){hfSnd.rim(v);},hfSwish(){hfSnd.swish();},hfNet(){hfSnd.net();},
+  hfThrow(){hfSnd.throwBall();},hfTick(){hfSnd.tick();},hfWhistle(){hfSnd.whistle();},hfLights(){hfSnd.lights();},hfCheer(l){hfSnd.cheer(l);},hfHorn(){hfSnd.horn();}
+};
+/* ── the sounds of Hoop Fever: a tight, dry sound bus (a small hall, no long echo) and sounds built the way the real ones are made ── */
+let _hfB=null,_hfK=1;   // _hfK: the loudness of the sound being built
+function hfBus(ac){
+  if(_hfB&&_hfB.ac===ac)return _hfB;
+  const inp=ac.createGain(),cmp=ac.createDynamicsCompressor(),out=ac.createGain(),conv=ac.createConvolver(),send=ac.createGain(),rv=ac.createGain();
+  cmp.threshold.value=-16;cmp.knee.value=10;cmp.ratio.value=3.5;cmp.attack.value=.003;cmp.release.value=.2;out.gain.value=1.15;
+  const n=Math.round(ac.sampleRate*.8),ir=ac.createBuffer(2,n,ac.sampleRate);
+  for(let ch=0;ch<2;ch++){const d=ir.getChannelData(ch);let lp=0;for(let i=0;i<n;i++){lp+=((Math.random()*2-1)-lp)*.22;d[i]=lp*Math.pow(1-i/n,3.2);}}
+  conv.buffer=ir;rv.gain.value=.28;
+  inp.connect(cmp);cmp.connect(out);out.connect(ac.destination);send.connect(conv);conv.connect(rv);rv.connect(cmp);
+  return _hfB={ac,inp,send};
+}
+function hfWire(ac,node,rev){const b=hfBus(ac);node.connect(b.inp);if(rev){const g=ac.createGain();g.gain.value=rev;node.connect(g);g.connect(b.send);}}
+// a tone: f0 -> f1 over dur, with a fast attack and an exponential decay
+function hfOsc(f0,f1,dur,v,o){
+  const ac=bwAc();if(!ac)return;o=o||{};
+  try{const t=ac.currentTime+(o.d||0)/1000,os=ac.createOscillator(),g=ac.createGain();os.type=o.type||'sine';
+    os.frequency.setValueAtTime(f0,t);if(f1&&f1!==f0)os.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t+dur);
+    g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(.0002,v*_hfK),t+(o.a||.002));g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    let last=os;if(o.lp){const f=ac.createBiquadFilter();f.type='lowpass';f.frequency.value=o.lp;last.connect(f);last=f;}
+    last.connect(g);hfWire(ac,g,o.rev);os.start(t);os.stop(t+dur+.03);}catch(e){}
+}
+// a burst of filtered noise
+function hfNz(dur,f0,f1,v,o){
+  const ac=bwAc();if(!ac)return;o=o||{};
+  try{const t=ac.currentTime+(o.d||0)/1000,s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();
+    s.buffer=bwNoise(ac,o.n||'white');f.type=o.type||'bandpass';f.Q.value=o.q||.9;f.frequency.setValueAtTime(f0,t);if(f1&&f1!==f0)f.frequency.exponentialRampToValueAtTime(Math.max(30,f1),t+dur);
+    const att=o.a||.004;v=v*_hfK;g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(.0002,v),t+att);if(o.hold)g.gain.setValueAtTime(Math.max(.0002,v),t+att+o.hold);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    s.connect(f);f.connect(g);hfWire(ac,g,o.rev);s.start(t,Math.random()*1.5);s.stop(t+dur+.05);}catch(e){}
+}
+const hfSnd={
+  // the ball on the boards: a hollow low "dub" with a short slap of leather on wood; softer on every bounce
+  bounce(v){_hfK=1.6;v=Math.max(.2,Math.min(1,v==null?.6:v));const q=Math.pow(v,.85);
+    hfOsc(165,66,.16,.52*q,{a:.002,rev:.12});hfOsc(98,52,.2,.4*q,{a:.002});
+    hfNz(.05,1500,420,.2*q,{q:.8,a:.001});hfNz(.14,380,160,.12*q,{type:'lowpass',a:.002,rev:.1});},
+  // the backboard: a dull wooden-glass "bonk"
+  board(v){_hfK=3;v=Math.max(.25,Math.min(1,v==null?.6:v));
+    hfOsc(220,118,.18,.36*v,{type:'triangle',a:.002,rev:.15});hfOsc(340,300,.22,.07*v,{a:.003,rev:.2});
+    hfNz(.1,1500,320,.2*v,{type:'lowpass',a:.001});hfNz(.025,4200,2200,.1*v,{type:'highpass',a:.001});},
+  // the rim: steel that rings for a moment, not a bell
+  rim(v){_hfK=1.5;v=Math.max(.25,Math.min(1,v==null?.6:v));const q=.45+.55*v;
+    hfNz(.03,5200,2600,.28*q,{type:'highpass',a:.001});
+    [[640,.2,.24],[1010,.15,.19],[1530,.1,.13],[2180,.08,.1],[2970,.06,.07]].forEach(([f,d,vol],i)=>hfOsc(f,f*.985,d,vol*q,{a:.001,rev:.18}));
+    hfOsc(175,95,.09,.26*q,{a:.001});},
+  // a clean swish: the ball slips through the net, a soft airy rustle that rises and falls
+  swish(){_hfK=1.4;hfNz(.42,2400,5200,.09,{type:'bandpass',q:.7,a:.05,rev:.15});hfNz(.36,5200,2600,.07,{type:'highpass',a:.05,d:60});hfNz(.5,1500,700,.05,{type:'bandpass',q:.6,a:.08,d:40});
+    hfOsc(120,80,.14,.1,{a:.01,d:200});},
+  // a make after a bounce on the rim: the net takes the ball
+  net(){_hfK=1.8;hfNz(.3,3000,1300,.1,{type:'bandpass',q:.8,a:.02,rev:.12});hfOsc(130,80,.12,.14,{a:.002,d:40});},
+  throwBall(){_hfK=5;hfNz(.14,450,1500,.08,{type:'bandpass',q:.8,a:.02});hfOsc(210,150,.07,.05,{a:.005});},
+  tick(){_hfK=6;hfNz(.025,2400,1400,.12,{q:1.6,a:.001});hfOsc(720,620,.05,.045,{a:.002});},
+  // the referee's whistle
+  whistle(){_hfK=1;const ac=bwAc();if(!ac)return;try{const t=ac.currentTime,g=ac.createGain(),lf=ac.createOscillator(),lg=ac.createGain();
+      lf.frequency.value=31;lg.gain.value=.5;lf.connect(lg);const m=ac.createGain();m.gain.value=.5;lg.connect(m.gain);
+      [2740,2800].forEach(f=>{const o=ac.createOscillator();o.type='sine';o.frequency.setValueAtTime(f,t);o.frequency.linearRampToValueAtTime(f*1.03,t+.35);o.connect(m);o.start(t);o.stop(t+.5);});
+      g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.07,t+.02);g.gain.setValueAtTime(.07,t+.32);g.gain.exponentialRampToValueAtTime(.0001,t+.48);m.connect(g);hfWire(ac,g,.2);lf.start(t);lf.stop(t+.5);}catch(e){}},
+  // the floodlights coming on: a low electric hum swelling, a few heavy clunks
+  lights(){_hfK=0.9;hfNz(1.4,160,520,.1,{type:'lowpass',n:'brown',a:.3});[0,260,520,780].forEach((d,i)=>{hfOsc(95,55,.12,.2,{d:d,a:.002});hfNz(.05,2400,900,.1,{d:d,a:.001});});},
+  // the crowd: a roar of noise that swells, and some hand claps on top
+  cheer(l){_hfK=1.7;l=Math.max(.2,Math.min(1.4,l==null?.6:l));
+    hfNz(.5+.7*l,600,1500,.1*l,{type:'bandpass',q:.5,a:.14,rev:.3,hold:.15*l});hfNz(.4+.5*l,2200,3400,.045*l,{type:'bandpass',q:.4,a:.1,d:30,rev:.3});
+    const n=Math.round(3+7*l);for(let i=0;i<n;i++)hfNz(.04,1800+Math.random()*1200,900,.05*l*(.5+Math.random()),{q:1.4,a:.001,d:140+Math.random()*(500+400*l),rev:.2});},
+  // the buzzer for the jackpot
+  horn(){_hfK=2.2;const ac=bwAc();if(!ac)return;[0,7,-5].forEach(c=>hfOsc(233*Math.pow(2,c/1200),233*Math.pow(2,c/1200),.55,.05,{type:'sawtooth',lp:1100,a:.01,rev:.2}));hfOsc(116,116,.55,.07,{type:'sawtooth',lp:500,a:.01});}
 };
 /* ── a new game ── */
 function fgNew(kind){return kind==='marksman'?msNew():kind==='hoopfever'?hfNew():fgNewBB();}
@@ -9621,7 +9689,7 @@ function hfHoopX(g,t){const m=HF_MODE[g.mode];return HF.HX+(m.mv?Math.sin(t*1.15
 function hfCanAct(g){return !!(g&&g.live&&!fgNetWatch(g)&&g.phase==='play'&&fgRunActive(g)&&!g.ball&&g.wait<=0&&!g.over&&!g.bots[g.turn]&&!g.botAim);}
 // the spot can be chosen before a ball (in HORSE only by whoever sets the challenge)
 function hfCanPick(g){return hfCanAct(g)&&(g.fmt==='shootout'||g.horse.step==='set');}
-function hfPickSpot(g,i){if(!hfCanPick(g)||i<0||i>2||g.spot===i)return false;g.spot=i;FGS.turn();return true;}
+function hfPickSpot(g,i){if(!hfCanPick(g)||i<0||i>2||g.spot===i)return false;g.spot=i;FGS.hfTick();return true;}
 // launch: the pull of the finger (from the ball to the finger) is turned around; its length is the power
 function hfVelocity(dx,dy){const L=Math.hypot(dx,dy),u=Math.min(1,L/HF.MAXPULL),sp=420+u*1230;return{vx:dx/(L||1)*sp,vy:dy/(L||1)*sp,u,L};}
 function hfFormPos(g){const ph=(((g.t-g.form.t0)/1.1)%1+1)%1;return ph<.5?ph*2:2-2*ph;}
@@ -9633,24 +9701,25 @@ function hfLaunch(g,vx,vy,formErr){
   if(formErr&&(formErr.a||formErr.s)){const L=Math.hypot(vx,vy),an=Math.atan2(vy,vx)+formErr.a,nl=L*(1+formErr.s);ax=Math.cos(an)*nl;ay=Math.sin(an)*nl;
     if(formErr.e>.55)fgText(g,sp.x,sp.y-60,'OFF BALANCE','#ffcf8a',20);}
   g.ball={x:sp.x,y:sp.y,vx:ax,vy:ay,rot:0,vr:ax*.004,st:'fly',touched:false,above:false,scored:false,t0:g.t,age:0,py:sp.y,bounces:0,owner:g.turn,spot:g.spot,last:!!(g.run&&g.run.left<Math.min(4,g.run.dur*.1)),quick:!!g.run,net:0,rim:0,form:formErr&&formErr.e!=null?formErr.e:0};
-  g.thrown++;g.pull=null;g.form.on=false;g.rimTouched=0;FGS.hoopThrow();haptic(8);return true;
+  g.thrown++;g.pull=null;g.form.on=false;g.rimTouched=0;FGS.hfThrow();haptic(8);return true;
 }
 function hfScore(g,b){
   const o=b.owner,mode=HF_MODE[g.mode],swish=!b.touched,spm=HF_SPOTS[b.spot].m;b.scored=true;b.net=g.t;g.netKick=1;g.netT=g.t;
   g.streak[o]++;g.hits[o]++;g.bestStreak[o]=Math.max(g.bestStreak[o],g.streak[o]);
   const hx=b.hx||g.hx,hy=HF.HY+34;
-  if(swish){g.perfects[o]++;FGS.swish();haptic([16,18,16]);}else FGS.netDrop();
+  if(swish){g.perfects[o]++;FGS.hfSwish();haptic([16,18,16]);}else FGS.hfNet();
+  FGS.hfCheer(swish?.55:.35);
   fgBurst(g,hx,hy,swish?'#ffe08a':'#f4ebd0',swish?22:12,swish?330:240);
   if(g.fmt==='horse'){g.score[o]+=100*spm;fgText(g,hx,hy-30,swish?'SWISH':'GOOD','#F4EBD0',34);if(swish)fgBanner(g,'SWISH','','#ffd96a',800);return;}
   // the hot hand: each make in a row adds a quarter to the next one
   const hot=1+Math.min(1,.25*(g.streak[o]-1));let pts=Math.round(mode.pts*spm*hot*(swish?1.5:1));g.score[o]+=pts;
   fgText(g,hx,hy-30,'+'+pts+(hot>1?'  ×'+hot.toFixed(2).replace(/0$/,''):''),g.mode==='jackpot'||g.mode==='gold'?'#ffd96a':'#F4EBD0',g.mode==='jackpot'?46:34);
   if(swish)fgBanner(g,'SWISH','nothing but net','#ffd96a',850);
-  if(g.mode==='jackpot'){g.jack[o]++;FGS.jackpot();g.fx.flash=.7;g.fx.shake=9;fgBanner(g,'JACKPOT','+'+pts,'#ffd96a',1500);}else if(g.mode==='gold'){FGS.gold();}
+  if(g.mode==='jackpot'){g.jack[o]++;FGS.hfHorn();FGS.hfCheer(1.4);g.fx.flash=.7;g.fx.shake=9;fgBanner(g,'JACKPOT','+'+pts,'#ffd96a',1500);}else if(g.mode==='gold'){FGS.gold();}
   if(spm===3&&!g.moment)g.moment=g.players[o].name+' sank a deep one.';
   const s=g.streak[o];
   if(s===3)fgBanner(g,'HOT HAND','3 in a row','#F4EBD0',900);
-  else if(s===5){g.fire[o]=true;fgBanner(g,'ON FIRE','5 in a row','#ff9a4a',1500);FGS.combo(8);g.fx.flash=Math.max(g.fx.flash,.3);}
+  else if(s===5){g.fire[o]=true;fgBanner(g,'ON FIRE','5 in a row','#ff9a4a',1500);FGS.hfCheer(1);g.fx.flash=Math.max(g.fx.flash,.3);}
   else if(s>5&&s%2===1)fgBanner(g,s+' IN A ROW','','#ff9a4a',900);
   if(b.last&&!g.moment){g.moment=b.touched?g.players[o].name+' sank the last ball after a bounce on the rim.':g.players[o].name+' sank the last ball with a clean swish.';}
   if(b.last)g.fx.shake=Math.max(g.fx.shake,6);
@@ -9686,10 +9755,10 @@ function hfPhysics(g,h){
   const b=g.ball;if(!b||b.st!=='fly')return;
   const ev=hfCore(b,h,g.hx,g.hw);
   for(const e of ev){
-    if(e[0]==='rim'){g.rimTouched++;if(e[1]>140){FGS.rim(Math.min(1,e[1]/1100));g.fx.shake=Math.max(g.fx.shake,e[1]>600?3:1);}}
-    else if(e[0]==='board'){g.rimTouched++;FGS.board(Math.min(1,e[1]/700));g.fx.shake=Math.max(g.fx.shake,2);}
+    if(e[0]==='rim'){g.rimTouched++;if(e[1]>140){FGS.hfRim(Math.min(1,e[1]/1100));g.fx.shake=Math.max(g.fx.shake,e[1]>600?3:1);}}
+    else if(e[0]==='board'){g.rimTouched++;FGS.hfBoard(Math.min(1,e[1]/700));g.fx.shake=Math.max(g.fx.shake,2);}
     else if(e[0]==='score')hfScore(g,b);
-    else if(e[0]==='floor')FGS.floor(Math.min(1,e[1]/900));
+    else if(e[0]==='floor')FGS.hfFloor(Math.min(1,e[1]/900));
   }
   if(b.st==='done'&&!b.doneAt)b.doneAt=g.t;
 }
@@ -9710,9 +9779,9 @@ function hfStep(g,dt){
   const near=g.ball&&g.ball.st==='fly'&&g.ball.last&&Math.hypot(g.ball.x-g.hx,g.ball.y-HF.HY)<190&&g.ball.vy>-200;
   g.slow+=((near?.38:1)-g.slow)*Math.min(1,dt*7);const wdt=dt*g.slow;g.t+=wdt;
   if(g.phase==='intro'){
-    if(g.introSaid<1&&g.pt>.2){g.introSaid=1;FGS.lights();}
+    if(g.introSaid<1&&g.pt>.2){g.introSaid=1;FGS.hfLights();}
     if(g.introSaid<2&&g.pt>2.0){g.introSaid=2;fgBanner(g,'READY?','',null,900);}
-    if(g.introSaid<3&&g.pt>3.0){g.introSaid=3;FGS.go();fgBanner(g,g.fmt==='horse'?'HORSE':'SHOOTOUT',g.fmt==='horse'?'match it or take a letter':'ten balls each',null,1300);}
+    if(g.introSaid<3&&g.pt>3.0){g.introSaid=3;FGS.hfWhistle();fgBanner(g,g.fmt==='horse'?'HORSE':'SHOOTOUT',g.fmt==='horse'?'match it or take a letter':'ten balls each',null,1300);}
     if(g.pt>3.2){g.phase='play';g.pt=0;g.mode=hfModeNow(g);g.hw=HF_MODE[g.mode].hw;g.lastTurnSaid=-1;if(g.run)fgRunBegin(g);}
   }
   fgRunTick(g,dt);
