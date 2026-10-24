@@ -5869,6 +5869,7 @@ async function runPresentation(A,W,frame){
         check('the player sends a snapshot with the events',m.k==='st'&&m.seat===0&&m.ev.length>=2);
         check('the watcher takes it over',F('pbNetApply')(B,m)===true);
         check('the watcher sees the ball, the score and the world',Math.abs(B.balls[0].x-300)<1&&B.balls[0].st==='play'&&B.st[0].score===1234567&&B.st[0].lvl===2&&B.fl.L.on===true&&B.phase==='play');
+        for(let i=0;i<30;i++)F('pbNetPassive')(B,.016);
         check('and the banner of the player',B.fx.banners.some(b=>b.text==='JACKPOT'));
         check('an old snapshot or one from myself is ignored',F('pbNetApply')(B,m)===false&&F('pbNetApply')(A,m)===false);
         const bad=JSON.parse(JSON.stringify(m));bad.i=m.i+1;bad.s.phase='hacked';check('a snapshot with a strange phase is refused',F('pbNetApply')(B,bad)===false);
@@ -5877,6 +5878,15 @@ async function runPresentation(A,W,frame){
         F('pbNetApply')(B,m2);check('when the turn is mine the snapshot hands the table over to me',B.turn===1&&!F('pbNetWatch')(B)&&B.st[0].score===2000);
         check('and the old player watches now',F('pbNetWatch')(A));
         const t0=A.t;F('pbNetPassive')(A,.05);check('a watcher runs on between two snapshots',A.t>t0);
+        // smooth: a ball that moves evenly is drawn moving evenly, although the snapshots come in bursts
+        {g0.myPid='pa';const A2=F('pbNew')();g0.myPid='pb';const B2=F('pbNew')();A2.phase='play';A2.balls=[{x:100,y:300,vx:200,vy:0,st:'play',id:1,stuck:0,tr:[]}];
+         let last=null,worst=0,q=[];const sh=[0,0,2,0,3,0,0,1,0,0,2,0];
+         for(let f=0;f<150;f++){A2.t+=1/60;A2.balls[0].x=100+200*A2.t;
+          if(f%3===0){const m=F('pbNetSnap')(A2);q.push({m,at:f+sh[(f/3)%sh.length|0]});}
+          for(const it of q.slice())if(it.at<=f){F('pbNetApply')(B2,it.m);q.splice(q.indexOf(it),1);}
+          F('pbNetPassive')(B2,1/60);const x=B2.balls[0]?B2.balls[0].x:null;
+          if(last!==null&&f>45&&x!==null)worst=Math.max(worst,Math.abs(x-last-200/60));last=x;}
+         check('the watcher draws an evenly moving ball evenly (no trembling) although the snapshots come unevenly',worst<3);}
         // the result is written to the room by the last player's device
         {const oS=W.eval('onSrv'),rid=g0.roomId;g0.roomId='T';W.__o=[oS];W.eval('onSrv=function(s){window.__cap=s;}');
          try{g0.myPid='pb';const Z=F('pbNew')();Z.st[0].score=120000;Z.st[1].score=340000;Z.st[1].best=50000;Z.st[1].lvl=1;Z.phase='over';F('pbNetFinish')(Z);const c=W.__cap;
