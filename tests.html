@@ -5857,6 +5857,33 @@ async function runPresentation(A,W,frame){
        check('twelve hours in order are midnight: the big prize',p.room.state==='chest'&&stt.score>=sck+250000);
        for(let i=0;i<60*3&&p.room;i++)F('pbStep')(p,1/60);check('then the ball is back on the table',!p.room&&cb.st==='play');
        p.room=null;p.balls=[nb];}
+      // pinball online: two devices, the one whose turn it is plays and the other one watches
+      {const g0=G(),sv=[g0.srv,g0.myPid,g0.isOnline,g0.pb];
+       try{g0.isOnline=true;g0.srv={gameId:'pinball',players:[{id:'pa',name:'Ann',avatar:F('AVATARS')[0]},{id:'pb',name:'Bo',avatar:F('AVATARS')[1]}],ah:{id:'tid1'}};
+        g0.myPid='pa';const A=F('pbNew')();g0.myPid='pb';const B=F('pbNew')();
+        check('each device knows its own seat',A.net.seat===0&&B.net.seat===1&&A.n===2);
+        check('seat 0 plays and seat 1 watches',!F('pbNetWatch')(A)&&F('pbNetWatch')(B));
+        A.phase='play';A.balls=[{x:300,y:500,vx:120,vy:-80,st:'play',id:1,stuck:0,tr:[]}];A.st[0].score=1234567;A.st[0].lvl=2;A.fl.L.on=true;A.fl.L.th=0;
+        F('pbSay')(A,'JACKPOT','+1','#fff',500);g0.pb=A;F('PBS').bumper();g0.pb=sv[3];
+        const m=F('pbNetSnap')(A);
+        check('the player sends a snapshot with the events',m.k==='st'&&m.seat===0&&m.ev.length>=2);
+        check('the watcher takes it over',F('pbNetApply')(B,m)===true);
+        check('the watcher sees the ball, the score and the world',Math.abs(B.balls[0].x-300)<1&&B.balls[0].st==='play'&&B.st[0].score===1234567&&B.st[0].lvl===2&&B.fl.L.on===true&&B.phase==='play');
+        check('and the banner of the player',B.fx.banners.some(b=>b.text==='JACKPOT'));
+        check('an old snapshot or one from myself is ignored',F('pbNetApply')(B,m)===false&&F('pbNetApply')(A,m)===false);
+        const bad=JSON.parse(JSON.stringify(m));bad.i=m.i+1;bad.s.phase='hacked';check('a snapshot with a strange phase is refused',F('pbNetApply')(B,bad)===false);
+        const big=JSON.parse(JSON.stringify(m));big.i=m.i+2;big.st[0].score=1e15;F('pbNetApply')(B,big);check('numbers from the network are bounded',B.st[0].score<=1e9);
+        A.turn=1;A.phase='play';A.st[0].score=2000;const m2=F('pbNetSnap')(A);m2.i=m.i+10;
+        F('pbNetApply')(B,m2);check('when the turn is mine the snapshot hands the table over to me',B.turn===1&&!F('pbNetWatch')(B)&&B.st[0].score===2000);
+        check('and the old player watches now',F('pbNetWatch')(A));
+        const t0=A.t;F('pbNetPassive')(A,.05);check('a watcher runs on between two snapshots',A.t>t0);
+        // the result is written to the room by the last player's device
+        {const oS=W.eval('onSrv'),rid=g0.roomId;g0.roomId='T';W.__o=[oS];W.eval('onSrv=function(s){window.__cap=s;}');
+         try{g0.myPid='pb';const Z=F('pbNew')();Z.st[0].score=120000;Z.st[1].score=340000;Z.st[1].best=50000;Z.st[1].lvl=1;Z.phase='over';F('pbNetFinish')(Z);const c=W.__cap;
+          check('the last player writes the result to the room: the winner, the scores and the stats for everybody',!!c&&c.winner==='pb'&&c.players[1].c4Result==='win'&&c.players[0].c4Result==='loss'&&c.ah.score.join()==='120000,340000'&&c.ah.stats.pb.top===340000&&c.ah.stats.pb.entries.length===2);
+          check('pinball is playable online and uses the arcade result flow',F('ONLINE_GAMES').includes('pinball')&&F('ahIs')('pinball'));}
+         finally{W.eval('onSrv=window.__o[0];window.__cap=null');g0.roomId=rid;}}
+       }finally{g0.srv=sv[0];g0.myPid=sv[1];g0.isOnline=sv[2];g0.pb=sv[3];}}
       // the hall of fame
       {const old=W.localStorage.getItem('ct_pb_hof');W.localStorage.removeItem('ct_pb_hof');
        F('pbHofAdd')([{n:'ZoeTest',s:5000,d:'2026-10-01T10:00:00.000Z'},{n:'MaxTest',s:9000,d:'2026-10-02T10:00:00.000Z',lv:2,bj:50000},{n:'ZoeTest',s:5000,d:'2026-10-01T10:00:00.000Z'}]);

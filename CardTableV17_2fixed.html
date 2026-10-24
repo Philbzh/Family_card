@@ -440,6 +440,7 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .pb-keys{margin-top:6px;font-size:.5rem;letter-spacing:.12em;color:rgba(244,235,208,.45);line-height:1.8;}
 .pb-fb{pointer-events:auto;touch-action:none;height:64px;border-radius:14px;margin-top:6px;background:linear-gradient(180deg,rgba(var(--pbr),.38),rgba(var(--pbr),.12));border:1.5px solid var(--pbc);color:#fff;font:700 .72rem 'Cinzel',serif;letter-spacing:.16em;cursor:pointer;box-shadow:0 0 14px rgba(var(--pbr),.3);-webkit-user-select:none;user-select:none;}
 .pb-fb:active{background:rgba(var(--pbr),.65);}
+.pb-watch .pb-fb,.pb-watch .pb-nud button{opacity:.28;pointer-events:none;}
 .pb-nud{display:flex;gap:6px;}
 .pb-nud button{flex:1;height:38px;border-radius:10px;background:linear-gradient(180deg,#2a313d,#12161d);border:1px solid rgba(190,200,215,.3);color:var(--pbc);font-size:1rem;cursor:pointer;touch-action:none;}
 .pb-nud button:active{background:rgba(var(--pbr),.35);}
@@ -4504,6 +4505,7 @@ function dbSub(id,cb){
       .on('broadcast',{event:'ah'},msg=>{try{ahOnBroadcast(msg&&msg.payload);}catch(e){}})
       .on('broadcast',{event:'pl'},msg=>{try{plOnBroadcast(msg&&msg.payload);}catch(e){}})
       .on('broadcast',{event:'fg'},msg=>{try{fgOnBroadcast(msg&&msg.payload);}catch(e){}})
+      .on('broadcast',{event:'pb'},msg=>{try{pbOnBroadcast(msg&&msg.payload);}catch(e){}})
       .subscribe(status=>{if(status==='SUBSCRIBED')_ch.track({pid:G.myPid});});
   }
   if(_poll)clearInterval(_poll);
@@ -4972,7 +4974,7 @@ const GAMES=[
 ];
 // Single source of truth for which unlocked games have online-multiplayer support, so the "online"
 // gate and the local-only badge on a game's card can never drift out of sync with each other.
-const ONLINE_GAMES=['balloonblast','marksman','hoopfever','pool','invaders','pong','airhockey','maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice','summit','hotbomb','vault','bust','escape','shutbox','fourrow','skull','tension','mayhem','chainreaction','gauntlet','abyss','blackwater'];
+const ONLINE_GAMES=['balloonblast','marksman','hoopfever','pool','invaders','pong','airhockey','maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice','summit','hotbomb','vault','bust','escape','shutbox','fourrow','skull','tension','mayhem','chainreaction','gauntlet','abyss','blackwater','pinball'];
 // The Games tab groups its (growing) roster into these, rather than one long scroll -- every GAMES
 // entry's `cat` must be one of these ids. Order here is the order the category tiles are shown in.
 const GAME_CATEGORIES=[
@@ -6428,7 +6430,7 @@ let _ahEndAt=0;
 function ahLive(){return !!(G.ah&&G.ah.live&&G.scr==='table'&&!(G.isOnline&&G.srv&&G.srv.winner)&&!(!G.isOnline&&G.ah.over&&G.ah.overAt&&Date.now()-G.ah.overAt>2600));}
 const ahRnd=(a,b)=>a+Math.random()*(b-a);
 // the two games of the arcade that share this module
-function ahIs(id){return id==='airhockey'||id==='pong'||id==='invaders'||id==='pool'||fgIs(id);}
+function ahIs(id){return id==='airhockey'||id==='pong'||id==='invaders'||id==='pool'||id==='pinball'||fgIs(id);}
 function ahKindOf(id){return id==='pong'?'pong':id==='invaders'?'invaders':'airhockey';}
 function ahGameId(){return G.isOnline?(G.srv&&G.srv.gameId):G.selGame;}
 // Pong Evolution: the ball grows more dangerous as a rally goes on
@@ -7869,7 +7871,7 @@ function arRecordUpdate(game,names,winnerName,score,rs){
   const a=arAll();a.rec=a.rec||{};a.flags=a.flags||{};a.played=a.played||{};a.played[game]=(a.played[game]||0)+1;
   const won=[],set=(key,v,by)=>{const r=a.rec[game]=a.rec[game]||{};if(v>0&&(!r[key]||v>r[key].v)){r[key]={v,by,at:new Date().toISOString()};won.push(key);}};
   const by=(names||[]).join(' vs ');
-  (AR_REC[game]||[]).forEach(([k])=>{if(k==='topscore'){if(!(rs&&rs.team))set(k,Math.max(score[0]||0,score[1]||0),winnerName||by);}else if(/^top(10|30|60|Contest)$/.test(k))set(k,(rs&&rs[k])||0,winnerName||by);else if(k==='teamscore')set(k,(rs&&rs.teamScore)||0,by);else set(k,(rs&&rs[k])||0,by);});
+  (AR_REC[game]||[]).forEach(([k])=>{if(k==='topscore'){if(!(rs&&rs.team))set(k,Math.max(0,...(score||[]).map(v=>v||0)),winnerName||by);}else if(/^top(10|30|60|Contest)$/.test(k))set(k,(rs&&rs[k])||0,winnerName||by);else if(k==='teamscore')set(k,(rs&&rs.teamScore)||0,by);else set(k,(rs&&rs[k])||0,by);});
   const w=names.indexOf(winnerName),ws=score&&w>=0?score[w]:0,ls=score&&w>=0?score[1-w]:0;
   if(game==='airhockey'&&rs&&rs.comeback>=4)a.flags['ah-comeback']=true;
   if(game==='pool'){if(rs&&rs.bestRally>=7)a.flags['pl-clear']=true;if(rs&&rs.perfect>=3)a.flags['pl-break']=true;}
@@ -10608,6 +10610,7 @@ function pbNew(){pbResetTable();
   const g={live:true,kind:'pinball',n,players,st:players.map(()=>pbPlayerState()),turn:0,phase:'intro',pt:0,t:0,balls:[],fl:{L:{th:PB_FL.L.rest,w:0,on:false},R:{th:PB_FL.R.rest,w:0,on:false},U:{th:PB_FL.U.rest,w:0,on:false}},
     saveT:0,tilt:0,tilted:false,combo:0,comboT:0,multi:false,mbQueue:0,mbT:0,jackBest:0,cv:null,raf:0,scale:0,statik:null,last:0,acc:0,palLvl:0,skillT:0,dropReset:0,
     fx:{parts:[],rings:[],pops:[],seq:[],banners:[],shake:0,flash:0,glow:0,sx:0,sy:0,zoom:0,show:null},room:null,wiz:null,freeze:0,slow:0,catchUp:false,bk:-1,endTot:3.2,lit:{},stats:{start:Date.now(),multis:0,jackpots:0,secrets:0,missions:0,levels:0},moment:'',ended:false,drainT:0,over:false,hint:true,sounds:true,nudgeCool:0,endT:0,bonusShow:null};
+  pbNetInit(g);
   pbNewBall(g);
   return g;
 }
@@ -10751,13 +10754,14 @@ const PBS={
 };
 // ── the rules ──
 function pbSay(g,t,sub,col,ms){fgBanner(g,t,sub||'',col||null,ms||1100);}
-function pbSpark(g,x,y,col,n){for(let i=0;i<n;i++){const a=Math.random()*6.283,s=80+Math.random()*260;g.fx.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-30,l:0,life:.35+Math.random()*.4,col});}}
-function pbRing(g,x,y,col,r1){g.fx.rings.push({x,y,l:0,life:.7,col,r1:r1||150});if(g.fx.rings.length>8)g.fx.rings.shift();}
+function pbSpark(g,x,y,col,n){pbNetEv(g,['p',Math.round(x),Math.round(y),col,n]);for(let i=0;i<n;i++){const a=Math.random()*6.283,s=80+Math.random()*260;g.fx.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-30,l:0,life:.35+Math.random()*.4,col});}}
+function pbRing(g,x,y,col,r1){pbNetEv(g,['r',Math.round(x),Math.round(y),col,r1||150]);g.fx.rings.push({x,y,l:0,life:.7,col,r1:r1||150});if(g.fx.rings.length>8)g.fx.rings.shift();}
 function pbPts(g,n,o){const st=g.st[g.turn],m=o&&o.flat?1:st.mult,c=o&&o.combo?Math.max(1,Math.min(5,g.combo)):1,v=Math.round(n*m*c*(g.wiz?3:1));st.score+=v;st.bonus+=Math.round(n*.05);return v;}
 function pbShot(g){if(g.t-g.comboT<5)g.combo++;else g.combo=1;g.comboT=g.t;if(g.combo>=2){const n=Math.min(5,g.combo);pbSay(g,['','','DOUBLE','TRIPLE','QUAD','MAXIMUM'][n],'COMBO ×'+n,['','','#F4EBD0','#ffd96a','#ff8a3a','#ff4a6a'][n],900);PBS.combo(n);}}
+for(const k of Object.keys(PBS)){const f=PBS[k];if(typeof f!=='function')continue;PBS[k]=function(){const g=G.pb,rec=g&&g.net&&g.net.act&&!g.net.rep&&!PBS._d;PBS._d=(PBS._d||0)+1;try{if(rec)pbNetEv(g,['s',k].concat(Array.prototype.slice.call(arguments).map(v=>typeof v==='boolean'?(v?1:0):v).filter(v=>typeof v==='number')));return f.apply(this,arguments);}finally{PBS._d--;}};}
 function pbReduced(){try{return window.matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){return false;}}
 const PB_LAMPS=[[180,150],[236,150],[292,150],[40,496],[40,546],[40,596],[432,416],[432,466],[432,516],[210,292],[236,297],[262,292],[38,806],[434,806],[216,116],[236,116],[256,116],[96,372],[96,358],[96,344],[378,378],[378,364],[378,350],[236,262],[236,812]].sort((a,b)=>b[1]-a[1]);
-function pbChase(g,col){g.fx.seq.push({t:g.t,col});if(g.fx.seq.length>3)g.fx.seq.shift();}
+function pbChase(g,col){pbNetEv(g,['c',col]);g.fx.seq.push({t:g.t,col});if(g.fx.seq.length>3)g.fx.seq.shift();}
 const PB_ZONE={bump:[[166,400],[296,372],[232,488]],ramp:[[96,332],[378,338]],spin:[[236,338]],bank:[[236,600]],tgt:[[25,525],[447,465]],tunnel:[[62,425],[390,452]],orbit:[[69,144],[433,144]],magnet:[[236,553]],lock:[[236,228]]};
 function pbBeacon(x,m,t,col){for(const z of PB_ZONE[m.k]||[]){const u=(t*1.1)%1;x.save();x.globalCompositeOperation='lighter';x.strokeStyle=col;x.globalAlpha=.75*(1-u);x.lineWidth=3;x.beginPath();x.arc(z[0],z[1],20+u*34,0,6.283);x.stroke();x.restore();}}
 function pbAlive(g){return g.balls.filter(b=>b.st!=='gone');}
@@ -10783,9 +10787,10 @@ function pbLevelUp(g){const st=g.st[g.turn];st.lvl++;st.extra++;g.stats.levels++
 // the wizard mode after the last boss: three balls, every shot counts triple, every ramp is a huge jackpot
 function pbWizard(g){g.wiz={t:45,max:45};pbShow(g,'WIZARD MODE','every shot ×3 · 45 seconds','#ff4a6a');PBS.multi();if(!g.multi)pbStartMulti(g,null);g.saveT=Math.max(g.saveT,20);g.fx.flash=.9;pbChase(g,'#ff4a6a');}
 function pbWizEnd(g){const st=g.st[g.turn];g.wiz=null;st.score+=100000;pbShow(g,'WIZARD CLEARED','+100,000','#ffd96a');PBS.jackpot();g.fx.flash=.7;}
-function pbShow(g,text,sub,col){g.fx.show={t0:performance.now(),text,sub:sub||'',col:col||'#ffd96a',ms:1900};g.fx.zoom=Math.max(g.fx.zoom,.05);}
+function pbShow(g,text,sub,col){pbNetEv(g,['z',text,sub||'',col||null]);g.fx.show={t0:performance.now(),text,sub:sub||'',col:col||'#ffd96a',ms:1900};g.fx.zoom=Math.max(g.fx.zoom,.05);}
 function pbEvent(g,ev,d){const st=g.st[g.turn],s0=st.score;pbEvent0(g,ev,d);const dv=st.score-s0;
-  if(dv>=90&&d&&(d.bm||d.b)&&g.fx.pops){const o=d.bm||d.b;g.fx.pops.push({x:o.x,y:o.y-14,t:'+'+dv.toLocaleString(),l:0,big:dv>=5000});if(g.fx.pops.length>10)g.fx.pops.shift();}}
+  if(dv>=90&&d&&(d.bm||d.b)&&g.fx.pops){const o=d.bm||d.b;pbPop(g,o.x,o.y-14,'+'+dv.toLocaleString(),dv>=5000);}
+  if(g.net&&g.net.act){if(ev==='bumper')pbNetEv(g,['e','b',d.bm.id]);else if(ev==='sling')pbNetEv(g,['e','s',d.sl.id]);else if(ev==='target')pbNetEv(g,['e','t',d.w.id]);else if(ev==='drop')pbNetEv(g,['e','d',d.d.id]);}}
 function pbEvent0(g,ev,d){
   const st=g.st[g.turn],b=d.b;
   switch(ev){
@@ -10865,6 +10870,125 @@ function pbNudge(g,dx){
   g.tilt+=(g.nudges++<2?1.3:2.1);if(g.tilt>=5.5&&g.tilt<9&&!g.warned){g.warned=true;pbSay(g,'CAREFUL','the table is shaking','#ff9a7a',1100);PBS.warn();haptic([25,40,25]);}
   if(g.tilt>=9){g.tilted=true;g.st[g.turn].bonus=0;pbSay(g,'TILT','the flippers are off','#ff6a55',2000);PBS.tilt();haptic([60,40,60,40,100]);}
 }
+// ── Pinball online: the device whose turn it is plays the ball, the others watch the same table, with sounds and effects ──
+const PB_NET_ST=['score','ball','done','lanes','mult','forge','forgeOn','work','locks','lockLit','bumps','superT','rampN','jackLit','bonus','best','mb','lvl','mi','mp','mc','extra','kick','banks','spins','boss','secret','secret2','orbitT','lastPortal','orbitN','magN','magOn'];
+function pbNetOn(g){return !!(g&&g.net&&g.net.on&&G.isOnline);}
+function pbNetWatch(g){return !!(g&&g.net&&g.net.on&&G.isOnline&&g.turn!==g.net.seat);}
+function pbNetInit(g){
+  if(!G.isOnline||!g)return;const sp=ahPlayers(),seat=Math.max(0,sp.findIndex(q=>q.id===G.myPid));
+  g.net={on:true,id:G.srv&&G.srv.ah&&G.srv.ah.id,seat,seq:0,lastI:0,seen:{},hist:[],evn:0,act:g.turn===seat,tail:0,acc:0,rep:false,got:false,since:0};
+}
+function pbNetEv(g,a){const N=g&&g.net;if(!N||!N.on||!N.act||N.rep)return;a.unshift(++N.evn);N.hist.push(a);if(N.hist.length>30)N.hist.shift();}
+function pbSane(v,d){
+  d=d||0;if(d>5)return null;
+  if(typeof v==='number')return isFinite(v)?Math.max(-1e9,Math.min(1e9,v)):0;
+  if(typeof v==='string')return v.slice(0,80);
+  if(typeof v==='boolean'||v===null)return v;if(v===undefined)return null;
+  if(Array.isArray(v))return v.slice(0,80).map(x=>pbSane(x,d+1));
+  if(typeof v==='object'){const o={};for(const k of Object.keys(v).slice(0,60)){if(k==='__proto__'||k==='constructor'||k==='prototype')continue;o[k]=pbSane(v[k],d+1);}return o;}
+  return null;
+}
+function pbNetSnap(g){
+  const N=g.net,code={play:'p',plunger:'u',ramp:'r',lock:'l',tunnel:'t',room:'o',mag:'m',gone:'g'};
+  const m={k:'st',id:N.id,seat:N.seat,i:++N.seq,
+    s:{turn:g.turn,phase:g.phase,t:g.t,pt:g.pt,combo:g.combo,multi:g.multi,saveT:g.saveT,tilt:g.tilt,tilted:g.tilted,skillT:g.skillT,endT:g.endT,endTot:g.endTot,jb:g.jackBest},
+    st:g.st.map(q=>{const o={};for(const k of PB_NET_ST)o[k]=q[k];return o;}),
+    b:g.balls.map(b=>[b.x,b.y,b.vx,b.vy,code[b.st]||'p']),
+    fl:['L','R','U'].map(k=>[g.fl[k].th,g.fl[k].on?1:0]),
+    d:PB_T.drops.map(q=>q.down?1:0),sp:[PB_T.spin.ang,PB_T.spin.vel,PB_T.spin.dir],
+    w:g.wiz?[g.wiz.t,g.wiz.max]:0,
+    r:g.room?{kind:g.room.kind,t:g.room.t,left:g.room.left,max:g.room.max,lives:g.room.lives,gems:g.room.gems,next:g.room.next,state:g.room.state,score:g.room.score,fx:g.room.fx,fy:g.room.fy,gg:PB_RT.gems.map(q=>q.got?1:0),hh:PB_CK.hours.map(q=>q.done?1:0)}:0,
+    bn:g.bonusShow||0,
+    ev:N.hist.slice(-20)};
+  return JSON.parse(JSON.stringify(m,(k,v)=>typeof v==='number'?Math.round(v*100)/100:v));
+}
+function pbNetTick(g,dt){
+  const N=g.net;if(!pbNetOn(g))return;
+  const act=g.turn===N.seat;
+  if(N.act&&!act){N.tail=3;N.acc=1;}
+  N.act=act;
+  if(!act){if(N.tail<=0)return;N.tail-=dt;}
+  N.acc+=dt;if(N.acc<.09)return;N.acc=0;
+  try{if(_ch)_ch.send({type:'broadcast',event:'pb',payload:pbNetSnap(g)});}catch(e){}
+}
+// a snapshot from the player whose turn it is; nothing from the network is trusted
+function pbNetApply(g,m){
+  const N=g.net;if(!pbNetOn(g)||!m||m.k!=='st'||m.id!==N.id||m.seat===N.seat)return false;
+  if(g.turn===N.seat)return false;                      // it is my turn: I am the authority
+  if(m.i<=N.lastI&&N.lastI-m.i<500)return false;
+  const S=pbSane(m.s);if(!S||!Number.isInteger(S.turn)||S.turn<0||S.turn>=g.n||!['intro','play','bonus','over'].includes(S.phase))return false;
+  N.lastI=m.i;N.seq=Math.max(N.seq,m.i);N.got=true;N.since=0;
+  g.turn=S.turn;g.phase=S.phase;g.t=+S.t||0;g.pt=+S.pt||0;g.combo=+S.combo||0;g.multi=!!S.multi;g.saveT=+S.saveT||0;g.tilt=+S.tilt||0;g.tilted=!!S.tilted;g.skillT=+S.skillT||0;g.endT=+S.endT||0;g.endTot=+S.endTot||3.4;g.jackBest=+S.jb||0;
+  const A=pbSane(m.st);if(Array.isArray(A))A.slice(0,g.n).forEach((q,i)=>{if(q&&typeof q==='object')for(const k of PB_NET_ST)if(k in q)g.st[i][k]=q[k];});
+  const dec={p:'play',u:'plunger',r:'ramp',l:'lock',t:'tunnel',o:'room',m:'mag',g:'gone'},B=pbSane(m.b);
+  if(Array.isArray(B)){const old=g.balls;g.balls=B.slice(0,8).filter(a=>Array.isArray(a)).map((a,i)=>{const o=old[i],tr=(o&&o.tr)||[],st=dec[a[4]]||'play';if(st==='play'){tr.push([a[0],a[1]]);if(tr.length>9)tr.shift();}else tr.length=0;return{x:+a[0]||0,y:+a[1]||0,vx:+a[2]||0,vy:+a[3]||0,st,id:i,stuck:0,tr};});}
+  const FL=pbSane(m.fl);if(Array.isArray(FL))['L','R','U'].forEach((k,i)=>{const a=FL[i];if(Array.isArray(a)){g.fl[k].th=+a[0]||0;g.fl[k].on=!!a[1];}});
+  const D=pbSane(m.d);if(Array.isArray(D))PB_T.drops.forEach((q,i)=>{q.down=!!D[i];});
+  const SP=pbSane(m.sp);if(Array.isArray(SP)){PB_T.spin.ang=+SP[0]||0;PB_T.spin.vel=+SP[1]||0;PB_T.spin.dir=+SP[2]||1;}
+  const W=pbSane(m.w);g.wiz=Array.isArray(W)?{t:+W[0]||0,max:+W[1]||45}:null;
+  const R=pbSane(m.r);
+  if(R&&typeof R==='object'&&(R.kind==='vault'||R.kind==='clock')){
+    if(!g.room||g.room.kind!==R.kind)g.room={b:null,from:PB_T.portals[0],to:PB_T.portals[1],kind:R.kind,t:0,state:'play',max:40,left:40,lives:3,endT:0,gems:0,score:0,next:1,fx:R.fx||60,fy:R.fy||425};
+    const r=g.room;r.t=+R.t||0;r.left=+R.left||0;r.max=+R.max||40;r.lives=+R.lives||0;r.gems=+R.gems||0;r.next=+R.next||1;r.state=String(R.state||'play');r.score=+R.score||0;
+    if(Array.isArray(R.gg))PB_RT.gems.forEach((q,i)=>{const on=!!R.gg[i];if(on&&!q.got)q.t=g.t;q.got=on;});
+    if(Array.isArray(R.hh))PB_CK.hours.forEach((q,i)=>{const on=!!R.hh[i];if(on&&!q.done)q.t=g.t;q.done=on;});
+    pbRoomAnim(g);
+  }else g.room=null;
+  const BN=pbSane(m.bn);g.bonusShow=(BN&&typeof BN==='object')?BN:null;
+  if(g.statik&&g.palLvl!==Math.min(3,g.st[g.turn].lvl))g.statik=null;
+  N.rep=true;
+  try{for(const e0 of Array.isArray(m.ev)?m.ev.slice(0,30):[]){if(!Array.isArray(e0))continue;const e=pbSane(e0);if(N.seen[e[0]])continue;N.seen[e[0]]=1;pbNetReplay(g,e);}}finally{N.rep=false;}
+  return true;
+}
+function pbNetReplay(g,e){
+  const t=e[1];
+  if(t==='b')fgBanner(g,e[2],e[3],e[4],e[5]);
+  else if(t==='p')pbSpark(g,e[2],e[3],e[4],Math.min(40,e[5]||8));
+  else if(t==='r')pbRing(g,e[2],e[3],e[4],e[5]);
+  else if(t==='z')pbShow(g,e[2],e[3],e[4]);
+  else if(t==='c')pbChase(g,e[2]);
+  else if(t==='w')pbPop(g,e[2],e[3],e[4],!!e[5]);
+  else if(t==='s'){const f=PBS[e[2]];if(typeof f==='function'&&e[2]!=='_c')try{f.apply(PBS,e.slice(3));}catch(x){}}
+  else if(t==='e'){const k=e[2],id=e[3];
+    if(k==='b'){const q=PB_T.bumpers.find(z=>z.id===id);if(q)q.hit=g.t;}
+    else if(k==='s'){const q=PB_T.slings.find(z=>z.id===id);if(q)q.hit=g.t;}
+    else if(k==='t'){const q=PB_T.walls.find(z=>z.k==='target'&&z.id===id);if(q)q.t=g.t;}
+    else if(k==='d'){const q=PB_T.drops[id];if(q)q.t=g.t;}}
+}
+function pbOnBroadcast(m){const g=G.pb;if(!g)return;try{pbNetApply(g,m);}catch(e){}}
+// between two snapshots: keep the things moving
+function pbRoomAnim(g){const r=g.room;if(!r)return;if(r.kind==='clock'){const C=PB_CK;C.minute.a=C.minute.w*r.t;C.hourH.a=2+C.hourH.w*r.t;const ph=r.t*C.pend.freq*6.2832;C.pend.ang=C.pend.amp*Math.sin(ph);}else{for(const gr of PB_RT.gears)gr.a=gr.w*r.t;const bl=PB_RT.blade,ph=r.t*bl.freq*6.2832;bl.ang=bl.amp*Math.sin(ph);}}
+function pbNetPassive(g,dt){
+  const N=g.net;N.since+=dt;g.t+=dt;g.pt+=dt;
+  for(const k of ['L','R','U']){const f=g.fl[k],F=PB_FL[k],tgt=f.on?F.act:F.rest,d=tgt-f.th;f.th+=Math.sign(d)*Math.min(Math.abs(d),(f.on?24:15)*dt);}
+  if(N.since<.35)for(const b of g.balls){if(b.st==='play'){b.vy+=PB.G*dt;b.x=Math.max(10,Math.min(490,b.x+b.vx*dt));b.y=Math.max(-30,Math.min(1040,b.y+b.vy*dt));b.tr.push([b.x,b.y]);if(b.tr.length>9)b.tr.shift();}}
+  const sp=PB_T.spin;if(sp.vel>.2){sp.ang+=sp.vel*dt*sp.dir;sp.vel*=Math.exp(-dt*1.5);}else sp.vel=0;
+  if(g.room){g.room.t+=dt;g.room.left=Math.max(0,g.room.left-dt);pbRoomAnim(g);}
+  if(g.wiz)g.wiz.t=Math.max(0,g.wiz.t-dt);
+  for(const q of g.fx.parts){q.l+=dt;q.x+=q.vx*dt;q.y+=q.vy*dt;q.vy+=500*dt;}g.fx.parts=g.fx.parts.filter(q=>q.l<q.life);
+  for(const r of g.fx.rings)r.l+=dt;g.fx.rings=g.fx.rings.filter(r=>r.l<r.life);
+  for(const q of g.fx.pops)q.l+=dt;g.fx.pops=g.fx.pops.filter(q=>q.l<1.1);g.fx.seq=g.fx.seq.filter(q=>g.t-q.t<1.8);
+  g.fx.shake=Math.max(0,g.fx.shake-dt*22);g.fx.flash=Math.max(0,g.fx.flash-dt*1.8);g.fx.zoom*=Math.exp(-dt*6);g.fx.sx*=Math.exp(-dt*14);g.fx.sy*=Math.exp(-dt*14);
+}
+// the last player's device ends the match for everybody
+function pbNetFinish(g){
+  if(g.netEnded)return;g.netEnded=true;
+  const n=g.n,sc=g.st.map(q=>q.score),top=Math.max(...sc),winners=sc.map((v,i)=>v===top?i:-1).filter(i=>i>=0),w=winners[0],when=new Date().toISOString();
+  const mom=g.moment||(winners.length>1?'A tie at the pinball machine.':g.players[w].name+' won the machine with '+top.toLocaleString()+'.');
+  const dur=Math.round((Date.now()-g.stats.start)/1000);
+  const res={score:sc,top,jackpots:g.stats.jackpots,multis:g.stats.multis,best:g.jackBest,missions:g.stats.missions,levels:g.stats.levels,dur,names:g.players.map(q=>q.name),winnerName:String(g.players[w].name||'').slice(0,24),
+    entries:g.players.map((pl,i)=>({n:String(pl.name||'Player '+(i+1)).slice(0,24),s:sc[i],d:when,lv:g.st[i].lvl,bj:g.st[i].best||0})).filter(e=>e.s>0)};
+  try{hfSnd.cheer(1);}catch(e){}
+  if(!G.srv)return;
+  const st=JSON.parse(JSON.stringify(G.srv));
+  st.players.forEach((q,i)=>{if(i>=n)return;q.totalScore=sc[i];q.c4Result=winners.length>1&&winners.includes(i)?'draw':w===i?'win':'loss';});
+  st.winner=st.players[w].id;st.winnerName=st.players[w].name;st.winnerAv=st.players[w].avatar;st.moment=mom;
+  st.ah=Object.assign({},st.ah||{},{score:sc,dur,stats:{jackpot:g.jackBest,multi:g.stats.multis,team:0,pb:res}});
+  st.lastAct=esc(st.winnerName)+(winners.length>1?' tied.':' won the match.');st._ts=Date.now();
+  try{onSrv(st);}catch(e){}
+  try{dbWrite(G.roomId,st);}catch(e){}
+}
+function pbPop(g,x,y,t,big){pbNetEv(g,['w',Math.round(x),Math.round(y),t,big?1:0]);g.fx.pops.push({x,y,t,l:0,big:!!big});if(g.fx.pops.length>10)g.fx.pops.shift();}
 // ── the secret room: the treasure vault, a small table of its own, played with the same flippers ──
 const PB_RT=(()=>{const T={walls:[],gears:[],gems:[],bumpers:[],chest:{x:236,y:352,r:20},blade:{px:236,py:46,len:150,amp:.62,freq:.42,ang:0,om:0,hit:-9}};
   const seg=(a,b,o)=>T.walls.push(Object.assign({a,b,e:.4},o||{}));
@@ -10875,13 +10999,13 @@ const PB_RT=(()=>{const T={walls:[],gears:[],gems:[],bumpers:[],chest:{x:236,y:3
   T.bumpers.push({x:150,y:742,r:20,hit:-9},{x:322,y:742,r:20,hit:-9});
   return T;})();
 // ── the second secret room: the clock room. Shoot the twelve hours in order before the hands and the pendulum throw the ball away ──
-const PB_CK=(()=>{const T={cx:236,cy:430,hours:[],minute:{len:104,a:0,w:1.0},hourH:{len:68,a:2,w:-.55},pend:{px:236,py:606,len:96,amp:.5,freq:.35,ang:0,om:0,hit:-9},bumpers:[{x:150,y:742,r:20,hit:-9},{x:322,y:742,r:20,hit:-9}]};
-  for(let k=1;k<=12;k++){const a=k*Math.PI/6;T.hours.push({k,x:236+Math.sin(a)*122,y:430-Math.cos(a)*122,done:false,t:-9});}
+const PB_CK=(()=>{const T={cx:226,cy:429,hours:[],minute:{len:104,a:0,w:1.0},hourH:{len:68,a:2,w:-.55},pend:{px:236,py:606,len:96,amp:.5,freq:.35,ang:0,om:0,hit:-9},bumpers:[{x:150,y:742,r:20,hit:-9},{x:322,y:742,r:20,hit:-9}]};
+  for(let k=1;k<=12;k++){const a=k*Math.PI/6;T.hours.push({k,x:226+Math.sin(a)*137,y:429-Math.cos(a)*134,done:false,t:-9});}
   return T;})();
 function pbClockHit(g,h){
   const r=g.room;if(h.done||h.k!==r.next){pbRoomPts(g,300);PBS.peg();return;}
   h.done=true;h.t=g.t;r.next++;const v=5000*h.k;pbRoomPts(g,v);PBS.bell(784*Math.pow(2,[0,2,4,5,7,9,11,12,14,16,17,19][h.k-1]/12),.1);pbSay(g,'HOUR '+h.k,'+'+v.toLocaleString(),'#9fe8ff',1100);pbRing(g,h.x,h.y,'#9fe8ff',90);pbSpark(g,h.x,h.y,'#9fe8ff',12);haptic([10,20]);
-  g.fx.pops.push({x:h.x,y:h.y-16,t:'+'+v.toLocaleString(),l:0,big:v>=30000});
+  pbPop(g,h.x,h.y-16,'+'+v.toLocaleString(),v>=30000);
   if(r.next>12){const b=r.b;r.state='chest';b.st='room';b.x=PB_CK.cx;b.y=PB_CK.cy;b.vx=b.vy=0;r.endT=2.4;pbRoomPts(g,250000);pbShow(g,'MIDNIGHT','+250,000','#ffd96a');PBS.jackpot();g.freeze=.08;g.fx.flash=.9;g.fx.shake=7;pbSpark(g,PB_CK.cx,PB_CK.cy,'#ffe08a',50);pbRing(g,PB_CK.cx,PB_CK.cy,'#ffd96a',240);}
 }
 function pbClockCollide(g,b,h){
@@ -10890,7 +11014,7 @@ function pbClockCollide(g,b,h){
   pbCirc(b,C.cx,C.cy,14,.4);
   for(const hd of [C.minute,C.hourH]){const tx=C.cx+Math.sin(hd.a)*hd.len,ty=C.cy-Math.cos(hd.a)*hd.len,c=pbSeg(b,C.cx,C.cy,tx,ty,6,.5,hd.w,C.cx,C.cy);if(c&&Math.abs(c.vn)>150&&g.t-(hd.hit||-9)>.1){hd.hit=g.t;pbRoomPts(g,150);PBS.peg();}}
   {const pd=C.pend,c=pbSeg(b,pd.px,pd.py,pd.px+Math.sin(pd.ang)*pd.len,pd.py+Math.cos(pd.ang)*pd.len,7,.55,pd.om,pd.px,pd.py);if(c&&g.t-pd.hit>.15){pd.hit=g.t;pbRoomPts(g,200);PBS.bossHit();}
-    pbCirc(b,pd.px+Math.sin(pd.ang)*pd.len,pd.py+Math.cos(pd.ang)*pd.len,13,.55);}
+    pbCirc(b,pd.px+Math.sin(pd.ang)*pd.len,pd.py+Math.cos(pd.ang)*pd.len,19,.55);}
   for(const hr of C.hours){if(pbCirc(b,hr.x,hr.y,14,.6))pbClockHit(g,hr);}
   for(const bm of C.bumpers){const c=pbCirc(b,bm.x,bm.y,bm.r,.2);if(c){b.vx+=c.nx*520;b.vy+=c.ny*520;bm.hit=g.t;pbRoomPts(g,250);PBS.bumper();haptic(8);pbSpark(g,bm.x,bm.y,'#ffd27a',6);}}
   for(const k of ['L','R']){const f=g.fl[k],F=PB_FL[k],tip=pbFlipTip(f,F),c=pbSeg(b,F.px,F.py,tip[0],tip[1],7.5,.34,f.w,F.px,F.py);if(c&&g.t-(f.hitT||-9)>.12&&(Math.abs(f.w)>.5||c.vn<-250)){f.hitT=g.t;if(Math.abs(f.w)>.5)PBS.flip();}if(c&&f.on&&Math.abs(f.w)<.3&&c.vn>-160){b.vx*=.97;b.vy*=.97;}}
@@ -10909,7 +11033,7 @@ function pbRoomGem(g,gm){
   const r=g.room,idx=PB_RT.gems.indexOf(gm);
   if(gm.got){pbRoomPts(g,500);PBS.peg();return;}
   gm.got=true;gm.t=g.t;r.gems++;const v=10000*r.gems;pbRoomPts(g,v);PBS.bell(1046*Math.pow(2,[0,2,4,7,9][idx]/12),.1);pbSay(g,gm.n,'+'+v.toLocaleString(),gm.c,1300);pbRing(g,gm.x,gm.y,gm.c,100);pbSpark(g,gm.x,gm.y,gm.c,16);haptic([10,20]);
-  g.fx.pops.push({x:gm.x,y:gm.y-16,t:'+'+v.toLocaleString(),l:0,big:true});
+  pbPop(g,gm.x,gm.y-16,'+'+v.toLocaleString(),true);
   if(r.gems>=5){pbShow(g,'FULL SET','the chest is open · roll the ball in','#ffd96a');PBS.lit();pbChase(g,'#ffd96a');g.fx.flash=.6;}
 }
 function pbRoomChest(g,b){const r=g.room,ch=PB_RT.chest;r.state='chest';b.st='room';b.x=ch.x;b.y=ch.y;b.vx=b.vy=0;r.endT=2.4;pbRoomPts(g,150000);pbShow(g,'TREASURE','+150,000','#ffd96a');PBS.jackpot();g.freeze=.08;g.fx.flash=.9;g.fx.shake=7;pbSpark(g,ch.x,ch.y,'#ffe08a',50);pbRing(g,ch.x,ch.y,'#ffd96a',240);}
@@ -11000,6 +11124,7 @@ function pbNextBall(g){
 }
 function pbFinish(g){
   if(G.pb!==g||!g.live)return;
+  if(pbNetOn(g)){pbNetFinish(g);return;}
   const n=g.n,sc=g.st.map(s=>s.score),top=Math.max(...sc),winners=sc.map((v,i)=>v===top?i:-1).filter(i=>i>=0),w=winners[0];
   G.lp.forEach((p,i)=>{if(i>=n)return;p.totalScore=sc[i];p.c4Result=n===1?'win':(winners.length>1&&winners.includes(i))?'draw':winners[0]===i?'win':'loss';});
   const mom=g.moment||(n===1?g.players[0].name+' scored '+sc[0].toLocaleString()+'.':winners.length>1?'A tie at the pinball machine.':g.players[w].name+' won the machine with '+top.toLocaleString()+'.');
@@ -11029,7 +11154,7 @@ function pbChrome(x,w){const g=x.createLinearGradient(0,0,w,0);g.addColorStop(0,
 function pbSpaced(x,txt,cx,cy,sp){let w=0;for(const ch of txt)w+=x.measureText(ch).width+sp;w-=sp;let px=cx-w/2;x.textAlign='left';for(const ch of txt){x.fillText(ch,px,cy);px+=x.measureText(ch).width+sp;}}
 function pbGlow(x,px,py,r,col,a){x.save();x.globalCompositeOperation='lighter';const gl=x.createRadialGradient(px,py,0,px,py,r);gl.addColorStop(0,col);gl.addColorStop(1,'rgba(0,0,0,0)');x.globalAlpha=a;x.fillStyle=gl;x.beginPath();x.arc(px,py,r,0,6.283);x.fill();x.restore();}
 const PB_IMG={};
-function pbImg(n){let i=PB_IMG[n];if(!i){i=PB_IMG[n]=new Image();i.src='assets/games/pb_'+n+(n==='bg'||n==='roombg'||/^bg\d$/.test(n)?'.jpg':'.png');}return i.complete&&i.naturalWidth?i:null;}
+function pbImg(n){let i=PB_IMG[n];if(!i){i=PB_IMG[n]=new Image();i.src='assets/games/pb_'+n+(n==='bg'||n==='roombg'||n==='clockbg'||/^bg\d$/.test(n)?'.jpg':'.png');}return i.complete&&i.naturalWidth?i:null;}
 function pbBuild(g){
   const st=g.st[g.turn],lv=Math.min(3,st.lvl),P=PB_PAL[lv];g.palLvl=lv;
   const sc=g.scale,M=PB.M,W=PB.W,H=PB.H,CW=W+2*M,CH=H+2*M,c=document.createElement('canvas');c.width=Math.round(CW*sc);c.height=Math.round(CH*sc);
@@ -11122,21 +11247,28 @@ function pbDrawRoom(x,g,P,t){
     x.strokeStyle='rgba(255,214,120,.14)';for(let i=0;i<16;i++){x.save();x.translate(236,560);x.rotate(i*Math.PI/8);x.beginPath();x.moveTo(0,0);x.lineTo(0,-300);x.stroke();x.restore();}}
   x.fillStyle='rgba(0,0,0,.18)';x.fillRect(0,0,PB.W,PB.H);
   if(ck){
-  {const C=PB_CK,acc='#9fe8ff';
-    // the face of the clock
-    x.save();x.translate(C.cx,C.cy);x.strokeStyle='rgba(159,232,255,.35)';x.lineWidth=2;for(const rr of [150,140,100]){x.beginPath();x.arc(0,0,rr,0,6.283);x.stroke();}
-    x.strokeStyle='rgba(230,195,106,.5)';x.lineWidth=1.4;for(let m=0;m<60;m++){const a=m*Math.PI/30,l=m%5?5:11;x.beginPath();x.moveTo(Math.sin(a)*(150-l),-Math.cos(a)*(150-l));x.lineTo(Math.sin(a)*150,-Math.cos(a)*150);x.stroke();}x.restore();
-    // the twelve hours: brass plates with a number, the next one pulses
+  {const C=PB_CK,acc='#9fe8ff',pl=pbImg('plate'),plon=pbImg('plateon'),rg=pbImg('ring'),sk=pbImg('spark'),h1=pbImg('hand1'),h2=pbImg('hand2'),cap=pbImg('cap'),pe=pbImg('pend');
+    if(!bg){x.save();x.translate(C.cx,C.cy);x.strokeStyle='rgba(159,232,255,.35)';x.lineWidth=2;for(const rr of [150,140,100]){x.beginPath();x.arc(0,0,rr,0,6.283);x.stroke();}
+      x.strokeStyle='rgba(230,195,106,.5)';x.lineWidth=1.4;for(let m=0;m<60;m++){const a=m*Math.PI/30,l=m%5?5:11;x.beginPath();x.moveTo(Math.sin(a)*(150-l),-Math.cos(a)*(150-l));x.lineTo(Math.sin(a)*150,-Math.cos(a)*150);x.stroke();}x.restore();}
+    // the twelve hours: brass plates with a number; the next one is ringed in light
     for(const hr of C.hours){const done=hr.done,next=hr.k===r.next,hit=Math.max(0,1-(g.t-hr.t)*3);
       if(done)pbGlow(x,hr.x,hr.y,50+hit*30,'#ffd96a',.5+hit*.4);else if(next)pbGlow(x,hr.x,hr.y,46,acc,.35+.3*Math.sin(t*8));
-      const pg=x.createRadialGradient(hr.x-4,hr.y-5,2,hr.x,hr.y,16);pg.addColorStop(0,done?'#fff0b0':'#d8b86a');pg.addColorStop(1,done?'#c9902a':'#4a3510');x.fillStyle=pg;x.beginPath();x.arc(hr.x,hr.y,15,0,6.283);x.fill();x.strokeStyle=next?acc:'#1a1208';x.lineWidth=next?2.6:1.6;x.stroke();
-      x.fillStyle=done?'#3a2606':'#f4ebd0';x.font='700 '+(hr.k>9?11:13)+'px Cinzel, Georgia, serif';x.textAlign='center';x.textBaseline='middle';x.fillText(String(hr.k),hr.x,hr.y+1);x.textBaseline='alphabetic';}
+      const pim=done?plon:pl;
+      if(pim)x.drawImage(pim,hr.x-21,hr.y-21,42,42);else{const pg=x.createRadialGradient(hr.x-4,hr.y-5,2,hr.x,hr.y,16);pg.addColorStop(0,done?'#fff0b0':'#d8b86a');pg.addColorStop(1,done?'#c9902a':'#4a3510');x.fillStyle=pg;x.beginPath();x.arc(hr.x,hr.y,15,0,6.283);x.fill();x.strokeStyle='#1a1208';x.lineWidth=1.6;x.stroke();}
+      if(next){x.save();x.globalAlpha=.7+.3*Math.sin(t*8);if(rg)x.drawImage(rg,hr.x-26,hr.y-26,52,52);else{x.strokeStyle=acc;x.lineWidth=2.6;x.beginPath();x.arc(hr.x,hr.y,19,0,6.283);x.stroke();}x.restore();}
+      x.fillStyle='#3a2606';x.font='700 '+(hr.k>9?12:14)+'px Cinzel, Georgia, serif';x.textAlign='center';x.textBaseline='middle';x.shadowColor='rgba(255,246,208,.7)';x.shadowBlur=3;x.fillText(String(hr.k),hr.x,hr.y+1);x.shadowBlur=0;x.textBaseline='alphabetic';
+      if(hit>0&&sk){x.save();x.globalCompositeOperation='lighter';x.globalAlpha=hit;const d=30+hit*40;x.drawImage(sk,hr.x-d/2,hr.y-d*.62,d,d*1.25);x.restore();}}
     // the hands
-    for(const hd of [C.minute,C.hourH]){x.save();x.translate(C.cx,C.cy);x.rotate(hd.a);const L=hd.len,wd=hd===C.minute?7:11;x.fillStyle='rgba(0,0,0,.45)';x.beginPath();x.moveTo(-wd+3,5);x.lineTo(3,-L+4);x.lineTo(wd+3,5);x.closePath();x.fill();
-      const hg=x.createLinearGradient(-wd,0,wd,0);hg.addColorStop(0,'#8a6a2a');hg.addColorStop(.5,'#f0d27a');hg.addColorStop(1,'#7a5a1a');x.fillStyle=hg;x.beginPath();x.moveTo(-wd,6);x.lineTo(0,-L);x.lineTo(wd,6);x.closePath();x.fill();x.strokeStyle='#2a1c06';x.lineWidth=1.2;x.stroke();x.restore();}
-    x.fillStyle='#e6c36a';x.beginPath();x.arc(C.cx,C.cy,14,0,6.283);x.fill();x.strokeStyle='#2a1c06';x.lineWidth=1.6;x.stroke();x.fillStyle='#fff6d0';x.beginPath();x.arc(C.cx-3,C.cy-3,4,0,6.283);x.fill();
+    for(const hd of [C.minute,C.hourH]){const him=hd===C.minute?h1:h2,pv=hd===C.minute?.938:.907;x.save();x.translate(C.cx,C.cy);x.rotate(hd.a);
+      if(him){const H=hd.len/pv,W=H*him.naturalWidth/him.naturalHeight;x.shadowColor='rgba(0,0,0,.55)';x.shadowBlur=7;x.shadowOffsetX=3;x.shadowOffsetY=4;x.drawImage(him,-W/2,-H*pv,W,H);}
+      else{const L=hd.len,wd=hd===C.minute?7:11,hg=x.createLinearGradient(-wd,0,wd,0);hg.addColorStop(0,'#8a6a2a');hg.addColorStop(.5,'#f0d27a');hg.addColorStop(1,'#7a5a1a');x.fillStyle=hg;x.beginPath();x.moveTo(-wd,6);x.lineTo(0,-L);x.lineTo(wd,6);x.closePath();x.fill();x.strokeStyle='#2a1c06';x.lineWidth=1.2;x.stroke();}
+      x.restore();}
+    if(cap)x.drawImage(cap,C.cx-17,C.cy-17,34,34);else{x.fillStyle='#e6c36a';x.beginPath();x.arc(C.cx,C.cy,14,0,6.283);x.fill();x.strokeStyle='#2a1c06';x.lineWidth=1.6;x.stroke();}
     // the pendulum
-    {const pd=C.pend;x.save();x.translate(pd.px,pd.py);x.rotate(-pd.ang);x.strokeStyle='#c9a24a';x.lineWidth=5;x.beginPath();x.moveTo(0,0);x.lineTo(0,pd.len);x.stroke();const bg2=x.createRadialGradient(-4,pd.len-4,2,0,pd.len,15);bg2.addColorStop(0,'#fff0b0');bg2.addColorStop(1,'#8a6a2a');x.fillStyle=bg2;x.beginPath();x.arc(0,pd.len,14,0,6.283);x.fill();x.fillStyle='#e6c36a';x.beginPath();x.arc(0,0,7,0,6.283);x.fill();x.restore();}}
+    {const pd=C.pend;x.save();x.translate(pd.px,pd.py);x.rotate(-pd.ang);
+      if(pe){const H=pd.len/.769,W=H*pe.naturalWidth/pe.naturalHeight;x.shadowColor='rgba(0,0,0,.5)';x.shadowBlur=7;x.shadowOffsetX=3;x.shadowOffsetY=4;x.drawImage(pe,-W/2,-H*.056,W,H);}
+      else{x.strokeStyle='#c9a24a';x.lineWidth=5;x.beginPath();x.moveTo(0,0);x.lineTo(0,pd.len);x.stroke();const bg2=x.createRadialGradient(-4,pd.len-4,2,0,pd.len,15);bg2.addColorStop(0,'#fff0b0');bg2.addColorStop(1,'#8a6a2a');x.fillStyle=bg2;x.beginPath();x.arc(0,pd.len,14,0,6.283);x.fill();x.fillStyle='#e6c36a';x.beginPath();x.arc(0,0,7,0,6.283);x.fill();}
+      x.restore();}}
   }else{
   // the torches
   for(const tx of [bg?39:80,bg?423:392]){const ty=bg?263:650,fl=.7+.3*Math.sin(t*13+tx);pbGlow(x,tx,ty,bg?90:120,'#ff9a3a',.35*fl);if(!bg){x.fillStyle='#6a4a1a';x.beginPath();x.arc(tx,ty,9,0,6.283);x.fill();pbGlow(x,tx,ty-6,26,'#ffd27a',.8*fl);}}
@@ -11308,7 +11440,7 @@ function pbDraw(g,now){
 }
 // ── the screen: the table in the middle, the players and the machine at the sides ──
 function rPinballTable(){
-  if(!G.pb||!G.pb.live)G.pb=pbNew();
+  if(!G.pb||!G.pb.live||(G.isOnline&&(!G.pb.net||!G.srv||!G.srv.ah||G.pb.net.id!==G.srv.ah.id))||(!G.isOnline&&G.pb.net)){pbStop();G.pb=pbNew();}
   const g=G.pb,players=g.players;setTimeout(pbAttach,0);
   const dot=n=>'<i class="pb-d" data-k="'+n+'"></i>';
   return`<div id="s-table" class="scr on game-airhockey game-pinball">
@@ -11358,7 +11490,7 @@ function pbBindInput(){
   const stage=document.getElementById('pb-stage');if(!stage||stage._pb)return;stage._pb=1;stage.style.touchAction='none';
   const ptr=_pbPtr;
   const side=e=>{const r=stage.getBoundingClientRect();return e.clientX<r.left+r.width/2?'L':'R';};
-  stage.addEventListener('pointerdown',e=>{const g=G.pb;if(!g||!g.live)return;
+  stage.addEventListener('pointerdown',e=>{const g=G.pb;if(!g||!g.live||pbNetWatch(g))return;
     const nb=e.target.closest&&e.target.closest('[data-nudge]');if(nb){e.preventDefault();pbNudge(g,+nb.dataset.nudge);return;}
     const fb=e.target.closest&&e.target.closest('[data-flip]');if(fb){e.preventDefault();try{stage.setPointerCapture(e.pointerId);}catch(x){}const s=fb.dataset.flip;ptr.set(e.pointerId,{s,x0:0,y0:0,t0:0,n:0,btn:1,type:e.pointerType});pbSetFlip(g,s,true);return;}
     if(e.target.closest&&e.target.closest('button,a'))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId);}catch(x){}
@@ -11372,7 +11504,7 @@ function pbBindInput(){
   if(!_pbKeys){_pbKeys=true;
     // two thumbs on two buttons must never become a pinch zoom (Safari on the iPad): block the zoom gestures while the table is on
     for(const ev of ['gesturestart','gesturechange','gestureend'])document.addEventListener(ev,e=>{if(pbLive())e.preventDefault();},{passive:false});
-    const k=(e,on)=>{const g=G.pb;if(!g||!g.live||G.scr!=='table')return;const key=e.key;
+    const k=(e,on)=>{const g=G.pb;if(!g||!g.live||G.scr!=='table'||pbNetWatch(g))return;const key=e.key;
       if(key==='z'||key==='Z'||key==='ArrowLeft'){_pbHeld.L=on;pbSetFlip(g,'L',on);e.preventDefault();}
       else if(key==='/'||key==='.'||key==='ArrowRight'){_pbHeld.R=on;pbSetFlip(g,'R',on);e.preventDefault();}
       else if(on&&key===' '){pbNudge(g,0);e.preventDefault();}
@@ -11390,7 +11522,8 @@ function pbFrame(now){
   if(cv!==g.cv){pbAttach();if(!g.cv)return;}
   if(document.hidden||G.rulesOpen||G.pbHof||G.quitOpen||G.tour){g.last=now;return;}   // the game waits while a window is open
   const dt=Math.min(.05,Math.max(0,(now-g.last)/1000));g.last=now;
-  pbSyncFlips(g);pbStep(g,dt);pbDraw(g,now);pbHud(g);
+  if(pbNetWatch(g))pbNetPassive(g,dt);else{pbSyncFlips(g);pbStep(g,dt);}
+  pbNetTick(g,dt);pbDraw(g,now);pbHud(g);
 }
 function pbHud(g){
   const st=g.st[g.turn],set=(id,v)=>{const el=document.getElementById(id);if(el&&el._v!==v){el._v=v;el.textContent=v;}},cls=(id,on)=>{const el=document.getElementById(id);if(el&&el._o!==on){el._o=on;el.classList.toggle('on',on);}};
@@ -11404,7 +11537,8 @@ function pbHud(g){
   set('pb-mult','×'+st.mult);set('pb-combo',g.combo>=2?'×'+Math.min(5,g.combo):'–');
   cls('pb-jack',st.jackLit||g.multi);cls('pb-super',st.superT>0);cls('pb-multi',g.multi);cls('pb-extra',st.extra>0);cls('pb-mag',st.magOn);
   const tl=document.getElementById('pb-tilt');if(tl){const w=Math.min(100,g.tilt*11.1)+'%';if(tl._w!==w){tl._w=w;tl.style.width=w;}}
-  set('pb-status',g.phase==='bonus'?'Ball over':g.tilted?'TILT':g.balls.some(b=>b.st==='plunger')&&g.phase==='play'?g.players[g.turn].name+' · tap to launch':g.multi?'MULTIBALL':g.players[g.turn].name+' · ball '+Math.min(3,st.ball));
+  {const stg2=document.getElementById('pb-stage');if(stg2){const w=pbNetWatch(g);if(stg2._w!==w){stg2._w=w;stg2.classList.toggle('pb-watch',w);}}}
+  set('pb-status',pbNetWatch(g)?g.players[g.turn].name+' is playing · you are watching':g.phase==='bonus'?'Ball over':g.tilted?'TILT':g.balls.some(b=>b.st==='plunger')&&g.phase==='play'?g.players[g.turn].name+' · tap to launch':g.multi?'MULTIBALL':g.players[g.turn].name+' · ball '+Math.min(3,st.ball));
 }
 
 function ahDraw(ah,now){
@@ -29640,6 +29774,7 @@ function onSrvCore(state){
             stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions,ah:Object.assign({score:sc},state.ah&&state.ah.stats?state.ah.stats:{},{dur:(state.ah&&state.ah.dur)||0})}});
           // the table plays its own finale first; the result screen follows
           if(fgIs(state.gameId)){G.fgResult=(state.ah&&state.ah.stats&&state.ah.stats.fg)||null;G.ahMoment=state.moment||'';fgStop();}
+          if(state.gameId==='pinball'){const pbr=(state.ah&&state.ah.stats&&state.ah.stats.pb)||null;G.pbResult=pbr;G.ahMoment=state.moment||'';if(pbr&&Array.isArray(pbr.entries)){pbHofAdd(pbr.entries);const all=pbHofAll(),ix=all.findIndex(e=>e.n===String(pbr.winnerName||'').slice(0,24)&&e.s===pbr.top);pbr.rank=ix>=0&&ix<10?ix+1:0;}pbStop();}
           _ahEndAt=Date.now()+(G.ah&&G.ah.live?3200:plLive()?plEndWaitMs():600);
           setTimeout(()=>{if(G.isOnline&&G.srv&&ahIs(G.srv.gameId)&&G.srv.winner){ahStop();plStop();fgStop();G.scr='matchend';render();}},(_ahEndAt-Date.now())+80);
         }
@@ -30706,7 +30841,7 @@ function oStartGame(rs){
         return;
       }
       if(ahIs(rs.gameId)){
-        const players=rs.players.slice(0,fgIs(rs.gameId)?((GAMES.find(x=>x.id===rs.gameId)||{}).maxP||2):2).map(p=>({...p,totalScore:0,c4Result:null}));
+        const players=rs.players.slice(0,(fgIs(rs.gameId)||rs.gameId==='pinball')?((GAMES.find(x=>x.id===rs.gameId)||{}).maxP||2):2).map(p=>({...p,totalScore:0,c4Result:null}));
         const gs={phase:'game',gameId:rs.gameId,host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
           arSeries:rs.arSeries||null,ah:{id:'ah'+Date.now().toString(36)+Math.floor(Math.random()*1e4),score:[0,0]},pl:rs.gameId==='pool'?plNew(plRulesPref(),plAssistPref(),plNextStarter()):undefined,winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
         G.srv=gs;G.ah=null;G.pl=null;G.fg=null;G.fgResult=null;G.fgHighlight=null;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
@@ -32568,11 +32703,11 @@ function gtResultsHTML(){
 }
 // ── the hall of fame: the best scores ever played, from this iPad and from the whole family's shared history ──
 function pbHofLoad(){try{const a=JSON.parse(localStorage.getItem('ct_pb_hof')||'[]');return Array.isArray(a)?a.filter(e=>e&&typeof e.s==='number'&&e.n):[];}catch(e){return[];}}
-function pbHofAdd(list){try{const cur=pbHofLoad(),keys=new Set(cur.map(e=>e.n+'|'+e.s+'|'+String(e.d||'').slice(0,16)));for(const e of list){const k=e.n+'|'+e.s+'|'+String(e.d||'').slice(0,16);if(!keys.has(k)){keys.add(k);cur.push(e);}}cur.sort((a,b)=>b.s-a.s);localStorage.setItem('ct_pb_hof',JSON.stringify(cur.slice(0,60)));}catch(e){}}
+function pbHofAdd(list){try{const cur=pbHofLoad(),keys=new Set(cur.map(e=>e.n+'|'+e.s));for(const e of list){const k=e.n+'|'+e.s;if(!keys.has(k)){keys.add(k);cur.push(e);}}cur.sort((a,b)=>b.s-a.s);localStorage.setItem('ct_pb_hof',JSON.stringify(cur.slice(0,60)));}catch(e){}}
 function pbHofAll(){
-  const out=pbHofLoad().slice(),keys=new Set(out.map(e=>e.n+'|'+e.s+'|'+String(e.d||'').slice(0,16)));
+  const out=pbHofLoad().slice(),keys=new Set(out.map(e=>e.n+'|'+e.s));
   try{for(const h of familyHistory()){if(!h||h.game!=='pinball'||!h.stats||!h.stats.ah||!Array.isArray(h.stats.ah.score))continue;
-    (h.players||[]).forEach((n,i)=>{const sc=h.stats.ah.score[i];if(typeof sc!=='number'||sc<=0||!n)return;const k=n+'|'+sc+'|'+String(h.date||'').slice(0,16);if(keys.has(k))return;keys.add(k);out.push({n:String(n),s:sc,d:h.date||''});});}}catch(e){}
+    (h.players||[]).forEach((n,i)=>{const sc=h.stats.ah.score[i];if(typeof sc!=='number'||sc<=0||!n)return;const k=n+'|'+sc;if(keys.has(k))return;keys.add(k);out.push({n:String(n),s:sc,d:h.date||''});});}}catch(e){}
   out.sort((a,b)=>b.s-a.s);return out;
 }
 function pbHofDate(d){try{const t=new Date(d);return isNaN(t)?'':t.toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'});}catch(e){return'';}}
