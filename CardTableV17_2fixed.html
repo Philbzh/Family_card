@@ -9861,7 +9861,7 @@ function hfBuildPic(g,bg){
   g.statik=c;
 }
 function hfBuild(g){
-  const bgp=hfImg('hoopfever_bg.jpg');if(bgp&&hfImg('hf_post.png')){hfBuildPic(g,bgp);return;}
+  const bgp=HF_USE_PIC&&hfImg('hoopfever_bg.jpg');if(bgp&&hfImg('hf_post.png')){hfBuildPic(g,bgp);return;}
   // a private indoor arena at night: steel trusses and floodlights, dark stands, a glowing courtside band, a polished court
   const sc=g.scale,W=FG.W,H=FG.H,c=document.createElement('canvas');c.width=Math.round(W*sc);c.height=Math.round(H*sc);
   const x=c.getContext('2d');x.scale(sc,sc);
@@ -9945,19 +9945,20 @@ function hfBuild(g){
   g.statik=c;
 }
 const HF_LAMPS=[110,300,490];
+const HF_USE_PIC=false;   // the first arena picture had too much fire; the picture backdrop comes back with the new one
 // the pictures made for the game: the arena, the ball, the hoop (red and golden) and the post
 const HF_IMGS={};
 function hfImg(n){let e=HF_IMGS[n];if(!e){e=HF_IMGS[n]=new Image();e.onload=()=>{if(G.fg&&G.fg.kind==='hoopfever')G.fg.statik=null;};e.src='assets/games/'+n;}return e.complete&&e.naturalWidth?e:null;}
 const HF_SP={cx:113,cy:166,w:226,bd:104,dy:150};   // the rim centre and width in the hoop picture, the width of the post picture, how far the arena picture is moved down
 function hfDrawLights(g,x){
-  const t=g.t,intro=g.phase==='intro',fy=560,pic=!!(hfImg('hoopfever_bg.jpg')&&hfImg('hf_post.png'));
+  const t=g.t,intro=g.phase==='intro',fy=560,pic=!!(HF_USE_PIC&&hfImg('hoopfever_bg.jpg')&&hfImg('hf_post.png'));
   x.save();x.globalCompositeOperation='lighter';
   // smoke drifting through the light
   for(let i=0;i<9;i++){const sx=((i*173+t*(8+i%3*4))%(FG.W+240))-120,sy=220+((i*97)%260)+Math.sin(t*.4+i)*20,sr=110+(i%4)*22,hg=x.createRadialGradient(sx,sy,4,sx,sy,sr);hg.addColorStop(0,'rgba(200,214,236,.055)');hg.addColorStop(1,'rgba(200,214,236,0)');x.fillStyle=hg;x.beginPath();x.arc(sx,sy,sr,0,6.283);x.fill();}
   // the fire along the far edge of the court
-  {const heat=(g.fire&&g.fire[g.turn]?1:g.mode==='jackpot'||g.mode==='gold'?.65:.28);const fy=pic?646:560;
-   for(let i=0;i<30;i++){const fx=i*(FG.W/29),ph=i*1.7+t*(3+i%4*.6),h=(16+30*heat)*(.55+.45*Math.sin(ph))*(.7+.3*Math.sin(i*2.1)),fg=x.createLinearGradient(0,fy-h,0,fy+6);fg.addColorStop(0,'rgba(255,90,20,0)');fg.addColorStop(.5,'rgba(255,140,40,'+(.22+.3*heat)+')');fg.addColorStop(1,'rgba(255,214,120,'+(.35+.3*heat)+')');x.fillStyle=fg;x.beginPath();x.moveTo(fx-12,fy+6);x.quadraticCurveTo(fx-3,fy-h*.6,fx+Math.sin(ph)*5,fy-h);x.quadraticCurveTo(fx+3,fy-h*.5,fx+12,fy+6);x.closePath();x.fill();}
-   const eg=x.createLinearGradient(0,fy-4,0,fy+60);eg.addColorStop(0,'rgba(255,150,50,'+(.18+.14*heat)+')');eg.addColorStop(1,'rgba(255,150,50,0)');x.fillStyle=eg;x.fillRect(0,fy-4,FG.W,64);}
+  {const heat=(g.fire&&g.fire[g.turn]?1:g.mode==='jackpot'||g.mode==='gold'?.5:0);const fy=pic?646:560;
+   if(heat>0)for(let i=0;i<30;i++){const fx=i*(FG.W/29),ph=i*1.7+t*(3+i%4*.6),h=(16+30*heat)*(.55+.45*Math.sin(ph))*(.7+.3*Math.sin(i*2.1)),fg=x.createLinearGradient(0,fy-h,0,fy+6);fg.addColorStop(0,'rgba(255,90,20,0)');fg.addColorStop(.5,'rgba(255,140,40,'+(.22+.3*heat)+')');fg.addColorStop(1,'rgba(255,214,120,'+(.35+.3*heat)+')');x.fillStyle=fg;x.beginPath();x.moveTo(fx-12,fy+6);x.quadraticCurveTo(fx-3,fy-h*.6,fx+Math.sin(ph)*5,fy-h);x.quadraticCurveTo(fx+3,fy-h*.5,fx+12,fy+6);x.closePath();x.fill();}
+   const eg=x.createLinearGradient(0,fy-4,0,fy+60);eg.addColorStop(0,'rgba(255,150,50,'+(.32*heat)+')');eg.addColorStop(1,'rgba(255,150,50,0)');x.fillStyle=eg;x.fillRect(0,fy-4,FG.W,64);}
   if(!pic)HF_LAMPS.forEach((lx,i)=>{const on=!intro||g.pt>.3+i*.5;if(!on)return;const fl=.95+.05*Math.sin(t*6+i*2);
     const cg=x.createLinearGradient(0,118,0,fy+120);cg.addColorStop(0,'rgba(255,232,190,'+(.3*fl)+')');cg.addColorStop(1,'rgba(255,232,190,0)');x.fillStyle=cg;x.beginPath();x.moveTo(lx-40,118);x.lineTo(lx+40,118);x.lineTo(lx+190,fy+120);x.lineTo(lx-190,fy+120);x.closePath();x.fill();
     const rg=x.createRadialGradient(lx,105,2,lx,105,70);rg.addColorStop(0,'rgba(255,248,226,'+(.95*fl)+')');rg.addColorStop(.3,'rgba(255,220,150,'+(.4*fl)+')');rg.addColorStop(1,'rgba(255,200,120,0)');x.fillStyle=rg;x.beginPath();x.arc(lx,105,70,0,6.283);x.fill();});
