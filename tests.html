@@ -5901,6 +5901,20 @@ async function runPresentation(A,W,frame){
       check('after the buzzer the best basket of the run is replayed in slow motion, with the figures of the run',!!f.replay&&f.replay.q.pts>0&&f.replay.stat.hits>=1&&f.run.active===false);
       const idx0=f.run.idx;n3=0;while(f.replay&&n3++<60*30)F('fgStep')(f,1/60);
       check('when the replay is over the next player gets the court',!f.replay&&(f.run.idx===idx0+1)&&f.turn===1);
+      // the three-point contest: five racks, the last ball of each is worth two
+      f=mk(1,null,'contest');
+      check('the contest has five racks, a 70-second clock and starts at rack 1',f.fmt==='contest'&&F('HF_RACKS').length===5&&f.run.dur===70&&f.spot===0&&f.cont.n===0);
+      check('from every rack there is a clean arc into the hoop (the racks are all makeable)',(()=>{for(let r=0;r<5;r++){const h=mk(1,null,'contest');h.spot=r;const pl=F('hfPlan')(h);if(!pl||pl.q<1)return false;}return true;})());
+      f=mk(1,null,'contest');let made=0;
+      for(let i=0;i<5;i++){f.ball=null;f.wait=0;const bb=shot(f);F('hfAdvance')(f,bb);if(bb.scored)made++;}
+      check('five makes in the first rack: 4 x 1 + the money ball 2 = 6 points, and the stand moves to rack 2',made===5&&f.score[0]===6&&f.spot===1&&f.cont.n===5&&f.cont.res.join('')==='mmmmM');
+      f=mk(1,null,'contest');f.ball=null;const mb=fly(f,300,-500);F('hfAdvance')(f,mb);
+      check('a miss scores nothing and is marked on the dots',f.score[0]===0&&f.cont.res[0]==='x'&&f.cont.n===1);
+      f=mk(1,null,'contest');f.cont.n=24;f.spot=4;f.ball=null;f.wait=0;const lb=shot(f);F('hfAdvance')(f,lb);
+      check('after the 25th ball the run is over and nobody can shoot more',f.run.left<=0&&!F('hfCanAct')(f));
+      f=mk(2,[0,1],'contest');f.bots=['gentle','sharp'];n2=0;while(f.phase!=='over'&&n2++<120000)F('fgStep')(f,1/60);
+      check('two bots play a whole contest: 25 balls each, at most 30 points, and the contest ends',f.phase==='over'&&f.score[0]<=30&&f.score[1]<=30&&f.cont.n===25&&f.run.done.every(x=>x));
+      check('HORSE and the contest do not mix: with one player the MODE button cycles shootout and contest only',(()=>{const h=mk(1,null,'shootout');return h.fmt==='shootout';})());
       check('the Hoop Fever records and the trophies exist',F('AR_REC').hoopfever.length===4&&['hf-net','hf-fire'].every(id=>F('ACHIEVEMENTS').some(a=>a.id===id)));
     }finally{back(k0);}
   });
