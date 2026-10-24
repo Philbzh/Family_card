@@ -5806,6 +5806,9 @@ async function runPresentation(A,W,frame){
       {p.phase='play';p.tilted=false;p.fl.R.on=true;p.fl.U.th=F('PB_FL').U.rest;p.balls=[];for(let i=0;i<30;i++)F('pbStep')(p,1/60);const u1=p.fl.U.th;p.fl.R.on=false;for(let i=0;i<30;i++)F('pbStep')(p,1/60);
        check('the upper flipper swings up with the right flipper and falls back with it',Math.abs(u1-F('PB_FL').U.act)<.05&&Math.abs(p.fl.U.th-F('PB_FL').U.rest)<.05);p.balls=[nb];}
       check('a new game forgets the hit times of the old game (no giant bumpers)',(()=>{F('PB_T').bumpers[0].hit=99999;F('pbNew')();return F('PB_T').bumpers[0].hit<0;})());
+      {const pt=F('_pbPtr');p.phase='play';pt.set(77,{s:'L',x0:0,y0:0,t0:0,n:0,btn:1,type:'touch'});p.fl.L.on=true;F('pbSyncFlips')(p);const held=p.fl.L.on;
+       W.document.dispatchEvent(new W.Event('touchend'));F('pbSyncFlips')(p);
+       check('a finger-up that got lost can never leave the left flipper stuck: with no finger on the glass the flipper is let go',held===true&&pt.size===0&&p.fl.L.on===false);p.balls=[nb];}
       check('a few nudges are allowed, only many in a row tilt the table',!p.tilted);
       for(let i=0;i<4;i++){p.nudgeCool=0;F('pbNudge')(p,-1);}
       check('too many nudges in a row tilt it',p.tilted===true);

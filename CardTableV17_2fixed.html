@@ -11080,33 +11080,40 @@ function pbSize(){
 }
 window.addEventListener('resize',()=>{try{if(G.pb&&G.pb.live)pbSize();}catch(e){}});
 let _pbKeys=false;
+const _pbPtr=new Map(),_pbHeld={L:false,R:false};
+// the flippers follow the fingers that are really on the glass: whatever a lost 'finger up' event left behind is let go again at once
+function pbSyncFlips(g){const want={L:false,R:false};for(const p of _pbPtr.values())if(!p.n)want[p.s]=true;for(const k of ['L','R']){const w=want[k]||_pbHeld[k],f=g.fl[k];if(f.on&&!w)f.on=false;else if(!f.on&&w&&g.phase==='play')f.on=true;}}
+function pbReleaseAll(){_pbPtr.clear();_pbHeld.L=_pbHeld.R=false;const g=G.pb;if(g&&g.fl){g.fl.L.on=false;g.fl.R.on=false;}}
 function pbSetFlip(g,side,on){const f=g.fl[side];if(on!==f.on&&g.phase==='play'&&!g.tilted)PBS.clack(on);if(on&&!f.on){f.on=true;if(!pbLaunch(g)&&g.phase==='play'&&!g.tilted){const st=g.st[g.turn];st.lanes=side==='L'?[st.lanes[1],st.lanes[2],st.lanes[0]]:[st.lanes[2],st.lanes[0],st.lanes[1]];}haptic(5);}else if(!on)f.on=false;}
 function pbBindInput(){
   const stage=document.getElementById('pb-stage');if(!stage||stage._pb)return;stage._pb=1;stage.style.touchAction='none';
-  const ptr=new Map();
+  const ptr=_pbPtr;
   const side=e=>{const r=stage.getBoundingClientRect();return e.clientX<r.left+r.width/2?'L':'R';};
   stage.addEventListener('pointerdown',e=>{const g=G.pb;if(!g||!g.live)return;
     const nb=e.target.closest&&e.target.closest('[data-nudge]');if(nb){e.preventDefault();pbNudge(g,+nb.dataset.nudge);return;}
-    const fb=e.target.closest&&e.target.closest('[data-flip]');if(fb){e.preventDefault();try{stage.setPointerCapture(e.pointerId);}catch(x){}const s=fb.dataset.flip;ptr.set(e.pointerId,{s,x0:0,y0:0,t0:0,n:0,btn:1});pbSetFlip(g,s,true);return;}
+    const fb=e.target.closest&&e.target.closest('[data-flip]');if(fb){e.preventDefault();try{stage.setPointerCapture(e.pointerId);}catch(x){}const s=fb.dataset.flip;ptr.set(e.pointerId,{s,x0:0,y0:0,t0:0,n:0,btn:1,type:e.pointerType});pbSetFlip(g,s,true);return;}
     if(e.target.closest&&e.target.closest('button,a'))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId);}catch(x){}
-    const s=side(e);ptr.set(e.pointerId,{s,x0:e.clientX,y0:e.clientY,t0:performance.now(),n:0});pbSetFlip(g,s,true);},{passive:false});
+    const s=side(e);ptr.set(e.pointerId,{s,x0:e.clientX,y0:e.clientY,t0:performance.now(),n:0,type:e.pointerType});pbSetFlip(g,s,true);},{passive:false});
   // a sideways swipe is a nudge, not a flipper: the flipper that the finger started is let go again at once
   stage.addEventListener('pointermove',e=>{const p=ptr.get(e.pointerId),g=G.pb;if(!p||!g||p.n||p.btn)return;const dx=e.clientX-p.x0,dy=e.clientY-p.y0,dt=performance.now()-p.t0;
     if(dt<380&&(Math.abs(dx)>40||dy<-52)){p.n=1;if(dy<-52&&Math.abs(dy)>Math.abs(dx))pbNudge(g,0);else pbNudge(g,Math.sign(dx));
       if(![...ptr.entries()].some(([id,q])=>id!==e.pointerId&&q.s===p.s&&!q.n))pbSetFlip(g,p.s,false);}},{passive:true});
   const up=e=>{const p=ptr.get(e.pointerId),g=G.pb;if(!p)return;ptr.delete(e.pointerId);if(g&&![...ptr.values()].some(q=>q.s===p.s&&!q.n))pbSetFlip(g,p.s,false);};
-  stage.addEventListener('pointerup',up);stage.addEventListener('pointercancel',up);
+  stage.addEventListener('pointerup',up);stage.addEventListener('pointercancel',up);stage.addEventListener('lostpointercapture',up);
   if(!_pbKeys){_pbKeys=true;
     // two thumbs on two buttons must never become a pinch zoom (Safari on the iPad): block the zoom gestures while the table is on
     for(const ev of ['gesturestart','gesturechange','gestureend'])document.addEventListener(ev,e=>{if(pbLive())e.preventDefault();},{passive:false});
     document.addEventListener('touchmove',e=>{if(pbLive()&&(e.touches.length>1||(e.target.closest&&e.target.closest('#pb-stage'))))e.preventDefault();},{passive:false});
     document.addEventListener('touchstart',e=>{if(pbLive()&&e.touches.length>1&&e.target.closest&&e.target.closest('#pb-stage'))e.preventDefault();},{passive:false});
     const k=(e,on)=>{const g=G.pb;if(!g||!g.live||G.scr!=='table')return;const key=e.key;
-      if(key==='z'||key==='Z'||key==='ArrowLeft'){pbSetFlip(g,'L',on);e.preventDefault();}
-      else if(key==='/'||key==='.'||key==='ArrowRight'){pbSetFlip(g,'R',on);e.preventDefault();}
+      if(key==='z'||key==='Z'||key==='ArrowLeft'){_pbHeld.L=on;pbSetFlip(g,'L',on);e.preventDefault();}
+      else if(key==='/'||key==='.'||key==='ArrowRight'){_pbHeld.R=on;pbSetFlip(g,'R',on);e.preventDefault();}
       else if(on&&key===' '){pbNudge(g,0);e.preventDefault();}
       else if(on&&(key==='a'||key==='A'))pbNudge(g,-1);else if(on&&(key==='d'||key==='D'))pbNudge(g,1);};
-    document.addEventListener('keydown',e=>k(e,true));document.addEventListener('keyup',e=>k(e,false));}
+    document.addEventListener('keydown',e=>k(e,true));document.addEventListener('keyup',e=>k(e,false));
+    const fewer=e=>{const n=e.touches?e.touches.length:0,tp=[..._pbPtr.entries()].filter(([id,q])=>q.type==='touch');while(tp.length>n)_pbPtr.delete(tp.shift()[0]);};
+    document.addEventListener('touchend',fewer,{passive:true});document.addEventListener('touchcancel',fewer,{passive:true});
+    window.addEventListener('blur',pbReleaseAll);document.addEventListener('visibilitychange',()=>{if(document.hidden)pbReleaseAll();});}
 }
 function pbFrame(now){
   const g=G.pb;if(!g||!g.live)return;
@@ -11116,7 +11123,7 @@ function pbFrame(now){
   if(cv!==g.cv){pbAttach();if(!g.cv)return;}
   if(document.hidden){g.last=now;return;}
   const dt=Math.min(.05,Math.max(0,(now-g.last)/1000));g.last=now;
-  pbStep(g,dt);pbDraw(g,now);pbHud(g);
+  pbSyncFlips(g);pbStep(g,dt);pbDraw(g,now);pbHud(g);
 }
 function pbHud(g){
   const st=g.st[g.turn],set=(id,v)=>{const el=document.getElementById(id);if(el&&el._v!==v){el._v=v;el.textContent=v;}},cls=(id,on)=>{const el=document.getElementById(id);if(el&&el._o!==on){el._o=on;el.classList.toggle('on',on);}};
