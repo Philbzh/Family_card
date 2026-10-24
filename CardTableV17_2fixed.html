@@ -403,6 +403,10 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
    focus style below still gets a visible ring for keyboard users, without ever fighting a more
    specific rule (die, roulette cell, hand card, etc.) that wants its own custom treatment. */
 :where([role="button"]):focus-visible{outline:2px solid var(--gold2);outline-offset:2px;border-radius:8px;}
+.coin-ic{width:1.05em;height:1.05em;vertical-align:-.2em;margin-right:.1em;filter:drop-shadow(0 1px 1px rgba(0,0,0,.6));}
+.stacks{display:inline-flex;align-items:flex-end;margin-right:.35em;vertical-align:middle;}
+.stack-ic{height:1.7em;width:auto;margin-right:-.15em;filter:drop-shadow(0 2px 2px rgba(0,0,0,.6));}
+.ld-cup{display:block;height:44px;width:auto;margin:0 auto .15rem;filter:drop-shadow(0 4px 6px rgba(0,0,0,.6));}
 .scr-enter{animation:scrEnter .42s cubic-bezier(.2,.7,.2,1) both;}
 @keyframes scrEnter{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
 .btn,.v10-game-card,.home-room,.app-sb-item,.pl-assist{transition:transform .12s ease,box-shadow .2s ease,filter .2s ease;}
@@ -21095,7 +21099,7 @@ function rLiarsDiceTable(){
   const soloHuman=!v.online&&players.filter(x=>!isBotPlayer(x)&&x.dice.length>0).length<2;
   let mine='';
   if(v.online){
-    mine=me&&me.dice.length?`<div class="ld-mine"><div class="ld-mine-lbl">Your dice — only you can see them</div><div class="ld-mine-dice">${me.dice.map(ldDieHTML).join('')}</div></div>`
+    mine=me&&me.dice.length?`<div class="ld-mine"><img class="ld-cup" src="assets/ui/cup.png" alt=""><div class="ld-mine-lbl">Your dice — only you can see them</div><div class="ld-mine-dice">${me.dice.map(ldDieHTML).join('')}</div></div>`
       :`<div class="ld-mine"><div class="ld-mine-lbl">You are out — enjoy the show 💀</div></div>`;
   } else if(!botTurn){
     mine=soloHuman
@@ -30035,7 +30039,7 @@ function rTable(){
         </div>
       </div>`;
     }).join('');
-    const potHtml=`<div class="v13-pot">🪙 ${pot} · POT</div>`;
+    const potHtml=`<div class="v13-pot">${potStacks(pot)}${coinImg()} ${pot} · POT</div>`;
     tableArea=`${gameId==='texas'?`<div class="community-row" style="gap:.5rem;">${slots}</div>${potHtml}`:`<div style="display:flex;flex-direction:column;align-items:center;gap:.6rem;z-index:1;">${potHtml}<div style="font-size:.75rem;color:rgba(248,240,224,.45);text-transform:uppercase;letter-spacing:.12em;">${pokerPhase==='draw'?'Draw Phase':pokerPhase==='preflop'?'Pre-Flop':pokerPhase==='draw2'?'Final Betting':'Betting'}</div></div>`}`;
   } else {
     // Discard pile: wrap cards with explicit positioning inline
@@ -30119,7 +30123,7 @@ function rTable(){
       ${top&&curSuit&&gameId==='maumau'?`<span class="suit-badge" style="color:${isRed(curSuit)?'#ff5670':'#f2f2f2'};">${SYM[curSuit]} ${sLbl(curSuit)}</span>`:''}
       ${top&&curSuit&&isUno?`<span class="suit-badge" style="color:${UNO_COLOR_HEX[curSuit]};">● ${sLbl(curSuit)}</span>`:''}
       ${drawPend>0?`<span class="pend-badge">+${drawPend}</span>`:''}
-      ${isPokerGame?`<span class="pot-badge">🪙 ${pot} pot</span>`:''}
+      ${isPokerGame?`<span class="pot-badge">${potStacks(pot)}${coinImg()} ${pot} pot</span>`:''}
     </div>
 
     <div class="table-event-row" role="status" aria-live="polite" aria-atomic="true">${lastAct?`<div class="table-event">${lastAct}</div>`:''}</div>
@@ -30206,7 +30210,7 @@ function rBlackjackTable(){
       statusHTML=`<span class="bj-status">Stand</span>`;
     }
     return`<div class="bj-player-row${isActive?' active':''}">
-      <div class="bj-player-head"><span>${avChar(p.avatar)} ${esc(p.name)}</span><span class="bj-bet">🪙 ${p.bjBet}</span></div>
+      <div class="bj-player-head"><span>${avChar(p.avatar)} ${esc(p.name)}</span><span class="bj-bet">${coinImg()} ${p.bjBet}</span></div>
       <div class="bj-player-cards">${cardsHTML}</div>
       <div class="bj-player-foot"><span class="bj-total">${pv.total}${pv.soft&&pv.total<=21?' soft':''}</span>${statusHTML}</div>
     </div>`;
@@ -30228,7 +30232,7 @@ function rBlackjackTable(){
       <div class="gb-turn${showActions?' mine':''}">${showActions?(avChar(curP.avatar)+' '+esc(curP.name)+"’s turn"):(allDone?(holeHidden?'Dealing…':'Dealer plays…'):(online?`${avChar(curP?.avatar)} ${esc(curP?.name||'')}'s turn…`:'Next player…'))}</div>
       <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
     </div>
-    <div class="game-status"><span class="pot-badge">🪙 Bet ${betAmount}</span></div>
+    <div class="game-status"><span class="pot-badge">${potStacks(betAmount)}${coinImg()} Bet ${betAmount}</span></div>
     <div class="felt-table${!allDone?' my-turn':''}" style="flex-direction:column;justify-content:flex-start;padding-top:1.3rem;gap:.5rem;overflow-y:auto;">
       <div class="dealer-label">DEALER</div>
       <div style="display:flex;gap:.5rem;justify-content:center;z-index:1;">${dealerCardsHTML}</div>
@@ -31035,7 +31039,7 @@ function rRouletteTable(){
     return`<button class="roul-player-pill${isMe?' active':''}${botSeat?' bot-seat':''}" style="--pc:${roulPlayerColor(i)}" data-a="${online||botSeat?'':'roul-select'}" data-idx="${i}" aria-label="${online?esc(pl.name)+(isAway?' — may be away':''):(botSeat?esc(pl.name)+' (bot) — bets for itself':'Bet as '+esc(pl.name))}" aria-pressed="${isMe}"${botSeat?' disabled':''}>
       <span class="roul-pill-dot"></span>${avHTML(pl.avatar)}<span>${esc(pl.name)}</span>
       ${isAway?'<span class="roul-pill-away" title="May be away">💤</span>':''}
-      <span class="roul-pill-chips">🪙${pl.chips}</span>
+      <span class="roul-pill-chips">${coinImg()}${pl.chips}</span>
       ${betTotal?`<span class="roul-pill-bet">${betTotal} down</span>`:''}
     </button>`;
   }).join('');
@@ -31176,7 +31180,7 @@ function rSlotsTable(){
   const betLocked=s.phase!=='idle'||!myTurn||broke;
   const allInBtn=broke?'':`<button class="roul-chip-pick roul-chip-all${s.bet===cur.chips?' active':''}" data-a="slot-bet" data-val="${cur.chips}" aria-pressed="${s.bet===cur.chips}" ${betLocked?'disabled':''} aria-label="Bet everything: ${cur.chips} chips">ALL IN</button>`;
   const chipPicker=tiers.length?tiers.map(v=>`<button class="roul-chip-pick${s.bet===v?' active':''}" data-a="slot-bet" data-val="${v}" aria-pressed="${s.bet===v}" ${betLocked?'disabled':''}>${v}</button>`).join('')+allInBtn
-    :`<span class="slot-cur-bet">🪙 out of chips</span>`;
+    :`<span class="slot-cur-bet">${coinImg()} out of chips</span>`;
 
   const reelHTML=displayReels.map((id,i)=>{
     const sym=SLOT_BY_ID[id];
@@ -31557,6 +31561,11 @@ function uiCountUp(){
   try{const els=document.querySelectorAll('#s-matchend .ts-val');els.forEach(el=>{const t=(el.textContent||'').trim();if(!/^\d{1,6}$/.test(t))return;const v=+t;if(v<2)return;const t0=performance.now(),D=900;el.textContent='0';
     const step=now=>{const u=Math.min(1,(now-t0)/D),e=1-Math.pow(1-u,3);el.textContent=String(Math.round(v*e));if(u<1)requestAnimationFrame(step);else el.textContent=String(v);};requestAnimationFrame(step);});}catch(e){}
 }
+// the real coin and chip stacks (instead of an emoji) wherever money is shown
+function coinImg(){return'<img class="coin-ic" src="assets/ui/coin.png" alt="">';}
+function stackImg(c){return'<img class="stack-ic" src="assets/ui/stack_'+c+'.png" alt="">';}
+// a few stacks that grow with the amount: red below 50, green to 150, blue to 400, black above
+function potStacks(n){n=+n||0;if(n<=0)return'';const c=n>=400?'black':n>=150?'blue':n>=50?'green':'red',k=n>=1000?3:n>=250?2:1;return'<span class="stacks">'+stackImg(c).repeat(k)+'</span>';}
 function rMatchEnd(){
   const players=G.isOnline?(G.srv?.players||[]):G.lp;
   const isBattle=G.selGame==='battle';
