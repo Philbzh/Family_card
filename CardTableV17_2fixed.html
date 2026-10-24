@@ -4870,6 +4870,7 @@ const GAMES=[
      '<b>The blue targets</b> on the right wall light the <b>JACKPOT</b>: shoot a ramp. <b>Roll all three top lanes</b> for a higher multiplier (up to ×5); a tap on a flipper moves the lit lanes. 25 bumper hits start <b>SUPER BUMPERS</b>. Shots that follow each other quickly build a <b>COMBO</b>.',
      '<b>Missions.</b> The panel at the right shows your mission (hit the bumpers, shoot the ramps, spin the spinner, knock down the <b>drop targets</b>...). Three missions finish a <b>level</b> (Workshop, Forge, Vault, Core): the table changes colour, jackpots grow and you win an <b>EXTRA BALL</b>. Right after the launch a flashing top lane is a <b>SKILL SHOT</b>.',
      '<b>The tunnels.</b> The two purple holes (left and right) swallow a ball and throw it out of the other one. Use <b>both within 15 seconds</b> and the next tunnel leads into the <b>SECRET ROOM</b>: it is a small <b>treasure vault</b> of its own with your flippers: 40 seconds, three wheels, a swinging blade and five gems. <b>Light all five gems</b> (each one pays more) to open the chest, then roll the ball into it for 150,000. A ball that drains comes back (three times).',
+     '<b>The four worlds.</b> The table changes its world when you finish a level: <b>Workshop</b>, then <b>Forge</b>, <b>Vault</b> and <b>Core</b>. A level is three missions (see the box at the right, it says MISSION 1/3) and then a boss. Want to see a world right away? The <b>WORLD</b> button at the left chooses the world you start in.',
      '<b>Assist and the pot.</b> The ASSIST button at the left sets the help: <b>EASY</b> for the little ones (a slower ball, a long ball save, both kickbacks lit and a hint on the table about what to shoot), <b>NORMAL</b>, or <b>EXPERT</b>. Every bumper hit of every player feeds the shared <b>POT</b>: the next jackpot, whoever hits it, takes the whole pot.',
      '<b>The second secret room.</b> Ride an orbit and fall into a tunnel <b>within 8 seconds</b>: the next tunnel leads to the <b>CLOCK ROOM</b>. Shoot the twelve hours <b>in order, 1 to 12</b>, before the hands and the pendulum throw the ball away: each hour pays more, and midnight pays 250,000. 45 seconds, three ball returns.',
      '<b>The orbit and the magnet.</b> Shoot the ball up the left side and it can run <b>round the top</b> of the table: three orbits light the jackpot. Every 12 bumper hits <b>charge the magnet</b> in the middle of the table: it catches the ball, and you choose the shot with the flippers: <b>left</b> for the left ramp, <b>right</b> for the right ramp, <b>both</b> for the vault.',
@@ -10614,7 +10615,7 @@ function pbNew(){pbResetTable();
   const g={live:true,kind:'pinball',n,players,st:players.map(()=>pbPlayerState()),turn:0,phase:'intro',pt:0,t:0,balls:[],fl:{L:{th:PB_FL.L.rest,w:0,on:false},R:{th:PB_FL.R.rest,w:0,on:false},U:{th:PB_FL.U.rest,w:0,on:false}},
     saveT:0,tilt:0,tilted:false,combo:0,comboT:0,multi:false,mbQueue:0,mbT:0,jackBest:0,cv:null,raf:0,scale:0,statik:null,last:0,acc:0,palLvl:0,skillT:0,dropReset:0,
     diff:pbDiffPref(),pot:0,fx:{parts:[],rings:[],pops:[],seq:[],banners:[],shake:0,flash:0,glow:0,sx:0,sy:0,zoom:0,show:null},room:null,wiz:null,freeze:0,slow:0,catchUp:false,bk:-1,endTot:3.2,lit:{},stats:{start:Date.now(),multis:0,jackpots:0,secrets:0,missions:0,levels:0},moment:'',ended:false,drainT:0,over:false,hint:true,sounds:true,nudgeCool:0,endT:0,bonusShow:null};
-  pbApplyDiff(g);pbNetInit(g);
+  pbApplyDiff(g);{const w0=pbWorldPref();if(w0>0)g.st.forEach(q=>{q.lvl=w0;});}pbNetInit(g);
   pbNewBall(g);
   return g;
 }
@@ -10766,6 +10767,7 @@ for(const k of Object.keys(PBS)){const f=PBS[k];if(typeof f!=='function')continu
 const PB_DIFF={easy:{n:'EASY',gs:.85,save:18,tilt:12.6,kick:true,hint:true},normal:{n:'NORMAL',gs:1,save:9,tilt:9,kick:false,hint:false},expert:{n:'EXPERT',gs:1.08,save:5,tilt:7.2,kick:false,hint:false}};
 function pbDiffPref(){try{const v=localStorage.getItem('ct_pb_diff');return PB_DIFF[v]?v:'normal';}catch(e){return'normal';}}
 function pbApplyDiff(g){const d=PB_DIFF[g.diff]||PB_DIFF.normal;g.gs=d.gs;g.saveMax=d.save;g.tiltMax=d.tilt;g.easyKick=d.kick;g.hintOn=d.hint;}
+function pbWorldPref(){try{const v=+localStorage.getItem('ct_pb_world');return v>=0&&v<=3?v:0;}catch(e){return 0;}}
 function pbHintText(g,st){
   if(st.boss)return'SHOOT EVERYTHING · HURT THE BOSS';if(g.multi||g.wiz)return'SHOOT THE RAMPS';if(st.magOn)return'ROLL OVER THE MAGNET';if(st.lockLit)return'SHOOT THE VAULT';if(st.jackLit)return'SHOOT A RAMP FOR THE JACKPOT';
   return pbMission(st).d.toUpperCase();
@@ -11484,6 +11486,7 @@ function rPinballTable(){
         <div class="pb-side pb-left" id="pb-left">${players.map((p,i)=>`<div class="pb-pl" id="pb-pl${i}"><span class="ah-av">${p.avatar?avHTML(p.avatar):''}</span><b class="pb-nm">${esc((p.name||'').slice(0,12))}</b><b class="pb-sc" id="pb-sc${i}">0</b><i class="pb-bl" id="pb-bl${i}">BALL 1</i></div>`).join('')}
           <div class="pb-sp"></div>
           <button class="pb-diff" id="pb-diff" data-a="pbdiff">ASSIST · NORMAL</button>
+          <button class="pb-diff" id="pb-world" data-a="pbworld">WORLD · WORKSHOP</button>
           <div class="pb-nud"><button data-nudge="-1" aria-label="Nudge left">◀</button><button data-nudge="0" aria-label="Nudge up">▲</button><button data-nudge="1" aria-label="Nudge right">▶</button></div>
           <button class="pb-fb" data-flip="L" aria-label="Left flipper"><b>◀</b><small>FLIPPER</small></button></div>
         <div class="pb-mid" id="pb-mid"><canvas id="pb-cv" class="ah-cv" aria-label="Pinball machine"></canvas></div>
@@ -11566,10 +11569,10 @@ function pbHud(g){
   const r=document.getElementById('pb-right');if(!r)return;
   const lv=Math.min(3,st.lvl),P=PB_PAL[lv],m=pbMission(st),stg=document.getElementById('pb-stage');
   if(stg&&stg._lv!==lv){stg._lv=lv;stg.style.setProperty('--pbc',P.c);stg.style.setProperty('--pbr',P.r);}
-  set('pb-lvl',P.n+(st.lvl>3?' · '+(st.lvl-2):''));{let mt='MISSION '+(st.mi+1)+' / 3',mn=m.n,mc=st.mp+' / '+m.need,mw=Math.min(100,st.mp/m.need*100);if(st.boss){mt='BOSS FIGHT';mn=PB_BOSS[st.boss.i];mc=Math.ceil(st.boss.hp/st.boss.max*100)+'%';mw=st.boss.hp/st.boss.max*100;}if(g.wiz){mt='WIZARD MODE';mn='ALL SHOTS ×3';mc=Math.ceil(g.wiz.t)+' s';mw=g.wiz.t/g.wiz.max*100;}if(g.room){const ck=g.room.kind==='clock';mt=ck?'SECRET ROOM II':'SECRET ROOM';mn=ck?'THE CLOCK ROOM':'TREASURE VAULT';mc=ck?(g.room.next-1)+' of 12 hours':g.room.gems+' of 5 gems';mw=Math.max(0,g.room.left/g.room.max*100);}g._mw=mw;set('pb-mt',mt);set('pb-mn',mn);set('pb-mc',mc);}set('pb-md',m.k==='lock'&&!st.lockLit?'Light the 3 orange targets, then roll into the vault':m.d);
+  set('pb-lvl',P.n+(st.lvl>3?' · '+(st.lvl-2):'')+(st.boss?' · BOSS':' · MISSION '+(st.mi+1)+'/3'));{let mt='MISSION '+(st.mi+1)+' / 3',mn=m.n,mc=st.mp+' / '+m.need,mw=Math.min(100,st.mp/m.need*100);if(st.boss){mt='BOSS FIGHT';mn=PB_BOSS[st.boss.i];mc=Math.ceil(st.boss.hp/st.boss.max*100)+'%';mw=st.boss.hp/st.boss.max*100;}if(g.wiz){mt='WIZARD MODE';mn='ALL SHOTS ×3';mc=Math.ceil(g.wiz.t)+' s';mw=g.wiz.t/g.wiz.max*100;}if(g.room){const ck=g.room.kind==='clock';mt=ck?'SECRET ROOM II':'SECRET ROOM';mn=ck?'THE CLOCK ROOM':'TREASURE VAULT';mc=ck?(g.room.next-1)+' of 12 hours':g.room.gems+' of 5 gems';mw=Math.max(0,g.room.left/g.room.max*100);}g._mw=mw;set('pb-mt',mt);set('pb-mn',mn);set('pb-mc',mc);}set('pb-md',m.k==='lock'&&!st.lockLit?'Light the 3 orange targets, then roll into the vault':m.d);
   const mp=document.getElementById('pb-mp');if(mp){const w=Math.min(100,g._mw||0)+'%';if(mp._w!==w){mp._w=w;mp.style.width=w;}}
   r.querySelectorAll('.pb-d').forEach(el=>{const k=el.dataset.k,i=+k[1];let on=false;if(k[0]==='f')on=!!st.forge[i]||st.forgeOn;else if(k[0]==='l')on=st.locks>i;else on=!!st.lanes[i];if(el._o!==on){el._o=on;el.classList.toggle('on',on);}});
-  set('pb-diff','ASSIST · '+(PB_DIFF[g.diff]||PB_DIFF.normal).n);set('pb-pot','POT '+Math.round(g.pot||0).toLocaleString());
+  set('pb-diff','ASSIST · '+(PB_DIFF[g.diff]||PB_DIFF.normal).n);set('pb-world','WORLD · '+PB_PAL[pbWorldPref()].n.replace('THE ',''));set('pb-pot','POT '+Math.round(g.pot||0).toLocaleString());
   set('pb-mult','×'+st.mult);set('pb-combo',g.combo>=2?'×'+Math.min(5,g.combo):'–');
   cls('pb-jack',st.jackLit||g.multi);cls('pb-super',st.superT>0);cls('pb-multi',g.multi);cls('pb-extra',st.extra>0);cls('pb-mag',st.magOn);
   const tl=document.getElementById('pb-tilt');if(tl){const w=Math.min(100,g.tilt/(g.tiltMax||9)*100)+'%';if(tl._w!==w){tl._w=w;tl.style.width=w;}}
@@ -33634,6 +33637,8 @@ document.addEventListener('click',e=>{
   else if(a==='tour-noop'){if(e.target===t)tourClose();}
   else if(a==='close-rules'){G.rulesOpen=false;render();}
   else if(a==='pbdiff'){const g=G.pb;if(g){const ks=Object.keys(PB_DIFF);g.diff=ks[(ks.indexOf(g.diff)+1)%ks.length];try{localStorage.setItem('ct_pb_diff',g.diff);}catch(e){}pbApplyDiff(g);toast('Pinball assist: '+PB_DIFF[g.diff].n.toLowerCase()+(g.diff==='easy'?' · slower ball, longer ball save, a hint':g.diff==='expert'?' · faster ball, short ball save':''));}}
+  else if(a==='pbworld'){const g=G.pb;if(g){const w=(pbWorldPref()+1)%4;try{localStorage.setItem('ct_pb_world',String(w));}catch(e){}
+    const fresh=g.st.every(q=>q.score===0&&q.ball===1&&!q.boss);if(fresh&&!G.isOnline){g.st.forEach(q=>{q.lvl=w;q.mi=0;q.mp=0;});g.statik=null;toast('Starting in '+PB_PAL[w].n.toLowerCase());}else toast('Your next game starts in '+PB_PAL[w].n.toLowerCase());}}
   else if(a==='pbhof'){G.pbHof=true;render();}
   else if(a==='close-pbhof'){G.pbHof=false;render();}
   else if(a==='quit-ask'){G.quitOpen=true;render();}
