@@ -5697,7 +5697,7 @@ async function runPresentation(A,W,frame){
       F('fgEnd')(f);
       check('the end of a match gives the winner and the loser, records the result and shows the results screen',G().lp[0].c4Result==='win'&&G().lp[1].c4Result==='loss'&&G().lp[0].totalScore===900&&G().scr==='matchend'&&G().fgResult&&G().fgResult.topscore===900&&/Top score/.test(F('fgChipsHTML')()));
       check('Family balloons are bigger than Expert ones',(()=>{const a=mk(1,null,'family'),c=mk(1,null,'expert');const x=F('fgSpawn')(a,{k:'std',side:false}),y=F('fgSpawn')(c,{k:'std',side:false});return x.r>y.r;})());
-      check('the achievements and the records of the Fairground exist',['fg-popstar','fg-dead','fg-jackpot'].every(id=>F('ACHIEVEMENTS').some(a=>a.id===id))&&F('AR_REC').balloonblast.length===4);
+      check('the achievements and the records of the Fairground exist',['fg-popstar','fg-dead','fg-jackpot'].every(id=>F('ACHIEVEMENTS').some(a=>a.id===id))&&F('AR_REC').balloonblast.length>=4);
     }finally{back(k0);}
   });
   suite('Fairground: the human is never locked out after the bot run',()=>{
@@ -5726,6 +5726,18 @@ async function runPresentation(A,W,frame){
         check(kind+': the replay ends and the next player starts, and the whole match finishes',seen&&f.phase==='over'&&f.run.done.every(x=>x));
       }
     }finally{const g=G();F('fgStop')();g.isOnline=k0[0];g.selGame=k0[1];g.lp=k0[2];g.lstart=k0[3];g.scr=k0[4];g.fg=null;}
+  });
+  suite('Security: a player name with markup never becomes an element',()=>{
+    const F=n=>W.eval(n),G=()=>F('G');
+    const k0=[G().isOnline,G().selGame,G().lp,G().scr,G().fg,G().myName,G().ahMoment];
+    try{
+      const X='<img src=x onerror="window.__xss=1">',g=G();g.isOnline=false;g.myName=X;
+      const mk=n=>({id:n,name:X,avatar:F('AVATARS')[0],hand:[],totalScore:5,roundsWon:1,chips:F('DEFAULT_CHIPS'),bet:0,folded:false,allIn:false,c4Result:'win',dice:[],scorecard:{}});
+      g.lp=[mk(1),mk(2)];let bad=[];
+      for(const gm of F('GAMES')){g.selGame=gm.id;g.gamesCat=gm.cat;g.ahMoment=X;for(const sc of ['setup','matchend','games','home']){g.scr=sc;try{F('render')();}catch(e){}
+        if(W.__xss||W.document.querySelector('#app img[src="x"]'))bad.push(gm.id+':'+sc);}}
+      check('with a hostile name on the setup, result, games and home screens of every game nothing is injected ('+bad.slice(0,3).join(',')+')',bad.length===0);
+    }finally{const g=G();F('fgStop')();g.isOnline=k0[0];g.selGame=k0[1];g.lp=k0[2];g.scr=k0[3];g.fg=k0[4];g.myName=k0[5];g.ahMoment=k0[6];}
   });
   suite('Fairground: the LEVEL button works in every booth',()=>{
     const F=n=>W.eval(n),G=()=>F('G');
@@ -5807,7 +5819,7 @@ async function runPresentation(A,W,frame){
       f=mk(2);f.score=[1500,2200];f.hits=[8,10];f.perfects=[1,2];f.bestStreak=[2,3];f.rapidBest=[4,6];f.phase='over';G().fg=f;G().scr='table';
       F('fgEnd')(f);
       check('the end of a match shows the results with the Marksman figures',G().lp[1].c4Result==='win'&&G().lp[0].c4Result==='loss'&&G().scr==='matchend'&&/dead centre/i.test(F('fgChipsHTML')())&&/rapid fire/i.test(F('fgChipsHTML')()));
-      check('the Marksman records and the Quick Draw trophy exist',F('AR_REC').marksman.length===4&&F('ACHIEVEMENTS').some(a=>a.id==='ms-rapid'));
+      check('the Marksman records and the Quick Draw trophy exist',F('AR_REC').marksman.length>=4&&F('ACHIEVEMENTS').some(a=>a.id==='ms-rapid'));
     }finally{back(k0);}
   });
   suite('Fairground online: one after the other, the others watch',()=>{
@@ -5843,6 +5855,13 @@ async function runPresentation(A,W,frame){
       F('fgNetApply')(c2,F('fgNetSnap')(c1));
       check('the guest follows: the same mode, the same rack and the same dots, and the picture is rebuilt',c2.fmt==='contest'&&c2.cont.n===7&&c2.spot===1&&c2.cont.res.join('')==='mmmmMxm'&&c2.statik===null&&c2.run.dur===70);
       try{W.localStorage.removeItem('ct_hf_fmt');}catch(e){}
+      // a hostile snapshot cannot break the game of the watcher
+      {const gg=G();gg.myPid='a';gg.srv.gameId='balloonblast';gg.srv.ah={id:'h1',score:[0,0]};const v1=F('fgNew')('balloonblast');F('fgNetInit')(v1);gg.myPid='b';const v2=F('fgNew')('balloonblast');F('fgNetInit')(v2);v2.net.id='h1';v1.net.id='h1';
+       const evil={k:'st',id:'h1',seat:0,i:5,s:{turn:0,phase:'play',score:[1e30,NaN],balloons:new Array(5000).fill({r:1,bx:1e99,'__proto__':{polluted:1},name:'x'.repeat(5000)}),run:{left:'<script>'}},aim:{x:1e9},ev:[[1,'b','y'.repeat(9000),'z',1]]};
+       const ok=F('fgNetApply')(v2,JSON.parse(JSON.stringify(evil)));
+       check('a hostile snapshot is cut down to size: lists are short, numbers finite, texts short, no prototype pollution',ok&&v2.balloons.length<=80&&Number.isFinite(v2.score[1])&&v2.score[0]<=1e5&&v2.balloons[0].name.length<=80&&({}).polluted===undefined);
+       const bad=F('fgNetApply')(v2,{k:'st',id:'h1',seat:0,i:9,s:{turn:77,phase:'play'}});
+       check('a snapshot with a seat or a phase that does not exist is refused',bad===false);}
       // watchers keep things moving between two snapshots
       let g=G();g.myPid='b';g.srv.gameId='balloonblast';const w=F('fgNew')('balloonblast');F('fgNetInit')(w);w.balloons=[];const bb=F('fgSpawn')(w,{k:'std',side:false});bb.vx=0;bb.vy=-100;const y0=bb.by;w.turn=0;
       F('fgNetPassive')(w,.5);
@@ -5937,7 +5956,7 @@ async function runPresentation(A,W,frame){
       f=mk(2,[0,1],'contest');f.bots=['gentle','sharp'];n2=0;while(f.phase!=='over'&&n2++<120000)F('fgStep')(f,1/60);
       check('two bots play a whole contest: 25 balls each, at most 30 points, and the contest ends',f.phase==='over'&&f.score[0]<=30&&f.score[1]<=30&&f.cont.n===25&&f.run.done.every(x=>x));
       check('HORSE and the contest do not mix: with one player the MODE button cycles shootout and contest only',(()=>{const h=mk(1,null,'shootout');return h.fmt==='shootout';})());
-      check('the Hoop Fever records and the trophies exist',F('AR_REC').hoopfever.length===4&&['hf-net','hf-fire'].every(id=>F('ACHIEVEMENTS').some(a=>a.id===id)));
+      check('the Hoop Fever records and the trophies exist',F('AR_REC').hoopfever.length>=4&&['hf-net','hf-fire'].every(id=>F('ACHIEVEMENTS').some(a=>a.id===id)));
     }finally{back(k0);}
   });
   suite('Arcade series: best of 3 across rematches',()=>{

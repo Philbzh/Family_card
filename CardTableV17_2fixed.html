@@ -5243,6 +5243,11 @@ const ACHIEVEMENTS=[
   {id:'hf-net',icon:'🏀',name:'Nothing But Net',desc:'Five clean swishes in one Hoop Fever game',check:()=>arFlag('hf-net')},
   {id:'hf-fire',icon:'🔥',name:'On Fire',desc:'Five baskets in a row at Hoop Fever',check:()=>arFlag('hf-fire')},
   {id:'ms-rapid',icon:'⚡',name:'Quick Draw',desc:'Eight hits in one RAPID FIRE round at the Marksman range',check:()=>arFlag('ms-rapid')},
+  {id:'bb-baron',icon:'🎈',name:'Balloon Baron',desc:'5,000 points in one 60-second run at Balloon Blast',check:()=>arFlag('bb-baron')},
+  {id:'ms-sharp',icon:'🎯',name:'Steady Hand',desc:'1,500 points in one 60-second run at the Marksman range',check:()=>arFlag('ms-sharp')},
+  {id:'hf-sharpshooter',icon:'🏀',name:'Sharpshooter',desc:'20 points or more in the Three-Point Contest',check:()=>arFlag('hf-sharpshooter')},
+  {id:'hf-money',icon:'💰',name:'Money Rack',desc:'All five money balls made in one Three-Point Contest',check:()=>arFlag('hf-money')},
+  {id:'fg-regular',icon:'🎪',name:'Fairground Regular',desc:'Played all three Fairground booths',check:()=>arFlag('fg-regular')},
   {id:'fg-jackpot',icon:'🎪',name:'Step Right Up',desc:'Popped the jackpot balloon',check:()=>arFlag('fg-jackpot')},
   {id:'pl-clear',icon:'🎱',name:'Clean Table',desc:'Sank all seven of your balls in one turn in Pool',check:()=>arFlag('pl-clear')},
   {id:'pl-break',icon:'💥',name:'Perfect Break',desc:'Sank three balls or more on the break in Pool',check:()=>arFlag('pl-break')},
@@ -7727,9 +7732,9 @@ const AR_REC={
   airhockey:[['fastest','Fastest shot','km/h'],['bestRally','Longest rally','hits'],['saves','Most saves in a match',''],['comeback','Biggest comeback','goals']],
   pong:[['fastest','Fastest ball','km/h'],['bestRally','Longest rally','returns'],['perfect','Most perfect returns',''],['comeback','Biggest comeback','games']],
   pool:[['fastest','Longest pot','cm'],['bestRally','Most balls in one turn',''],['perfect','Most balls on a break','']],
-  hoopfever:[['topscore','Highest score','pts'],['perfect','Most clean swishes',''],['bestRally','Longest streak','baskets'],['saves','Jackpot baskets','']],
-  marksman:[['topscore','Highest score','pts'],['perfect','Most X (dead centre)',''],['bestRally','Longest run of hits','shots'],['saves','Best rapid fire','hits']],
-  balloonblast:[['topscore','Highest score','pts'],['perfect','Most dead-centre hits',''],['bestRally','Longest colour chain','balloons'],['saves','Jackpots in one match','']],
+  hoopfever:[['top10','Best 10-second run','pts'],['top30','Best 30-second run','pts'],['top60','Best 60-second run','pts'],['topContest','Best three-point contest','pts'],['topscore','Highest score','pts'],['perfect','Most clean swishes',''],['bestRally','Longest streak','baskets'],['saves','Jackpot baskets','']],
+  marksman:[['top10','Best 10-second run','pts'],['top30','Best 30-second run','pts'],['top60','Best 60-second run','pts'],['topscore','Highest score','pts'],['perfect','Most X (dead centre)',''],['bestRally','Longest run of hits','shots'],['saves','Best rapid fire','hits']],
+  balloonblast:[['top10','Best 10-second run','pts'],['top30','Best 30-second run','pts'],['top60','Best 60-second run','pts'],['topscore','Highest score','pts'],['perfect','Most dead-centre hits',''],['bestRally','Longest colour chain','balloons'],['saves','Jackpots in one match','']],
   invaders:[['teamscore','Best team score','pts'],['wave','Furthest wave (team)',''],['topscore','Highest score (duel)','pts'],['fastest','Highest combo','hits'],['bestRally','Most aliens destroyed',''],['saves','Most attacks sent','']]
 };
 function arAll(){try{return JSON.parse(localStorage.getItem('ct_ar')||'{}')||{};}catch(e){return{};}}
@@ -7766,10 +7771,12 @@ function arRecordUpdate(game,names,winnerName,score,rs){
   const a=arAll();a.rec=a.rec||{};a.flags=a.flags||{};a.played=a.played||{};a.played[game]=(a.played[game]||0)+1;
   const won=[],set=(key,v,by)=>{const r=a.rec[game]=a.rec[game]||{};if(v>0&&(!r[key]||v>r[key].v)){r[key]={v,by,at:new Date().toISOString()};won.push(key);}};
   const by=(names||[]).join(' vs ');
-  (AR_REC[game]||[]).forEach(([k])=>{if(k==='topscore'){if(!(rs&&rs.team))set(k,Math.max(score[0]||0,score[1]||0),winnerName||by);}else if(k==='teamscore')set(k,(rs&&rs.teamScore)||0,by);else set(k,(rs&&rs[k])||0,by);});
+  (AR_REC[game]||[]).forEach(([k])=>{if(k==='topscore'){if(!(rs&&rs.team))set(k,Math.max(score[0]||0,score[1]||0),winnerName||by);}else if(/^top(10|30|60|Contest)$/.test(k))set(k,(rs&&rs[k])||0,winnerName||by);else if(k==='teamscore')set(k,(rs&&rs.teamScore)||0,by);else set(k,(rs&&rs[k])||0,by);});
   const w=names.indexOf(winnerName),ws=score&&w>=0?score[w]:0,ls=score&&w>=0?score[1-w]:0;
   if(game==='airhockey'&&rs&&rs.comeback>=4)a.flags['ah-comeback']=true;
   if(game==='pool'){if(rs&&rs.bestRally>=7)a.flags['pl-clear']=true;if(rs&&rs.perfect>=3)a.flags['pl-break']=true;}
+  if(fgIs(game)&&rs){if(game==='balloonblast'&&rs.top60>=5000)a.flags['bb-baron']=true;if(game==='marksman'&&rs.top60>=1500)a.flags['ms-sharp']=true;if(game==='hoopfever'&&rs.topContest>=20)a.flags['hf-sharpshooter']=true;if(game==='hoopfever'&&rs.money>=5)a.flags['hf-money']=true;}
+  if(a.played.balloonblast&&a.played.marksman&&a.played.hoopfever)a.flags['fg-regular']=true;
   if(game==='balloonblast'){if(rs&&rs.bestRally>=4)a.flags['fg-popstar']=true;if(rs&&rs.perfect>=3)a.flags['fg-dead']=true;if(rs&&rs.saves>=1)a.flags['fg-jackpot']=true;}
   if(game==='hoopfever'){if(rs&&rs.perfect>=5)a.flags['hf-net']=true;if(rs&&rs.bestRally>=5)a.flags['hf-fire']=true;if(rs&&rs.saves>=1)a.flags['fg-jackpot']=true;}
   if(game==='marksman'){if(rs&&rs.perfect>=3)a.flags['fg-dead']=true;if(rs&&rs.saves>=8)a.flags['ms-rapid']=true;}
@@ -7779,13 +7786,13 @@ function arRecordUpdate(game,names,winnerName,score,rs){
   try{localStorage.setItem('ct_ar',JSON.stringify(a));}catch(e){}
   return won;
 }
-function arRecordsHTML(){
-  const a=arAll(),rec=a.rec||{};
+function arRecordsHTML(cat){
+  const a=arAll(),rec=a.rec||{},FGG=['balloonblast','marksman','hoopfever'];
   const names={airhockey:['🏒','Air Hockey'],pong:['🏓','Pong'],invaders:['👾','Invaders: Duel'],pool:['🎱','Pool'],balloonblast:['🎈','Balloon Blast'],marksman:['🎯','Marksman'],hoopfever:['🏀','Hoop Fever']};
-  const rows=Object.keys(AR_REC).map(g=>{
+  const rows=Object.keys(AR_REC).filter(g=>cat==='fairground'?FGG.includes(g):!FGG.includes(g)).map(g=>{
     const list=(AR_REC[g]).filter(([k])=>rec[g]&&rec[g][k]);if(!list.length)return'';
     return`<div class="ar-game"><div class="ar-gn">${names[g][0]} ${names[g][1]}</div>${list.map(([k,l,u])=>`<div class="ar-row"><span>${l}</span><b>${rec[g][k].v}${u?' '+u:''}</b><em>${esc(rec[g][k].by)}</em></div>`).join('')}</div>`;}).join('');
-  return`<div class="panel ar-panel" style="margin:0 1.2rem 1.2rem;"><div class="panel-lbl">Arcade records</div>${rows||'<div class="ar-none">Play a match and the first records of your table will appear here.</div>'}</div>`;
+  return`<div class="panel ar-panel" style="margin:0 1.2rem 1.2rem;"><div class="panel-lbl">${cat==='fairground'?'Fairground records':'Arcade records'}</div>${rows||'<div class="ar-none">Play a match and the first records of your table will appear here.</div>'}</div>`;
 }
 /* ═══════ POOL / 8-BALL ═══════
    Turn-based, so it needs no live stream: the shooter computes a shot with the physics below, the room stores the result (the new state, the shot
@@ -8762,6 +8769,16 @@ function fgNetTick(g,dt){
   N.acc+=dt;if(N.acc<.09)return;N.acc=0;
   try{if(_ch)_ch.send({type:'broadcast',event:'fg',payload:fgNetSnap(g)});}catch(e){}
 }
+// nothing that arrives from the network is trusted: numbers are finite and bounded, texts and lists are short, no strange keys
+function fgNetSane(v,d){
+  d=d||0;if(d>5)return null;
+  if(typeof v==='number')return isFinite(v)?Math.max(-1e5,Math.min(1e5,v)):0;
+  if(typeof v==='string')return v.slice(0,80);
+  if(typeof v==='boolean'||v===null||v===undefined)return v===undefined?null:v;
+  if(Array.isArray(v))return v.slice(0,80).map(x=>fgNetSane(x,d+1));
+  if(typeof v==='object'){const o={};for(const k of Object.keys(v).slice(0,60)){if(k==='__proto__'||k==='constructor'||k==='prototype')continue;o[k]=fgNetSane(v[k],d+1);}return o;}
+  return null;
+}
 // a snapshot from the shooter
 function fgNetApply(g,m){
   const N=g.net;if(!fgNetOn(g)||!m||m.k!=='st'||m.id!==N.id||m.seat===N.seat)return false;
@@ -8770,11 +8787,13 @@ function fgNetApply(g,m){
   N.lastI=m.i;N.seq=Math.max(N.seq,m.i);N.got=true;
   if(m.s&&m.s.turn===m.seat)N.tail=0;
   const keys=FG_NET_KEYS.all.concat(FG_NET_KEYS[g.kind]||[]);
-  for(const k of keys)if(m.s&&m.s[k]!==undefined)g[k]=m.s[k];
-  if(m.aim)Object.assign(g.aim,m.aim);
+  const ts=m.s&&m.s.turn;if(m.s&&(!Number.isInteger(ts)||ts<0||ts>=g.n||!['intro','play','over','rapid','final'].includes(m.s.phase)))return false;
+  for(const k of keys)if(m.s&&m.s[k]!==undefined)g[k]=fgNetSane(m.s[k]);
+  for(const k of ['score','streak','bestStreak','perfects','hits','jack'])if(Array.isArray(g[k]))g[k]=g[k].slice(0,g.n).map(v=>typeof v==='number'?v:0);
+  if(m.aim)Object.assign(g.aim,fgNetSane(m.aim));
   if(g.kind==='hoopfever'&&g._fmtSeen!==g.fmt){g._fmtSeen=g.fmt;g.statik=null;}
   N.rep=true;
-  try{for(const e of m.ev||[]){if(N.seen[e[0]])continue;N.seen[e[0]]=1;fgNetReplay(g,e);}}finally{N.rep=false;}
+  try{for(const e0 of Array.isArray(m.ev)?m.ev.slice(0,30):[]){if(!Array.isArray(e0))continue;const e=fgNetSane(e0);if(N.seen[e[0]])continue;N.seen[e[0]]=1;fgNetReplay(g,e);}}finally{N.rep=false;}
   return true;
 }
 function fgNetReplay(g,e){
@@ -8808,7 +8827,7 @@ function fgNetFinish(g){
   const st=JSON.parse(JSON.stringify(G.srv));
   st.players.forEach((p,i)=>{if(i>=n)return;p.totalScore=sc[i];p.c4Result=winners.length>1&&winners.includes(i)?'draw':w===i?'win':'loss';});
   st.winner=st.players[w].id;st.winnerName=st.players[w].name;st.winnerAv=st.players[w].avatar;st.moment=mom;
-  st.ah=Object.assign({},st.ah||{},{score:sc,dur:res.dur,stats:{perfect:Math.max(...g.perfects),bestRally:Math.max(...g.bestStreak),saves:g.kind==='marksman'?Math.max(...(g.rapidBest||[0])):Math.max(...g.jack),team:0,fg:res}});
+  st.ah=Object.assign({},st.ah||{},{score:sc,dur:res.dur,stats:Object.assign({perfect:Math.max(...g.perfects),bestRally:Math.max(...g.bestStreak),saves:g.kind==='marksman'?Math.max(...(g.rapidBest||[0])):Math.max(...g.jack),team:0,fg:res},fgRecStats(g,top))});
   st.lastAct=esc(st.winnerName)+(winners.length>1?' tied.':' won the match.');st._ts=Date.now();
   try{onSrv(st);}catch(e){}
   try{dbWrite(G.roomId,st);}catch(e){}
@@ -9055,6 +9074,11 @@ function fgBot(g,dt){
   }
 }
 /* ── the end of the match ── */
+function fgRecStats(g,top){
+  const d=g.run?g.run.dur:0,o={};o[g.fmt==='contest'?'topContest':'top'+d]=top;
+  if(g.fmt==='contest'&&g.cont&&g.cont.res)o.money=g.cont.res.filter(x=>x==='M').length;
+  return o;
+}
 function fgEnd(g){
   if(G.fg!==g||!g.live)return;
   if(fgNetOn(g)){fgNetFinish(g);return;}
@@ -9066,7 +9090,7 @@ function fgEnd(g){
   G.fgResult={kind:g.kind,rapidBest:(g.rapidBest||[]).slice(),score:sc,perfects:g.perfects.slice(),hits:g.hits.slice(),bestStreak:g.bestStreak.slice(),jack:g.jack.slice(),dur:Math.round((Date.now()-g.stats.start)/1000),topscore:top,names:g.players.map(p=>p.name)};
   G.tw=(G.tw||0)+1;try{localStorage.setItem('ct_tw',G.tw);}catch(e){}
   try{addHistory({game:g.kind,winner:g.players[w].name,winnerAvatar:g.players[w].avatar,date:new Date().toISOString(),players:g.players.map(p=>p.name),moment:mom,stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats?G.matchStats.reactions:0,ah:{score:sc,dur:G.fgResult.dur}}});}catch(e){}
-  try{const nr=arRecordUpdate(g.kind,g.players.map(p=>p.name),g.players[w].name,sc,{perfect:perf,bestRally:bestS,saves:g.kind==='marksman'?Math.max(...(g.rapidBest||[0])):jk,team:0});if(nr.length)setTimeout(()=>toast('🏆 New Fairground record'),900);}catch(e){}
+  try{const nr=arRecordUpdate(g.kind,g.players.map(p=>p.name),g.players[w].name,sc,Object.assign({perfect:perf,bestRally:bestS,saves:g.kind==='marksman'?Math.max(...(g.rapidBest||[0])):jk,team:0},fgRecStats(g,top)));if(nr.length)setTimeout(()=>toast('🏆 New Fairground record'),900);}catch(e){}
   FGS.win();fgStop();G.scr='matchend';render();
 }
 function fgChipsHTML(){
@@ -29288,7 +29312,7 @@ function rGamesCategoryList(){
     <div class="topbar"><button class="back-btn" data-a="games-back">← Games</button><span class="top-title">${cat.icon} ${esc(cat.name)}</span><div class="top-right">${sndBtn()}</div></div>
     <div style="padding:1.1rem 1.2rem .2rem;font-size:.82rem;color:var(--paper3);">Pick a game to start playing at your table.</div>
     <div class="v10-games${chosen?' has-sel':''}" style="padding:1rem 1.2rem 1.5rem;">${cards}</div>
-    ${cat.id==='arcade'?arRecordsHTML():''}
+    ${cat.id==='arcade'||cat.id==='fairground'?arRecordsHTML(cat.id):''}
     <div class="v10-playbar${chosen?' on':''}">
       <div class="v10-pb-info">${chosen?`<span class="v10-pb-thumb" style="${chosen.cover?`background-image:url('${chosen.cover}')`:''}">${chosen.cover?'':chosen.icon}</span><span class="v10-pb-txt"><b>${esc(chosen.name)}</b><small>${chosen.players} players · ${chosen.dur}</small></span>`:`<span class="v10-pb-txt"><b>Pick a game</b><small>Tap one of the pictures above</small></span>`}</div>
       <div class="v10-pb-btns">
