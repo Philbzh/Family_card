@@ -10983,7 +10983,7 @@ function pbChrome(x,w){const g=x.createLinearGradient(0,0,w,0);g.addColorStop(0,
 function pbSpaced(x,txt,cx,cy,sp){let w=0;for(const ch of txt)w+=x.measureText(ch).width+sp;w-=sp;let px=cx-w/2;x.textAlign='left';for(const ch of txt){x.fillText(ch,px,cy);px+=x.measureText(ch).width+sp;}}
 function pbGlow(x,px,py,r,col,a){x.save();x.globalCompositeOperation='lighter';const gl=x.createRadialGradient(px,py,0,px,py,r);gl.addColorStop(0,col);gl.addColorStop(1,'rgba(0,0,0,0)');x.globalAlpha=a;x.fillStyle=gl;x.beginPath();x.arc(px,py,r,0,6.283);x.fill();x.restore();}
 const PB_IMG={};
-function pbImg(n){let i=PB_IMG[n];if(!i){i=PB_IMG[n]=new Image();i.src='assets/games/pb_'+n+(n==='bg'||n==='roombg'?'.jpg':'.png');}return i.complete&&i.naturalWidth?i:null;}
+function pbImg(n){let i=PB_IMG[n];if(!i){i=PB_IMG[n]=new Image();i.src='assets/games/pb_'+n+(n==='bg'||n==='roombg'||/^bg\d$/.test(n)?'.jpg':'.png');}return i.complete&&i.naturalWidth?i:null;}
 function pbBuild(g){
   const st=g.st[g.turn],lv=Math.min(3,st.lvl),P=PB_PAL[lv];g.palLvl=lv;
   const sc=g.scale,M=PB.M,W=PB.W,H=PB.H,CW=W+2*M,CH=H+2*M,c=document.createElement('canvas');c.width=Math.round(CW*sc);c.height=Math.round(CH*sc);
@@ -10996,8 +10996,8 @@ function pbBuild(g){
   x.translate(M,M);
   // the playfield: deep colour, lit from the middle, with a sunburst, the great gear and painted plastics
   x.save();pbOutline(x);x.clip();
-  const bgI=pbImg('bg');g.bgOk=!!bgI;
-  if(bgI){x.drawImage(bgI,20,20,462,980);if(lv>0){x.save();x.globalCompositeOperation='color';x.globalAlpha=.78;x.fillStyle=P.c;x.fillRect(0,0,W,H);x.restore();}x.fillStyle='rgba(0,0,0,.22)';x.fillRect(0,0,W,H);}
+  const own=pbImg(lv?'bg'+lv:'bg'),bgI=own||pbImg('bg');g.bgOk=!!own;
+  if(bgI){x.drawImage(bgI,20,20,462,980);if(lv>0&&!own){x.save();x.globalCompositeOperation='color';x.globalAlpha=.78;x.fillStyle=P.c;x.fillRect(0,0,W,H);x.restore();}x.fillStyle='rgba(0,0,0,.22)';x.fillRect(0,0,W,H);}
   else{
   gr=x.createRadialGradient(236,560,30,236,560,700);gr.addColorStop(0,P.g1);gr.addColorStop(.5,P.g2);gr.addColorStop(1,P.g3);x.fillStyle=gr;x.fillRect(0,0,W,H);
   for(let i=0;i<32;i++){x.beginPath();x.moveTo(236,640);x.arc(236,640,900,i*Math.PI/16,(i+.5)*Math.PI/16);x.closePath();x.fillStyle='rgba('+P.r+','+(i%2?.045:.015)+')';x.fill();}
@@ -11112,7 +11112,7 @@ function pbDrawRoom(x,g,P,t){
 }
 function pbDraw(g,now){
   const cv=g.cv;if(!cv)return;const x=cv.getContext('2d');if(!g.scale)pbSize();
-  const st=g.st[g.turn],lv=Math.min(3,st.lvl);if(g.statik&&g.palLvl!==lv)g.statik=null;if(g.statik&&!g.bgOk&&pbImg('bg'))g.statik=null;if(!g.statik)pbBuild(g);
+  const st=g.st[g.turn],lv=Math.min(3,st.lvl);if(g.statik&&g.palLvl!==lv)g.statik=null;if(g.statik&&!g.bgOk&&pbImg(lv?'bg'+lv:'bg'))g.statik=null;if(!g.statik)pbBuild(g);
   const P=PB_PAL[lv],sc=g.scale,M=PB.M,t=g.t,T=PB_T;
   const rm=pbReduced(),shk=g.fx.shake*.4*(rm?.3:1),sx=((g.fx.sx||0)*(rm?.3:1)+(Math.random()-.5)*shk),sy=((g.fx.sy||0)*(rm?.3:1)+(Math.random()-.5)*shk);
   const zs=1+(rm?0:(g.fx.zoom||0)),cxp=(M+236)*sc*1,cyp=(M+500)*sc;
