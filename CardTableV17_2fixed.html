@@ -8509,7 +8509,7 @@ function fgIs(id){return FG_IDS.includes(id);}
 const FG_DIFF={family:{r:1.3,v:.8,jit:0,pre:true,name:'FAMILY'},skill:{r:1.05,v:1,jit:4,pre:false,name:'SKILL'},expert:{r:.85,v:1.28,jit:8,pre:false,name:'EXPERT'}};
 const FG_DURS=[10,30,60];
 function fgDurPref(){try{const v=+localStorage.getItem('ct_fg_dur');return FG_DURS.includes(v)?v:60;}catch(e){return 60;}}
-function fgNextDur(){const g=G.fg;if(!g||g.thrown>0||!g.run)return;if(g.net&&g.net.seat!==0){toast('The host chooses the time');return;}const n=FG_DURS[(FG_DURS.indexOf(g.run.dur)+1)%3];g.run.dur=n;g.run.left=n;try{localStorage.setItem('ct_fg_dur',String(n));}catch(e){}const bt=document.getElementById('fg-timebtn');if(bt){bt._t=null;bt.textContent='TIME: '+n+' s';}}
+function fgNextDur(){const g=G.fg;if(!g||g.thrown>0||!g.run||g.fmt==='contest')return;if(g.net&&g.net.seat!==0){toast('The host chooses the time');return;}const n=FG_DURS[(FG_DURS.indexOf(g.run.dur)+1)%3];g.run.dur=n;g.run.left=n;try{localStorage.setItem('ct_fg_dur',String(n));}catch(e){}const bt=document.getElementById('fg-timebtn');if(bt){bt._t=null;bt.textContent='TIME: '+n+' s';}}
 function fgDiffPref(){try{const v=localStorage.getItem('ct_fg_diff');return FG_DIFF[v]?v:'family';}catch(e){return'family';}}
 function fgLive(){return !!(G.fg&&G.fg.live&&G.scr==='table');}
 const FG_B={std:{r:34,pts:100,w:58,nm:'BALLOON'},small:{r:22,pts:250,w:20,nm:'SMALL'},fast:{r:27,pts:500,w:9,nm:'FAST'},gold:{r:25,pts:400,w:6,nm:'JOKER'},rainbow:{r:29,pts:150,w:0,nm:'RAINBOW'},black:{r:30,pts:-200,w:8,nm:'BLACK'},chain:{r:25,pts:150,w:0,nm:'CHAIN'},jackpot:{r:19,pts:5000,w:0,nm:'JACKPOT'},final:{r:17,pts:2500,w:0,nm:'FINAL'}};
@@ -8671,7 +8671,7 @@ function fgThrow(g,ax,ay){
    effects. When a run ends the next shooter's device takes over from the last snapshot. The last shooter's device writes the result to the room. */
 const FG_NET_KEYS={all:['turn','phase','pt','t','score','streak','bestStreak','perfects','hits','jack','thrown','wind','run','diff','slow','over','moment'],
   balloonblast:['balloons','fl','chainN','chainC','risk','bonus'],marksman:['targets','fls','power','stage','steady','xs','ringSum','ringN','rapidBest'],
-  hoopfever:['ball','spot','form','mode','hx','hw','pull','rimTouched','fire']};
+  hoopfever:['ball','spot','form','mode','hx','hw','pull','rimTouched','fire','fmt','cont']};
 function fgPlayersFor(max){return (G.isOnline?ahPlayers():G.lp).slice(0,max);}
 function fgNetOn(g){return !!(g&&g.net&&g.net.on&&G.isOnline);}
 function fgNetWatch(g){return !!(g&&g.net&&g.net.on&&G.isOnline&&g.turn!==g.net.seat);}
@@ -8706,6 +8706,7 @@ function fgNetApply(g,m){
   const keys=FG_NET_KEYS.all.concat(FG_NET_KEYS[g.kind]||[]);
   for(const k of keys)if(m.s&&m.s[k]!==undefined)g[k]=m.s[k];
   if(m.aim)Object.assign(g.aim,m.aim);
+  if(g.kind==='hoopfever'&&g._fmtSeen!==g.fmt){g._fmtSeen=g.fmt;g.statik=null;}
   N.rep=true;
   try{for(const e of m.ev||[]){if(N.seen[e[0]])continue;N.seen[e[0]]=1;fgNetReplay(g,e);}}finally{N.rep=false;}
   return true;
@@ -8988,8 +8989,8 @@ function rFairTable(){
         <canvas id="fg-cv" class="ah-cv" aria-label="Balloon booth"></canvas>
         <div class="fg-hud" id="fg-hud">${players.map((p,i)=>`<div class="fg-p" id="fg-p${i}"><span class="ah-av">${p.avatar?avHTML(p.avatar):''}</span><b class="fg-nm">${esc(p.name)}</b><b class="fg-sc" id="fg-s${i}">0</b><i class="fg-ch" id="fg-c${i}"></i><span class="fg-d" id="fg-d${i}"></span></div>`).join('')}</div>
         <div class="fg-ctl" id="fg-ctl">
-        ${g.kind==='balloonblast'?'<button class="pl-assist fg-risk" data-a="fg-risk" id="fg-riskbtn">RISK ×2</button>':''}${g.kind==='hoopfever'&&!G.isOnline?'<button class="pl-assist fg-risk" data-a="fg-fmt" id="fg-fmtbtn">MODE: '+hfFmtName(g)+'</button>':''}
-        ${g.run&&g.fmt!=='horse'&&g.fmt!=='contest'?'<button class="pl-assist fg-time" data-a="fg-time" id="fg-timebtn">TIME: '+g.run.dur+' s</button>':''}
+        ${g.kind==='balloonblast'?'<button class="pl-assist fg-risk" data-a="fg-risk" id="fg-riskbtn">RISK ×2</button>':''}${g.kind==='hoopfever'?'<button class="pl-assist fg-risk" data-a="fg-fmt" id="fg-fmtbtn">MODE: '+hfFmtName(g)+'</button>':''}
+        ${g.run&&g.fmt!=='horse'?'<button class="pl-assist fg-time" data-a="fg-time" id="fg-timebtn">TIME: '+g.run.dur+' s</button>':''}
         <button class="pl-assist fg-diff" data-a="fg-diff" id="fg-diffbtn">LEVEL: ${FG_DIFF[g.diff].name}</button>
         </div>
       </div>
@@ -9062,7 +9063,7 @@ function fgHud(g){
     const rb=document.getElementById('fg-riskbtn');if(rb){const on=!!g.risk[g.turn]&&!g.bots[g.turn],can=g.phase==='play'&&fgCanAct(g),t='RISK ×2'+(on?' · ON':'');if(rb._t!==t){rb._t=t;rb.textContent=t;rb.classList.toggle('on',on);}if(rb._d!==!can){rb._d=!can;rb.disabled=!can;rb.style.opacity=can?'':'.5';}}
   }
   if(g.kind==='hoopfever'){const fb=document.getElementById('fg-fmtbtn');if(fb){const lk=g.thrown>0,t='MODE: '+hfFmtName(g)+(lk?' 🔒':'');if(fb._t!==t){fb._t=t;fb.textContent=t;}if(fb._l!==lk){fb._l=lk;fb.disabled=lk;fb.style.opacity=lk?'.75':'';}}}
-  {const tb=document.getElementById('fg-timebtn');if(tb&&g.run){const lk=g.thrown>0,t='TIME: '+g.run.dur+' s'+(lk?' 🔒':'');if(tb._t!==t){tb._t=t;tb.textContent=t;}if(tb._l!==lk){tb._l=lk;tb.disabled=lk;tb.style.opacity=lk?'.75':'';}}}
+  {const tb=document.getElementById('fg-timebtn');if(tb&&g.run){const hid=g.fmt==='contest'?'none':'';if(tb.style.display!==hid)tb.style.display=hid;const lk=g.thrown>0,t='TIME: '+g.run.dur+' s'+(lk?' 🔒':'');if(tb._t!==t){tb._t=t;tb.textContent=t;}if(tb._l!==lk){tb._l=lk;tb.disabled=lk;tb.style.opacity=lk?'.75':'';}}}
   const bt=document.getElementById('fg-diffbtn');if(bt){const lk=g.thrown>0,t='LEVEL: '+FG_DIFF[g.diff].name+(lk?' 🔒':'');if(bt._t!==t){bt._t=t;bt.textContent=t;}if(bt._l!==lk){bt._l=lk;bt.disabled=lk;bt.style.opacity=lk?'.75':'';}}
 }
 /* ── drawing ── */
@@ -9682,7 +9683,7 @@ const HF_RACKS=[{x:260,y:700},{x:215,y:700},{x:170,y:700},{x:125,y:700},{x:80,y:
 function hfFmtPref(){try{const v=localStorage.getItem('ct_hf_fmt');return v==='horse'||v==='contest'?v:'shootout';}catch(e){return'shootout';}}
 function hfFmtName(g){return g.fmt==='horse'?'HORSE':g.fmt==='contest'?'3-PT CONTEST':'SHOOTOUT';}
 function hfNew(){
-  const players=fgPlayersFor(4),n=players.length,horse=!G.isOnline&&hfFmtPref()==='horse'&&n>=2,contest=!G.isOnline&&hfFmtPref()==='contest';
+  const players=fgPlayersFor(4),n=players.length,horse=!G.isOnline&&hfFmtPref()==='horse'&&n>=2,contest=hfFmtPref()==='contest';
   const start=(G.lstart||0)%n;
   const g={live:true,kind:'hoopfever',n,diff:fgDiffPref(),players,bots:players.map(p=>p.bot?(p.bot==='sharp'?'sharp':'gentle'):null),fmt:horse?'horse':contest?'contest':'shootout',cont:{n:0,res:[]},
     turn:start,darts:players.map(()=>horse?5:999),score:players.map(()=>0),streak:players.map(()=>0),bestStreak:players.map(()=>0),perfects:players.map(()=>0),hits:players.map(()=>0),jack:players.map(()=>0),
@@ -9940,8 +9941,13 @@ function hfBindInput(cv,g){
     if(pl&&pl.L>26&&hfCanAct(g)){const v=hfVelocity(-pl.dx,-pl.dy),fe=hfFormError(g);hfLaunch(g,v.vx,Math.min(v.vy,-120),fe);}else g.form.on=false;};
   cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',()=>{down=false;g.pull=null;g.form.on=false;});
 }
+function hfSetFmt(g,f){g.fmt=f;g.cont={n:0,res:[]};g.spot=f==='contest'?0:1;g.mode='normal';g.run.dur=g.run.left=f==='contest'?70:fgDurPref();g.statik=null;}
 function hfToggleFmt(){
   const g=G.fg;if(!g||g.kind!=='hoopfever'||g.thrown>0||g.ball)return;
+  if(g.net&&g.net.on&&G.isOnline){
+    if(g.net.seat!==0){try{toast('The host chooses the mode');}catch(e){}return;}
+    const f=g.fmt==='contest'?'shootout':'contest';try{localStorage.setItem('ct_hf_fmt',f);}catch(e){}hfSetFmt(g,f);return;
+  }
   const order=g.n>=2?['shootout','contest','horse']:['shootout','contest'];
   const n=order[(order.indexOf(g.fmt)+1)%order.length];try{localStorage.setItem('ct_hf_fmt',n);}catch(e){}
   fgStop();render();

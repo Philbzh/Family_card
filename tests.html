@@ -5821,6 +5821,16 @@ async function runPresentation(A,W,frame){
         g.fg=g2;g2.run.pre=0;g2.run.active=true;g2.run.left=.01;g2.score[1]=450;for(let i=0;i<300&&g2.phase!=='over';i++)F('fgStep')(g2,1/60);
         check(kind+': after the last run the game is over on the last shooter\'s device',g2.phase==='over');
       }
+      // the three-point contest online: the host chooses it, the other device follows
+      try{W.localStorage.setItem('ct_hf_fmt','contest');}catch(e){}
+      const gg=G();gg.myPid='a';gg.srv.gameId='hoopfever';gg.srv.ah={id:'t9',score:[0,0]};const c1=F('fgNew')('hoopfever');F('fgNetInit')(c1);
+      try{W.localStorage.setItem('ct_hf_fmt','shootout');}catch(e){}
+      gg.myPid='b';const c2=F('fgNew')('hoopfever');F('fgNetInit')(c2);
+      gg.fg=c1;c1.phase='play';F('fgRunBegin')(c1);c1.run.pre=0;c1.run.active=true;c1.cont.n=7;c1.spot=1;c1.cont.res=['m','m','m','m','M','x','m'];
+      check('the contest is chosen on the host device and the guest starts as a shootout',c1.fmt==='contest'&&c2.fmt==='shootout'&&c1.run.dur===70);
+      F('fgNetApply')(c2,F('fgNetSnap')(c1));
+      check('the guest follows: the same mode, the same rack and the same dots, and the picture is rebuilt',c2.fmt==='contest'&&c2.cont.n===7&&c2.spot===1&&c2.cont.res.join('')==='mmmmMxm'&&c2.statik===null&&c2.run.dur===70);
+      try{W.localStorage.removeItem('ct_hf_fmt');}catch(e){}
       // watchers keep things moving between two snapshots
       let g=G();g.myPid='b';g.srv.gameId='balloonblast';const w=F('fgNew')('balloonblast');F('fgNetInit')(w);w.balloons=[];const bb=F('fgSpawn')(w,{k:'std',side:false});bb.vx=0;bb.vy=-100;const y0=bb.by;w.turn=0;
       F('fgNetPassive')(w,.5);
