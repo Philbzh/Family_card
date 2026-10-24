@@ -10850,14 +10850,14 @@ function pbNudge(g,dx){
 // ── the secret room: the treasure vault, a small table of its own, played with the same flippers ──
 const PB_RT=(()=>{const T={walls:[],gears:[],gems:[],bumpers:[],chest:{x:236,y:352,r:20},blade:{px:236,py:46,len:150,amp:.62,freq:.42,ang:0,om:0,hit:-9}};
   const seg=(a,b,o)=>T.walls.push(Object.assign({a,b,e:.4},o||{}));
-  seg([20,260],[20,800]);let pv=[20,260];for(let i=1;i<=40;i++){const t=Math.PI+Math.PI*i/40,q=[236+216*Math.cos(t),260+240*Math.sin(t)];seg(pv,q);pv=q;}
-  seg([452,260],[452,800]);seg([20,800],[140,872],{e:.3,r:6.5});seg([452,800],[332,872],{e:.3,r:6.5});
-  T.gears.push({x:108,y:500,r:58,n:4,w:1.2,a:0,hit:-9},{x:364,y:500,r:58,n:4,w:-1.2,a:0,hit:-9},{x:236,y:620,r:42,n:3,w:1.9,a:0,hit:-9});
-  T.gems.push({x:76,y:342,c:'#ff3a55',n:'RUBY',got:false,t:-9},{x:150,y:270,c:'#3affa0',n:'EMERALD',got:false,t:-9},{x:236,y:238,c:'#bfefff',n:'DIAMOND',got:false,t:-9},{x:322,y:270,c:'#4a8aff',n:'SAPPHIRE',got:false,t:-9},{x:396,y:342,c:'#ffc94a',n:'TOPAZ',got:false,t:-9});
+  seg([62,184],[62,800]);let pv=[62,184];for(let i=1;i<=40;i++){const t=Math.PI+Math.PI*i/40,q=[236+174*Math.cos(t),184+164*Math.sin(t)];seg(pv,q);pv=q;}
+  seg([410,184],[410,800]);seg([62,800],[140,872],{e:.3,r:6.5});seg([410,800],[332,872],{e:.3,r:6.5});
+  T.gears.push({x:130,y:500,r:50,n:4,w:1.2,a:0,hit:-9},{x:342,y:500,r:50,n:4,w:-1.2,a:0,hit:-9},{x:236,y:620,r:40,n:3,w:1.9,a:0,hit:-9});
+  T.gems.push({x:84,y:350,c:'#ff3a55',n:'RUBY',got:false,t:-9},{x:150,y:270,c:'#3affa0',n:'EMERALD',got:false,t:-9},{x:236,y:238,c:'#bfefff',n:'DIAMOND',got:false,t:-9},{x:322,y:270,c:'#4a8aff',n:'SAPPHIRE',got:false,t:-9},{x:388,y:350,c:'#ffc94a',n:'TOPAZ',got:false,t:-9});
   T.bumpers.push({x:150,y:742,r:20,hit:-9},{x:322,y:742,r:20,hit:-9});
   return T;})();
 function pbRoomPts(g,n){const r=g.room,st=g.st[g.turn];st.score+=n;if(r)r.score+=n;st.bonus+=Math.round(n*.05);}
-function pbRoomServe(g,b){b.st='play';b.x=70;b.y=250;b.vx=240;b.vy=60;b.tr=[];}
+function pbRoomServe(g,b){b.st='play';b.x=88;b.y=250;b.vx=240;b.vy=60;b.tr=[];}
 function pbRoomOpen(g,b){
   const from=b.tun.from;g.room={b,from,to:b.tun.to,fx:from.x,fy:from.y,t:0,state:'play',left:40,lives:3,endT:0,gems:0,score:0};
   for(const q of PB_RT.gems){q.got=false;q.t=-9;}PB_RT.gears.forEach(q=>{q.a=0;q.hit=-9;});PB_RT.bumpers.forEach(q=>q.hit=-9);PB_RT.blade.ang=0;PB_RT.blade.hit=-9;
@@ -10876,7 +10876,8 @@ function pbRoomCollide(g,b,h){
   const R=PB_RT,r=g.room;if(b.st!=='play')return;
   for(const w of R.walls)pbSeg(b,w.a[0],w.a[1],w.b[0],w.b[1],w.r||2,w.e,0,0,0);
   for(const gr of R.gears){pbCirc(b,gr.x,gr.y,9,.4);for(let i=0;i<gr.n;i++){const a=gr.a+i*6.2832/gr.n,c=pbSeg(b,gr.x,gr.y,gr.x+Math.cos(a)*gr.r,gr.y+Math.sin(a)*gr.r,5,.45,gr.w,gr.x,gr.y);if(c&&Math.abs(c.vn)>150&&g.t-gr.hit>.1){gr.hit=g.t;pbRoomPts(g,100);PBS.peg();}}}
-  {const bl=R.blade,c=pbSeg(b,bl.px,bl.py,bl.px+Math.sin(bl.ang)*bl.len,bl.py+Math.cos(bl.ang)*bl.len,6,.5,bl.om,bl.px,bl.py);if(c&&g.t-bl.hit>.15){bl.hit=g.t;pbRoomPts(g,200);PBS.bossHit();}}
+  {const bl=R.blade,c=pbSeg(b,bl.px,bl.py,bl.px+Math.sin(bl.ang)*bl.len,bl.py+Math.cos(bl.ang)*bl.len,6,.5,bl.om,bl.px,bl.py);if(c&&g.t-bl.hit>.15){bl.hit=g.t;pbRoomPts(g,200);PBS.bossHit();}
+    const hx=bl.px+Math.sin(bl.ang)*(bl.len-12),hy=bl.py+Math.cos(bl.ang)*(bl.len-12),ux=Math.cos(bl.ang)*28,uy=-Math.sin(bl.ang)*28,c2=pbSeg(b,hx-ux,hy-uy,hx+ux,hy+uy,5,.5,bl.om,bl.px,bl.py);if(c2&&g.t-bl.hit>.15){bl.hit=g.t;pbRoomPts(g,200);PBS.bossHit();}}
   for(const gm of R.gems){if(pbCirc(b,gm.x,gm.y,15,.6))pbRoomGem(g,gm);}
   {const ch=R.chest,d=Math.hypot(b.x-ch.x,b.y-ch.y);if(r.gems>=5&&r.state==='play'){if(d<ch.r-3&&Math.hypot(b.vx,b.vy)<1300)pbRoomChest(g,b);}else pbCirc(b,ch.x,ch.y,ch.r,.5);}
   for(const bm of R.bumpers){const c=pbCirc(b,bm.x,bm.y,bm.r,.2);if(c){b.vx+=c.nx*520;b.vy+=c.ny*520;bm.hit=g.t;pbRoomPts(g,250);PBS.bumper();haptic(8);pbSpark(g,bm.x,bm.y,'#ffd27a',6);}}
@@ -11062,20 +11063,20 @@ function pbDrawFlippers(x,g,P,keys){
     x.strokeStyle='#c8352c';x.lineWidth=2.6;x.beginPath();x.moveTo(F.px+nx*6,F.py+ny*6);x.lineTo(tip[0]+nx*2.6,tip[1]+ny*2.6);x.stroke();
     const cg=x.createRadialGradient(F.px-2,F.py-2,1,F.px,F.py,6);cg.addColorStop(0,'#fff');cg.addColorStop(1,P.c);x.fillStyle=cg;x.beginPath();x.arc(F.px,F.py,5,0,6.283);x.fill();x.restore();}
 }
-function pbRoomOutline(x){x.beginPath();x.moveTo(20,PB.H);x.lineTo(20,260);for(let i=1;i<=40;i++){const t=Math.PI+Math.PI*i/40;x.lineTo(236+216*Math.cos(t),260+240*Math.sin(t));}x.lineTo(452,PB.H);x.closePath();}
+function pbRoomOutline(x){x.beginPath();x.moveTo(62,PB.H);x.lineTo(62,184);for(let i=1;i<=40;i++){const t=Math.PI+Math.PI*i/40;x.lineTo(236+174*Math.cos(t),184+164*Math.sin(t));}x.lineTo(410,PB.H);x.closePath();}
 function pbDrawRoom(x,g,P,t){
   const r=g.room,R=PB_RT,open=Math.min(1,r.t/.7),full=r.gems>=5;
   x.save();x.beginPath();x.arc(r.fx,r.fy,30+open*1100,0,6.283);x.clip();
-  x.fillStyle='#05030a';pbOutline(x);x.fill();
+  x.fillStyle='#05030a';pbOutline(x);x.fill();x.strokeStyle='#05030a';x.lineWidth=22;x.lineJoin='round';x.stroke();
   x.save();pbRoomOutline(x);x.clip();
   const bg=pbImg('roombg');
-  if(bg)x.drawImage(bg,20,20,432,980);
+  if(bg)x.drawImage(bg,17,-25,437,1033);
   else{const gr=x.createRadialGradient(236,520,30,236,520,620);gr.addColorStop(0,'#3a2466');gr.addColorStop(.5,'#1a0f33');gr.addColorStop(1,'#07040f');x.fillStyle=gr;x.fillRect(0,0,PB.W,PB.H);
     x.strokeStyle='rgba(255,214,120,.22)';x.lineWidth=2;for(const rr of [90,150,210,270]){x.beginPath();x.arc(236,560,rr,0,6.283);x.stroke();}
     x.strokeStyle='rgba(255,214,120,.14)';for(let i=0;i<16;i++){x.save();x.translate(236,560);x.rotate(i*Math.PI/8);x.beginPath();x.moveTo(0,0);x.lineTo(0,-300);x.stroke();x.restore();}}
   x.fillStyle='rgba(0,0,0,.18)';x.fillRect(0,0,PB.W,PB.H);
   // the torches
-  for(const tx of [34,438]){const fl=.7+.3*Math.sin(t*13+tx),ti=pbImg('torch');pbGlow(x,tx,650,120,'#ff9a3a',.35*fl);if(ti){const d=46;x.drawImage(ti,tx-d/2,650-d/2,d,d);}else{x.fillStyle='#6a4a1a';x.beginPath();x.arc(tx,650,9,0,6.283);x.fill();pbGlow(x,tx,644,26,'#ffd27a',.8*fl);}}
+  for(const tx of [bg?39:80,bg?423:392]){const ty=bg?263:650,fl=.7+.3*Math.sin(t*13+tx);pbGlow(x,tx,ty,bg?90:120,'#ff9a3a',.35*fl);if(!bg){x.fillStyle='#6a4a1a';x.beginPath();x.arc(tx,ty,9,0,6.283);x.fill();pbGlow(x,tx,ty-6,26,'#ffd27a',.8*fl);}}
   // the five gems in their sockets, and the chest
   const soc=pbImg('socket');
   R.gems.forEach((gm,i)=>{const gi=pbImg('gem'+i),lit=gm.got,hit=Math.max(0,1-(g.t-gm.t)*3);
@@ -11086,10 +11087,10 @@ function pbDrawRoom(x,g,P,t){
     if(ci)x.drawImage(ci,ch.x-34,ch.y-34,68,68);else{x.fillStyle=full?'#d9a640':'#5a3a18';pbRR(x,ch.x-24,ch.y-18,48,36,6);x.fill();x.strokeStyle='#e6c36a';x.lineWidth=3;x.stroke();if(full){x.fillStyle='#fff2a8';x.beginPath();x.arc(ch.x,ch.y,10,0,6.283);x.fill();}}}
   // the wheels and the blade
   R.gears.forEach((gr,i)=>{const im=pbImg(i<2?'gear':'gear2');x.save();x.translate(gr.x,gr.y);x.rotate(gr.a);
-    if(im){const d=(gr.r+8)*2;x.drawImage(im,-d/2,-d/2,d,d);}else{x.strokeStyle='#8a6a2a';x.lineWidth=10;x.lineCap='round';for(let k=0;k<gr.n;k++){x.save();x.rotate(k*6.2832/gr.n);x.beginPath();x.moveTo(0,0);x.lineTo(gr.r,0);x.stroke();x.fillStyle='#c9d3dc';x.beginPath();x.arc(gr.r,0,8,0,6.283);x.fill();x.restore();}x.fillStyle='#e6c36a';x.beginPath();x.arc(0,0,12,0,6.283);x.fill();}
+    if(im){const d=(gr.r+6)*2;x.drawImage(im,-d/2,-d/2,d,d);}else{x.strokeStyle='#8a6a2a';x.lineWidth=10;x.lineCap='round';for(let k=0;k<gr.n;k++){x.save();x.rotate(k*6.2832/gr.n);x.beginPath();x.moveTo(0,0);x.lineTo(gr.r,0);x.stroke();x.fillStyle='#c9d3dc';x.beginPath();x.arc(gr.r,0,8,0,6.283);x.fill();x.restore();}x.fillStyle='#e6c36a';x.beginPath();x.arc(0,0,12,0,6.283);x.fill();}
     x.restore();});
   {const bl=R.blade,bi=pbImg('blade');x.save();x.translate(bl.px,bl.py);x.rotate(-bl.ang);
-    if(bi){const w=bl.len*.34,h=bl.len*1.08;x.drawImage(bi,-w/2,-6,w,h);}else{x.strokeStyle='#aab3be';x.lineWidth=5;x.beginPath();x.moveTo(0,0);x.lineTo(0,bl.len-18);x.stroke();x.fillStyle='#dfe6ee';x.beginPath();x.moveTo(-26,bl.len-30);x.quadraticCurveTo(0,bl.len+22,26,bl.len-30);x.quadraticCurveTo(0,bl.len-6,-26,bl.len-30);x.fill();x.fillStyle='#e6c36a';x.beginPath();x.arc(0,0,8,0,6.283);x.fill();}
+    if(bi){const h=(bl.len+12)/.94,w=h*bi.naturalWidth/bi.naturalHeight;x.drawImage(bi,-w/2,-h*.06,w,h);}else{x.strokeStyle='#aab3be';x.lineWidth=5;x.beginPath();x.moveTo(0,0);x.lineTo(0,bl.len-18);x.stroke();x.fillStyle='#dfe6ee';x.beginPath();x.moveTo(-26,bl.len-30);x.quadraticCurveTo(0,bl.len+22,26,bl.len-30);x.quadraticCurveTo(0,bl.len-6,-26,bl.len-30);x.fill();x.fillStyle='#e6c36a';x.beginPath();x.arc(0,0,8,0,6.283);x.fill();}
     x.restore();}
   // the two pop bumpers
   for(const bm of R.bumpers){const bi=pbImg(g.t-bm.hit<.12?'bumphit':'bump'),d=(bm.r+8)*2;if(bi)x.drawImage(bi,bm.x-d/2,bm.y-d/2,d,d);else{x.fillStyle='#c0482e';x.beginPath();x.arc(bm.x,bm.y,bm.r,0,6.283);x.fill();}}
