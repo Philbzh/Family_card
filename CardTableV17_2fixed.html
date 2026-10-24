@@ -411,6 +411,20 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .stack-ic{height:1.7em;width:auto;margin-right:-.15em;filter:drop-shadow(0 2px 2px rgba(0,0,0,.6));}
 .ld-cup{display:block;height:44px;width:auto;margin:0 auto .15rem;filter:drop-shadow(0 4px 6px rgba(0,0,0,.6));}
 .game-pinball #s-table,.game-pinball #s-table *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
+.hof-box{max-width:30rem;}
+.hof-sub{font:700 .6rem 'Cinzel',serif;letter-spacing:.22em;color:#c9a24a;text-align:center;margin:-.2rem 0 .8rem;}
+.hof-h{font:700 .6rem 'Cinzel',serif;letter-spacing:.2em;color:#c9a24a;margin:1rem 0 .4rem;}
+.hof-list{display:flex;flex-direction:column;gap:.35rem;}
+.hof-row{display:grid;grid-template-columns:2rem 1fr auto;grid-template-areas:'rk nm sc' 'rk d d';align-items:center;gap:0 .6rem;padding:.5rem .7rem;border-radius:12px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.08);}
+.hof-row.top{border-color:rgba(230,195,106,.55);background:linear-gradient(180deg,rgba(230,195,106,.16),rgba(230,195,106,.05));box-shadow:0 0 18px -6px rgba(230,195,106,.5);}
+.hof-rk{grid-area:rk;font-size:1.25rem;text-align:center;color:#c9a24a;}
+.hof-nm{grid-area:nm;font-weight:600;color:#F4EBD0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hof-sc{grid-area:sc;font-family:'Cinzel',serif;font-size:1.1rem;color:#F0D27A;}
+.hof-d{grid-area:d;font-size:.66rem;color:#9db09f;letter-spacing:.04em;}
+.hof-card{margin:0 1.2rem 1rem;padding:.9rem 1rem;border-radius:18px;background:linear-gradient(160deg,rgba(40,30,12,.7),rgba(10,10,14,.7));border:1px solid rgba(230,195,106,.35);}
+.hof-card-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem;font-family:'Cinzel',serif;color:#F0D27A;}
+.hof-empty{font-size:.8rem;color:#9db09f;margin:0;}
+.hof-badge{display:inline-block;margin:.4rem auto;padding:.4rem .9rem;border-radius:999px;font:700 .8rem 'Cinzel',serif;letter-spacing:.1em;color:#2a1c06;background:linear-gradient(180deg,#f6e2a0,#c9a24a);box-shadow:0 0 20px rgba(230,195,106,.5);}
 .pb-stage{--pbc:#3fe0d0;--pbr:63,224,208;display:flex;align-items:stretch;justify-content:center;gap:12px;padding:8px 12px;box-sizing:border-box;background:radial-gradient(ellipse at 50% 18%,rgba(var(--pbr),.16) 0%,rgba(8,10,14,0) 55%),linear-gradient(180deg,#0d1016,#05070a);touch-action:none;transition:background .6s;}
 .game-pinball .pb-stage{align-items:stretch !important;}
 .game-pinball .pb-mid{flex:1 1 0;min-width:0;align-self:stretch;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;}
@@ -4851,6 +4865,7 @@ const GAMES=[
      '<b>The blue targets</b> on the right wall light the <b>JACKPOT</b>: shoot a ramp. <b>Roll all three top lanes</b> for a higher multiplier (up to ×5); a tap on a flipper moves the lit lanes. 25 bumper hits start <b>SUPER BUMPERS</b>. Shots that follow each other quickly build a <b>COMBO</b>.',
      '<b>Missions.</b> The panel at the right shows your mission (hit the bumpers, shoot the ramps, spin the spinner, knock down the <b>drop targets</b>...). Three missions finish a <b>level</b> (Workshop, Forge, Vault, Core): the table changes colour, jackpots grow and you win an <b>EXTRA BALL</b>. Right after the launch a flashing top lane is a <b>SKILL SHOT</b>.',
      '<b>The tunnels.</b> The two purple holes (left and right) swallow a ball and throw it out of the other one. Use <b>both within 15 seconds</b> and the next tunnel leads into the <b>SECRET ROOM</b>: it is a small <b>treasure vault</b> of its own with your flippers: 40 seconds, three wheels, a swinging blade and five gems. <b>Light all five gems</b> (each one pays more) to open the chest, then roll the ball into it for 150,000. A ball that drains comes back (three times).',
+     '<b>The second secret room.</b> Ride an orbit and fall into a tunnel <b>within 8 seconds</b>: the next tunnel leads to the <b>CLOCK ROOM</b>. Shoot the twelve hours <b>in order, 1 to 12</b>, before the hands and the pendulum throw the ball away: each hour pays more, and midnight pays 250,000. 45 seconds, three ball returns.',
      '<b>The orbit and the magnet.</b> Shoot the ball up the left side and it can run <b>round the top</b> of the table: three orbits light the jackpot. Every 12 bumper hits <b>charge the magnet</b> in the middle of the table: it catches the ball, and you choose the shot with the flippers: <b>left</b> for the left ramp, <b>right</b> for the right ramp, <b>both</b> for the vault.',
      '<b>Bosses and the wizard.</b> The third mission of a level calls a <b>BOSS</b>: bumpers, targets, ramps, the vault and the drop bank hurt it, and its life shows as a ring around the vault and a bar at the top. Beat it for a big prize, the next level and an extra ball. After the last boss comes the <b>WIZARD MODE</b>: 45 seconds, three balls, every shot ×3 and every ramp a huge jackpot.',
      '<b>The outlanes.</b> A ball that falls down the outer lane is lost, unless the <b>KICKBACK</b> light is on: it throws the ball back up. Roll the top lanes or clear the drop targets to light both kickbacks again.',
@@ -10586,7 +10601,7 @@ function pbTable(){
   return T;
 }
 const PB_T=pbTable();
-function pbPlayerState(){return{score:0,ball:1,done:false,lanes:[0,0,0],mult:1,forge:[0,0,0],forgeOn:false,work:[0,0,0],locks:0,lockLit:false,bumps:0,superT:0,rampN:0,jackLit:false,bonus:0,best:0,mb:0,lvl:0,mi:0,mp:0,mc:0,extra:0,kick:[true,false],banks:0,spins:0,boss:null,secret:false,lastPortal:null,orbitN:0,magN:0,magOn:false};}
+function pbPlayerState(){return{score:0,ball:1,done:false,lanes:[0,0,0],mult:1,forge:[0,0,0],forgeOn:false,work:[0,0,0],locks:0,lockLit:false,bumps:0,superT:0,rampN:0,jackLit:false,bonus:0,best:0,mb:0,lvl:0,mi:0,mp:0,mc:0,extra:0,kick:[true,false],banks:0,spins:0,boss:null,secret:false,secret2:false,orbitT:-99,lastPortal:null,orbitN:0,magN:0,magOn:false};}
 function pbResetTable(){const T=PB_T;T.bumpers.forEach(b=>b.hit=-9);T.slings.forEach(q=>q.hit=-9);T.walls.forEach(w=>{if(w.k==='target')w.t=-9;});T.lanes.forEach(l=>l.t=-9);T.drops.forEach(d=>{d.down=false;d.t=-9;});T.portals.forEach(q=>q.t=-9);T.orbits.forEach(o=>o.t=-9);T.spin.vel=0;}
 function pbNew(){pbResetTable();
   const players=fgPlayersFor(4),n=players.length;
@@ -10599,7 +10614,7 @@ function pbNew(){pbResetTable();
 function pbNewBall(g){
   g.balls=[{x:PB.LX,y:PB.H-79,vx:0,vy:0,st:'plunger',id:++pbBid,stuck:0,tr:[]}];g.saveT=0;g.tilt=0;g.tilted=false;g.multi=false;g.mbQueue=0;g.combo=0;g.comboT=0;g.bonusShow=null;g.skillT=0;g.dropReset=0;g.noSave=false;
   for(const d of PB_T.drops)d.down=false;
-  const st=g.st[g.turn];if(st){st.secret=false;st.kick=[st.kick[0]||!st.kick[1],st.kick[1]];st.lanes=[0,0,0];st.superT=0;}g.nudges=0;
+  const st=g.st[g.turn];if(st){st.secret=false;st.secret2=false;st.kick=[st.kick[0]||!st.kick[1],st.kick[1]];st.lanes=[0,0,0];st.superT=0;}g.nudges=0;
 }
 let pbBid=0;
 // ── the physics ──
@@ -10780,11 +10795,14 @@ function pbEvent0(g,ev,d){
       if(st.bumps%25===0){st.superT=14;pbSay(g,'SUPER BUMPERS','500 each for 14 seconds','#ffb347',1500);PBS.lit();}
       break;
     case'portal':{const p=d.p,o=PB_T.portals.find(q=>q!==p);p.t=g.t;b.st='tunnel';b.x=p.x;b.y=p.y;b.vx=b.vy=0;pbPts(g,2500,{combo:1});pbShot(g);PBS.portal();haptic([12,20]);pbSpark(g,p.x,p.y,'#b88aff',14);pbRing(g,p.x,p.y,'#b88aff',90);pbMis(g,'tunnel');pbBoss(g,6);
-      if(st.secret&&!g.multi&&!g.wiz&&pbAlive(g).length===1){st.secret=false;b.tun={room:true,t:0,dur:.9,from:p,to:o};}
-      else{b.tun={to:o,t:0,dur:.9};if(st.lastPortal&&st.lastPortal.id!==p.id&&g.t-st.lastPortal.t<15){st.secret=true;st.lastPortal=null;pbSay(g,'SECRET ROOM','the next tunnel leads to it','#e8c8ff',2400);PBS.lit();pbChase(g,'#b88aff');}else st.lastPortal={id:p.id,t:g.t};}
+      const single=!g.multi&&!g.wiz&&pbAlive(g).length===1;
+      if(st.secret&&single){st.secret=false;b.tun={room:true,kind:'vault',t:0,dur:.9,from:p,to:o};}
+      else if(st.secret2&&single){st.secret2=false;b.tun={room:true,kind:'clock',t:0,dur:.9,from:p,to:o};}
+      else{b.tun={to:o,t:0,dur:.9};if(st.lastPortal&&st.lastPortal.id!==p.id&&g.t-st.lastPortal.t<15){st.secret=true;st.lastPortal=null;pbSay(g,'SECRET ROOM','the next tunnel leads to it','#e8c8ff',2400);PBS.lit();pbChase(g,'#b88aff');}else st.lastPortal={id:p.id,t:g.t};
+        if(!st.secret2&&!st.secret&&g.t-st.orbitT<8){st.secret2=true;st.orbitT=-99;pbSay(g,'SECRET ROOM II','the next tunnel leads to the clock room','#9fe8ff',2400);PBS.lit();pbChase(g,'#9fe8ff');}}
       break;}
     case'orbitPass':{const o=d.o;if(g.skillT>0)break;const lp=g.orbPass;g.orbPass={id:o.id,t:g.t};if(lp&&lp.id!==o.id&&g.t-lp.t<2.4){g.orbPass=null;pbEvent0(g,'orbit',{b});}break;}
-    case'orbit':{st.orbitN++;PBS.orbit();haptic([10,16,10]);pbPts(g,5000,{combo:1});pbShot(g);pbMis(g,'orbit');pbBoss(g,8);pbSpark(g,b.x,b.y,'#8affc1',12);pbChase(g,'#8affc1');
+    case'orbit':{st.orbitN++;st.orbitT=g.t;PBS.orbit();haptic([10,16,10]);pbPts(g,5000,{combo:1});pbShot(g);pbMis(g,'orbit');pbBoss(g,8);pbSpark(g,b.x,b.y,'#8affc1',12);pbChase(g,'#8affc1');
       if(st.orbitN%3===0){st.jackLit=true;pbSay(g,'ORBIT JACKPOT LIT','shoot a ramp','#ffd96a',1800);PBS.lit();g.fx.flash=.4;}else pbSay(g,'ORBIT',(st.orbitN%3)+' of 3','#8affc1',900);break;}
     case'magnet':{b.st='mag';b.mag={t:0,press:null};b.x=236;b.y=553;b.vx=b.vy=0;st.magOn=false;g.magT=g.t;pbPts(g,3000,{combo:1});PBS.magnet();haptic([20,30,40]);pbRing(g,236,553,'#7fd7ff',90);pbBoss(g,5);pbSay(g,'MAGNET','left, right or both flippers: pick your shot','#7fd7ff',2200);break;}
     case'sling':pbPts(g,10);PBS.sling();haptic(7);pbSpark(g,b.x,b.y,'#9fe8ff',5);break;
@@ -10856,10 +10874,33 @@ const PB_RT=(()=>{const T={walls:[],gears:[],gems:[],bumpers:[],chest:{x:236,y:3
   T.gems.push({x:84,y:350,c:'#ff3a55',n:'RUBY',got:false,t:-9},{x:150,y:270,c:'#3affa0',n:'EMERALD',got:false,t:-9},{x:236,y:238,c:'#bfefff',n:'DIAMOND',got:false,t:-9},{x:322,y:270,c:'#4a8aff',n:'SAPPHIRE',got:false,t:-9},{x:388,y:350,c:'#ffc94a',n:'TOPAZ',got:false,t:-9});
   T.bumpers.push({x:150,y:742,r:20,hit:-9},{x:322,y:742,r:20,hit:-9});
   return T;})();
+// ── the second secret room: the clock room. Shoot the twelve hours in order before the hands and the pendulum throw the ball away ──
+const PB_CK=(()=>{const T={cx:236,cy:430,hours:[],minute:{len:104,a:0,w:1.0},hourH:{len:68,a:2,w:-.55},pend:{px:236,py:606,len:96,amp:.5,freq:.35,ang:0,om:0,hit:-9},bumpers:[{x:150,y:742,r:20,hit:-9},{x:322,y:742,r:20,hit:-9}]};
+  for(let k=1;k<=12;k++){const a=k*Math.PI/6;T.hours.push({k,x:236+Math.sin(a)*122,y:430-Math.cos(a)*122,done:false,t:-9});}
+  return T;})();
+function pbClockHit(g,h){
+  const r=g.room;if(h.done||h.k!==r.next){pbRoomPts(g,300);PBS.peg();return;}
+  h.done=true;h.t=g.t;r.next++;const v=5000*h.k;pbRoomPts(g,v);PBS.bell(784*Math.pow(2,[0,2,4,5,7,9,11,12,14,16,17,19][h.k-1]/12),.1);pbSay(g,'HOUR '+h.k,'+'+v.toLocaleString(),'#9fe8ff',1100);pbRing(g,h.x,h.y,'#9fe8ff',90);pbSpark(g,h.x,h.y,'#9fe8ff',12);haptic([10,20]);
+  g.fx.pops.push({x:h.x,y:h.y-16,t:'+'+v.toLocaleString(),l:0,big:v>=30000});
+  if(r.next>12){const b=r.b;r.state='chest';b.st='room';b.x=PB_CK.cx;b.y=PB_CK.cy;b.vx=b.vy=0;r.endT=2.4;pbRoomPts(g,250000);pbShow(g,'MIDNIGHT','+250,000','#ffd96a');PBS.jackpot();g.freeze=.08;g.fx.flash=.9;g.fx.shake=7;pbSpark(g,PB_CK.cx,PB_CK.cy,'#ffe08a',50);pbRing(g,PB_CK.cx,PB_CK.cy,'#ffd96a',240);}
+}
+function pbClockCollide(g,b,h){
+  const C=PB_CK,r=g.room;
+  for(const w of PB_RT.walls)pbSeg(b,w.a[0],w.a[1],w.b[0],w.b[1],w.r||2,w.e,0,0,0);
+  pbCirc(b,C.cx,C.cy,14,.4);
+  for(const hd of [C.minute,C.hourH]){const tx=C.cx+Math.sin(hd.a)*hd.len,ty=C.cy-Math.cos(hd.a)*hd.len,c=pbSeg(b,C.cx,C.cy,tx,ty,6,.5,hd.w,C.cx,C.cy);if(c&&Math.abs(c.vn)>150&&g.t-(hd.hit||-9)>.1){hd.hit=g.t;pbRoomPts(g,150);PBS.peg();}}
+  {const pd=C.pend,c=pbSeg(b,pd.px,pd.py,pd.px+Math.sin(pd.ang)*pd.len,pd.py+Math.cos(pd.ang)*pd.len,7,.55,pd.om,pd.px,pd.py);if(c&&g.t-pd.hit>.15){pd.hit=g.t;pbRoomPts(g,200);PBS.bossHit();}
+    pbCirc(b,pd.px+Math.sin(pd.ang)*pd.len,pd.py+Math.cos(pd.ang)*pd.len,13,.55);}
+  for(const hr of C.hours){if(pbCirc(b,hr.x,hr.y,14,.6))pbClockHit(g,hr);}
+  for(const bm of C.bumpers){const c=pbCirc(b,bm.x,bm.y,bm.r,.2);if(c){b.vx+=c.nx*520;b.vy+=c.ny*520;bm.hit=g.t;pbRoomPts(g,250);PBS.bumper();haptic(8);pbSpark(g,bm.x,bm.y,'#ffd27a',6);}}
+  for(const k of ['L','R']){const f=g.fl[k],F=PB_FL[k],tip=pbFlipTip(f,F),c=pbSeg(b,F.px,F.py,tip[0],tip[1],7.5,.34,f.w,F.px,F.py);if(c&&g.t-(f.hitT||-9)>.12&&(Math.abs(f.w)>.5||c.vn<-250)){f.hitT=g.t;if(Math.abs(f.w)>.5)PBS.flip();}if(c&&f.on&&Math.abs(f.w)<.3&&c.vn>-160){b.vx*=.97;b.vy*=.97;}}
+  if(b.y>PB.H+14)b.st='gone';
+}
 function pbRoomPts(g,n){const r=g.room,st=g.st[g.turn];st.score+=n;if(r)r.score+=n;st.bonus+=Math.round(n*.05);}
 function pbRoomServe(g,b){b.st='play';b.x=88;b.y=250;b.vx=240;b.vy=60;b.tr=[];}
 function pbRoomOpen(g,b){
-  const from=b.tun.from;g.room={b,from,to:b.tun.to,fx:from.x,fy:from.y,t:0,state:'play',left:40,lives:3,endT:0,gems:0,score:0};
+  const from=b.tun.from,kind=b.tun.kind||'vault',ck=kind==='clock';g.room={b,from,to:b.tun.to,fx:from.x,fy:from.y,t:0,state:'play',kind,max:ck?45:40,left:ck?45:40,lives:3,endT:0,gems:0,score:0,next:1};
+  if(ck){for(const q of PB_CK.hours){q.done=false;q.t=-9;}PB_CK.minute.a=0;PB_CK.hourH.a=2;PB_CK.pend.hit=-9;PB_CK.bumpers.forEach(q=>q.hit=-9);pbRoomServe(g,b);g.saveT=0;g.stats.secrets++;PBS.room();pbShow(g,'THE CLOCK ROOM','shoot the hours 1 to 12 in order','#9fe8ff');haptic([20,30,40]);if(!g.moment)g.moment=g.players[g.turn].name+' found the clock room.';return;}
   for(const q of PB_RT.gems){q.got=false;q.t=-9;}PB_RT.gears.forEach(q=>{q.a=0;q.hit=-9;});PB_RT.bumpers.forEach(q=>q.hit=-9);PB_RT.blade.ang=0;PB_RT.blade.hit=-9;
   pbRoomServe(g,b);g.saveT=0;g.stats.secrets++;PBS.room();pbShow(g,'SECRET ROOM','light the five gems · open the chest','#e8c8ff');haptic([20,30,40]);
   if(!g.moment)g.moment=g.players[g.turn].name+' found the secret room.';
@@ -10874,6 +10915,7 @@ function pbRoomGem(g,gm){
 function pbRoomChest(g,b){const r=g.room,ch=PB_RT.chest;r.state='chest';b.st='room';b.x=ch.x;b.y=ch.y;b.vx=b.vy=0;r.endT=2.4;pbRoomPts(g,150000);pbShow(g,'TREASURE','+150,000','#ffd96a');PBS.jackpot();g.freeze=.08;g.fx.flash=.9;g.fx.shake=7;pbSpark(g,ch.x,ch.y,'#ffe08a',50);pbRing(g,ch.x,ch.y,'#ffd96a',240);}
 function pbRoomCollide(g,b,h){
   const R=PB_RT,r=g.room;if(b.st!=='play')return;
+  if(r.kind==='clock'){pbClockCollide(g,b,h);return;}
   for(const w of R.walls)pbSeg(b,w.a[0],w.a[1],w.b[0],w.b[1],w.r||2,w.e,0,0,0);
   for(const gr of R.gears){pbCirc(b,gr.x,gr.y,9,.4);for(let i=0;i<gr.n;i++){const a=gr.a+i*6.2832/gr.n,c=pbSeg(b,gr.x,gr.y,gr.x+Math.cos(a)*gr.r,gr.y+Math.sin(a)*gr.r,5,.45,gr.w,gr.x,gr.y);if(c&&Math.abs(c.vn)>150&&g.t-gr.hit>.1){gr.hit=g.t;pbRoomPts(g,100);PBS.peg();}}}
   {const bl=R.blade,c=pbSeg(b,bl.px,bl.py,bl.px+Math.sin(bl.ang)*bl.len,bl.py+Math.cos(bl.ang)*bl.len,6,.5,bl.om,bl.px,bl.py);if(c&&g.t-bl.hit>.15){bl.hit=g.t;pbRoomPts(g,200);PBS.bossHit();}
@@ -10886,8 +10928,9 @@ function pbRoomCollide(g,b,h){
 }
 function pbRoomTick(g,dt){
   const r=g.room,R=PB_RT;r.t+=dt;
-  for(const gr of R.gears)gr.a+=gr.w*dt;
-  {const bl=R.blade,ph=r.t*bl.freq*6.2832;bl.ang=bl.amp*Math.sin(ph);bl.om=-bl.amp*bl.freq*6.2832*Math.cos(ph);}
+  if(r.kind==='clock'){const C=PB_CK;C.minute.a+=C.minute.w*dt;C.hourH.a+=C.hourH.w*dt;const ph=r.t*C.pend.freq*6.2832;C.pend.ang=C.pend.amp*Math.sin(ph);C.pend.om=-C.pend.amp*C.pend.freq*6.2832*Math.cos(ph);}
+  else{for(const gr of R.gears)gr.a+=gr.w*dt;
+  {const bl=R.blade,ph=r.t*bl.freq*6.2832;bl.ang=bl.amp*Math.sin(ph);bl.om=-bl.amp*bl.freq*6.2832*Math.cos(ph);}}
   if(r.state==='play'){
     if(r.t>.7)r.left-=dt;pbAdvance(g,dt);
     for(const b of g.balls){b.tr=b.tr||[];if(b.st==='play'){b.tr.push([b.x,b.y]);if(b.tr.length>9)b.tr.shift();}
@@ -10896,7 +10939,7 @@ function pbRoomTick(g,dt){
   }else{r.endT-=dt;if(r.endT<=0)pbRoomEnd(g);}
 }
 function pbRoomEnd(g){const r=g.room,b=r.b,o=r.to||PB_T.portals.find(q=>q!==r.from)||r.from;g.room=null;g.balls=[b];b.st='play';b.x=o.x+o.ovx*.03;b.y=o.y+o.ovy*.03;b.vx=o.ovx;b.vy=o.ovy;b.tr=[];o.t=g.t;r.from.t=g.t;
-  pbSay(g,'SECRET ROOM','+'+r.score.toLocaleString()+' · '+r.gems+' of 5 gems','#e8c8ff',2000);PBS.portalOut();pbRing(g,o.x,o.y,'#ffe9a8',110);}
+  pbSay(g,r.kind==='clock'?'CLOCK ROOM':'SECRET ROOM','+'+r.score.toLocaleString()+' · '+(r.kind==='clock'?(r.next-1)+' of 12 hours':r.gems+' of 5 gems'),r.kind==='clock'?'#9fe8ff':'#e8c8ff',2000);PBS.portalOut();pbRing(g,o.x,o.y,'#ffe9a8',110);}
 // ── the step ──
 function pbStep(g,dt){
   dt=Math.min(.033,dt);if(g.freeze>0){g.freeze-=dt;dt*=.05;}else if(g.slow>0){g.slow-=dt;dt*=.4;}
@@ -10962,8 +11005,11 @@ function pbFinish(g){
   const mom=g.moment||(n===1?g.players[0].name+' scored '+sc[0].toLocaleString()+'.':winners.length>1?'A tie at the pinball machine.':g.players[w].name+' won the machine with '+top.toLocaleString()+'.');
   G.ahMoment=mom;G.fgResult=null;G.fgHighlight=null;
   G.pbResult={score:sc,top,jackpots:g.stats.jackpots,multis:g.stats.multis,best:g.jackBest,missions:g.stats.missions,levels:g.stats.levels,dur:Math.round((Date.now()-g.stats.start)/1000),names:g.players.map(p=>p.name)};
+  const when=new Date().toISOString();
+  pbHofAdd(g.players.map((pl,i)=>({n:String(pl.name||'Player '+(i+1)).slice(0,24),s:sc[i],d:when,lv:g.st[i].lvl,bj:g.st[i].best||0})).filter(e=>e.s>0));
+  {const all=pbHofAll(),ix=all.findIndex(e=>e.n===String(g.players[w].name||'Player '+(w+1)).slice(0,24)&&e.s===top);G.pbResult.rank=ix>=0&&ix<10?ix+1:0;}
   G.tw=(G.tw||0)+1;try{localStorage.setItem('ct_tw',G.tw);}catch(e){}
-  try{addHistory({game:'pinball',winner:g.players[w].name,winnerAvatar:g.players[w].avatar,date:new Date().toISOString(),players:g.players.map(p=>p.name),moment:mom,stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats?G.matchStats.reactions:0,ah:{score:sc,dur:G.pbResult.dur}}});}catch(e){}
+  try{addHistory({game:'pinball',winner:g.players[w].name,winnerAvatar:g.players[w].avatar,date:when,players:g.players.map(p=>p.name),moment:mom,stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats?G.matchStats.reactions:0,ah:{score:sc,dur:G.pbResult.dur}}});}catch(e){}
   try{const nr=arRecordUpdate('pinball',g.players.map(p=>p.name),g.players[w].name,[top,0],{jackpot:g.jackBest,multi:g.stats.multis,team:0});if(nr.length)setTimeout(()=>toast('🏆 New Pinball record'),900);}catch(e){}
   hfSnd.cheer(1);pbStop();G.scr='matchend';render();
 }
@@ -11065,16 +11111,33 @@ function pbDrawFlippers(x,g,P,keys){
 }
 function pbRoomOutline(x){x.beginPath();x.moveTo(62,PB.H);x.lineTo(62,184);for(let i=1;i<=40;i++){const t=Math.PI+Math.PI*i/40;x.lineTo(236+174*Math.cos(t),184+164*Math.sin(t));}x.lineTo(410,PB.H);x.closePath();}
 function pbDrawRoom(x,g,P,t){
-  const r=g.room,R=PB_RT,open=Math.min(1,r.t/.7),full=r.gems>=5;
+  const r=g.room,R=PB_RT,open=Math.min(1,r.t/.7),full=r.gems>=5,ck=r.kind==='clock';
   x.save();x.beginPath();x.arc(r.fx,r.fy,30+open*1100,0,6.283);x.clip();
   x.fillStyle='#05030a';pbOutline(x);x.fill();x.strokeStyle='#05030a';x.lineWidth=22;x.lineJoin='round';x.stroke();
   x.save();pbRoomOutline(x);x.clip();
-  const bg=pbImg('roombg');
+  const bg=pbImg(ck?'clockbg':'roombg');
   if(bg)x.drawImage(bg,17,-25,437,1033);
-  else{const gr=x.createRadialGradient(236,520,30,236,520,620);gr.addColorStop(0,'#3a2466');gr.addColorStop(.5,'#1a0f33');gr.addColorStop(1,'#07040f');x.fillStyle=gr;x.fillRect(0,0,PB.W,PB.H);
+  else{const gr=x.createRadialGradient(236,520,30,236,520,620);gr.addColorStop(0,ck?'#16355a':'#3a2466');gr.addColorStop(.5,ck?'#0a1a30':'#1a0f33');gr.addColorStop(1,ck?'#03080f':'#07040f');x.fillStyle=gr;x.fillRect(0,0,PB.W,PB.H);
     x.strokeStyle='rgba(255,214,120,.22)';x.lineWidth=2;for(const rr of [90,150,210,270]){x.beginPath();x.arc(236,560,rr,0,6.283);x.stroke();}
     x.strokeStyle='rgba(255,214,120,.14)';for(let i=0;i<16;i++){x.save();x.translate(236,560);x.rotate(i*Math.PI/8);x.beginPath();x.moveTo(0,0);x.lineTo(0,-300);x.stroke();x.restore();}}
   x.fillStyle='rgba(0,0,0,.18)';x.fillRect(0,0,PB.W,PB.H);
+  if(ck){
+  {const C=PB_CK,acc='#9fe8ff';
+    // the face of the clock
+    x.save();x.translate(C.cx,C.cy);x.strokeStyle='rgba(159,232,255,.35)';x.lineWidth=2;for(const rr of [150,140,100]){x.beginPath();x.arc(0,0,rr,0,6.283);x.stroke();}
+    x.strokeStyle='rgba(230,195,106,.5)';x.lineWidth=1.4;for(let m=0;m<60;m++){const a=m*Math.PI/30,l=m%5?5:11;x.beginPath();x.moveTo(Math.sin(a)*(150-l),-Math.cos(a)*(150-l));x.lineTo(Math.sin(a)*150,-Math.cos(a)*150);x.stroke();}x.restore();
+    // the twelve hours: brass plates with a number, the next one pulses
+    for(const hr of C.hours){const done=hr.done,next=hr.k===r.next,hit=Math.max(0,1-(g.t-hr.t)*3);
+      if(done)pbGlow(x,hr.x,hr.y,50+hit*30,'#ffd96a',.5+hit*.4);else if(next)pbGlow(x,hr.x,hr.y,46,acc,.35+.3*Math.sin(t*8));
+      const pg=x.createRadialGradient(hr.x-4,hr.y-5,2,hr.x,hr.y,16);pg.addColorStop(0,done?'#fff0b0':'#d8b86a');pg.addColorStop(1,done?'#c9902a':'#4a3510');x.fillStyle=pg;x.beginPath();x.arc(hr.x,hr.y,15,0,6.283);x.fill();x.strokeStyle=next?acc:'#1a1208';x.lineWidth=next?2.6:1.6;x.stroke();
+      x.fillStyle=done?'#3a2606':'#f4ebd0';x.font='700 '+(hr.k>9?11:13)+'px Cinzel, Georgia, serif';x.textAlign='center';x.textBaseline='middle';x.fillText(String(hr.k),hr.x,hr.y+1);x.textBaseline='alphabetic';}
+    // the hands
+    for(const hd of [C.minute,C.hourH]){x.save();x.translate(C.cx,C.cy);x.rotate(hd.a);const L=hd.len,wd=hd===C.minute?7:11;x.fillStyle='rgba(0,0,0,.45)';x.beginPath();x.moveTo(-wd+3,5);x.lineTo(3,-L+4);x.lineTo(wd+3,5);x.closePath();x.fill();
+      const hg=x.createLinearGradient(-wd,0,wd,0);hg.addColorStop(0,'#8a6a2a');hg.addColorStop(.5,'#f0d27a');hg.addColorStop(1,'#7a5a1a');x.fillStyle=hg;x.beginPath();x.moveTo(-wd,6);x.lineTo(0,-L);x.lineTo(wd,6);x.closePath();x.fill();x.strokeStyle='#2a1c06';x.lineWidth=1.2;x.stroke();x.restore();}
+    x.fillStyle='#e6c36a';x.beginPath();x.arc(C.cx,C.cy,14,0,6.283);x.fill();x.strokeStyle='#2a1c06';x.lineWidth=1.6;x.stroke();x.fillStyle='#fff6d0';x.beginPath();x.arc(C.cx-3,C.cy-3,4,0,6.283);x.fill();
+    // the pendulum
+    {const pd=C.pend;x.save();x.translate(pd.px,pd.py);x.rotate(-pd.ang);x.strokeStyle='#c9a24a';x.lineWidth=5;x.beginPath();x.moveTo(0,0);x.lineTo(0,pd.len);x.stroke();const bg2=x.createRadialGradient(-4,pd.len-4,2,0,pd.len,15);bg2.addColorStop(0,'#fff0b0');bg2.addColorStop(1,'#8a6a2a');x.fillStyle=bg2;x.beginPath();x.arc(0,pd.len,14,0,6.283);x.fill();x.fillStyle='#e6c36a';x.beginPath();x.arc(0,0,7,0,6.283);x.fill();x.restore();}}
+  }else{
   // the torches
   for(const tx of [bg?39:80,bg?423:392]){const ty=bg?263:650,fl=.7+.3*Math.sin(t*13+tx);pbGlow(x,tx,ty,bg?90:120,'#ff9a3a',.35*fl);if(!bg){x.fillStyle='#6a4a1a';x.beginPath();x.arc(tx,ty,9,0,6.283);x.fill();pbGlow(x,tx,ty-6,26,'#ffd27a',.8*fl);}}
   // the five gems in their sockets, and the chest
@@ -11092,8 +11155,9 @@ function pbDrawRoom(x,g,P,t){
   {const bl=R.blade,bi=pbImg('blade');x.save();x.translate(bl.px,bl.py);x.rotate(-bl.ang);
     if(bi){const h=(bl.len+12)/.94,w=h*bi.naturalWidth/bi.naturalHeight;x.drawImage(bi,-w/2,-h*.06,w,h);}else{x.strokeStyle='#aab3be';x.lineWidth=5;x.beginPath();x.moveTo(0,0);x.lineTo(0,bl.len-18);x.stroke();x.fillStyle='#dfe6ee';x.beginPath();x.moveTo(-26,bl.len-30);x.quadraticCurveTo(0,bl.len+22,26,bl.len-30);x.quadraticCurveTo(0,bl.len-6,-26,bl.len-30);x.fill();x.fillStyle='#e6c36a';x.beginPath();x.arc(0,0,8,0,6.283);x.fill();}
     x.restore();}
+  }
   // the two pop bumpers
-  for(const bm of R.bumpers){const bi=pbImg(g.t-bm.hit<.12?'bumphit':'bump'),d=(bm.r+8)*2;if(bi)x.drawImage(bi,bm.x-d/2,bm.y-d/2,d,d);else{x.fillStyle='#c0482e';x.beginPath();x.arc(bm.x,bm.y,bm.r,0,6.283);x.fill();}}
+  for(const bm of (ck?PB_CK.bumpers:R.bumpers)){const bi=pbImg(g.t-bm.hit<.12?'bumphit':'bump'),d=(bm.r+8)*2;if(bi)x.drawImage(bi,bm.x-d/2,bm.y-d/2,d,d);else{x.fillStyle='#c0482e';x.beginPath();x.arc(bm.x,bm.y,bm.r,0,6.283);x.fill();}}
   x.restore();
   // the rails of the room
   const chr=pbChrome(x,PB.W);for(const w of R.walls){const lw=w.r?w.r*2:5.2;x.lineCap='round';x.strokeStyle='#161a20';x.lineWidth=lw+1.6;x.beginPath();x.moveTo(w.a[0],w.a[1]);x.lineTo(w.b[0],w.b[1]);x.stroke();x.strokeStyle=chr;x.lineWidth=lw;x.beginPath();x.moveTo(w.a[0],w.a[1]);x.lineTo(w.b[0],w.b[1]);x.stroke();}
@@ -11105,8 +11169,8 @@ function pbDrawRoom(x,g,P,t){
     if(bli)x.drawImage(bli,b.x-R2,b.y-R2,R2*2,R2*2);else{x.fillStyle='#d8dde4';x.beginPath();x.arc(b.x,b.y,R2,0,6.283);x.fill();}
     x.strokeStyle='rgba(255,255,255,.8)';x.lineWidth=1.3;x.beginPath();x.arc(b.x,b.y,R2*1.03,0,6.283);x.stroke();}
   // the clock and the lives
-  {const u=Math.max(0,r.left/40);x.fillStyle='rgba(6,10,14,.78)';pbRR(x,126,64,220,18,9);x.fill();x.fillStyle=u<.25?'#ff6a55':'#e8c8ff';pbRR(x,129,67,214*u,12,6);x.fill();
-   x.fillStyle='#fff';x.font='700 10px Cinzel, Georgia, serif';x.textAlign='center';x.fillText('TREASURE VAULT · '+Math.ceil(r.left)+' s',236,77);
+  {const u=Math.max(0,r.left/r.max);x.fillStyle='rgba(6,10,14,.78)';pbRR(x,126,64,220,18,9);x.fill();x.fillStyle=u<.25?'#ff6a55':(ck?'#9fe8ff':'#e8c8ff');pbRR(x,129,67,214*u,12,6);x.fill();
+   x.fillStyle='#fff';x.font='700 10px Cinzel, Georgia, serif';x.textAlign='center';x.fillText((ck?'CLOCK ROOM · NEXT '+Math.min(12,r.next)+' · ':'TREASURE VAULT · ')+Math.ceil(r.left)+' s',236,77);
    for(let i=0;i<3;i++){x.fillStyle=i<r.lives?'#ffe9a8':'rgba(255,255,255,.2)';x.beginPath();x.arc(206+i*30,100,5,0,6.283);x.fill();}}
   x.restore();
 }
@@ -11248,7 +11312,7 @@ function rPinballTable(){
   const g=G.pb,players=g.players;setTimeout(pbAttach,0);
   const dot=n=>'<i class="pb-d" data-k="'+n+'"></i>';
   return`<div id="s-table" class="scr on game-airhockey game-pinball">
-    <div class="game-bar"><div class="gb-game">🕹️ <span>Pinball</span></div><div class="gb-turn" id="pb-status">The Forbidden Machine</div><div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div></div>
+    <div class="game-bar"><div class="gb-game">🕹️ <span>Pinball</span></div><div class="gb-turn" id="pb-status">The Forbidden Machine</div><div class="gb-right"><button class="ico-btn" data-a="pbhof" aria-label="Hall of Fame">🏆</button>${rulesBtn()}${quitBtn()}${sndBtn()}</div></div>
     <div class="felt-table ah-felt" style="flex:1 1 auto;min-height:0;max-height:none;padding:0;">
       <div class="ah-stage pb-stage" id="pb-stage">
         <div class="pb-side pb-left" id="pb-left">${players.map((p,i)=>`<div class="pb-pl" id="pb-pl${i}"><span class="ah-av">${p.avatar?avHTML(p.avatar):''}</span><b class="pb-nm">${esc((p.name||'').slice(0,12))}</b><b class="pb-sc" id="pb-sc${i}">0</b><i class="pb-bl" id="pb-bl${i}">BALL 1</i></div>`).join('')}
@@ -11324,7 +11388,7 @@ function pbFrame(now){
   const cv=document.getElementById('pb-cv');
   if(!cv){if(G.scr!=='table'||G.selGame!=='pinball')pbStop();return;}
   if(cv!==g.cv){pbAttach();if(!g.cv)return;}
-  if(document.hidden){g.last=now;return;}
+  if(document.hidden||G.rulesOpen||G.pbHof||G.quitOpen||G.tour){g.last=now;return;}   // the game waits while a window is open
   const dt=Math.min(.05,Math.max(0,(now-g.last)/1000));g.last=now;
   pbSyncFlips(g);pbStep(g,dt);pbDraw(g,now);pbHud(g);
 }
@@ -11334,7 +11398,7 @@ function pbHud(g){
   const r=document.getElementById('pb-right');if(!r)return;
   const lv=Math.min(3,st.lvl),P=PB_PAL[lv],m=pbMission(st),stg=document.getElementById('pb-stage');
   if(stg&&stg._lv!==lv){stg._lv=lv;stg.style.setProperty('--pbc',P.c);stg.style.setProperty('--pbr',P.r);}
-  set('pb-lvl',P.n+(st.lvl>3?' · '+(st.lvl-2):''));{let mt='MISSION '+(st.mi+1)+' / 3',mn=m.n,mc=st.mp+' / '+m.need,mw=Math.min(100,st.mp/m.need*100);if(st.boss){mt='BOSS FIGHT';mn=PB_BOSS[st.boss.i];mc=Math.ceil(st.boss.hp/st.boss.max*100)+'%';mw=st.boss.hp/st.boss.max*100;}if(g.wiz){mt='WIZARD MODE';mn='ALL SHOTS ×3';mc=Math.ceil(g.wiz.t)+' s';mw=g.wiz.t/g.wiz.max*100;}if(g.room){mt='SECRET ROOM';mn='TREASURE VAULT';mc=g.room.gems+' of 5 gems';mw=Math.max(0,g.room.left/40*100);}g._mw=mw;set('pb-mt',mt);set('pb-mn',mn);set('pb-mc',mc);}set('pb-md',m.k==='lock'&&!st.lockLit?'Light the 3 orange targets, then roll into the vault':m.d);
+  set('pb-lvl',P.n+(st.lvl>3?' · '+(st.lvl-2):''));{let mt='MISSION '+(st.mi+1)+' / 3',mn=m.n,mc=st.mp+' / '+m.need,mw=Math.min(100,st.mp/m.need*100);if(st.boss){mt='BOSS FIGHT';mn=PB_BOSS[st.boss.i];mc=Math.ceil(st.boss.hp/st.boss.max*100)+'%';mw=st.boss.hp/st.boss.max*100;}if(g.wiz){mt='WIZARD MODE';mn='ALL SHOTS ×3';mc=Math.ceil(g.wiz.t)+' s';mw=g.wiz.t/g.wiz.max*100;}if(g.room){const ck=g.room.kind==='clock';mt=ck?'SECRET ROOM II':'SECRET ROOM';mn=ck?'THE CLOCK ROOM':'TREASURE VAULT';mc=ck?(g.room.next-1)+' of 12 hours':g.room.gems+' of 5 gems';mw=Math.max(0,g.room.left/g.room.max*100);}g._mw=mw;set('pb-mt',mt);set('pb-mn',mn);set('pb-mc',mc);}set('pb-md',m.k==='lock'&&!st.lockLit?'Light the 3 orange targets, then roll into the vault':m.d);
   const mp=document.getElementById('pb-mp');if(mp){const w=Math.min(100,g._mw||0)+'%';if(mp._w!==w){mp._w=w;mp.style.width=w;}}
   r.querySelectorAll('.pb-d').forEach(el=>{const k=el.dataset.k,i=+k[1];let on=false;if(k[0]==='f')on=!!st.forge[i]||st.forgeOn;else if(k[0]==='l')on=st.locks>i;else on=!!st.lanes[i];if(el._o!==on){el._o=on;el.classList.toggle('on',on);}});
   set('pb-mult','×'+st.mult);set('pb-combo',g.combo>=2?'×'+Math.min(5,g.combo):'–');
@@ -30235,12 +30299,14 @@ function rGamesCategoryList(){
     <div class="topbar"><button class="back-btn" data-a="games-back">← Games</button><span class="top-title">${cat.icon} ${esc(cat.name)}</span><div class="top-right">${sndBtn()}</div></div>
     <div style="padding:1.1rem 1.2rem .2rem;font-size:.82rem;color:var(--paper3);">Pick a game to start playing at your table.</div>
     <div class="v10-games${chosen?' has-sel':''}" style="padding:1rem 1.2rem 1.5rem;">${cards}</div>
+    ${cat.id==='arcade'?pbHofCardHTML():''}
     ${cat.id==='arcade'||cat.id==='fairground'?arRecordsHTML(cat.id):''}
     <div class="v10-playbar${chosen?' on':''}">
       <div class="v10-pb-info">${chosen?`<span class="v10-pb-thumb" style="${chosen.cover?`background-image:url('${chosen.cover}')`:''}">${chosen.cover?'':chosen.icon}</span><span class="v10-pb-txt"><b>${esc(chosen.name)}</b><small>${chosen.players} players · ${chosen.dur}</small></span>`:`<span class="v10-pb-txt"><b>Pick a game</b><small>Tap one of the pictures above</small></span>`}</div>
       <div class="v10-pb-btns">
         <button class="btn btn-gold v10-cta" data-a="${chosen?'local':'pick-first'}">${chosen&&chosen.onlineOnly?'🌐 Invite everyone':'🏠 Play together'}</button>
         ${chosen&&chosen.onlineOnly?'':`<button class="btn btn-ghost" data-a="${chosen?'online':'pick-first'}">🌐 Invite remotely</button>`}
+        ${chosen&&chosen.id==='pinball'?'<button class="btn btn-ghost" data-a="pbhof">🏆 Hall of Fame</button>':''}
       </div>
     </div>
   </div>`;
@@ -32500,15 +32566,38 @@ function gtResultsHTML(){
   const rows=players.map((p,i)=>`<tr><td>${GT_SHAPES[i]} ${esc(p.name)}</td><td>${s.cap[i]}</td><td>${s.sc[i]}</td><td>${s.dare[i]}</td><td>${s.set[i]}</td><td>${s.tby[i]}</td></tr>`).join('');
   return`<div class="panel gt-res"><div class="panel-lbl">THE GAUNTLET · ${esc(GT_MODES[gt.mode]?GT_MODES[gt.mode].name.toUpperCase():'')} · ${gt.round} ROUNDS</div><table><thead><tr><th></th><th title="Captures">💥</th><th title="Shortcuts taken">🛤️</th><th title="Dares">😈</th><th title="Traps set">🔒</th><th title="Runners caught by this player's traps">🪤</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
+// ── the hall of fame: the best scores ever played, from this iPad and from the whole family's shared history ──
+function pbHofLoad(){try{const a=JSON.parse(localStorage.getItem('ct_pb_hof')||'[]');return Array.isArray(a)?a.filter(e=>e&&typeof e.s==='number'&&e.n):[];}catch(e){return[];}}
+function pbHofAdd(list){try{const cur=pbHofLoad(),keys=new Set(cur.map(e=>e.n+'|'+e.s+'|'+String(e.d||'').slice(0,16)));for(const e of list){const k=e.n+'|'+e.s+'|'+String(e.d||'').slice(0,16);if(!keys.has(k)){keys.add(k);cur.push(e);}}cur.sort((a,b)=>b.s-a.s);localStorage.setItem('ct_pb_hof',JSON.stringify(cur.slice(0,60)));}catch(e){}}
+function pbHofAll(){
+  const out=pbHofLoad().slice(),keys=new Set(out.map(e=>e.n+'|'+e.s+'|'+String(e.d||'').slice(0,16)));
+  try{for(const h of familyHistory()){if(!h||h.game!=='pinball'||!h.stats||!h.stats.ah||!Array.isArray(h.stats.ah.score))continue;
+    (h.players||[]).forEach((n,i)=>{const sc=h.stats.ah.score[i];if(typeof sc!=='number'||sc<=0||!n)return;const k=n+'|'+sc+'|'+String(h.date||'').slice(0,16);if(keys.has(k))return;keys.add(k);out.push({n:String(n),s:sc,d:h.date||''});});}}catch(e){}
+  out.sort((a,b)=>b.s-a.s);return out;
+}
+function pbHofDate(d){try{const t=new Date(d);return isNaN(t)?'':t.toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'});}catch(e){return'';}}
+function pbHofRows(list,off){return list.map((e,i)=>{const k=i+(off||0),medal=['🥇','🥈','🥉'][k]||'<b>'+(k+1)+'</b>';return`<div class="hof-row${k<3?' top':''}"><span class="hof-rk">${medal}</span><span class="hof-nm">${esc(e.n)}</span><span class="hof-sc">${e.s.toLocaleString()}</span><span class="hof-d">${esc(pbHofDate(e.d))}${e.lv!=null?' · world '+(Math.min(4,e.lv+1)):''}${e.bj?' · jackpot '+e.bj.toLocaleString():''}</span></div>`;}).join('');}
+function rPbHofOv(){
+  const all=pbHofAll(),top=all.slice(0,10),best={};for(const e of all)if(!best[e.n]||e.s>best[e.n].s)best[e.n]=e;
+  const per=Object.values(best).sort((a,b)=>b.s-a.s).slice(0,8);
+  return`<div class="ov" data-a="close-pbhof"><div class="ov-box hof-box" role="dialog" aria-modal="true" aria-label="Pinball Hall of Fame"><div class="ov-title">🏆 Hall of Fame</div><div class="hof-sub">PINBALL · THE BEST SCORES EVER PLAYED</div>
+    ${top.length?`<div class="hof-list">${pbHofRows(top)}</div>`:'<p class="ov-sub">No score yet. Play a game of Pinball and be the first name on the wall!</p>'}
+    ${per.length>1?`<div class="hof-h">THE BEST OF EACH PLAYER</div><div class="hof-list">${per.map(e=>`<div class="hof-row"><span class="hof-rk">★</span><span class="hof-nm">${esc(e.n)}</span><span class="hof-sc">${e.s.toLocaleString()}</span><span class="hof-d">${esc(pbHofDate(e.d))}</span></div>`).join('')}</div>`:''}
+    <button class="btn btn-ghost" data-a="close-pbhof" style="margin-top:.8rem;">Close</button></div></div>`;
+}
+function pbHofCardHTML(){
+  const all=pbHofAll(),top=all.slice(0,3);
+  return`<div class="hof-card"><div class="hof-card-h"><b>🏆 Pinball Hall of Fame</b><button class="btn btn-ghost" data-a="pbhof" style="margin:0;">Show all</button></div>${top.length?`<div class="hof-list">${pbHofRows(top)}</div>`:'<p class="hof-empty">No score yet. Be the first name on the wall.</p>'}</div>`;
+}
 function pbChipsHTML(){
   const r=G.pbResult;if(!r)return'';
-  return`<div class="tonight-stats">
+  return`${r.rank?`<div class="hof-badge">🏆 #${r.rank} in the Hall of Fame</div>`:''}<div class="tonight-stats">
     <div class="tonight-stat"><div class="ts-val">${r.top.toLocaleString()}</div><div class="ts-lbl">🕹️ Top score</div></div>
     <div class="tonight-stat"><div class="ts-val">${r.jackpots}</div><div class="ts-lbl">💰 Jackpots</div></div>
     <div class="tonight-stat"><div class="ts-val">${r.multis}</div><div class="ts-lbl">🎱 Multiballs</div></div>
     <div class="tonight-stat"><div class="ts-val">${r.best?r.best.toLocaleString():'–'}</div><div class="ts-lbl">⭐ Best jackpot</div></div>
     <div class="tonight-stat"><div class="ts-val">${fmtPlayTime((r.dur||0)*1000)}</div><div class="ts-lbl">⏱ Play Time</div></div>
-  </div>`;
+  </div><button class="btn btn-ghost" data-a="pbhof" style="margin-top:.6rem;">🏆 Hall of Fame</button>`;
 }
 function fgHighlightHTML(){
   const gid=G.isOnline?G.srv?.gameId:G.selGame,h=G.fgHighlight;if(!h||!fgIs(gid)||G.isOnline)return'';
@@ -33219,6 +33308,7 @@ function render(){
   // Overlays at body level
   let ov='';
   if(G.tour)ov=rTourOv();
+  else if(G.pbHof)ov=rPbHofOv();
   else if(G.rulesOpen)ov=rRulesOv();
   else if(G.quitOpen)ov=rQuitOv();
   else if(G.dataClearAsk)ov=rDataClearOv();
@@ -33294,9 +33384,9 @@ document.addEventListener('click',e=>{
   if(/roll|throw|summit/.test(a||''))_dieIntent=Date.now();
   if(a==='play'&&_dragPlayedCid===t.getAttribute('data-cid')){_dragPlayedCid=null;return;}
   // For backdrop-close actions, only fire if clicking the backdrop itself, not a child button
-  if((a==='close-quit'||a==='close-rules')&&t.classList.contains('btn')){
+  if((a==='close-quit'||a==='close-rules'||a==='close-pbhof')&&t.classList.contains('btn')){
     // This is a button click — handle normally (fall through)
-  } else if((a==='close-quit'||a==='close-rules')&&!t.classList.contains('btn')&&e.target!==t&&t.querySelector('[data-a]')){
+  } else if((a==='close-quit'||a==='close-rules'||a==='close-pbhof')&&!t.classList.contains('btn')&&e.target!==t&&t.querySelector('[data-a]')){
     return; // click was on backdrop but propagated from inner element — ignore
   }
   // Both paths clear the Mau timer and any staged Dice Duel reveal the way quit-confirm already
@@ -33372,6 +33462,8 @@ document.addEventListener('click',e=>{
   else if(a==='tour-close'){tourClose();}
   else if(a==='tour-noop'){if(e.target===t)tourClose();}
   else if(a==='close-rules'){G.rulesOpen=false;render();}
+  else if(a==='pbhof'){G.pbHof=true;render();}
+  else if(a==='close-pbhof'){G.pbHof=false;render();}
   else if(a==='quit-ask'){G.quitOpen=true;render();}
   else if(a==='close-quit'){G.quitOpen=false;render();}
   else if(a==='open-data'){G.dataOpen=true;render();}

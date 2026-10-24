@@ -5843,6 +5843,27 @@ async function runPresentation(A,W,frame){
        check('and a flipper tap launches it again',fb.st==='play'&&fb.vy<-800);
        const gb={x:462,y:225,vx:0,vy:0,st:'play',id:9301,stuck:0,tr:[]};p.balls=[gb];let leak=false;for(let i=0;i<60*8;i++){F('pbStep')(p,1/60);if(gb.st==='plunger'){leak=true;break;}}
        check('a slow ball on the gate flap never drops through it into the launch lane',!leak);p.balls=[nb];}
+      // the second secret room: the clock room
+      {p.phase='play';p.tilted=false;p.room=null;p.slow=0;p.freeze=0;p.skillT=0;F('pbResetTable')();stt.secret=false;stt.secret2=false;stt.boss=null;stt.lastPortal=null;stt.orbitT=-99;
+       const Q=F('PB_T').portals,cb={x:Q[0].x,y:Q[0].y,vx:0,vy:0,st:'play',id:9400,stuck:0,tr:[]};p.balls=[cb];p.saveT=99;stt.orbitT=p.t;
+       F('pbEvent')(p,'portal',{p:Q[0],b:cb});
+       check('an orbit followed by a tunnel within 8 seconds opens the second secret room',stt.secret2===true);
+       for(let i=0;i<80;i++)F('pbStep')(p,1/60);Q[0].t=-9;Q[1].t=-9;cb.st='play';cb.x=Q[0].x;cb.y=Q[0].y;F('pbEvent')(p,'portal',{p:Q[0],b:cb});for(let i=0;i<80;i++)F('pbStep')(p,1/60);
+       check('the next tunnel leads into the clock room',!!p.room&&p.room.kind==='clock'&&cb.st==='play');
+       const CK=F('PB_CK');p.room.next=1;CK.hours.forEach(q=>q.done=false);
+       F('pbClockHit')(p,CK.hours[4]);check('an hour out of order pays little and does not count',p.room.next===1);
+       F('pbClockHit')(p,CK.hours[0]);check('the next hour counts',p.room.next===2&&CK.hours[0].done);
+       const sck=stt.score;for(let k=2;k<=12;k++)F('pbClockHit')(p,CK.hours[k-1]);
+       check('twelve hours in order are midnight: the big prize',p.room.state==='chest'&&stt.score>=sck+250000);
+       for(let i=0;i<60*3&&p.room;i++)F('pbStep')(p,1/60);check('then the ball is back on the table',!p.room&&cb.st==='play');
+       p.room=null;p.balls=[nb];}
+      // the hall of fame
+      {const old=W.localStorage.getItem('ct_pb_hof');W.localStorage.removeItem('ct_pb_hof');
+       F('pbHofAdd')([{n:'ZoeTest',s:5000,d:'2026-10-01T10:00:00.000Z'},{n:'MaxTest',s:9000,d:'2026-10-02T10:00:00.000Z',lv:2,bj:50000},{n:'ZoeTest',s:5000,d:'2026-10-01T10:00:00.000Z'}]);
+       const all=F('pbHofAll')().filter(e=>/Test$/.test(e.n));
+       check('the hall of fame is sorted and never lists the same game twice',all.length===2&&all[0].n==='MaxTest'&&all[1].n==='ZoeTest');
+       const ov=F('rPbHofOv')();check('the hall of fame window shows the names',/MaxTest/.test(ov)&&/ZoeTest/.test(ov)&&/Hall of Fame/.test(ov));
+       if(old===null)W.localStorage.removeItem('ct_pb_hof');else W.localStorage.setItem('ct_pb_hof',old);}
       // the orbit and the magnet
       {p.phase='play';p.tilted=false;p.room=null;p.skillT=0;p.slow=0;p.freeze=0;stt.boss=null;F('pbResetTable')();const OB=F('PB_T').orbits,ob={x:0,y:0,vx:0,vy:0,st:'play',id:9200,stuck:0,tr:[]};p.balls=[ob];stt.orbitN=0;p.orbPass=null;
        F('pbEvent')(p,'orbitPass',{o:OB[0],b:ob});check('one side of the orbit alone is no orbit',stt.orbitN===0);
