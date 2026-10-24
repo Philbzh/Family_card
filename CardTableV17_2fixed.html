@@ -28896,7 +28896,7 @@ const FACE_IMG={
 
 function makeCard(card,w,h,extraClass){
   extraClass=extraClass||'';
-  var red=isRed(card.suit), sym=SYM[card.suit], r=card.rank;
+  var red=isRed(card.suit), sym=SYM[card.suit], r=card.rank, sk=({spades:'s',hearts:'h',diamonds:'d',clubs:'c'})[card.suit]||'s';
   var isFace='JQK'.includes(r), INK=red?'#b21f2d':'#18201c';
   var cr=Math.round(w*.09), isSpecial=['7','8','J'].includes(r);
   var borderColor=isSpecial?'#c7a75d':'#c9c1b2', borderW=isSpecial?1.8:1;
@@ -28911,20 +28911,21 @@ function makeCard(card,w,h,extraClass){
   var center='';
   var clipId=uid+'_clip';
   if(isFace){
-    var fW=Math.round(w*.78), fH=Math.round(h*.78);
-    var fX=Math.round((w-fW)/2), fY=Math.round(h*.13);
+    var fW=Math.round(w*.84), fH=Math.round(h*.66);
+    var fX=Math.round((w-fW)/2), fY=Math.round(h*.17);
     center='<rect width="'+w+'" height="'+h+'" fill="#ffffff"/>'
-      +'<image href="'+FACE_IMG[r]+'" x="'+fX+'" y="'+fY+'" width="'+fW+'" height="'+fH+'" preserveAspectRatio="xMidYMin meet"/>';
+      +'<image href="assets/ui/court_'+r+'_'+sk+'.jpg" x="'+fX+'" y="'+fY+'" width="'+fW+'" height="'+fH+'" preserveAspectRatio="xMidYMid meet"/>';
   }else if(r==='A'){
     center='<circle cx="'+(w/2)+'" cy="'+(h/2)+'" r="'+Math.round(w*.26)+'" fill="'+(red?'#fff1ef':'#f1f3ee')+'" opacity=".72"/>'
-      +'<text x="'+(w/2)+'" y="'+(h/2)+'" text-anchor="middle" dominant-baseline="central" font-family="Georgia,serif" font-size="'+Math.round(h*.42)+'" fill="'+INK+'">'+sym+'</text>';
+      +'<image href="assets/ui/suit_'+sk+'.png" x="'+Math.round(w/2-h*.21)+'" y="'+Math.round(h/2-h*.21)+'" width="'+Math.round(h*.42)+'" height="'+Math.round(h*.42)+'" preserveAspectRatio="xMidYMid meet"/>';
   }else{
     var grid=PIPS[r]||[], pipFs=r==='10'?Math.round(h*.13):r==='9'?Math.round(h*.135):Math.round(h*.14);
     var insetX=Math.round(w*.12), insetT=badgeH+Math.round(h*.01), areaW=w-insetX*2, areaH=h-insetT*2;
     center=grid.map(function(pip){
       var cpx=(insetX+areaW*pip[0]/100).toFixed(1), cpy=(insetT+areaH*pip[1]/100).toFixed(1);
       var rot=pip[2]?' transform="rotate(180 '+cpx+' '+cpy+')"':'';
-      return '<text x="'+cpx+'" y="'+cpy+'" text-anchor="middle" dominant-baseline="central" font-family="Georgia,serif" font-size="'+pipFs+'" fill="'+INK+'"'+rot+'>'+sym+'</text>';
+      var ps=Math.round(pipFs*1.08);
+      return '<image href="assets/ui/suit_'+sk+'.png" x="'+(cpx-ps/2).toFixed(1)+'" y="'+(cpy-ps/2).toFixed(1)+'" width="'+ps+'" height="'+ps+'" preserveAspectRatio="xMidYMid meet"'+rot+'/>';
     }).join('');
   }
   return '<span class="v13-card-wrap" style="display:inline-block;line-height:0;filter:drop-shadow(0 3px 6px rgba(0,0,0,.25));">'
