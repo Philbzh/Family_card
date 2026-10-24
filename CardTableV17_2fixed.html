@@ -440,6 +440,9 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .pb-keys{margin-top:6px;font-size:.5rem;letter-spacing:.12em;color:rgba(244,235,208,.45);line-height:1.8;}
 .pb-fb{pointer-events:auto;touch-action:none;height:64px;border-radius:14px;margin-top:6px;background:linear-gradient(180deg,rgba(var(--pbr),.38),rgba(var(--pbr),.12));border:1.5px solid var(--pbc);color:#fff;font:700 .72rem 'Cinzel',serif;letter-spacing:.16em;cursor:pointer;box-shadow:0 0 14px rgba(var(--pbr),.3);-webkit-user-select:none;user-select:none;}
 .pb-fb:active{background:rgba(var(--pbr),.65);}
+.pb-diff{pointer-events:auto;font:700 .6rem 'Cinzel',serif;letter-spacing:.12em;padding:.45rem .3rem;border-radius:9px;background:rgba(var(--pbr),.12);border:1px solid rgba(var(--pbr),.45);color:var(--pbc);cursor:pointer;touch-action:none;}
+.pb-pot{font:700 .62rem 'Cinzel',serif;letter-spacing:.14em;color:#ffd96a;padding:.25rem .4rem;border-radius:7px;background:rgba(255,217,106,.08);border:1px solid rgba(255,217,106,.3);text-align:center;}
+.pb-watch .pb-diff{display:none;}
 .pb-watch .pb-fb,.pb-watch .pb-nud button{opacity:.28;pointer-events:none;}
 .pb-nud{display:flex;gap:6px;}
 .pb-nud button{flex:1;height:38px;border-radius:10px;background:linear-gradient(180deg,#2a313d,#12161d);border:1px solid rgba(190,200,215,.3);color:var(--pbc);font-size:1rem;cursor:pointer;touch-action:none;}
@@ -4867,6 +4870,7 @@ const GAMES=[
      '<b>The blue targets</b> on the right wall light the <b>JACKPOT</b>: shoot a ramp. <b>Roll all three top lanes</b> for a higher multiplier (up to ×5); a tap on a flipper moves the lit lanes. 25 bumper hits start <b>SUPER BUMPERS</b>. Shots that follow each other quickly build a <b>COMBO</b>.',
      '<b>Missions.</b> The panel at the right shows your mission (hit the bumpers, shoot the ramps, spin the spinner, knock down the <b>drop targets</b>...). Three missions finish a <b>level</b> (Workshop, Forge, Vault, Core): the table changes colour, jackpots grow and you win an <b>EXTRA BALL</b>. Right after the launch a flashing top lane is a <b>SKILL SHOT</b>.',
      '<b>The tunnels.</b> The two purple holes (left and right) swallow a ball and throw it out of the other one. Use <b>both within 15 seconds</b> and the next tunnel leads into the <b>SECRET ROOM</b>: it is a small <b>treasure vault</b> of its own with your flippers: 40 seconds, three wheels, a swinging blade and five gems. <b>Light all five gems</b> (each one pays more) to open the chest, then roll the ball into it for 150,000. A ball that drains comes back (three times).',
+     '<b>Assist and the pot.</b> The ASSIST button at the left sets the help: <b>EASY</b> for the little ones (a slower ball, a long ball save, both kickbacks lit and a hint on the table about what to shoot), <b>NORMAL</b>, or <b>EXPERT</b>. Every bumper hit of every player feeds the shared <b>POT</b>: the next jackpot, whoever hits it, takes the whole pot.',
      '<b>The second secret room.</b> Ride an orbit and fall into a tunnel <b>within 8 seconds</b>: the next tunnel leads to the <b>CLOCK ROOM</b>. Shoot the twelve hours <b>in order, 1 to 12</b>, before the hands and the pendulum throw the ball away: each hour pays more, and midnight pays 250,000. 45 seconds, three ball returns.',
      '<b>The orbit and the magnet.</b> Shoot the ball up the left side and it can run <b>round the top</b> of the table: three orbits light the jackpot. Every 12 bumper hits <b>charge the magnet</b> in the middle of the table: it catches the ball, and you choose the shot with the flippers: <b>left</b> for the left ramp, <b>right</b> for the right ramp, <b>both</b> for the vault.',
      '<b>Bosses and the wizard.</b> The third mission of a level calls a <b>BOSS</b>: bumpers, targets, ramps, the vault and the drop bank hurt it, and its life shows as a ring around the vault and a bar at the top. Beat it for a big prize, the next level and an extra ball. After the last boss comes the <b>WIZARD MODE</b>: 45 seconds, three balls, every shot ×3 and every ramp a huge jackpot.',
@@ -10609,15 +10613,15 @@ function pbNew(){pbResetTable();
   const players=fgPlayersFor(4),n=players.length;
   const g={live:true,kind:'pinball',n,players,st:players.map(()=>pbPlayerState()),turn:0,phase:'intro',pt:0,t:0,balls:[],fl:{L:{th:PB_FL.L.rest,w:0,on:false},R:{th:PB_FL.R.rest,w:0,on:false},U:{th:PB_FL.U.rest,w:0,on:false}},
     saveT:0,tilt:0,tilted:false,combo:0,comboT:0,multi:false,mbQueue:0,mbT:0,jackBest:0,cv:null,raf:0,scale:0,statik:null,last:0,acc:0,palLvl:0,skillT:0,dropReset:0,
-    fx:{parts:[],rings:[],pops:[],seq:[],banners:[],shake:0,flash:0,glow:0,sx:0,sy:0,zoom:0,show:null},room:null,wiz:null,freeze:0,slow:0,catchUp:false,bk:-1,endTot:3.2,lit:{},stats:{start:Date.now(),multis:0,jackpots:0,secrets:0,missions:0,levels:0},moment:'',ended:false,drainT:0,over:false,hint:true,sounds:true,nudgeCool:0,endT:0,bonusShow:null};
-  pbNetInit(g);
+    diff:pbDiffPref(),pot:0,fx:{parts:[],rings:[],pops:[],seq:[],banners:[],shake:0,flash:0,glow:0,sx:0,sy:0,zoom:0,show:null},room:null,wiz:null,freeze:0,slow:0,catchUp:false,bk:-1,endTot:3.2,lit:{},stats:{start:Date.now(),multis:0,jackpots:0,secrets:0,missions:0,levels:0},moment:'',ended:false,drainT:0,over:false,hint:true,sounds:true,nudgeCool:0,endT:0,bonusShow:null};
+  pbApplyDiff(g);pbNetInit(g);
   pbNewBall(g);
   return g;
 }
 function pbNewBall(g){
   g.balls=[{x:PB.LX,y:PB.H-79,vx:0,vy:0,st:'plunger',id:++pbBid,stuck:0,tr:[]}];g.saveT=0;g.tilt=0;g.tilted=false;g.multi=false;g.mbQueue=0;g.combo=0;g.comboT=0;g.bonusShow=null;g.skillT=0;g.dropReset=0;g.noSave=false;
   for(const d of PB_T.drops)d.down=false;
-  const st=g.st[g.turn];if(st){st.secret=false;st.secret2=false;st.kick=[st.kick[0]||!st.kick[1],st.kick[1]];st.lanes=[0,0,0];st.superT=0;}g.nudges=0;
+  const st=g.st[g.turn];if(st){st.secret=false;st.secret2=false;st.kick=g.easyKick?[true,true]:[st.kick[0]||!st.kick[1],st.kick[1]];st.lanes=[0,0,0];st.superT=0;}g.nudges=0;
 }
 let pbBid=0;
 // ── the physics ──
@@ -10640,7 +10644,7 @@ function pbAdvance(g,dt){
     for(const k of ['L','R','U']){const f=g.fl[k],F=PB_FL[k],up=(k==='U'?g.fl.R.on:f.on)&&!g.tilted&&g.phase==='play',tgt=up?F.act:F.rest,sp=up?24:15,d=tgt-f.th,step=Math.sign(d)*Math.min(Math.abs(d),sp*h);f.th+=step;f.w=step/h;}
     for(const b of g.balls){
       if(b.st==='plunger'||b.st==='ramp'||b.st==='lock'||b.st==='gone'||b.st==='tunnel'||b.st==='room'||b.st==='mag')continue;
-      b.py=b.y;b.vy+=PB.G*h;b.x+=b.vx*h;b.y+=b.vy*h;
+      b.py=b.y;b.vy+=PB.G*(g.gs||1)*h;b.x+=b.vx*h;b.y+=b.vy*h;
       const sp=Math.hypot(b.vx,b.vy);if(sp>PB.MAXV){b.vx*=PB.MAXV/sp;b.vy*=PB.MAXV/sp;}
       pbCollide(g,b,h);
     }
@@ -10759,6 +10763,13 @@ function pbRing(g,x,y,col,r1){pbNetEv(g,['r',Math.round(x),Math.round(y),col,r1|
 function pbPts(g,n,o){const st=g.st[g.turn],m=o&&o.flat?1:st.mult,c=o&&o.combo?Math.max(1,Math.min(5,g.combo)):1,v=Math.round(n*m*c*(g.wiz?3:1));st.score+=v;st.bonus+=Math.round(n*.05);return v;}
 function pbShot(g){if(g.t-g.comboT<5)g.combo++;else g.combo=1;g.comboT=g.t;if(g.combo>=2){const n=Math.min(5,g.combo);pbSay(g,['','','DOUBLE','TRIPLE','QUAD','MAXIMUM'][n],'COMBO ×'+n,['','','#F4EBD0','#ffd96a','#ff8a3a','#ff4a6a'][n],900);PBS.combo(n);}}
 for(const k of Object.keys(PBS)){const f=PBS[k];if(typeof f!=='function')continue;PBS[k]=function(){const g=G.pb,rec=g&&g.net&&g.net.act&&!g.net.rep&&!PBS._d;PBS._d=(PBS._d||0)+1;try{if(rec)pbNetEv(g,['s',k].concat(Array.prototype.slice.call(arguments).map(v=>typeof v==='boolean'?(v?1:0):v).filter(v=>typeof v==='number')));return f.apply(this,arguments);}finally{PBS._d--;}};}
+const PB_DIFF={easy:{n:'EASY',gs:.85,save:18,tilt:12.6,kick:true,hint:true},normal:{n:'NORMAL',gs:1,save:9,tilt:9,kick:false,hint:false},expert:{n:'EXPERT',gs:1.08,save:5,tilt:7.2,kick:false,hint:false}};
+function pbDiffPref(){try{const v=localStorage.getItem('ct_pb_diff');return PB_DIFF[v]?v:'normal';}catch(e){return'normal';}}
+function pbApplyDiff(g){const d=PB_DIFF[g.diff]||PB_DIFF.normal;g.gs=d.gs;g.saveMax=d.save;g.tiltMax=d.tilt;g.easyKick=d.kick;g.hintOn=d.hint;}
+function pbHintText(g,st){
+  if(st.boss)return'SHOOT EVERYTHING · HURT THE BOSS';if(g.multi||g.wiz)return'SHOOT THE RAMPS';if(st.magOn)return'ROLL OVER THE MAGNET';if(st.lockLit)return'SHOOT THE VAULT';if(st.jackLit)return'SHOOT A RAMP FOR THE JACKPOT';
+  return pbMission(st).d.toUpperCase();
+}
 function pbReduced(){try{return window.matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){return false;}}
 const PB_LAMPS=[[180,150],[236,150],[292,150],[40,496],[40,546],[40,596],[432,416],[432,466],[432,516],[210,292],[236,297],[262,292],[38,806],[434,806],[216,116],[236,116],[256,116],[96,372],[96,358],[96,344],[378,378],[378,364],[378,350],[236,262],[236,812]].sort((a,b)=>b[1]-a[1]);
 function pbChase(g,col){pbNetEv(g,['c',col]);g.fx.seq.push({t:g.t,col});if(g.fx.seq.length>3)g.fx.seq.shift();}
@@ -10795,7 +10806,7 @@ function pbEvent0(g,ev,d){
   const st=g.st[g.turn],b=d.b;
   switch(ev){
     case'flip':g.skillT=0;if(d.swing)PBS.flip();break;
-    case'bumper':st.bumps++;pbPts(g,100);PBS.bumper();haptic(8);g.fx.shake=Math.max(g.fx.shake,1.2);pbSpark(g,d.bm.x,d.bm.y,'#ffd27a',7);pbMis(g,'bump');pbBoss(g,1);st.magN++;if(st.magN%12===0&&!st.magOn){st.magOn=true;pbSay(g,'MAGNET READY','roll over the middle of the table','#7fd7ff',1800);PBS.lit();}
+    case'bumper':st.bumps++;pbPts(g,100);PBS.bumper();haptic(8);g.fx.shake=Math.max(g.fx.shake,1.2);pbSpark(g,d.bm.x,d.bm.y,'#ffd27a',7);pbMis(g,'bump');pbBoss(g,1);g.pot=(g.pot||0)+25;st.magN++;if(st.magN%12===0&&!st.magOn){st.magOn=true;pbSay(g,'MAGNET READY','roll over the middle of the table','#7fd7ff',1800);PBS.lit();}
       if(st.superT>0)pbPts(g,400);
       if(st.bumps%25===0){st.superT=14;pbSay(g,'SUPER BUMPERS','500 each for 14 seconds','#ffb347',1500);PBS.lit();}
       break;
@@ -10839,7 +10850,7 @@ function pbEvent0(g,ev,d){
       break;}
     case'ramp':{const r=d.r;b.st='ramp';b.rp={r,t:0,dur:.95};b.vx=b.vy=0;PBS.ramp();break;}
     case'rampDone':{st.rampN++;pbShot(g);pbMis(g,'ramp');pbBoss(g,16);haptic([10,20,10]);const jp=st.jackLit||g.multi||!!g.wiz;
-      if(jp){const v=Math.round((g.wiz?100000:g.multi?50000:25000)*(1+Math.min(3,st.lvl)*.5)*Math.min(3,Math.max(1,g.combo)));st.score+=v;g.stats.jackpots++;g.jackBest=Math.max(g.jackBest,v);st.best=Math.max(st.best,v);
+      if(jp){const v=Math.round((g.wiz?100000:g.multi?50000:25000)*(1+Math.min(3,st.lvl)*.5)*Math.min(3,Math.max(1,g.combo)));st.score+=v;if(g.pot>0){const pt=Math.round(g.pot);st.score+=pt;pbPop(g,d.b.x,d.b.y-34,'POT +'+pt.toLocaleString(),true);g.pot=0;}g.stats.jackpots++;g.jackBest=Math.max(g.jackBest,v);st.best=Math.max(st.best,v);
         pbSay(g,'JACKPOT','+'+v.toLocaleString(),'#ffd96a',1800);pbShow(g,'JACKPOT','+'+v.toLocaleString(),'#ffd96a');PBS.jackpot();g.freeze=.07;pbChase(g,'#ffd96a');haptic([30,30,60,30,120]);g.fx.flash=.9;g.fx.shake=8;pbSpark(g,d.b.x,d.b.y,'#ffe08a',40);[0,120,240].forEach((dl,i)=>setTimeout(()=>{if(G.pb===g)pbRing(g,d.b.x,d.b.y,'#ffd96a',200+i*120);},dl));if(!g.multi)st.jackLit=false;
         if(!g.moment)g.moment=g.players[g.turn].name+' hit a jackpot of '+v.toLocaleString()+'.';
       }else{const v=pbPts(g,1500,{combo:1});pbSay(g,'RAMP','+'+v.toLocaleString(),'#F4EBD0',700);}
@@ -10858,7 +10869,7 @@ function pbMagRelease(g,b){const both=g.fl.L.on&&g.fl.R.on,side=b.mag.press?b.ma
 // ── the plunger and the nudge ──
 function pbLaunch(g){
   const b=g.balls.find(q=>q.st==='plunger');if(!b||g.phase!=='play')return false;
-  b.st='play';b.vy=-1560-Math.random()*40;b.vx=0;g.saveT=g.noSave?0:9+(g.catchUp?6:0);g.noSave=false;g.hint=false;g.skillT=4.2;PBS.launch();haptic([14,30,6]);pbSpark(g,PB.LX,PB.H-79,'#ffd96a',12);pbRing(g,PB.LX,PB.H-79,'#ffd96a',70);g.fx.sy=6;return true;
+  b.st='play';b.vy=-1560-Math.random()*40;b.vx=0;g.saveT=g.noSave?0:(g.saveMax||9)+(g.catchUp?6:0);g.noSave=false;g.hint=false;g.skillT=4.2;PBS.launch();haptic([14,30,6]);pbSpark(g,PB.LX,PB.H-79,'#ffd96a',12);pbRing(g,PB.LX,PB.H-79,'#ffd96a',70);g.fx.sy=6;return true;
 }
 // a nudge shoves the table, so the ball is thrown sideways or lifted a little, never pushed down
 function pbNudge(g,dx){
@@ -10867,8 +10878,8 @@ function pbNudge(g,dx){
   g.nudgeCool=.3;
   for(const b of live){if(dx){b.vx+=dx*125;b.vy-=45;}else{b.vy-=105;b.vx+=(Math.random()-.5)*40;}}
   g.fx.shake=Math.max(g.fx.shake,3);g.fx.sx=(dx||0)*5;g.fx.sy=dx?2:-6;PBS.wall(.9);haptic(14);
-  g.tilt+=(g.nudges++<2?1.3:2.1);if(g.tilt>=5.5&&g.tilt<9&&!g.warned){g.warned=true;pbSay(g,'CAREFUL','the table is shaking','#ff9a7a',1100);PBS.warn();haptic([25,40,25]);}
-  if(g.tilt>=9){g.tilted=true;g.st[g.turn].bonus=0;pbSay(g,'TILT','the flippers are off','#ff6a55',2000);PBS.tilt();haptic([60,40,60,40,100]);}
+  g.tilt+=(g.nudges++<2?1.3:2.1);if(g.tilt>=(g.tiltMax||9)*.6&&g.tilt<(g.tiltMax||9)&&!g.warned){g.warned=true;pbSay(g,'CAREFUL','the table is shaking','#ff9a7a',1100);PBS.warn();haptic([25,40,25]);}
+  if(g.tilt>=(g.tiltMax||9)){g.tilted=true;g.st[g.turn].bonus=0;pbSay(g,'TILT','the flippers are off','#ff6a55',2000);PBS.tilt();haptic([60,40,60,40,100]);}
 }
 // ── Pinball online: the device whose turn it is plays the ball, the others watch the same table, with sounds and effects ──
 const PB_NET_ST=['score','ball','done','lanes','mult','forge','forgeOn','work','locks','lockLit','bumps','superT','rampN','jackLit','bonus','best','mb','lvl','mi','mp','mc','extra','kick','banks','spins','boss','secret','secret2','orbitT','lastPortal','orbitN','magN','magOn'];
@@ -10891,7 +10902,7 @@ function pbSane(v,d){
 function pbNetSnap(g){
   const N=g.net,code={play:'p',plunger:'u',ramp:'r',lock:'l',tunnel:'t',room:'o',mag:'m',gone:'g'};
   const m={k:'st',id:N.id,seat:N.seat,i:++N.seq,
-    s:{turn:g.turn,phase:g.phase,t:g.t,pt:g.pt,combo:g.combo,multi:g.multi,saveT:g.saveT,tilt:g.tilt,tilted:g.tilted,skillT:g.skillT,endT:g.endT,endTot:g.endTot,jb:g.jackBest},
+    s:{turn:g.turn,phase:g.phase,t:g.t,pt:g.pt,combo:g.combo,multi:g.multi,saveT:g.saveT,tilt:g.tilt,tilted:g.tilted,skillT:g.skillT,endT:g.endT,endTot:g.endTot,jb:g.jackBest,pot:g.pot},
     st:g.st.map(q=>{const o={};for(const k of PB_NET_ST)o[k]=q[k];return o;}),
     b:g.balls.map(b=>[b.x,b.y,b.vx,b.vy,code[b.st]||'p']),
     fl:['L','R','U'].map(k=>[g.fl[k].th,g.fl[k].on?1:0]),
@@ -10918,7 +10929,7 @@ function pbNetApply(g,m){
   if(m.i<=N.lastI&&N.lastI-m.i<500)return false;
   const S=pbSane(m.s);if(!S||!Number.isInteger(S.turn)||S.turn<0||S.turn>=g.n||!['intro','play','bonus','over'].includes(S.phase))return false;
   N.lastI=m.i;N.seq=Math.max(N.seq,m.i);N.got=true;N.since=0;
-  g.turn=S.turn;g.phase=S.phase;g.t=+S.t||0;g.pt=+S.pt||0;g.combo=+S.combo||0;g.multi=!!S.multi;g.saveT=+S.saveT||0;g.tilt=+S.tilt||0;g.tilted=!!S.tilted;g.skillT=+S.skillT||0;g.endT=+S.endT||0;g.endTot=+S.endTot||3.4;g.jackBest=+S.jb||0;
+  g.turn=S.turn;g.phase=S.phase;g.t=+S.t||0;g.pt=+S.pt||0;g.combo=+S.combo||0;g.multi=!!S.multi;g.saveT=+S.saveT||0;g.tilt=+S.tilt||0;g.tilted=!!S.tilted;g.skillT=+S.skillT||0;g.endT=+S.endT||0;g.endTot=+S.endTot||3.4;g.jackBest=+S.jb||0;g.pot=+S.pot||0;
   const A=pbSane(m.st);if(Array.isArray(A))A.slice(0,g.n).forEach((q,i)=>{if(q&&typeof q==='object')for(const k of PB_NET_ST)if(k in q)g.st[i][k]=q[k];});
   const dec={p:'play',u:'plunger',r:'ramp',l:'lock',t:'tunnel',o:'room',m:'mag',g:'gone'},B=pbSane(m.b);
   if(Array.isArray(B)){const old=g.balls;g.balls=B.slice(0,8).filter(a=>Array.isArray(a)).map((a,i)=>{const o=old[i],tr=(o&&o.tr)||[],st=dec[a[4]]||'play';if(st==='play'){tr.push([a[0],a[1]]);if(tr.length>9)tr.shift();}else tr.length=0;return{x:+a[0]||0,y:+a[1]||0,vx:+a[2]||0,vy:+a[3]||0,st,id:i,stuck:0,tr};});}
@@ -11418,6 +11429,7 @@ function pbDraw(g,now){
   if(g.fx.show){const sh=g.fx.show,u=(performance.now()-sh.t0)/sh.ms;if(u>=1)g.fx.show=null;else{
     x.save();x.globalCompositeOperation='lighter';x.translate(236,430);x.rotate(t*.6);x.globalAlpha=Math.max(0,(u<.15?u/.15:1-Math.max(0,(u-.55)/.45))*.26);x.fillStyle=sh.col;for(let i=0;i<14;i++){x.rotate(Math.PI/7);x.beginPath();x.moveTo(0,0);x.lineTo(900,-60);x.lineTo(900,60);x.closePath();x.fill();}x.restore();
     const a=u<.12?u/.12:u>.7?Math.max(0,1-(u-.7)/.3):1,s2=1+.5*Math.max(0,1-u*7);x.save();x.translate(236,330);x.scale(s2,s2);x.globalAlpha=a*.95;x.textAlign='center';x.font='700 36px Cinzel, Georgia, serif';x.fillStyle='#ffffff';x.shadowColor=sh.col;x.shadowBlur=24;x.fillText(sh.text,0,0);x.shadowBlur=0;x.font='600 15px Jost, sans-serif';x.fillStyle=sh.col;x.fillText(sh.sub,0,26);x.restore();}}
+  if(g.hintOn&&g.phase==='play'&&!g.room&&!g.balls.some(b=>b.st==='plunger')){const tx=pbHintText(g,st);x.save();x.font='700 11px Cinzel, Georgia, serif';x.textAlign='center';const w=Math.min(380,x.measureText(tx).width+30);x.globalAlpha=.8;x.fillStyle='rgba(6,10,14,.7)';pbRR(x,236-w/2,934,w,22,11);x.fill();x.strokeStyle='rgba('+P.r+',.6)';x.lineWidth=1.2;x.stroke();x.fillStyle='#F4EBD0';x.fillText(tx,236,949);x.restore();}
   // the first ball: where to tap
   if(g.hint&&g.phase==='play'){x.save();const al=.55+.3*Math.sin(t*4);
     x.globalAlpha=.1+.05*Math.sin(t*4);x.fillStyle=P.c;x.fillRect(20,640,214,240);x.fillRect(238,640,214,240);x.globalAlpha=al;x.textAlign='center';x.fillStyle='#F4EBD0';x.font='700 13px Cinzel, Georgia, serif';x.fillText('HOLD',127,760);x.fillText('HOLD',345,760);x.font='600 11px Jost, sans-serif';x.fillText('LEFT FLIPPER',127,778);x.fillText('RIGHT FLIPPER',345,778);
@@ -11449,6 +11461,7 @@ function rPinballTable(){
       <div class="ah-stage pb-stage" id="pb-stage">
         <div class="pb-side pb-left" id="pb-left">${players.map((p,i)=>`<div class="pb-pl" id="pb-pl${i}"><span class="ah-av">${p.avatar?avHTML(p.avatar):''}</span><b class="pb-nm">${esc((p.name||'').slice(0,12))}</b><b class="pb-sc" id="pb-sc${i}">0</b><i class="pb-bl" id="pb-bl${i}">BALL 1</i></div>`).join('')}
           <div class="pb-sp"></div>
+          <button class="pb-diff" id="pb-diff" data-a="pbdiff">ASSIST · NORMAL</button>
           <div class="pb-nud"><button data-nudge="-1" aria-label="Nudge left">◀</button><button data-nudge="0" aria-label="Nudge up">▲</button><button data-nudge="1" aria-label="Nudge right">▶</button></div>
           <button class="pb-fb" data-flip="L" aria-label="Left flipper"><b>◀</b><small>FLIPPER</small></button></div>
         <div class="pb-mid" id="pb-mid"><canvas id="pb-cv" class="ah-cv" aria-label="Pinball machine"></canvas></div>
@@ -11457,7 +11470,7 @@ function rPinballTable(){
           <div class="pb-ms"><div class="pb-h" id="pb-mt">MISSION 1 / 3</div><b id="pb-mn">BUMPER BASH</b><span id="pb-md"></span><div class="pb-bar pb-mb"><i id="pb-mp"></i></div><em id="pb-mc">0 / 15</em></div>
           <div class="pb-hide"><div class="pb-row" id="pb-forge">${dot('f0')}${dot('f1')}${dot('f2')}</div><div class="pb-row" id="pb-locks">${dot('l0')}${dot('l1')}${dot('l2')}</div><div class="pb-row" id="pb-lanes">${dot('a0')}${dot('a1')}${dot('a2')}</div></div>
           <div class="pb-two"><div><div class="pb-h">MULTIPLIER</div><div class="pb-big" id="pb-mult">×1</div></div><div><div class="pb-h">COMBO</div><div class="pb-big" id="pb-combo">–</div></div></div>
-          <div class="pb-tag" id="pb-mag">MAGNET READY</div><div class="pb-tag" id="pb-extra">EXTRA BALL</div><div class="pb-tag" id="pb-jack">JACKPOT LIT</div><div class="pb-tag" id="pb-super">SUPER BUMPERS</div><div class="pb-tag" id="pb-multi">MULTIBALL</div>
+          <div class="pb-pot" id="pb-pot">POT 0</div><div class="pb-tag" id="pb-mag">MAGNET READY</div><div class="pb-tag" id="pb-extra">EXTRA BALL</div><div class="pb-tag" id="pb-jack">JACKPOT LIT</div><div class="pb-tag" id="pb-super">SUPER BUMPERS</div><div class="pb-tag" id="pb-multi">MULTIBALL</div>
           <div class="pb-bar"><i id="pb-tilt"></i></div>
           <div class="pb-sp"></div>
           <button class="pb-fb" data-flip="R" aria-label="Right flipper"><b>▶</b><small>FLIPPER</small></button>
@@ -11534,9 +11547,10 @@ function pbHud(g){
   set('pb-lvl',P.n+(st.lvl>3?' · '+(st.lvl-2):''));{let mt='MISSION '+(st.mi+1)+' / 3',mn=m.n,mc=st.mp+' / '+m.need,mw=Math.min(100,st.mp/m.need*100);if(st.boss){mt='BOSS FIGHT';mn=PB_BOSS[st.boss.i];mc=Math.ceil(st.boss.hp/st.boss.max*100)+'%';mw=st.boss.hp/st.boss.max*100;}if(g.wiz){mt='WIZARD MODE';mn='ALL SHOTS ×3';mc=Math.ceil(g.wiz.t)+' s';mw=g.wiz.t/g.wiz.max*100;}if(g.room){const ck=g.room.kind==='clock';mt=ck?'SECRET ROOM II':'SECRET ROOM';mn=ck?'THE CLOCK ROOM':'TREASURE VAULT';mc=ck?(g.room.next-1)+' of 12 hours':g.room.gems+' of 5 gems';mw=Math.max(0,g.room.left/g.room.max*100);}g._mw=mw;set('pb-mt',mt);set('pb-mn',mn);set('pb-mc',mc);}set('pb-md',m.k==='lock'&&!st.lockLit?'Light the 3 orange targets, then roll into the vault':m.d);
   const mp=document.getElementById('pb-mp');if(mp){const w=Math.min(100,g._mw||0)+'%';if(mp._w!==w){mp._w=w;mp.style.width=w;}}
   r.querySelectorAll('.pb-d').forEach(el=>{const k=el.dataset.k,i=+k[1];let on=false;if(k[0]==='f')on=!!st.forge[i]||st.forgeOn;else if(k[0]==='l')on=st.locks>i;else on=!!st.lanes[i];if(el._o!==on){el._o=on;el.classList.toggle('on',on);}});
+  set('pb-diff','ASSIST · '+(PB_DIFF[g.diff]||PB_DIFF.normal).n);set('pb-pot','POT '+Math.round(g.pot||0).toLocaleString());
   set('pb-mult','×'+st.mult);set('pb-combo',g.combo>=2?'×'+Math.min(5,g.combo):'–');
   cls('pb-jack',st.jackLit||g.multi);cls('pb-super',st.superT>0);cls('pb-multi',g.multi);cls('pb-extra',st.extra>0);cls('pb-mag',st.magOn);
-  const tl=document.getElementById('pb-tilt');if(tl){const w=Math.min(100,g.tilt*11.1)+'%';if(tl._w!==w){tl._w=w;tl.style.width=w;}}
+  const tl=document.getElementById('pb-tilt');if(tl){const w=Math.min(100,g.tilt/(g.tiltMax||9)*100)+'%';if(tl._w!==w){tl._w=w;tl.style.width=w;}}
   {const stg2=document.getElementById('pb-stage');if(stg2){const w=pbNetWatch(g);if(stg2._w!==w){stg2._w=w;stg2.classList.toggle('pb-watch',w);}}}
   set('pb-status',pbNetWatch(g)?g.players[g.turn].name+' is playing · you are watching':g.phase==='bonus'?'Ball over':g.tilted?'TILT':g.balls.some(b=>b.st==='plunger')&&g.phase==='play'?g.players[g.turn].name+' · tap to launch':g.multi?'MULTIBALL':g.players[g.turn].name+' · ball '+Math.min(3,st.ball));
 }
@@ -33597,6 +33611,7 @@ document.addEventListener('click',e=>{
   else if(a==='tour-close'){tourClose();}
   else if(a==='tour-noop'){if(e.target===t)tourClose();}
   else if(a==='close-rules'){G.rulesOpen=false;render();}
+  else if(a==='pbdiff'){const g=G.pb;if(g){const ks=Object.keys(PB_DIFF);g.diff=ks[(ks.indexOf(g.diff)+1)%ks.length];try{localStorage.setItem('ct_pb_diff',g.diff);}catch(e){}pbApplyDiff(g);toast('Pinball assist: '+PB_DIFF[g.diff].n.toLowerCase()+(g.diff==='easy'?' · slower ball, longer ball save, a hint':g.diff==='expert'?' · faster ball, short ball save':''));}}
   else if(a==='pbhof'){G.pbHof=true;render();}
   else if(a==='close-pbhof'){G.pbHof=false;render();}
   else if(a==='quit-ask'){G.quitOpen=true;render();}

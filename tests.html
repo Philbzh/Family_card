@@ -5884,6 +5884,18 @@ async function runPresentation(A,W,frame){
           check('pinball is playable online and uses the arcade result flow',F('ONLINE_GAMES').includes('pinball')&&F('ahIs')('pinball'));}
          finally{W.eval('onSrv=window.__o[0];window.__cap=null');g0.roomId=rid;}}
        }finally{g0.srv=sv[0];g0.myPid=sv[1];g0.isOnline=sv[2];g0.pb=sv[3];}}
+      // the family assist and the shared pot
+      {const old=W.localStorage.getItem('ct_pb_diff');
+       try{W.localStorage.setItem('ct_pb_diff','easy');const E=F('pbNew')();W.localStorage.setItem('ct_pb_diff','expert');const X=F('pbNew')();W.localStorage.removeItem('ct_pb_diff');const N0=F('pbNew')();
+        check('assist easy: a slower ball, a longer ball save, a looser tilt, both kickbacks and a hint',E.gs<1&&E.saveMax>N0.saveMax&&E.tiltMax>N0.tiltMax&&E.st[0].kick[0]&&E.st[0].kick[1]&&E.hintOn);
+        check('assist expert: a faster ball, a short ball save, a stricter tilt',X.gs>1&&X.saveMax<N0.saveMax&&X.tiltMax<N0.tiltMax&&!X.hintOn);
+        check('normal is the default',N0.gs===1&&N0.saveMax===9&&N0.tiltMax===9&&N0.diff==='normal');
+        const sx=F('pbHintText')(E,E.st[0]);check('the hint says what to shoot',typeof sx==='string'&&sx.length>3);
+        N0.phase='play';N0.pot=0;for(let i=0;i<10;i++)F('pbEvent')(N0,'bumper',{bm:F('PB_T').bumpers[0],b:{x:0,y:0}});
+        check('every bumper hit feeds the shared pot',N0.pot===250);
+        N0.st[0].jackLit=true;const sc0=N0.st[0].score;F('pbEvent')(N0,'rampDone',{b:{x:300,y:200},r:F('PB_T').ramps[0]});
+        check('the next jackpot takes the pot and empties it',N0.pot===0&&N0.st[0].score-sc0>=25000+250);
+       }finally{if(old===null)W.localStorage.removeItem('ct_pb_diff');else W.localStorage.setItem('ct_pb_diff',old);}}
       // the hall of fame
       {const old=W.localStorage.getItem('ct_pb_hof');W.localStorage.removeItem('ct_pb_hof');
        F('pbHofAdd')([{n:'ZoeTest',s:5000,d:'2026-10-01T10:00:00.000Z'},{n:'MaxTest',s:9000,d:'2026-10-02T10:00:00.000Z',lv:2,bj:50000},{n:'ZoeTest',s:5000,d:'2026-10-01T10:00:00.000Z'}]);
