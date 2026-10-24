@@ -5829,6 +5829,25 @@ async function runPresentation(A,W,frame){
        const w0=stt.score;F('pbPts')(p,1000,{flat:1});check('wizard points are tripled',stt.score-w0===3000);
        p.wiz.t=.01;p.slow=0;p.freeze=0;F('pbStep')(p,1/60);check('the wizard mode ends when its 45 seconds are over',!p.wiz);
        F('PBS').peg();F('PBS').bumper();p.phase='play';p.tilt=0;p.tilted=false;p.wiz=null;p.multi=false;p.mbQueue=0;p.slow=0;p.freeze=0;p.balls=[nb];p.tilt=6.3;}
+      // a ball that falls back into the launch lane can be launched again
+      {p.phase='play';p.tilted=false;p.slow=0;p.freeze=0;F('pbResetTable')();const fb={x:467,y:700,vx:0,vy:200,st:'play',id:9300,stuck:0,tr:[]};p.balls=[fb];p.saveT=99;p.noSave=false;for(let i=0;i<20;i++)F('pbStep')(p,1/60);
+       check('a ball that falls back into the launch lane is put on the plunger again',fb.st==='plunger');
+       p.fl.L.on=false;F('pbSetFlip')(p,'L',true);for(let i=0;i<10;i++)F('pbStep')(p,1/60);p.fl.L.on=false;
+       check('and a flipper tap launches it again',fb.st==='play'&&fb.vy<-800);
+       const gb={x:462,y:225,vx:0,vy:0,st:'play',id:9301,stuck:0,tr:[]};p.balls=[gb];let leak=false;for(let i=0;i<60*8;i++){F('pbStep')(p,1/60);if(gb.st==='plunger'){leak=true;break;}}
+       check('a slow ball on the gate flap never drops through it into the launch lane',!leak);p.balls=[nb];}
+      // the orbit and the magnet
+      {p.phase='play';p.tilted=false;p.room=null;p.skillT=0;p.slow=0;p.freeze=0;stt.boss=null;F('pbResetTable')();const OB=F('PB_T').orbits,ob={x:0,y:0,vx:0,vy:0,st:'play',id:9200,stuck:0,tr:[]};p.balls=[ob];stt.orbitN=0;p.orbPass=null;
+       F('pbEvent')(p,'orbitPass',{o:OB[0],b:ob});check('one side of the orbit alone is no orbit',stt.orbitN===0);
+       p.t+=.5;F('pbEvent')(p,'orbitPass',{o:OB[1],b:ob});check('left then right sensor within a moment counts as an orbit',stt.orbitN===1);
+       p.skillT=3;F('pbEvent')(p,'orbitPass',{o:OB[0],b:ob});p.t+=.5;F('pbEvent')(p,'orbitPass',{o:OB[1],b:ob});check('the launch round the top is not counted as an orbit',stt.orbitN===1);p.skillT=0;
+       stt.orbitN=2;p.orbPass=null;F('pbEvent')(p,'orbitPass',{o:OB[1],b:ob});p.t+=.5;F('pbEvent')(p,'orbitPass',{o:OB[0],b:ob});check('three orbits light the jackpot',stt.orbitN===3&&stt.jackLit===true);
+       stt.magOn=true;p.magT=-9;const mb={x:236,y:520,vx:0,vy:80,st:'play',id:9201,stuck:0,tr:[]};p.balls=[mb];for(let i=0;i<40;i++)F('pbStep')(p,1/60);
+       check('a charged magnet catches a ball that rolls over the middle of the table',mb.st==='mag'&&stt.magOn===false);
+       p.fl.L.on=false;p.fl.R.on=false;F('pbSetFlip')(p,'L',true);for(let i=0;i<12;i++)F('pbStep')(p,1/60);
+       check('the left flipper lets the ball go towards the left ramp',mb.st==='play'&&mb.vx<-300&&mb.vy<-500);
+       p.fl.L.on=false;p.fl.R.on=false;const nbm=stt.magN;for(let i=0;i<12;i++)F('pbEvent')(p,'bumper',{bm:F('PB_T').bumpers[0],b:{x:0,y:0}});check('twelve bumper hits charge the magnet',stt.magOn===true&&stt.magN===nbm+12);
+       stt.boss=null;p.phase='play';p.tilt=6.3;p.balls=[nb];}
       check('a few nudges are allowed, only many in a row tilt the table',!p.tilted);
       for(let i=0;i<4;i++){p.nudgeCool=0;F('pbNudge')(p,-1);}
       check('too many nudges in a row tilt it',p.tilted===true);

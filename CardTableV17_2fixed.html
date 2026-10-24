@@ -4851,6 +4851,7 @@ const GAMES=[
      '<b>The blue targets</b> on the right wall light the <b>JACKPOT</b>: shoot a ramp. <b>Roll all three top lanes</b> for a higher multiplier (up to ×5); a tap on a flipper moves the lit lanes. 25 bumper hits start <b>SUPER BUMPERS</b>. Shots that follow each other quickly build a <b>COMBO</b>.',
      '<b>Missions.</b> The panel at the right shows your mission (hit the bumpers, shoot the ramps, spin the spinner, knock down the <b>drop targets</b>...). Three missions finish a <b>level</b> (Workshop, Forge, Vault, Core): the table changes colour, jackpots grow and you win an <b>EXTRA BALL</b>. Right after the launch a flashing top lane is a <b>SKILL SHOT</b>.',
      '<b>The tunnels.</b> The two purple holes (left and right) swallow a ball and throw it out of the other one. Use <b>both within 15 seconds</b> and the next tunnel leads into the <b>SECRET ROOM</b>: a ball falls through a field of pegs into a prize slot (up to 100,000). <b>Nudge left or right</b> to steer it.',
+     '<b>The orbit and the magnet.</b> Shoot the ball up the left side and it can run <b>round the top</b> of the table: three orbits light the jackpot. Every 12 bumper hits <b>charge the magnet</b> in the middle of the table: it catches the ball, and you choose the shot with the flippers: <b>left</b> for the left ramp, <b>right</b> for the right ramp, <b>both</b> for the vault.',
      '<b>Bosses and the wizard.</b> The third mission of a level calls a <b>BOSS</b>: bumpers, targets, ramps, the vault and the drop bank hurt it, and its life shows as a ring around the vault and a bar at the top. Beat it for a big prize, the next level and an extra ball. After the last boss comes the <b>WIZARD MODE</b>: 45 seconds, three balls, every shot ×3 and every ramp a huge jackpot.',
      '<b>The outlanes.</b> A ball that falls down the outer lane is lost, unless the <b>KICKBACK</b> light is on: it throws the ball back up. Roll the top lanes or clear the drop targets to light both kickbacks again.',
      '<b>Nudge</b> the table with a quick swipe (left, right or up) or the NUDGE buttons at the left: the ball is thrown a little, but do it too often and the machine goes into <b>TILT</b>: the flippers stop and the bonus is lost. In the first seconds a drained ball is saved.']},
@@ -10550,11 +10551,11 @@ const PB_PAL=[
 const PB_MIS=[
   [{k:'bump',n:'BUMPER BASH',d:'Hit the pop bumpers',need:15},{k:'ramp',n:'RAMP RUNNER',d:'Shoot the ramps',need:2},{k:'spin',n:'SPIN IT',d:'Spin the spinner',need:30}],
   [{k:'bank',n:'DROP THEM',d:'Knock down the drop targets',need:2},{k:'tgt',n:'STRIKE',d:'Hit the side targets',need:8},{k:'tunnel',n:'WORMHOLE',d:'Fall into the tunnels',need:3}],
-  [{k:'lock',n:'LOCK IT',d:'Lock a ball in the vault',need:1},{k:'bump',n:'STORM',d:'Hit the pop bumpers',need:30},{k:'spin',n:'WHIRLWIND',d:'Spin the spinner',need:60}],
+  [{k:'lock',n:'LOCK IT',d:'Lock a ball in the vault',need:1},{k:'orbit',n:'GRAND ORBIT',d:'Ride the orbit round the top',need:4},{k:'spin',n:'WHIRLWIND',d:'Spin the spinner',need:60}],
   [{k:'ramp',n:'GRAND TOUR',d:'Shoot the ramps',need:4},{k:'bank',n:'DEMOLITION',d:'Knock down the drop targets',need:3},{k:'tgt',n:'SHARPSHOOTER',d:'Hit the side targets',need:12}]];
 function pbMission(st){const m=PB_MIS[Math.min(3,st.lvl)][st.mi%3],f=st.lvl>3?1+.25*(st.lvl-3):1;return Object.assign({},m,{need:Math.round(m.need*f)});}
 function pbTable(){
-  const T={walls:[],posts:[],bumpers:[],slings:[],targets:[],lanes:[],ramps:[],drops:[],outs:[],portals:[],saucer:{x:236,y:228,r:17},spin:{x:236,y:338,hw:24,ang:0,vel:0,dir:1,half:0}};
+  const T={walls:[],posts:[],bumpers:[],slings:[],targets:[],lanes:[],ramps:[],drops:[],outs:[],portals:[],orbits:[],saucer:{x:236,y:228,r:17},spin:{x:236,y:338,hw:24,ang:0,vel:0,dir:1,half:0}};
   const seg=(a,b,o)=>T.walls.push(Object.assign({a,b,e:.4},o||{}));
   seg([20,260],[20,960]);
   let prev=[20,260];for(let i=1;i<=40;i++){const t=Math.PI+Math.PI*i/40,p=[251+231*Math.cos(t),260+240*Math.sin(t)];seg(prev,p);prev=p;}
@@ -10565,6 +10566,9 @@ function pbTable(){
   seg([56,690],[56,776],{e:.3,r:5});seg([56,776],[140,872],{e:.3,r:6.5});
   seg([450,556],[410,594],{e:.3,r:5});   // the ball that rides down the right wall lands on the upper flipper
   seg([416,690],[416,776],{e:.3,r:5});seg([416,776],[332,872],{e:.3,r:6.5});
+  // the orbit: an inner guide along the top of the arch leaves a channel in which the ball runs round from one side to the other
+  {let pv=null;for(let i=0;i<=24;i++){const t=Math.PI+.28+(Math.PI-.56)*i/24,q=[251+195*Math.cos(t),260+204*Math.sin(t)];if(pv)seg(pv,q,{e:.3,r:3});pv=q;}
+   seg([63.6,203.7],[84,252],{e:.3,r:3});seg([438.4,203.7],[418,252],{e:.3,r:3});}   // the tails turn the ball inwards when it leaves the channel
   // the slingshots: a triangle each, the long side kicks
   const sl=(A,B,C,id)=>{seg(A,B);seg(B,C);T.slings.push({a:A,b:C,id,kick:560,hit:0});seg(A,C,{k:'sling',id,e:.3});};
   sl([96,690],[96,772],[140,764],'sl');sl([376,690],[376,772],[332,764],'sr');
@@ -10574,15 +10578,16 @@ function pbTable(){
   for(let i=0;i<4;i++){const cx=236+(i-1.5)*50,s=i<2?1:-1;T.drops.push({id:i,a:[cx-21,600+6*s],b:[cx+21,600-6*s],down:false,t:-9});}
   T.posts.push({x:100,y:210,r:8},{x:372,y:210,r:8},{x:78,y:622,r:7});
   T.lanes.push({x:180,y:150,r:15,id:0},{x:236,y:150,r:15,id:1},{x:292,y:150,r:15,id:2});
-  T.portals.push({id:'pl',x:62,y:425,r:15,t:-9,ovx:470,ovy:190},{id:'pr',x:424,y:318,r:15,t:-9,ovx:-520,ovy:240});   // the two tunnels: one ball in, one ball out at the other end
+  T.portals.push({id:'pl',x:62,y:425,r:15,t:-9,ovx:470,ovy:190},{id:'pr',x:390,y:452,r:15,t:-9,ovx:-520,ovy:240});   // the two tunnels: one ball in, one ball out at the other end
+  T.orbits.push({x:69,y:144,r:17,id:'L',t:-9},{x:433,y:144,r:17,id:'R',t:-9});
   T.outs.push({x:38,y:838,r:17,side:0},{x:434,y:838,r:17,side:1});
   T.ramps.push({id:'rl',ex:96,ey:332,er:21,ox:330,oy:200,cx:200,cy:40,vx:-150,vy:280},{id:'rr',ex:378,ey:338,er:21,ox:112,oy:204,cx:270,cy:40,vx:150,vy:280});
   for(const r of T.ramps){r.pts=[];for(let i=0;i<=26;i++){const u=i/26,v=1-u;r.pts.push([v*v*r.ex+2*v*u*r.cx+u*u*r.ox,v*v*r.ey+2*v*u*r.cy+u*u*r.oy]);}}
   return T;
 }
 const PB_T=pbTable();
-function pbPlayerState(){return{score:0,ball:1,done:false,lanes:[0,0,0],mult:1,forge:[0,0,0],forgeOn:false,work:[0,0,0],locks:0,lockLit:false,bumps:0,superT:0,rampN:0,jackLit:false,bonus:0,best:0,mb:0,lvl:0,mi:0,mp:0,mc:0,extra:0,kick:[true,false],banks:0,spins:0,boss:null,secret:false,lastPortal:null};}
-function pbResetTable(){const T=PB_T;T.bumpers.forEach(b=>b.hit=-9);T.slings.forEach(q=>q.hit=-9);T.walls.forEach(w=>{if(w.k==='target')w.t=-9;});T.lanes.forEach(l=>l.t=-9);T.drops.forEach(d=>{d.down=false;d.t=-9;});T.portals.forEach(q=>q.t=-9);T.spin.vel=0;}
+function pbPlayerState(){return{score:0,ball:1,done:false,lanes:[0,0,0],mult:1,forge:[0,0,0],forgeOn:false,work:[0,0,0],locks:0,lockLit:false,bumps:0,superT:0,rampN:0,jackLit:false,bonus:0,best:0,mb:0,lvl:0,mi:0,mp:0,mc:0,extra:0,kick:[true,false],banks:0,spins:0,boss:null,secret:false,lastPortal:null,orbitN:0,magN:0,magOn:false};}
+function pbResetTable(){const T=PB_T;T.bumpers.forEach(b=>b.hit=-9);T.slings.forEach(q=>q.hit=-9);T.walls.forEach(w=>{if(w.k==='target')w.t=-9;});T.lanes.forEach(l=>l.t=-9);T.drops.forEach(d=>{d.down=false;d.t=-9;});T.portals.forEach(q=>q.t=-9);T.orbits.forEach(o=>o.t=-9);T.spin.vel=0;}
 function pbNew(){pbResetTable();
   const players=fgPlayersFor(4),n=players.length;
   const g={live:true,kind:'pinball',n,players,st:players.map(()=>pbPlayerState()),turn:0,phase:'intro',pt:0,t:0,balls:[],fl:{L:{th:PB_FL.L.rest,w:0,on:false},R:{th:PB_FL.R.rest,w:0,on:false},U:{th:PB_FL.U.rest,w:0,on:false}},
@@ -10616,7 +10621,7 @@ function pbAdvance(g,dt){
   for(let s=0;s<NS;s++){
     for(const k of ['L','R','U']){const f=g.fl[k],F=PB_FL[k],up=(k==='U'?g.fl.R.on:f.on)&&!g.tilted&&g.phase==='play',tgt=up?F.act:F.rest,sp=up?24:15,d=tgt-f.th,step=Math.sign(d)*Math.min(Math.abs(d),sp*h);f.th+=step;f.w=step/h;}
     for(const b of g.balls){
-      if(b.st==='plunger'||b.st==='ramp'||b.st==='lock'||b.st==='gone'||b.st==='tunnel'||b.st==='room')continue;
+      if(b.st==='plunger'||b.st==='ramp'||b.st==='lock'||b.st==='gone'||b.st==='tunnel'||b.st==='room'||b.st==='mag')continue;
       b.py=b.y;b.vy+=PB.G*h;b.x+=b.vx*h;b.y+=b.vy*h;
       const sp=Math.hypot(b.vx,b.vy);if(sp>PB.MAXV){b.vx*=PB.MAXV/sp;b.vy*=PB.MAXV/sp;}
       pbCollide(g,b,h);
@@ -10626,7 +10631,8 @@ function pbAdvance(g,dt){
 }
 function pbCollide(g,b,h){
   const T=PB_T,st=g.st[g.turn];
-  for(const w of T.walls){if(w.k==='gate'&&b.vy<=0)continue;const c=pbSeg(b,w.a[0],w.a[1],w.b[0],w.b[1],w.r||2,w.e,0,0,0);if(c)pbHitWall(g,b,w,c);}
+  // the gate flap is only a floor for a ball above it: a ball below it passes up, and a slow ball can no longer drop through it
+  for(const w of T.walls){if(w.k==='gate'&&b.y>w.a[1])continue;const c=pbSeg(b,w.a[0],w.a[1],w.b[0],w.b[1],w.r||2,w.e,0,0,0);if(c)pbHitWall(g,b,w,c);}
   for(const p of T.posts)pbCirc(b,p.x,p.y,p.r,.45);
   for(const bm of T.bumpers){const c=pbCirc(b,bm.x,bm.y,bm.r,.2);if(c){const kk=440+Math.min(360,Math.hypot(b.vx,b.vy)*.3),aa=(Math.random()-.5)*.14,ca=Math.cos(aa),sa2=Math.sin(aa);b.vx+=(c.nx*ca-c.ny*sa2)*kk;b.vy+=(c.nx*sa2+c.ny*ca)*kk;bm.hit=g.t;pbEvent(g,'bumper',{bm,b});}}
   for(const d of T.drops){if(d.down)continue;const c=pbSeg(b,d.a[0],d.a[1],d.b[0],d.b[1],3,.35,0,0,0);if(c&&c.vn<-90&&b.st==='play')pbEvent(g,'drop',{d,b});}
@@ -10649,6 +10655,11 @@ function pbCollide(g,b,h){
   for(const q of T.portals){if(b.st!=='play')continue;const dx=q.x-b.x,dy=q.y-b.y,d=Math.hypot(dx,dy),sp=Math.hypot(b.vx,b.vy);
     if(d<q.r+18&&sp<1500){const k=(1-d/(q.r+18))*1400*h;b.vx+=dx/(d||1)*k;b.vy+=dy/(d||1)*k;}
     if(d<q.r-3&&sp<1300&&g.t-q.t>1)pbEvent(g,'portal',{p:q,b});}
+  // the orbit sensors, and the magnet that catches a ball when it is charged
+  for(const o of T.orbits){if(b.st==='play'&&Math.hypot(b.x-o.x,b.y-o.y)<o.r&&g.t-o.t>.3){o.t=g.t;pbEvent(g,'orbitPass',{o,b});}}
+  if(st.magOn&&b.st==='play'&&!g.balls.some(q=>q.st==='mag')){const dx=236-b.x,dy=553-b.y,d=Math.hypot(dx,dy),sp=Math.hypot(b.vx,b.vy);if(d<110&&sp<1600){const k=(1-d/110)*1100*h;b.vx+=dx/(d||1)*k;b.vy+=dy/(d||1)*k;}if(d<24&&g.t-(g.magT||-9)>1.2)pbEvent(g,'magnet',{b});}
+  // a ball that has fallen back into the plunger lane is put on the plunger again, so that it can be launched with a flipper tap
+  if(b.st==='play'&&b.x>453&&b.y>600&&b.vy>=-30){b.st='plunger';b.x=PB.LX;b.y=PB.H-79;b.vx=b.vy=0;b.tr=[];pbSay(g,'BALL BACK','tap a flipper to launch it again','#F4EBD0',1400);return;}
   // the ball leaves the table at the bottom
   if(b.y>PB.H+14){b.st='gone';}
   // a ball that does not move for a long time (a wedge) is given a nudge
@@ -10713,6 +10724,8 @@ const PBS={
   clack(on){const n=performance.now();if(n-(PBS._c||0)<60)return;PBS._c=n;pbPlay('flip',on?.5:.3,on?1.05:1.5);},
   combo(n){PBS.bell(880*Math.pow(2,[0,0,2,4,7,12][Math.min(5,n)]/12),.09);},
   warn(){_hfK=2;hfOsc(110,100,.25,.1,{type:'sawtooth',lp:400,a:.01});},
+  orbit(){_hfK=2;hfNz(.5,500,3600,.1,{type:'bandpass',q:.6,a:.08,rev:.1});[0,4,7].forEach((st,i)=>PBS.bell(1046*Math.pow(2,st/12),.07,i*90));},
+  magnet(){_hfK=2;hfOsc(90,240,.9,.14,{type:'sawtooth',lp:500,a:.2,rev:.2});PBS.thump(.9);PBS.bell(2093,.05,60);},
   peg(){pbPlay('peg',.5,.8+Math.random()*.6);},
   portal(){_hfK=2;hfOsc(180,1700,.55,.16,{a:.01,rev:.3});hfNz(.5,400,3200,.1,{type:'bandpass',q:.6,a:.1,rev:.2});},
   portalOut(){_hfK=2;hfOsc(1600,200,.4,.18,{a:.005,rev:.2});PBS.thump(.8);},
@@ -10729,7 +10742,7 @@ function pbShot(g){if(g.t-g.comboT<5)g.combo++;else g.combo=1;g.comboT=g.t;if(g.
 function pbReduced(){try{return window.matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){return false;}}
 const PB_LAMPS=[[180,150],[236,150],[292,150],[40,496],[40,546],[40,596],[432,416],[432,466],[432,516],[210,292],[236,297],[262,292],[38,806],[434,806],[216,116],[236,116],[256,116],[96,372],[96,358],[96,344],[378,378],[378,364],[378,350],[236,262],[236,812]].sort((a,b)=>b[1]-a[1]);
 function pbChase(g,col){g.fx.seq.push({t:g.t,col});if(g.fx.seq.length>3)g.fx.seq.shift();}
-const PB_ZONE={bump:[[166,400],[296,372],[232,488]],ramp:[[96,332],[378,338]],spin:[[236,338]],bank:[[236,600]],tgt:[[25,525],[447,465]],tunnel:[[62,425],[424,318]],lock:[[236,228]]};
+const PB_ZONE={bump:[[166,400],[296,372],[232,488]],ramp:[[96,332],[378,338]],spin:[[236,338]],bank:[[236,600]],tgt:[[25,525],[447,465]],tunnel:[[62,425],[390,452]],orbit:[[69,144],[433,144]],magnet:[[236,553]],lock:[[236,228]]};
 function pbBeacon(x,m,t,col){for(const z of PB_ZONE[m.k]||[]){const u=(t*1.1)%1;x.save();x.globalCompositeOperation='lighter';x.strokeStyle=col;x.globalAlpha=.75*(1-u);x.lineWidth=3;x.beginPath();x.arc(z[0],z[1],20+u*34,0,6.283);x.stroke();x.restore();}}
 function pbAlive(g){return g.balls.filter(b=>b.st!=='gone');}
 // a mission moves on when the right thing happens; the third one of a level wins an extra ball and the next level
@@ -10761,7 +10774,7 @@ function pbEvent0(g,ev,d){
   const st=g.st[g.turn],b=d.b;
   switch(ev){
     case'flip':g.skillT=0;if(d.swing)PBS.flip();break;
-    case'bumper':st.bumps++;pbPts(g,100);PBS.bumper();haptic(8);g.fx.shake=Math.max(g.fx.shake,1.2);pbSpark(g,d.bm.x,d.bm.y,'#ffd27a',7);pbMis(g,'bump');pbBoss(g,1);
+    case'bumper':st.bumps++;pbPts(g,100);PBS.bumper();haptic(8);g.fx.shake=Math.max(g.fx.shake,1.2);pbSpark(g,d.bm.x,d.bm.y,'#ffd27a',7);pbMis(g,'bump');pbBoss(g,1);st.magN++;if(st.magN%12===0&&!st.magOn){st.magOn=true;pbSay(g,'MAGNET READY','roll over the middle of the table','#7fd7ff',1800);PBS.lit();}
       if(st.superT>0)pbPts(g,400);
       if(st.bumps%25===0){st.superT=14;pbSay(g,'SUPER BUMPERS','500 each for 14 seconds','#ffb347',1500);PBS.lit();}
       break;
@@ -10769,6 +10782,10 @@ function pbEvent0(g,ev,d){
       if(st.secret){st.secret=false;b.tun={room:true,t:0,dur:.9,from:p,to:o};}
       else{b.tun={to:o,t:0,dur:.9};if(st.lastPortal&&st.lastPortal.id!==p.id&&g.t-st.lastPortal.t<15){st.secret=true;st.lastPortal=null;pbSay(g,'SECRET ROOM','the next tunnel leads to it','#e8c8ff',2400);PBS.lit();pbChase(g,'#b88aff');}else st.lastPortal={id:p.id,t:g.t};}
       break;}
+    case'orbitPass':{const o=d.o;if(g.skillT>0)break;const lp=g.orbPass;g.orbPass={id:o.id,t:g.t};if(lp&&lp.id!==o.id&&g.t-lp.t<2.4){g.orbPass=null;pbEvent0(g,'orbit',{b});}break;}
+    case'orbit':{st.orbitN++;PBS.orbit();haptic([10,16,10]);pbPts(g,5000,{combo:1});pbShot(g);pbMis(g,'orbit');pbBoss(g,8);pbSpark(g,b.x,b.y,'#8affc1',12);pbChase(g,'#8affc1');
+      if(st.orbitN%3===0){st.jackLit=true;pbSay(g,'ORBIT JACKPOT LIT','shoot a ramp','#ffd96a',1800);PBS.lit();g.fx.flash=.4;}else pbSay(g,'ORBIT',(st.orbitN%3)+' of 3','#8affc1',900);break;}
+    case'magnet':{b.st='mag';b.mag={t:0,press:null};b.x=236;b.y=553;b.vx=b.vy=0;st.magOn=false;g.magT=g.t;pbPts(g,3000,{combo:1});PBS.magnet();haptic([20,30,40]);pbRing(g,236,553,'#7fd7ff',90);pbBoss(g,5);pbSay(g,'MAGNET','left, right or both flippers: pick your shot','#7fd7ff',2200);break;}
     case'sling':pbPts(g,10);PBS.sling();haptic(7);pbSpark(g,b.x,b.y,'#9fe8ff',5);break;
     case'spin':{const sp=d.sp,v=Math.hypot(b.vx,b.vy),n=Math.max(1,Math.round(v/260));sp.vel=Math.min(36,Math.max(sp.vel,v/34));sp.dir=b.vy<0?1:-1;st.spins+=n;pbPts(g,90*n);pbMis(g,'spin',n);pbBoss(g,.4*n);b.vx*=.94;b.vy*=.94;break;}
     case'lane':{const i=d.id;PBS.lane();pbPts(g,200);
@@ -10810,6 +10827,10 @@ function pbStartMulti(g,b){
   pbSay(g,'MULTIBALL','every ramp is a jackpot','#ffd96a',2200);pbShow(g,'MULTIBALL','every ramp is a jackpot','#ffd96a');PBS.multi();g.slow=.5;pbChase(g,'#ffd96a');haptic([40,30,40,30,120]);g.fx.flash=.8;g.fx.shake=6;
   if(!g.moment)g.moment=g.players[g.turn].name+' started a multiball.';
 }
+// the magnet lets go: left flipper = the left ramp, right flipper = the right ramp, both = straight up at the vault
+function pbMagPress(g,side){const b=g.balls.find(q=>q.st==='mag');if(!b)return false;if(!b.mag.press)b.mag.press={side,t:g.t};return true;}
+function pbMagRelease(g,b){const both=g.fl.L.on&&g.fl.R.on,side=b.mag.press?b.mag.press.side:(Math.random()<.5?'L':'R'),tx=both?236:side==='L'?96:378,ty=both?262:side==='L'?352:356,dx=tx-236,dy=ty-553,l=Math.hypot(dx,dy);
+  b.st='play';b.vx=dx/l*1250;b.vy=dy/l*1250;b.x=236;b.y=553;g.magT=g.t;b.mag=null;PBS.kick();haptic([20,40]);pbRing(g,236,553,'#7fd7ff',80);pbSpark(g,236,553,'#9fe8ff',14);}
 // ── the plunger and the nudge ──
 function pbLaunch(g){
   const b=g.balls.find(q=>q.st==='plunger');if(!b||g.phase!=='play')return false;
@@ -10876,6 +10897,7 @@ function pbStep(g,dt){
     if(b.st==='ramp'){const r=b.rp.r;b.rp.t+=dt;const u=Math.min(1,b.rp.t/b.rp.dur),v=1-u;b.x=v*v*r.ex+2*v*u*r.cx+u*u*r.ox;b.y=v*v*r.ey+2*v*u*r.cy+u*u*r.oy;
       if(u>=1){b.st='play';b.vx=r.vx;b.vy=r.vy;pbEvent(g,'rampDone',{b,r});}}
     else if(b.st==='tunnel'){b.tun.t+=dt;if(b.tun.t>=b.tun.dur){if(b.tun.room)pbRoomOpen(g,b);else{const o=b.tun.to;b.st='play';b.x=o.x+o.ovx*.03;b.y=o.y+o.ovy*.03;b.vx=o.ovx;b.vy=o.ovy;o.t=g.t;PBS.portalOut();pbRing(g,o.x,o.y,'#b88aff',90);pbSpark(g,o.x,o.y,'#d8baff',16);}}}
+    else if(b.st==='mag'){b.mag.t+=dt;b.x=236+Math.sin(g.t*40)*.6;b.y=553;if((b.mag.press&&g.t-b.mag.press.t>.1)||b.mag.t>2.8)pbMagRelease(g,b);}
     else if(b.st==='lock'){b.lockT-=dt;if(b.lockT<=0){if(b.startMulti){b.startMulti=false;pbStartMulti(g,b);}b.st='play';b.vx=(Math.random()<.5?-1:1)*140;b.vy=380;}}
   }
   // the extra balls of a multiball come out of the vault one after the other
@@ -11032,7 +11054,7 @@ function pbDraw(g,now){
   const jl=st.jackLit||g.multi;
   pbInsert(x,236,812,5,g.saveT>0&&(g.saveT>2||Math.sin(t*14)>0),'#ffffff',t);pbLabel(x,'SAVE',236,826,6.5,'#ffffff',g.saveT>0?.8:.25);
   for(const q of g.fx.seq){const pos=(g.t-q.t)*620;for(const l of PB_LAMPS){const d=Math.abs((PB.H-l[1])-pos);if(d<90)pbGlow(x,l[0],l[1],22,q.col,.9*(1-d/90));}}
-  if(g.phase==='play'&&!g.balls.some(b=>b.st==='plunger')){const mm=pbMission(st);pbBeacon(x,jl?{k:'ramp'}:(st.lockLit&&!g.multi)?{k:'lock'}:mm,t,jl?'#ffd96a':(st.lockLit&&!g.multi)?'#ff9a4a':P.c);}
+  if(g.phase==='play'&&!g.balls.some(b=>b.st==='plunger')){const mm=pbMission(st);pbBeacon(x,jl?{k:'ramp'}:(st.lockLit&&!g.multi)?{k:'lock'}:st.magOn?{k:'magnet'}:mm,t,jl?'#ffd96a':(st.lockLit&&!g.multi)?'#ff9a4a':st.magOn?'#7fd7ff':P.c);}
   for(let i=0;i<3;i++){pbChev(x,96,372-i*14,9,0,jl,'#ffd96a',t,i*.9);pbChev(x,378,378-i*14,9,0,jl,'#ffd96a',t,i*.9);}
   pbInsert(x,232,560,5,st.banks>0&&PB_T.drops.every(d=>d.down),'#7fd7ff',t);
   // the ramps: glass troughs between two steel rails; arrows run when a jackpot is lit
@@ -11071,6 +11093,13 @@ function pbDraw(g,now){
     x.strokeStyle=on?lc:'#8a8f98';x.lineWidth=4.4;x.beginPath();x.moveTo(w.a[0],w.a[1]+1);x.lineTo(w.b[0],w.b[1]-1);x.stroke();}
     if(on)pbGlow(x,w.a[0],(w.a[1]+w.b[1])/2,22,w.id[0]==='F'?'#ff7a3a':'#4fc3ff',.5);
     if(hit>0){x.globalCompositeOperation='lighter';x.strokeStyle='rgba(255,255,255,'+hit+')';x.lineWidth=11;x.beginPath();x.moveTo(w.a[0],w.a[1]);x.lineTo(w.b[0],w.b[1]);x.stroke();}x.restore();}
+  // the magnet under the playfield: charged by bumper hits, it catches the ball and lets you choose the shot
+  {const ch=st.magOn?12:st.magN%12,hb=g.balls.find(q=>q.st==='mag');x.save();x.translate(236,553);x.fillStyle='rgba(0,0,0,.35)';x.beginPath();x.arc(0,0,30,0,6.283);x.fill();
+    for(let i=0;i<12;i++){const a=-Math.PI/2+i*Math.PI/6,on=i<ch;x.strokeStyle=on?'#7fd7ff':'rgba(160,190,210,.25)';x.lineWidth=on?4:3;x.lineCap='round';x.beginPath();x.arc(0,0,30,a+.05,a+Math.PI/6-.05);x.stroke();}
+    if(st.magOn||hb){const pu=.5+.5*Math.sin(t*8);pbGlow(x,0,0,70,'#7fd7ff',.35+.3*pu);x.strokeStyle='rgba(200,240,255,'+(.4+.4*pu)+')';x.lineWidth=1.6;for(let k=0;k<3;k++){x.beginPath();x.moveTo(0,0);const an=t*3+k*2.1;for(let q=1;q<=5;q++){const rr=q*7;x.lineTo(Math.cos(an)*rr+Math.sin(t*40+q*k)*3,Math.sin(an)*rr+Math.cos(t*37+q)*3);}x.stroke();}}
+    x.restore();
+    if(hb){x.save();x.font='700 11px Jost, sans-serif';x.textAlign='center';x.fillStyle='#ffffff';x.globalAlpha=.7+.3*Math.sin(t*8);x.fillText('◀ LEFT',184,592);x.fillText('RIGHT ▶',288,592);x.fillText('▲ BOTH',236,522);x.restore();}}
+  for(let i=0;i<3;i++)pbStarI(x,206+i*30,42,5,st.orbitN%3>i,'#8affc1',t);
   // the tunnels: a swirling hole; gold when the next one leads to the secret room
   for(const q of T.portals){const col=st.secret?'#ffe9a8':'#b88aff';x.save();x.translate(q.x,q.y);x.fillStyle='#020304';x.beginPath();x.arc(0,0,q.r+4,0,6.283);x.fill();
     for(let i=0;i<3;i++){x.save();x.rotate(t*(1.6+i*.6)*(i%2?-1:1));x.strokeStyle=col;x.globalAlpha=.85-i*.2;x.lineWidth=2.4-i*.5;x.beginPath();x.arc(0,0,q.r-1-i*4,0,Math.PI*1.4);x.stroke();x.restore();}
@@ -11113,6 +11142,7 @@ function pbDraw(g,now){
     if(b.tr&&b.tr.length>2){x.save();x.globalCompositeOperation='lighter';b.tr.forEach((p,i)=>{const u=i/b.tr.length,sp=Math.hypot(b.vx||0,b.vy||0);x.globalAlpha=u*u*Math.min(.6,sp/1300);x.fillStyle=i>=b.tr.length-3||sp>1400?'#fff':P.c;x.beginPath();x.arc(p[0],p[1],R*(.35+u*.55),0,6.283);x.fill();});x.restore();}
     x.fillStyle='rgba(0,0,0,.38)';x.beginPath();x.arc(b.x+so,b.y+so,R*1.9,0,6.283);x.fill();
     if(b.st==='ramp'||spd>1400)pbGlow(x,b.x,b.y,34,'#ffffff',.25);
+    if(b.st==='mag')pbGlow(x,b.x,b.y,52,'#7fd7ff',.55+.3*Math.sin(t*10));
     x.fillStyle='rgba(0,0,0,.45)';x.beginPath();x.ellipse(b.x+so,b.y+so+1,R*1.05,R*.9,0,0,6.283);x.fill();
     const bli=pbImg('ball');if(bli){x.drawImage(bli,b.x-R*1.04,b.y-R*1.04,R*2.08,R*2.08);x.save();x.strokeStyle='rgba(255,255,255,.8)';x.lineWidth=1.3;x.shadowColor=P.c;x.shadowBlur=10;x.beginPath();x.arc(b.x,b.y,R*1.03,0,6.283);x.stroke();x.restore();continue;}
     const bg=x.createRadialGradient(b.x-R*.4,b.y-R*.45,R*.1,b.x,b.y,R*1.05);bg.addColorStop(0,'#ffffff');bg.addColorStop(.35,'#cfd8e1');bg.addColorStop(.75,'#6b7580');bg.addColorStop(1,'#232a32');x.fillStyle=bg;x.beginPath();x.arc(b.x,b.y,R,0,6.283);x.fill();
@@ -11164,7 +11194,7 @@ function rPinballTable(){
           <div class="pb-ms"><div class="pb-h" id="pb-mt">MISSION 1 / 3</div><b id="pb-mn">BUMPER BASH</b><span id="pb-md"></span><div class="pb-bar pb-mb"><i id="pb-mp"></i></div><em id="pb-mc">0 / 15</em></div>
           <div class="pb-hide"><div class="pb-row" id="pb-forge">${dot('f0')}${dot('f1')}${dot('f2')}</div><div class="pb-row" id="pb-locks">${dot('l0')}${dot('l1')}${dot('l2')}</div><div class="pb-row" id="pb-lanes">${dot('a0')}${dot('a1')}${dot('a2')}</div></div>
           <div class="pb-two"><div><div class="pb-h">MULTIPLIER</div><div class="pb-big" id="pb-mult">×1</div></div><div><div class="pb-h">COMBO</div><div class="pb-big" id="pb-combo">–</div></div></div>
-          <div class="pb-tag" id="pb-extra">EXTRA BALL</div><div class="pb-tag" id="pb-jack">JACKPOT LIT</div><div class="pb-tag" id="pb-super">SUPER BUMPERS</div><div class="pb-tag" id="pb-multi">MULTIBALL</div>
+          <div class="pb-tag" id="pb-mag">MAGNET READY</div><div class="pb-tag" id="pb-extra">EXTRA BALL</div><div class="pb-tag" id="pb-jack">JACKPOT LIT</div><div class="pb-tag" id="pb-super">SUPER BUMPERS</div><div class="pb-tag" id="pb-multi">MULTIBALL</div>
           <div class="pb-bar"><i id="pb-tilt"></i></div>
           <div class="pb-sp"></div>
           <button class="pb-fb" data-flip="R" aria-label="Right flipper"><b>▶</b><small>FLIPPER</small></button>
@@ -11192,7 +11222,7 @@ const _pbPtr=new Map(),_pbHeld={L:false,R:false};
 // the flippers follow the fingers that are really on the glass: whatever a lost 'finger up' event left behind is let go again at once
 function pbSyncFlips(g){const want={L:false,R:false};for(const p of _pbPtr.values())if(!p.n)want[p.s]=true;for(const k of ['L','R']){const w=want[k]||_pbHeld[k],f=g.fl[k];if(f.on&&!w)f.on=false;else if(!f.on&&w&&g.phase==='play')f.on=true;}}
 function pbReleaseAll(){_pbPtr.clear();_pbHeld.L=_pbHeld.R=false;const g=G.pb;if(g&&g.fl){g.fl.L.on=false;g.fl.R.on=false;}}
-function pbSetFlip(g,side,on){const f=g.fl[side];if(on!==f.on&&g.phase==='play'&&!g.tilted)PBS.clack(on);if(on&&!f.on){f.on=true;if(!pbLaunch(g)&&g.phase==='play'&&!g.tilted){const st=g.st[g.turn];st.lanes=side==='L'?[st.lanes[1],st.lanes[2],st.lanes[0]]:[st.lanes[2],st.lanes[0],st.lanes[1]];}haptic(5);}else if(!on)f.on=false;}
+function pbSetFlip(g,side,on){const f=g.fl[side];if(on!==f.on&&g.phase==='play'&&!g.tilted)PBS.clack(on);if(on&&!f.on){f.on=true;if(!pbLaunch(g)&&!pbMagPress(g,side)&&g.phase==='play'&&!g.tilted){const st=g.st[g.turn];st.lanes=side==='L'?[st.lanes[1],st.lanes[2],st.lanes[0]]:[st.lanes[2],st.lanes[0],st.lanes[1]];}haptic(5);}else if(!on)f.on=false;}
 function pbBindInput(){
   const stage=document.getElementById('pb-stage');if(!stage||stage._pb)return;stage._pb=1;stage.style.touchAction='none';
   const ptr=_pbPtr;
@@ -11241,7 +11271,7 @@ function pbHud(g){
   const mp=document.getElementById('pb-mp');if(mp){const w=Math.min(100,g._mw||0)+'%';if(mp._w!==w){mp._w=w;mp.style.width=w;}}
   r.querySelectorAll('.pb-d').forEach(el=>{const k=el.dataset.k,i=+k[1];let on=false;if(k[0]==='f')on=!!st.forge[i]||st.forgeOn;else if(k[0]==='l')on=st.locks>i;else on=!!st.lanes[i];if(el._o!==on){el._o=on;el.classList.toggle('on',on);}});
   set('pb-mult','×'+st.mult);set('pb-combo',g.combo>=2?'×'+Math.min(5,g.combo):'–');
-  cls('pb-jack',st.jackLit||g.multi);cls('pb-super',st.superT>0);cls('pb-multi',g.multi);cls('pb-extra',st.extra>0);
+  cls('pb-jack',st.jackLit||g.multi);cls('pb-super',st.superT>0);cls('pb-multi',g.multi);cls('pb-extra',st.extra>0);cls('pb-mag',st.magOn);
   const tl=document.getElementById('pb-tilt');if(tl){const w=Math.min(100,g.tilt*11.1)+'%';if(tl._w!==w){tl._w=w;tl.style.width=w;}}
   set('pb-status',g.phase==='bonus'?'Ball over':g.tilted?'TILT':g.balls.some(b=>b.st==='plunger')&&g.phase==='play'?g.players[g.turn].name+' · tap to launch':g.multi?'MULTIBALL':g.players[g.turn].name+' · ball '+Math.min(3,st.ball));
 }
