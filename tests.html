@@ -5779,6 +5779,30 @@ async function runPresentation(A,W,frame){
       check('a pop bumper scores points',p.st[p.turn].score>s0||p.st[0].score>s0);
       const ft=F('pbFlipTip')({th:F('PB_FL').L.rest},F('PB_FL').L);
       check('the left flipper rests lower on the outside than at its tip is above the pivot line (it points down to the middle)',ft[1]>F('PB_FL').L.py);
+      // the second version of the table: drop targets, spinner, kickback, missions, nudge
+      const T=F('PB_T'),stt=p.st[0],sh=(x,y,vx,vy,n)=>{const b={x,y,vx,vy,st:'play',id:9e3,stuck:0,tr:[]};p.balls=[b];p.saveT=99;for(let i=0;i<n;i++){F('pbStep')(p,1/60);if(!p.balls.includes(b))break;}return b;};
+      for(const d of T.drops)sh((d.a[0]+d.b[0])/2,680,0,-900,25);
+      check('shooting all four drop targets knocks them down, scores a bank and puts them back up again',stt.banks===1&&T.drops.every(d=>d.down));
+      for(let i=0;i<90;i++)F('pbStep')(p,1/60);
+      check('the drop targets come back up after a moment',T.drops.every(d=>!d.down));
+      const sp0=stt.spins;sh(236,420,0,-700,30);
+      check('a ball through the spinner turns it and scores spins',stt.spins>sp0);
+      stt.kick=[true,false];let kb=sh(38,780,0,200,30);
+      check('the lit kickback throws a ball in the outlane back up and is used up',kb.y<780&&!stt.kick[0]);
+      stt.kick=[false,false];kb=sh(38,780,0,200,60);
+      check('without the kickback the ball in the outlane is lost',kb.st==='gone');
+      stt.mi=0;stt.mp=0;for(let i=0;i<15;i++)F('pbEvent')(p,'bumper',{bm:T.bumpers[0],b:{x:0,y:0}});
+      check('fifteen bumper hits finish the first mission',stt.mi===1&&stt.mc===1);
+      stt.mi=2;stt.mp=0;const lv0=stt.lvl;for(let i=0;i<30;i++)F('pbEvent')(p,'spin',{b:{vx:0,vy:-600,x:0,y:0},sp:T.spin});
+      check('the third mission of a level wins an extra ball and the next level',stt.lvl===lv0+1&&stt.extra>=1&&stt.mi===0);
+      p.phase='play';p.tilted=false;p.nudgeCool=0;const nb={x:236,y:500,vx:0,vy:0,st:'play',id:9e3,stuck:0,tr:[]};p.balls=[nb];F('pbNudge')(p,1);
+      check('a nudge throws the ball sideways and a little up, never down',nb.vx>0&&nb.vy<=0);
+      p.nudgeCool=0;nb.vx=nb.vy=0;F('pbNudge')(p,0);
+      check('an upward nudge lifts the ball',nb.vy<0);
+      p.nudgeCool=0;p.tilt=0;for(let i=0;i<4;i++){p.nudgeCool=0;F('pbNudge')(p,1);}
+      check('a few nudges are allowed, only many in a row tilt the table',!p.tilted);
+      for(let i=0;i<4;i++){p.nudgeCool=0;F('pbNudge')(p,-1);}
+      check('too many nudges in a row tilt it',p.tilted===true);
     }finally{const g=G();try{F('pbStop')();}catch(e){}g.isOnline=k0[0];g.selGame=k0[1];g.lp=k0[2];g.scr=k0[3];g.pb=null;}
   });
   suite('Fairground: the LEVEL button works in every booth',()=>{
