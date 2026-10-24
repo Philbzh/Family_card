@@ -401,6 +401,28 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
    focus style below still gets a visible ring for keyboard users, without ever fighting a more
    specific rule (die, roulette cell, hand card, etc.) that wants its own custom treatment. */
 :where([role="button"]):focus-visible{outline:2px solid var(--gold2);outline-offset:2px;border-radius:8px;}
+.scr-enter{animation:scrEnter .42s cubic-bezier(.2,.7,.2,1) both;}
+@keyframes scrEnter{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+.btn,.v10-game-card,.home-room,.app-sb-item,.pl-assist{transition:transform .12s ease,box-shadow .2s ease,filter .2s ease;}
+.btn:active,.v10-game-card:active,.home-room:active,.app-sb-item:active,.pl-assist:active{transform:scale(.97);filter:brightness(1.08);}
+.res-hl{position:relative;margin:0 auto .9rem;max-width:340px;border-radius:16px;overflow:hidden;border:1.5px solid rgba(230,195,106,.7);box-shadow:0 18px 40px -14px rgba(0,0,0,.8),0 0 30px rgba(230,195,106,.18);animation:hlIn .6s cubic-bezier(.2,.7,.2,1) both;}
+.res-hl img{display:block;width:100%;height:auto;}
+.res-hl-cap{position:absolute;left:0;right:0;bottom:0;padding:1.6rem .9rem .7rem;display:flex;align-items:baseline;gap:.6rem;background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.88));}
+.res-hl-cap small{font-size:.58rem;letter-spacing:.24em;color:#ffd58a;}
+.res-hl-cap b{font-family:var(--serif);font-size:1.4rem;color:#fff;}
+.res-hl-cap span{margin-left:auto;font-size:.8rem;color:#F4EBD0;}
+@keyframes hlIn{from{opacity:0;transform:translateY(18px) scale(.97);}to{opacity:1;transform:none;}}
+.podium{display:flex;align-items:flex-end;justify-content:center;gap:.7rem;margin:.4rem auto 1rem;max-width:380px;}
+.pd-col{flex:1;display:flex;flex-direction:column;align-items:center;min-width:0;}
+.pd-av{width:46px;height:46px;border-radius:50%;overflow:hidden;border:2px solid #c9a24a;box-shadow:0 4px 12px rgba(0,0,0,.6);display:flex;}
+.pd-av .av-img{width:100%;height:100%;}
+.pd-0 .pd-av{width:58px;height:58px;box-shadow:0 0 0 3px rgba(230,195,106,.35),0 6px 18px rgba(0,0,0,.7);}
+.pd-nm{font-size:.7rem;color:#F4EBD0;margin:.3rem 0 .25rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.pd-bar{width:100%;height:0;border-radius:10px 10px 0 0;background:linear-gradient(180deg,#e9c76d,#8a6a22);display:flex;align-items:flex-start;justify-content:center;padding-top:.35rem;font-size:1.3rem;animation:pdRise .7s cubic-bezier(.2,.8,.2,1) both;}
+.pd-1 .pd-bar{background:linear-gradient(180deg,#cfd6e2,#6b7384);}
+.pd-2 .pd-bar{background:linear-gradient(180deg,#d39a63,#7a4a24);}
+@keyframes pdRise{from{height:0;}to{height:var(--h);}}
+@media (prefers-reduced-motion:reduce){.scr-enter,.res-hl,.pd-bar{animation:none !important;}.pd-bar{height:var(--h);}}
 .v10-game-card.sel{outline:3px solid #E6C36A;outline-offset:3px;box-shadow:0 0 0 1px rgba(255,236,190,.7),0 0 30px rgba(230,195,106,.6),0 16px 34px -10px rgba(0,0,0,.75) !important;transform:translateY(-3px) scale(1.025);z-index:2;}
 .v10-game-card.sel::after{content:'✓';position:absolute;top:9px;right:9px;width:28px;height:28px;border-radius:50%;background:linear-gradient(180deg,#f6e2a0,#c9a24a);color:#2a1a08;font:800 16px/28px Jost,sans-serif;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.65);}
 .v10-games.has-sel .v10-game-card:not(.sel){filter:saturate(.7) brightness(.8);}
@@ -8867,13 +8889,20 @@ function fgRunTick(g,dt){
 }
 // the best shot of a run (Marksman and Balloon Blast) is kept and shown again in slow motion after the buzzer
 function fgRecBest(g,o,pts,q){if(!g.run||pts<=0)return;const bs=g.bestShot||(g.bestShot={});if(!bs[o]||pts>bs[o].pts)bs[o]=Object.assign({pts},q);}
+function fgSnapHighlight(g,info){g.snapReq=info;}
+// taken while the replay is drawn, after the scene and before the words and the card
+function fgTakeSnap(g){
+  const info=g.snapReq;if(!info)return;g.snapReq=null;
+  try{const cv=g.cv;if(!cv||!cv.width)return;const c=document.createElement('canvas');c.width=300;c.height=Math.round(300*cv.height/cv.width);c.getContext('2d').drawImage(cv,0,0,c.width,c.height);
+    const cur=G.fgHighlight;if(!cur||info.pts>=cur.pts)G.fgHighlight=Object.assign({img:c.toDataURL('image/jpeg',.76)},info);}catch(e){}
+}
 function fgReplayStart(g){
   if(G.isOnline||!g.bestShot)return false;const q=g.bestShot[g.turn];if(!q)return false;
   g.replay={q,acc:0,o:g.turn,popped:false,hitT:0,t0:performance.now(),stat:{score:g.score[g.turn],hits:g.hits[g.turn],perf:g.perfects[g.turn],streak:g.bestStreak[g.turn]}};return true;
 }
 function fgReplayStep(g,dt){
   const R=g.replay;if(!R)return;R.acc+=dt*.5;const q=R.q,T=Math.max(.2,q.fl.T);
-  if(!R.popped&&R.acc>=T){R.popped=true;R.hitT=g.t;
+  if(!R.popped&&R.acc>=T){R.popped=true;R.hitT=g.t;fgSnapHighlight(g,{pts:q.pts,name:g.players[R.o].name,title:q.kind==='bb'?'BEST POP':'BEST SHOT',kind:g.kind});
     if(q.kind==='bb'){const col=q.k==='gold'||q.k==='jackpot'||q.k==='final'?'#ffd96a':q.col;fgBurst(g,q.px,q.py,col,34,380);fgRing(g,q.px,q.py,q.r*2.6,col);FGS.pop();}
     else{fgRing(g,q.tx,q.ty,q.r*2.4,'#ffd96a');fgBurst(g,q.tx,q.ty,'#ffe08a',16,280);(q.tk==='bottle'?FGS.glass:q.tk==='bell'?FGS.bell:FGS.clank)();}}
   if(R.acc>T+1.0){g.replay=null;g.btrail=[];fgRunAdvance(g);}
@@ -8895,6 +8924,7 @@ function fgDrawBest(g,x){
     else if(R.acc<T+.5){x.save();x.strokeStyle='rgba(255,255,255,.9)';x.lineWidth=2;const rr=q.r*(.5+(R.acc-T)*3);x.beginPath();x.arc(q.tx,q.ty,rr,0,6.283);x.stroke();x.restore();}
   }
   x.restore();
+  fgTakeSnap(g);
   // the words and the card with the figures of the run
   x.save();x.globalAlpha=k*tail;x.textAlign='center';x.textBaseline='middle';
   const tx0=q.kind==='bb'?'B E S T   P O P':'B E S T   S H O T';
@@ -9046,7 +9076,7 @@ function lDealFair(){
   const mx=((GAMES.find(x=>x.id===G.selGame)||{}).maxP)||FG_MAXP;
   if(G.lp.length>mx)G.lp=G.lp.slice(0,mx);
   G.lp.forEach(p=>{p.totalScore=0;p.c4Result=null;});
-  G.ahMoment='';G.fgResult=null;fgStop();G.scr='table';
+  G.ahMoment='';G.fgResult=null;G.fgHighlight=null;fgStop();G.scr='table';
 }
 const FG_MAXP=4;
 function fgShade(hex,k){const n=parseInt(hex.slice(1),16);let r=(n>>16)&255,g=(n>>8)&255,b=n&255;const t=k<0?0:255,a=Math.abs(k);r=Math.round(r+(t-r)*a);g=Math.round(g+(t-g)*a);b=Math.round(b+(t-b)*a);return'rgb('+r+','+g+','+b+')';}
@@ -9830,7 +9860,7 @@ function hfReplayStart(g){
 function hfReplayStep(g,dt){
   const R=g.replay,q=R.q;R.acc+=dt*.5;const i=Math.floor(R.acc*60);R.i=i;
   const k=Math.min(i,q.path.length-1),pt=q.path[k];g.rball={x:pt[0],y:pt[1],rot:pt[2],st:'fly',scored:false};
-  if(!R.kicked&&i>=q.si){R.kicked=true;g.netKick=1;g.netT=g.t;g.netLean=.3;FGS.hfSwish();}
+  if(!R.kicked&&i>=q.si){R.kicked=true;fgSnapHighlight(g,{pts:q.pts,name:g.players[R.o].name,title:'BEST SHOT',kind:'hoopfever'});g.netKick=1;g.netT=g.t;g.netLean=.3;FGS.hfSwish();}
   if(i>q.path.length+75||g.t-R.t0>9){g.replay=null;g.rball=null;g.btrail=[];fgRunAdvance(g);}
 }
 function hfCanAct(g){return !!(g&&g.live&&!fgNetWatch(g)&&g.phase==='play'&&!(g.fmt==='contest'&&g.cont.n>=25)&&fgRunActive(g)&&!g.ball&&g.wait<=0&&!g.over&&!g.bots[g.turn]&&!g.botAim);}
@@ -10327,6 +10357,7 @@ function hfDraw(g,now){
   if(g.replay){
     const R2=g.replay,k=Math.min(1,R2.i/40),fadeOut=Math.min(1,Math.max(0,(R2.q.path.length+75-R2.i)/20));
     x.save();x.globalAlpha=.5*k*fadeOut;const vg=x.createRadialGradient(W/2,H*.45,H*.2,W/2,H*.45,H*.75);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.9)');x.fillStyle=vg;x.fillRect(0,0,W,H);x.restore();
+    fgTakeSnap(g);
     x.save();x.globalAlpha=k*fadeOut;x.textAlign='center';x.textBaseline='middle';
     x.font='700 13px Jost, sans-serif';x.fillStyle='#9fc6ff';x.fillText('B E S T   S H O T',W/2,128);
     x.font='700 30px Cinzel, Georgia, serif';x.fillStyle='#fff';x.shadowColor='rgba(110,180,255,.8)';x.shadowBlur=14;x.fillText(g.players[R2.o].name.toUpperCase().slice(0,14),W/2,160);x.shadowBlur=0;
@@ -29657,7 +29688,7 @@ function oStartGame(rs){
         const players=rs.players.slice(0,fgIs(rs.gameId)?((GAMES.find(x=>x.id===rs.gameId)||{}).maxP||2):2).map(p=>({...p,totalScore:0,c4Result:null}));
         const gs={phase:'game',gameId:rs.gameId,host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
           arSeries:rs.arSeries||null,ah:{id:'ah'+Date.now().toString(36)+Math.floor(Math.random()*1e4),score:[0,0]},pl:rs.gameId==='pool'?plNew(plRulesPref(),plAssistPref(),plNextStarter()):undefined,winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
-        G.srv=gs;G.ah=null;G.pl=null;G.fg=null;G.fgResult=null;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        G.srv=gs;G.ah=null;G.pl=null;G.fg=null;G.fgResult=null;G.fgHighlight=null;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }
       if(rs.gameId==='blackwater'){
@@ -31513,6 +31544,18 @@ function gtResultsHTML(){
   const rows=players.map((p,i)=>`<tr><td>${GT_SHAPES[i]} ${esc(p.name)}</td><td>${s.cap[i]}</td><td>${s.sc[i]}</td><td>${s.dare[i]}</td><td>${s.set[i]}</td><td>${s.tby[i]}</td></tr>`).join('');
   return`<div class="panel gt-res"><div class="panel-lbl">THE GAUNTLET · ${esc(GT_MODES[gt.mode]?GT_MODES[gt.mode].name.toUpperCase():'')} · ${gt.round} ROUNDS</div><table><thead><tr><th></th><th title="Captures">💥</th><th title="Shortcuts taken">🛤️</th><th title="Dares">😈</th><th title="Traps set">🔒</th><th title="Runners caught by this player's traps">🪤</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
+function fgHighlightHTML(){
+  const gid=G.isOnline?G.srv?.gameId:G.selGame,h=G.fgHighlight;if(!h||!fgIs(gid)||G.isOnline)return'';
+  return`<div class="res-hl"><img src="${h.img}" alt="${esc(h.title)}"><div class="res-hl-cap"><small>${esc(h.title)}</small><b>+${h.pts}</b><span>${esc(h.name)}</span></div></div>`;
+}
+function podiumHTML(sorted){
+  if(!sorted||sorted.length<2)return'';const top=sorted.slice(0,3),order=top.length===3?[1,0,2]:[1,0],hts={0:112,1:84,2:62},med=['🥇','🥈','🥉'];
+  return`<div class="podium">${order.map(i=>{const p=top[i];return`<div class="pd-col pd-${i}"><div class="pd-av">${avHTML(p.avatar)}</div><div class="pd-nm">${esc((p.name||'').slice(0,12))}</div><div class="pd-bar" style="--h:${hts[i]}px;animation-delay:${.15+i*.18}s"><span>${med[i]}</span></div></div>`;}).join('')}</div>`;
+}
+function uiCountUp(){
+  try{const els=document.querySelectorAll('#s-matchend .ts-val');els.forEach(el=>{const t=(el.textContent||'').trim();if(!/^\d{1,6}$/.test(t))return;const v=+t;if(v<2)return;const t0=performance.now(),D=900;el.textContent='0';
+    const step=now=>{const u=Math.min(1,(now-t0)/D),e=1-Math.pow(1-u,3);el.textContent=String(Math.round(v*e));if(u<1)requestAnimationFrame(step);else el.textContent=String(v);};requestAnimationFrame(step);});}catch(e){}
+}
 function rMatchEnd(){
   const players=G.isOnline?(G.srv?.players||[]):G.lp;
   const isBattle=G.selGame==='battle';
@@ -31551,10 +31594,12 @@ function rMatchEnd(){
     <div class="topbar"><span class="top-title" style="font-family:var(--serif);">Tonight at Our Table</span><div class="top-right">${sndBtn()}</div></div>
     <div class="res-body">
       <div class="winner-banner" style="--acc:${MOMENT_ACCENT[G.isOnline?G.srv?.gameId:G.selGame]||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${avChar(sorted[0]?.avatar)} ${(ahr&&ahr.team)?(ahr.won?'Team victory!':'Overrun!'):c4Draw?'A draw!':esc(sorted[0]?.name||'')+' won!'}</div><button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div>
+      ${fgHighlightHTML()}
       ${statChips}
       <div class="panel" style="text-align:center;margin-bottom:.8rem;"><div class="panel-lbl">TABLE MOMENT</div><div style="font-family:var(--serif);font-size:1.1rem;color:var(--paper);margin:.2rem 0;">${matchMoment(sorted)}</div></div>
       ${isGT?gtResultsHTML():''}${isBW?bwResultsHTML():''}
       ${tonightEndHTML()}
+      ${podiumHTML(sorted)}
       <div class="standings">${rows}</div>
       ${resButtonsHTML()}
     </div>
@@ -32107,6 +32152,7 @@ function maybeShowFirstRunWelcome(){
   setTimeout(dismiss,4200);
 }
 
+let _uiPrevScr=null;
 function render(){
   if(G.scr==='home'||G.scr==='games')G.guestGame=false; // a guest game lasts for one visit to the table
   // A render rebuilds #app, canvas included, which would drop the artist's pen mid-stroke -- and online
@@ -32161,6 +32207,8 @@ function render(){
   else if(s==='player')html=rPlayer();
   else if(s==='family')html=rFamily();
   appEl.innerHTML=html;
+  if(_uiPrevScr!==s){_uiPrevScr=s;if(s!=='table'){const sc=appEl.querySelector('.scr');if(sc){sc.classList.add('scr-enter');setTimeout(()=>sc.classList.remove('scr-enter'),520);}}}
+  if(s==='matchend')setTimeout(uiCountUp,40);
   // Re-home the in-flight reactions onto the freshly built felt. If this render navigated away from
   // the table there's no felt to land on and they're simply dropped, which is the right outcome.
   if(flying.length){
