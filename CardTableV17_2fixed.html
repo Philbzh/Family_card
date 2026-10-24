@@ -101,10 +101,12 @@ function loadSupabase(cb){
      original emerald/gold look exactly, so nothing changes unless a theme is actually chosen. */
   --felt-a:#1a6840; --felt-b:#0e4028; --felt-c:#062018;
   --rim-rgb:212,168,67; --rim-bright-rgb:240,204,96;
+  --felt-tex:url('assets/ui/felt_green.jpg');
 }
-body[data-felt="burgundy"]{--felt-a:#7a2438;--felt-b:#4a1526;--felt-c:#1c0810;--rim-rgb:212,168,67;--rim-bright-rgb:240,204,96;}
-body[data-felt="midnight"]{--felt-a:#1c3f6b;--felt-b:#122645;--felt-c:#050e1c;--rim-rgb:180,188,200;--rim-bright-rgb:220,228,238;}
-body[data-felt="charcoal"]{--felt-a:#4a4642;--felt-b:#2b2825;--felt-c:#100e0c;--rim-rgb:214,152,120;--rim-bright-rgb:236,186,158;}
+body[data-felt="walnut"]{--felt-a:#6a4426;--felt-b:#3e2614;--felt-c:#140b06;--rim-rgb:212,168,67;--rim-bright-rgb:240,204,96;--felt-tex:url('assets/ui/felt_wood.jpg');}
+body[data-felt="burgundy"]{--felt-tex:url('assets/ui/felt_red.jpg');--felt-a:#7a2438;--felt-b:#4a1526;--felt-c:#1c0810;--rim-rgb:212,168,67;--rim-bright-rgb:240,204,96;}
+body[data-felt="midnight"]{--felt-tex:url('assets/ui/felt_blue.jpg');--felt-a:#1c3f6b;--felt-b:#122645;--felt-c:#050e1c;--rim-rgb:180,188,200;--rim-bright-rgb:220,228,238;}
+body[data-felt="charcoal"]{--felt-tex:none;--felt-a:#4a4642;--felt-b:#2b2825;--felt-c:#100e0c;--rim-rgb:214,152,120;--rim-bright-rgb:236,186,158;}
 *,*::before,*::after{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;}
 html,body{height:100%;overflow:hidden;}
 body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100vh;height:-webkit-fill-available;}
@@ -924,8 +926,10 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
   /* Rich felt gradient + slow ambient light drift — colors come from the Felt & Frame theme vars */
   background:
     radial-gradient(circle 320px at 30% 30%,rgba(var(--rim-bright-rgb),.055),transparent 70%),
+    var(--felt-tex,none) center/cover,
     radial-gradient(ellipse 85% 70% at 50% 44%,var(--felt-a) 0%,var(--felt-b) 45%,var(--felt-c) 100%);
-  background-size:220% 220%,100% 100%;
+  background-size:220% 220%,cover,100% 100%;
+  background-blend-mode:normal,overlay,normal;
   animation:felt-drift 22s ease-in-out infinite;
 
   /* SIGNATURE: casino-grade 5-ring rim, tinted by the theme's rim color */
@@ -3278,14 +3282,11 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 /* card back */
 .card-back-el{
   border-radius:inherit;
-  background:
-    repeating-linear-gradient(45deg,rgba(212,168,67,.16) 0,rgba(212,168,67,.16) 2px,transparent 2px,transparent 11px),
-    repeating-linear-gradient(-45deg,rgba(212,168,67,.16) 0,rgba(212,168,67,.16) 2px,transparent 2px,transparent 11px),
-    linear-gradient(145deg,#0a3020,#1a6040,#0a3020);
-  border:2px solid rgba(212,168,67,.75);
+  background:url('assets/ui/cardback.png') center/100% 100% no-repeat,#4a1218;
+  border:0;
   position:absolute;inset:0;
 }
-.card-back-el::after{content:'';position:absolute;inset:5px;border-radius:calc(inherit - 3px);border:1px solid rgba(212,168,67,.35);}
+.card-back-el::after{display:none;}
 .card-back-el .spade-wm{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:rgba(212,168,67,.2);font-family:serif;}
 
 /* ════════ HAND ════════ */
@@ -5603,8 +5604,8 @@ function familyStats(name){
 // Felt & Frame — swaps the felt table's own color; the CSS variables it drives default to the
 // original emerald look, so choosing nothing changes nothing. Applied directly to <body> (not through
 // render(), which only touches #app) so it survives every re-render without extra plumbing.
-const FELT_PREVIEW={emerald:'radial-gradient(circle at 35% 30%,#1a6840,#062018)',burgundy:'radial-gradient(circle at 35% 30%,#7a2438,#1c0810)',midnight:'radial-gradient(circle at 35% 30%,#1c3f6b,#050e1c)',charcoal:'radial-gradient(circle at 35% 30%,#4a4642,#100e0c)'};
-const FELT_NAMES={emerald:'Emerald',burgundy:'Burgundy',midnight:'Midnight',charcoal:'Charcoal'};
+const FELT_PREVIEW={walnut:'radial-gradient(circle at 35% 30%,#7a5030,#241408)',emerald:'radial-gradient(circle at 35% 30%,#1a6840,#062018)',burgundy:'radial-gradient(circle at 35% 30%,#7a2438,#1c0810)',midnight:'radial-gradient(circle at 35% 30%,#1c3f6b,#050e1c)',charcoal:'radial-gradient(circle at 35% 30%,#4a4642,#100e0c)'};
+const FELT_NAMES={walnut:'Walnut',emerald:'Emerald',burgundy:'Burgundy',midnight:'Midnight',charcoal:'Charcoal'};
 function applyFeltTheme(theme){
   theme=FELT_PREVIEW[theme]?theme:'emerald';
   G.feltTheme=theme;

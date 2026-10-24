@@ -3,7 +3,7 @@
 // app shell itself. Multiplayer still needs a live connection (Supabase requests are always
 // passed straight through to the network, never cached), so this is about the shell — the HTML,
 // icons, and manifest — not about playing an online game with no signal.
-const CACHE_NAME = 'our-table-v112';
+const CACHE_NAME = 'our-table-v113';
 // Pictures live in their OWN cache, which a new app version does not throw away: the ~12 MB of covers,
 // room pictures and avatars used to be downloaded again from scratch on every visit (network-first with
 // no-store) and again on every release, so on a slow connection the home screen painted only the top strip
@@ -27,6 +27,7 @@ const APP_SHELL = [
 // never take down the shell that actually matters.
 const GAME_COVERS = [
   './assets/games/balloonblast.jpg','./assets/games/marksman.jpg','./assets/games/hoopfever.jpg','./assets/rooms/fairground.jpg',
+  './assets/ui/felt_green.jpg','./assets/ui/felt_blue.jpg','./assets/ui/felt_red.jpg','./assets/ui/felt_wood.jpg','./assets/ui/cardback.png',
   './assets/games/ms_bg.jpg','./assets/games/bb_bg.jpg','./assets/games/ms_bull.png','./assets/games/ms_star.png','./assets/games/ms_bottle.png','./assets/games/ms_bell.png','./assets/games/ms_duck.png','./assets/games/ms_goldduck.png','./assets/games/ms_rifle.png','./assets/games/ms_decoy.png','./assets/games/bb_red.png','./assets/games/bb_blue.png','./assets/games/bb_ivory.png','./assets/games/bb_green.png','./assets/games/bb_brass.png','./assets/games/bb_slate.png','./assets/games/bb_joker.png','./assets/games/bb_black.png','./assets/games/bb_dart.png',
   './assets/games/hoopfever_bg.jpg','./assets/games/hf_ball.png','./assets/games/hf_hoop.png','./assets/games/hf_goldhoop.png','./assets/games/hf_post.png',
   './assets/ui/home.jpg','./assets/ui/trophies.jpg','./assets/ui/moments.jpg','./assets/ui/family.jpg','./assets/ui/victory.jpg',
