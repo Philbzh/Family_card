@@ -5803,6 +5803,9 @@ async function runPresentation(A,W,frame){
       check('there is a visible left and right flipper button at the sides',W.document.querySelectorAll('[data-flip]').length===2);
       {const FL=F('PB_FL').L;let thru=0;for(const px of [160,185,210]){p.fl.L.th=FL.rest;p.fl.L.on=false;const b={x:px,y:FL.py+Math.tan(FL.rest)*(px-FL.px)-17,vx:0,vy:0,st:'play',id:9e3,stuck:0,tr:[]};p.balls=[b];p.saveT=99;p.phase='play';for(let i=0;i<20;i++)F('pbStep')(p,1/60);p.fl.L.on=true;for(let i=0;i<20;i++)F('pbStep')(p,1/20);if(b.y>FL.py+20)thru++;p.fl.L.on=false;}
        check('a flipper that swings up under a ball on it, even in a slow frame, never goes through the ball',thru===0);}
+      {p.phase='play';p.tilted=false;p.fl.R.on=true;p.fl.U.th=F('PB_FL').U.rest;p.balls=[];for(let i=0;i<30;i++)F('pbStep')(p,1/60);const u1=p.fl.U.th;p.fl.R.on=false;for(let i=0;i<30;i++)F('pbStep')(p,1/60);
+       check('the upper flipper swings up with the right flipper and falls back with it',Math.abs(u1-F('PB_FL').U.act)<.05&&Math.abs(p.fl.U.th-F('PB_FL').U.rest)<.05);p.balls=[nb];}
+      check('a new game forgets the hit times of the old game (no giant bumpers)',(()=>{F('PB_T').bumpers[0].hit=99999;F('pbNew')();return F('PB_T').bumpers[0].hit<0;})());
       check('a few nudges are allowed, only many in a row tilt the table',!p.tilted);
       for(let i=0;i<4;i++){p.nudgeCool=0;F('pbNudge')(p,-1);}
       check('too many nudges in a row tilt it',p.tilted===true);

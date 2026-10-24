@@ -453,7 +453,18 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .pb-ms em{font-size:.78rem !important;}
 .pb-mb i{background:repeating-linear-gradient(90deg,var(--pbc) 0 6px,transparent 6px 8px) !important;}
 .pb-h{font-size:.62rem !important;}.pb-keys{font-size:.62rem !important;color:rgba(244,235,208,.75) !important;}.pb-bl{font-size:.62rem !important;}.pb-tag{font-size:.72rem !important;}
-@media (orientation:portrait){.pb-stage{flex-direction:column;gap:4px;padding:4px;}.pb-side{flex:0 0 auto;flex-direction:row;flex-wrap:wrap;justify-content:center;gap:5px;}.pb-left .pb-h,.pb-left .pb-nud,.pb-left .pb-keys,.pb-fb,.pb-right .pb-row,.pb-right .pb-h,.pb-right .pb-two,.pb-right .pb-bar{display:none;}.pb-ms{flex:1 1 100%;}.pb-pl{flex:1 1 40%;}.pb-right{order:-1;}.game-pinball .pb-mid{order:1;}}
+@media (max-width:600px){.pb-side{display:none;}.pb-stage{padding:2px;}}
+.pb-stage{gap:8px;padding:6px 8px;}
+.pb-side{flex:0 0 clamp(96px,13vw,140px);justify-content:flex-start;gap:6px;}
+.pb-sp{flex:1 1 auto;}
+.pb-hide,.pb-keys,.pb-ms span,.pb-ms .pb-h{display:none;}
+.pb-pl{padding:6px 8px;grid-template-columns:auto 1fr;}.pb-pl .ah-av{width:26px;height:26px;}.pb-nm{font-size:.66rem;}.pb-sc{font-size:1.15rem !important;}
+.pb-lv{font-size:.66rem;letter-spacing:.14em;}
+.pb-ms{padding:7px 8px;}.pb-ms b{font-size:.82rem !important;}.pb-ms em{font-size:.7rem !important;}
+.pb-two{gap:10px;}.pb-big{font-size:1.1rem;}
+.pb-nud{gap:4px;}.pb-nud button{height:34px;border-radius:9px;font-size:.85rem;}
+.pb-fb{height:clamp(96px,17vh,180px);margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border-radius:18px;}
+.pb-fb b{font-size:2.2rem;line-height:1;}.pb-fb small{font-size:.58rem;letter-spacing:.2em;opacity:.85;}
 @media (max-width:760px) and (orientation:landscape){.pb-side{display:none;}.pb-stage{padding:2px;}}
 .scr-enter{animation:scrEnter .42s cubic-bezier(.2,.7,.2,1) both;}
 @keyframes scrEnter{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
@@ -10527,7 +10538,7 @@ function hfDraw(g,now){
    Rules: 3 balls each, 1 to 4 players on one iPad (hot seat). Tap the left half of the screen for the left flipper, the right half for the right one.
    Missions: every player works through three missions per level (Workshop, Forge, Vault, Core); the third one wins an extra ball and the next level. */
 const PB={W:500,H:1000,M:34,R:9,G:980,SUB:8,MAXV:2100,LX:467,FL:92};
-const PB_FL={L:{px:140,py:872,rest:Math.PI*34/180,act:-Math.PI*28/180,dir:1},R:{px:332,py:872,rest:Math.PI*146/180,act:Math.PI*208/180,dir:-1}};
+const PB_FL={L:{px:140,py:872,rest:Math.PI*34/180,act:-Math.PI*28/180,dir:1},R:{px:332,py:872,rest:Math.PI*146/180,act:Math.PI*208/180,dir:-1},U:{px:404,py:598,rest:Math.PI*148/180,act:Math.PI*207/180,dir:-1,len:74}};
 const PB_PAL=[
   {n:'THE WORKSHOP',c:'#3fe0d0',r:'63,224,208',g1:'#1b5a5c',g2:'#0b303a',g3:'#04121a'},
   {n:'THE FORGE',c:'#ff8a3a',r:'255,138,58',g1:'#5e2512',g2:'#2d100a',g3:'#100504'},
@@ -10549,15 +10560,16 @@ function pbTable(){
   // the in- and outlanes: the outer lane drains (the kickback can throw the ball back), the inner lane runs onto the flipper
   seg([20,628],[46,668],{e:.3,r:3});seg([452,628],[426,668],{e:.3,r:3});   // a ball that rides down the side wall is turned inwards, so that it does not go straight into the outlane
   seg([56,690],[56,776],{e:.3,r:5});seg([56,776],[140,872],{e:.3,r:6.5});
+  seg([450,556],[410,594],{e:.3,r:5});   // the ball that rides down the right wall lands on the upper flipper
   seg([416,690],[416,776],{e:.3,r:5});seg([416,776],[332,872],{e:.3,r:6.5});
   // the slingshots: a triangle each, the long side kicks
   const sl=(A,B,C,id)=>{seg(A,B);seg(B,C);T.slings.push({a:A,b:C,id,kick:560,hit:0});seg(A,C,{k:'sling',id,e:.3});};
   sl([96,690],[96,772],[140,764],'sl');sl([376,690],[376,772],[332,764],'sr');
   T.bumpers.push({x:166,y:400,r:25,id:'b1',hit:0},{x:296,y:372,r:25,id:'b2',hit:0},{x:232,y:488,r:25,id:'b3',hit:0});
-  for(let i=0;i<3;i++){const y0=480+i*50;seg([25,y0],[25,y0+30],{k:'target',id:'F'+(i+1),e:.2});seg([447,y0],[447,y0+30],{k:'target',id:'W'+(i+1),e:.2});}
+  for(let i=0;i<3;i++){const y0=480+i*50;seg([25,y0],[25,y0+30],{k:'target',id:'F'+(i+1),e:.2});seg([447,y0-80],[447,y0-50],{k:'target',id:'W'+(i+1),e:.2});}
   // the drop-target bank: a low roof of four targets, shot from below
   for(let i=0;i<4;i++){const cx=236+(i-1.5)*50,s=i<2?1:-1;T.drops.push({id:i,a:[cx-21,600+6*s],b:[cx+21,600-6*s],down:false,t:-9});}
-  T.posts.push({x:100,y:210,r:8},{x:372,y:210,r:8},{x:78,y:622,r:7},{x:394,y:622,r:7});
+  T.posts.push({x:100,y:210,r:8},{x:372,y:210,r:8},{x:78,y:622,r:7});
   T.lanes.push({x:180,y:150,r:15,id:0},{x:236,y:150,r:15,id:1},{x:292,y:150,r:15,id:2});
   T.outs.push({x:38,y:838,r:17,side:0},{x:434,y:838,r:17,side:1});
   T.ramps.push({id:'rl',ex:96,ey:332,er:21,ox:330,oy:200,cx:200,cy:40,vx:-150,vy:280},{id:'rr',ex:378,ey:338,er:21,ox:112,oy:204,cx:270,cy:40,vx:150,vy:280});
@@ -10566,9 +10578,10 @@ function pbTable(){
 }
 const PB_T=pbTable();
 function pbPlayerState(){return{score:0,ball:1,done:false,lanes:[0,0,0],mult:1,forge:[0,0,0],forgeOn:false,work:[0,0,0],locks:0,lockLit:false,bumps:0,superT:0,rampN:0,jackLit:false,bonus:0,best:0,mb:0,lvl:0,mi:0,mp:0,mc:0,extra:0,kick:[true,false],banks:0,spins:0};}
-function pbNew(){
+function pbResetTable(){const T=PB_T;T.bumpers.forEach(b=>b.hit=-9);T.slings.forEach(q=>q.hit=-9);T.walls.forEach(w=>{if(w.k==='target')w.t=-9;});T.lanes.forEach(l=>l.t=-9);T.drops.forEach(d=>{d.down=false;d.t=-9;});T.spin.vel=0;}
+function pbNew(){pbResetTable();
   const players=fgPlayersFor(4),n=players.length;
-  const g={live:true,kind:'pinball',n,players,st:players.map(()=>pbPlayerState()),turn:0,phase:'intro',pt:0,t:0,balls:[],fl:{L:{th:PB_FL.L.rest,w:0,on:false},R:{th:PB_FL.R.rest,w:0,on:false}},
+  const g={live:true,kind:'pinball',n,players,st:players.map(()=>pbPlayerState()),turn:0,phase:'intro',pt:0,t:0,balls:[],fl:{L:{th:PB_FL.L.rest,w:0,on:false},R:{th:PB_FL.R.rest,w:0,on:false},U:{th:PB_FL.U.rest,w:0,on:false}},
     saveT:0,tilt:0,tilted:false,combo:0,comboT:0,multi:false,mbQueue:0,mbT:0,jackBest:0,cv:null,raf:0,scale:0,statik:null,last:0,acc:0,palLvl:0,skillT:0,dropReset:0,
     fx:{parts:[],rings:[],pops:[],seq:[],banners:[],shake:0,flash:0,glow:0,sx:0,sy:0},freeze:0,slow:0,catchUp:false,bk:-1,endTot:3.2,lit:{},stats:{start:Date.now(),multis:0,jackpots:0,secrets:0,missions:0,levels:0},moment:'',ended:false,drainT:0,over:false,hint:true,sounds:true,nudgeCool:0,endT:0,bonusShow:null};
   pbNewBall(g);
@@ -10591,13 +10604,13 @@ function pbSeg(b,ax,ay,bx,by,rad,e,om,px,py){
   return{nx,ny,cx,cy,vn,s};
 }
 function pbCirc(b,cx,cy,rad,e){return pbSeg(b,cx,cy,cx,cy,rad,e,0,0,0);}
-function pbFlipTip(f,F){const L=PB.FL;return[F.px+Math.cos(f.th)*L,F.py+Math.sin(f.th)*L];}
+function pbFlipTip(f,F){const L=F.len||PB.FL;return[F.px+Math.cos(f.th)*L,F.py+Math.sin(f.th)*L];}
 function pbAdvance(g,dt){
-  const h=dt/PB.SUB;
+  const NS=Math.max(PB.SUB,Math.min(48,Math.ceil(dt*1250))),h=dt/NS;
   // the flippers swing towards where the finger tells them to go, a little in every sub-step, so that a fast flipper cannot jump over the ball
-  const fth0={L:g.fl.L.th,R:g.fl.R.th};
-  for(let s=0;s<PB.SUB;s++){
-    for(const k of ['L','R']){const f=g.fl[k],F=PB_FL[k],up=f.on&&!g.tilted&&g.phase==='play',tgt=up?F.act:F.rest,sp=up?24:15,d=tgt-f.th,step=Math.sign(d)*Math.min(Math.abs(d),sp*h);f.th+=step;f.w=step/h;}
+  const fth0={L:g.fl.L.th,R:g.fl.R.th,U:g.fl.U.th};
+  for(let s=0;s<NS;s++){
+    for(const k of ['L','R','U']){const f=g.fl[k],F=PB_FL[k],up=(k==='U'?g.fl.R.on:f.on)&&!g.tilted&&g.phase==='play',tgt=up?F.act:F.rest,sp=up?24:15,d=tgt-f.th,step=Math.sign(d)*Math.min(Math.abs(d),sp*h);f.th+=step;f.w=step/h;}
     for(const b of g.balls){
       if(b.st==='plunger'||b.st==='ramp'||b.st==='lock'||b.st==='gone')continue;
       b.py=b.y;b.vy+=PB.G*h;b.x+=b.vx*h;b.y+=b.vy*h;
@@ -10605,7 +10618,7 @@ function pbAdvance(g,dt){
       pbCollide(g,b,h);
     }
   }
-  for(const k of ['L','R']){const f=g.fl[k];f.moved=Math.abs(f.th-fth0[k])>1e-4;if(!f.moved)f.w=0;}
+  for(const k of ['L','R','U']){const f=g.fl[k];f.moved=Math.abs(f.th-fth0[k])>1e-4;if(!f.moved)f.w=0;}
 }
 function pbCollide(g,b,h){
   const T=PB_T,st=g.st[g.turn];
@@ -10619,10 +10632,10 @@ function pbCollide(g,b,h){
     if(st.lockLit&&!g.multi&&d<sa.r-3&&Math.hypot(b.vx,b.vy)<1100&&b.st==='play'){pbEvent(g,'lock',{b});return;}
     if(!(st.lockLit&&!g.multi))pbCirc(b,sa.x,sa.y,sa.r,.5);}
   // the flippers: a swinging flipper carries the ball with the speed of its surface
-  for(const k of ['L','R']){const f=g.fl[k],F=PB_FL[k],tip=pbFlipTip(f,F);
-    const c=pbSeg(b,F.px,F.py,tip[0],tip[1],6.5,.34,f.w,F.px,F.py);
+  for(const k of ['L','R','U']){const f=g.fl[k],F=PB_FL[k],tip=pbFlipTip(f,F),fon=k==='U'?g.fl.R.on:f.on;
+    const c=pbSeg(b,F.px,F.py,tip[0],tip[1],7.5,.34,f.w,F.px,F.py);
     if(c&&g.t-(f.hitT||-9)>.12&&(Math.abs(f.w)>.5||c.vn<-250)){f.hitT=g.t;pbEvent(g,'flip',{k,b,swing:Math.abs(f.w)>.5});}
-    if(c&&f.on&&Math.abs(f.w)<.3&&c.vn>-160){b.vx*=.97;b.vy*=.97;}}
+    if(c&&fon&&Math.abs(f.w)<.3&&c.vn>-160){b.vx*=.97;b.vy*=.97;}}
   // rollovers, the spinner, the kickbacks and the mouths of the ramps are sensors, not walls
   for(const l of T.lanes){if(Math.hypot(b.x-l.x,b.y-l.y)<l.r&&g.t-(l.t||-9)>.5){l.t=g.t;pbEvent(g,'lane',{id:l.id,b});}}
   {const sp=T.spin;if(b.st==='play'&&b.py!==undefined&&(b.py-sp.y)*(b.y-sp.y)<=0&&b.py!==b.y&&Math.abs(b.x-sp.x)<sp.hw&&Math.hypot(b.vx,b.vy)>140)pbEvent(g,'spin',{b,sp});}
@@ -10639,32 +10652,33 @@ function pbHitWall(g,b,w,c){
   else if(c.vn<-220&&g.t-(g.wallT||-9)>.06){g.wallT=g.t;PBS.wall(Math.min(1,-c.vn/1200));}
 }
 const PBS={
-  flip(){_hfK=2.3;hfNz(.03,1900,500,.34,{type:'bandpass',q:.9,a:.001});hfOsc(150,70,.06,.3,{a:.001});},
-  wall(v){_hfK=1.6;hfNz(.025,2600,900,.12*v,{type:'bandpass',q:1,a:.001});hfOsc(260,140,.04,.07*v,{a:.001});},
-  bumper(){_hfK=1.6;const k=.92+Math.random()*.16;hfOsc(230*k,90,.1,.34,{a:.001});hfNz(.04,3000*k,900,.2,{q:.8,a:.001});hfOsc(900*k,720,.14,.07,{a:.001,d:10,rev:.15});},
-  sling(){_hfK=1.8;hfNz(.04,2600,800,.28,{q:.7,a:.001});hfOsc(190,100,.05,.2,{a:.001});},
-  target(){_hfK=1.5;hfNz(.012,6000,3000,.28,{type:'highpass',a:.0005});[[1500,.2,.16],[2200,.14,.1],[3300,.08,.06]].forEach(([f,d,v])=>hfOsc(f,f*.99,d,v,{a:.0008,rev:.12}));},
-  lane(){_hfK=2;hfOsc(1320,1320,.08,.1,{a:.002,rev:.1});},
-  launch(){_hfK=2;hfOsc(95,45,.14,.38,{a:.001});hfNz(.05,3200,900,.22,{a:.001});hfNz(.5,400,3800,.12,{type:'bandpass',q:.6,a:.04,rev:.15});},
-  ramp(){_hfK=2;hfNz(.8,600,3200,.1,{type:'bandpass',q:.6,a:.12,rev:.12});},
-  lock(){_hfK=2;hfOsc(110,50,.16,.4,{a:.001});hfNz(.06,1200,300,.22,{type:'lowpass',a:.001});hfOsc(520,430,.1,.06,{a:.001,d:50,rev:.2});},
-  lit(){_hfK=2;[0,4,7,12].forEach((s,i)=>hfOsc(660*Math.pow(2,s/12),660*Math.pow(2,s/12),.18,.07,{a:.002,d:i*70,rev:.25}));},
-  drain(){_hfK=2;hfOsc(220,55,.9,.22,{type:'triangle',lp:600,a:.01,rev:.35});hfNz(.6,700,120,.1,{type:'lowpass',a:.03});hfOsc(98,98,.5,.08,{d:200,rev:.3});},
-  jackpot(){_hfK=2.2;[0,4,7,12,16,19].forEach((s,i)=>hfOsc(523*Math.pow(2,s/12),523*Math.pow(2,s/12),.5,.09,{a:.003,d:i*80,rev:.3}));hfNz(.9,800,2600,.08,{type:'bandpass',q:.5,a:.1,rev:.3});},
-  multi(){_hfK=2.2;hfOsc(70,40,1.1,.22,{type:'sawtooth',lp:260,a:.05,rev:.2});hfNz(1.1,200,1800,.1,{type:'bandpass',q:.6,a:.4,rev:.3});for(let i=0;i<4;i++)hfOsc(300+i*120,300+i*120,.2,.06,{a:.002,d:300+i*140,rev:.3});},
+  bell(f,v,d){hfOsc(f,f,1.1,v,{a:.001,d:d||0,rev:.3});hfOsc(f*2.76,f*2.76,.55,v*.45,{a:.001,d:d||0,rev:.25});hfOsc(f*5.4,f*5.4,.3,v*.2,{a:.001,d:d||0});},
+  thump(v){hfOsc(135,52,.11,.5*v,{a:.001});hfNz(.018,2600,900,.3*v,{type:'bandpass',q:1.2,a:.0005});},
+  flip(){_hfK=2.2;PBS.thump(.8);hfNz(.03,1500,500,.2,{type:'bandpass',q:1.5,a:.0005});},
+  wall(v){_hfK=1.6;hfNz(.03,3200,1400,.14*v,{type:'bandpass',q:1.6,a:.0005});hfOsc(380,210,.035,.07*v,{a:.0005});},
+  bumper(){_hfK=1.8;const k=.94+Math.random()*.12;hfNz(.035,2200*k,700,.45,{type:'bandpass',q:1.4,a:.0005});hfOsc(300*k,95,.09,.45,{a:.0008});PBS.bell(1319*k,.1);},
+  sling(){_hfK=1.9;hfNz(.025,3400,1200,.42,{type:'bandpass',q:1.5,a:.0004});hfOsc(210,85,.07,.4,{a:.0006});hfOsc(1900,1500,.05,.05,{a:.0005,d:8});},
+  target(){_hfK=1.7;hfNz(.02,1700,600,.4,{type:'bandpass',q:2,a:.0004});hfOsc(520,360,.05,.22,{a:.0005});PBS.bell(1760,.06,15);},
+  lane(){_hfK=2;PBS.bell(1568,.08);},
+  launch(){_hfK=2;hfOsc(75,40,.18,.45,{a:.001});hfNz(.06,1200,300,.25,{type:'bandpass',q:.8,a:.001});hfNz(.45,500,2800,.1,{type:'bandpass',q:.7,a:.05,rev:.1});},
+  ramp(){_hfK=2;for(let i=0;i<7;i++)hfNz(.02,2400+i*180,1800,.12,{type:'bandpass',q:2,a:.0005,d:i*70});hfNz(.7,500,2400,.07,{type:'bandpass',q:.6,a:.1});},
+  lock(){_hfK=2;PBS.thump(1.1);hfOsc(420,300,.2,.1,{type:'square',lp:1200,a:.001,d:30,rev:.2});hfNz(.05,3000,900,.3,{type:'bandpass',q:2,a:.0005,d:20});},
+  lit(){_hfK=2;[0,4,7,12].forEach((s,i)=>PBS.bell(784*Math.pow(2,s/12),.06,i*70));},
+  drain(){_hfK=2;hfOsc(260,60,.7,.22,{type:'triangle',lp:700,a:.01,rev:.3});hfNz(.5,900,150,.08,{type:'lowpass',a:.02});},
+  jackpot(){_hfK=2.2;[0,4,7,12,16,19,24,19,16,12].forEach((st,i)=>PBS.bell(1046*Math.pow(2,st/12),.09,i*75));PBS.thump(1.2);hfNz(.9,800,2600,.07,{type:'bandpass',q:.5,a:.1,rev:.3});},
+  multi(){_hfK=2.2;[0,180,360,540].forEach(d=>hfOsc(70,38,.2,.4,{a:.001,d}));hfOsc(220,880,1.1,.1,{type:'sawtooth',lp:900,a:.4,rev:.25});for(let i=0;i<4;i++)PBS.bell(880+i*220,.07,700+i*110);},
   tilt(){_hfK=2.2;hfOsc(110,100,.55,.12,{type:'sawtooth',lp:500,a:.01});hfOsc(115,105,.55,.1,{type:'square',lp:400,a:.01});},
-  start(){_hfK=1.8;hfNz(1.2,160,520,.1,{type:'lowpass',n:'brown',a:.3});[0,260,520].forEach(d=>{hfOsc(95,55,.12,.2,{d,a:.002});});},
-  spin(v){_hfK=2;hfOsc(1500+(v||10)*30,1300+(v||10)*25,.03,.06,{a:.0005,rev:.06});},
-  drop(){_hfK=1.6;hfNz(.05,2400,700,.26,{type:'bandpass',q:.8,a:.001});hfOsc(320,150,.1,.2,{a:.001});},
-  bank(){_hfK=2;[0,5,9].forEach((s,i)=>hfOsc(440*Math.pow(2,s/12),440*Math.pow(2,s/12),.2,.09,{a:.002,d:i*90,rev:.25}));hfNz(.12,3500,900,.12,{type:'highpass',a:.001});},
-  kick(){_hfK=2;hfNz(.14,400,2600,.3,{type:'bandpass',q:.7,a:.002});hfOsc(90,50,.2,.38,{a:.001});},
-  mission(){_hfK=2;[0,4,7,11,14].forEach((s,i)=>hfOsc(587*Math.pow(2,s/12),587*Math.pow(2,s/12),.3,.08,{a:.002,d:i*70,rev:.3}));},
-  level(){_hfK=2.2;[0,7,12,16,19,24].forEach((s,i)=>hfOsc(330*Math.pow(2,s/12),330*Math.pow(2,s/12),.7,.09,{a:.004,d:i*110,rev:.35}));hfOsc(60,40,1,.2,{type:'sawtooth',lp:220,a:.05});},
-  clack(on){const n=performance.now();if(n-(PBS._c||0)<60)return;PBS._c=n;_hfK=2;hfNz(.02,on?1400:900,400,on?.2:.12,{type:'bandpass',q:1,a:.0005});hfOsc(on?190:140,70,.04,on?.16:.1,{a:.0005});},
-  combo(n){_hfK=2;const f=660*Math.pow(2,[0,0,2,4,7,12][Math.min(5,n)]/12);hfOsc(f,f*1.5,.16,.09,{a:.002,rev:.25});hfOsc(f*2,f*2,.22,.04,{a:.002,d:40,rev:.3});},
-  warn(){_hfK=2;hfOsc(110,100,.25,.1,{type:'sawtooth',lp:400,a:.01});},
-  bed(r,n,m){_hfK=1.4;if(n%4===0)hfOsc(r,r*.9,.35,.07,{type:'sine',a:.02,rev:.3});if(n%2===1)hfNz(.03,5000,7000,m?.05:.025,{type:'highpass',a:.001});if(m&&n===0)hfOsc(r*4,r*4,.25,.03,{type:'triangle',lp:900,a:.01,rev:.4});},
-  skill(){_hfK=2;[0,7,12,19].forEach((s,i)=>hfOsc(880*Math.pow(2,s/12),880*Math.pow(2,s/12),.25,.07,{a:.002,d:i*60,rev:.3}));}
+  start(){_hfK=1.8;[0,200,400].forEach(d=>{hfOsc(110,50,.12,.35,{a:.001,d});hfNz(.02,2400,900,.25,{type:'bandpass',q:1.2,a:.0005,d});});PBS.bell(1319,.07,650);},
+  spin(v){_hfK=2;hfNz(.012,3200+(v||10)*40,2400,.2,{type:'bandpass',q:3,a:.0003});},
+  drop(){_hfK=1.7;hfNz(.04,1500,500,.4,{type:'bandpass',q:1.6,a:.0004});hfOsc(260,110,.09,.3,{a:.0006});},
+  bank(){_hfK=2;PBS.thump(.9);[0,4,7,12].forEach((st,i)=>PBS.bell(1046*Math.pow(2,st/12),.07,60+i*80));},
+  kick(){_hfK=2;PBS.thump(1.3);hfNz(.14,400,2600,.25,{type:'bandpass',q:.7,a:.002});PBS.bell(1568,.06,40);},
+  mission(){_hfK=2;[0,4,7,11,14].forEach((st,i)=>PBS.bell(784*Math.pow(2,st/12),.08,i*80));},
+  level(){_hfK=2.2;[0,7,12,16,19,24].forEach((st,i)=>PBS.bell(523*Math.pow(2,st/12),.09,i*110));hfOsc(55,36,1,.35,{a:.02});PBS.thump(1.2);},
+  skill(){_hfK=2;[0,7,12,19].forEach((st,i)=>PBS.bell(1046*Math.pow(2,st/12),.08,i*60));},
+  clack(on){const n=performance.now();if(n-(PBS._c||0)<60)return;PBS._c=n;_hfK=2;if(on){hfOsc(110,55,.08,.28,{a:.0005});hfNz(.015,1800,700,.18,{type:'bandpass',q:1.4,a:.0003});}else hfNz(.012,1200,600,.1,{type:'bandpass',q:1.4,a:.0003});},
+  combo(n){_hfK=2;const f=880*Math.pow(2,[0,0,2,4,7,12][Math.min(5,n)]/12);PBS.bell(f,.09);},
+  warn(){_hfK=2;hfOsc(110,100,.25,.1,{type:'sawtooth',lp:400,a:.01});}
 };
 // ── the rules ──
 function pbSay(g,t,sub,col,ms){fgBanner(g,t,sub||'',col||null,ms||1100);}
@@ -10673,9 +10687,9 @@ function pbRing(g,x,y,col,r1){g.fx.rings.push({x,y,l:0,life:.7,col,r1:r1||150});
 function pbPts(g,n,o){const st=g.st[g.turn],m=o&&o.flat?1:st.mult,c=o&&o.combo?Math.max(1,Math.min(5,g.combo)):1,v=Math.round(n*m*c);st.score+=v;st.bonus+=Math.round(n*.05);return v;}
 function pbShot(g){if(g.t-g.comboT<5)g.combo++;else g.combo=1;g.comboT=g.t;if(g.combo>=2){const n=Math.min(5,g.combo);pbSay(g,['','','DOUBLE','TRIPLE','QUAD','MAXIMUM'][n],'COMBO ×'+n,['','','#F4EBD0','#ffd96a','#ff8a3a','#ff4a6a'][n],900);PBS.combo(n);}}
 function pbReduced(){try{return window.matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){return false;}}
-const PB_LAMPS=[[180,150],[236,150],[292,150],[40,496],[40,546],[40,596],[432,496],[432,546],[432,596],[210,292],[236,297],[262,292],[38,806],[434,806],[216,116],[236,116],[256,116],[96,372],[96,358],[96,344],[378,378],[378,364],[378,350],[236,262],[236,812]].sort((a,b)=>b[1]-a[1]);
+const PB_LAMPS=[[180,150],[236,150],[292,150],[40,496],[40,546],[40,596],[432,416],[432,466],[432,516],[210,292],[236,297],[262,292],[38,806],[434,806],[216,116],[236,116],[256,116],[96,372],[96,358],[96,344],[378,378],[378,364],[378,350],[236,262],[236,812]].sort((a,b)=>b[1]-a[1]);
 function pbChase(g,col){g.fx.seq.push({t:g.t,col});if(g.fx.seq.length>3)g.fx.seq.shift();}
-const PB_ZONE={bump:[[166,400],[296,372],[232,488]],ramp:[[96,332],[378,338]],spin:[[236,338]],bank:[[236,600]],tgt:[[25,525],[447,525]],lock:[[236,228]]};
+const PB_ZONE={bump:[[166,400],[296,372],[232,488]],ramp:[[96,332],[378,338]],spin:[[236,338]],bank:[[236,600]],tgt:[[25,525],[447,465]],lock:[[236,228]]};
 function pbBeacon(x,m,t,col){for(const z of PB_ZONE[m.k]||[]){const u=(t*1.1)%1;x.save();x.globalCompositeOperation='lighter';x.strokeStyle=col;x.globalAlpha=.75*(1-u);x.lineWidth=3;x.beginPath();x.arc(z[0],z[1],20+u*34,0,6.283);x.stroke();x.restore();}}
 function pbAlive(g){return g.balls.filter(b=>b.st!=='gone');}
 // a mission moves on when the right thing happens; the third one of a level wins an extra ball and the next level
@@ -10775,7 +10789,6 @@ function pbStep(g,dt){
   if(g.saveT>0&&g.balls.some(b=>b.st==='play'))g.saveT-=dt;
   if(g.comboT&&g.t-g.comboT>5)g.combo=0;
   pbAdvance(g,dt);
-  g.bedT=(g.bedT||0)-dt;if(g.bedT<=0){const bpm=84+st.lvl*8+(g.multi?30:0);g.bedT=60/bpm/2;const bn=(g.bedN=(g.bedN||0)+1)%8;try{PBS.bed([55,55,65.4,49][Math.min(3,st.lvl)],bn,g.multi);}catch(e){}}
   // the balls that are away from the table: on a ramp, in the vault
   for(const b of g.balls){
     b.tr=b.tr||[];if(b.st==='play'||b.st==='ramp'){b.tr.push([b.x,b.y]);if(b.tr.length>9)b.tr.shift();}else b.tr.length=0;
@@ -10867,7 +10880,7 @@ function pbBuild(g){
   x.fillStyle='rgba('+P.r+',.85)';x.font='700 13px Cinzel, Georgia, serif';pbSpaced(x,P.n,236,92,5);
   x.fillStyle='rgba(244,235,208,.34)';x.font='700 20px Cinzel, Georgia, serif';pbSpaced(x,'THE FORBIDDEN MACHINE',236,726,5);
   x.save();x.translate(46,555);x.rotate(-Math.PI/2);x.font='700 12px Cinzel, Georgia, serif';x.fillStyle='rgba(255,150,80,.6)';pbSpaced(x,'THE FORGE',0,0,5);x.restore();
-  x.save();x.translate(426,555);x.rotate(Math.PI/2);x.font='700 12px Cinzel, Georgia, serif';x.fillStyle='rgba(127,215,255,.6)';pbSpaced(x,'THE WORKSHOP',0,0,5);x.restore();
+  x.save();x.translate(426,470);x.rotate(Math.PI/2);x.font='700 12px Cinzel, Georgia, serif';x.fillStyle='rgba(127,215,255,.6)';pbSpaced(x,'THE WORKSHOP',0,0,5);x.restore();
   // the plunger lane
   if(!bgI){
   const pg=x.createLinearGradient(452,0,482,0);pg.addColorStop(0,'rgba(0,0,0,.55)');pg.addColorStop(.5,'rgba(255,255,255,.07)');pg.addColorStop(1,'rgba(0,0,0,.55)');x.fillStyle=pg;x.fillRect(452,250,30,H-250);
@@ -10915,7 +10928,7 @@ function pbDraw(g,now){
   const skill=g.skillT>0?Math.floor(t*2.2)%3:-1;
   // the lights of the table
   T.lanes.forEach(l=>{const on=!!st.lanes[l.id]||l.id===skill;pbInsert(x,l.x,l.y,9,on,l.id===skill?'#ffffff':P.c,t+l.id);});
-  for(let i=0;i<3;i++){pbInsert(x,40,496+i*50,5,!!st.forge[i]||st.forgeOn,'#ff7a3a',t);pbInsert(x,432,496+i*50,5,!!st.work[i],'#7fd7ff',t);}
+  for(let i=0;i<3;i++){pbInsert(x,40,496+i*50,5,!!st.forge[i]||st.forgeOn,'#ff7a3a',t);pbInsert(x,432,416+i*50,5,!!st.work[i],'#7fd7ff',t);}
   for(let i=0;i<3;i++)pbStarI(x,210+i*26,292+(i===1?5:0),6.5,st.locks>i,'#7fe8ff',t);
   pbInsert(x,236,262,7,st.lockLit&&!g.multi,'#ff9a4a',t);pbLabel(x,'LOCK',236,277,7,'#ff9a4a',st.lockLit?.9:.3);
   for(let i=0;i<3;i++)pbInsert(x,216+i*20,116,4.4,st.mi>i||(st.mi===i&&Math.sin(t*5)>0),'#8affc1',t);
@@ -10984,8 +10997,8 @@ function pbDraw(g,now){
   {const pb=g.balls.find(q=>q.st==='plunger');x.fillStyle='#1c2127';x.fillRect(PB.LX-4,(pb?pb.y+10:PB.H-60),8,30);const pg=x.createLinearGradient(PB.LX-9,0,PB.LX+9,0);pg.addColorStop(0,'#f3f6fa');pg.addColorStop(.5,'#808a96');pg.addColorStop(1,'#d4dae1');x.fillStyle=pg;x.fillRect(PB.LX-9,PB.H-60,18,6);
     x.strokeStyle='#aab3be';x.lineWidth=1.6;for(let i=0;i<5;i++){x.beginPath();x.moveTo(PB.LX-6,PB.H-52+i*5);x.lineTo(PB.LX+6,PB.H-50+i*5);x.stroke();}}
   // the flippers: white rubber on a steel body, a coloured cap on the pivot
-  for(const k of ['L','R']){const f=g.fl[k],F=PB_FL[k],tip=pbFlipTip(f,F),ang=f.th,nx=-Math.sin(ang),ny=Math.cos(ang),fi=pbImg(k==='L'?'flipL':'flipR');
-    if(fi){const w0=fi.naturalWidth,h0=fi.naturalHeight,px=k==='L'?.107:.809,py=k==='L'?.356:.374,lp=(k==='L'?1-px:px)*w0,sc2=(PB.FL+7)/lp;x.save();x.translate(F.px,F.py);x.rotate(k==='L'?ang:ang-Math.PI);x.shadowColor='rgba(0,0,0,.6)';x.shadowBlur=8;x.shadowOffsetY=4;x.drawImage(fi,-px*w0*sc2,-py*h0*sc2,w0*sc2,h0*sc2);x.restore();if(f.on)pbGlow(x,F.px,F.py,36,P.c,.22);continue;}
+  for(const k of ['L','R','U']){const f=g.fl[k],F=PB_FL[k],tip=pbFlipTip(f,F),ang=f.th,nx=-Math.sin(ang),ny=Math.cos(ang),fi=pbImg(k==='L'?'flipL':'flipR');
+    if(fi){const w0=fi.naturalWidth,h0=fi.naturalHeight,px=k==='L'?.107:.809,py=k==='L'?.356:.374,lp=(k==='L'?1-px:px)*w0,sc2=((F.len||PB.FL)+7)/lp;x.save();x.translate(F.px,F.py);x.rotate(k==='L'?ang:ang-Math.PI);x.scale(1,.8);x.shadowColor='rgba(0,0,0,.6)';x.shadowBlur=8;x.shadowOffsetY=4;x.drawImage(fi,-px*w0*sc2,-py*h0*sc2,w0*sc2,h0*sc2);x.restore();if(k==='U'?g.fl.R.on:f.on)pbGlow(x,F.px,F.py,36,P.c,.22);continue;}
     x.save();x.beginPath();x.moveTo(F.px+nx*11,F.py+ny*11);x.lineTo(tip[0]+nx*5.5,tip[1]+ny*5.5);x.arc(tip[0],tip[1],5.5,ang+Math.PI/2,ang-Math.PI/2,true);x.lineTo(F.px-nx*11,F.py-ny*11);x.arc(F.px,F.py,11,ang-Math.PI/2,ang+Math.PI/2,true);x.closePath();
     x.shadowColor='rgba(0,0,0,.65)';x.shadowBlur=9;x.shadowOffsetY=5;
     const fg=x.createLinearGradient(F.px+nx*11,F.py+ny*11,F.px-nx*11,F.py-ny*11);fg.addColorStop(0,'#ffffff');fg.addColorStop(.4,'#e4e8ee');fg.addColorStop(1,'#8e97a3');x.fillStyle=fg;x.fill();x.shadowColor='transparent';x.strokeStyle='rgba(20,24,30,.8)';x.lineWidth=1.6;x.stroke();
@@ -11033,21 +11046,19 @@ function rPinballTable(){
     <div class="felt-table ah-felt" style="flex:1 1 auto;min-height:0;max-height:none;padding:0;">
       <div class="ah-stage pb-stage" id="pb-stage">
         <div class="pb-side pb-left" id="pb-left">${players.map((p,i)=>`<div class="pb-pl" id="pb-pl${i}"><span class="ah-av">${p.avatar?avHTML(p.avatar):''}</span><b class="pb-nm">${esc((p.name||'').slice(0,12))}</b><b class="pb-sc" id="pb-sc${i}">0</b><i class="pb-bl" id="pb-bl${i}">BALL 1</i></div>`).join('')}
-          <button class="pb-fb" data-flip="L" aria-label="Left flipper">◀ LEFT FLIPPER</button>
-          <div class="pb-h">NUDGE THE TABLE</div>
+          <div class="pb-sp"></div>
           <div class="pb-nud"><button data-nudge="-1" aria-label="Nudge left">◀</button><button data-nudge="0" aria-label="Nudge up">▲</button><button data-nudge="1" aria-label="Nudge right">▶</button></div>
-          <div class="pb-keys"><div>TAP LEFT / RIGHT = FLIPPERS</div><div>SWIPE SIDEWAYS = NUDGE</div></div></div>
+          <button class="pb-fb" data-flip="L" aria-label="Left flipper"><b>◀</b><small>FLIPPER</small></button></div>
         <div class="pb-mid" id="pb-mid"><canvas id="pb-cv" class="ah-cv" aria-label="Pinball machine"></canvas></div>
         <div class="pb-side pb-right" id="pb-right">
           <div class="pb-lv" id="pb-lvl">THE WORKSHOP</div>
           <div class="pb-ms"><div class="pb-h" id="pb-mt">MISSION 1 / 3</div><b id="pb-mn">BUMPER BASH</b><span id="pb-md"></span><div class="pb-bar pb-mb"><i id="pb-mp"></i></div><em id="pb-mc">0 / 15</em></div>
-          <div class="pb-h">THE FORGE</div><div class="pb-row" id="pb-forge">${dot('f0')}${dot('f1')}${dot('f2')}</div>
-          <div class="pb-h">THE VAULT</div><div class="pb-row" id="pb-locks">${dot('l0')}${dot('l1')}${dot('l2')}</div>
-          <div class="pb-h">LANES</div><div class="pb-row" id="pb-lanes">${dot('a0')}${dot('a1')}${dot('a2')}</div>
+          <div class="pb-hide"><div class="pb-row" id="pb-forge">${dot('f0')}${dot('f1')}${dot('f2')}</div><div class="pb-row" id="pb-locks">${dot('l0')}${dot('l1')}${dot('l2')}</div><div class="pb-row" id="pb-lanes">${dot('a0')}${dot('a1')}${dot('a2')}</div></div>
           <div class="pb-two"><div><div class="pb-h">MULTIPLIER</div><div class="pb-big" id="pb-mult">×1</div></div><div><div class="pb-h">COMBO</div><div class="pb-big" id="pb-combo">–</div></div></div>
           <div class="pb-tag" id="pb-extra">EXTRA BALL</div><div class="pb-tag" id="pb-jack">JACKPOT LIT</div><div class="pb-tag" id="pb-super">SUPER BUMPERS</div><div class="pb-tag" id="pb-multi">MULTIBALL</div>
-          <div class="pb-h">TILT</div><div class="pb-bar"><i id="pb-tilt"></i></div>
-          <button class="pb-fb" data-flip="R" aria-label="Right flipper">RIGHT FLIPPER ▶</button>
+          <div class="pb-bar"><i id="pb-tilt"></i></div>
+          <div class="pb-sp"></div>
+          <button class="pb-fb" data-flip="R" aria-label="Right flipper"><b>▶</b><small>FLIPPER</small></button>
         </div>
       </div>
     </div>
@@ -11063,7 +11074,7 @@ function pbAttach(){
 }
 function pbSize(){
   const g=G.pb;if(!g||!g.cv)return;const m=document.getElementById('pb-mid');if(!m)return;
-  const r=m.getBoundingClientRect(),cw=PB.W+2*PB.M,ch=PB.H+2*PB.M,sc=Math.min(r.width/cw,r.height/ch),dpr=Math.min(2,window.devicePixelRatio||1);
+  const r=m.getBoundingClientRect(),cw=PB.W+2*PB.M,ch=PB.H+2*PB.M,sc=Math.min(r.width/cw,r.height/ch),dpr=Math.min(1.6,window.devicePixelRatio||1);
   if(!(sc>0))return;const w=Math.floor(cw*sc),h=Math.floor(ch*sc);g.cv.style.width=w+'px';g.cv.style.height=h+'px';g.cv.width=Math.round(w*dpr);g.cv.height=Math.round(h*dpr);g.scale=sc*dpr;g.statik=null;
 }
 window.addEventListener('resize',()=>{try{if(G.pb&&G.pb.live)pbSize();}catch(e){}});
