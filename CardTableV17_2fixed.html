@@ -423,6 +423,8 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .pb-pl.on .pb-sc{color:var(--pbc);text-shadow:0 0 12px rgba(var(--pbr),.6);}
 .pb-bl{grid-column:1/3;font-style:normal;font-size:.5rem;letter-spacing:.18em;color:#8c98a8;}
 .pb-keys{margin-top:6px;font-size:.5rem;letter-spacing:.12em;color:rgba(244,235,208,.45);line-height:1.8;}
+.pb-fb{pointer-events:auto;touch-action:none;height:64px;border-radius:14px;margin-top:6px;background:linear-gradient(180deg,rgba(var(--pbr),.38),rgba(var(--pbr),.12));border:1.5px solid var(--pbc);color:#fff;font:700 .72rem 'Cinzel',serif;letter-spacing:.16em;cursor:pointer;box-shadow:0 0 14px rgba(var(--pbr),.3);-webkit-user-select:none;user-select:none;}
+.pb-fb:active{background:rgba(var(--pbr),.65);}
 .pb-nud{display:flex;gap:6px;}
 .pb-nud button{flex:1;height:38px;border-radius:10px;background:linear-gradient(180deg,#2a313d,#12161d);border:1px solid rgba(190,200,215,.3);color:var(--pbc);font-size:1rem;cursor:pointer;touch-action:none;}
 .pb-nud button:active{background:rgba(var(--pbr),.35);}
@@ -10582,10 +10584,10 @@ function pbCirc(b,cx,cy,rad,e){return pbSeg(b,cx,cy,cx,cy,rad,e,0,0,0);}
 function pbFlipTip(f,F){const L=PB.FL;return[F.px+Math.cos(f.th)*L,F.py+Math.sin(f.th)*L];}
 function pbAdvance(g,dt){
   const h=dt/PB.SUB;
-  // the flippers swing towards where the finger tells them to go
-  for(const k of ['L','R']){const f=g.fl[k],F=PB_FL[k],tgt=(f.on&&!g.tilted&&g.phase==='play')?F.act:F.rest,up=f.on&&!g.tilted,sp=(up?24:15);
-    const d=tgt-f.th,step=Math.sign(d)*Math.min(Math.abs(d),sp*dt);f.th+=step;f.w=step/dt;f.moved=Math.abs(step)>1e-4;}
+  // the flippers swing towards where the finger tells them to go, a little in every sub-step, so that a fast flipper cannot jump over the ball
+  const fth0={L:g.fl.L.th,R:g.fl.R.th};
   for(let s=0;s<PB.SUB;s++){
+    for(const k of ['L','R']){const f=g.fl[k],F=PB_FL[k],up=f.on&&!g.tilted&&g.phase==='play',tgt=up?F.act:F.rest,sp=up?24:15,d=tgt-f.th,step=Math.sign(d)*Math.min(Math.abs(d),sp*h);f.th+=step;f.w=step/h;}
     for(const b of g.balls){
       if(b.st==='plunger'||b.st==='ramp'||b.st==='lock'||b.st==='gone')continue;
       b.py=b.y;b.vy+=PB.G*h;b.x+=b.vx*h;b.y+=b.vy*h;
@@ -10593,6 +10595,7 @@ function pbAdvance(g,dt){
       pbCollide(g,b,h);
     }
   }
+  for(const k of ['L','R']){const f=g.fl[k];f.moved=Math.abs(f.th-fth0[k])>1e-4;if(!f.moved)f.w=0;}
 }
 function pbCollide(g,b,h){
   const T=PB_T,st=g.st[g.turn];
@@ -10992,6 +10995,7 @@ function rPinballTable(){
     <div class="felt-table ah-felt" style="flex:1 1 auto;min-height:0;max-height:none;padding:0;">
       <div class="ah-stage pb-stage" id="pb-stage">
         <div class="pb-side pb-left" id="pb-left">${players.map((p,i)=>`<div class="pb-pl" id="pb-pl${i}"><span class="ah-av">${p.avatar?avHTML(p.avatar):''}</span><b class="pb-nm">${esc((p.name||'').slice(0,12))}</b><b class="pb-sc" id="pb-sc${i}">0</b><i class="pb-bl" id="pb-bl${i}">BALL 1</i></div>`).join('')}
+          <button class="pb-fb" data-flip="L" aria-label="Left flipper">◀ LEFT FLIPPER</button>
           <div class="pb-h">NUDGE THE TABLE</div>
           <div class="pb-nud"><button data-nudge="-1" aria-label="Nudge left">◀</button><button data-nudge="0" aria-label="Nudge up">▲</button><button data-nudge="1" aria-label="Nudge right">▶</button></div>
           <div class="pb-keys"><div>TAP LEFT / RIGHT = FLIPPERS</div><div>SWIPE SIDEWAYS = NUDGE</div></div></div>
@@ -11005,6 +11009,7 @@ function rPinballTable(){
           <div class="pb-two"><div><div class="pb-h">MULTIPLIER</div><div class="pb-big" id="pb-mult">×1</div></div><div><div class="pb-h">COMBO</div><div class="pb-big" id="pb-combo">–</div></div></div>
           <div class="pb-tag" id="pb-extra">EXTRA BALL</div><div class="pb-tag" id="pb-jack">JACKPOT LIT</div><div class="pb-tag" id="pb-super">SUPER BUMPERS</div><div class="pb-tag" id="pb-multi">MULTIBALL</div>
           <div class="pb-h">TILT</div><div class="pb-bar"><i id="pb-tilt"></i></div>
+          <button class="pb-fb" data-flip="R" aria-label="Right flipper">RIGHT FLIPPER ▶</button>
         </div>
       </div>
     </div>
@@ -11032,10 +11037,11 @@ function pbBindInput(){
   const side=e=>{const r=stage.getBoundingClientRect();return e.clientX<r.left+r.width/2?'L':'R';};
   stage.addEventListener('pointerdown',e=>{const g=G.pb;if(!g||!g.live)return;
     const nb=e.target.closest&&e.target.closest('[data-nudge]');if(nb){e.preventDefault();pbNudge(g,+nb.dataset.nudge);return;}
+    const fb=e.target.closest&&e.target.closest('[data-flip]');if(fb){e.preventDefault();try{stage.setPointerCapture(e.pointerId);}catch(x){}const s=fb.dataset.flip;ptr.set(e.pointerId,{s,x0:0,y0:0,t0:0,n:0,btn:1});pbSetFlip(g,s,true);return;}
     if(e.target.closest&&e.target.closest('button,a'))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId);}catch(x){}
     const s=side(e);ptr.set(e.pointerId,{s,x0:e.clientX,y0:e.clientY,t0:performance.now(),n:0});pbSetFlip(g,s,true);},{passive:false});
   // a sideways swipe is a nudge, not a flipper: the flipper that the finger started is let go again at once
-  stage.addEventListener('pointermove',e=>{const p=ptr.get(e.pointerId),g=G.pb;if(!p||!g||p.n)return;const dx=e.clientX-p.x0,dy=e.clientY-p.y0,dt=performance.now()-p.t0;
+  stage.addEventListener('pointermove',e=>{const p=ptr.get(e.pointerId),g=G.pb;if(!p||!g||p.n||p.btn)return;const dx=e.clientX-p.x0,dy=e.clientY-p.y0,dt=performance.now()-p.t0;
     if(dt<380&&(Math.abs(dx)>40||dy<-52)){p.n=1;if(dy<-52&&Math.abs(dy)>Math.abs(dx))pbNudge(g,0);else pbNudge(g,Math.sign(dx));
       if(![...ptr.entries()].some(([id,q])=>id!==e.pointerId&&q.s===p.s&&!q.n))pbSetFlip(g,p.s,false);}},{passive:true});
   const up=e=>{const p=ptr.get(e.pointerId),g=G.pb;if(!p)return;ptr.delete(e.pointerId);if(g&&![...ptr.values()].some(q=>q.s===p.s&&!q.n))pbSetFlip(g,p.s,false);};

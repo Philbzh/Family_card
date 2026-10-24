@@ -5800,6 +5800,9 @@ async function runPresentation(A,W,frame){
       p.nudgeCool=0;nb.vx=nb.vy=0;F('pbNudge')(p,0);
       check('an upward nudge lifts the ball',nb.vy<0);
       p.nudgeCool=0;p.tilt=0;for(let i=0;i<4;i++){p.nudgeCool=0;F('pbNudge')(p,1);}
+      check('there is a visible left and right flipper button at the sides',W.document.querySelectorAll('[data-flip]').length===2);
+      {const FL=F('PB_FL').L;let thru=0;for(const px of [160,185,210]){p.fl.L.th=FL.rest;p.fl.L.on=false;const b={x:px,y:FL.py+Math.tan(FL.rest)*(px-FL.px)-17,vx:0,vy:0,st:'play',id:9e3,stuck:0,tr:[]};p.balls=[b];p.saveT=99;p.phase='play';for(let i=0;i<20;i++)F('pbStep')(p,1/60);p.fl.L.on=true;for(let i=0;i<20;i++)F('pbStep')(p,1/20);if(b.y>FL.py+20)thru++;p.fl.L.on=false;}
+       check('a flipper that swings up under a ball on it, even in a slow frame, never goes through the ball',thru===0);}
       check('a few nudges are allowed, only many in a row tilt the table',!p.tilted);
       for(let i=0;i<4;i++){p.nudgeCool=0;F('pbNudge')(p,-1);}
       check('too many nudges in a row tilt it',p.tilted===true);
