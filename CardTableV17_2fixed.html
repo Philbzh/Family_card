@@ -10953,12 +10953,12 @@ function pbNetApply(g,m){
   for(const e0 of Array.isArray(m.ev)?m.ev.slice(0,30):[]){if(!Array.isArray(e0))continue;const e=pbSane(e0);if(N.seen[e[0]])continue;N.seen[e[0]]=1;N.evq.push({t:snap.t,e});}
   if(N.clock===undefined)N.clock=snap.t;
   if(g.turn===N.seat){            // the table is handed over to me: the picture is exactly the last one
-    g.t=snap.t;pbNetPose(g,snap.t);N.buf=[];N.clock=undefined;
+    g.t=snap.t;pbNetPose(g,snap.t,true);N.buf=[];N.clock=undefined;
     N.rep=true;try{for(const q of N.evq)pbNetReplay(g,q.e);}finally{N.rep=false;}N.evq=[];
-  }else if(N.buf.length===1){g.t=N.clock;pbNetPose(g,N.clock);}
+  }else if(N.buf.length===1){g.t=N.clock;pbNetPose(g,N.clock,true);}
   return true;
 }
-function pbNetPose(g,c){
+function pbNetPose(g,c,first){
   const N=g.net,Bf=N.buf;if(!Bf.length)return;
   let a=Bf[0],b=null;for(let i=0;i<Bf.length;i++){if(Bf[i].t<=c)a=Bf[i];else{b=Bf[i];break;}}
   const u=b?Math.max(0,Math.min(1,(c-a.t)/Math.max(.001,b.t-a.t))):0,old=g.balls,ex=b?0:Math.max(0,Math.min(.1,c-a.t)),src=b&&u>.5?b:a;
@@ -10967,7 +10967,7 @@ function pbNetPose(g,c){
     else if(!b&&q.st==='play'){x=q.x+q.vx*ex;y=q.y+q.vy*ex;}
     const o=old[i],tr=(o&&o.tr)||[];if(q.st==='play'){const l=tr[tr.length-1];if(!l||Math.hypot(l[0]-x,l[1]-y)>1.5){tr.push([x,y]);if(tr.length>9)tr.shift();}}else tr.length=0;
     return{x,y,vx:q.vx,vy:q.vy,st:q.st,id:i,stuck:0,tr};});
-  for(const k of ['L','R','U']){const fa=a.fl[k],fb=b&&b.fl[k];g.fl[k].th=fb?fa[0]+(fb[0]-fa[0])*u:fa[0];g.fl[k].on=!!(u>.5&&fb?fb[1]:fa[1]);}
+  for(const k of ['L','R','U']){const fa=a.fl[k],fb=b&&b.fl[k];g.fl[k].on=!!(u>.5&&fb?fb[1]:fa[1]);if(first)g.fl[k].th=fa[0];}
 }
 function pbNetReplay(g,e){
   const t=e[1];
@@ -10991,7 +10991,8 @@ function pbNetPassive(g,dt){
   const N=g.net;N.since+=dt;g.pt+=dt;
   const L=N.buf[N.buf.length-1];
   if(L){const target=L.t-.14;if(N.clock===undefined||Math.abs(target-N.clock)>.4)N.clock=target;else{N.clock+=dt;N.clock+=(target-N.clock)*.04;}N.clock=Math.min(N.clock,L.t+.1);
-    g.t=N.clock;pbNetPose(g,N.clock);
+    g.t=N.clock;pbNetPose(g,N.clock,false);
+    for(const k of ['L','R','U']){const f=g.fl[k],F=PB_FL[k],tgt=f.on?F.act:F.rest,d=tgt-f.th;f.th+=Math.sign(d)*Math.min(Math.abs(d),(f.on?24:15)*dt);}
     if(N.evq.length){N.rep=true;try{while(N.evq.length&&N.evq[0].t<=N.clock){pbNetReplay(g,N.evq.shift().e);}}finally{N.rep=false;}}}
   else g.t+=dt;
   const sp=PB_T.spin;if(sp.vel>.2){sp.ang+=sp.vel*dt*sp.dir;sp.vel*=Math.exp(-dt*1.5);}else sp.vel=0;

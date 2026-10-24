@@ -5887,6 +5887,13 @@ async function runPresentation(A,W,frame){
           F('pbNetPassive')(B2,1/60);const x=B2.balls[0]?B2.balls[0].x:null;
           if(last!==null&&f>45&&x!==null)worst=Math.max(worst,Math.abs(x-last-200/60));last=x;}
          check('the watcher draws an evenly moving ball evenly (no trembling) although the snapshots come unevenly',worst<3);}
+        // the flippers swing smoothly on the watcher's screen, at their own speed
+        {g0.myPid='pa';const A3=F('pbNew')();g0.myPid='pb';const B3=F('pbNew')();A3.phase='play';A3.balls=[{x:200,y:300,vx:0,vy:0,st:'play',id:1,stuck:0,tr:[]}];
+         const FLx=F('PB_FL').L;let last=null,maxStep=0,reached=false;const q=[];
+         for(let f=0;f<160;f++){A3.t+=1/60;A3.fl.L.on=f>=40&&f<110;A3.fl.L.th=A3.fl.L.on?FLx.act:FLx.rest;
+          if(f%3===0)F('pbNetApply')(B3,F('pbNetSnap')(A3));
+          F('pbNetPassive')(B3,1/60);const th=B3.fl.L.th;if(last!==null&&f>20)maxStep=Math.max(maxStep,Math.abs(th-last));last=th;if(Math.abs(th-FLx.act)<.05)reached=true;}
+         check('a flipper swings smoothly on the screen of the watcher (no jumps) and reaches its top',maxStep<.45&&reached);}
         // the result is written to the room by the last player's device
         {const oS=W.eval('onSrv'),rid=g0.roomId;g0.roomId='T';W.__o=[oS];W.eval('onSrv=function(s){window.__cap=s;}');
          try{g0.myPid='pb';const Z=F('pbNew')();Z.st[0].score=120000;Z.st[1].score=340000;Z.st[1].best=50000;Z.st[1].lvl=1;Z.phase='over';F('pbNetFinish')(Z);const c=W.__cap;
