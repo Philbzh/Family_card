@@ -1720,6 +1720,11 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 @keyframes pl-gone{0%{opacity:1;transform:scale(1.9);filter:none;box-shadow:0 0 12px #E6C36A;}100%{opacity:.2;transform:scale(1);}}
 .pl-assist.pl-cloth{bottom:44px;}
 .pl-assist.pl-rulesbtn{bottom:80px;}
+.pl-assist.pl-flipbtn{bottom:116px;}
+.pl-assist.pl-flipbtn.on{border-color:#ffd96a;color:#ffd96a;box-shadow:0 0 12px rgba(255,200,80,.45);}
+.pl-assist.pl-flipbtn.tip{animation:flipTip 1.1s ease-in-out infinite;}
+@keyframes flipTip{50%{box-shadow:0 0 18px rgba(255,214,110,.95);border-color:#ffd96a;color:#ffd96a;}}
+.ah-cv.pl-flip{rotate:180deg;}
 .pl-power{position:absolute;right:10px;top:16%;bottom:16%;width:46px;z-index:4;border-radius:23px;background:linear-gradient(180deg,rgba(10,30,24,.82),rgba(4,12,10,.9));border:2px solid rgba(230,195,106,.55);touch-action:none;overflow:hidden;box-shadow:0 8px 20px -8px #000;}
 .pl-power i{position:absolute;left:0;right:0;top:0;height:0;background:linear-gradient(180deg,#43e1ff,#E6C36A 60%,#ff6a55);opacity:.85;}
 .pl-power span{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:.55rem;letter-spacing:.16em;color:#F4EBD0;opacity:.8;writing-mode:vertical-rl;margin:0 auto;}
@@ -8082,7 +8087,7 @@ function plNewG(mode){
   const online=mode==='host'||mode==='guest',st=online&&G.srv?G.srv:null;
   const pl=(st&&st.pl)||plNew(plRulesPref(),plAssistPref(),plNextStarter());
   if(st&&st.pl&&st.pl.starter!=null)G.plLast=st.pl.starter;
-  return{live:true,mode,seat:online?Math.max(0,ahPlayers().findIndex(p=>p.id===G.myPid)):0,pl,disp:plDisp(pl.balls),aim:{ang:-Math.PI/2,power:0,sx:0,sy:0},anim:null,
+  return{live:true,flip:!!G.plFlip,mode,seat:online?Math.max(0,ahPlayers().findIndex(p=>p.id===G.myPid)):0,pl,disp:plDisp(pl.balls),aim:{ang:-Math.PI/2,power:0,sx:0,sy:0},anim:null,
     fx:{parts:[],banners:[],chalk:[],shake:0,flash:0},bihPos:null,cv:null,raf:0,born:performance.now(),finale:null,lastShot:st&&st.pl&&st.pl.shot?st.pl.shot.id:null,
     bot:{level:(ahPlayers()[1]&&ahPlayers()[1].bot)||'gentle'},botBusy:false,msgAt:0};
 }
@@ -8232,15 +8237,23 @@ function rPoolTable(){
         <button class="pl-assist" data-a="pl-assist" id="pl-assistbtn">AIM: ${a.toUpperCase()}</button>
         <button class="pl-assist pl-cloth" data-a="pl-cloth" id="pl-clothbtn">CLOTH: ${plCloth().toUpperCase()}</button>
         <button class="pl-assist pl-rulesbtn" data-a="pl-rules" id="pl-rulesbtn">${plRulesLabel(g.pl.rules)}</button>
+        <button class="pl-assist pl-flipbtn${g.flip?' on':''}" data-a="pl-flip" id="pl-flipbtn">${g.flip?'⟲ MY SIDE':'⟲ OTHER SIDE'}</button>
         <button class="btn btn-gold pl-place" id="pl-place" data-a="pl-place" style="display:none">PLACE</button>
       </div>
     </div>
     ${talkStripHTML()}
   </div>`;
 }
+// walk round the table: the view turns by half a turn, so that a shot towards the near end becomes a shot away from you
+function plFlip(){
+  const g=G.pl;if(!g)return;g.flip=!g.flip;G.plFlip=g.flip;
+  const cv=document.getElementById('pl-cv');if(cv)cv.classList.toggle('pl-flip',g.flip);
+  const b=document.getElementById('pl-flipbtn');if(b){b.classList.toggle('on',g.flip);b.classList.remove('tip');b.textContent=g.flip?'⟲ MY SIDE':'⟲ OTHER SIDE';}
+}
 function plAttach(){
   const g=G.pl;if(!g||!g.live)return;
   const cv=document.getElementById('pl-cv');if(!cv)return;
+  cv.classList.toggle('pl-flip',!!g.flip);
   if(g.cv!==cv){g.cv=cv;g.statik=null;plBindInput(cv);plSize();}
   if(!g.raf){g.last=performance.now();g.raf=requestAnimationFrame(plFrame);}
   if(!g.started){g.started=true;try{AHS.intro();}catch(e){}plMaybeBot(g);}
@@ -8253,7 +8266,7 @@ function plSize(){
 window.addEventListener('resize',()=>{try{if(G.pl&&G.pl.live)plSize();}catch(e){}});
 function plBindInput(cv){
   const g=G.pl;cv.style.touchAction='none';
-  const toT=e=>{const r=cv.getBoundingClientRect(),M=PL.M;return{x:(e.clientX-r.left)/r.width*(PL.W+2*M)-M,y:(e.clientY-r.top)/r.height*(PL.H+2*M)-M};};
+  const toT=e=>{const r=cv.getBoundingClientRect(),M=PL.M;let x=(e.clientX-r.left)/r.width*(PL.W+2*M)-M,y=(e.clientY-r.top)/r.height*(PL.H+2*M)-M;if(g.flip){x=PL.W-x;y=PL.H-y;}return{x,y};};
   let down=false,mode='aim',off=0;
   // is the finger on the cue's shaft (the long stick behind the cue ball)?
   const shaftHit=p=>{const c=g.disp[0];if(!c||!c.on||g.pl.bih)return false;const ux=Math.cos(g.aim.ang),uy=Math.sin(g.aim.ang),back=PL.R+8+g.aim.power*110,rx=p.x-c.x,ry=p.y-c.y,along=-(rx*ux+ry*uy),perp=Math.abs(-rx*uy+ry*ux);return along>back*.4&&along<back+500&&perp<70;};
@@ -8455,6 +8468,7 @@ function plSprite(id,m,S,bb){
   }
   q.putImageData(img,0,0);return cv;
 }
+let PL_FLIPNOW=false;
 function plDrawBall(x,b,sc){
   const R=PL.R,id=b.id;
   // the shadow falls away from the lamp, soft at its edge
@@ -8464,16 +8478,21 @@ function plDrawBall(x,b,sc){
   const S=Math.max(20,Math.ceil(2*R*(sc||1)*1.4));
   if(!b.m)b.m=plM0(id);
   if(!b.sp||b.dirty||b.spS!==S||b.spBB!==PL_BBNOW){b.sp=plSprite(id,b.m,S,PL_BBNOW);b.spS=S;b.spBB=PL_BBNOW;b.dirty=false;}
-  x.drawImage(b.sp,b.x-R*1.0,b.y-R*1.0,2*R,2*R);
+  if(PL_FLIPNOW){x.save();x.translate(b.x,b.y);x.rotate(Math.PI);x.drawImage(b.sp,-R,-R,2*R,2*R);x.restore();}
+  else x.drawImage(b.sp,b.x-R*1.0,b.y-R*1.0,2*R,2*R);
 }
 function plDraw(g,now){
   const cv=g.cv;if(!cv)return;const x=cv.getContext('2d');if(!g.scale)plSize();if(!g.statik)plBuildStatic(g);
   const sc=g.scale,M=PL.M,pl=g.pl;
   x.setTransform(1,0,0,1,0,0);x.drawImage(g.statik,0,0);x.setTransform(sc,0,0,sc,0,0);x.translate(M,M);
   const my=plCanAct()||!!g.botAim,cue=g.disp[0];let cueDraw=null;
-  PL_BBNOW=plBB(pl);
+  PL_BBNOW=plBB(pl);PL_FLIPNOW=!!g.flip;
   if(plCanAct()&&pl.bih&&!g.bihPos&&!g.anim)g.bihPos=cue.on&&!PL_BBNOW?{x:cue.x,y:cue.y}:{x:PL.W/2,y:PL.H*.74+(PL_BBNOW?30:0)};
   const mineSeat=g.mode==='bot'?0:(g.mode==='host'||g.mode==='guest'?g.seat:pl.turn),mineGrp=pl.groups[mineSeat];
+  if(plCanAct()&&!g.anim&&!pl.over&&!pl.bih&&mineGrp&&!g.flip&&!g.tipShown){
+    const mine=pl.balls.filter(b=>b.on&&b.id>0&&plGroup(b.id)===mineGrp);
+    if(mine.length>=2&&mine.filter(b=>b.y>PL.H*.6).length/mine.length>=.6){g.tipShown=true;plBanner(g,'TIP','your balls are at the near end · tap OTHER SIDE','#F4EBD0',2800);const fb=document.getElementById('pl-flipbtn');if(fb)fb.classList.add('tip');}
+  }
   const bihMine=plCanAct()&&pl.bih&&!g.anim&&!!g.bihPos,nowP=performance.now(),rm=g.remote&&nowP-g.remote.t<1500&&!plCanAct()&&!g.anim&&!pl.over&&g.mode!=='bot'&&g.mode!=='duo'&&pl.turn!==g.seat?g.remote:null;
   // the aiming line and the cue
   if(my&&cue.on&&!g.anim&&!pl.over&&!(pl.bih)){
@@ -8528,7 +8547,9 @@ function plDraw(g,now){
   // sparks, banners, shake
   x.save();x.globalCompositeOperation='lighter';for(const p of g.fx.parts){const u=p.l/p.life;x.globalAlpha=Math.max(0,1-u);x.strokeStyle=p.col;x.lineWidth=2.2;x.lineCap='round';x.beginPath();x.moveTo(p.x,p.y);x.lineTo(p.x-p.vx*.03,p.y-p.vy*.03);x.stroke();}x.restore();x.globalAlpha=1;
   const nowT=performance.now();g.fx.banners=g.fx.banners.filter(b=>nowT-b.t<b.ms+250);
+  if(g.flip){x.save();x.translate(PL.W/2,PL.H/2);x.rotate(Math.PI);x.translate(-PL.W/2,-PL.H/2);}
   g.fx.banners.forEach((b,i)=>{const u=(nowT-b.t)/b.ms,a=u<.12?u/.12:u>1?Math.max(0,1-(u-1)*4):1;if(g.pl&&!g.pl.over&&b.text){fgPill(x,PL.W/2,34+i*40,b.text,b.sub,b.col||'#E6C36A',a,PL.W-60,24);return;}x.save();x.globalAlpha=a;x.textAlign='center';x.textBaseline='middle';x.font='700 '+(b.text.length>12?44:62)+'px Cinzel, Georgia, serif';x.fillStyle=b.col||'#E6C36A';x.shadowColor=b.col||'#E6C36A';x.shadowBlur=22;x.fillText(b.text,PL.W/2,PL.H/2-60+i*10);if(b.sub){x.font='600 26px Jost, sans-serif';x.shadowBlur=6;x.fillStyle='#F4EBD0';x.fillText(b.sub,PL.W/2,PL.H/2-60+44+i*10);}x.restore();});
+  if(g.flip)x.restore();
   if(g.fx.flash>0){x.save();x.globalAlpha=g.fx.flash*.18;x.fillStyle='#fff';x.fillRect(-M,-M,PL.W+2*M,PL.H+2*M);x.restore();}
   // the entrance: the lights come on
   const age=performance.now()-g.born;if(age<1300){x.save();x.setTransform(1,0,0,1,0,0);x.globalAlpha=Math.pow(Math.max(0,1-age/1000),1.6);x.fillStyle='#020605';x.fillRect(0,0,cv.width,cv.height);x.restore();}
@@ -32579,6 +32600,7 @@ document.addEventListener('click',e=>{
   else if(a==='ah-ready'){ahReadyTap();}
   else if(a==='ah-mode'){ahSetMode(t.getAttribute('data-m'));}
   else if(a==='pl-assist'){plNext();}
+  else if(a==='pl-flip'){plFlip();}
   else if(a==='pl-cloth'){plNextCloth();}
   else if(a==='pl-rules'){plNextRules();}
   else if(a==='fg-diff'){fgNextDiff();}

@@ -5739,6 +5739,24 @@ async function runPresentation(A,W,frame){
       check('with a hostile name on the setup, result, games and home screens of every game nothing is injected ('+bad.slice(0,3).join(',')+')',bad.length===0);
     }finally{const g=G();F('fgStop')();g.isOnline=k0[0];g.selGame=k0[1];g.lp=k0[2];g.scr=k0[3];g.fg=k0[4];g.myName=k0[5];g.ahMoment=k0[6];}
   });
+  suite('Pool: walk round the table (the other side)',()=>{
+    const F=n=>W.eval(n),G=()=>F('G');
+    const k0=[G().isOnline,G().selGame,G().lp,G().scr,G().plFlip];
+    try{
+      const g=G();g.isOnline=false;g.plFlip=false;g.lp=[{id:1,name:'Mum',avatar:F('AVATARS')[0],hand:[],totalScore:0},{id:2,name:'Son',avatar:F('AVATARS')[1],hand:[],totalScore:0}];g.selGame='pool';F('lDealPool')();g.scr='table';F('render')();
+      const p=G().pl,cv=W.document.getElementById('pl-cv'),btn=W.document.getElementById('pl-flipbtn');
+      check('the pool table has an OTHER SIDE button and starts in the normal view',!!btn&&!!cv&&p.flip===false&&!cv.classList.contains('pl-flip'));
+      btn.click();
+      check('tapping it turns the table half a turn (the view is flipped, the choice is remembered)',p.flip===true&&G().plFlip===true&&cv.classList.contains('pl-flip')&&/MY SIDE/.test(btn.textContent));
+      const r=cv.getBoundingClientRect();let ok=false;
+      if(r.width>10){const cue=p.disp[0],tx=250,ty=260,M=F('PL').M,u=1-((tx+M)/(F('PL').W+2*M)),v=1-((ty+M)/(F('PL').H+2*M));
+        cv.dispatchEvent(new W.PointerEvent('pointerdown',{clientX:r.left+u*r.width,clientY:r.top+v*r.height,pointerId:3,bubbles:true,cancelable:true}));
+        const exp=Math.atan2(ty-cue.y,tx-cue.x);ok=Math.abs(p.aim.ang-exp)<.02;cv.dispatchEvent(new W.PointerEvent('pointerup',{pointerId:3,bubbles:true}));}
+      check('in the turned view a touch on the screen aims at the same place of the table (the touch is mirrored)',ok||r.width<=10);
+      btn.click();
+      check('tapping again brings the table back',p.flip===false&&!cv.classList.contains('pl-flip'));
+    }finally{const g=G();try{F('plStop')();}catch(e){}g.isOnline=k0[0];g.selGame=k0[1];g.lp=k0[2];g.scr=k0[3];g.plFlip=k0[4];g.pl=null;}
+  });
   suite('Fairground: the LEVEL button works in every booth',()=>{
     const F=n=>W.eval(n),G=()=>F('G');
     const k0=[G().isOnline,G().selGame,G().lp,G().lstart,G().scr,G().fg];
