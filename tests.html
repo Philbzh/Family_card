@@ -5896,6 +5896,11 @@ async function runPresentation(A,W,frame){
       f=mk(2);f.score=[1800,900];f.hits=[9,5];f.perfects=[4,1];f.bestStreak=[4,2];f.jack=[0,0];f.phase='over';G().fg=f;G().scr='table';
       F('fgEnd')(f);
       check('the end of a game shows the results with the basketball figures',G().lp[0].c4Result==='win'&&G().scr==='matchend'&&/Baskets/.test(F('fgChipsHTML')())&&/swishes/.test(F('fgChipsHTML')()));
+      // the end of a run: the best basket comes back in slow motion before the next player starts
+      f=mk(2,[0,1]);f.bots=['sharp','sharp'];f.run.dur=10;f.run.left=10;let n3=0;while(!f.replay&&f.phase!=='over'&&n3++<60*40)F('fgStep')(f,1/60);
+      check('after the buzzer the best basket of the run is replayed in slow motion, with the figures of the run',!!f.replay&&f.replay.q.pts>0&&f.replay.stat.hits>=1&&f.run.active===false);
+      const idx0=f.run.idx;n3=0;while(f.replay&&n3++<60*30)F('fgStep')(f,1/60);
+      check('when the replay is over the next player gets the court',!f.replay&&(f.run.idx===idx0+1)&&f.turn===1);
       check('the Hoop Fever records and the trophies exist',F('AR_REC').hoopfever.length===4&&['hf-net','hf-fire'].every(id=>F('ACHIEVEMENTS').some(a=>a.id===id)));
     }finally{back(k0);}
   });
