@@ -8516,30 +8516,30 @@ const FG_B={std:{r:34,pts:100,w:58,nm:'BALLOON'},small:{r:22,pts:250,w:20,nm:'SM
 const FG_COLS=['#7a1e24','#1d3b5e','#d8ceb2','#1f6b52','#b88a2e','#4b5258'];   // oxblood, midnight, ivory, emerald, brass, slate
 /* ── sounds (made with the same synthesizer as Blackwater) ── */
 const FGS={
-  throw(){bwSn(.2,900,3400,{type:'bandpass',q:1.1,v:.1,a:.01,rev:.12});},
-  thunk(){bwSt(190,70,.12,{v:.28,a:.002,dist:.3,rev:.18});bwSn(.05,2600,600,{v:.1,a:.001});},
+  throw(){hfSnd.dartThrow();},
+  thunk(){hfSnd.dartThunk();},
   stretch(){bwSt(300,430,.15,{type:'triangle',v:.07,a:.01});},
-  pop(){bwSn(.08,9500,1200,{type:'highpass',v:.34,a:.001,rev:.3});bwSt(540,120,.13,{v:.28,a:.001,dist:.3});bwSn(.26,3200,300,{v:.12,a:.004,rev:.4});},
-  miss(){bwSn(.12,520,150,{v:.13,a:.003});},
-  near(){bwSn(.1,2200,500,{type:'bandpass',q:1.5,v:.11,a:.002});bwSt(900,500,.08,{v:.05});},
-  combo(n){const f=520*Math.pow(1.122,Math.min(n,8));bwSt(f,f*1.5,.18,{v:.13,a:.003,rev:.3});bwSt(f*2,f*3,.22,{v:.07,a:.003,d:60,rev:.3});},
-  perfect(){bwClang(.15,1180,.5,0,.4);bwSt(1760,2400,.3,{v:.06,d:80,rev:.4});},
-  gold(){bwClang(.13,1480,.7,0,.45);},
+  pop(){hfSnd.pop();},
+  miss(){hfSnd.whiff();},
+  near(){hfSnd.whiz();},
+  combo(n){hfSnd.chime(n);},
+  perfect(){hfSnd.ding();},
+  gold(){hfSnd.sparkle();},
   jackpot(){[0,4,7,12,16].forEach((s,i)=>bwSt(523*Math.pow(2,s/12),523*Math.pow(2,s/12),.35,{v:.12,d:i*90,a:.004,rev:.45}));bwClang(.18,880,.9,320,.5);},
-  black(){bwSt(160,80,.4,{type:'sawtooth',v:.11,lp:500,a:.01,rev:.3});},
-  lights(){for(let i=0;i<9;i++)bwSt(900+i*110,900+i*110,.06,{v:.045,d:i*190,a:.002,rev:.3});},
-  go(){bwHorn(330,.5,.09,0,{lp:900,a:.03});bwClang(.11,990,.5,120,.4);},
-  turn(){bwSt(660,880,.07,{v:.05,a:.002});},
+  black(){hfSnd.sour();},
+  lights(){hfSnd.lights();},
+  go(){hfSnd.whistle();},
+  turn(){hfSnd.tick();},
   hoopThrow(){bwSn(.16,700,2400,{type:'bandpass',q:.9,v:.07,a:.01,rev:.1});},
   swish(){bwSn(.34,6500,1800,{type:'highpass',v:.16,a:.02,rev:.35});bwSn(.5,3000,500,{type:'bandpass',q:.7,v:.06,a:.05,d:30,rev:.3});bwSt(1568,2093,.3,{v:.04,d:60,rev:.4});},
   netDrop(){bwSn(.28,3200,700,{type:'bandpass',q:.8,v:.1,a:.02,rev:.25});bwSt(190,95,.12,{v:.12,d:40,a:.002});},
   rim(v){bwClang(.1+.12*v,540+260*v,.45,0,.35);bwSt(210,110,.1,{v:.1+.1*v,a:.001});},
   board(v){bwSt(150,62,.16,{v:.18+.14*v,a:.001,dist:.25,rev:.2});bwSn(.1,1800,300,{v:.1+.08*v,a:.001});},
   floor(v){bwSt(120,55,.14,{v:.1+.2*v,a:.001,dist:.2,rev:.15});},
-  shot(){bwSn(.07,3800,900,{type:'highpass',v:.2,a:.001,rev:.15});bwSt(260,90,.09,{v:.2,a:.001,dist:.3});},
-  bell(){bwClang(.16,1320,.7,0,.45);},
-  glass(){bwSn(.22,9000,2500,{type:'highpass',v:.22,a:.001,rev:.35});bwClang(.08,2400,.25,0,.3);bwSt(500,120,.1,{v:.15,a:.001});},
-  clank(){bwClang(.14,760,.35,0,.3);bwSt(240,90,.1,{v:.14,a:.001});},
+  shot(){hfSnd.rifle();},
+  bell(){hfSnd.bellRing();},
+  glass(){hfSnd.bottle();},
+  clank(){hfSnd.steel();},
   win(){[0,4,7,12].forEach((s,i)=>bwSt(392*Math.pow(2,s/12),392*Math.pow(2,s/12),.5,{v:.1,d:i*130,a:.01,rev:.4}));},
   // Hoop Fever: dry, close sounds of a real ball in a real hall
   hfFloor(v){hfSnd.bounce(v);},hfBoard(v){hfSnd.board(v);},hfRim(v){hfSnd.rim(v);},hfSwish(){hfSnd.swish();},hfNet(){hfSnd.net();},
@@ -8611,6 +8611,35 @@ const hfSnd={
   buzzer(){_hfK=2.4;const ac=bwAc();if(!ac)return;[0,13].forEach(c=>hfOsc(158*Math.pow(2,c/1200),158*Math.pow(2,c/1200),.8,.07,{type:'sawtooth',lp:760,a:.01,rev:.15}));hfOsc(79,79,.8,.08,{type:'sawtooth',lp:420,a:.01});hfNz(.9,500,1200,.05,{type:'bandpass',q:.5,a:.2,d:200,rev:.3});},
   // the last seconds: a heart that beats
   heart(){_hfK=2;hfOsc(62,42,.12,.28,{a:.004});hfOsc(58,40,.14,.22,{a:.004,d:170});},
+  // ── Balloon Blast and Marksman ──
+  // a dart leaving the hand: a soft airy whoosh
+  dartThrow(){_hfK=4.2;hfNz(.16,600,2600,.07,{type:'bandpass',q:.9,a:.02});hfNz(.1,2200,900,.04,{type:'highpass',a:.01,d:30});},
+  // a balloon: the sharp pop of stretched latex, a low slap and a short rubbery tail
+  pop(){_hfK=1.5;hfNz(.025,9000,3000,.5,{type:'highpass',a:.0008});hfNz(.05,3200,1100,.34,{q:.6,a:.001});hfOsc(210,95,.07,.28,{a:.001});hfNz(.18,900,260,.1,{type:'bandpass',q:.8,a:.002,d:15,rev:.12});},
+  // a dart that misses: it sinks into the wooden backing
+  dartThunk(){_hfK=2;hfOsc(170,80,.09,.3,{a:.001});hfNz(.05,1800,500,.16,{type:'lowpass',a:.001});hfOsc(380,300,.05,.05,{a:.001,d:12});},
+  // a pellet or dart that just missed: a quick whiff
+  whiff(){_hfK=6;hfNz(.14,1800,700,.07,{type:'bandpass',q:.8,a:.012});},
+  // a close miss: it whizzes past the ear
+  whiz(){_hfK=4;hfNz(.2,3600,1200,.08,{type:'bandpass',q:1.6,a:.02});hfOsc(2600,1100,.14,.025,{a:.01});},
+  // the air rifle: a sharp pfft with a crack
+  rifle(){_hfK=1.3;hfNz(.03,6500,2200,.4,{type:'highpass',a:.0008});hfNz(.09,2600,700,.22,{q:.7,a:.001});hfOsc(130,62,.1,.34,{a:.001});hfOsc(3200,1500,.09,.03,{a:.002,d:14});},
+  // painted steel: a short bright "tank", not a bell
+  steel(){_hfK=1.5;hfNz(.012,7000,3500,.3,{type:'highpass',a:.0005});[[1180,.16,.2],[1840,.12,.14],[2750,.09,.1],[3900,.06,.06]].forEach(([f,d,v])=>hfOsc(f,f*.99,d,v,{a:.0008,rev:.1}));hfOsc(240,120,.05,.18,{a:.001});},
+  // brass: warmer, a little longer
+  brass(){_hfK=1.5;hfNz(.012,6000,3000,.25,{type:'highpass',a:.0005});[[880,.32,.2],[1320,.26,.13],[2010,.18,.08],[2860,.12,.05]].forEach(([f,d,v])=>hfOsc(f,f*.995,d,v,{a:.0008,rev:.2}));},
+  // the bell: a clear ring that lasts
+  bellRing(){_hfK=1.4;hfNz(.012,5000,2500,.22,{type:'highpass',a:.0005});[[740,1.1,.22],[1480,.9,.12],[1990,.7,.1],[2960,.5,.06],[3770,.35,.04]].forEach(([f,d,v])=>hfOsc(f,f*.998,d,v,{a:.001,rev:.3}));},
+  // a bottle: breaking glass with a little tinkle
+  bottle(){_hfK=1.5;hfNz(.12,9000,2600,.34,{type:'highpass',a:.0008,rev:.1});hfNz(.05,4200,1400,.2,{q:.7,a:.001});for(let i=0;i<7;i++)hfOsc(2400+Math.random()*3200,1800,.05+Math.random()*.07,.05,{a:.0008,d:40+i*45+Math.random()*50,rev:.15});hfOsc(300,140,.07,.16,{a:.001});},
+  // a point: a soft chime that goes up with the chain
+  chime(n){_hfK=2.1;const f=523*Math.pow(1.122,Math.min(n||0,8));hfOsc(f,f,.35,.09,{a:.003,rev:.25});hfOsc(f*2,f*2,.3,.045,{a:.003,d:50,rev:.25});hfOsc(f*3,f*3,.22,.02,{a:.003,d:100,rev:.25});},
+  // a perfect hit: a clean bright ding
+  ding(){_hfK=2.5;[[1568,.5,.14],[2349,.4,.07],[3136,.3,.04]].forEach(([f,d,v])=>hfOsc(f,f,d,v,{a:.001,rev:.3}));hfNz(.01,7000,3500,.16,{type:'highpass',a:.0005});},
+  // the golden target: a rising sparkle of tiny bells
+  sparkle(){_hfK=2.5;for(let i=0;i<7;i++){const f=1568*Math.pow(1.19,i);hfOsc(f,f,.25,.05,{a:.001,d:i*55,rev:.35});}},
+  // a bad hit: a low sour buzz
+  sour(){_hfK=3;hfOsc(150,95,.3,.08,{type:'sawtooth',lp:520,a:.01});hfOsc(160,100,.3,.06,{type:'square',lp:420,a:.01});hfNz(.08,900,300,.08,{type:'lowpass',a:.002});},
   // the buzzer for the jackpot
   horn(){_hfK=2.2;const ac=bwAc();if(!ac)return;[0,7,-5].forEach(c=>hfOsc(233*Math.pow(2,c/1200),233*Math.pow(2,c/1200),.55,.05,{type:'sawtooth',lp:1100,a:.01,rev:.2}));hfOsc(116,116,.55,.07,{type:'sawtooth',lp:500,a:.01});}
 };
