@@ -6208,6 +6208,27 @@ async function runPresentation(A,W,frame){
       F('clEventDone')(g);
       check('three clays broken is a clean triple: 8 points and 3 more as a bonus',g.tot[0]===11&&g.bonus[0]===3&&g.res[0].length===3);
       F('clStop')();
+      // ── wind and slow motion
+      W.localStorage.setItem('ct_cl_pref',JSON.stringify({disc:'trap',lv:'olympic',mode:'round',venue:'golden',gun:'classic',mix:false}));
+      gg.lp=[{id:1,name:'AnnWind',avatar:F('AVATARS')[0],hand:[],totalScore:0}];gg.selGame='clay';F('lDealClay')();gg.scr='table';F('render')();F('clAttach')();g=G().cl;F('clBegin')(g);
+      F('clHud')(g);check('on Olympic there is wind before the clay is called, shown on the panel',Math.hypot(g.wind[0],g.wind[1])>0&&/WIND [◀▶] /.test(W.document.getElementById('cl-wind').textContent));
+      F('clPull')(g);{let n=0;while(g.phase!=='fly'&&n++<900)F('clStep')(g,1/60);}
+      {const c=g.clays[0],vx0=c.v[0];g.wind=[4,0];for(let i=0;i<60;i++)F('clStep')(g,1/60);check('the wind pushes the clay sideways while it flies',c.v[0]>vx0+.8);}
+      F('clStop')();
+      W.localStorage.setItem('ct_cl_pref',JSON.stringify({disc:'trap',lv:'beginner',mode:'round',venue:'golden',gun:'classic',mix:false}));
+      gg.lp=[{id:1,name:'AnnCalm',avatar:F('AVATARS')[0],hand:[],totalScore:0}];F('lDealClay')();gg.scr='table';F('render')();F('clAttach')();g=G().cl;F('clBegin')(g);
+      check('on Beginner it is calm',g.wind[0]===0&&g.wind[1]===0);
+      F('clStop')();
+      W.localStorage.setItem('ct_cl_pref',JSON.stringify({disc:'trap',lv:'beginner',mode:'round',venue:'golden',gun:'classic',mix:true}));
+      gg.lp=[{id:1,name:'AnnSlow',avatar:F('AVATARS')[0],hand:[],totalScore:0}];F('lDealClay')();gg.scr='table';F('render')();F('clAttach')();g=G().cl;F('clBegin')(g);
+      F('clPull')(g);{let n=0;while(g.phase!=='fly'&&n++<900)F('clStep')(g,1/60);}
+      g.clays[0].vt='g';for(let i=0;i<20;i++)F('clStep')(g,1/60);
+      {const c=g.clays[0],lead=1-F('CL_LV').beginner.lead,d0=Math.hypot(c.p[0]-g.eye[0],c.p[1]-g.eye[1],c.p[2]-g.eye[2]),T=d0/300*lead,q=[c.p[0]+c.v[0]*T,c.p[1]+c.v[1]*T-4.9*T*T,c.p[2]+c.v[2]*T],dv=[q[0]-g.eye[0],q[1]-g.eye[1],q[2]-g.eye[2]];g.yaw=Math.atan2(dv[0],dv[2]);g.pitch=Math.atan2(dv[1],Math.hypot(dv[0],dv[2]));}
+      F('clFire')(g);for(let i=0;i<30&&g.phase==='fly';i++)F('clStep')(g,1/60);
+      check('breaking a golden clay starts the slow motion with the camera on the break',g.slowT>0&&!!g.camTo&&g.fz>=1);
+      {const t0=g.t;F('clStep')(g,1/60);check('in slow motion time runs at a quarter',Math.abs((g.t-t0)-1/240)<1e-6);}
+      for(let i=0;i<150;i++)F('clStep')(g,1/60);check('the slow motion ends by itself',!(g.slowT>0)&&g.fz===1);
+      F('clStop')();
       // ── online: the second device watches the first shooter's station, then shoots its own and tells the others
       {const ch0=F('_ch'),pid0=G().myPid,srv0=G().srv;
        try{W.eval("window._clOut=[];_ch={send:m=>{window._clOut.push(m.payload)}}");

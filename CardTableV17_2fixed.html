@@ -492,6 +492,7 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .cl-hero .w{height:132px;}
 .cl-hero .c{position:absolute;left:50%;top:50%;height:92px;transform:translate(-50%,-50%);filter:drop-shadow(0 4px 8px rgba(0,0,0,.5));}
 .cl-fps{position:absolute;right:8px;top:8px;z-index:4;font:700 .55rem monospace;color:#9be8a0;background:rgba(0,0,0,.55);padding:3px 6px;border-radius:6px;pointer-events:none;}
+.cl-wind{text-align:center;font:700 .6rem 'Cinzel',serif;letter-spacing:.16em;color:#9db09f;min-height:.9rem;}
 .cl-shells{display:flex;gap:8px;justify-content:center;min-height:32px;}
 .cl-shells i{width:22px;height:42px;background:url(assets/games/cl_shell1.png) center/contain no-repeat;opacity:.28;filter:grayscale(.6);}
 .cl-shells i.on{opacity:1;filter:none;}
@@ -4953,6 +4954,7 @@ const GAMES=[
      '<b>Trap:</b> five stations, five clays each; the clay flies away from the trap house in front of you at a random angle; <b>two barrels</b>: first barrel 3 points (dead centre) or 2 (chip), second barrel 1.',
      '<b>Skeet:</b> eight stations round a half circle between the <b>high house</b> (left) and the <b>low house</b> (right); the clays cross in front of you; one shot each; doubles (two clays at once) on stations 1, 2, 6 and 7. Same points.',
      '<b>Triple:</b> three clays are thrown from the trap house <b>shortly after one another</b>, in three different directions, and you have <b>four shells</b>: break them one after the other (3 points for a dead centre, 2 for a chip) and a <b>clean triple</b> is worth 3 extra points. Five stations, two triples each: 30 clays, 120 points at most.',
+     '<b>Wind.</b> On Sport, Elite and Olympic the wind blows: the line under the shells shows its direction and strength, the wind sock shows it on the field, and it pushes the clays sideways while they fly. <b>Slow motion</b> shows a golden clay, a clean triple and the last clay of the round.',
      '<b>Clay mix</b> (an option on the set-up card): white, yellow and black clays fly too, a pink clay bursts into powder, a tiny <b>mini clay</b> is hard to hit (+1 point) and a rare <b>golden clay</b> is worth <b>5 points</b>. You choose your <b>gun</b> before the round (it only changes what you see in your hands).',
      '<b>The round:</b> 25 clays, 75 points at most. With several people on one iPad you shoot a station each in turn; robots (gentle, steady, sharp) can join. A tie is decided by first-barrel hits. TRAINING gives a short practice. LEVEL: Beginner, Sport, Elite, Olympic. This is OUR TABLE MODE: simplified for the family.']},
   {id:'precision',cat:'olympic',icon:'🏅',name:'Precision Shooting',players:'1–4',dur:'8–15 min',diff:'hard',deal:0,minP:1,maxP:4,cover:'assets/games/precision.jpg',
@@ -31776,6 +31778,7 @@ function clProj(g,P,f,cx,cy){
   if(zz<.6)return null;return[cx+f*xr/zz,cy-f*yy/zz,zz];
 }
 function clPrefs(){let p={};try{p=JSON.parse(localStorage.getItem('ct_cl_pref')||'{}')||{};}catch(e){}return Object.assign({disc:'trap',lv:'beginner',mode:'round',venue:'golden',gun:'classic',mix:false,sens:'normal',fps:false},p);}
+const CL_WIND={beginner:0,sport:2,elite:3.5,olympic:5};
 const CL_SENS={slow:.9,normal:1.6,fast:2.4};
 const CL_GUNS={classic:'CLASSIC',e:'ENGRAVED',ou:'OVER & UNDER',sp:'SPORTING',si:'SILVER'},CL_GUNIMG={classic:'gun',e:'gun_e',ou:'gun_ou',sp:'gun_sp',si:'gun_si'};
 function clPickVariant(){const r=Math.random();return r<.03?'g':r<.08?'m':r<.13?'p':r<.25?'w':r<.37?'y':r<.45?'b':'o';}
@@ -31816,6 +31819,7 @@ function clSend(g,m,rep){
 }
 const clR=v=>Math.round(v*1000)/1000;
 function clApplyLaunch(g,m){
+  {const f=v=>Math.max(-12,Math.min(12,+v||0));g.wind=Array.isArray(m.w)?[f(m.w[0]),f(m.w[1])]:[0,0];g.wy0=Math.max(-7,Math.min(7,+m.wy||0));}
   const f=v=>Math.max(-400,Math.min(400,+v||0));
   g.clays=(m.c||[]).slice(0,2).map(c=>({k:String(c.k).slice(0,1),p:[f(c.p[0]),f(c.p[1]),f(c.p[2])],v:[f(c.v[0]),f(c.v[1]),f(c.v[2])],t:0,alive:!(+c.d>0),pend:+c.d>0,delay:+c.d||0,vt:'owybpgm'.includes(String(c.vt||'o').slice(0,1))?String(c.vt||'o').slice(0,1):'o',broke:false,id:++g.shotN||1}));
   g.phase='fly';g.shots=[];g.shells=(g.ev&&g.ev.shells)||(g.ev&&g.ev.c.length===2?2:(clIsTrap(g.disc)?2:1));g.firedN=0;g.evRes=g.clays.map(()=>null);g.flyT=0;clSnd.launch();
@@ -31832,7 +31836,7 @@ function clOnBroadcast(m){
   else if(m.k==='launch'){if(g.phase==='hand')clReadyStart(g);if(g.phase==='ready'||g.phase==='wait')clApplyLaunch(g,m);else if(g.phase==='result')g.net.pend=m;}
   else if(m.k==='shot'){if(g.phase==='fly'){g.shells=Math.max(0,g.shells-1);g.firedN++;g.kick=1;clSnd.shot();g.shotT=g.t;clEject(g);clHudShells(g);}}
   else if(m.k==='hit'){if(g.phase==='fly'){const c=g.clays[m.ci|0];if(c&&c.alive&&!c.broke){c.broke=true;c.alive=false;clBreak(g,c,m.ql==='c'?'c':'e');clSnd.hit(m.ql);}
-    g.evRes[m.ci|0]={pts:+m.pts||0,q:m.ql==='c'?'c':'e',barrel:+m.b||1,first:!!m.f};}}
+    g.evRes[m.ci|0]={pts:+m.pts||0,q:m.ql==='c'?'c':'e',barrel:+m.b||1,first:!!m.f};if(g.clays[m.ci|0])clMaybeSlow(g,g.clays[m.ci|0]);}}
   else if(m.k==='evdone'){if(g.phase==='fly'||g.phase==='ready'||g.phase==='wait'){g.evRes=(m.rs||[]).slice(0,2).map(r=>(r&&r.pts>0)?{pts:Math.min(5,r.pts|0),q:r.ql==='c'?'c':'e',barrel:r.b|0,first:!!r.f}:null);if(!g.evRes.length)g.evRes=[null];clEventDone(g);}}
 }
 function clNetFinish(g,c){
@@ -31857,7 +31861,7 @@ function clTurn(g){
 }
 function clReadyStart(g){g.phase='ready';g.hand=null;g.shells=2;g.autoAt=g.t+(g.lv==='beginner'?4:3);g.autoN=9;g.ev=clBlock(g).ev[g.ei];g.clays=[];g.shots=[];g.rv=null;g.bot=null;
   const rd=clReady(g.disc,clBlock(g).st,g.ev);g.yaw=rd[0];g.pitch=rd[1];if(g.cur.bot)g.wait=g.t+.9;
-  g.sightOk=false;g.wy=rd[0];g.wp=rd[1];
+  g.sightOk=false;g.wy=rd[0];g.wp=rd[1];if(!clWatch(g))clNewWind(g);
   clPaintOv(g);
   if(g.net&&g.net.pend&&clWatch(g)){const m=g.net.pend;g.net.pend=null;clApplyLaunch(g,m);}}
 // PULL: the clay leaves after a short random moment
@@ -31875,7 +31879,7 @@ function clLaunchEvent(g){
   if(g.mix)for(const c of out)c.vt=clPickVariant();
   g.clays=out;g.phase='fly';g.shots=[];g.shells=ev.shells||(ev.c.length===2?2:(clIsTrap(g.disc)?2:1));g.firedN=0;g.evRes=ev.c.map(()=>null);g.flyT=0;
   clSnd.launch();
-  if(g.net&&G.isOnline&&!g.cur.bot)clSend(g,{k:'launch',c:out.map(c=>({k:c.k,p:c.p.map(clR),v:c.v.map(clR),d:c.delay||0,vt:c.vt||'o'}))},true);
+  if(g.net&&G.isOnline&&!g.cur.bot)clSend(g,{k:'launch',c:out.map(c=>({k:c.k,p:c.p.map(clR),v:c.v.map(clR),d:c.delay||0,vt:c.vt||'o'})),w:(g.wind||[0,0]).map(clR),wy:clR(g.wy0||0)},true);
   if(g.cur.bot)clBotPlan(g);
 }
 function clBotPlan(g){
@@ -31914,9 +31918,15 @@ function clResolveShot(g,sh){
   if(hit){const c=hit.c,ci=g.clays.indexOf(c);c.broke=true;c.alive=false;
     const first=g.disc==='trap'?sh.n===1:true;
     let pts=first?(hit.q==='c'?3:2):1;if(c.vt==='g')pts=first?5:3;else if(c.vt==='m')pts+=1;
-    g.evRes[ci]={pts,q:hit.q,barrel:sh.n,first};clBreak(g,c,hit.q);clSnd.hit(hit.q);haptic(hit.q==='c'?12:8);
+    g.evRes[ci]={pts,q:hit.q,barrel:sh.n,first};clBreak(g,c,hit.q);clSnd.hit(hit.q);haptic(hit.q==='c'?12:8);clMaybeSlow(g,c);
     if(g.net&&G.isOnline&&!g.cur.bot)clSend(g,{k:'hit',ci,ql:hit.q,pts,b:sh.n,f:first?1:0},true);
   }
+}
+function clSlow(g,c){if(g.duel)return;g.slowT=1.25;g.slowDur=1.25;g.camTo=c.p.slice();try{clSnd.slow();}catch(e){}}
+function clMaybeSlow(g,c){
+  const ev=g.ev,b=clBlock(g);if(!ev||!b)return;
+  const last=g.bi===g.prog.length-1&&g.ei===b.ev.length-1&&g.pi===g.who.length-1,clean3=ev.c.length===3&&g.evRes&&g.evRes.length===3&&g.evRes.every(r=>!!r);
+  if(c.vt==='g'||clean3||last)clSlow(g,c);
 }
 function clBreak(g,c,q){
   const vt=c.vt||'o',cols={w:['#efe9da','#9a948a'],y:['#f2d11a','#1b1b1b'],b:['#1b1b1b','#c9a24a'],p:['#ff5aa5','#ff9a3a'],g:['#f2cf6a','#b8862f']}[vt];
@@ -31945,6 +31955,11 @@ function clEventDone(g){
 }
 function clStreak(a){let s=0;for(let i=a.length-1;i>=0;i--){if(a[i].pts>0)s++;else break;}return s;}
 function clEject(g){if(!g.cases)g.cases=[];const W=(g.cv?g.cv.width:600)/(g.dpr||1),H=(g.cv?g.cv.height:800)/(g.dpr||1);g.cases.push({x:W*.5+30,y:H*.58+90,vx:120+Math.random()*80,vy:-300-Math.random()*120,rot:0,vr:6+Math.random()*8,l:0});if(g.cases.length>4)g.cases.shift();}
+function clNewWind(g){const r=Math.random,wm=CL_WIND[g.lv]||0,a=r()*6.283,k=.4+.6*r();g.wind=wm?[Math.cos(a)*wm*k,Math.sin(a)*wm*.4*k]:[0,0];g.wy0=g.yaw;}
+function clSock(g,x,f,cx,cy,img,P,hm){
+  const p=clProj(g,P,f,cx,cy);if(!p||p[2]>260)return;const w0=g.wind||[0,0],yw=g.wy0!==undefined?g.wy0:g.yaw,sr=w0[0]*Math.cos(yw)-w0[1]*Math.sin(yw),str=Math.min(1,Math.hypot(w0[0],w0[1])/4),h=f*hm/p[2],w=h*img.width/img.height*(.45+.55*str);
+  x.save();x.translate(p[0],p[1]);if(sr<0)x.scale(-1,1);x.drawImage(img,-w*.12,-h,w,h);x.restore();
+}
 function clCall(g,t,s,ms,force){psCall(g,t,s,ms,force);}
 function clSay(g,rs){
   const r1=document.getElementById('cl-r1'),r2=document.getElementById('cl-r2'),r3=document.getElementById('cl-r3'),r4=document.getElementById('cl-r4');if(!r1)return;
@@ -32015,7 +32030,8 @@ const clSnd={
   launch(){_hfK=1.6;hfNz(.12,1800,500,.18,{type:'bandpass',q:1.2,a:.002});hfOsc(300,180,.12,.12,{type:'triangle',a:.002});},
   hit(q){_hfK=2;hfNz(.07,5200,2400,.28,{type:'highpass',a:.001});hfNz(.18,2600,900,.14,{type:'bandpass',q:.8,a:.002,d:15});if(q==='c')hfOsc(1568,1560,.4,.06,{a:.003,rev:.3,d:60});},
   empty(){_hfK=1;hfOsc(900,700,.05,.1,{type:'square',a:.001,lp:1800});},
-  tick(){_hfK=1;hfOsc(1250,1100,.03,.04,{a:.001});}
+  tick(){_hfK=1;hfOsc(1250,1100,.03,.04,{a:.001});},
+  slow(){_hfK=2;hfNz(.9,2200,200,.16,{type:'lowpass',a:.05,rev:.3});hfOsc(220,90,.9,.08,{a:.02,lp:600});}
 };
 
 // ── the picture ──
@@ -32083,6 +32099,7 @@ function clDraw(g,now){
   x.setTransform(1,0,0,1,0,0);
   const ky=g.kick>0?(-6*g.kick)*dpr:0;
   x.save();x.translate(g.kick>0?(Math.random()-.5)*3*g.kick*dpr:0,ky);
+  if(g.fz>1.001){x.translate(cx,cy);x.scale(g.fz,g.fz);x.translate(-cx,-cy);}
   const hy=cy+f*Math.tan(g.pitch);   // the horizon
   let gr;const lite=(g.q||0)>=1;
   const pano=clPano(g,V,vn,f,H);
@@ -32116,13 +32133,13 @@ function clDraw(g,now){
   const stoneC={top:'#a9a39a',front:'#87827a',side:'#6d6962'},I=clImg;
   if(clIsTrap(g.disc)){
     if(I('trap'))clBill(g,x,f,cx,cy,I('trap'),[0,0,15],2.3);else clBox(g,x,f,cx,cy,-3.6,-1.2,13.8,7.2,2.4,2.4,stoneC);
-    if(I('sock')&&!lite)clBill(g,x,f,cx,cy,I('sock'),[13,0,11],5.4);
+    if(I('sock')&&!lite)clSock(g,x,f,cx,cy,I('sock'),[13,0,11],5.4);
     CL_TRAPX.forEach((px2,i)=>{if(I('plate')){clBill(g,x,f,cx,cy,I('plate'),[px2,0,3.2],.55);return;}const p=clProj(g,[px2,0,3],f,cx,cy);if(p){x.fillStyle=i+1===clBlock(g)?.st?'rgba(236,196,92,.95)':'rgba(255,255,255,.55)';x.beginPath();x.ellipse(p[0],p[1],f*.5/p[2],f*.14/p[2],0,0,6.283);x.fill();}});
   }else{
     if(I('hhouse'))clBill(g,x,f,cx,cy,I('hhouse'),[-19.6,0,0],5.2);else clBox(g,x,f,cx,cy,-20.2,0,-1.4,3.4,3.05,2.8,{top:'#b9b2a5',front:'#8f897d',side:'#6f6a60'});
     if(I('lhouse'))clBill(g,x,f,cx,cy,I('lhouse'),[19.6,0,0],2.7);else clBox(g,x,f,cx,cy,16.8,0,-1.4,3.4,1.05,2.8,{top:'#b9b2a5',front:'#8f897d',side:'#6f6a60'});
     if(I('stake'))clBill(g,x,f,cx,cy,I('stake'),[0,0,0],4.9);else clBox(g,x,f,cx,cy,-.08,0,-.08,.16,4.6,.16,{top:'#ddd',front:'#e9e9e9',side:'#bdbdbd'});
-    if(I('sock')&&!lite)clBill(g,x,f,cx,cy,I('sock'),[26,0,9],5.4);
+    if(I('sock')&&!lite)clSock(g,x,f,cx,cy,I('sock'),[26,0,9],5.4);
     for(let k=1;k<=7;k++){const e=clEye('skeet',k);if(I('plate')){clBill(g,x,f,cx,cy,I('plate'),[e[0],0,e[2]],.55);continue;}const p=clProj(g,[e[0],0,e[2]],f,cx,cy);if(p){x.fillStyle=k===clBlock(g)?.st?'rgba(236,196,92,.95)':'rgba(255,255,255,.5)';x.beginPath();x.ellipse(p[0],p[1],f*.5/p[2],f*.14/p[2],0,0,6.283);x.fill();}}
   }
   {const tint={night:'rgba(8,16,40,.26)',winter:'rgba(215,230,255,.08)',coast:'rgba(255,150,70,.11)'}[V];if(tint){x.fillStyle=tint;x.fillRect(0,0,W,H);}}
@@ -32158,6 +32175,9 @@ function clAmbient(g){
   }catch(e){}
 }
 function clStep(g,dt){
+  if(g.slowT>0){const raw=dt,u=1-g.slowT/(g.slowDur||1.25);g.slowT-=raw;dt*=.25;g.fz=1+.45*Math.sin(Math.PI*Math.min(1,u));
+    if(g.camTo){const dv=[g.camTo[0]-g.eye[0],g.camTo[1]-g.eye[1],g.camTo[2]-g.eye[2]],ty=Math.atan2(dv[0],dv[2]),tp=Math.atan2(dv[1],Math.hypot(dv[0],dv[2])),k=Math.min(1,raw*3);g.yaw+=(ty-g.yaw)*k;g.pitch+=(tp-g.pitch)*k;}
+    if(g.slowT<=0){g.fz=1;g.camTo=null;}}
   g.t+=dt;g.kick=Math.max(0,g.kick-dt*6);
   if(g.cases&&g.cases.length){for(const c of g.cases){c.l+=dt;c.vy+=1100*dt;c.x+=c.vx*dt;c.y+=c.vy*dt;c.rot+=c.vr*dt;}g.cases=g.cases.filter(c=>c.l<.9);}
   if(g.phase==='ready'&&g.t>(g.ambAt||0)&&g.autoAt-g.t>.8){g.ambAt=g.t+1.4+Math.random()*2.2;clAmbient(g);}
@@ -32176,7 +32196,7 @@ function clStep(g,dt){
   else if(g.phase==='wait'&&g.t>=g.wait&&!clWatch(g)){clLaunchEvent(g);}
   else if(g.phase==='fly'){
     g.flyT+=dt;
-    for(const c of g.clays){if(c.pend){if(g.flyT>=c.delay){c.pend=false;c.alive=true;c.t=0;try{clSnd.launch();}catch(e){}}continue;}if(!c.alive)continue;c.t+=dt;c.p[0]+=c.v[0]*dt;c.p[1]+=c.v[1]*dt;c.p[2]+=c.v[2]*dt;c.v[1]-=9.8*dt;c.v[0]*=1-.07*dt;c.v[2]*=1-.07*dt;if(c.p[1]<.15||c.t>3.4||Math.hypot(c.p[0]-g.eye[0],c.p[2]-g.eye[2])>115){c.alive=false;}}
+    for(const c of g.clays){if(c.pend){if(g.flyT>=c.delay){c.pend=false;c.alive=true;c.t=0;try{clSnd.launch();}catch(e){}}continue;}if(!c.alive)continue;c.t+=dt;c.p[0]+=c.v[0]*dt;c.p[1]+=c.v[1]*dt;c.p[2]+=c.v[2]*dt;c.v[1]-=9.8*dt;c.v[0]*=1-.07*dt;c.v[2]*=1-.07*dt;if(g.wind){c.v[0]+=g.wind[0]*dt*.5;c.v[2]+=g.wind[1]*dt*.5;}if(c.p[1]<.15||c.t>3.4||Math.hypot(c.p[0]-g.eye[0],c.p[2]-g.eye[2])>115){c.alive=false;}}
     // the help of the level: the gun is drawn gently towards a clay that is near the bead
     if(!g.cur.bot&&!clWatch(g)&&CL_LV[g.lv].mag){const m=CL_LV[g.lv].mag;let bc=null,be=1e9;for(const c of g.clays){if(!c.alive)continue;const d0=Math.hypot(c.p[0]-g.eye[0],c.p[1]-g.eye[1],c.p[2]-g.eye[2]),Tl=(1-(CL_LV[g.lv].lead||0))*d0/300,q=[c.p[0]+c.v[0]*Tl,c.p[1]+c.v[1]*Tl-4.9*Tl*Tl,c.p[2]+c.v[2]*Tl],dv=[q[0]-g.eye[0],q[1]-g.eye[1],q[2]-g.eye[2]],ty=Math.atan2(dv[0],dv[2]),tp=Math.atan2(dv[1],Math.hypot(dv[0],dv[2])),ey=ty-g.yaw,ep=tp-g.pitch,e=Math.hypot(ey,ep);if(e<be){be=e;bc={ey,ep};}}   // the pull goes to the point you have to aim at, not to the clay
       if(bc&&be<.38){const k=Math.min(1,dt*m*(1-be/.45));g.yaw+=bc.ey*k;g.pitch+=bc.ep*k;}}
@@ -32227,6 +32247,7 @@ function clHud(g){
   set('cl-sn',b?'STATION '+b.st+' · CALL '+Math.min(b.ev.length,g.ei+1)+' / '+b.ev.length:'');
   set('cl-status',g.phase==='setup'?'OUR TABLE MODE · '+CL_DISC[g.disc].name:g.phase==='hand'?'Next shooter':clWatch(g)?g.cur.name+' is shooting · you are watching':g.cur?(g.cur.bot?g.cur.name+' (robot) is shooting':g.cur.name+' · '+CL_DISC[g.disc].name.toLowerCase()+' · station '+(b?b.st:'')):'');
   clHudShells(g);
+  {const w=g.wind||[0,0],yw=g.wy0!==undefined?g.wy0:g.yaw,sr=w[0]*Math.cos(yw)-w[1]*Math.sin(yw),sp=Math.hypot(w[0],w[1]),t=g.phase==='setup'?'':sp<.3?'WIND · CALM':'WIND '+(sr<0?'◀ ':'▶ ')+sp.toFixed(1)+' m/s';set('cl-wind',t);}
   const fb=document.getElementById('cl-fire');if(fb){const can=(!g.cur||!g.cur.bot)&&!clWatch(g);let lab='PULL',ok=false;
     if(g.phase==='ready'&&can){const n=Math.max(1,Math.ceil(g.autoAt-g.t));lab=n+' · PULL';ok=true;}else if(g.phase==='wait'){lab='…';}else if(g.phase==='fly'&&can){lab=g.shells>0?'FIRE':'EMPTY';ok=g.shells>0;}else if(g.phase==='result'){lab='…';}else if(clWatch(g)){lab='WATCHING';}else if(g.cur&&g.cur.bot){lab='ROBOT';}
     if(fb._ok!==ok){fb._ok=ok;fb.classList.toggle('off',!ok);}set('cl-fl',lab);}
@@ -32245,6 +32266,7 @@ function rClayTable(){
         <div class="ps-side ps-right" id="cl-right">
           <div class="ps-sn" id="cl-sn"></div>
           <div class="ps-rev" id="cl-rev"><div class="ps-rev-k" id="cl-r1">&nbsp;</div><div class="ps-rev-p" id="cl-r2">&nbsp;</div><div class="ps-rev-v" id="cl-r3">&nbsp;</div><div class="ps-rev-t" id="cl-r4">&nbsp;</div></div>
+          <div class="cl-wind" id="cl-wind"></div>
           <div class="cl-shells" id="cl-shells"></div>
           <button class="ps-fire off" id="cl-fire" data-clfire aria-label="Pull and fire"><b id="cl-fl">PULL</b></button>
           <button class="ps-end" data-clact="finishtrain">FINISH TRAINING</button>
