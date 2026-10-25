@@ -6193,6 +6193,21 @@ async function runPresentation(A,W,frame){
        check('the result screen tells the points and the clays broken',/pts/.test(W.document.body.innerText)&&/Clays broken/i.test(W.document.body.innerText));
       }
       F('clStop')();
+      // ── triple: three clays shortly after one another, a bonus for breaking all three
+      check('Triple has five stations of two triples, thirty clays',F('clProgram')('triple').length===5&&F('clProgram')('triple').every(b=>b.ev.length===2&&b.ev.every(e=>e.c.length===3&&e.shells===4&&e.d.length===3)));
+      W.localStorage.setItem('ct_cl_pref',JSON.stringify({disc:'triple',lv:'sport',mode:'round'}));
+      gg.lp=[{id:1,name:'AnnT3',avatar:F('AVATARS')[0],hand:[],totalScore:0}];gg.selGame='clay';F('lDealClay')();gg.scr='table';F('render')();F('clAttach')();g=G().cl;F('clBegin')(g);
+      check('a round of triples has thirty clays',g.nCl===30&&g.disc==='triple'&&g.phase==='ready');
+      F('clPull')(g);{let n=0;while(g.phase!=='fly'&&n++<900)F('clStep')(g,1/60);}
+      check('the three clays leave one after the other: the first at once, the others wait; four shells',g.clays.length===3&&g.clays[0].alive&&g.clays[1].pend&&g.clays[2].pend&&g.shells===4&&Math.abs(g.clays[1].delay-.85)<.01);
+      for(let i=0;i<60;i++)F('clStep')(g,1/60);
+      check('after a second the second clay is in the air, the third still waits',g.clays[1].alive&&!g.clays[1].pend&&g.clays[2].pend);
+      for(let i=0;i<60;i++)F('clStep')(g,1/60);
+      check('after two seconds all three are flying',g.clays.every(c=>c.alive||c.broke));
+      g.evRes=[{pts:3,q:'c',barrel:1,first:true},{pts:2,q:'e',barrel:1,first:true},{pts:3,q:'c',barrel:2,first:true}];g.clays.forEach(c=>{c.alive=false;});
+      F('clEventDone')(g);
+      check('three clays broken is a clean triple: 8 points and 3 more as a bonus',g.tot[0]===11&&g.bonus[0]===3&&g.res[0].length===3);
+      F('clStop')();
       // ── online: the second device watches the first shooter's station, then shoots its own and tells the others
       {const ch0=F('_ch'),pid0=G().myPid,srv0=G().srv;
        try{W.eval("window._clOut=[];_ch={send:m=>{window._clOut.push(m.payload)}}");

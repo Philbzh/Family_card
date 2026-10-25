@@ -4948,6 +4948,7 @@ const GAMES=[
      '<b>The pattern.</b> A shotgun throws a cloud of pellets: the clay breaks if it is inside the cloud when it arrives. The middle of the cloud is a <b>dead centre</b> (smoke), the edge only chips the clay.',
      '<b>Trap:</b> five stations, five clays each; the clay flies away from the trap house in front of you at a random angle; <b>two barrels</b>: first barrel 3 points (dead centre) or 2 (chip), second barrel 1.',
      '<b>Skeet:</b> eight stations round a half circle between the <b>high house</b> (left) and the <b>low house</b> (right); the clays cross in front of you; one shot each; doubles (two clays at once) on stations 1, 2, 6 and 7. Same points.',
+     '<b>Triple:</b> three clays are thrown from the trap house <b>shortly after one another</b>, in three different directions, and you have <b>four shells</b>: break them one after the other (3 points for a dead centre, 2 for a chip) and a <b>clean triple</b> is worth 3 extra points. Five stations, two triples each: 30 clays, 120 points at most.',
      '<b>The round:</b> 25 clays, 75 points at most. With several people on one iPad you shoot a station each in turn; robots (gentle, steady, sharp) can join. A tie is decided by first-barrel hits. TRAINING gives a short practice. LEVEL: Beginner, Sport, Elite, Olympic. This is OUR TABLE MODE: simplified for the family.']},
   {id:'precision',cat:'olympic',icon:'🏅',name:'Precision Shooting',players:'1–4',dur:'8–15 min',diff:'hard',deal:0,minP:1,maxP:4,cover:'assets/games/precision.jpg',
    rules:['<b>Air Rifle and Air Pistol, 10 m.</b> Calm, exact, honest. You shoot twenty pellets at a real air target (choose the DISCIPLINE before you start). Everything is true to scale: the rifle target is 45.5 mm wide with a dot for a ten, the pistol target is 155.5 mm wide and a pistol is held with one hand, so it wobbles more. The pellet is 4.5 mm.',
@@ -7955,6 +7956,7 @@ const AR_REC={
   airhockey:[['fastest','Fastest shot','km/h'],['bestRally','Longest rally','hits'],['saves','Most saves in a match',''],['comeback','Biggest comeback','goals']],
   pong:[['fastest','Fastest ball','km/h'],['bestRally','Longest rally','returns'],['perfect','Most perfect returns',''],['comeback','Biggest comeback','games']],
   pool:[['fastest','Longest pot','cm'],['bestRally','Most balls in one turn',''],['perfect','Most balls on a break','']],
+  clay_triple:[['topscore','Best round','pts'],['bestRally','Longest straight','clays'],['perfect','Most dead centres',''],['saves','Most first-barrel hits','']],
   clay_trap:[['topscore','Best round','pts'],['bestRally','Longest straight','clays'],['perfect','Most dead centres',''],['saves','Most first-barrel hits','']],
   clay_skeet:[['topscore','Best round','pts'],['bestRally','Longest straight','clays'],['perfect','Most dead centres',''],['saves','Most first-barrel hits','']],
   precision_3p:[['topscore','Best 15-shot total','pts'],['fastest','Best single shot','pts'],['saves','Best series of five','pts'],['perfect','Most 10.9 in one match',''],['bestRally','Longest run of tens','shots']],
@@ -8017,8 +8019,8 @@ function arRecordUpdate(game,names,winnerName,score,rs){
   return won;
 }
 function arRecordsHTML(cat){
-  const a=arAll(),rec=a.rec||{},FGG=['balloonblast','marksman','hoopfever'],OLY=['precision','precision_pistol','precision_rapid','precision_3p','clay_trap','clay_skeet'];
-  const names={precision_3p:['🏅','Precision · 3 Positions'],precision_rapid:['🏅','Precision · Rapid Fire'],clay_trap:['🥏','Clay · Trap'],clay_skeet:['🥏','Clay · Skeet'],precision_pistol:['🏅','Precision · Air Pistol'],precision:['🏅','Precision · Air Rifle'],pinball:['🕹️','Pinball'],airhockey:['🏒','Air Hockey'],pong:['🏓','Pong'],invaders:['👾','Invaders: Duel'],pool:['🎱','Pool'],balloonblast:['🎈','Balloon Blast'],marksman:['🎯','Marksman'],hoopfever:['🏀','Hoop Fever']};
+  const a=arAll(),rec=a.rec||{},FGG=['balloonblast','marksman','hoopfever'],OLY=['precision','precision_pistol','precision_rapid','precision_3p','clay_trap','clay_skeet','clay_triple'];
+  const names={clay_triple:['🥏','Clay · Triple'],precision_3p:['🏅','Precision · 3 Positions'],precision_rapid:['🏅','Precision · Rapid Fire'],clay_trap:['🥏','Clay · Trap'],clay_skeet:['🥏','Clay · Skeet'],precision_pistol:['🏅','Precision · Air Pistol'],precision:['🏅','Precision · Air Rifle'],pinball:['🕹️','Pinball'],airhockey:['🏒','Air Hockey'],pong:['🏓','Pong'],invaders:['👾','Invaders: Duel'],pool:['🎱','Pool'],balloonblast:['🎈','Balloon Blast'],marksman:['🎯','Marksman'],hoopfever:['🏀','Hoop Fever']};
   const rows=Object.keys(AR_REC).filter(g=>cat==='fairground'?FGG.includes(g):cat==='olympic'?OLY.includes(g):!FGG.includes(g)&&!OLY.includes(g)).map(g=>{
     const list=(AR_REC[g]).filter(([k])=>rec[g]&&rec[g][k]);if(!list.length)return'';
     return`<div class="ar-game"><div class="ar-gn">${names[g][0]} ${names[g][1]}</div>${list.map(([k,l,u])=>`<div class="ar-row"><span>${l}</span><b>${rec[g][k].v}${u?' '+u:''}</b><em>${esc(rec[g][k].by)}</em></div>`).join('')}</div>`;}).join('');
@@ -31585,13 +31587,13 @@ function psFrame(now){
   if(cv!==g.cv){psAttach();if(!g.cv)return;}
   if(document.hidden||G.rulesOpen||G.psLb||G.quitOpen||G.tour){g.last=now;return;}
   const raw=Math.max(0,(now-g.last)/1000),dt=Math.min(.05,raw);g.last=now;
-  g.ema=(g.ema||.016)*.92+raw*.08;if(g.t>2&&g.ema>.03&&(g.q||0)<2&&g.t-(g.qAt||0)>3){g.q=(g.q||0)+1;g.qAt=g.t;g.ema=.016;psSize(g);}   // too slow: fewer pixels
+  g.ema=(g.ema||.016)*.92+raw*.08;if(g.t>2&&g.ema>.021&&(g.q||0)<2&&g.t-(g.qAt||0)>2.5){g.q=(g.q||0)+1;g.qAt=g.t;g.ema=.016;psSize(g);}   // too slow: fewer pixels
   psStep(g,dt);psDraw(g,now);psHud(g);
 }
 function psAttach(){
   const g=G.ps;if(!g||!g.live)return;
   const cv=document.getElementById('ps-cv');if(!cv)return;
-  if(g.cv!==cv){g.cv=cv;g.bg=null;psBindInput();psSize(g);psPaintOv(g);}
+  if(g.cv!==cv){try{cv.getContext('2d',{alpha:false});}catch(e){}g.cv=cv;g.bg=null;psBindInput();psSize(g);psPaintOv(g);}
   if(!g.raf){g.last=performance.now();g.raf=requestAnimationFrame(psFrame);}
 }
 window.addEventListener('resize',()=>{try{if(G.ps&&G.ps.live){psSize(G.ps);}}catch(e){}});
@@ -31731,11 +31733,12 @@ function psAction(g,a,v){
    levels) at the moment it reaches the clay's distance. Trap: five stations of five clays that fly away from a trap house, two barrels (first
    barrel 3 or 2 points, second barrel 1). Skeet: eight stations round a half circle between a high house and a low house, clays cross in front of
    you, doubles on stations 1, 2, 6 and 7, one shot each. 25 clays, 75 points at most. OUR TABLE MODE: the scoring is simplified. */
-const CL_DISC={trap:{id:'trap',name:'Trap',tag:'TRAP',rec:'clay_trap'},skeet:{id:'skeet',name:'Skeet',tag:'SKEET',rec:'clay_skeet'}};
+const CL_DISC={trap:{id:'trap',name:'Trap',tag:'TRAP',rec:'clay_trap'},skeet:{id:'skeet',name:'Skeet',tag:'SKEET',rec:'clay_skeet'},triple:{id:'triple',name:'Triple',tag:'TRIPLE',rec:'clay_triple'}};
+function clIsTrap(d){return d==='trap'||d==='triple';}
 const CL_LV={
   beginner:{n:'Beginner',pr:.1,spd:19,jit:.0012,assist:1,lead:1,mag:1.8,about:'Slow clays, a huge pattern and the gun helps: just keep the bead on the clay and shoot.'},
   sport:{n:'Sport',pr:.07,spd:23,jit:.0018,assist:1,lead:.6,mag:.9,about:'The gun still helps with the lead. Follow the clay and shoot.'},
-  elite:{n:'Elite',pr:.05,spd:29,jit:.0026,assist:0,lead:.25,mag:.3,about:'Faster clays, you lead most of it yourself.'},
+  elite:{n:'Elite',pr:.058,spd:27,jit:.0024,assist:0,lead:.4,mag:.6,about:'Faster clays, a narrower pattern, the gun only helps a little.'},
   olympic:{n:'Olympic',pr:.036,spd:34,jit:.0032,assist:0,lead:0,mag:0,about:'No help at all: lead the clay yourself.'}
 };
 const CL_BOT={gentle:{n:'Gentle',p:.5},steady:{n:'Steady',p:.74},sharp:{n:'Sharp',p:.9}};
@@ -31743,18 +31746,19 @@ const CL_TRAPX=[-3,-1.5,0,1.5,3];
 const CL_R=18.4;
 function clProgram(disc){
   const b=[];
+  if(disc==='triple'){for(let s=0;s<5;s++)b.push({st:s+1,ev:[0,1].map(()=>({c:['T','T','T'],d:[0,.85,1.7],shells:4}))});return b;}
   if(disc==='trap'){for(let s=0;s<5;s++)b.push({st:s+1,ev:Array.from({length:5},()=>({c:['T']}))});return b;}
   const S=(st,ev)=>b.push({st,ev:ev.map(c=>({c}))});
   S(1,[['H'],['L'],['H','L']]);S(2,[['H'],['L'],['H','L']]);S(3,[['H'],['L']]);S(4,[['H'],['L']]);S(5,[['H'],['L']]);S(6,[['H'],['L'],['H','L']]);S(7,[['H'],['L'],['H','L']]);S(8,[['H'],['L'],['L']]);
   return b;
 }
 function clEye(disc,st){   // where the shooter stands
-  if(disc==='trap')return[CL_TRAPX[st-1],1.6,0];
+  if(clIsTrap(disc))return[CL_TRAPX[st-1],1.6,0];
   if(st===8)return[0,1.6,1.8];
   const a=Math.PI-(st-1)*Math.PI/6;return[CL_R*Math.cos(a),1.6,CL_R*Math.sin(a)];
 }
 function clReady(disc,st,ev){   // where the gun points before the call: [yaw, pitch]
-  if(disc==='trap')return[0,.13];
+  if(clIsTrap(disc))return[0,.13];
   const e=clEye(disc,st);let T=[0,4.6,0];
   if(st===8&&ev&&ev.c){T=ev.c[0]==='H'?[-18,3.05,0]:[18,1.05,0];}
   const dx=T[0]-e[0],dy=T[1]-e[1],dz=T[2]-e[2];return[Math.atan2(dx,dz),Math.atan2(dy,Math.hypot(dx,dz))];
@@ -31785,7 +31789,8 @@ function lDealClay(){
 }
 function clBegin(g,cfg){
   const pr=clPrefs();if(G.isOnline)pr.mode='round';if(cfg){pr.disc=cfg.disc;pr.lv=cfg.lv;}Object.assign(g,{disc:pr.disc,lv:pr.lv,mode:pr.mode});
-  g.prog=clProgram(g.disc);if(g.mode==='train'){g.prog=g.prog.slice(0,g.disc==='trap'?2:3);}
+  g.prog=clProgram(g.disc);if(g.mode==='train'){g.prog=g.prog.slice(0,clIsTrap(g.disc)?(g.disc==='triple'?1:2):3);}
+  g.nCl=g.prog.reduce((a,b)=>a+b.ev.reduce((c,e)=>c+e.c.length,0),0);g.bonus=g.players.map(()=>0);
   const idx=g.players.map((p,i)=>i);let who=idx;if(g.mode!=='round'){const h=idx.find(i=>!g.players[i].bot);who=[h==null?0:h];}
   g.who=who;g.res=g.players.map(()=>[]);g.tot=g.players.map(()=>0);g.bi=0;g.pi=0;g.ei=0;g.over=false;g.summary=null;g.stats={start:Date.now()};
   g.clays=[];g.shots=[];g.parts=[];clTurn(g);
@@ -31802,8 +31807,8 @@ function clSend(g,m,rep){
 const clR=v=>Math.round(v*1000)/1000;
 function clApplyLaunch(g,m){
   const f=v=>Math.max(-400,Math.min(400,+v||0));
-  g.clays=(m.c||[]).slice(0,2).map(c=>({k:String(c.k).slice(0,1),p:[f(c.p[0]),f(c.p[1]),f(c.p[2])],v:[f(c.v[0]),f(c.v[1]),f(c.v[2])],t:0,alive:true,broke:false,id:++g.shotN||1}));
-  g.phase='fly';g.shots=[];g.shells=g.ev&&g.ev.c.length===2?2:(g.disc==='trap'?2:1);g.firedN=0;g.evRes=g.clays.map(()=>null);g.flyT=0;clSnd.launch();
+  g.clays=(m.c||[]).slice(0,2).map(c=>({k:String(c.k).slice(0,1),p:[f(c.p[0]),f(c.p[1]),f(c.p[2])],v:[f(c.v[0]),f(c.v[1]),f(c.v[2])],t:0,alive:!(+c.d>0),pend:+c.d>0,delay:+c.d||0,broke:false,id:++g.shotN||1}));
+  g.phase='fly';g.shots=[];g.shells=(g.ev&&g.ev.shells)||(g.ev&&g.ev.c.length===2?2:(clIsTrap(g.disc)?2:1));g.firedN=0;g.evRes=g.clays.map(()=>null);g.flyT=0;clSnd.launch();
 }
 function clOnBroadcast(m){
   const g=G.cl;if(!g||!g.live||!g.net||!G.isOnline||!m||m.id!==g.net.id||m.seat===g.net.seat)return;
@@ -31823,10 +31828,10 @@ function clOnBroadcast(m){
 function clNetFinish(g,c){
   if(g.netEnded||!G.srv)return;g.netEnded=true;
   const st=c.st,tot=c.tot,w=c.w,n=g.n,dur=Math.round((Date.now()-g.stats.start)/1000);
-  const res={disc:g.disc,lv:g.lv,names:g.players.map(p=>p.name),bots:g.players.map(()=>false),st,w,top:tot[w],dur,mom:c.mom};
+  const res={n:g.nCl,disc:g.disc,lv:g.lv,names:g.players.map(p=>p.name),bots:g.players.map(()=>false),st,w,top:tot[w],dur,mom:c.mom};
   try{hfSnd.cheer(1);}catch(e){}
   const s2=JSON.parse(JSON.stringify(G.srv));
-  s2.players.forEach((q,i)=>{if(i>=n)return;q.totalScore=tot[i];q.c4Result=n===1?'win':(c.tie&&c.cand.includes(i))?'draw':w===i?'win':'loss';q.psLine=tot[i]+' pts · '+st[i].hits+' of 25';});
+  s2.players.forEach((q,i)=>{if(i>=n)return;q.totalScore=tot[i];q.c4Result=n===1?'win':(c.tie&&c.cand.includes(i))?'draw':w===i?'win':'loss';q.psLine=tot[i]+' pts · '+st[i].hits+' of '+g.nCl;});
   s2.winner=s2.players[w].id;s2.winnerName=s2.players[w].name;s2.winnerAv=s2.players[w].avatar;s2.moment=c.mom;
   s2.ah=Object.assign({},s2.ah||{},{score:tot,dur,stats:{perfect:Math.max(...st.map(x=>x.cen)),bestRally:Math.max(...st.map(x=>x.streak)),saves:Math.max(...st.map(x=>x.first)),team:0,lv:g.lv,dc:g.disc,cl:res}});
   s2.lastAct=esc(s2.winnerName)+(c.tie?' tied.':' won the round.');s2._ts=Date.now();
@@ -31849,21 +31854,22 @@ function clReadyStart(g){g.phase='ready';g.hand=null;g.shells=2;g.autoAt=g.t+(g.
 function clPull(g){if(g.phase!=='ready'||g.cur.bot||clWatch(g))return;g.phase='wait';g.wait=g.t+.25+Math.random()*(g.lv==='beginner'?.4:.9);}
 function clLaunchEvent(g){
   const lv=CL_LV[g.lv],r=Math.random,ev=g.ev,out=[];
-  for(const k of ev.c){
+  const sect=[-1,0,1].sort(()=>r()-.5).map(v=>v*({beginner:.3,sport:.42,elite:.5,olympic:.55}[g.lv]||.42));
+  for(const [ci2,k] of ev.c.entries()){
     let pos,vel;const sp=lv.spd*(.96+.08*r());
-    if(k==='T'){const az=(r()*2-1)*({beginner:.4,sport:.55,elite:.65,olympic:.74}[g.lv]||.55),el=.26+r()*.36;pos=[0,1.2,15];vel=[Math.sin(az)*Math.cos(el)*sp,Math.sin(el)*sp,Math.cos(az)*Math.cos(el)*sp];}
+    if(k==='T'){const az=ev.c.length===3?sect[ci2]+(r()-.5)*.16:(r()*2-1)*({beginner:.4,sport:.55,elite:.65,olympic:.74}[g.lv]||.55),el=.26+r()*.36;pos=[0,1.2,15];vel=[Math.sin(az)*Math.cos(el)*sp,Math.sin(el)*sp,Math.cos(az)*Math.cos(el)*sp];}
     else{const m=sp/29,j=(r()-.5)*.8;
       if(k==='H'){pos=[-18,3.05,0];vel=[(27+j)*m,5.6*m,0];}else{pos=[18,1.05,0];vel=[-(27+j)*m,8.6*m,0];}}
-    out.push({k,p:pos,v:vel,t:0,alive:true,broke:false,id:g.shotN=(g.shotN||0)+1});
+    {const dl=(ev.d&&ev.d[ci2])||0;out.push({k,p:pos,v:vel,t:0,alive:dl<=0,pend:dl>0,delay:dl,broke:false,id:g.shotN=(g.shotN||0)+1});}
   }
-  g.clays=out;g.phase='fly';g.shots=[];g.shells=ev.c.length===2?2:(g.disc==='trap'?2:1);g.firedN=0;g.evRes=ev.c.map(()=>null);g.flyT=0;
+  g.clays=out;g.phase='fly';g.shots=[];g.shells=ev.shells||(ev.c.length===2?2:(clIsTrap(g.disc)?2:1));g.firedN=0;g.evRes=ev.c.map(()=>null);g.flyT=0;
   clSnd.launch();
-  if(g.net&&G.isOnline&&!g.cur.bot)clSend(g,{k:'launch',c:out.map(c=>({k:c.k,p:c.p.map(clR),v:c.v.map(clR)}))},true);
+  if(g.net&&G.isOnline&&!g.cur.bot)clSend(g,{k:'launch',c:out.map(c=>({k:c.k,p:c.p.map(clR),v:c.v.map(clR),d:c.delay||0}))},true);
   if(g.cur.bot)clBotPlan(g);
 }
 function clBotPlan(g){
   const b=CL_BOT[g.cur.bot]||CL_BOT.gentle,lv=CL_LV[g.lv],f={beginner:1.12,sport:1,elite:.93,olympic:.86}[g.lv],r=Math.random;
-  const pl=g.clays.map(c=>{const p1=Math.min(.97,b.p*f),h1=r()<p1,h2=!h1&&g.disc==='trap'&&r()<p1*.7;return{h1,q1:r()<.5?'c':'e',h2,t1:.5+r()*.5,t2:.5+.4+r()*.4};});
+  const pl=g.clays.map(c=>{const p1=Math.min(.97,b.p*f),h1=r()<p1,h2=!h1&&clIsTrap(g.disc)&&r()<p1*.7;return{h1,q1:r()<.5?'c':'e',h2,t1:(c.delay||0)+.5+r()*.5,t2:(c.delay||0)+.9+r()*.4};});
   g.bot={pl,fired:g.clays.map(()=>0)};
 }
 // ── firing ──
@@ -31895,7 +31901,7 @@ function clResolveShot(g,sh){
   if(sh.force){const c=g.clays[sh.force.ci];if(sh.force.hit&&c&&c.alive&&!c.broke)hit={c,q:sh.force.q};}
   else hit=clCloud(g,sh);
   if(hit){const c=hit.c,ci=g.clays.indexOf(c);c.broke=true;c.alive=false;
-    const first=(g.disc==='trap')?sh.n===1:true;
+    const first=g.disc==='trap'?sh.n===1:true;
     const pts=first?(hit.q==='c'?3:2):1;
     g.evRes[ci]={pts,q:hit.q,barrel:sh.n,first};clBreak(g,c,hit.q);clSnd.hit(hit.q);haptic(hit.q==='c'?12:8);
     if(g.net&&G.isOnline&&!g.cur.bot)clSend(g,{k:'hit',ci,ql:hit.q,pts,b:sh.n,f:first?1:0},true);
@@ -31911,12 +31917,14 @@ function clEventDone(g){
   const rs=g.evRes.map(r=>r||{pts:0,q:'x',barrel:0,first:false});
   if(g.net&&G.isOnline&&!clWatch(g)&&!g.cur.bot)clSend(g,{k:'evdone',rs:rs.map(r=>({pts:r.pts,ql:r.q,b:r.barrel,f:r.first?1:0}))},true);
   for(const r of rs){g.res[g.curI].push(r);g.tot[g.curI]+=r.pts;}
+  const clean3=!!(g.ev&&g.ev.c.length===3&&rs.every(r=>r.pts>0));if(clean3){g.bonus[g.curI]=(g.bonus[g.curI]||0)+3;g.tot[g.curI]+=3;}
   g.phase='result';g.resT=g.t;g.lastRes=rs;
   const hits=rs.filter(r=>r.pts>0).length,t=rs.reduce((a,r)=>a+r.pts,0);
   clSay(g,rs);
   const q=rs.every(r=>r.q==='c');
   if(hits===rs.length&&q&&rs.length>0)clCall(g,'DEAD.','',1300);
   else if(hits===0)clCall(g,'LOST.','',1200);
+  if(clean3)clCall(g,'CLEAN TRIPLE.','+3 bonus',1700,true);
   // straights and clean stations, rarely
   const arr=g.res[g.curI],strk=clStreak(arr);if(strk>=10&&strk%5===0)clCall(g,strk+' STRAIGHT.','',1800,true);
 }
@@ -31926,7 +31934,7 @@ function clSay(g,rs){
   const r1=document.getElementById('cl-r1'),r2=document.getElementById('cl-r2'),r3=document.getElementById('cl-r3'),r4=document.getElementById('cl-r4');if(!r1)return;
   const n=g.res[g.curI].length;r1.textContent='CLAY '+(rs.length>1?(n-1)+' + '+n:n);
   r2.textContent=rs.map(r=>r.pts===0?'LOST':r.q==='c'?'DEAD CENTRE':r.first?'CHIPPED':'SECOND BARREL').join(' · ');
-  const pts=rs.reduce((a,r)=>a+r.pts,0);r3.textContent=pts?'+'+pts:'0';r3.className='ps-rev-v'+(pts>=3*rs.length?' gold':pts>0?' ten':'');r4.textContent='TOTAL '+g.tot[g.curI];
+  const clean3=!!(g.ev&&g.ev.c.length===3&&rs.every(r=>r.pts>0)),pts=rs.reduce((a,r)=>a+r.pts,0)+(clean3?3:0);if(clean3)r2.textContent+=' · CLEAN TRIPLE +3';r3.textContent=pts?'+'+pts:'0';r3.className='ps-rev-v'+(pts>=3*rs.length?' gold':pts>0?' ten':'');r4.textContent='TOTAL '+g.tot[g.curI];
 }
 function clNextEvent(g){
   g.ei++;g.clays=[];g.shots=[];
@@ -31940,7 +31948,7 @@ function clNextEvent(g){
 function clStatsOf(g,i){
   const a=g.res[i],hits=a.filter(r=>r.pts>0).length,first=a.filter(r=>r.first&&r.pts>0).length,cen=a.filter(r=>r.q==='c').length;
   let run=0,best=0;for(const r of a){run=r.pts>0?run+1:0;if(run>best)best=run;}
-  return{n:a.length,tot:a.reduce((x,r)=>x+r.pts,0),hits,first,cen,streak:best};
+  return{n:a.length,tot:a.reduce((x,r)=>x+r.pts,0)+((g.bonus&&g.bonus[i])||0),hits,first,cen,streak:best};
 }
 function clFinish(g){
   if(g.over)return;g.over=true;g.phase='over';
@@ -31953,17 +31961,17 @@ function clFinish(g){
   const w=cand[0],tie=cand.length>1&&st[cand[0]].first===st[cand[1]].first&&st[cand[0]].cen===st[cand[1]].cen,n=g.n;
   const nm=i=>g.players[i].name;
   let mom='';
-  if(st[w].hits===25)mom='CLEAN ROUND · '+nm(w)+' broke all 25 clays';
+  if(st[w].hits===g.nCl)mom='CLEAN ROUND · '+nm(w)+' broke all '+g.nCl+' clays';
   else if(st[w].streak>=15)mom=st[w].streak+' STRAIGHT · '+nm(w)+' did not miss for '+st[w].streak+' clays';
   else if(n>1&&cand.length>1&&!tie)mom='PHOTO FINISH · '+nm(w)+' won on first-barrel hits';
   else if(n>1&&tie)mom='A tie on the field.';
-  else mom=nm(w)+' broke '+st[w].hits+' of 25 for '+top+' points.';
+  else mom=nm(w)+' broke '+st[w].hits+' of '+g.nCl+' for '+top+' points.';
   g.moment=mom;
   if(G.isOnline){clNetFinish(g,{st,tot,w,tie,cand,mom});return;}
-  g.players.forEach((p,i)=>{const gp=G.lp[i];if(!gp)return;gp.totalScore=tot[i];gp.c4Result=n===1?'win':(tie&&cand.includes(i))?'draw':w===i?'win':'loss';gp.psLine=tot[i]+' pts · '+st[i].hits+' of 25';});
+  g.players.forEach((p,i)=>{const gp=G.lp[i];if(!gp)return;gp.totalScore=tot[i];gp.c4Result=n===1?'win':(tie&&cand.includes(i))?'draw':w===i?'win':'loss';gp.psLine=tot[i]+' pts · '+st[i].hits+' of '+g.nCl;});
   const dur=Math.round((Date.now()-g.stats.start)/1000),when=new Date().toISOString();
   G.ahMoment=mom;G.fgResult=null;G.fgHighlight=null;G.pbResult=null;G.psResult=null;
-  G.clResult={disc:g.disc,lv:g.lv,names:g.players.map(p=>p.name),bots:g.players.map(p=>!!p.bot),st,w,top,dur,mom};
+  G.clResult={n:g.nCl,disc:g.disc,lv:g.lv,names:g.players.map(p=>p.name),bots:g.players.map(p=>!!p.bot),st,w,top,dur,mom};
   G.tw=(G.tw||0)+1;try{localStorage.setItem('ct_tw',G.tw);}catch(e){}
   try{addHistory({game:'clay',winner:nm(w),winnerAvatar:g.players[w].avatar,date:when,players:g.players.map(p=>p.name),moment:mom,stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats?G.matchStats.reactions:0,ah:{score:tot,dur,lv:g.lv,dc:g.disc}}});}catch(e){}
   try{const hs=g.players.map((p,i)=>p.bot?-1:i).filter(i=>i>=0);
@@ -31977,7 +31985,7 @@ function clChipsHTML(){
   const r=G.clResult;if(!r)return'';const s=r.st[r.w];
   return`<div class="tonight-stats">
     <div class="tonight-stat"><div class="ts-val">${s.tot}</div><div class="ts-lbl">🎯 Points · ${esc(CL_DISC[r.disc].name)} · ${esc(CL_LV[r.lv].n)}</div></div>
-    <div class="tonight-stat"><div class="ts-val">${s.hits} / 25</div><div class="ts-lbl">🥏 Clays broken</div></div>
+    <div class="tonight-stat"><div class="ts-val">${s.hits} / ${r.n||25}</div><div class="ts-lbl">🥏 Clays broken</div></div>
     <div class="tonight-stat"><div class="ts-val">${s.first}</div><div class="ts-lbl">⭐ First-barrel hits</div></div>
     <div class="tonight-stat"><div class="ts-val">${s.cen}</div><div class="ts-lbl">✨ Dead centre</div></div>
     <div class="tonight-stat"><div class="ts-val">${s.streak}</div><div class="ts-lbl">🔥 Longest straight</div></div>
@@ -32012,11 +32020,17 @@ function clBox(g,x,f,cx,cy,X,Y,Z,w,h,d,col){
 const CL_IMG={};
 function clImg(n){let i=CL_IMG[n];if(!i){i=CL_IMG[n]=new Image();i.src='assets/games/cl_'+n+(n==='sky'||n==='grass'?'.jpg':'.png');}return i.complete&&i.naturalWidth?i:null;}
 // a strip that turns with the gun: it repeats every rad radians, every second copy mirrored so that the edges always meet
+const CL_TC={};
+function clTileCache(img,sx,sw){
+  const key=img.src+'|'+sx+'|'+sw;let c=CL_TC[key];if(c)return c;
+  c=document.createElement('canvas');c.width=2*sw;c.height=img.height;const q=c.getContext('2d');
+  q.drawImage(img,sx,0,sw,img.height,0,0,sw,img.height);q.save();q.translate(2*sw,0);q.scale(-1,1);q.drawImage(img,sx,0,sw,img.height,0,0,sw,img.height);q.restore();
+  return CL_TC[key]=c;
+}
+// a strip that turns with the gun: it repeats every rad radians, every second copy mirrored (so the edges always meet)
 function clTile(x,img,g,f,cx,y0,h,rad,sy,sh,sx,sw){
-  sx=sx||0;sw=sw||img.width;sy=sy||0;sh=sh||img.height;
-  const tw=rad*f,k0=Math.floor((g.yaw-cx/f-.05)/rad),k1=Math.floor((g.yaw+cx/f+.05)/rad);
-  for(let k=k0;k<=k1;k++){const x0=cx+(k*rad-g.yaw)*f;
-    if(k&1){x.save();x.translate(x0+tw,0);x.scale(-1,1);x.drawImage(img,sx,sy,sw,sh,0,y0,tw+1,h);x.restore();}else x.drawImage(img,sx,sy,sw,sh,x0,y0,tw+1,h);}
+  sx=sx||0;sw=sw||img.width;const dbl=clTileCache(img,sx,sw),per=2*rad,pw=per*f,W=x.canvas.width;
+  for(let m=Math.floor((g.yaw-cx/f)/per);;m++){const x0=cx+(m*per-g.yaw)*f;if(x0>W)break;if(x0+pw<0)continue;x.drawImage(dbl,x0,y0,pw+1,h);}
 }
 function clSkyCol(img){if(img._sc)return img._sc;try{const c=document.createElement('canvas');c.width=c.height=1;const q=c.getContext('2d');q.drawImage(img,0,0,img.width,5,0,0,1,1);const d=q.getImageData(0,0,1,1).data;img._sn=[d[0],d[1],d[2]];img._sc=['rgb('+d[0]+','+d[1]+','+d[2]+')','rgb('+Math.round(d[0]*.62)+','+Math.round(d[1]*.7)+','+Math.round(d[2]*.82)+')'];}catch(e){img._sc=['#2f6db0','#1d4a80'];}return img._sc;}
 function clBill(g,x,f,cx,cy,img,P,hm){const p=clProj(g,P,f,cx,cy);if(!p||p[2]>260)return;const h=f*hm/p[2],w=h*img.width/img.height;x.drawImage(img,p[0]-w/2,p[1]-h,w,h);}
@@ -32038,7 +32052,8 @@ function clDraw(g,now){
     gr=x.createLinearGradient(0,topY,0,topY+bh2*.4);gr.addColorStop(0,col(1));gr.addColorStop(1,col(0));x.fillStyle=gr;x.fillRect(-20,topY,W+40,bh2*.4);}
   // the sun and the clouds are fixed in the world: they turn with the gun
   const sunA=.7,sunE=.62,sx=cx+f*Math.tan(sunA-g.yaw),sy=cy+f*Math.tan(g.pitch-sunE);
-  if(sx>-f*.5&&sx<W+f*.5&&sy>-f*.5&&sy<H+f*.5){gr=x.createRadialGradient(sx,sy,0,sx,sy,f*.5);gr.addColorStop(0,'rgba(255,248,220,.95)');gr.addColorStop(.12,'rgba(255,240,190,.55)');gr.addColorStop(1,'rgba(255,230,160,0)');x.fillStyle=gr;x.fillRect(sx-f*.5,sy-f*.5,f,f);}
+  const lite=(g.q||0)>=1;
+  if(!lite&&sx>-f*.5&&sx<W+f*.5&&sy>-f*.5&&sy<H+f*.5){gr=x.createRadialGradient(sx,sy,0,sx,sy,f*.5);gr.addColorStop(0,'rgba(255,248,220,.95)');gr.addColorStop(.12,'rgba(255,240,190,.55)');gr.addColorStop(1,'rgba(255,230,160,0)');x.fillStyle=gr;x.fillRect(sx-f*.5,sy-f*.5,f,f);}
   if(!g.clouds){g.clouds=Array.from({length:14},(_,i)=>({a:(i/14)*6.283+clHash(i)*.5,e:.25+clHash(i+9)*.55,s:.7+clHash(i+3)*1.1,sp:.004+clHash(i+5)*.006}));}
   if(!skyI)for(const c of g.clouds){let da=((c.a+c.sp*g.t-g.yaw)%6.283+9.425)%6.283-3.1416;if(Math.abs(da)>.9)continue;const ccx=cx+f*Math.tan(da),ccy=cy+f*Math.tan(g.pitch-c.e),r=f*.07*c.s;
     x.fillStyle='rgba(255,255,255,.62)';for(let k=0;k<5;k++){x.beginPath();x.ellipse(ccx+(k-2)*r*.8,ccy+Math.sin(k*2.1)*r*.18,r*(1.05-Math.abs(k-2)*.18),r*.5,0,0,6.283);x.fill();}}
@@ -32056,15 +32071,15 @@ function clDraw(g,now){
   gr=x.createLinearGradient(0,hy,0,hy+f*.25);gr.addColorStop(0,'rgba(210,225,215,.55)');gr.addColorStop(1,'rgba(210,225,215,0)');x.fillStyle=gr;x.fillRect(-20,hy,W+40,f*.25);
   // the field's furniture
   const stoneC={top:'#a9a39a',front:'#87827a',side:'#6d6962'},I=clImg;
-  if(g.disc==='trap'){
+  if(clIsTrap(g.disc)){
     if(I('trap'))clBill(g,x,f,cx,cy,I('trap'),[0,0,15],2.3);else clBox(g,x,f,cx,cy,-3.6,-1.2,13.8,7.2,2.4,2.4,stoneC);
-    if(I('sock'))clBill(g,x,f,cx,cy,I('sock'),[13,0,11],5.4);
+    if(I('sock')&&!lite)clBill(g,x,f,cx,cy,I('sock'),[13,0,11],5.4);
     CL_TRAPX.forEach((px2,i)=>{if(I('plate')){clBill(g,x,f,cx,cy,I('plate'),[px2,0,3.2],.55);return;}const p=clProj(g,[px2,0,3],f,cx,cy);if(p){x.fillStyle=i+1===clBlock(g)?.st?'rgba(236,196,92,.95)':'rgba(255,255,255,.55)';x.beginPath();x.ellipse(p[0],p[1],f*.5/p[2],f*.14/p[2],0,0,6.283);x.fill();}});
   }else{
     if(I('hhouse'))clBill(g,x,f,cx,cy,I('hhouse'),[-19.6,0,0],5.2);else clBox(g,x,f,cx,cy,-20.2,0,-1.4,3.4,3.05,2.8,{top:'#b9b2a5',front:'#8f897d',side:'#6f6a60'});
     if(I('lhouse'))clBill(g,x,f,cx,cy,I('lhouse'),[19.6,0,0],2.7);else clBox(g,x,f,cx,cy,16.8,0,-1.4,3.4,1.05,2.8,{top:'#b9b2a5',front:'#8f897d',side:'#6f6a60'});
     if(I('stake'))clBill(g,x,f,cx,cy,I('stake'),[0,0,0],4.9);else clBox(g,x,f,cx,cy,-.08,0,-.08,.16,4.6,.16,{top:'#ddd',front:'#e9e9e9',side:'#bdbdbd'});
-    if(I('sock'))clBill(g,x,f,cx,cy,I('sock'),[26,0,9],5.4);
+    if(I('sock')&&!lite)clBill(g,x,f,cx,cy,I('sock'),[26,0,9],5.4);
     for(let k=1;k<=7;k++){const e=clEye('skeet',k);if(I('plate')){clBill(g,x,f,cx,cy,I('plate'),[e[0],0,e[2]],.55);continue;}const p=clProj(g,[e[0],0,e[2]],f,cx,cy);if(p){x.fillStyle=k===clBlock(g)?.st?'rgba(236,196,92,.95)':'rgba(255,255,255,.5)';x.beginPath();x.ellipse(p[0],p[1],f*.5/p[2],f*.14/p[2],0,0,6.283);x.fill();}}
   }
   // the clay and its fragments
@@ -32095,7 +32110,7 @@ function clStep(g,dt){
   if(g.net&&G.isOnline){const N=g.net;
     if(g.phase==='setup'&&!clHost()&&g.t-N.helloAt>2){N.helloAt=g.t;clSend(g,{k:'hello'},false);}
     if(clHost()&&N.cfg&&g.t<N.goUntil&&g.t-N.goAt>1.2){N.goAt=g.t;clSend(g,{k:'go',disc:N.cfg.disc,lv:N.cfg.lv},false);}
-    if(g.cur&&!clWatch(g)&&(g.phase==='ready'||g.phase==='wait'||g.phase==='fly')&&g.t-N.sightAt>.08){N.sightAt=g.t;clSend(g,{k:'sight',y:clR(g.yaw),p:clR(g.pitch)},false);}
+    if(g.cur&&!clWatch(g)&&(g.phase==='ready'||g.phase==='wait'||g.phase==='fly')&&g.t-N.sightAt>.1&&(Math.abs(g.yaw-(N.ly||0))>.0012||Math.abs(g.pitch-(N.lp||0))>.0012||g.t-N.sightAt>.5)){N.sightAt=g.t;N.ly=g.yaw;N.lp=g.pitch;clSend(g,{k:'sight',y:clR(g.yaw),p:clR(g.pitch)},false);}
     if(clWatch(g)&&g.sightOk&&(g.phase==='ready'||g.phase==='wait'||g.phase==='fly')){const k=Math.min(1,dt*14);g.yaw+=(g.wy-g.yaw)*k;g.pitch+=(g.wp-g.pitch)*k;}
   }
   if(g.phase==='setup'||g.phase==='over')return;
@@ -32105,21 +32120,21 @@ function clStep(g,dt){
   else if(g.phase==='wait'&&g.t>=g.wait&&!clWatch(g)){clLaunchEvent(g);}
   else if(g.phase==='fly'){
     g.flyT+=dt;
-    for(const c of g.clays){if(!c.alive)continue;c.t+=dt;c.p[0]+=c.v[0]*dt;c.p[1]+=c.v[1]*dt;c.p[2]+=c.v[2]*dt;c.v[1]-=9.8*dt;c.v[0]*=1-.07*dt;c.v[2]*=1-.07*dt;if(c.p[1]<.15||c.t>3.4||Math.hypot(c.p[0]-g.eye[0],c.p[2]-g.eye[2])>115){c.alive=false;}}
+    for(const c of g.clays){if(c.pend){if(g.flyT>=c.delay){c.pend=false;c.alive=true;c.t=0;try{clSnd.launch();}catch(e){}}continue;}if(!c.alive)continue;c.t+=dt;c.p[0]+=c.v[0]*dt;c.p[1]+=c.v[1]*dt;c.p[2]+=c.v[2]*dt;c.v[1]-=9.8*dt;c.v[0]*=1-.07*dt;c.v[2]*=1-.07*dt;if(c.p[1]<.15||c.t>3.4||Math.hypot(c.p[0]-g.eye[0],c.p[2]-g.eye[2])>115){c.alive=false;}}
     // the help of the level: the gun is drawn gently towards a clay that is near the bead
-    if(!g.cur.bot&&!clWatch(g)&&CL_LV[g.lv].mag){const m=CL_LV[g.lv].mag;let bc=null,be=1e9;for(const c of g.clays){if(!c.alive)continue;const dv=[c.p[0]-g.eye[0],c.p[1]-g.eye[1],c.p[2]-g.eye[2]],ty=Math.atan2(dv[0],dv[2]),tp=Math.atan2(dv[1],Math.hypot(dv[0],dv[2])),ey=ty-g.yaw,ep=tp-g.pitch,e=Math.hypot(ey,ep);if(e<be){be=e;bc={ey,ep};}}
+    if(!g.cur.bot&&!clWatch(g)&&CL_LV[g.lv].mag){const m=CL_LV[g.lv].mag;let bc=null,be=1e9;for(const c of g.clays){if(!c.alive)continue;const d0=Math.hypot(c.p[0]-g.eye[0],c.p[1]-g.eye[1],c.p[2]-g.eye[2]),Tl=(1-(CL_LV[g.lv].lead||0))*d0/300,q=[c.p[0]+c.v[0]*Tl,c.p[1]+c.v[1]*Tl-4.9*Tl*Tl,c.p[2]+c.v[2]*Tl],dv=[q[0]-g.eye[0],q[1]-g.eye[1],q[2]-g.eye[2]],ty=Math.atan2(dv[0],dv[2]),tp=Math.atan2(dv[1],Math.hypot(dv[0],dv[2])),ey=ty-g.yaw,ep=tp-g.pitch,e=Math.hypot(ey,ep);if(e<be){be=e;bc={ey,ep};}}   // the pull goes to the point you have to aim at, not to the clay
       if(bc&&be<.38){const k=Math.min(1,dt*m*(1-be/.45));g.yaw+=bc.ey*k;g.pitch+=bc.ep*k;}}
     // the robot
     if(g.cur.bot&&g.bot){
       g.clays.forEach((c,ci)=>{const pl=g.bot.pl[ci];if(!pl)return;
         if(c.alive){const dv=[c.p[0]-g.eye[0],c.p[1]-g.eye[1],c.p[2]-g.eye[2]],ty=Math.atan2(dv[0],dv[2]),tp=Math.atan2(dv[1],Math.hypot(dv[0],dv[2])),k=Math.min(1,dt*4.5);g.yaw+=(ty-g.yaw)*k;g.pitch+=(tp-g.pitch)*k;}
         if(g.bot.fired[ci]===0&&g.flyT>pl.t1&&g.shells>0){g.bot.fired[ci]=1;clShoot(g,{ci,hit:pl.h1,q:pl.q1});}
-        else if(g.bot.fired[ci]===1&&g.disc==='trap'&&g.flyT>pl.t2&&g.shells>0&&!g.evRes[ci]){g.bot.fired[ci]=2;clShoot(g,{ci,hit:pl.h2,q:pl.q1});}});
+        else if(g.bot.fired[ci]===1&&clIsTrap(g.disc)&&g.flyT>pl.t2&&g.shells>0&&!g.evRes[ci]){g.bot.fired[ci]=2;clShoot(g,{ci,hit:pl.h2,q:pl.q1});}});
     }
     for(const sh of g.shots){if(!sh.done&&g.t>=sh.ta)clResolveShot(g,sh);}
-    const live=g.clays.some(c=>c.alive),pending=g.shots.some(s=>!s.done);
-    if(clWatch(g)){if(g.flyT>7)clEventDone(g);}
-    else if(!live&&!pending||g.flyT>4.2)clEventDone(g);
+    const live=g.clays.some(c=>c.alive||c.pend),pending=g.shots.some(s=>!s.done);
+    if(clWatch(g)){if(g.flyT>9)clEventDone(g);}
+    else if(!live&&!pending||g.flyT>(g.ev&&g.ev.d?7.5:4.2))clEventDone(g);
   }else if(g.phase==='result'&&g.t-g.resT>1.15){clNextEvent(g);}
 }
 function clFrame(now){
@@ -32130,25 +32145,25 @@ function clFrame(now){
   if(cv!==g.cv){clAttach();if(!g.cv)return;}
   if(document.hidden||G.rulesOpen||G.quitOpen||G.tour){g.last=now;return;}
   const raw=Math.max(0,(now-g.last)/1000),dt=Math.min(.05,raw);g.last=now;
-  g.ema=(g.ema||.016)*.92+raw*.08;if(g.t>2&&g.ema>.03&&(g.q||0)<2&&g.t-(g.qAt||0)>3){g.q=(g.q||0)+1;g.qAt=g.t;g.ema=.016;clSize(g);}   // too slow: fewer pixels
+  g.ema=(g.ema||.016)*.92+raw*.08;if(g.t>2&&g.ema>.021&&(g.q||0)<2&&g.t-(g.qAt||0)>2.5){g.q=(g.q||0)+1;g.qAt=g.t;g.ema=.016;clSize(g);}   // too slow: fewer pixels
   clStep(g,dt);clDraw(g,now);clHud(g);
 }
 function clAttach(){
   const g=G.cl;if(!g||!g.live)return;
   const cv=document.getElementById('cl-cv');if(!cv)return;
-  if(g.cv!==cv){g.cv=cv;clBindInput();clSize(g);clPaintOv(g);}
+  if(g.cv!==cv){try{cv.getContext('2d',{alpha:false});}catch(e){}g.cv=cv;clBindInput();clSize(g);clPaintOv(g);}
   if(!g.raf){g.last=performance.now();g.raf=requestAnimationFrame(clFrame);}
 }
 window.addEventListener('resize',()=>{try{if(G.cl&&G.cl.live)clSize(G.cl);}catch(e){}});
 
 // ── panels ──
-function clHudShells(g){const e=document.getElementById('cl-shells');if(e){const h=Array.from({length:g.disc==='trap'||(g.ev&&g.ev.c.length===2)?2:1},(_,i)=>`<i class="${i<g.shells?'on':''}"></i>`).join('');if(e._h!==h){e._h=h;e.innerHTML=h;}}}
+function clHudShells(g){const e=document.getElementById('cl-shells');if(e){const h=Array.from({length:(g.ev&&g.ev.shells)||((clIsTrap(g.disc)||(g.ev&&g.ev.c.length===2))?2:1)},(_,i)=>`<i class="${i<g.shells?'on':''}"></i>`).join('');if(e._h!==h){e._h=h;e.innerHTML=h;}}}
 function clHud(g){
   const set=(id,v)=>{const e=document.getElementById(id);if(e&&e._v!==v){e._v=v;e.textContent=v;}};
   g.players.forEach((p,i)=>{const el=document.getElementById('cl-pl'+i);if(!el)return;const on=(g.who||[]).includes(i);el.style.display=g.phase==='setup'||on?'':'none';const cur=g.phase!=='setup'&&i===g.curI;if(el._c!==cur){el._c=cur;el.classList.toggle('on',cur);}
     set('cl-tot'+i,String(g.tot[i]||0));
     const ch=document.getElementById('cl-ch'+i);if(ch){const a=(g.res[i]||[]).slice(-8),h=a.map(r=>`<i class="${r.q==='c'?'g':r.pts>0?'t':'z'}">${r.pts}</i>`).join('');if(ch._h!==h){ch._h=h;ch.innerHTML=h;}}
-    set('cl-pb'+i,g.phase==='setup'?'':(g.res[i]||[]).length+' / 25');});
+    set('cl-pb'+i,g.phase==='setup'?'':(g.res[i]||[]).length+' / '+(g.nCl||25));});
   const b=g.phase!=='setup'&&g.prog[g.bi]?g.prog[g.bi]:null;
   set('cl-sn',b?'STATION '+b.st+' · CALL '+Math.min(b.ev.length,g.ei+1)+' / '+b.ev.length:'');
   set('cl-status',g.phase==='setup'?'OUR TABLE MODE · '+CL_DISC[g.disc].name:g.phase==='hand'?'Next shooter':clWatch(g)?g.cur.name+' is shooting · you are watching':g.cur?(g.cur.bot?g.cur.name+' (robot) is shooting':g.cur.name+' · '+CL_DISC[g.disc].name.toLowerCase()+' · station '+(b?b.st:'')):'');
@@ -32187,8 +32202,8 @@ function clPaintOv(g){
     const sm=g.summary;
     h=`<div class="ps-card"><div class="ps-kick">OLYMPIC GAMES</div><div class="ps-h1">CLAY SHOOTING</div><div class="ps-sub">${esc(CL_DISC[pr.disc].name.toUpperCase())} · OUR TABLE MODE</div>
       ${sm?`<div class="ps-sum"><div class="ps-sum-h">TRAINING COMPLETE</div><div class="ps-sum-r"><span><b>${sm.tot}</b>points</span><span><b>${sm.hits} / ${sm.n}</b>broken</span><span><b>${sm.first}</b>first barrel</span><span><b>${sm.cen}</b>dead centre</span></div></div>`:''}
-      <div class="ps-grp">DISCIPLINE</div>${onl&&!host?'<div class="ps-note">The host chooses the discipline and the level.</div>':seg([['trap','TRAP'],['skeet','SKEET']],pr.disc,'disc')}<div class="ps-note">${pr.disc==='trap'?'Clays fly away from the trap house in front of you, at any angle. Five stations, five clays each, two barrels: first barrel 3 points for a dead centre or 2 for a chip, second barrel 1.':'Eight stations round a half circle between the high house (left) and the low house (right). The clays cross in front of you: lead them! One shot each, doubles on stations 1, 2, 6 and 7.'}</div>
-      ${onl?'':`<div class="ps-grp">MODE</div>${seg([['round','ROUND · 25 CLAYS'],['train','TRAINING']],pr.mode,'mode')}`}
+      <div class="ps-grp">DISCIPLINE</div>${onl&&!host?'<div class="ps-note">The host chooses the discipline and the level.</div>':seg([['trap','TRAP'],['skeet','SKEET'],['triple','TRIPLE']],pr.disc,'disc')}<div class="ps-note">${pr.disc==='triple'?'Three clays are thrown from the trap house shortly after one another, in three different directions. You have four shells for the three: first dead centre 3 points, a chip 2, and 3 extra points for breaking all three.':pr.disc==='trap'?'Clays fly away from the trap house in front of you, at any angle. Five stations, five clays each, two barrels: first barrel 3 points for a dead centre or 2 for a chip, second barrel 1.':'Eight stations round a half circle between the high house (left) and the low house (right). The clays cross in front of you: lead them! One shot each, doubles on stations 1, 2, 6 and 7.'}</div>
+      ${onl?'':`<div class="ps-grp">MODE</div>${seg([['round','ROUND · '+(pr.disc==='triple'?30:25)+' CLAYS'],['train','TRAINING']],pr.mode,'mode')}`}
       <div class="ps-grp">LEVEL</div>${onl&&!host?'':seg(Object.keys(CL_LV).map(k=>[k,CL_LV[k].n.toUpperCase()]),pr.lv,'lv')+'<div class="ps-note">'+esc(CL_LV[pr.lv].about)+'</div>'}
       <div class="ps-ppl">${g.players.map(p=>`<span>${p.avatar?'<span class="ah-av">'+avHTML(p.avatar)+'</span>':''}${esc(p.name)}${p.bot?' · '+CL_BOT[p.bot].n.toLowerCase()+' robot':''}</span>`).join('')}</div>
       ${onl&&!host?'<div class="ps-note" style="text-align:center;margin-top:.8rem;">Waiting for the host to start the round…</div>':`<button class="btn btn-gold ps-go" data-clact="start">${onl?'START FOR EVERYONE':sm?'SHOOT AGAIN':'GO TO THE FIELD'}</button>`}
