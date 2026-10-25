@@ -6098,6 +6098,21 @@ async function runPresentation(A,W,frame){
        check('the people get their place on the result screen, a robot never gets a medal in the table',G().lp.every(x=>/(1st|2nd|3rd|4th|5th|6th) ·/.test(x.psLine))&&F('psMedals')().every(e=>!F('pbIsBotName')(e.n)));
        check('a final does not go into the leaderboard of the matches',!F('psLbAll')().some(e=>e.n==='AnnT'||e.n==='BoT'));}
       F('psStop')();
+      // ── rapid fire: five shots against the clock, a shot too late scores nothing
+      W.localStorage.setItem('ct_ps_pref',JSON.stringify({mode:'match',lv:'sport',breath:true,focus:false,steady:false,bold:false,disc:'rapid_fire_10m'}));
+      gg.lp=[{id:1,name:'AnnR',avatar:F('AVATARS')[0],hand:[],totalScore:0}];F('lDealPrecision')();gg.scr='table';F('render')();F('psAttach')();p=G().ps;F('psBegin')(p);
+      check('the rapid fire discipline turns the match into four series against the clock',p.mode==='rapid'&&p.D.rapid===true&&p.total===20&&p.rapid.left===F('PS_LV').sport.rt&&p.rapid.cd===3);
+      F('psFireTap')(p);check('nobody can fire during the countdown',p.sh[0].length===0);
+      for(let i=0;i<200&&p.rapid.cd>0;i++)F('psStep')(p,1/60);
+      p.S=.9;F('psFireTap')(p);F('psFireTap')(p);check('a shot is on the paper at once and two shots in the same instant are not possible',p.sh[0].length===1&&p.phase==='aim'&&p.tot[0]===p.sh[0][0].v);
+      for(let i=0;i<30;i++)F('psStep')(p,1/60);
+      for(let k=0;k<3;k++){p.S=.9;F('psFireTap')(p);for(let i=0;i<30;i++)F('psStep')(p,1/60);}
+      check('after four shots the clock still runs',p.sh[0].length===4&&p.phase==='aim'&&p.rapid.left>0);
+      for(let i=0;i<60*20&&p.phase==='aim';i++)F('psStep')(p,1/60);
+      check('when the time is up the series ends and the missing shot scores nothing',p.phase==='recap');
+      for(let i=0;i<200&&p.phase==='recap';i++)F('psStep')(p,1/60);
+      check('the next series starts with a fresh clock and the lost shot is a zero in the list',p.sh[0].length===5&&p.sh[0][4].v===0&&p.sh[0][4].miss===true&&p.phase==='aim'&&p.rapid.n===0&&p.rapid.cd===3);
+      F('psStop')();
       // ── the leaderboard
       W.localStorage.removeItem('ct_ps_lb');
       F('psLbAdd')([{n:'ZoeTest',s:201.5,a:10.07,d:'2026-11-01T10:00:00.000Z',lv:'sport'},{n:'MaxTest',s:207.3,a:10.36,d:'2026-11-02T10:00:00.000Z',lv:'elite',pf:2},{n:'Robo',s:215,a:10.7,d:'2026-11-02T10:00:00.000Z'},{n:'ZoeTest',s:201.5,a:10.07,d:'2026-11-01T10:00:00.000Z'}]);
