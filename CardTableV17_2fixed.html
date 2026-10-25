@@ -31685,7 +31685,7 @@ function clEye(disc,st){   // where the shooter stands
   const a=Math.PI-(st-1)*Math.PI/6;return[CL_R*Math.cos(a),1.6,CL_R*Math.sin(a)];
 }
 function clReady(disc,st,ev){   // where the gun points before the call: [yaw, pitch]
-  if(disc==='trap')return[0,-.04];
+  if(disc==='trap')return[0,.13];
   const e=clEye(disc,st);let T=[0,4.6,0];
   if(st===8&&ev&&ev.c){T=ev.c[0]==='H'?[-18,3.05,0]:[18,1.05,0];}
   const dx=T[0]-e[0],dy=T[1]-e[1],dz=T[2]-e[2];return[Math.atan2(dx,dz),Math.atan2(dy,Math.hypot(dx,dz))];
@@ -31737,7 +31737,7 @@ function clLaunchEvent(g){
   const lv=CL_LV[g.lv],r=Math.random,ev=g.ev,out=[];
   for(const k of ev.c){
     let pos,vel;const sp=lv.spd*(.96+.08*r());
-    if(k==='T'){const az=(r()*2-1)*.74,el=.1+r()*.5;pos=[0,1,15];vel=[Math.sin(az)*Math.cos(el)*sp,Math.sin(el)*sp,Math.cos(az)*Math.cos(el)*sp];}
+    if(k==='T'){const az=(r()*2-1)*({beginner:.4,sport:.55,elite:.65,olympic:.74}[g.lv]||.55),el=.26+r()*.36;pos=[0,1.2,15];vel=[Math.sin(az)*Math.cos(el)*sp,Math.sin(el)*sp,Math.cos(az)*Math.cos(el)*sp];}
     else{const m=sp/29,j=(r()-.5)*.8;
       if(k==='H'){pos=[-18,3.05,0];vel=[(27+j)*m,5.6*m,0];}else{pos=[18,1.05,0];vel=[-(27+j)*m,8.6*m,0];}}
     out.push({k,p:pos,v:vel,t:0,alive:true,broke:false,id:g.shotN=(g.shotN||0)+1});
@@ -31948,7 +31948,7 @@ function clDraw(g,now){
     for(let k=1;k<=7;k++){const e=clEye('skeet',k);if(I('plate')){clBill(g,x,f,cx,cy,I('plate'),[e[0],0,e[2]],.55);continue;}const p=clProj(g,[e[0],0,e[2]],f,cx,cy);if(p){x.fillStyle=k===clBlock(g)?.st?'rgba(236,196,92,.95)':'rgba(255,255,255,.5)';x.beginPath();x.ellipse(p[0],p[1],f*.5/p[2],f*.14/p[2],0,0,6.283);x.fill();}}
   }
   // the clay and its fragments
-  for(const c of g.clays){if(!c.alive&&!c.broke)continue;if(c.broke)continue;const p=clProj(g,c.p,f,cx,cy);if(!p)continue;const r=Math.max(2.8*dpr,f*.5/p[2]);
+  for(const c of g.clays){if(!c.alive&&!c.broke)continue;if(c.broke)continue;const p=clProj(g,c.p,f,cx,cy);if(!p)continue;const r=Math.max(3.4*dpr,f*.72/p[2]);
     // a faint glow so that it can always be found against the sky
     x.save();x.globalAlpha=.4;gr=x.createRadialGradient(p[0],p[1],0,p[0],p[1],r*2.4);gr.addColorStop(0,'rgba(255,150,40,.8)');gr.addColorStop(1,'rgba(255,150,40,0)');x.fillStyle=gr;x.beginPath();x.arc(p[0],p[1],r*2.4,0,6.283);x.fill();x.restore();
     const cI=I('clay'),tilt=.35+.25*Math.sin(c.t*7);if(cI){const w=r*2.5,h=w*cI.height/cI.width*(.7+.3*Math.abs(Math.sin(c.t*5)));x.drawImage(cI,p[0]-w/2,p[1]-h/2,w,h);}else{x.fillStyle='#d9531c';x.beginPath();x.ellipse(p[0],p[1],r,r*tilt,0,0,6.283);x.fill();x.fillStyle='#f58a3a';x.beginPath();x.ellipse(p[0],p[1]-r*.08,r*.78,r*tilt*.62,0,0,6.283);x.fill();}
