@@ -5957,6 +5957,19 @@ async function runPresentation(A,W,frame){
         p.balls=[{x:100,y:ly-14,vx:0,vy:260,st:'play',id:9700,stuck:0,tr:[]}];p.saveT=99;const sc0=stt.score;p.t=1.0;for(let i=0;i<4;i++){F('pbStep')(p,1/240);}
         check('a switched-on laser bounces the ball like a wall and pays',p.balls[0].vy<100&&stt.score-sc0>=250);
        }finally{stt.lvl=lv0;F('pbWorldApply')(Math.min(3,lv0));stt.lockLit=false;stt.tum=[0,0,0];p.balls=[nb];p.tilt=6.3;}}
+      // the core is a table of its own
+      {const lv0=stt.lvl;p.phase='play';p.tilted=false;p.room=null;p.slow=0;p.freeze=0;stt.boss=null;
+       try{stt.lvl=3;F('pbStep')(p,1/60);const T=F('PB_T');
+        check('in the core the bumpers are a triangle round the reactor and two gravity wells orbit it',T.world===3&&T.bumpers.length===3&&T.wells.length===2&&T.lasers.length===0&&T.hammers.length===0);
+        F('pbResetTable')();p.t=0;const wp=F('pbWellPos')(T.wells[0],0);p.balls=[{x:wp[0]+55,y:wp[1],vx:0,vy:0,st:'play',id:9800,stuck:0,tr:[]}];p.saveT=99;p.t=0;for(let i=0;i<8;i++)F('pbStep')(p,1/240);
+        check('a gravity well pulls the ball towards it',p.balls[0].vx<-5);
+        p.t=3.2;check('on the beat the bumpers flash',F('pbOnBeat')(p)===true);p.t=3.2+1;check('between the beats they do not',F('pbOnBeat')(p)===false);
+        p.t=3.2;stt.mi=0;stt.mp=0;const sc0=stt.score;F('pbEvent')(p,'bumper',{bm:T.bumpers[0],b:{x:0,y:0}});
+        check('a bumper hit on the beat pays extra and counts for the mission',stt.mp===1&&stt.score-sc0>=300);
+        stt.core=0;stt.ovT=0;stt.mi=1;stt.mp=0;F('pbEvent')(p,'orbit',{b:{x:0,y:0}});F('pbCoreCharge')(p,80);
+        check('orbits and the others charge the core up to the overload, ten seconds of double points',stt.ovT>9);
+        const sc1=stt.score;F('pbPts')(p,1000,{flat:1});check('in the overload everything pays double',stt.score-sc1===2000);
+       }finally{stt.lvl=lv0;F('pbWorldApply')(Math.min(3,lv0));stt.ovT=0;stt.core=0;p.balls=[nb];p.tilt=6.3;}}
       // the hall of fame
       {const old=W.localStorage.getItem('ct_pb_hof');W.localStorage.removeItem('ct_pb_hof');
        F('pbHofAdd')([{n:'ZoeTest',s:5000,d:'2026-11-01T10:00:00.000Z'},{n:'MaxTest',s:9000,d:'2026-11-02T10:00:00.000Z',lv:2,bj:50000},{n:'ZoeTest',s:5000,d:'2026-11-01T10:00:00.000Z'}]);
