@@ -6179,6 +6179,35 @@ async function runPresentation(A,W,frame){
        check('the result screen tells the points and the clays broken',/pts/.test(W.document.body.innerText)&&/Clays broken/i.test(W.document.body.innerText));
       }
       F('clStop')();
+      // ── online: the second device watches the first shooter's station, then shoots its own and tells the others
+      {const ch0=F('_ch'),pid0=G().myPid,srv0=G().srv;
+       try{W.eval("window._clOut=[];_ch={send:m=>{window._clOut.push(m.payload)}}");
+        gg.isOnline=true;G().myPid='B';gg.selGame='clay';gg.srv={phase:'game',gameId:'clay',host:'A',players:[{id:'A',name:'Ann',avatar:F('AVATARS')[0]},{id:'B',name:'Bo',avatar:F('AVATARS')[1]}],ah:{id:'c1',score:[0,0]},winner:null};
+        gg.scr='table';F('clStop')();F('render')();F('clAttach')();g=G().cl;
+        check('online the field waits for the host to start',!!g.net&&g.net.seat===1&&g.phase==='setup'&&/Waiting for the host/.test(W.document.getElementById('cl-ov').innerHTML));
+        F('clOnBroadcast')({k:'go',id:'c1',seat:1,s:1,disc:'skeet',lv:'beginner'});check('a start that is not from the host changes nothing',g.phase==='setup');
+        F('clOnBroadcast')({k:'go',id:'c1',seat:0,s:1,disc:'trap',lv:'sport'});
+        check('the start of the host brings everybody in, the first shooter is Ann, this device only watches',g.phase==='hand'&&g.disc==='trap'&&g.lv==='sport'&&g.curI===0&&F('clWatch')(g));
+        F('clOnBroadcast')({k:'ready',id:'c1',seat:0,s:2});F('clOnBroadcast')({k:'sight',id:'c1',seat:0,s:3,y:.4,p:.2});
+        check('the watcher sees the gun of the shooter',g.phase==='ready'&&g.sightOk&&Math.abs(g.yaw-.4)<.01);
+        F('clPull')(g);F('clFire')(g);check('a watcher can neither call nor fire',g.phase==='ready'&&g.shells===2);
+        for(let i=0;i<300;i++)F('clStep')(g,1/60);check('a watcher does not call the clay by itself',g.phase==='ready');
+        F('clOnBroadcast')({k:'launch',id:'c1',seat:0,s:4,c:[{k:'T',p:[0,1.2,15],v:[3,12,28]}]});
+        check('the launch of the shooter puts the clay in the sky here too',g.phase==='fly'&&g.clays.length===1&&g.clays[0].alive);
+        F('clOnBroadcast')({k:'shot',id:'c1',seat:0,s:5});F('clOnBroadcast')({k:'shot',id:'c1',seat:0,s:5});
+        check('a shot is counted once, even when the message comes twice',g.shells===1);
+        F('clOnBroadcast')({k:'hit',id:'c1',seat:0,s:6,ci:0,ql:'c',pts:3,b:1,f:1});
+        check('the hit breaks the clay here',g.clays[0].broke===true&&g.parts.length>0);
+        F('clOnBroadcast')({k:'evdone',id:'c1',seat:0,s:7,rs:[{pts:3,ql:'c',b:1,f:1}]});
+        check('the end of the call gives the points to the shooter',g.phase==='result'&&g.res[0].length===1&&g.res[0][0].pts===3&&g.tot[0]===3);
+        let sq=10;for(let c=1;c<5;c++){for(let i=0;i<200&&g.phase==='result';i++)F('clStep')(g,1/60);
+          F('clOnBroadcast')({k:'launch',id:'c1',seat:0,s:sq++,c:[{k:'T',p:[0,1.2,15],v:[3,12,28]}]});F('clOnBroadcast')({k:'evdone',id:'c1',seat:0,s:sq++,rs:[null]});}
+        for(let i=0;i<200&&g.phase==='result';i++)F('clStep')(g,1/60);
+        check('after the five calls of Ann it is the turn of this device, with a READY card',g.curI===1&&g.phase==='hand'&&!F('clWatch')(g)&&/READY/.test(W.document.getElementById('cl-ov').innerHTML));
+        F('clAction')(g,'ready');let n=0;while(g.phase!=='fly'&&n++<900)F('clStep')(g,1/60);
+        const out=W.eval('window._clOut');
+        check('this device tells the others it is ready, sends its gun and the launch of its clay',out.some(m=>m.k==='ready'&&m.seat===1)&&out.some(m=>m.k==='sight'&&m.seat===1)&&out.some(m=>m.k==='launch'&&m.seat===1&&m.c.length===1));
+       }finally{W.eval('window._clOut=null');W.eval('_ch=null');gg.isOnline=false;G().myPid=pid0;gg.srv=srv0;F('clStop')();}}
     }finally{const g=G();try{F('clStop')();}catch(e){}g.isOnline=k0[0];g.selGame=k0[1];g.lp=k0[2];g.scr=k0[3];g.cl=null;g.clResult=k0[5];ls.forEach(([k,v])=>{if(v===null)W.localStorage.removeItem(k);else W.localStorage.setItem(k,v);});}
   });
   suite('Fairground: the LEVEL button works in every booth',()=>{
