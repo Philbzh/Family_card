@@ -488,6 +488,9 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .ps-sum-r span{display:flex;flex-direction:column;font-size:.55rem;color:#9db09f;letter-spacing:.08em;}
 .ps-sum-r b{font:700 1.05rem 'Cinzel',serif;color:#F4EBD0;}
 .game-clay #cl-stage{touch-action:none;}
+.cl-hero{position:relative;height:132px;margin:.4rem auto .6rem;text-align:center;}
+.cl-hero .w{height:132px;}
+.cl-hero .c{position:absolute;left:50%;top:50%;height:92px;transform:translate(-50%,-50%);filter:drop-shadow(0 4px 8px rgba(0,0,0,.5));}
 .cl-shells{display:flex;gap:8px;justify-content:center;min-height:32px;}
 .cl-shells i{width:22px;height:42px;background:url(assets/games/cl_shell1.png) center/contain no-repeat;opacity:.28;filter:grayscale(.6);}
 .cl-shells i.on{opacity:1;filter:none;}
@@ -4949,6 +4952,7 @@ const GAMES=[
      '<b>Trap:</b> five stations, five clays each; the clay flies away from the trap house in front of you at a random angle; <b>two barrels</b>: first barrel 3 points (dead centre) or 2 (chip), second barrel 1.',
      '<b>Skeet:</b> eight stations round a half circle between the <b>high house</b> (left) and the <b>low house</b> (right); the clays cross in front of you; one shot each; doubles (two clays at once) on stations 1, 2, 6 and 7. Same points.',
      '<b>Triple:</b> three clays are thrown from the trap house <b>shortly after one another</b>, in three different directions, and you have <b>four shells</b>: break them one after the other (3 points for a dead centre, 2 for a chip) and a <b>clean triple</b> is worth 3 extra points. Five stations, two triples each: 30 clays, 120 points at most.',
+     '<b>Clay mix</b> (an option on the set-up card): white, yellow and black clays fly too, a pink clay bursts into powder, a tiny <b>mini clay</b> is hard to hit (+1 point) and a rare <b>golden clay</b> is worth <b>5 points</b>. You choose your <b>gun</b> before the round (it only changes what you see in your hands).',
      '<b>The round:</b> 25 clays, 75 points at most. With several people on one iPad you shoot a station each in turn; robots (gentle, steady, sharp) can join. A tie is decided by first-barrel hits. TRAINING gives a short practice. LEVEL: Beginner, Sport, Elite, Olympic. This is OUR TABLE MODE: simplified for the family.']},
   {id:'precision',cat:'olympic',icon:'🏅',name:'Precision Shooting',players:'1–4',dur:'8–15 min',diff:'hard',deal:0,minP:1,maxP:4,cover:'assets/games/precision.jpg',
    rules:['<b>Air Rifle and Air Pistol, 10 m.</b> Calm, exact, honest. You shoot twenty pellets at a real air target (choose the DISCIPLINE before you start). Everything is true to scale: the rifle target is 45.5 mm wide with a dot for a ten, the pistol target is 155.5 mm wide and a pistol is held with one hand, so it wobbles more. The pellet is 4.5 mm.',
@@ -31770,9 +31774,11 @@ function clProj(g,P,f,cx,cy){
   const xr=d[0]*cY-d[2]*sY,zr=d[0]*sY+d[2]*cY,yy=d[1]*cP-zr*sP,zz=d[1]*sP+zr*cP;
   if(zz<.6)return null;return[cx+f*xr/zz,cy-f*yy/zz,zz];
 }
-function clPrefs(){let p={};try{p=JSON.parse(localStorage.getItem('ct_cl_pref')||'{}')||{};}catch(e){}return Object.assign({disc:'trap',lv:'beginner',mode:'round',venue:'golden'},p);}
+function clPrefs(){let p={};try{p=JSON.parse(localStorage.getItem('ct_cl_pref')||'{}')||{};}catch(e){}return Object.assign({disc:'trap',lv:'beginner',mode:'round',venue:'golden',gun:'classic',mix:false},p);}
+const CL_GUNS={classic:'CLASSIC',e:'ENGRAVED',ou:'OVER & UNDER',sp:'SPORTING',si:'SILVER'},CL_GUNIMG={classic:'gun',e:'gun_e',ou:'gun_ou',sp:'gun_sp',si:'gun_si'};
+function clPickVariant(){const r=Math.random();return r<.03?'g':r<.08?'m':r<.13?'p':r<.25?'w':r<.37?'y':r<.45?'b':'o';}
 const CL_VENUES={golden:'GOLDEN HOUR',night:'NIGHT',winter:'WINTER',coast:'COAST'};
-function clSavePrefs(p){try{localStorage.setItem('ct_cl_pref',JSON.stringify({disc:p.disc,lv:p.lv,mode:p.mode,venue:p.venue}));}catch(e){}}
+function clSavePrefs(p){try{localStorage.setItem('ct_cl_pref',JSON.stringify({disc:p.disc,lv:p.lv,mode:p.mode,venue:p.venue,gun:p.gun,mix:!!p.mix}));}catch(e){}}
 
 // ── a game ──
 function clNew(){
@@ -31789,7 +31795,7 @@ function lDealClay(){
   G.ahMoment='';G.psResult=null;G.clResult=null;G.fgResult=null;G.pbResult=null;clStop();G.scr='table';
 }
 function clBegin(g,cfg){
-  const pr=clPrefs();if(G.isOnline)pr.mode='round';if(cfg){pr.disc=cfg.disc;pr.lv=cfg.lv;if(cfg.venue)pr.venue=cfg.venue;}Object.assign(g,{disc:pr.disc,lv:pr.lv,mode:pr.mode,venue:CL_VENUES[pr.venue]?pr.venue:'golden'});
+  const pr=clPrefs();if(G.isOnline)pr.mode='round';if(cfg){pr.disc=cfg.disc;pr.lv=cfg.lv;if(cfg.venue)pr.venue=cfg.venue;}Object.assign(g,{disc:pr.disc,lv:pr.lv,mode:pr.mode,venue:CL_VENUES[pr.venue]?pr.venue:'golden',gun:CL_GUNS[pr.gun]?pr.gun:'classic',mix:cfg&&cfg.mix!==undefined?!!cfg.mix:!!pr.mix});g.cases=[];
   g.prog=clProgram(g.disc);if(g.mode==='train'){g.prog=g.prog.slice(0,clIsTrap(g.disc)?(g.disc==='triple'?1:2):3);}
   g.nCl=g.prog.reduce((a,b)=>a+b.ev.reduce((c,e)=>c+e.c.length,0),0);g.bonus=g.players.map(()=>0);
   const idx=g.players.map((p,i)=>i);let who=idx;if(g.mode!=='round'){const h=idx.find(i=>!g.players[i].bot);who=[h==null?0:h];}
@@ -31808,23 +31814,23 @@ function clSend(g,m,rep){
 const clR=v=>Math.round(v*1000)/1000;
 function clApplyLaunch(g,m){
   const f=v=>Math.max(-400,Math.min(400,+v||0));
-  g.clays=(m.c||[]).slice(0,2).map(c=>({k:String(c.k).slice(0,1),p:[f(c.p[0]),f(c.p[1]),f(c.p[2])],v:[f(c.v[0]),f(c.v[1]),f(c.v[2])],t:0,alive:!(+c.d>0),pend:+c.d>0,delay:+c.d||0,broke:false,id:++g.shotN||1}));
+  g.clays=(m.c||[]).slice(0,2).map(c=>({k:String(c.k).slice(0,1),p:[f(c.p[0]),f(c.p[1]),f(c.p[2])],v:[f(c.v[0]),f(c.v[1]),f(c.v[2])],t:0,alive:!(+c.d>0),pend:+c.d>0,delay:+c.d||0,vt:'owybpgm'.includes(String(c.vt||'o').slice(0,1))?String(c.vt||'o').slice(0,1):'o',broke:false,id:++g.shotN||1}));
   g.phase='fly';g.shots=[];g.shells=(g.ev&&g.ev.shells)||(g.ev&&g.ev.c.length===2?2:(clIsTrap(g.disc)?2:1));g.firedN=0;g.evRes=g.clays.map(()=>null);g.flyT=0;clSnd.launch();
 }
 function clOnBroadcast(m){
   const g=G.cl;if(!g||!g.live||!g.net||!G.isOnline||!m||m.id!==g.net.id||m.seat===g.net.seat)return;
   const sp=ahPlayers(),sender=sp[m.seat];if(!sender)return;
   if(m.k!=='sight'&&m.k!=='hello'){const key=m.seat+':'+m.s;if(g.net.seen[key])return;g.net.seen[key]=1;}
-  if(m.k==='go'){if(g.phase==='setup'&&sender.id===G.srv.host){g.net.cfg={disc:CL_DISC[m.disc]?m.disc:'trap',lv:CL_LV[m.lv]?m.lv:'sport',venue:CL_VENUES[m.venue]?m.venue:'golden'};clBegin(g,g.net.cfg);clPaintOv(g);}}
+  if(m.k==='go'){if(g.phase==='setup'&&sender.id===G.srv.host){g.net.cfg={disc:CL_DISC[m.disc]?m.disc:'trap',lv:CL_LV[m.lv]?m.lv:'sport',venue:CL_VENUES[m.venue]?m.venue:'golden',mix:!!m.mix};clBegin(g,g.net.cfg);clPaintOv(g);}}
   else if(m.k==='hello'){if(clHost()&&g.phase!=='setup'&&g.net.cfg)g.net.goUntil=Math.max(g.net.goUntil,g.t+3);}
   else if(m.seat!==g.curI)return;
   else if(m.k==='ready'){if(g.phase==='hand')clReadyStart(g);}
   else if(m.k==='sight'){const f=v=>Math.max(-7,Math.min(7,+v||0));g.wy=f(m.y);g.wp=Math.max(-.3,Math.min(1.4,+m.p||0));if(!g.sightOk){g.sightOk=true;g.yaw=g.wy;g.pitch=g.wp;}}
   else if(m.k==='launch'){if(g.phase==='hand')clReadyStart(g);if(g.phase==='ready'||g.phase==='wait')clApplyLaunch(g,m);else if(g.phase==='result')g.net.pend=m;}
-  else if(m.k==='shot'){if(g.phase==='fly'){g.shells=Math.max(0,g.shells-1);g.firedN++;g.kick=1;clSnd.shot();clHudShells(g);}}
+  else if(m.k==='shot'){if(g.phase==='fly'){g.shells=Math.max(0,g.shells-1);g.firedN++;g.kick=1;clSnd.shot();g.shotT=g.t;clEject(g);clHudShells(g);}}
   else if(m.k==='hit'){if(g.phase==='fly'){const c=g.clays[m.ci|0];if(c&&c.alive&&!c.broke){c.broke=true;c.alive=false;clBreak(g,c,m.ql==='c'?'c':'e');clSnd.hit(m.ql);}
     g.evRes[m.ci|0]={pts:+m.pts||0,q:m.ql==='c'?'c':'e',barrel:+m.b||1,first:!!m.f};}}
-  else if(m.k==='evdone'){if(g.phase==='fly'||g.phase==='ready'||g.phase==='wait'){g.evRes=(m.rs||[]).slice(0,2).map(r=>(r&&r.pts>0)?{pts:Math.min(3,r.pts|0),q:r.ql==='c'?'c':'e',barrel:r.b|0,first:!!r.f}:null);if(!g.evRes.length)g.evRes=[null];clEventDone(g);}}
+  else if(m.k==='evdone'){if(g.phase==='fly'||g.phase==='ready'||g.phase==='wait'){g.evRes=(m.rs||[]).slice(0,2).map(r=>(r&&r.pts>0)?{pts:Math.min(5,r.pts|0),q:r.ql==='c'?'c':'e',barrel:r.b|0,first:!!r.f}:null);if(!g.evRes.length)g.evRes=[null];clEventDone(g);}}
 }
 function clNetFinish(g,c){
   if(g.netEnded||!G.srv)return;g.netEnded=true;
@@ -31863,9 +31869,10 @@ function clLaunchEvent(g){
       if(k==='H'){pos=[-18,3.05,0];vel=[(27+j)*m,5.6*m,0];}else{pos=[18,1.05,0];vel=[-(27+j)*m,8.6*m,0];}}
     {const dl=(ev.d&&ev.d[ci2])||0;out.push({k,p:pos,v:vel,t:0,alive:dl<=0,pend:dl>0,delay:dl,broke:false,id:g.shotN=(g.shotN||0)+1});}
   }
+  if(g.mix)for(const c of out)c.vt=clPickVariant();
   g.clays=out;g.phase='fly';g.shots=[];g.shells=ev.shells||(ev.c.length===2?2:(clIsTrap(g.disc)?2:1));g.firedN=0;g.evRes=ev.c.map(()=>null);g.flyT=0;
   clSnd.launch();
-  if(g.net&&G.isOnline&&!g.cur.bot)clSend(g,{k:'launch',c:out.map(c=>({k:c.k,p:c.p.map(clR),v:c.v.map(clR),d:c.delay||0}))},true);
+  if(g.net&&G.isOnline&&!g.cur.bot)clSend(g,{k:'launch',c:out.map(c=>({k:c.k,p:c.p.map(clR),v:c.v.map(clR),d:c.delay||0,vt:c.vt||'o'}))},true);
   if(g.cur.bot)clBotPlan(g);
 }
 function clBotPlan(g){
@@ -31885,7 +31892,7 @@ function clShoot(g,force){
   let near=null,nd=1e9;for(const c of g.clays){if(!c.alive)continue;const dv=[c.p[0]-g.eye[0],c.p[1]-g.eye[1],c.p[2]-g.eye[2]],dd=Math.hypot(dv[0],dv[1],dv[2]),ang=Math.acos(Math.min(1,Math.max(-1,(dv[0]*aim[0]+dv[1]*aim[1]+dv[2]*aim[2])/dd)));if(ang<nd){nd=ang;near=c;nd=ang;near.dd=dd;}}
   const dist=near?Math.hypot(near.p[0]-g.eye[0],near.p[1]-g.eye[1],near.p[2]-g.eye[2]):30;
   g.shots.push({ta:g.t+dist/300,tf:g.t,aim,n:g.firedN,force:force||null,done:false});
-  clSnd.shot();haptic(10);
+  clSnd.shot();haptic(10);g.shotT=g.t;clEject(g);
   if(g.net&&G.isOnline&&!force)clSend(g,{k:'shot'},true);
   clHudShells(g);
 }
@@ -31893,7 +31900,7 @@ function clCloud(g,sh){   // the cloud reaches the clay distance: which clay is 
   const lv=CL_LV[g.lv],back=(lv.lead||0)*Math.max(0,sh.ta-sh.tf);let best=null,ba=1e9;
   for(const c of g.clays){if(!c.alive||c.broke)continue;const cp=[c.p[0]-c.v[0]*back,c.p[1]-c.v[1]*back,c.p[2]-c.v[2]*back];const dv=[cp[0]-g.eye[0],cp[1]-g.eye[1],cp[2]-g.eye[2]],dd=Math.hypot(dv[0],dv[1],dv[2]),dot=(dv[0]*sh.aim[0]+dv[1]*sh.aim[1]+dv[2]*sh.aim[2])/dd,ang=Math.acos(Math.min(1,Math.max(-1,dot)));if(ang<ba){ba=ang;best=c;}}
   if(!best)return null;
-  const bd=Math.hypot(best.p[0]-g.eye[0],best.p[1]-g.eye[1],best.p[2]-g.eye[2]),pr=lv.pr*Math.max(.5,Math.min(1.15,1.3-bd/55));   // the cloud thins out with the distance
+  const bd=Math.hypot(best.p[0]-g.eye[0],best.p[1]-g.eye[1],best.p[2]-g.eye[2]),pr=lv.pr*Math.max(.5,Math.min(1.15,1.3-bd/55))*(best.vt==='m'?.62:1);   // the cloud thins out with the distance
   if(ba>pr)return null;
   return{c:best,q:ba<pr*.42?'c':'e'};
 }
@@ -31903,15 +31910,18 @@ function clResolveShot(g,sh){
   else hit=clCloud(g,sh);
   if(hit){const c=hit.c,ci=g.clays.indexOf(c);c.broke=true;c.alive=false;
     const first=g.disc==='trap'?sh.n===1:true;
-    const pts=first?(hit.q==='c'?3:2):1;
+    let pts=first?(hit.q==='c'?3:2):1;if(c.vt==='g')pts=first?5:3;else if(c.vt==='m')pts+=1;
     g.evRes[ci]={pts,q:hit.q,barrel:sh.n,first};clBreak(g,c,hit.q);clSnd.hit(hit.q);haptic(hit.q==='c'?12:8);
     if(g.net&&G.isOnline&&!g.cur.bot)clSend(g,{k:'hit',ci,ql:hit.q,pts,b:sh.n,f:first?1:0},true);
   }
 }
 function clBreak(g,c,q){
-  for(let i=0;i<10;i++){const a=Math.random()*6.283,b=Math.random()*3.14-1.2,s=3+Math.random()*7;g.parts.push({p:c.p.slice(),v:[c.v[0]*.35+Math.cos(a)*Math.cos(b)*s,c.v[1]*.35+Math.sin(b)*s+2,c.v[2]*.35+Math.sin(a)*Math.cos(b)*s],l:0,life:1.1+Math.random()*.5,k:i<7?'f':'d',s:.05+Math.random()*.14});}
-  g.parts.push({p:c.p.slice(),v:[c.v[0]*.1,.4,c.v[2]*.1],l:0,life:1.4,k:'p',s:q==='c'?1.9:1.1,q});
-  g.parts.push({p:c.p.slice(),v:[c.v[0]*.25,.8,c.v[2]*.25],l:0,life:.9,k:'F',s:1,q});
+  const vt=c.vt||'o',cols={w:['#efe9da','#9a948a'],y:['#f2d11a','#1b1b1b'],b:['#1b1b1b','#c9a24a'],p:['#ff5aa5','#ff9a3a'],g:['#f2cf6a','#b8862f']}[vt];
+  for(let i=0;i<10;i++){const a=Math.random()*6.283,b=Math.random()*3.14-1.2,s=3+Math.random()*7;g.parts.push({p:c.p.slice(),v:[c.v[0]*.35+Math.cos(a)*Math.cos(b)*s,c.v[1]*.35+Math.sin(b)*s+2,c.v[2]*.35+Math.sin(a)*Math.cos(b)*s],l:0,life:1.1+Math.random()*.5,k:i<7?'f':'d',s:.05+Math.random()*.14,cols});}
+  g.parts.push({p:c.p.slice(),v:[c.v[0]*.1,.4,c.v[2]*.1],l:0,life:1.4,k:'p',s:vt==='p'||vt==='g'?2.3:(q==='c'?1.9:1.1),q,im:vt==='p'?'pink':vt==='g'?'goldb':null});
+  if(vt!=='p'&&vt!=='g')g.parts.push({p:c.p.slice(),v:[c.v[0]*.25,.8,c.v[2]*.25],l:0,life:.9,k:'F',s:1,q,im:vt==='w'?'frag_w':(vt==='y'||vt==='b')?'frag_yb':null});
+  if(vt==='g'){g.parts.push({p:c.p.slice(),v:[0,0,0],l:0,life:1,k:'R',s:1,q});g.parts.push({p:c.p.slice(),v:[0,.5,0],l:0,life:1.1,k:'S',s:1,q});}
+  else if(q==='c')g.parts.push({p:c.p.slice(),v:[0,0,0],l:0,life:.5,k:'S',s:.6,q});
 }
 function clEventDone(g){
   // the clays are gone: the points of this call
@@ -31926,10 +31936,12 @@ function clEventDone(g){
   if(hits===rs.length&&q&&rs.length>0)clCall(g,'DEAD.','',1300);
   else if(hits===0)clCall(g,'LOST.','',1200);
   if(clean3)clCall(g,'CLEAN TRIPLE.','+3 bonus',1700,true);
+  if(rs.some(r=>r.pts===5))clCall(g,'GOLDEN CLAY.','+5',1900,true);
   // straights and clean stations, rarely
   const arr=g.res[g.curI],strk=clStreak(arr);if(strk>=10&&strk%5===0)clCall(g,strk+' STRAIGHT.','',1800,true);
 }
 function clStreak(a){let s=0;for(let i=a.length-1;i>=0;i--){if(a[i].pts>0)s++;else break;}return s;}
+function clEject(g){if(!g.cases)g.cases=[];const W=(g.cv?g.cv.width:600)/(g.dpr||1),H=(g.cv?g.cv.height:800)/(g.dpr||1);g.cases.push({x:W*.5+30,y:H*.58+90,vx:120+Math.random()*80,vy:-300-Math.random()*120,rot:0,vr:6+Math.random()*8,l:0});if(g.cases.length>4)g.cases.shift();}
 function clCall(g,t,s,ms,force){psCall(g,t,s,ms,force);}
 function clSay(g,rs){
   const r1=document.getElementById('cl-r1'),r2=document.getElementById('cl-r2'),r3=document.getElementById('cl-r3'),r4=document.getElementById('cl-r4');if(!r1)return;
@@ -31983,8 +31995,8 @@ function clFinish(g){
   g.endTm=setTimeout(()=>{if(G.cl===g&&G.scr==='table'){clStop();G.scr='matchend';render();}},2600);
 }
 function clChipsHTML(){
-  const r=G.clResult;if(!r)return'';const s=r.st[r.w];
-  return`<div class="tonight-stats">
+  const r=G.clResult;if(!r)return'';const s=r.st[r.w],clean=s.hits===(r.n||25);
+  return`<div class="cl-hero">${clean?'<img class="w" src="assets/games/cl_wreath.png" alt="">':''}<img class="c" src="assets/games/cl_trophy.png" alt=""></div><div class="tonight-stats">
     <div class="tonight-stat"><div class="ts-val">${s.tot}</div><div class="ts-lbl">🎯 Points · ${esc(CL_DISC[r.disc].name)} · ${esc(CL_LV[r.lv].n)}</div></div>
     <div class="tonight-stat"><div class="ts-val">${s.hits} / ${r.n||25}</div><div class="ts-lbl">🥏 Clays broken</div></div>
     <div class="tonight-stat"><div class="ts-val">${s.first}</div><div class="ts-lbl">⭐ First-barrel hits</div></div>
@@ -32037,7 +32049,11 @@ function clSkyCol(img){if(img._sc)return img._sc;try{const c=document.createElem
 function clBill(g,x,f,cx,cy,img,P,hm){const p=clProj(g,P,f,cx,cy);if(!p||p[2]>260)return;const h=f*hm/p[2],w=h*img.width/img.height;x.drawImage(img,p[0]-w/2,p[1]-h,w,h);}
 function clGun(g,x,img,cx,cy,H,dpr){
   const h=H-cy+6*dpr,w=h*img.width/img.height;x.drawImage(img,cx-w/2,cy-2*dpr,w,h);
+  const age=g.t-(g.shotT||-9);
   if(g.kick>.2){const fl=clImg('flash');if(fl){const k=g.kick,sz=(50+110*k)*dpr,w2=sz*fl.width/fl.height;x.save();x.globalCompositeOperation='lighter';x.globalAlpha=Math.min(1,k*1.5);x.drawImage(fl,cx-w2/2,cy-sz*.92,w2,sz);x.restore();}}
+  if(age<.4){const pl=clImg('pellets');if(pl){const k=age/.4,w2=(70+520*k)*dpr,h2=w2*pl.height/pl.width;x.save();x.globalCompositeOperation='lighter';x.globalAlpha=(1-k)*.85;x.drawImage(pl,cx-w2/2,cy-h2,w2,h2);x.restore();}}
+  if(age>.08&&age<1){const sr=clImg('smokering');if(sr){const k=(age-.08)/.92,w2=(36+150*k)*dpr,h2=w2*sr.height/sr.width;x.save();x.globalAlpha=(1-k)*.7;x.drawImage(sr,cx-w2/2,cy-30*dpr-k*90*dpr-h2/2,w2,h2);x.restore();}}
+  const cs=clImg('case');if(cs&&g.cases)for(const c of g.cases){const w2=34*dpr,h2=w2*cs.height/cs.width;x.save();x.translate(c.x*dpr,c.y*dpr);x.rotate(c.rot);x.globalAlpha=Math.max(0,1-c.l/.9);x.drawImage(cs,-w2/2,-h2/2,w2,h2);x.restore();}
 }
 function clDraw(g,now){
   const cv=g.cv;if(!cv)return;const x=cv.getContext('2d'),W=cv.width,H=cv.height,f=g.f,cx=W/2,cy=H*.58,dpr=g.dpr||1,V=g.venue||'golden',vn=n=>V==='golden'?n:V+'_'+n;
@@ -32087,16 +32103,17 @@ function clDraw(g,now){
   // the clay and its fragments
   for(const c of g.clays){if(!c.alive&&!c.broke)continue;if(c.broke)continue;const p=clProj(g,c.p,f,cx,cy);if(!p)continue;const r=Math.max(3.4*dpr,f*.72/p[2]);
     // a faint glow so that it can always be found against the sky
-    x.save();x.globalAlpha=.4;gr=x.createRadialGradient(p[0],p[1],0,p[0],p[1],r*2.4);gr.addColorStop(0,'rgba(255,150,40,.8)');gr.addColorStop(1,'rgba(255,150,40,0)');x.fillStyle=gr;x.beginPath();x.arc(p[0],p[1],r*2.4,0,6.283);x.fill();x.restore();
-    const cI=I('clay'),tilt=.35+.25*Math.sin(c.t*7);if(cI){const w=r*2.5,h=w*cI.height/cI.width*(.7+.3*Math.abs(Math.sin(c.t*5)));x.drawImage(cI,p[0]-w/2,p[1]-h/2,w,h);}else{x.fillStyle='#d9531c';x.beginPath();x.ellipse(p[0],p[1],r,r*tilt,0,0,6.283);x.fill();x.fillStyle='#f58a3a';x.beginPath();x.ellipse(p[0],p[1]-r*.08,r*.78,r*tilt*.62,0,0,6.283);x.fill();}
+    x.save();x.globalAlpha=.4;const gc={g:'255,215,100',p:'255,90,170',w:'255,255,255',y:'255,225,60',b:'255,235,190'}[c.vt]||'255,150,40';gr=x.createRadialGradient(p[0],p[1],0,p[0],p[1],r*2.4);gr.addColorStop(0,'rgba('+gc+',.8)');gr.addColorStop(1,'rgba('+gc+',0)');x.fillStyle=gr;x.beginPath();x.arc(p[0],p[1],r*2.4,0,6.283);x.fill();x.restore();
+    const cI=I(c.vt&&c.vt!=='o'?'clay_'+c.vt:'clay')||I('clay'),tilt=.35+.25*Math.sin(c.t*7);if(cI){const w=r*2.5*(c.vt==='m'?.7:1),h=w*cI.height/cI.width*(.7+.3*Math.abs(Math.sin(c.t*5)));x.drawImage(cI,p[0]-w/2,p[1]-h/2,w,h);}else{x.fillStyle='#d9531c';x.beginPath();x.ellipse(p[0],p[1],r,r*tilt,0,0,6.283);x.fill();x.fillStyle='#f58a3a';x.beginPath();x.ellipse(p[0],p[1]-r*.08,r*.78,r*tilt*.62,0,0,6.283);x.fill();}
     if(CL_LV[g.lv].assist&&g.phase==='fly'&&!g.cur.bot){const q=clProj(g,[c.p[0]+c.v[0]*.25,c.p[1]+c.v[1]*.25-1.2,c.p[2]+c.v[2]*.25],f,cx,cy);if(q){x.strokeStyle='rgba(255,236,160,.55)';x.setLineDash([3*dpr,4*dpr]);x.lineWidth=dpr*1.2;x.beginPath();x.moveTo(p[0],p[1]);x.lineTo(q[0],q[1]);x.stroke();x.setLineDash([]);}}}
   for(const q of g.parts){const p=clProj(g,q.p,f,cx,cy);if(!p)continue;const u=q.l/q.life;
-    if(q.k==='F'){const fi=I('frag');if(fi){const w=f*1.5*(.55+u*1.0)/p[2];x.globalAlpha=1-u*u;x.drawImage(fi,p[0]-w/2,p[1]-w*fi.height/fi.width/2,w,w*fi.height/fi.width);x.globalAlpha=1;}continue;}
-    if(q.k==='p'){const si=I(q.q==='c'?'smoke':'dust');if(si){const w=f*q.s*1.5*(.45+u*1.3)/p[2];x.globalAlpha=.95*(1-u);x.drawImage(si,p[0]-w/2,p[1]-w*si.height/si.width/2,w,w*si.height/si.width);x.globalAlpha=1;continue;}const r=f*q.s*(.4+u*1.6)/p[2];x.fillStyle='rgba('+(q.q==='c'?'40,38,36':'200,190,175')+','+(.55*(1-u))+')';x.beginPath();x.arc(p[0],p[1],r,0,6.283);x.fill();}
-    else{x.globalAlpha=1-u*u;x.fillStyle=q.k==='f'?(Math.sin(q.l*30+q.s*50)>0?'#e8652a':'#1b1b1b'):'rgba(200,190,170,.7)';x.beginPath();x.ellipse(p[0],p[1],Math.max(1.5,f*q.s/p[2]),Math.max(1,f*q.s*.5/p[2]),q.l*8,0,6.283);x.fill();x.globalAlpha=1;}}
+    if(q.k==='R'||q.k==='S'){const ri=I(q.k==='R'?'ring':'spark');if(ri){const w=f*(q.k==='R'?3.4:1.8*q.s)*(.3+u*1.0)/p[2];x.save();x.globalCompositeOperation='lighter';x.globalAlpha=(1-u);x.drawImage(ri,p[0]-w/2,p[1]-w*ri.height/ri.width/2,w,w*ri.height/ri.width);x.restore();}continue;}
+    if(q.k==='F'){const fi=I(q.im||'frag');if(fi){const w=f*1.5*(.55+u*1.0)/p[2];x.globalAlpha=1-u*u;x.drawImage(fi,p[0]-w/2,p[1]-w*fi.height/fi.width/2,w,w*fi.height/fi.width);x.globalAlpha=1;}continue;}
+    if(q.k==='p'){const si=I(q.im||(q.q==='c'?'smoke':'dust'));if(si){const w=f*q.s*1.5*(.45+u*1.3)/p[2];x.globalAlpha=.95*(1-u);x.drawImage(si,p[0]-w/2,p[1]-w*si.height/si.width/2,w,w*si.height/si.width);x.globalAlpha=1;continue;}const r=f*q.s*(.4+u*1.6)/p[2];x.fillStyle='rgba('+(q.q==='c'?'40,38,36':'200,190,175')+','+(.55*(1-u))+')';x.beginPath();x.arc(p[0],p[1],r,0,6.283);x.fill();}
+    else{x.globalAlpha=1-u*u;x.fillStyle=q.k==='f'?(q.cols||['#e8652a','#1b1b1b'])[Math.sin(q.l*30+q.s*50)>0?0:1]:'rgba(200,190,170,.7)';x.beginPath();x.ellipse(p[0],p[1],Math.max(1.5,f*q.s/p[2]),Math.max(1,f*q.s*.5/p[2]),q.l*8,0,6.283);x.fill();x.globalAlpha=1;}}
   x.restore();
   // the gun
-  const gunI=clImg('gun');
+  const gunI=clImg(CL_GUNIMG[g.gun||'classic']||'gun')||clImg('gun');
   if(gunI){clGun(g,x,gunI,cx,cy,H,dpr);if(CL_LV[g.lv].assist&&g.phase==='fly'&&!g.cur.bot){x.strokeStyle='rgba(255,230,150,.4)';x.lineWidth=dpr*1.3;x.beginPath();x.arc(cx,cy,CL_LV[g.lv].pr*f,0,6.283);x.stroke();}}
   else {const bx=cx,by=cy+6*dpr;x.save();x.globalAlpha=.62;
     for(const sd of [-1,1]){gr=x.createLinearGradient(bx+sd*30*dpr,0,bx+sd*8*dpr,0);gr.addColorStop(0,'#101214');gr.addColorStop(.5,'#5a6068');gr.addColorStop(1,'#16181b');x.fillStyle=gr;x.beginPath();x.moveTo(bx+sd*26*dpr,H+4);x.lineTo(bx+sd*15*dpr,H+4);x.lineTo(bx+sd*4*dpr,by+26*dpr);x.lineTo(bx+sd*8*dpr,by+26*dpr);x.closePath();x.fill();}
@@ -32116,12 +32133,13 @@ function clAmbient(g){
 }
 function clStep(g,dt){
   g.t+=dt;g.kick=Math.max(0,g.kick-dt*6);
+  if(g.cases&&g.cases.length){for(const c of g.cases){c.l+=dt;c.vy+=1100*dt;c.x+=c.vx*dt;c.y+=c.vy*dt;c.rot+=c.vr*dt;}g.cases=g.cases.filter(c=>c.l<.9);}
   if((g.phase==='ready'||g.phase==='wait')&&g.t>(g.ambAt||0)){g.ambAt=g.t+1.4+Math.random()*2.2;clAmbient(g);}
   // the cloud of fragments and smoke
   for(const q of g.parts){q.l+=dt;q.p[0]+=q.v[0]*dt;q.p[1]+=q.v[1]*dt;q.p[2]+=q.v[2]*dt;if(q.k!=='p')q.v[1]-=9.8*dt;q.v[0]*=1-1.6*dt;q.v[2]*=1-1.6*dt;}g.parts=g.parts.filter(q=>q.l<q.life);
   if(g.net&&G.isOnline){const N=g.net;
     if(g.phase==='setup'&&!clHost()&&g.t-N.helloAt>2){N.helloAt=g.t;clSend(g,{k:'hello'},false);}
-    if(clHost()&&N.cfg&&g.t<N.goUntil&&g.t-N.goAt>1.2){N.goAt=g.t;clSend(g,{k:'go',disc:N.cfg.disc,lv:N.cfg.lv,venue:N.cfg.venue},false);}
+    if(clHost()&&N.cfg&&g.t<N.goUntil&&g.t-N.goAt>1.2){N.goAt=g.t;clSend(g,{k:'go',disc:N.cfg.disc,lv:N.cfg.lv,venue:N.cfg.venue,mix:N.cfg.mix?1:0},false);}
     if(g.cur&&!clWatch(g)&&(g.phase==='ready'||g.phase==='wait'||g.phase==='fly')&&g.t-N.sightAt>.1&&(Math.abs(g.yaw-(N.ly||0))>.0012||Math.abs(g.pitch-(N.lp||0))>.0012||g.t-N.sightAt>.5)){N.sightAt=g.t;N.ly=g.yaw;N.lp=g.pitch;clSend(g,{k:'sight',y:clR(g.yaw),p:clR(g.pitch)},false);}
     if(clWatch(g)&&g.sightOk&&(g.phase==='ready'||g.phase==='wait'||g.phase==='fly')){const k=Math.min(1,dt*14);g.yaw+=(g.wy-g.yaw)*k;g.pitch+=(g.wp-g.pitch)*k;}
   }
@@ -32188,7 +32206,7 @@ function clHud(g){
 function clPlayersHTML(g){return g.players.map((p,i)=>`<div class="ps-pl" id="cl-pl${i}"><span class="ah-av">${p.avatar?avHTML(p.avatar):''}</span><div class="ps-pn"><b>${esc((p.name||'').slice(0,12))}${p.bot?' 🤖':''}</b><i id="cl-pb${i}"></i></div><b class="ps-tot" id="cl-tot${i}">0</b><div class="ps-chips" id="cl-ch${i}"></div></div>`).join('');}
 function rClayTable(){
   if(!G.cl||!G.cl.live||(G.isOnline&&(!G.cl.net||!G.srv||!G.srv.ah||G.cl.net.id!==G.srv.ah.id))||(!G.isOnline&&G.cl.net)){clStop();G.clResult=null;G.cl=clNew();}
-  const g=G.cl;setTimeout(clAttach,0);['sky','trees','grass','hhouse','lhouse','trap','plate','stake','sock','clay','frag','smoke','dust','flash','gun'].forEach(clImg);['night','winter','coast'].forEach(v=>['sky','trees','grass'].forEach(n=>clImg(v+'_'+n)));
+  const g=G.cl;setTimeout(clAttach,0);['sky','trees','grass','hhouse','lhouse','trap','plate','stake','sock','clay','frag','smoke','dust','flash','gun'].forEach(clImg);['night','winter','coast'].forEach(v=>['sky','trees','grass'].forEach(n=>clImg(v+'_'+n)));['clay_w','clay_y','clay_b','clay_p','clay_g','clay_m','frag_w','frag_yb','pink','goldb','pellets','ring','gun_e','gun_ou','gun_sp','gun_si','case','smokering','spark','trophy','wreath'].forEach(clImg);
   return`<div id="s-table" class="scr on game-airhockey game-precision game-clay">
     <div class="game-bar"><div class="gb-game">🥏 <span>Clay Shooting</span></div><div class="gb-turn" id="cl-status">OUR TABLE MODE · Trap and Skeet</div><div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div></div>
     <div class="felt-table ah-felt" style="flex:1 1 auto;min-height:0;max-height:none;padding:0;">
@@ -32215,7 +32233,9 @@ function clPaintOv(g){
     h=`<div class="ps-card"><div class="ps-kick">OLYMPIC GAMES</div><div class="ps-h1">CLAY SHOOTING</div><div class="ps-sub">${esc(CL_DISC[pr.disc].name.toUpperCase())} · OUR TABLE MODE</div>
       ${sm?`<div class="ps-sum"><div class="ps-sum-h">TRAINING COMPLETE</div><div class="ps-sum-r"><span><b>${sm.tot}</b>points</span><span><b>${sm.hits} / ${sm.n}</b>broken</span><span><b>${sm.first}</b>first barrel</span><span><b>${sm.cen}</b>dead centre</span></div></div>`:''}
       <div class="ps-grp">DISCIPLINE</div>${onl&&!host?'<div class="ps-note">The host chooses the discipline and the level.</div>':seg([['trap','TRAP'],['skeet','SKEET'],['triple','TRIPLE']],pr.disc,'disc')}
-      ${onl&&!host?'':`<div class="ps-grp">FIELD</div>${seg(Object.keys(CL_VENUES).map(k=>[k,CL_VENUES[k]]),pr.venue,'venue')}`}<div class="ps-note">${pr.disc==='triple'?'Three clays are thrown from the trap house shortly after one another, in three different directions. You have four shells for the three: first dead centre 3 points, a chip 2, and 3 extra points for breaking all three.':pr.disc==='trap'?'Clays fly away from the trap house in front of you, at any angle. Five stations, five clays each, two barrels: first barrel 3 points for a dead centre or 2 for a chip, second barrel 1.':'Eight stations round a half circle between the high house (left) and the low house (right). The clays cross in front of you: lead them! One shot each, doubles on stations 1, 2, 6 and 7.'}</div>
+      ${onl&&!host?'':`<div class="ps-grp">FIELD</div>${seg(Object.keys(CL_VENUES).map(k=>[k,CL_VENUES[k]]),pr.venue,'venue')}`}
+      <div class="ps-grp">GUN</div>${seg(Object.keys(CL_GUNS).map(k=>[k,CL_GUNS[k]]),pr.gun,'gun')}
+      ${onl&&!host?'':`<div class="ps-tgs" style="margin-top:.5rem"><button class="ps-tg${pr.mix?' on':''}" data-clact="mix" aria-pressed="${!!pr.mix}">CLAY MIX · colours, a golden clay (5) and a tiny one</button></div>`}<div class="ps-note">${pr.disc==='triple'?'Three clays are thrown from the trap house shortly after one another, in three different directions. You have four shells for the three: first dead centre 3 points, a chip 2, and 3 extra points for breaking all three.':pr.disc==='trap'?'Clays fly away from the trap house in front of you, at any angle. Five stations, five clays each, two barrels: first barrel 3 points for a dead centre or 2 for a chip, second barrel 1.':'Eight stations round a half circle between the high house (left) and the low house (right). The clays cross in front of you: lead them! One shot each, doubles on stations 1, 2, 6 and 7.'}</div>
       ${onl?'':`<div class="ps-grp">MODE</div>${seg([['round','ROUND · '+(pr.disc==='triple'?30:25)+' CLAYS'],['train','TRAINING']],pr.mode,'mode')}`}
       <div class="ps-grp">LEVEL</div>${onl&&!host?'':seg(Object.keys(CL_LV).map(k=>[k,CL_LV[k].n.toUpperCase()]),pr.lv,'lv')+'<div class="ps-note">'+esc(CL_LV[pr.lv].about)+'</div>'}
       <div class="ps-ppl">${g.players.map(p=>`<span>${p.avatar?'<span class="ah-av">'+avHTML(p.avatar)+'</span>':''}${esc(p.name)}${p.bot?' · '+CL_BOT[p.bot].n.toLowerCase()+' robot':''}</span>`).join('')}</div>
@@ -32256,10 +32276,12 @@ function clBindInput(){
 function clAction(g,a,v){
   const pr=clPrefs();
   if(a==='disc'){pr.disc=v;clSavePrefs(pr);clPaintOv(g);}
+  else if(a==='gun'){if(!CL_GUNS[v])return;pr.gun=v;clSavePrefs(pr);g.gun=v;clPaintOv(g);}
+  else if(a==='mix'){pr.mix=!pr.mix;clSavePrefs(pr);g.mix=!!pr.mix;clPaintOv(g);}
   else if(a==='venue'){if(!CL_VENUES[v])return;pr.venue=v;clSavePrefs(pr);g.venue=v;clPaintOv(g);}
   else if(a==='mode'){pr.mode=v;clSavePrefs(pr);clPaintOv(g);}
   else if(a==='lv'){pr.lv=v;clSavePrefs(pr);clPaintOv(g);}
-  else if(a==='start'){if(G.isOnline){if(!clHost())return;pr.mode='round';clSavePrefs(pr);const cfg={disc:pr.disc,lv:pr.lv,venue:pr.venue};g.net.cfg=cfg;g.net.goUntil=g.t+8;g.net.goAt=g.t;clSend(g,{k:'go',disc:cfg.disc,lv:cfg.lv,venue:cfg.venue},true);clBegin(g,cfg);}else clBegin(g);clPaintOv(g);}
+  else if(a==='start'){if(G.isOnline){if(!clHost())return;pr.mode='round';clSavePrefs(pr);const cfg={disc:pr.disc,lv:pr.lv,venue:pr.venue,mix:!!pr.mix};g.net.cfg=cfg;g.net.goUntil=g.t+8;g.net.goAt=g.t;clSend(g,{k:'go',disc:cfg.disc,lv:cfg.lv,venue:cfg.venue,mix:cfg.mix?1:0},true);clBegin(g,cfg);}else clBegin(g);clPaintOv(g);}
   else if(a==='ready'){if(g.net&&G.isOnline&&g.curI===g.net.seat)clSend(g,{k:'ready'},true);clReadyStart(g);}
   else if(a==='finishtrain'){if(g.mode==='train'&&g.phase!=='setup'&&g.phase!=='fly'&&g.phase!=='wait')clFinish(g);}
 }
