@@ -419,6 +419,8 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .ps-pl{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:3px 8px;padding:8px 10px;border-radius:12px;background:linear-gradient(180deg,rgba(22,27,24,.92),rgba(9,12,10,.94));border:1px solid rgba(230,195,106,.14);transition:border-color .3s,box-shadow .3s,transform .3s;}
 .ps-pl.on{border-color:rgba(230,195,106,.7);box-shadow:0 0 16px rgba(230,195,106,.25);}
 .ps-pl.pop{animation:psPop 1.3s ease;}
+.ps-medal{height:46px;display:block;margin:0 auto;}
+.ps-podium{display:block;margin:.5rem auto;height:74px;}
 .ps-pl.out{opacity:.42;}.ps-pl.out .ps-pn b{text-decoration:line-through;}
 .ps-left .ps-pl{transition:opacity .4s;}
 @keyframes psPop{0%{box-shadow:0 0 0 rgba(240,210,122,0);transform:scale(1)}30%{box-shadow:0 0 28px rgba(240,210,122,.85);transform:scale(1.035)}100%{box-shadow:0 0 16px rgba(230,195,106,.25);transform:scale(1)}}
@@ -31305,7 +31307,7 @@ function rPsLbOv(){
 }
 function psChipsHTML(){
   const r=G.psResult;if(!r)return'';
-  if(r.fin)return`<div class="tonight-stats ps-medals">${r.list.map(e=>`<div class="tonight-stat"><div class="ts-val">${['🥇','🥈','🥉'][e.rank-1]||psOrd(e.rank)}</div><div class="ts-lbl">${esc(e.n)}${e.bot?' 🤖':''} · ${psFmt(e.tot)}</div></div>`).join('')}</div><button class="btn btn-ghost" data-a="pslb" style="margin-top:.6rem;">🏅 The Family Range</button>`;const s=r.st[r.w];
+  if(r.fin)return`<div class="tonight-stats ps-medals">${r.list.map(e=>`<div class="tonight-stat"><div class="ts-val">${e.rank<=3?'<img class="ps-medal" src="assets/games/ps_medal_'+['g','s','b'][e.rank-1]+'.png" alt="">':psOrd(e.rank)}</div><div class="ts-lbl">${esc(e.n)}${e.bot?' 🤖':''} · ${psFmt(e.tot)}</div></div>`).join('')}</div><img class="ps-podium" src="assets/games/ps_podium.png" alt=""><button class="btn btn-ghost" data-a="pslb" style="margin-top:.6rem;">🏅 The Family Range</button>`;const s=r.st[r.w];
   return`${r.rank?`<div class="hof-badge">🏅 #${r.rank} on the Family Range</div>`:''}<div class="tonight-stats">
     <div class="tonight-stat"><div class="ts-val">${psFmt(s.tot)}</div><div class="ts-lbl">🎯 Total · ${esc((PS_LV[r.lv]||PS_LV.sport).n)}</div></div>
     <div class="tonight-stat"><div class="ts-val">${(s.avg/10).toFixed(2)}</div><div class="ts-lbl">📐 Average per shot</div></div>
@@ -31344,8 +31346,10 @@ function psBuildBg(g){
   const lerp=(a,b,t)=>a+(b-a)*t,T=[.12,.3,.46,.6,.72,.82,.9],bw=ar*.55,bh=ar*.55;
   let seed=11;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
   // ── the range hall in perspective: ceiling with lamps, panelled walls with brass strips, a glossy floor, the target far away in the middle
+  let gr;const hallI=psImg(g.mode==='final'?'arena':'hall');
   x.fillStyle='#050807';x.fillRect(0,0,W,H);
-  let gr=x.createLinearGradient(0,0,0,cy-bh);gr.addColorStop(0,'#080c0a');gr.addColorStop(1,'#17231d');x.fillStyle=gr;x.beginPath();x.moveTo(0,0);x.lineTo(W,0);x.lineTo(cx+bw,cy-bh);x.lineTo(cx-bw,cy-bh);x.closePath();x.fill();
+  if(hallI){const k=Math.max(W/hallI.width,H/hallI.height);x.drawImage(hallI,(W-hallI.width*k)/2,(H-hallI.height*k)/2,hallI.width*k,hallI.height*k);gr=x.createLinearGradient(0,0,0,H);gr.addColorStop(0,'rgba(0,0,0,.25)');gr.addColorStop(.5,'rgba(0,0,0,0)');gr.addColorStop(1,'rgba(0,0,0,.35)');x.fillStyle=gr;x.fillRect(0,0,W,H);}else{
+  gr=x.createLinearGradient(0,0,0,cy-bh);gr.addColorStop(0,'#080c0a');gr.addColorStop(1,'#17231d');x.fillStyle=gr;x.beginPath();x.moveTo(0,0);x.lineTo(W,0);x.lineTo(cx+bw,cy-bh);x.lineTo(cx-bw,cy-bh);x.closePath();x.fill();
   gr=x.createLinearGradient(0,H,0,cy+bh);gr.addColorStop(0,'#090d0b');gr.addColorStop(1,'#26332b');x.fillStyle=gr;x.beginPath();x.moveTo(0,H);x.lineTo(W,H);x.lineTo(cx+bw,cy+bh);x.lineTo(cx-bw,cy+bh);x.closePath();x.fill();
   for(const sd of [-1,1]){const ex=sd<0?0:W;
     gr=x.createLinearGradient(ex,0,cx+sd*bw,0);gr.addColorStop(0,'#0a120f');gr.addColorStop(1,'#1f2e26');x.fillStyle=gr;x.beginPath();x.moveTo(ex,0);x.lineTo(ex,H);x.lineTo(cx+sd*bw,cy+bh);x.lineTo(cx+sd*bw,cy-bh);x.closePath();x.fill();
@@ -31367,10 +31371,11 @@ function psBuildBg(g){
     for(let j=0;j<4;j++)for(let i=0;i<22;i++){const t=.04+i/22*.9,xx=lerp(ex,cx+sd*bw,t)+(rnd()-.5)*8*dpr*(1-t),yy=lerp(H*(.5+j*.1),cy+bh*(.1+j*.28),t)+(rnd()-.5)*5*dpr,hr=lerp(15,3.5,t)*dpr;
       x.fillStyle='rgba(4,6,5,.92)';x.beginPath();x.arc(xx,yy,hr,0,6.283);x.fill();x.beginPath();x.ellipse(xx,yy+hr*1.9,hr*1.5,hr*1.1,0,0,6.283);x.fill();
       if(rnd()<.14){x.fillStyle='rgba(235,245,255,'+(.4+rnd()*.5)+')';x.fillRect(xx-hr*.2,yy-hr*1.9,Math.max(1.5,hr*.5),Math.max(2,hr*.7));}}}}
+  }
   // the sign: how far away it is
   if(cy-ar>30*dpr){const sy=(cy-ar)/2,sw=118*dpr,sh=22*dpr;
     x.strokeStyle='rgba(180,140,60,.6)';x.lineWidth=dpr;x.beginPath();x.moveTo(cx-sw*.35,0);x.lineTo(cx-sw*.35,sy-sh/2);x.moveTo(cx+sw*.35,0);x.lineTo(cx+sw*.35,sy-sh/2);x.stroke();
-    gr=x.createLinearGradient(0,sy-sh/2,0,sy+sh/2);gr.addColorStop(0,'#f1d487');gr.addColorStop(1,'#a8802f');x.fillStyle=gr;x.beginPath();x.roundRect(cx-sw/2,sy-sh/2,sw,sh,5*dpr);x.fill();
+    const plI=psImg('plate');if(plI){const ph=sh*3.1,pw=ph*plI.width/plI.height;x.drawImage(plI,cx-pw/2,sy-ph*.64,pw,ph);}else{gr=x.createLinearGradient(0,sy-sh/2,0,sy+sh/2);gr.addColorStop(0,'#f1d487');gr.addColorStop(1,'#a8802f');x.fillStyle=gr;x.beginPath();x.roundRect(cx-sw/2,sy-sh/2,sw,sh,5*dpr);x.fill();}
     x.fillStyle='#2a1c06';x.font='700 '+(12*dpr)+'px Cinzel,Georgia,serif';x.textAlign='center';x.textBaseline='middle';x.fillText(g.mode==='final'?'FINAL  ·  10 m':'LANE 3  ·  10 m',cx,sy+dpr);}
   // the bench and the barrel in front of you
   const free=H-(cy+ar);
@@ -31378,7 +31383,8 @@ function psBuildBg(g){
     gr=x.createLinearGradient(0,ry,0,H);gr.addColorStop(0,'#6a4326');gr.addColorStop(.35,'#4a2c16');gr.addColorStop(1,'#1d1109');x.fillStyle=gr;x.fillRect(0,ry,W,rh);
     x.strokeStyle='rgba(20,10,4,.35)';x.lineWidth=dpr;for(let i=0;i<26;i++){const yy=ry+rnd()*rh;x.beginPath();x.moveTo(0,yy);x.bezierCurveTo(W*.3,yy+(rnd()-.5)*5*dpr,W*.6,yy+(rnd()-.5)*5*dpr,W,yy+(rnd()-.5)*3*dpr);x.stroke();}
     x.fillStyle='rgba(236,196,92,.85)';x.fillRect(0,ry,W,2*dpr);
-    const bt=cy+ar-2*dpr,bwid0=26*dpr,bwid1=11*dpr;gr=x.createLinearGradient(cx-bwid0/2,0,cx+bwid0/2,0);gr.addColorStop(0,'#0c0d0e');gr.addColorStop(.35,'#6e7680');gr.addColorStop(.5,'#c9d0d8');gr.addColorStop(.65,'#5a626c');gr.addColorStop(1,'#0a0b0c');
+    {const bnI=psImg('bench');if(bnI)x.drawImage(bnI,0,ry,W,rh);}
+    const hasW=!!(psImg('rifle')&&psImg('pistol')),bt=cy+ar-2*dpr,bwid0=(hasW?0:26)*dpr,bwid1=(hasW?0:11)*dpr;gr=x.createLinearGradient(cx-bwid0/2,0,cx+bwid0/2,0);gr.addColorStop(0,'#0c0d0e');gr.addColorStop(.35,'#6e7680');gr.addColorStop(.5,'#c9d0d8');gr.addColorStop(.65,'#5a626c');gr.addColorStop(1,'#0a0b0c');
     x.fillStyle=gr;x.beginPath();x.moveTo(cx-bwid0/2,ry+2*dpr);x.lineTo(cx+bwid0/2,ry+2*dpr);x.lineTo(cx+bwid1/2,bt);x.lineTo(cx-bwid1/2,bt);x.closePath();x.fill();}
   // ── the sight picture: a round window on the target card
   x.save();x.beginPath();x.arc(cx,cy,ar,0,6.283);x.clip();
@@ -31398,7 +31404,12 @@ function psBuildBg(g){
   x.beginPath();x.arc(cx,cy,ar+1*dpr,0,6.283);x.strokeStyle='rgba(255,255,255,.12)';x.lineWidth=dpr;x.stroke();
   g.bg=c;
 }
+// the pictures of the range (cut from the sheet made in ChatGPT); the code draws everything when one is missing
+const PS_IMG={};
+function psImg(n){let i=PS_IMG[n];if(!i){i=PS_IMG[n]=new Image();i.src='assets/games/ps_'+n+(/^(hall|arena|wall|bench)$/.test(n)?'.jpg':'.png');}return i.complete&&i.naturalWidth?i:null;}
+function psImgN(g){return['hall','arena','bench','plate','rifle','pistol','hole','ripple'].reduce((a,n)=>a+(psImg(n)?1:0),0);}
 function psHoleDraw(x,hx,hy,r,a,last){
+  {const hI=psImg('hole');if(hI){x.save();x.globalAlpha=a;const w=r*2.75;x.drawImage(hI,hx-w/2,hy-w/2,w,w);if(last){x.beginPath();x.arc(hx,hy,Math.max(1.2,r*.07),0,6.283);x.fillStyle='#f0d27a';x.fill();}x.restore();return;}}
   x.save();x.globalAlpha=a;
   x.beginPath();x.arc(hx,hy,r*1.14,0,6.283);x.fillStyle='rgba(244,236,214,.88)';x.fill();
   x.beginPath();x.arc(hx,hy,r*.84,0,6.283);x.fillStyle='#080a09';x.fill();
@@ -31407,7 +31418,7 @@ function psHoleDraw(x,hx,hy,r,a,last){
   x.restore();
 }
 function psDraw(g,now){
-  const cv=g.cv;if(!cv)return;const x=cv.getContext('2d'),W=cv.width,H=cv.height;if(!g.bg||g.bg.width!==W||g.bg.height!==H)psBuildBg(g);
+  const cv=g.cv;if(!cv)return;const x=cv.getContext('2d'),W=cv.width,H=cv.height;{const nI=psImgN();if(g.bgN!==nI){g.bgN=nI;g.bg=null;}}if(!g.bg||g.bg.width!==W||g.bg.height!==H)psBuildBg(g);
   const px=g.px,cx=W/2,cy=H/2,D=g.D,fx=g.fx;
   x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,W,H);
   const k=fx.kick;const sx=k>0?(Math.random()-.5)*4*k*g.dpr:0,sy=k>0?(-3*k+(Math.random()-.5)*2*k)*g.dpr:0;
@@ -31419,7 +31430,7 @@ function psDraw(g,now){
   const list=g.sh[g.curI]||[];
   list.forEach((s,i)=>{const p=M(s.x,s.y);psHoleDraw(x,p[0],p[1],D.pellet*px,.9,i===list.length-1&&g.phase!=='aim');});
   // the ripple at the hole and the glow of a perfect shot
-  if(fx.ripple){const rp=fx.ripple,u=Math.min(1,rp.t/1.1),p=M(rp.x,rp.y);x.save();x.globalAlpha=(1-u)*.8;x.strokeStyle=rp.gold?'#f0d27a':'#f4ebd0';x.lineWidth=Math.max(1.5,px*.14);x.beginPath();x.arc(p[0],p[1],D.pellet*px*(1.2+u*2.4),0,6.283);x.stroke();x.restore();}
+  if(fx.ripple){const rp=fx.ripple,u=Math.min(1,rp.t/1.1),p=M(rp.x,rp.y),ri=psImg('ripple');if(ri&&rp.gold){const sz=D.pellet*px*(1.5+u*3.4)*2;x.save();x.globalCompositeOperation='lighter';x.globalAlpha=(1-u)*.95;x.drawImage(ri,p[0]-sz/2,p[1]-sz*ri.height/ri.width/2,sz,sz*ri.height/ri.width);x.restore();}else{x.save();x.globalAlpha=(1-u)*.8;x.strokeStyle=rp.gold?'#f0d27a':'#f4ebd0';x.lineWidth=Math.max(1.5,px*.14);x.beginPath();x.arc(p[0],p[1],D.pellet*px*(1.2+u*2.4),0,6.283);x.stroke();x.restore();}}
   if(fx.glow>0){x.save();x.globalCompositeOperation='lighter';const gr=x.createRadialGradient(cx,cy,0,cx,cy,px*9*(D.k||1));gr.addColorStop(0,'rgba(240,210,122,'+(.5*fx.glow)+')');gr.addColorStop(1,'rgba(240,210,122,0)');x.fillStyle=gr;x.beginPath();x.arc(cx,cy,px*9*(D.k||1),0,6.283);x.fill();x.restore();}
   // the sight and its stability ring (not while the shot is being revealed)
   if(g.phase==='aim'||g.phase==='hand'||(g.phase==='reveal'&&g.rv&&g.rv.step<1)){
@@ -31451,6 +31462,7 @@ function psDrawTail(g,x,W,H,cx,cy){
     x.font='700 '+(9*g.dpr)+'px Cinzel,serif';x.fillStyle='rgba(244,235,208,.8)';x.textAlign='left';x.fillText('AIM',a[0]+7*g.dpr,a[1]-6*g.dpr);x.fillStyle='#f0d27a';x.fillText('IMPACT',i[0]+7*g.dpr,i[1]+12*g.dpr);x.restore();
   }
   x.restore();
+  {const wI=psImg(g.D.id==='air_pistol_10m'?'pistol':'rifle'),free=H-(cy+g.ar);if(wI&&free>26*g.dpr&&g.phase!=='setup'){const hh=Math.min(H*.36,free*2.5),ww=hh*wI.width/wI.height;x.drawImage(wI,cx-ww/2,H-hh+g.fx.kick*10*g.dpr,ww,hh);}}
   // the breathing line along the bottom: one cycle, the pause in gold
   if(g.breath&&!g.focus&&g.phase==='aim'&&!psWatch(g)){
     const bw=Math.min(W*.42,260*g.dpr),bx=cx-bw/2,by=H-26*g.dpr,bh=14*g.dpr,ph=psPhase(g,g.t);
@@ -31554,7 +31566,7 @@ function psPlayersHTML(g){
 }
 function rPrecisionTable(){
   if(!G.ps||!G.ps.live||(G.isOnline&&(!G.ps.net||!G.srv||!G.srv.ah||G.ps.net.id!==G.srv.ah.id))||(!G.isOnline&&G.ps.net)){psStop();G.psResult=null;G.ps=psNew();}
-  const g=G.ps;setTimeout(psAttach,0);
+  const g=G.ps;setTimeout(psAttach,0);['hall','arena','bench','plate','rifle','pistol','hole','ripple','medal_g','medal_s','medal_b','podium'].forEach(psImg);
   return`<div id="s-table" class="scr on game-airhockey game-precision">
     <div class="game-bar"><div class="gb-game">🏅 <span>Precision Shooting</span></div><div class="gb-turn" id="ps-status">OUR TABLE MODE · 10 m Air Rifle</div><div class="gb-right"><button class="ico-btn" data-a="pslb" aria-label="The Family Range">🏅</button>${rulesBtn()}${quitBtn()}${sndBtn()}</div></div>
     <div class="felt-table ah-felt" style="flex:1 1 auto;min-height:0;max-height:none;padding:0;">
