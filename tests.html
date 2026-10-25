@@ -6011,6 +6011,9 @@ async function runPresentation(A,W,frame){
       check('the ten ring ends at 2.5 mm (10.0) and the nine begins just after it',sc(2.49)===100&&sc(2.51)===99);
       check('the outer edge of ring 1 still scores 1.0 and beyond it is a miss',sc(24.9)===10&&sc(25.1)===0);
       check('scores are written with one decimal and a perfect match is 218.0',F('psFmt')(109)==='10.9'&&F('psFmt')(20*109)==='218.0'&&F('psFmt')(5)==='0.5');
+      {const PD=F('PS_DISC').air_pistol_10m;
+       check('the air pistol has its own target: ten is 8 mm wide in steps of 0.8 mm, ring 1 ends at 80 mm',sc(.79,PD)===109&&sc(.81,PD)===108&&sc(7.99,PD)===100&&sc(8.01,PD)===99&&sc(79.9,PD)===10&&sc(80.1,PD)===0);
+       check('both disciplines keep their own records',F('psRecKey')('air_pistol_10m')==='precision_pistol'&&F('psRecKey')('air_rifle_10m')==='precision'&&!!F('AR_REC').precision_pistol);}
       // ── a game on the iPad
       gg.lp=[{id:1,name:'Ann',avatar:F('AVATARS')[0],hand:[],totalScore:0},{id:2,name:'Robo',bot:'steady',avatar:F('AVATARS')[1],hand:[],totalScore:0}];
       gg.selGame='precision';F('lDealPrecision')();gg.scr='table';F('render')();F('psAttach')();
@@ -6082,6 +6085,8 @@ async function runPresentation(A,W,frame){
       W.localStorage.removeItem('ct_ps_lb');
       F('psLbAdd')([{n:'ZoeTest',s:201.5,a:10.07,d:'2026-11-01T10:00:00.000Z',lv:'sport'},{n:'MaxTest',s:207.3,a:10.36,d:'2026-11-02T10:00:00.000Z',lv:'elite',pf:2},{n:'Robo',s:215,a:10.7,d:'2026-11-02T10:00:00.000Z'},{n:'ZoeTest',s:201.5,a:10.07,d:'2026-11-01T10:00:00.000Z'}]);
       {const all=F('psLbAll')().filter(e=>/Test$/.test(e.n));check('the leaderboard is sorted, has no double entries and no robots',all.length===2&&all[0].n==='MaxTest'&&!F('psLbAll')().some(e=>e.n==='Robo'));}
+      F('psLbAdd')([{n:'PistolTest',s:190.2,a:9.51,d:'2026-11-03T10:00:00.000Z',lv:'sport',dc:'air_pistol_10m'}]);
+      check('the leaderboard keeps the disciplines apart',F('psLbAll')('air_pistol_10m').some(e=>e.n==='PistolTest')&&!F('psLbAll')('air_rifle_10m').some(e=>e.n==='PistolTest'));
       check('the leaderboard window shows the names',/MaxTest/.test(F('rPsLbOv')())&&/Family Range/.test(F('rPsLbOv')()));
       // ── online: the second device watches Ann's series, then shoots its own and tells the others
       {const ch0=F('_ch'),pid0=G().myPid,srv0=G().srv;

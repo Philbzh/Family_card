@@ -4933,7 +4933,7 @@ const GAMES=[
      '<b>Surprises:</b> <b>splitters</b> (orange) break into two drones when shot, a <b>laser</b> locks onto your ship and fires down your column (step out of the line, or shield), every fourth wave brings a <b>BOSS</b> with a bar of its own, and some aliens leave a <b>power-up</b> that falls to you: <b>» rapid fire</b>, <b>3 triple shot</b>, <b>+ repair or shield</b>.',
      '<b>Defence:</b> move out of the way, or press <b>🛡</b> for a short shield (it needs a few seconds to recharge). A hit costs points and stuns your ship. Tied at the end? <b>Overtime.</b>']},
   {id:'precision',cat:'olympic',icon:'🏅',name:'Precision Shooting',players:'1–4',dur:'8–15 min',diff:'hard',deal:0,minP:1,maxP:4,cover:'assets/games/precision.jpg',
-   rules:['<b>10 m Air Rifle.</b> Calm, exact, honest. You shoot twenty pellets at a real air-rifle target. Everything is true to scale: the whole face is 45.5 mm wide, the pellet is 4.5 mm and the ten is a dot.',
+   rules:['<b>Air Rifle and Air Pistol, 10 m.</b> Calm, exact, honest. You shoot twenty pellets at a real air target (choose the DISCIPLINE before you start). Everything is true to scale: the rifle target is 45.5 mm wide with a dot for a ten, the pistol target is 155.5 mm wide and a pistol is held with one hand, so it wobbles more. The pellet is 4.5 mm.',
      '<b>The sight.</b> Drag a finger on the target: the sight moves fast when it is far from the middle and very finely near it. The three small arrows move it exactly <b>0.1 mm</b> per tap (hold for a slow movement).',
      '<b>Hold still.</b> The sight never rests: it sways, and with BREATHING on it rises and falls with your breath. The <b>ring</b> shows how far it wanders and contracts as you steady yourself. In the pause after the breath out a gold mark shows the <b>STABILITY PEAK</b>, the best moment. Hold too long and your arm tires.',
      '<b>FIRE</b> (the big button) shoots at once. The pellet does not go exactly where the sight was: the trigger is a little late, a sight you have just pushed around gives a ragged trigger, and there is always a tiny spread.',
@@ -7935,6 +7935,7 @@ const AR_REC={
   airhockey:[['fastest','Fastest shot','km/h'],['bestRally','Longest rally','hits'],['saves','Most saves in a match',''],['comeback','Biggest comeback','goals']],
   pong:[['fastest','Fastest ball','km/h'],['bestRally','Longest rally','returns'],['perfect','Most perfect returns',''],['comeback','Biggest comeback','games']],
   pool:[['fastest','Longest pot','cm'],['bestRally','Most balls in one turn',''],['perfect','Most balls on a break','']],
+  precision_pistol:[['topscore','Best 20-shot total','pts'],['fastest','Best single shot','pts'],['saves','Best series of five','pts'],['perfect','Most 10.9 in one match',''],['bestRally','Longest run of tens','shots']],
   precision:[['topscore','Best 20-shot total','pts'],['fastest','Best single shot','pts'],['saves','Best series of five','pts'],['perfect','Most 10.9 in one match',''],['bestRally','Longest run of tens','shots']],
   pinball:[['topscore','Highest score','pts'],['jackpot','Biggest jackpot','pts'],['multi','Most multiballs in one game','']],
   hoopfever:[['top10','Best 10-second run','pts'],['top30','Best 30-second run','pts'],['top60','Best 60-second run','pts'],['topContest','Best three-point contest','pts'],['topscore','Highest score','pts'],['perfect','Most clean swishes',''],['bestRally','Longest streak','baskets'],['saves','Jackpot baskets','']],
@@ -7992,8 +7993,8 @@ function arRecordUpdate(game,names,winnerName,score,rs){
   return won;
 }
 function arRecordsHTML(cat){
-  const a=arAll(),rec=a.rec||{},FGG=['balloonblast','marksman','hoopfever'],OLY=['precision'];
-  const names={precision:['🏅','Precision Shooting'],pinball:['🕹️','Pinball'],airhockey:['🏒','Air Hockey'],pong:['🏓','Pong'],invaders:['👾','Invaders: Duel'],pool:['🎱','Pool'],balloonblast:['🎈','Balloon Blast'],marksman:['🎯','Marksman'],hoopfever:['🏀','Hoop Fever']};
+  const a=arAll(),rec=a.rec||{},FGG=['balloonblast','marksman','hoopfever'],OLY=['precision','precision_pistol'];
+  const names={precision_pistol:['🏅','Precision · Air Pistol'],precision:['🏅','Precision · Air Rifle'],pinball:['🕹️','Pinball'],airhockey:['🏒','Air Hockey'],pong:['🏓','Pong'],invaders:['👾','Invaders: Duel'],pool:['🎱','Pool'],balloonblast:['🎈','Balloon Blast'],marksman:['🎯','Marksman'],hoopfever:['🏀','Hoop Fever']};
   const rows=Object.keys(AR_REC).filter(g=>cat==='fairground'?FGG.includes(g):cat==='olympic'?OLY.includes(g):!FGG.includes(g)&&!OLY.includes(g)).map(g=>{
     const list=(AR_REC[g]).filter(([k])=>rec[g]&&rec[g][k]);if(!list.length)return'';
     return`<div class="ar-game"><div class="ar-gn">${names[g][0]} ${names[g][1]}</div>${list.map(([k,l,u])=>`<div class="ar-row"><span>${l}</span><b>${rec[g][k].v}${u?' '+u:''}</b><em>${esc(rec[g][k].by)}</em></div>`).join('')}</div>`;}).join('');
@@ -30023,14 +30024,14 @@ function onSrvCore(state){
         if(state.winner!==prevWinner){
           if(state.winner===G.myPid){G.tw++;localStorage.setItem('ct_tw',G.tw);}
           const nms=(state.players||[]).map(p=>p.name),sc=(state.ah&&state.ah.score)||[0,0];
-          try{const nr=arRecordUpdate(state.gameId,nms,state.winnerName,sc,(state.ah&&state.ah.stats)||{});if(nr.length)setTimeout(()=>toast('🏆 New Arcade record'),900);}catch(e){}
+          try{const nr=arRecordUpdate(state.gameId==='precision'?psRecKey(state.ah&&state.ah.stats&&state.ah.stats.ps&&state.ah.stats.ps.disc):state.gameId,nms,state.winnerName,sc,(state.ah&&state.ah.stats)||{});if(nr.length)setTimeout(()=>toast('🏆 New Arcade record'),900);}catch(e){}
           addHistory({game:state.gameId,winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),players:nms,mode:'online',
             moment:state.moment||`${state.winnerName} won ${Math.max(sc[0],sc[1])}–${Math.min(sc[0],sc[1])}.`,
             stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions,ah:Object.assign({score:sc},state.ah&&state.ah.stats?state.ah.stats:{},{dur:(state.ah&&state.ah.dur)||0})}});
           // the table plays its own finale first; the result screen follows
           if(fgIs(state.gameId)){G.fgResult=(state.ah&&state.ah.stats&&state.ah.stats.fg)||null;G.ahMoment=state.moment||'';fgStop();}
           if(state.gameId==='pinball'){const pbr=(state.ah&&state.ah.stats&&state.ah.stats.pb)||null;G.pbResult=pbr;G.ahMoment=state.moment||'';if(pbr&&Array.isArray(pbr.entries)){pbHofAdd(pbr.entries);const all=pbHofAll(),ix=all.findIndex(e=>e.n===String(pbr.winnerName||'').slice(0,24)&&e.s===pbr.top);pbr.rank=ix>=0&&ix<10?ix+1:0;}pbStop();}
-          if(state.gameId==='precision'){const r=(state.ah&&state.ah.stats&&state.ah.stats.ps)||null;G.psResult=r;G.ahMoment=state.moment||'';if(r&&Array.isArray(r.names)){const when=new Date().toISOString();psLbAdd(r.names.map((n,i)=>({n:String(n||'').slice(0,24),s:r.st[i].tot/10,a:r.st[i].avg/10,d:when,lv:r.lv,pf:r.st[i].perfect})).filter(e=>e.s>0));const all=psLbAll(),ix=all.findIndex(e=>e.n===String(r.names[r.w]||'').slice(0,24)&&Math.abs(e.s-r.top/10)<.001);r.rank=ix>=0&&ix<10?ix+1:0;}}
+          if(state.gameId==='precision'){const r=(state.ah&&state.ah.stats&&state.ah.stats.ps)||null;G.psResult=r;G.ahMoment=state.moment||'';if(r&&Array.isArray(r.names)){const when=new Date().toISOString();psLbAdd(r.names.map((n,i)=>({n:String(n||'').slice(0,24),s:r.st[i].tot/10,a:r.st[i].avg/10,d:when,lv:r.lv,dc:r.disc,pf:r.st[i].perfect})).filter(e=>e.s>0));const all=psLbAll(r.disc),ix=all.findIndex(e=>e.n===String(r.names[r.w]||'').slice(0,24)&&Math.abs(e.s-r.top/10)<.001);r.rank=ix>=0&&ix<10?ix+1:0;}}
           _ahEndAt=Date.now()+(G.ah&&G.ah.live?3200:plLive()?plEndWaitMs():psLive()?2800:600);
           setTimeout(()=>{if(G.isOnline&&G.srv&&ahIs(G.srv.gameId)&&G.srv.winner){ahStop();plStop();fgStop();psStop();G.scr='matchend';render();}},(_ahEndAt-Date.now())+80);
         }
@@ -30915,7 +30916,9 @@ function rHome(){
    Match: 20 shots per shooter in series of 5; the shooters take turns by series on the one iPad. Robots (gentle / steady / sharp) shoot
    a believable score from the same scoring function and never get into the records or the family leaderboard. */
 const PS_DISC={
-  air_rifle_10m:{id:'air_rifle_10m',name:'10 m Air Rifle',tag:'AIR RIFLE',dist:10,pellet:2.25,ringW:2.5,r10:.25,blackR:15.25,outerR:22.75,view:29,shots:20,series:5,step:.25}
+  air_rifle_10m:{id:'air_rifle_10m',name:'10 m Air Rifle',tag:'AIR RIFLE',dist:10,pellet:2.25,ringW:2.5,r10:.25,dot:.25,blackR:15.25,blackFrom:4,outerR:22.75,view:29,shots:20,series:5,step:.25,k:1,sw:1,micro:.1,sight:2.7,rec:'precision'},
+  // the pistol target is 3.2 times bigger (ring 1 is 155.5 mm, ten ring 11.5 mm, black from ring 7) and a pistol is held with one hand: everything that moves is scaled with k
+  air_pistol_10m:{id:'air_pistol_10m',name:'10 m Air Pistol',tag:'AIR PISTOL',dist:10,pellet:2.25,ringW:8,r10:5.75,dot:2.5,blackR:29.75,blackFrom:7,outerR:77.75,view:96,shots:20,series:5,step:.8,k:3.2,sw:1.2,micro:.3,sight:8.5,rec:'precision_pistol'}
 };
 const PS_LV={
   beginner:{n:'Beginner',sway:3.4,gain:1.9,sig:.3,bot:.8,about:'A calm sight that settles fast.'},
@@ -30928,7 +30931,8 @@ const PS_LVK=['beginner','sport','elite','olympic'];
 const psFmt=v=>(Math.round(v)/10).toFixed(1);
 const psGauss=()=>{let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(6.2832*v);};
 // the decimal score in tenths for a pellet centre d millimetres from the middle: 10.9 inside 0.25 mm, 0.1 less for every further 0.25 mm, nothing beyond ring 1
-function psScore(d){const v=109-Math.floor(d/.25+1e-9);return v>=10?v:0;}
+function psScore(d,D){const v=109-Math.floor(d/(D?D.step:.25)+1e-9);return v>=10?v:0;}
+function psRecKey(dc){return(PS_DISC[dc]||PS_DISC.air_rifle_10m).rec;}
 function psPrefs(){let p={};try{p=JSON.parse(localStorage.getItem('ct_ps_pref')||'{}')||{};}catch(e){}return Object.assign({mode:'match',lv:'sport',breath:true,focus:false,steady:false,bold:false,disc:'air_rifle_10m'},p);}
 function psSavePrefs(p){try{localStorage.setItem('ct_ps_pref',JSON.stringify({mode:p.mode,lv:p.lv,breath:p.breath,focus:p.focus,steady:p.steady,bold:p.bold,disc:p.disc}));}catch(e){}}
 
@@ -30937,7 +30941,7 @@ function psUnit(g,t){const s=g.seed;return[Math.sin(t*1.13+s)*.52+Math.sin(t*2.2
 function psBreathB(ph){return ph<.38?.5-.5*Math.cos(Math.PI*ph/.38):ph<.84?.5+.5*Math.cos(Math.PI*(ph-.38)/.46):0;}   // breathe in, breathe out, the natural pause
 function psPhase(g,t){return(((t-g.b0)/5.4)%1+1)%1;}
 function psAmp(g){
-  const lv=PS_LV[g.lv];let A=lv.sway*(1.55-1.1*g.S);
+  const lv=PS_LV[g.lv];let A=lv.sway*(1.55-1.1*g.S)*(g.D.k||1)*(g.D.sw||1);
   A*=1+Math.min(1,Math.max(0,(g.hold-6)/12))*.7;   // an arm that has been up too long
   if(g.steady)A*=.62;
   return A*(1-.4*g.pk);
@@ -30951,11 +30955,11 @@ function psOff(g,t){   // where the sight is relative to its base point at time 
 const psClampBase=(g)=>{const m=(g.mmR||g.D.view*.82)-2.5,r=Math.hypot(g.base.x,g.base.y);if(r>m){g.base.x*=m/r;g.base.y*=m/r;}};
 // dragging: fast far from the middle, very fine near it (the gain follows the distance of the base point from the centre)
 function psMove(g,dx,dy){
-  const r=Math.hypot(g.base.x,g.base.y),gain=.24+.76*Math.pow(Math.min(1,r/14),1.4);
+  const r=Math.hypot(g.base.x,g.base.y),gain=.24+.76*Math.pow(Math.min(1,r/(14*(g.D.k||1))),1.4);
   g.base.x+=dx*gain;g.base.y+=dy*gain;psClampBase(g);
   const mv=Math.hypot(dx,dy)*gain;g.S=Math.max(0,g.S-mv*.03);g.hold=Math.max(0,g.hold-mv*.4);g.lastMoveT=g.t;
 }
-function psMicro(g,dx,dy){if(g.phase!=='aim'||g.cur.bot||psWatch(g))return;g.base.x+=dx*.1;g.base.y+=dy*.1;psClampBase(g);g.S=Math.max(0,g.S-.012);g.lastMoveT=g.t-.3;psSnd.tick();}
+function psMicro(g,dx,dy){if(g.phase!=='aim'||g.cur.bot||psWatch(g))return;g.base.x+=dx*(g.D.micro||.1);g.base.y+=dy*(g.D.micro||.1);psClampBase(g);g.S=Math.max(0,g.S-.012);g.lastMoveT=g.t-.3;psSnd.tick();}
 
 // ── the match ──
 function psNew(){
@@ -30973,7 +30977,7 @@ function psHost(){return !!(G.isOnline&&G.srv&&G.srv.host===G.myPid);}
 function psSend(g,m){if(!g||!g.net||!G.isOnline)return;try{m.id=g.net.id;m.seat=g.net.seat;if(_ch)_ch.send({type:'broadcast',event:'ps',payload:m});}catch(e){}}
 function psSightPose(g){
   if(psWatch(g)){const w=g.wv;if(!w)return null;const q=g.wvs=g.wvs||{vx:w.x,vy:w.y,bx:w.bx,by:w.by,rr:w.rr};const k=.3;q.vx+=(w.x-q.vx)*k;q.vy+=(w.y-q.vy)*k;q.bx+=(w.bx-q.bx)*k;q.by+=(w.by-q.by)*k;q.rr+=(w.rr-q.rr)*k;return{vx:q.vx,vy:q.vy,bx:q.bx,by:q.by,rr:q.rr,pk:!!w.pk};}
-  const o=psOff(g,g.t);return{vx:g.base.x+o[0],vy:g.base.y+o[1],bx:g.base.x,by:g.base.y,rr:Math.max(.8,psAmp(g)*1.15),pk:g.breath&&psPhase(g,g.t)>=.86&&g.phase==='aim'};
+  const o=psOff(g,g.t);return{vx:g.base.x+o[0],vy:g.base.y+o[1],bx:g.base.x,by:g.base.y,rr:Math.max(.8*(g.D.k||1),psAmp(g)*1.15),pk:g.breath&&psPhase(g,g.t)>=.86&&g.phase==='aim'};
 }
 function psStop(){const g=G.ps;if(!g)return;g.live=false;if(g.raf)cancelAnimationFrame(g.raf);g.raf=0;clearTimeout(g.endTm);G.ps=null;}
 function psLive(){return !!(G.ps&&G.ps.live&&G.scr==='table');}
@@ -30984,7 +30988,8 @@ function lDealPrecision(){
 }
 // the shooters: the match takes everybody, a training only the first person at the table
 function psBegin(g,cfg){
-  const pr=psPrefs();if(G.isOnline)pr.mode='match';if(cfg){pr.lv=cfg.lv;pr.breath=cfg.breath;}Object.assign(g,{mode:pr.mode,lv:pr.lv,breath:!!pr.breath,focus:!!pr.focus,steady:!!pr.steady,bold:!!pr.bold});
+  const pr=psPrefs();if(G.isOnline)pr.mode='match';if(cfg){pr.lv=cfg.lv;pr.breath=cfg.breath;if(cfg.dc)pr.disc=cfg.dc;}Object.assign(g,{mode:pr.mode,lv:pr.lv,breath:!!pr.breath,focus:!!pr.focus,steady:!!pr.steady,bold:!!pr.bold});
+  g.D=PS_DISC[pr.disc]||PS_DISC.air_rifle_10m;g.bg=null;try{psSize(g);}catch(e){}
   const D=g.D,idx=g.players.map((p,i)=>i);
   let who=idx;if(g.mode!=='match'){const h=idx.find(i=>!g.players[i].bot);who=[h==null?0:h];}
   g.who=who;g.sh=g.players.map(()=>[]);g.tot=g.players.map(()=>0);g.rounds=[];g.over=false;g.summary=null;g.final=null;g.lead=-1;
@@ -30997,7 +31002,7 @@ function psBegin(g,cfg){
 }
 // a new series for a shooter: fresh stance (the sight starts away from the middle), a hand-over card when the shooter changes
 function psStage(g,first){
-  const a=Math.random()*6.283,r=5+Math.random()*3;g.base={x:Math.cos(a)*r,y:Math.sin(a)*r};g.S=.25;g.hold=0;g.pk=0;g.lastMoveT=-9;
+  const a=Math.random()*6.283,r=(5+Math.random()*3)*(g.D.k||1);g.base={x:Math.cos(a)*r,y:Math.sin(a)*r};g.S=.25;g.hold=0;g.pk=0;g.lastMoveT=-9;
   if(g.who.length>1&&g.mode==='match'){
     g.phase='hand';g.hand={at:g.t,bot:!!g.cur.bot};
     psPaintOv(g);
@@ -31017,7 +31022,7 @@ function psAimStart(g){
   if(psWatch(g)&&g.pend.length){const m=g.pend.shift();if(m.n===g.shotN)psApplyShot(g,m);}
 }
 function psBotPlan(g){
-  const b=PS_BOTS[g.cur.bot]||PS_BOTS.gentle,lv=PS_LV[g.lv],s=b.s*lv.bot,f=Math.random()<.07?2.1:1;
+  const b=PS_BOTS[g.cur.bot]||PS_BOTS.gentle,lv=PS_LV[g.lv],s=b.s*lv.bot*(g.D.k||1),f=Math.random()<.07?2.1:1;
   g.bot={t0:g.t,t1:g.t+1.5+Math.random()*1.6,x:psGauss()*s*f,y:psGauss()*s*f*.9,sx:g.base.x,sy:g.base.y};
 }
 
@@ -31025,8 +31030,8 @@ function psBotPlan(g){
 function psFireTap(g){
   if(!g||g.phase!=='aim'||g.cur.bot||psWatch(g))return;
   const lv=PS_LV[g.lv],td=.045+Math.random()*.07,o=psOff(g,g.t+td),ax=g.base.x+o[0],ay=g.base.y+o[1];
-  const mv=Math.max(0,1-(g.t-g.lastMoveT)/.55),fl=mv*(.35+Math.random()*.5)*lv.sway*.1,fa=Math.random()*6.283;   // a sight just pushed around makes a ragged trigger
-  const sg=lv.sig*(1+(1-g.S)*.9)*(g.steady?.8:1);
+  const mv=Math.max(0,1-(g.t-g.lastMoveT)/.55),fl=mv*(.35+Math.random()*.5)*lv.sway*.1*(g.D.k||1),fa=Math.random()*6.283;   // a sight just pushed around makes a ragged trigger
+  const sg=lv.sig*(g.D.k||1)*(1+(1-g.S)*.9)*(g.steady?.8:1);
   const x=ax+Math.cos(fa)*fl+psGauss()*sg,y=ay+Math.sin(fa)*fl+psGauss()*sg;
   psShoot(g,{ax,ay,x,y,peak:g.breath&&psPhase(g,g.t)>=.86,S:g.S});
 }
@@ -31037,7 +31042,7 @@ function psFireBot(g){
 function psShoot(g,s,fromNet){
   const nn=g.shotN++;
   if(!fromNet&&G.isOnline&&g.net){const m={k:'shot',n:nn,s:{ax:+s.ax.toFixed(3),ay:+s.ay.toFixed(3),x:+s.x.toFixed(3),y:+s.y.toFixed(3),peak:s.peak?1:0,S:+s.S.toFixed(2)}};psSend(g,m);[400,900].forEach(d=>setTimeout(()=>{if(G.ps===g)psSend(g,Object.assign({},m));},d));}
-  const d=Math.hypot(s.x,s.y);s.d=d;s.v=psScore(d);s.p=g.curI;s.n=g.sh[g.curI].length+1;s.ang=Math.atan2(s.y,s.x);
+  const d=Math.hypot(s.x,s.y);s.d=d;s.v=psScore(d,g.D);s.p=g.curI;s.n=g.sh[g.curI].length+1;s.ang=Math.atan2(s.y,s.x);
   g.rv={s,t:0,step:0,near:s.v===99||s.v===108};g.phase='reveal';
   g.fx.kick=1;psSnd.shot();haptic(8);
   for(const id of ['ps-r1','ps-r2','ps-r3','ps-r4']){const e=document.getElementById(id);if(e){e.innerHTML='&nbsp;';if(id==='ps-r3')e.className='ps-rev-v';}}
@@ -31087,7 +31092,7 @@ function psAfterShot(g){
   psNextShot(g);
 }
 function psNextShot(g){
-  g.base.x+=(Math.random()-.5)*1.4;g.base.y+=.3+Math.random()*.9;psClampBase(g);   // the recoil moves the sight a little
+  {const kk=g.D.k||1;g.base.x+=(Math.random()-.5)*1.4*kk;g.base.y+=(.3+Math.random()*.9)*kk;}psClampBase(g);   // the recoil moves the sight a little
   g.S=.25;g.hold=0;g.lastMoveT=-9;psAimStart(g);
 }
 
@@ -31107,7 +31112,7 @@ function psApplyShot(g,m){
 function psOnBroadcast(m){
   const g=G.ps;if(!g||!g.live||!g.net||!G.isOnline||!m||m.id!==g.net.id||m.seat===g.net.seat)return;
   const sp=ahPlayers(),sender=sp[m.seat];if(!sender)return;
-  if(m.k==='go'){if(g.phase==='setup'&&sender.id===G.srv.host){g.net.cfg={lv:PS_LV[m.lv]?m.lv:'sport',breath:!!m.breath};psBegin(g,g.net.cfg);psPaintOv(g);}}
+  if(m.k==='go'){if(g.phase==='setup'&&sender.id===G.srv.host){g.net.cfg={lv:PS_LV[m.lv]?m.lv:'sport',breath:!!m.breath,dc:PS_DISC[m.dc]?m.dc:'air_rifle_10m'};psBegin(g,g.net.cfg);psPaintOv(g);}}
   else if(m.k==='hello'){if(psHost()&&g.phase!=='setup'&&g.net.cfg)g.net.goUntil=Math.max(g.net.goUntil,g.t+3);}
   else if(m.k==='ready'){if(g.phase==='hand'&&m.seat===g.curI)psAimStart(g);}
   else if(m.k==='sight'){if(psWatch(g)&&m.seat===g.curI&&g.phase==='aim'){const f=v=>Math.max(-60,Math.min(60,+v||0));g.wv={x:f(m.x),y:f(m.y),bx:f(m.bx),by:f(m.by),rr:Math.max(.5,Math.min(30,+m.rr||1)),pk:!!m.pk};}}
@@ -31126,7 +31131,7 @@ function psNetFinish(g,c){
   const s2=JSON.parse(JSON.stringify(G.srv));
   s2.players.forEach((q,i)=>{if(i>=n)return;q.totalScore=tot[i]/10;q.c4Result=winners.length>1&&winners.includes(i)?'draw':w===i?'win':'loss';q.psLine=psFmt(tot[i])+' · avg '+(st[i].avg/10).toFixed(2);});
   s2.winner=s2.players[w].id;s2.winnerName=s2.players[w].name;s2.winnerAv=s2.players[w].avatar;s2.moment=c.mom;
-  s2.ah=Object.assign({},s2.ah||{},{score:tot.map(v=>v/10),dur,stats:{perfect:Math.max(...st.map(x=>x.perfect)),bestRally:Math.max(...st.map(x=>x.streak)),saves:Math.max(...st.map(x=>x.bestSer))/10,fastest:Math.max(...st.map(x=>x.best))/10,team:0,lv:g.lv,ps:res}});
+  s2.ah=Object.assign({},s2.ah||{},{score:tot.map(v=>v/10),dur,stats:{perfect:Math.max(...st.map(x=>x.perfect)),bestRally:Math.max(...st.map(x=>x.streak)),saves:Math.max(...st.map(x=>x.bestSer))/10,fastest:Math.max(...st.map(x=>x.best))/10,team:0,lv:g.lv,dc:g.D.id,ps:res}});
   s2.lastAct=esc(s2.winnerName)+(winners.length>1?' tied.':' won the match.');s2._ts=Date.now();
   try{onSrv(s2);}catch(e){}
   try{dbWrite(G.roomId,s2);}catch(e){}
@@ -31159,15 +31164,15 @@ function psFinish(g){
   G.ahMoment=mom;G.fgResult=null;G.fgHighlight=null;G.pbResult=null;
   G.psResult={disc:g.D.id,lv:g.lv,names:g.players.map(p=>p.name),bots:g.players.map(p=>!!p.bot),st,w,top,margin,dur,mom,rank:0,steady:g.steady};
   // robots are never in the leaderboard and never in the records
-  const humans=g.players.map((p,i)=>p.bot?null:{n:String(p.name||'Player '+(i+1)).slice(0,24),s:tot[i]/10,a:st[i].avg/10,d:when,lv:g.lv,pf:st[i].perfect}).filter(e=>e&&e.s>0);
+  const humans=g.players.map((p,i)=>p.bot?null:{n:String(p.name||'Player '+(i+1)).slice(0,24),s:tot[i]/10,a:st[i].avg/10,d:when,lv:g.lv,dc:g.D.id,pf:st[i].perfect}).filter(e=>e&&e.s>0);
   psLbAdd(humans);
-  {const all=psLbAll(),ix=g.players[w].bot?-1:all.findIndex(e=>e.n===String(g.players[w].name||'Player '+(w+1)).slice(0,24)&&Math.abs(e.s-top/10)<.001);G.psResult.rank=ix>=0&&ix<10?ix+1:0;}
+  {const all=psLbAll(g.D.id),ix=g.players[w].bot?-1:all.findIndex(e=>e.n===String(g.players[w].name||'Player '+(w+1)).slice(0,24)&&Math.abs(e.s-top/10)<.001);G.psResult.rank=ix>=0&&ix<10?ix+1:0;}
   G.tw=(G.tw||0)+1;try{localStorage.setItem('ct_tw',G.tw);}catch(e){}
-  try{addHistory({game:'precision',winner:g.players[w].name,winnerAvatar:g.players[w].avatar,date:when,players:g.players.map(p=>p.name),moment:mom,stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats?G.matchStats.reactions:0,ah:{score:tot.map(v=>v/10),dur,lv:g.lv}}});}catch(e){}
+  try{addHistory({game:'precision',winner:g.players[w].name,winnerAvatar:g.players[w].avatar,date:when,players:g.players.map(p=>p.name),moment:mom,stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats?G.matchStats.reactions:0,ah:{score:tot.map(v=>v/10),dur,lv:g.lv,dc:g.D.id}}});}catch(e){}
   try{const hs=g.players.map((p,i)=>p.bot?-1:i).filter(i=>i>=0);
     if(hs.length){const hb=hs.reduce((a,i)=>tot[i]>tot[a]?i:a,hs[0]);
       const rs={perfect:Math.max(...hs.map(i=>st[i].perfect)),bestRally:Math.max(...hs.map(i=>st[i].streak)),saves:Math.max(...hs.map(i=>st[i].bestSer))/10,fastest:Math.max(...hs.map(i=>st[i].best))/10,team:0};
-      const nr=arRecordUpdate('precision',g.players.map(p=>p.name),g.players[hb].name,[tot[hb]/10,0],rs);if(nr.length)setTimeout(()=>toast('🏆 New Precision record'),900);}}catch(e){}
+      const nr=arRecordUpdate(g.D.rec,g.players.map(p=>p.name),g.players[hb].name,[tot[hb]/10,0],rs);if(nr.length)setTimeout(()=>toast('🏆 New Precision record'),900);}}catch(e){}
   hfSnd.cheer(1);psCall(g,g.players[w].name.toUpperCase()+(winners.length>1?' · TIE':' WINS.'),psFmt(top),2400,true);
   g.endTm=setTimeout(()=>{if(G.ps===g&&G.scr==='table'){psStop();G.scr='matchend';render();}},g.final?3200:2400);
 }
@@ -31176,18 +31181,19 @@ function psFinish(g){
 function psLbOk(e){return !!(e&&typeof e.s==='number'&&e.s>0&&e.n&&!pbIsBotName(e.n));}
 function psLbLoad(){try{const a=JSON.parse(localStorage.getItem('ct_ps_lb')||'[]');return Array.isArray(a)?a.filter(psLbOk):[];}catch(e){return[];}}
 function psLbAdd(list){try{const cur=psLbLoad(),keys=new Set(cur.map(e=>e.n+'|'+e.s));for(const e of list){if(!psLbOk(e))continue;const k=e.n+'|'+e.s;if(!keys.has(k)){keys.add(k);cur.push(e);}}cur.sort((a,b)=>b.s-a.s);localStorage.setItem('ct_ps_lb',JSON.stringify(cur.slice(0,60)));}catch(e){}}
-function psLbAll(){
+function psLbAll(dc){
+  dc=dc||'air_rifle_10m';
   const out=psLbLoad().slice(),keys=new Set(out.map(e=>e.n+'|'+e.s)),fam=[];
   try{for(const h of familyHistory()){if(!h||h.game!=='precision'||!h.stats||!h.stats.ah||!Array.isArray(h.stats.ah.score))continue;
-    (h.players||[]).forEach((n,i)=>{const sc=h.stats.ah.score[i],e={n:String(n||''),s:sc,a:sc/20,d:h.date||'',lv:h.stats.ah.lv||'sport'};if(!psLbOk(e))return;const k=e.n+'|'+sc;if(keys.has(k))return;keys.add(k);out.push(e);fam.push(e);});}}catch(e){}
+    (h.players||[]).forEach((n,i)=>{const sc=h.stats.ah.score[i],e={n:String(n||''),s:sc,a:sc/20,d:h.date||'',lv:h.stats.ah.lv||'sport',dc:h.stats.ah.dc||'air_rifle_10m'};if(!psLbOk(e))return;const k=e.n+'|'+sc;if(keys.has(k))return;keys.add(k);out.push(e);fam.push(e);});}}catch(e){}
   if(fam.length&&_familyHistoryCache)psLbAdd(fam);
-  out.sort((a,b)=>b.s-a.s);return out;
+  const res=out.filter(e=>(e.dc||'air_rifle_10m')===dc);res.sort((a,b)=>b.s-a.s);return res;
 }
 function psLbRows(list){return list.map((e,i)=>{const medal=['🥇','🥈','🥉'][i]||'<b>'+(i+1)+'</b>';return`<div class="hof-row${i<3?' top':''}"><span class="hof-rk">${medal}</span><span class="hof-nm">${esc(e.n)}</span><span class="hof-sc">${e.s.toFixed(1)}</span><span class="hof-d">${esc(pbHofDate(e.d))} · avg ${(e.a||e.s/20).toFixed(2)} · ${esc((PS_LV[e.lv]||PS_LV.sport).n)}${e.pf?' · '+e.pf+' × 10.9':''}</span></div>`;}).join('');}
 function rPsLbOv(){
-  const all=psLbAll(),top=all.slice(0,10),best={};for(const e of all){const a=e.a||e.s/20;if(!best[e.n]||a>best[e.n].a)best[e.n]={n:e.n,a,s:e.s};}
+  const dcv=PS_DISC[G.psLbD]?G.psLbD:(PS_DISC[psPrefs().disc]?psPrefs().disc:'air_rifle_10m'),all=psLbAll(dcv),top=all.slice(0,10),best={};for(const e of all){const a=e.a||e.s/20;if(!best[e.n]||a>best[e.n].a)best[e.n]={n:e.n,a,s:e.s};}
   const acc=Object.values(best).sort((a,b)=>b.a-a.a).slice(0,8);
-  return`<div class="ov" data-a="close-pslb"><div class="ov-box hof-box" role="dialog" aria-modal="true" aria-label="Precision leaderboard"><div class="ov-title">🏅 The Family Range</div><div class="hof-sub">10 M AIR RIFLE · THE BEST 20-SHOT MATCHES</div>
+  return`<div class="ov" data-a="close-pslb"><div class="ov-box hof-box" role="dialog" aria-modal="true" aria-label="Precision leaderboard"><div class="ov-title">🏅 The Family Range</div><div class="hof-sub">${esc(PS_DISC[dcv].name.toUpperCase())} · THE BEST 20-SHOT MATCHES</div><div class="ps-seg" style="margin:.2rem 0 .8rem;">${Object.keys(PS_DISC).map(k=>`<button class="${k===dcv?'on':''}" data-a="pslbd" data-v="${k}">${PS_DISC[k].tag}</button>`).join('')}</div>
     ${top.length?`<div class="hof-list">${psLbRows(top)}</div>`:'<p class="ov-sub">No match yet. Shoot twenty and be the first name on the board.</p>'}
     ${acc.length?`<div class="hof-h">THE MOST ACCURATE (BEST AVERAGE PER SHOT)</div><div class="hof-list">${acc.map((e,i)=>`<div class="hof-row"><span class="hof-rk">★</span><span class="hof-nm">${esc(e.n)}</span><span class="hof-sc">${e.a.toFixed(2)}</span><span class="hof-d">best match ${e.s.toFixed(1)}</span></div>`).join('')}</div>`:''}
     <button class="btn btn-ghost" data-a="close-pslb" style="margin-top:.8rem;">Close</button></div></div>`;
@@ -31264,10 +31270,10 @@ function psBuildBg(g){
   x.globalAlpha=.05;for(let i=0;i<600;i++){x.fillStyle=rnd()<.5?'#000':'#fff';x.fillRect(cx-ar+rnd()*2*ar,cy-ar+rnd()*2*ar,1+rnd()*2,1);}x.globalAlpha=1;
   const R=k=>(D.r10+D.ringW*(10-k))*px;
   x.fillStyle='#0d0f0e';x.beginPath();x.arc(cx,cy,D.blackR*px,0,6.283);x.fill();
-  for(let k=1;k<=10;k++){x.beginPath();x.arc(cx,cy,R(k),0,6.283);x.strokeStyle=k>=4?'rgba(233,225,204,.62)':'rgba(15,17,16,.82)';x.lineWidth=Math.max(1,px*.11);x.stroke();}
-  x.font='700 '+Math.max(8,px*1.9)+'px Georgia,serif';x.textAlign='center';x.textBaseline='middle';
-  for(let k=1;k<=8;k++){const rr=(R(k)+R(k+1))/2;x.fillStyle=k>=4?'rgba(233,225,204,.62)':'rgba(15,17,16,.72)';for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]])x.fillText(String(k),cx+dx*rr,cy+dy*rr);}
-  x.fillStyle='#f6efdc';x.beginPath();x.arc(cx,cy,Math.max(1.4,D.r10*px),0,6.283);x.fill();
+  for(let k=1;k<=10;k++){x.beginPath();x.arc(cx,cy,R(k),0,6.283);x.strokeStyle=k>=D.blackFrom?'rgba(233,225,204,.62)':'rgba(15,17,16,.82)';x.lineWidth=Math.max(1,px*D.ringW*.045);x.stroke();}
+  x.font='700 '+Math.max(8,px*D.ringW*.76)+'px Georgia,serif';x.textAlign='center';x.textBaseline='middle';
+  for(let k=1;k<=8;k++){const rr=(R(k)+R(k+1))/2;x.fillStyle=k>=D.blackFrom?'rgba(233,225,204,.62)':'rgba(15,17,16,.72)';for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]])x.fillText(String(k),cx+dx*rr,cy+dy*rr);}
+  x.fillStyle='#f6efdc';x.beginPath();x.arc(cx,cy,Math.max(1.4,D.dot*px),0,6.283);x.fill();
   gr=x.createRadialGradient(cx,cy,ar*.55,cx,cy,ar);gr.addColorStop(0,'rgba(0,0,0,0)');gr.addColorStop(1,'rgba(0,0,0,.5)');x.fillStyle=gr;x.fillRect(cx-ar,cy-ar,2*ar,2*ar);
   x.restore();
   // the rim of the window: black, with a thin ring of brass
@@ -31297,7 +31303,7 @@ function psDraw(g,now){
   list.forEach((s,i)=>{const p=M(s.x,s.y);psHoleDraw(x,p[0],p[1],D.pellet*px,.9,i===list.length-1&&g.phase!=='aim');});
   // the ripple at the hole and the glow of a perfect shot
   if(fx.ripple){const rp=fx.ripple,u=Math.min(1,rp.t/1.1),p=M(rp.x,rp.y);x.save();x.globalAlpha=(1-u)*.8;x.strokeStyle=rp.gold?'#f0d27a':'#f4ebd0';x.lineWidth=Math.max(1.5,px*.14);x.beginPath();x.arc(p[0],p[1],D.pellet*px*(1.2+u*2.4),0,6.283);x.stroke();x.restore();}
-  if(fx.glow>0){x.save();x.globalCompositeOperation='lighter';const gr=x.createRadialGradient(cx,cy,0,cx,cy,px*9);gr.addColorStop(0,'rgba(240,210,122,'+(.5*fx.glow)+')');gr.addColorStop(1,'rgba(240,210,122,0)');x.fillStyle=gr;x.beginPath();x.arc(cx,cy,px*9,0,6.283);x.fill();x.restore();}
+  if(fx.glow>0){x.save();x.globalCompositeOperation='lighter';const gr=x.createRadialGradient(cx,cy,0,cx,cy,px*9*(D.k||1));gr.addColorStop(0,'rgba(240,210,122,'+(.5*fx.glow)+')');gr.addColorStop(1,'rgba(240,210,122,0)');x.fillStyle=gr;x.beginPath();x.arc(cx,cy,px*9*(D.k||1),0,6.283);x.fill();x.restore();}
   // the sight and its stability ring (not while the shot is being revealed)
   if(g.phase==='aim'||g.phase==='hand'||(g.phase==='reveal'&&g.rv&&g.rv.step<1)){
     const q=psSightPose(g);if(!q){x.restore();return psDrawTail(g,x,W,H,cx,cy);}const c0=M(q.bx,q.by),c1=M(q.vx,q.vy),rr=q.rr*px,pkOn=!!q.pk;
@@ -31310,7 +31316,7 @@ function psDraw(g,now){
     if(pkOn){const m=1+.25*Math.sin(now/90);x.fillStyle='#fff6d0';x.shadowColor='#f0d27a';x.shadowBlur=12*g.dpr;x.beginPath();x.arc(c0[0],c0[1]-rr,3.2*g.dpr*m,0,6.283);x.fill();}
     x.restore();
     // the front sight: a thin ring, four small ticks, a point in the middle
-    const sr=2.7*px,lw=(bold?2.4:1.5)*g.dpr;x.save();
+    const sr=g.D.sight*px,lw=(bold?2.4:1.5)*g.dpr;x.save();
     for(const pass of [0,1]){x.strokeStyle=x.fillStyle=pass?col:'rgba(6,8,7,.6)';x.lineWidth=pass?lw:lw+2.6*g.dpr;
       x.beginPath();x.arc(c1[0],c1[1],sr,0,6.283);x.stroke();
       for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){x.beginPath();x.moveTo(c1[0]+dx*sr*1.12,c1[1]+dy*sr*1.12);x.lineTo(c1[0]+dx*sr*1.55,c1[1]+dy*sr*1.55);x.stroke();}
@@ -31345,7 +31351,7 @@ function psStep(g,dt){
   if(g.net&&G.isOnline){
     const N=g.net;
     if(g.phase==='setup'&&!psHost()&&g.t-N.helloAt>2){N.helloAt=g.t;psSend(g,{k:'hello'});}
-    if(psHost()&&N.cfg&&g.t<N.goUntil&&g.t-N.goAt>1.2){N.goAt=g.t;psSend(g,{k:'go',lv:N.cfg.lv,breath:N.cfg.breath?1:0});}
+    if(psHost()&&N.cfg&&g.t<N.goUntil&&g.t-N.goAt>1.2){N.goAt=g.t;psSend(g,{k:'go',lv:N.cfg.lv,breath:N.cfg.breath?1:0,dc:N.cfg.dc});}
   }
   if(g.phase==='setup')return;
   const ph=psPhase(g,g.t),inPause=g.breath&&ph>=.86;
@@ -31411,6 +31417,7 @@ function psHud(g){
       const h=cut.map(s=>`<i class="${s.v>=109?'g':s.v>=100?'t':s.v===0?'z':''}">${psFmt(s.v)}</i>`).join('');if(ch._h!==h){ch._h=h;ch.innerHTML=h;}}
     set('ps-pb'+i,g.phase==='setup'?'':(g.mode==='match'?'SERIES '+Math.min(g.total/g.D.series,Math.floor(a.length/g.D.series)+1)+' / '+(g.total/g.D.series):''));
   });
+  set('ps-ms',(g.D.micro||.1).toFixed(1)+' mm');
   const sn=g.phase==='setup'?'':g.total===Infinity?'SHOT '+((g.sh[g.curI]||[]).length+1):'SHOT '+Math.min(g.total,(g.sh[g.curI]||[]).length+(g.phase==='reveal'?0:1))+' / '+g.total;
   set('ps-sn',sn);
   const stab=document.getElementById('ps-sb');if(stab){const w=Math.round(g.S*100)+'%';if(stab._w!==w){stab._w=w;stab.style.width=w;}}
@@ -31440,7 +31447,7 @@ function rPrecisionTable(){
           <div class="ps-sn" id="ps-sn"></div>
           <div class="ps-rev" id="ps-rev"><div class="ps-rev-k" id="ps-r1">&nbsp;</div><div class="ps-rev-p" id="ps-r2">&nbsp;</div><div class="ps-rev-v" id="ps-r3">&nbsp;</div><div class="ps-rev-t" id="ps-r4">&nbsp;</div></div>
           <div class="ps-stab"><div class="ps-h">STABILITY</div><div class="ps-bar"><i id="ps-sb"></i></div><div class="ps-pk" id="ps-pk">STABILITY PEAK</div><div class="ps-offs" id="ps-offs"></div></div>
-          <div class="ps-arrows" aria-label="Fine adjustment, 0.1 millimetre per step"><span></span><button data-psm="u" aria-label="Up">▲</button><span></span><button data-psm="l" aria-label="Left">◀</button><em>0.1 mm</em><button data-psm="r" aria-label="Right">▶</button><span></span><button data-psm="d" aria-label="Down">▼</button><span></span></div>
+          <div class="ps-arrows" aria-label="Fine adjustment, 0.1 millimetre per step"><span></span><button data-psm="u" aria-label="Up">▲</button><span></span><button data-psm="l" aria-label="Left">◀</button><em id="ps-ms">0.1 mm</em><button data-psm="r" aria-label="Right">▶</button><span></span><button data-psm="d" aria-label="Down">▼</button><span></span></div>
           <button class="ps-fire off" id="ps-fire" data-psfire aria-label="Fire"><b id="ps-fl">FIRE</b></button>
           <button class="ps-end" id="ps-endfree" data-psa="finishfree">FINISH PRACTICE</button>
         </div>
@@ -31460,14 +31467,15 @@ function psPaintOv(g){
     const sm=g.summary;
     const modeNote={match:'Twenty shots, shot in four series of five. Everybody shoots in turn; the highest total wins. Robots can join.',train10:'Ten shots for one person. You see where you aimed and where the pellet went.',free:'No limit. Practise as long as you like, then finish.'}[pr.mode];
     h=`<div class="ps-card">
-      <div class="ps-kick">OLYMPIC GAMES</div><div class="ps-h1">PRECISION SHOOTING</div><div class="ps-sub">${esc(g.D.name)} · OUR TABLE MODE</div>
+      <div class="ps-kick">OLYMPIC GAMES</div><div class="ps-h1">PRECISION SHOOTING</div><div class="ps-sub">${esc(PS_DISC[pr.disc].name)} · OUR TABLE MODE</div>
       ${sm?`<div class="ps-sum"><div class="ps-sum-h">PRACTICE COMPLETE</div><div class="ps-sum-r"><span><b>${psFmt(sm.tot)}</b>total</span><span><b>${(sm.avg/10).toFixed(2)}</b>average</span><span><b>${psFmt(sm.best)}</b>best</span><span><b>${sm.perfect}</b>10.9</span><span><b>${sm.streak}</b>tens in a row</span></div></div>`:''}
+      ${onl&&!host?'<div class="ps-grp">DISCIPLINE</div><div class="ps-note">The host chooses the discipline and the level.</div>':`<div class="ps-grp">DISCIPLINE</div>${seg(Object.keys(PS_DISC).map(k=>[k,PS_DISC[k].tag]),pr.disc,'disc')}`}
       ${onl?'<div class="ps-grp">ONLINE MATCH</div><div class="ps-note">20 shots each in four series of five. Everybody shoots a series in turn on their own device and watches the others aim. The highest total wins.</div>':`<div class="ps-grp">MODE</div>${seg([['match','MATCH · 20 SHOTS'],['train10','TRAINING · 10'],['free','FREE PRACTICE']],pr.mode,'mode')}<div class="ps-note">${modeNote}</div>`}
-      ${onl&&!host?'<div class="ps-grp">LEVEL</div><div class="ps-note">The host chooses the level.</div>':`<div class="ps-grp">LEVEL</div>${seg(PS_LVK.map(k=>[k,PS_LV[k].n.toUpperCase()]),pr.lv,'lv')}<div class="ps-note">${esc(PS_LV[pr.lv].about)}</div>`}
+      ${onl&&!host?'':`<div class="ps-grp">LEVEL</div>${seg(PS_LVK.map(k=>[k,PS_LV[k].n.toUpperCase()]),pr.lv,'lv')}<div class="ps-note">${esc(PS_LV[pr.lv].about)}</div>`}
       <div class="ps-grp">OPTIONS</div><div class="ps-tgs">${tg('breath','BREATHING',pr.breath)}${tg('focus','FOCUS',pr.focus)}${tg('steady','STEADY HAND',pr.steady)}${tg('bold','BOLD SIGHT',pr.bold)}</div>
       <div class="ps-ppl">${g.players.map(p=>`<span>${p.avatar?'<span class="ah-av">'+avHTML(p.avatar)+'</span>':''}${esc(p.name)}${p.bot?' · '+PS_BOTS[p.bot].n.toLowerCase()+' robot':''}</span>`).join('')}</div>
       ${onl&&!host?'<div class="ps-note" style="text-align:center;margin-top:.8rem;">Waiting for the host to start the match…</div>':`<button class="btn btn-gold ps-go" data-psa="start">${onl?'START FOR EVERYONE':sm?'SHOOT AGAIN':'ENTER THE RANGE'}</button>`}
-      <div class="ps-fine">Drag on the target to move the sight: fast far away, fine near the middle. The small arrows move it 0.1 mm. Hold still and the ring contracts; the gold mark is the stability peak. An official ISSF mode follows later.</div>
+      <div class="ps-fine">Drag on the target to move the sight: fast far away, fine near the middle. The small arrows move it a tiny step. Hold still and the ring contracts; the gold mark is the stability peak. An official ISSF mode follows later.</div>
     </div>`;
   }else if(g.phase==='hand'&&g.hand&&!g.hand.bot&&onl&&psWatch(g)){
     h=`<div class="ps-card ps-small"><div class="ps-kick">NEXT SHOOTER</div><div class="ps-hand">${g.cur.avatar?'<span class="ah-av">'+avHTML(g.cur.avatar)+'</span>':''}<b>${esc(g.cur.name)}</b></div></div>`;
@@ -31511,8 +31519,9 @@ function psAction(g,a,v){
   const pr=psPrefs();
   if(a==='mode'){pr.mode=v;psSavePrefs(pr);psPaintOv(g);}
   else if(a==='lv'){pr.lv=v;psSavePrefs(pr);psPaintOv(g);}
+  else if(a==='disc'){if(!PS_DISC[v])return;pr.disc=v;psSavePrefs(pr);g.D=PS_DISC[v];g.bg=null;try{psSize(g);}catch(e){}psPaintOv(g);}
   else if(a==='tg'){pr[v]=!pr[v];psSavePrefs(pr);psPaintOv(g);}
-  else if(a==='start'){if(G.isOnline){if(!psHost())return;pr.mode='match';psSavePrefs(pr);const cfg={lv:pr.lv,breath:!!pr.breath};g.net.cfg=cfg;g.net.goUntil=g.t+8;g.net.goAt=g.t;psSend(g,{k:'go',lv:cfg.lv,breath:cfg.breath?1:0});psBegin(g,cfg);}else psBegin(g);psPaintOv(g);}
+  else if(a==='start'){if(G.isOnline){if(!psHost())return;pr.mode='match';psSavePrefs(pr);const cfg={lv:pr.lv,breath:!!pr.breath,dc:pr.disc};g.net.cfg=cfg;g.net.goUntil=g.t+8;g.net.goAt=g.t;psSend(g,{k:'go',lv:cfg.lv,breath:cfg.breath?1:0,dc:cfg.dc});psBegin(g,cfg);}else psBegin(g);psPaintOv(g);}
   else if(a==='ready'){if(G.isOnline&&g.net&&g.curI===g.net.seat){const m={k:'ready'};psSend(g,m);[300,800,1500].forEach(d=>setTimeout(()=>{if(G.ps===g)psSend(g,Object.assign({},m));},d));}psAimStart(g);}
   else if(a==='finishfree'){if(g.mode!=='free'||g.phase==='setup')return;if(g.phase==='reveal')return;psFinish(g);}
 }
@@ -34468,6 +34477,7 @@ document.addEventListener('click',e=>{
     const fresh=g.st.every(q=>q.score===0&&q.ball===1&&!q.boss);if(fresh&&!G.isOnline){g.st.forEach(q=>{q.lvl=w;q.mi=0;q.mp=0;});g.statik=null;toast('Starting in '+PB_PAL[w].n.toLowerCase());}else toast('Your next game starts in '+PB_PAL[w].n.toLowerCase());}}
   else if(a==='pbhof'){G.pbHof=true;render();}
   else if(a==='pslb'){G.psLb=true;render();}
+  else if(a==='pslbd'){G.psLbD=t.getAttribute('data-v');render();}
   else if(a==='close-pslb'){G.psLb=false;render();}
   else if(a==='close-pbhof'){G.pbHof=false;render();}
   else if(a==='quit-ask'){G.quitOpen=true;render();}
