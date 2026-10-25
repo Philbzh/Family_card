@@ -5934,6 +5934,18 @@ async function runPresentation(A,W,frame){
         check('the vault has only two wheels and no bumpers at the bottom',F('PB_RT').gears.length===2&&F('PB_RT').bumpers.length===0&&F('PB_CK').bumpers.length===0);
         p.room=null;}
        p.phase='play';p.tilt=6.3;p.balls=[nb];}
+      // the forge is a table of its own
+      {const lv0=stt.lvl;p.phase='play';p.tilted=false;p.room=null;p.slow=0;p.freeze=0;stt.boss=null;
+       try{stt.lvl=1;F('pbStep')(p,1/60);const T=F('PB_T');
+        check('in the forge the bumpers are an anvil of four, with two hammers and two fire jets',T.world===1&&T.bumpers.length===4&&T.hammers.length===2&&T.jets.length===2);
+        F('pbResetTable')();p.balls=[{x:101,y:486,vx:0,vy:0,st:'play',id:9600,stuck:0,tr:[]}];p.t=1.9;p.saveT=99;stt.hotT=0;const sc0=stt.score;for(let i=0;i<8;i++)F('pbStep')(p,1/60);
+        check('a hammer that strikes the ball throws it and pays',stt.score-sc0>=1500&&Math.hypot(p.balls[0].vx,p.balls[0].vy)>150);
+        F('pbResetTable')();p.balls=[{x:70,y:290,vx:0,vy:0,st:'play',id:9601,stuck:0,tr:[]}];p.t=3.2*5+.2-1.6*0;{const j=T.jets[0];p.t=Math.ceil(p.t/3.2)*3.2-j.ph+.15;}for(let i=0;i<20;i++)F('pbStep')(p,1/60);
+        check('a fire jet blows the ball across the table',Math.abs(p.balls[0].vx)>120||p.balls[0].x>120);
+        stt.heat=0;stt.hotT=0;stt.mi=0;stt.mp=0;for(let i=0;i<12;i++)F('pbEvent')(p,'bumper',{bm:T.bumpers[0],b:{x:0,y:0}});
+        check('twelve bumper hits in the forge make white heat: ten seconds of triple points',stt.hotT>9&&stt.mp===1);
+        stt.lvl=0;F('pbStep')(p,1/60);check('and in the workshop the table is the old one again',F('PB_T').world===0&&F('PB_T').bumpers.length===3&&F('PB_T').hammers.length===0);
+       }finally{stt.lvl=lv0;F('pbWorldApply')(Math.min(3,lv0));stt.hotT=0;stt.heat=0;p.balls=[nb];p.tilt=6.3;}}
       // the hall of fame
       {const old=W.localStorage.getItem('ct_pb_hof');W.localStorage.removeItem('ct_pb_hof');
        F('pbHofAdd')([{n:'ZoeTest',s:5000,d:'2026-11-01T10:00:00.000Z'},{n:'MaxTest',s:9000,d:'2026-11-02T10:00:00.000Z',lv:2,bj:50000},{n:'ZoeTest',s:5000,d:'2026-11-01T10:00:00.000Z'}]);
