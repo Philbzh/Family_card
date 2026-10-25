@@ -11171,11 +11171,11 @@ function pbFinish(g){
   G.ahMoment=mom;G.fgResult=null;G.fgHighlight=null;
   G.pbResult={score:sc,top,jackpots:g.stats.jackpots,multis:g.stats.multis,best:g.jackBest,missions:g.stats.missions,levels:g.stats.levels,dur:Math.round((Date.now()-g.stats.start)/1000),names:g.players.map(p=>p.name)};
   const when=new Date().toISOString();
-  pbHofAdd(g.players.map((pl,i)=>({n:String(pl.name||'Player '+(i+1)).slice(0,24),s:sc[i],d:when,lv:g.st[i].lvl,bj:g.st[i].best||0})).filter(e=>e.s>0));
-  {const all=pbHofAll(),ix=all.findIndex(e=>e.n===String(g.players[w].name||'Player '+(w+1)).slice(0,24)&&e.s===top);G.pbResult.rank=ix>=0&&ix<10?ix+1:0;}
+  pbHofAdd(g.players.map((pl,i)=>pl.bot?null:{n:String(pl.name||'Player '+(i+1)).slice(0,24),s:sc[i],d:when,lv:g.st[i].lvl,bj:g.st[i].best||0}).filter(e=>e&&e.s>0));
+  {const all=pbHofAll(),ix=g.players[w].bot?-1:all.findIndex(e=>e.n===String(g.players[w].name||'Player '+(w+1)).slice(0,24)&&e.s===top);G.pbResult.rank=ix>=0&&ix<10?ix+1:0;}
   G.tw=(G.tw||0)+1;try{localStorage.setItem('ct_tw',G.tw);}catch(e){}
   try{addHistory({game:'pinball',winner:g.players[w].name,winnerAvatar:g.players[w].avatar,date:when,players:g.players.map(p=>p.name),moment:mom,stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats?G.matchStats.reactions:0,ah:{score:sc,dur:G.pbResult.dur}}});}catch(e){}
-  try{const nr=arRecordUpdate('pinball',g.players.map(p=>p.name),g.players[w].name,[top,0],{jackpot:g.jackBest,multi:g.stats.multis,team:0});if(nr.length)setTimeout(()=>toast('🏆 New Pinball record'),900);}catch(e){}
+  try{const sc2=sc.map((v,i)=>g.players[i].bot?0:v),hb=Math.max(0,sc2.indexOf(Math.max(...sc2))),nr=Math.max(...sc2)>0?arRecordUpdate('pinball',g.players.map(p=>p.name),g.players[hb].name,[Math.max(...sc2),0],{jackpot:g.jackBest,multi:g.stats.multis,team:0}):[];if(nr.length)setTimeout(()=>toast('🏆 New Pinball record'),900);}catch(e){}
   hfSnd.cheer(1);pbStop();G.scr='matchend';render();
 }
 function pbStop(){const g=G.pb;if(!g)return;g.live=false;if(g.raf)cancelAnimationFrame(g.raf);g.raf=0;G.pb=null;}
@@ -32746,12 +32746,18 @@ function gtResultsHTML(){
   return`<div class="panel gt-res"><div class="panel-lbl">THE GAUNTLET · ${esc(GT_MODES[gt.mode]?GT_MODES[gt.mode].name.toUpperCase():'')} · ${gt.round} ROUNDS</div><table><thead><tr><th></th><th title="Captures">💥</th><th title="Shortcuts taken">🛤️</th><th title="Dares">😈</th><th title="Traps set">🔒</th><th title="Runners caught by this player's traps">🪤</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 // ── the hall of fame: the best scores ever played, from this iPad and from the whole family's shared history ──
-function pbHofLoad(){try{const a=JSON.parse(localStorage.getItem('ct_pb_hof')||'[]');return Array.isArray(a)?a.filter(e=>e&&typeof e.s==='number'&&e.n):[];}catch(e){return[];}}
-function pbHofAdd(list){try{const cur=pbHofLoad(),keys=new Set(cur.map(e=>e.n+'|'+e.s));for(const e of list){const k=e.n+'|'+e.s;if(!keys.has(k)){keys.add(k);cur.push(e);}}cur.sort((a,b)=>b.s-a.s);localStorage.setItem('ct_pb_hof',JSON.stringify(cur.slice(0,60)));}catch(e){}}
+// the list starts again from this day on, on every device; a robot never makes it onto the list, only people do
+const PB_HOF_CUTOFF='2026-10-25T07:30:00.000Z';
+function pbIsBotName(n){n=String(n||'');return BOT_NAMES.includes(n)||/^Bot \d+$/.test(n);}
+function pbHofOk(e){return !!(e&&typeof e.s==='number'&&e.s>0&&e.n&&!pbIsBotName(e.n)&&(!e.d||String(e.d)>=PB_HOF_CUTOFF));}
+function pbHofMigrate(){try{if(localStorage.getItem('ct_pb_hof_v')==='2')return;localStorage.setItem('ct_pb_hof_v','2');localStorage.removeItem('ct_pb_hof');const a=JSON.parse(localStorage.getItem('ct_ar')||'{}');if(a&&a.rec&&a.rec.pinball){delete a.rec.pinball;localStorage.setItem('ct_ar',JSON.stringify(a));}}catch(e){}}
+function pbHofLoad(){pbHofMigrate();try{const a=JSON.parse(localStorage.getItem('ct_pb_hof')||'[]');return Array.isArray(a)?a.filter(pbHofOk):[];}catch(e){return[];}}
+function pbHofAdd(list){try{const cur=pbHofLoad(),keys=new Set(cur.map(e=>e.n+'|'+e.s));for(const e of list){if(!pbHofOk(e))continue;const k=e.n+'|'+e.s;if(!keys.has(k)){keys.add(k);cur.push(e);}}cur.sort((a,b)=>b.s-a.s);localStorage.setItem('ct_pb_hof',JSON.stringify(cur.slice(0,60)));}catch(e){}}
 function pbHofAll(){
-  const out=pbHofLoad().slice(),keys=new Set(out.map(e=>e.n+'|'+e.s));
+  const out=pbHofLoad().slice(),keys=new Set(out.map(e=>e.n+'|'+e.s)),fam=[];
   try{for(const h of familyHistory()){if(!h||h.game!=='pinball'||!h.stats||!h.stats.ah||!Array.isArray(h.stats.ah.score))continue;
-    (h.players||[]).forEach((n,i)=>{const sc=h.stats.ah.score[i];if(typeof sc!=='number'||sc<=0||!n)return;const k=n+'|'+sc;if(keys.has(k))return;keys.add(k);out.push({n:String(n),s:sc,d:h.date||''});});}}catch(e){}
+    (h.players||[]).forEach((n,i)=>{const sc=h.stats.ah.score[i],e={n:String(n||''),s:sc,d:h.date||''};if(!pbHofOk(e))return;const k=e.n+'|'+sc;if(keys.has(k))return;keys.add(k);out.push(e);fam.push(e);});}}catch(e){}
+  if(fam.length&&_familyHistoryCache)pbHofAdd(fam);   // what the family played on other devices is kept here too, so the list is the same online and alone
   out.sort((a,b)=>b.s-a.s);return out;
 }
 function pbHofDate(d){try{const t=new Date(d);return isNaN(t)?'':t.toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'});}catch(e){return'';}}
