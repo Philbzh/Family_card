@@ -31803,6 +31803,7 @@ function clBegin(g,cfg){
   const idx=g.players.map((p,i)=>i);let who=idx;if(g.mode!=='round'){const h=idx.find(i=>!g.players[i].bot);who=[h==null?0:h];}
   g.who=who;g.res=g.players.map(()=>[]);g.tot=g.players.map(()=>0);g.bi=0;g.pi=0;g.ei=0;g.over=false;g.summary=null;g.stats={start:Date.now()};
   g.clays=[];g.shots=[];g.parts=[];clTurn(g);
+  try{_hfK=.0001;hfNz(.02,500,500,.0001,{rev:.1});hfOsc(300,300,.02,.0001,{rev:.1});}catch(e){}   // wake the sound up before the first shot
 }
 
 // ── online: the shooter's device is in charge; the others see the gun turn, the clay fly and break ──
@@ -32150,18 +32151,18 @@ function clDraw(g,now){
 function clAmbient(g){
   const V=g.venue||'golden',r=Math.random();
   try{_hfK=.8;
-    if(V==='night'&&r<.5){const f=3900+Math.random()*500;for(let i=0;i<3;i++)hfOsc(f,f*1.02,.035,.03,{a:.004,d:i*70});}
-    else if(V==='winter'&&r<.25)hfNz(1.6,700,260,.05,{type:'lowpass',a:.5,rev:.2});
-    else if(V==='coast'){if(r<.45)hfNz(1.4,900,350,.05,{type:'lowpass',a:.6,rev:.2});else if(r<.55){hfOsc(1900,1400,.28,.03,{a:.03,rev:.3});hfOsc(2100,1500,.22,.025,{a:.03,rev:.3,d:260});}}
-    else if(V==='golden'&&r<.2){const f=2600+Math.random()*700;hfOsc(f,f*1.15,.09,.022,{a:.01,rev:.25});}
+    if(V==='night'&&r<.5){const f=3900+Math.random()*500;for(let i=0;i<2;i++)hfOsc(f,f*1.02,.035,.03,{a:.004,d:i*70});}
+    else if(V==='winter'&&r<.25)hfNz(1.6,700,260,.05,{type:'lowpass',a:.5});
+    else if(V==='coast'){if(r<.45)hfNz(1.4,900,350,.05,{type:'lowpass',a:.6});else if(r<.55){hfOsc(1900,1400,.28,.03,{a:.03});hfOsc(2100,1500,.22,.025,{a:.03,d:260});}}
+    else if(V==='golden'&&r<.2){const f=2600+Math.random()*700;hfOsc(f,f*1.15,.09,.022,{a:.01});}
   }catch(e){}
 }
 function clStep(g,dt){
   g.t+=dt;g.kick=Math.max(0,g.kick-dt*6);
   if(g.cases&&g.cases.length){for(const c of g.cases){c.l+=dt;c.vy+=1100*dt;c.x+=c.vx*dt;c.y+=c.vy*dt;c.rot+=c.vr*dt;}g.cases=g.cases.filter(c=>c.l<.9);}
-  if((g.phase==='ready'||g.phase==='wait')&&g.t>(g.ambAt||0)){g.ambAt=g.t+1.4+Math.random()*2.2;clAmbient(g);}
+  if(g.phase==='ready'&&g.t>(g.ambAt||0)&&g.autoAt-g.t>.8){g.ambAt=g.t+1.4+Math.random()*2.2;clAmbient(g);}
   // the cloud of fragments and smoke
-  for(const q of g.parts){q.l+=dt;q.p[0]+=q.v[0]*dt;q.p[1]+=q.v[1]*dt;q.p[2]+=q.v[2]*dt;if(q.k!=='p')q.v[1]-=9.8*dt;q.v[0]*=1-1.6*dt;q.v[2]*=1-1.6*dt;}g.parts=g.parts.filter(q=>q.l<q.life);
+  for(const q of g.parts){q.l+=dt;q.p[0]+=q.v[0]*dt;q.p[1]+=q.v[1]*dt;q.p[2]+=q.v[2]*dt;if(q.k!=='p')q.v[1]-=9.8*dt;q.v[0]*=1-1.6*dt;q.v[2]*=1-1.6*dt;}for(let i=g.parts.length-1;i>=0;i--)if(g.parts[i].l>=g.parts[i].life)g.parts.splice(i,1);
   if(g.net&&G.isOnline){const N=g.net;
     if(g.phase==='setup'&&!clHost()&&g.t-N.helloAt>2){N.helloAt=g.t;clSend(g,{k:'hello'},false);}
     if(clHost()&&N.cfg&&g.t<N.goUntil&&g.t-N.goAt>1.2){N.goAt=g.t;clSend(g,{k:'go',disc:N.cfg.disc,lv:N.cfg.lv,venue:N.cfg.venue,mix:N.cfg.mix?1:0},false);}
@@ -32200,10 +32201,11 @@ function clFrame(now){
   if(cv!==g.cv){clAttach();if(!g.cv)return;}
   if(document.hidden||G.rulesOpen||G.quitOpen||G.tour){g.last=now;return;}
   const raw=Math.max(0,(now-g.last)/1000),dt=Math.min(.05,raw);g.last=now;
-  g.ema=(g.ema||.016)*.92+raw*.08;if(g.t>2&&g.ema>.021&&(g.q||0)<2&&g.t-(g.qAt||0)>2.5){g.q=(g.q||0)+1;g.qAt=g.t;g.ema=.016;clSize(g);}   // too slow: fewer pixels
+  g.ema=(g.ema||.016)*.92+raw*.08;if(g.t>2&&g.ema>.021&&(g.q||0)<2&&g.t-(g.qAt||0)>2.5&&(g.phase==='ready'||g.phase==='result'||g.phase==='hand')){g.q=(g.q||0)+1;g.qAt=g.t;g.ema=.016;clSize(g);}   // too slow: fewer pixels
   const t0=performance.now();clStep(g,dt);clDraw(g,now);clHud(g);
+  g.mx=Math.max(g.mx||0,raw*1000);if(now-(g.mxAt||0)>3000){g.mxShow=g.mx;g.mx=0;g.mxAt=now;}
   g.costE=(g.costE||4)*.9+(performance.now()-t0)*.1;g.fpsE=(g.fpsE||60)*.92+(1/Math.max(.004,raw))*.08;
-  if(g.fpsOn&&now-(g.fpsAt||0)>500){g.fpsAt=now;const e=document.getElementById('cl-fps');if(e)e.textContent=Math.round(g.fpsE)+' fps · '+g.costE.toFixed(1)+' ms · q'+(g.q||0)+' · '+g.cv.width+'x'+g.cv.height+' · '+(g.pmN||0)+' ev';g.pmN=0;}
+  if(g.fpsOn&&now-(g.fpsAt||0)>500){g.fpsAt=now;const e=document.getElementById('cl-fps');if(e)e.textContent=Math.round(g.fpsE)+' fps · '+g.costE.toFixed(1)+' ms · q'+(g.q||0)+' · '+g.cv.width+'x'+g.cv.height+' · '+(g.pmN||0)+' ev · longest '+Math.round(g.mxShow||0)+' ms';g.pmN=0;}
 }
 function clAttach(){
   const g=G.cl;if(!g||!g.live)return;
@@ -32214,7 +32216,7 @@ function clAttach(){
 window.addEventListener('resize',()=>{try{if(G.cl&&G.cl.live)clSize(G.cl);}catch(e){}});
 
 // ── panels ──
-function clHudShells(g){const e=document.getElementById('cl-shells');if(e){const h=Array.from({length:(g.ev&&g.ev.shells)||((clIsTrap(g.disc)||(g.ev&&g.ev.c.length===2))?2:1)},(_,i)=>`<i class="${i<g.shells?'on':''}"></i>`).join('');if(e._h!==h){e._h=h;e.innerHTML=h;}}}
+function clHudShells(g){const e=document.getElementById('cl-shells');if(!e)return;const n=(g.ev&&g.ev.shells)||((clIsTrap(g.disc)||(g.ev&&g.ev.c.length===2))?2:1),key=n+'|'+g.shells;if(e._k===key)return;e._k=key;e.innerHTML=Array.from({length:n},(_,i)=>`<i class="${i<g.shells?'on':''}"></i>`).join('');}
 function clHud(g){
   const set=(id,v)=>{const e=document.getElementById(id);if(e&&e._v!==v){e._v=v;e.textContent=v;}};
   g.players.forEach((p,i)=>{const el=document.getElementById('cl-pl'+i);if(!el)return;const on=(g.who||[]).includes(i);el.style.display=g.phase==='setup'||on?'':'none';const cur=g.phase!=='setup'&&i===g.curI;if(el._c!==cur){el._c=cur;el.classList.toggle('on',cur);}
