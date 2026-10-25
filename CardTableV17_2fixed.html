@@ -4942,7 +4942,7 @@ const GAMES=[
      '<b>Surprises:</b> <b>splitters</b> (orange) break into two drones when shot, a <b>laser</b> locks onto your ship and fires down your column (step out of the line, or shield), every fourth wave brings a <b>BOSS</b> with a bar of its own, and some aliens leave a <b>power-up</b> that falls to you: <b>» rapid fire</b>, <b>3 triple shot</b>, <b>+ repair or shield</b>.',
      '<b>Defence:</b> move out of the way, or press <b>🛡</b> for a short shield (it needs a few seconds to recharge). A hit costs points and stuns your ship. Tied at the end? <b>Overtime.</b>']},
   {id:'clay',cat:'olympic',icon:'🥏',name:'Clay Shooting',players:'1–4',dur:'8–14 min',diff:'hard',deal:0,minP:1,maxP:4,cover:'assets/games/clay.jpg',
-   rules:['<b>Trap and Skeet.</b> You stand on a real field and the view is your gun: <b>drag</b> to turn it. <b>PULL</b> calls the clay (it leaves after a moment), <b>FIRE</b> shoots.',
+   rules:['<b>Trap and Skeet.</b> You stand on a real field and the view is your gun: <b>drag</b> to turn it. a countdown of <b>3 seconds</b> gives you time to aim, then the clay is called by itself (or tap <b>PULL</b> to call it sooner); <b>FIRE</b> shoots.',
      '<b>Lead the clay.</b> The shot is not instant: it needs a moment to reach the clay, and the clay flies the whole time. Aim <b>in front of it</b> and swing through. Beginner shows a hint where the clay is going and the cloud of the shot.',
      '<b>The pattern.</b> A shotgun throws a cloud of pellets: the clay breaks if it is inside the cloud when it arrives. The middle of the cloud is a <b>dead centre</b> (smoke), the edge only chips the clay.',
      '<b>Trap:</b> five stations, five clays each; the clay flies away from the trap house in front of you at a random angle; <b>two barrels</b>: first barrel 3 points (dead centre) or 2 (chip), second barrel 1.',
@@ -31728,11 +31728,11 @@ function clTurn(g){
   g.ei=0;g.clays=[];g.shots=[];
   if(g.who.length>1&&g.mode==='round'){g.phase='hand';g.hand={at:g.t,bot:!!g.cur.bot};clPaintOv(g);}else clReadyStart(g);
 }
-function clReadyStart(g){g.phase='ready';g.hand=null;g.shells=2;g.ev=clBlock(g).ev[g.ei];g.clays=[];g.shots=[];g.rv=null;g.bot=null;
+function clReadyStart(g){g.phase='ready';g.hand=null;g.shells=2;g.autoAt=g.t+(g.lv==='beginner'?4:3);g.autoN=9;g.ev=clBlock(g).ev[g.ei];g.clays=[];g.shots=[];g.rv=null;g.bot=null;
   const rd=clReady(g.disc,clBlock(g).st,g.ev);g.yaw=rd[0];g.pitch=rd[1];if(g.cur.bot)g.wait=g.t+.9;
   clPaintOv(g);}
 // PULL: the clay leaves after a short random moment
-function clPull(g){if(g.phase!=='ready'||g.cur.bot)return;g.phase='wait';g.wait=g.t+.35+Math.random()*(g.lv==='beginner'?.5:1.25);}
+function clPull(g){if(g.phase!=='ready'||g.cur.bot)return;g.phase='wait';g.wait=g.t+.25+Math.random()*(g.lv==='beginner'?.4:.9);}
 function clLaunchEvent(g){
   const lv=CL_LV[g.lv],r=Math.random,ev=g.ev,out=[];
   for(const k of ev.c){
@@ -31892,12 +31892,13 @@ function clBox(g,x,f,cx,cy,X,Y,Z,w,h,d,col){
 const CL_IMG={};
 function clImg(n){let i=CL_IMG[n];if(!i){i=CL_IMG[n]=new Image();i.src='assets/games/cl_'+n+(n==='sky'||n==='grass'?'.jpg':'.png');}return i.complete&&i.naturalWidth?i:null;}
 // a strip that turns with the gun: it repeats every rad radians, every second copy mirrored so that the edges always meet
-function clTile(x,img,g,f,cx,y0,h,rad,sy,sh){
+function clTile(x,img,g,f,cx,y0,h,rad,sy,sh,sx,sw){
+  sx=sx||0;sw=sw||img.width;sy=sy||0;sh=sh||img.height;
   const tw=rad*f,k0=Math.floor((g.yaw-cx/f-.05)/rad),k1=Math.floor((g.yaw+cx/f+.05)/rad);
   for(let k=k0;k<=k1;k++){const x0=cx+(k*rad-g.yaw)*f;
-    if(k&1){x.save();x.translate(x0+tw,0);x.scale(-1,1);if(sh)x.drawImage(img,0,sy,img.width,sh,0,y0,tw+1,h);else x.drawImage(img,0,y0,tw+1,h);x.restore();}else if(sh)x.drawImage(img,0,sy,img.width,sh,x0,y0,tw+1,h);else x.drawImage(img,x0,y0,tw+1,h);}
+    if(k&1){x.save();x.translate(x0+tw,0);x.scale(-1,1);x.drawImage(img,sx,sy,sw,sh,0,y0,tw+1,h);x.restore();}else x.drawImage(img,sx,sy,sw,sh,x0,y0,tw+1,h);}
 }
-function clSkyCol(img){if(img._sc)return img._sc;try{const c=document.createElement('canvas');c.width=c.height=1;const q=c.getContext('2d');q.drawImage(img,0,0,img.width,5,0,0,1,1);const d=q.getImageData(0,0,1,1).data;img._sc=['rgb('+d[0]+','+d[1]+','+d[2]+')','rgb('+Math.round(d[0]*.62)+','+Math.round(d[1]*.7)+','+Math.round(d[2]*.82)+')'];}catch(e){img._sc=['#2f6db0','#1d4a80'];}return img._sc;}
+function clSkyCol(img){if(img._sc)return img._sc;try{const c=document.createElement('canvas');c.width=c.height=1;const q=c.getContext('2d');q.drawImage(img,0,0,img.width,5,0,0,1,1);const d=q.getImageData(0,0,1,1).data;img._sn=[d[0],d[1],d[2]];img._sc=['rgb('+d[0]+','+d[1]+','+d[2]+')','rgb('+Math.round(d[0]*.62)+','+Math.round(d[1]*.7)+','+Math.round(d[2]*.82)+')'];}catch(e){img._sc=['#2f6db0','#1d4a80'];}return img._sc;}
 function clBill(g,x,f,cx,cy,img,P,hm){const p=clProj(g,P,f,cx,cy);if(!p||p[2]>260)return;const h=f*hm/p[2],w=h*img.width/img.height;x.drawImage(img,p[0]-w/2,p[1]-h,w,h);}
 function clGun(g,x,img,cx,cy,H,dpr){
   const h=H-cy+6*dpr,w=h*img.width/img.height;x.drawImage(img,cx-w/2,cy-2*dpr,w,h);
@@ -31911,7 +31912,10 @@ function clDraw(g,now){
   const hy=cy+f*Math.tan(g.pitch);   // the horizon
   // sky
   let gr=x.createLinearGradient(0,Math.min(0,hy-H),0,Math.max(hy,1));gr.addColorStop(0,'#2f6db0');gr.addColorStop(.7,'#8dbbe0');gr.addColorStop(1,'#d9e8ee');x.fillStyle=gr;x.fillRect(-20,-20,W+40,Math.max(hy,0)+20);
-  const skyI=clImg('sky');if(skyI){const sc=clSkyCol(skyI),topY=hy-.5*f;if(topY>-20){clTile(x,skyI,g,f,cx,-20,topY+21,3.6,0,3);gr=x.createLinearGradient(0,Math.min(-20,topY-1.1*f),0,topY);gr.addColorStop(0,'rgba(8,30,70,.7)');gr.addColorStop(1,'rgba(8,30,70,0)');x.fillStyle=gr;x.fillRect(-20,-20,W+40,topY+21);}clTile(x,skyI,g,f,cx,topY,.5*f,3.6);}
+  const skyI=clImg('sky');if(skyI){clSkyCol(skyI);const sn=skyI._sn||[47,109,176],bh2=.62*f,topY=hy-bh2,col=(al)=>'rgba('+sn[0]+','+sn[1]+','+sn[2]+','+al+')';
+    gr=x.createLinearGradient(0,Math.min(-20,topY-1.2*f),0,topY+2);gr.addColorStop(0,'rgb('+Math.round(sn[0]*.7)+','+Math.round(sn[1]*.78)+','+Math.round(sn[2]*.88)+')');gr.addColorStop(1,col(1));x.fillStyle=gr;x.fillRect(-20,-20,W+40,Math.max(0,topY)+24);
+    clTile(x,skyI,g,f,cx,topY,bh2,3.4,0,skyI.height,Math.round(skyI.width*.3),Math.round(skyI.width*.7));
+    gr=x.createLinearGradient(0,topY,0,topY+bh2*.4);gr.addColorStop(0,col(1));gr.addColorStop(1,col(0));x.fillStyle=gr;x.fillRect(-20,topY,W+40,bh2*.4);}
   // the sun and the clouds are fixed in the world: they turn with the gun
   const sunA=.7,sunE=.62,sx=cx+f*Math.tan(sunA-g.yaw),sy=cy+f*Math.tan(g.pitch-sunE);
   gr=x.createRadialGradient(sx,sy,0,sx,sy,f*.5);gr.addColorStop(0,'rgba(255,248,220,.95)');gr.addColorStop(.12,'rgba(255,240,190,.55)');gr.addColorStop(1,'rgba(255,230,160,0)');x.fillStyle=gr;x.fillRect(sx-f*.5,sy-f*.5,f,f);
@@ -31970,6 +31974,7 @@ function clStep(g,dt){
   for(const q of g.parts){q.l+=dt;q.p[0]+=q.v[0]*dt;q.p[1]+=q.v[1]*dt;q.p[2]+=q.v[2]*dt;if(q.k!=='p')q.v[1]-=9.8*dt;q.v[0]*=1-1.6*dt;q.v[2]*=1-1.6*dt;}g.parts=g.parts.filter(q=>q.l<q.life);
   if(g.phase==='setup'||g.phase==='over')return;
   if(g.phase==='hand'&&g.hand&&g.hand.bot&&g.t-g.hand.at>.7){clReadyStart(g);}
+  else if(g.phase==='ready'&&!g.cur.bot){const n=Math.ceil(g.autoAt-g.t);if(n!==g.autoN&&n>=1&&n<=4){g.autoN=n;try{clSnd.tick();}catch(e){}}if(g.t>=g.autoAt)clPull(g);}
   else if(g.phase==='ready'&&g.cur.bot&&g.t>=g.wait){g.phase='wait';g.wait=g.t+.35+Math.random()*1;}
   else if(g.phase==='wait'&&g.t>=g.wait){clLaunchEvent(g);}
   else if(g.phase==='fly'){
@@ -32018,7 +32023,7 @@ function clHud(g){
   set('cl-status',g.phase==='setup'?'OUR TABLE MODE · '+CL_DISC[g.disc].name:g.phase==='hand'?'Next shooter':g.cur?(g.cur.bot?g.cur.name+' (robot) is shooting':g.cur.name+' · '+CL_DISC[g.disc].name.toLowerCase()+' · station '+(b?b.st:'')):'');
   clHudShells(g);
   const fb=document.getElementById('cl-fire');if(fb){const can=!g.cur||!g.cur.bot;let lab='PULL',ok=false;
-    if(g.phase==='ready'&&can){lab='PULL';ok=true;}else if(g.phase==='wait'){lab='…';}else if(g.phase==='fly'&&can){lab=g.shells>0?'FIRE':'EMPTY';ok=g.shells>0;}else if(g.phase==='result'){lab='…';}else if(g.cur&&g.cur.bot){lab='ROBOT';}
+    if(g.phase==='ready'&&can){const n=Math.max(1,Math.ceil(g.autoAt-g.t));lab=n+' · PULL';ok=true;}else if(g.phase==='wait'){lab='…';}else if(g.phase==='fly'&&can){lab=g.shells>0?'FIRE':'EMPTY';ok=g.shells>0;}else if(g.phase==='result'){lab='…';}else if(g.cur&&g.cur.bot){lab='ROBOT';}
     if(fb._ok!==ok){fb._ok=ok;fb.classList.toggle('off',!ok);}set('cl-fl',lab);}
   const stg=document.getElementById('cl-stage');if(stg){const fr=g.mode==='train'&&g.phase!=='setup';if(stg._fr!==fr){stg._fr=fr;stg.classList.toggle('ps-free',fr);}}
 }
@@ -32056,7 +32061,7 @@ function clPaintOv(g){
       <div class="ps-grp">LEVEL</div>${seg(Object.keys(CL_LV).map(k=>[k,CL_LV[k].n.toUpperCase()]),pr.lv,'lv')}<div class="ps-note">${esc(CL_LV[pr.lv].about)}</div>
       <div class="ps-ppl">${g.players.map(p=>`<span>${p.avatar?'<span class="ah-av">'+avHTML(p.avatar)+'</span>':''}${esc(p.name)}${p.bot?' · '+CL_BOT[p.bot].n.toLowerCase()+' robot':''}</span>`).join('')}</div>
       <button class="btn btn-gold ps-go" data-clact="start">${sm?'SHOOT AGAIN':'GO TO THE FIELD'}</button>
-      <div class="ps-fine">Drag on the field to turn the gun. PULL calls the clay, FIRE shoots. The shot needs a moment to arrive: aim in front of the clay.</div></div>`;
+      <div class="ps-fine">Drag on the field to turn the gun. After a countdown of three seconds the clay is called by itself (or tap PULL to call it sooner), FIRE shoots. The shot needs a moment to arrive: aim in front of the clay.</div></div>`;
   }else if(g.phase==='hand'&&g.hand&&!g.hand.bot){
     h=`<div class="ps-card ps-small"><div class="ps-kick">STATION ${clBlock(g).st}</div><div class="ps-hand">${g.cur.avatar?'<span class="ah-av">'+avHTML(g.cur.avatar)+'</span>':''}<b>${esc(g.cur.name)}</b></div><button class="btn btn-gold ps-go" data-clact="ready">READY</button></div>`;
   }
