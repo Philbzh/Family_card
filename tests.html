@@ -5996,6 +5996,95 @@ async function runPresentation(A,W,frame){
       check('too many nudges in a row tilt it',p.tilted===true);
     }finally{const g=G();try{F('pbStop')();}catch(e){}g.isOnline=k0[0];g.selGame=k0[1];g.lp=k0[2];g.scr=k0[3];g.pb=null;}
   });
+  suite('Olympic Games: Precision Shooting (10 m Air Rifle)',()=>{
+    const F=n=>W.eval(n),G=()=>F('G');
+    const k0=[G().isOnline,G().selGame,G().lp,G().scr,G().ps,G().psResult];
+    const ls=['ct_ps_lb','ct_ar','ct_ps_pref'].map(k=>[k,W.localStorage.getItem(k)]);
+    try{
+      const gg=G();gg.isOnline=false;
+      // ── the registration
+      check('there is an Olympic Games category with the game in it',F('GAME_CATEGORIES').some(c=>c.id==='olympic')&&F('GAMES').some(x=>x.id==='precision'&&x.cat==='olympic'&&x.rules.length>=5));
+      check('robots can be added and they have three levels',F('BOT_GAMES').has('precision')&&F('Object.keys(PS_BOTS)').length===3);
+      // ── the scoring: decimal, 0.25 mm per tenth, ring 1 at the edge, nothing outside
+      const sc=F('psScore');
+      check('the heart of the target is 10.9, 0.1 less for every quarter millimetre',sc(0)===109&&sc(.24)===109&&sc(.26)===108&&sc(.51)===107);
+      check('the ten ring ends at 2.5 mm (10.0) and the nine begins just after it',sc(2.49)===100&&sc(2.51)===99);
+      check('the outer edge of ring 1 still scores 1.0 and beyond it is a miss',sc(24.9)===10&&sc(25.1)===0);
+      check('scores are written with one decimal and a perfect match is 218.0',F('psFmt')(109)==='10.9'&&F('psFmt')(20*109)==='218.0'&&F('psFmt')(5)==='0.5');
+      // ── a game on the iPad
+      gg.lp=[{id:1,name:'Ann',avatar:F('AVATARS')[0],hand:[],totalScore:0},{id:2,name:'Robo',bot:'steady',avatar:F('AVATARS')[1],hand:[],totalScore:0}];
+      gg.selGame='precision';F('lDealPrecision')();gg.scr='table';F('render')();F('psAttach')();
+      let p=G().ps;
+      check('the range opens on the set-up card with the target and the controls on the screen',!!p&&p.phase==='setup'&&!!W.document.getElementById('ps-cv')&&!!W.document.getElementById('ps-fire')&&W.document.querySelectorAll('[data-psm]').length===4&&/OUR TABLE MODE/.test(W.document.getElementById('ps-ov').innerHTML));
+      W.localStorage.setItem('ct_ps_pref',JSON.stringify({mode:'match',lv:'sport',breath:true,focus:false,steady:false,bold:false,disc:'air_rifle_10m'}));
+      F('psBegin')(p);
+      check('a match is twenty shots in series of five, one series each in turn, and Ann is first with a hand-over card',p.phase==='hand'&&p.total===20&&p.order.length===8&&p.order.join('')==='01010101'&&p.curI===0);
+      F('psAction')(p,'ready');
+      check('after READY the sight is live',p.phase==='aim');
+      // ── the sight: fast far away, fine near the middle, 0.1 mm per arrow tap
+      p.base={x:20,y:0};F('psMove')(p,1,0);const farMove=p.base.x-20;
+      p.base={x:.5,y:0};F('psMove')(p,1,0);const nearMove=p.base.x-.5;
+      check('dragging is fast far from the middle and very fine near it',farMove>.8&&nearMove<.2&&nearMove>0);
+      p.base={x:0,y:0};F('psMicro')(p,1,0);F('psMicro')(p,0,-1);
+      check('an arrow tap moves the sight exactly 0.1 mm',Math.abs(p.base.x-.1)<1e-9&&Math.abs(p.base.y+.1)<1e-9);
+      // ── stability: holding still contracts the ring, moving costs it
+      p.S=.2;p.hold=0;const a0=F('psAmp')(p);for(let i=0;i<240;i++)F('psStep')(p,1/60);const a1=F('psAmp')(p);
+      check('holding still raises the stability and the ring contracts',p.S>.7&&a1<a0*.7);
+      const s1=p.S;F('psMove')(p,10,0);
+      check('moving the sight costs stability',p.S<s1);
+      // ── the shot is never a fixed coordinate
+      const pts=[];for(let i=0;i<40;i++){p.phase='aim';p.cur.bot=null;p.base={x:0,y:0};p.S=.9;p.hold=3;p.lastMoveT=-9;p.seed=i*7.7;p.t=10+i*.37;F('psFireTap')(p);pts.push([p.rv.s.x,p.rv.s.y]);p.sh[0].length=0;p.rv=null;}
+      const mx=pts.reduce((a,q)=>a+q[0],0)/pts.length,my=pts.reduce((a,q)=>a+q[1],0)/pts.length,sd=Math.sqrt(pts.reduce((a,q)=>a+(q[0]-mx)**2+(q[1]-my)**2,0)/pts.length);
+      check('the same aim never gives the same shot, and the spread is small and controlled',sd>.15&&sd<4);
+      // ── the reveal: shot, position, score, total, then the next shot
+      p.phase='aim';p.cur.bot=null;p.base={x:0,y:0};p.S=.9;p.sh[0].length=0;p.tot[0]=0;p.k=0;p.oi=0;p.curI=0;p.cur=p.players[0];F('psFireTap')(p);
+      check('FIRE shoots at once and the pellet is on its way',p.phase==='reveal'&&!!p.rv&&p.sh[0].length===0);
+      for(let i=0;i<30;i++)F('psStep')(p,1/60);
+      check('the hole appears after a moment, before the score is told',p.sh[0].length===1&&p.tot[0]===0);
+      for(let i=0;i<150;i++)F('psStep')(p,1/60);
+      check('then the score is added to the total and the next shot is ready',p.phase==='aim'&&p.tot[0]===p.sh[0][0].v&&p.k===1);
+      // ── the robots shoot believable scores that rise with their level
+      const avg=lv=>{let t=0;for(let i=0;i<300;i++){p.cur={bot:lv};p.lv='sport';F('psBotPlan')(p);t+=F('psScore')(Math.hypot(p.bot.x,p.bot.y));}return t/300;};
+      const aG=avg('gentle'),aS=avg('steady'),aSh=avg('sharp');
+      check('a gentle robot shoots about 9, a steady one about 10, a sharp one a bit more',aG<aS&&aS<aSh&&aG>85&&aG<98&&aSh>98&&aSh<108);
+      // ── a whole match, driven by a patient shooter
+      gg.lp=[{id:1,name:'Ann',avatar:F('AVATARS')[0],hand:[],totalScore:0},{id:2,name:'Robo',bot:'sharp',avatar:F('AVATARS')[1],hand:[],totalScore:0}];
+      W.localStorage.removeItem('ct_ar');F('lDealPrecision')();gg.scr='table';F('render')();F('psAttach')();p=G().ps;F('psBegin')(p);
+      let steps=0;while(p.phase!=='over'&&steps<60*60*8){steps++;
+        if(p.phase==='hand'&&!p.hand.bot)F('psAction')(p,'ready');
+        if(p.phase==='aim'&&!p.cur.bot&&p.hold>3.2&&(F('psPhase')(p,p.t)>=.9||p.hold>8)){p.base.x=0;p.base.y=0;F('psFireTap')(p);}
+        F('psStep')(p,1/60);}
+      check('a match runs to the end: twenty shots each, series by series',p.phase==='over'&&p.sh[0].length===20&&p.sh[1].length===20&&p.rounds.length===4);
+      const R=G().psResult,tot=p.tot;
+      check('the totals add up from the shots and the winner has the most',!!R&&tot[0]===p.sh[0].reduce((a,s)=>a+s.v,0)&&tot[1]===p.sh[1].reduce((a,s)=>a+s.v,0)&&R.top===Math.max(tot[0],tot[1]));
+      check('the result is put on the players for the result screen',G().lp.every(x=>/·/.test(x.psLine))&&G().lp.some(x=>x.c4Result==='win')&&typeof G().lp[0].totalScore==='number');
+      check('a moment of the match is told',typeof G().ahMoment==='string'&&G().ahMoment.length>8);
+      {const names=F('psLbAll')().map(e=>e.n);check('a robot is never in the family leaderboard',!names.includes('Robo'));}
+      {const rec=(JSON.parse(W.localStorage.getItem('ct_ar')||'{}').rec||{}).precision;check('the records only know the human score, never the robot',!!rec&&!!rec.topscore&&rec.topscore.v===tot[0]/10&&rec.topscore.by==='Ann');}
+      gg.scr='matchend';F('render')();
+      check('the result screen shows the shooters with their totals and averages',/avg 10\.|avg 9\./.test(W.document.body.innerText)&&/Family Range/.test(W.document.body.innerText));
+      F('psStop')();
+      // ── the final shot: only when it can still change the winner
+      gg.lp=[{id:1,name:'Ann',avatar:F('AVATARS')[0],hand:[],totalScore:0},{id:2,name:'Bo',avatar:F('AVATARS')[1],hand:[],totalScore:0}];
+      F('lDealPrecision')();gg.scr='table';F('render')();F('psAttach')();p=G().ps;F('psBegin')(p);
+      p.curI=1;p.cur=p.players[1];p.oi=p.order.length-1;p.k=4;p.tot=[2000,1995];F('psAimStart')(p);
+      check('when the last shot can win it, it is a final shot and it says what is needed',!!p.final&&p.final.need===6&&p.final.name==='Bo');
+      p.tot=[2000,1500];F('psAimStart')(p);check('when it cannot change anything it is an ordinary shot',!p.final);
+      // ── training: ten shots, a summary and no entry in the family history
+      W.localStorage.setItem('ct_ps_pref',JSON.stringify({mode:'train10',lv:'sport',breath:true,focus:false,steady:false,bold:false,disc:'air_rifle_10m'}));
+      gg.lp=[{id:1,name:'Ann',avatar:F('AVATARS')[0],hand:[],totalScore:0}];F('lDealPrecision')();gg.scr='table';F('render')();F('psAttach')();p=G().ps;
+      const h0=F('getHistory')().length;F('psBegin')(p);
+      steps=0;while(p.phase==='aim'||p.phase==='reveal'||steps===0){steps++;if(steps>60*60*4)break;if(p.phase==='aim'&&p.hold>3.2){p.base.x=0;p.base.y=0;F('psFireTap')(p);}F('psStep')(p,1/60);}
+      check('a training of ten shots ends with a summary on the set-up card, not a match result',p.phase==='setup'&&!!p.summary&&p.summary.n===10&&G().scr==='table');
+      check('a training leaves nothing in the family history',F('getHistory')().length===h0);
+      check('the summary card tells the total and the average',/PRACTICE COMPLETE/.test(W.document.getElementById('ps-ov').innerHTML));
+      // ── the leaderboard
+      W.localStorage.removeItem('ct_ps_lb');
+      F('psLbAdd')([{n:'ZoeTest',s:201.5,a:10.07,d:'2026-11-01T10:00:00.000Z',lv:'sport'},{n:'MaxTest',s:207.3,a:10.36,d:'2026-11-02T10:00:00.000Z',lv:'elite',pf:2},{n:'Robo',s:215,a:10.7,d:'2026-11-02T10:00:00.000Z'},{n:'ZoeTest',s:201.5,a:10.07,d:'2026-11-01T10:00:00.000Z'}]);
+      {const all=F('psLbAll')().filter(e=>/Test$/.test(e.n));check('the leaderboard is sorted, has no double entries and no robots',all.length===2&&all[0].n==='MaxTest'&&!F('psLbAll')().some(e=>e.n==='Robo'));}
+      check('the leaderboard window shows the names',/MaxTest/.test(F('rPsLbOv')())&&/Family Range/.test(F('rPsLbOv')()));
+    }finally{const g=G();try{F('psStop')();}catch(e){}g.isOnline=k0[0];g.selGame=k0[1];g.lp=k0[2];g.scr=k0[3];g.ps=null;g.psResult=k0[5];ls.forEach(([k,v])=>{if(v===null)W.localStorage.removeItem(k);else W.localStorage.setItem(k,v);});}
+  });
   suite('Fairground: the LEVEL button works in every booth',()=>{
     const F=n=>W.eval(n),G=()=>F('G');
     const k0=[G().isOnline,G().selGame,G().lp,G().lstart,G().scr,G().fg];
