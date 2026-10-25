@@ -440,6 +440,7 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .ps-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#8a6d2a,#f0d27a);}
 .ps-pk{margin-top:6px;font:700 .54rem 'Cinzel',serif;letter-spacing:.2em;color:#fff3b0;text-align:center;opacity:0;transition:opacity .2s;}
 .ps-pk.on{opacity:1;}
+.ps-offs{margin-top:6px;font:700 .54rem 'Cinzel',serif;letter-spacing:.14em;color:#9db09f;text-align:center;min-height:.8rem;}
 .ps-arrows{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;width:100%;max-width:150px;margin:0 auto;opacity:.85;}
 .ps-arrows button{height:38px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid rgba(230,195,106,.2);color:#d9cfae;font-size:.8rem;touch-action:none;cursor:pointer;}
 .ps-arrows button:active{background:rgba(230,195,106,.25);}
@@ -30917,10 +30918,10 @@ const PS_DISC={
   air_rifle_10m:{id:'air_rifle_10m',name:'10 m Air Rifle',tag:'AIR RIFLE',dist:10,pellet:2.25,ringW:2.5,r10:.25,blackR:15.25,outerR:22.75,view:29,shots:20,series:5,step:.25}
 };
 const PS_LV={
-  beginner:{n:'Beginner',sway:4.4,gain:1.9,sig:.3,bot:.8,about:'A calm sight that settles fast.'},
-  sport:{n:'Sport',sway:6.2,gain:1.25,sig:.34,bot:1,about:'A lively sight. Hold still and wait for the right moment.'},
-  elite:{n:'Elite',sway:8.2,gain:1,sig:.38,bot:1.12,about:'A restless sight and a tiring arm.'},
-  olympic:{n:'Olympic',sway:10,gain:.85,sig:.42,bot:1.25,about:'As unforgiving as it gets.'}
+  beginner:{n:'Beginner',sway:3.4,gain:1.9,sig:.3,bot:.8,about:'A calm sight that settles fast.'},
+  sport:{n:'Sport',sway:5.2,gain:1.25,sig:.34,bot:1,about:'A lively sight. Hold still and wait for the right moment.'},
+  elite:{n:'Elite',sway:7,gain:1,sig:.38,bot:1.12,about:'A restless sight and a tiring arm.'},
+  olympic:{n:'Olympic',sway:9,gain:.85,sig:.42,bot:1.25,about:'As unforgiving as it gets.'}
 };
 const PS_BOTS={gentle:{n:'Gentle',s:3.3},steady:{n:'Steady',s:2.05},sharp:{n:'Sharp',s:1.25}};
 const PS_LVK=['beginner','sport','elite','olympic'];
@@ -30947,12 +30948,12 @@ function psOff(g,t){   // where the sight is relative to its base point at time 
   const hb=Math.sin(t*7.4)*A*.05;
   return[ox+hb,oy+hb*.6];
 }
-const psClampBase=(g)=>{const m=g.D.view-2.5,r=Math.hypot(g.base.x,g.base.y);if(r>m){g.base.x*=m/r;g.base.y*=m/r;}};
+const psClampBase=(g)=>{const m=(g.mmR||g.D.view*.82)-2.5,r=Math.hypot(g.base.x,g.base.y);if(r>m){g.base.x*=m/r;g.base.y*=m/r;}};
 // dragging: fast far from the middle, very fine near it (the gain follows the distance of the base point from the centre)
 function psMove(g,dx,dy){
-  const r=Math.hypot(g.base.x,g.base.y),gain=.08+.92*Math.pow(Math.min(1,r/18),1.6);
+  const r=Math.hypot(g.base.x,g.base.y),gain=.24+.76*Math.pow(Math.min(1,r/14),1.4);
   g.base.x+=dx*gain;g.base.y+=dy*gain;psClampBase(g);
-  const mv=Math.hypot(dx,dy)*gain;g.S=Math.max(0,g.S-mv*.05);g.hold=Math.max(0,g.hold-mv*.4);g.lastMoveT=g.t;
+  const mv=Math.hypot(dx,dy)*gain;g.S=Math.max(0,g.S-mv*.03);g.hold=Math.max(0,g.hold-mv*.4);g.lastMoveT=g.t;
 }
 function psMicro(g,dx,dy){if(g.phase!=='aim'||g.cur.bot||psWatch(g))return;g.base.x+=dx*.1;g.base.y+=dy*.1;psClampBase(g);g.S=Math.max(0,g.S-.012);g.lastMoveT=g.t-.3;psSnd.tick();}
 
@@ -30996,7 +30997,7 @@ function psBegin(g,cfg){
 }
 // a new series for a shooter: fresh stance (the sight starts away from the middle), a hand-over card when the shooter changes
 function psStage(g,first){
-  const a=Math.random()*6.283,r=9+Math.random()*4;g.base={x:Math.cos(a)*r,y:Math.sin(a)*r};g.S=.25;g.hold=0;g.pk=0;g.lastMoveT=-9;
+  const a=Math.random()*6.283,r=5+Math.random()*3;g.base={x:Math.cos(a)*r,y:Math.sin(a)*r};g.S=.25;g.hold=0;g.pk=0;g.lastMoveT=-9;
   if(g.who.length>1&&g.mode==='match'){
     g.phase='hand';g.hand={at:g.t,bot:!!g.cur.bot};
     psPaintOv(g);
@@ -31219,27 +31220,60 @@ const psSnd={
 function psSize(g){
   const m=document.getElementById('ps-mid');if(!m||!g.cv)return;const r=m.getBoundingClientRect(),dpr=Math.min(1.8,window.devicePixelRatio||1);
   if(!(r.width>10&&r.height>10))return;
-  g.cv.width=Math.round(r.width*dpr);g.cv.height=Math.round(r.height*dpr);g.dpr=dpr;g.px=(g.cv.height/2)/(g.D.view+1);g.bg=null;
+  g.cv.width=Math.round(r.width*dpr);g.cv.height=Math.round(r.height*dpr);g.dpr=dpr;g.ar=Math.min(g.cv.width,g.cv.height)/2*.86;g.mmR=g.D.view*.82;g.px=g.ar/g.mmR;g.bg=null;
 }
 function psBuildBg(g){
-  const W=g.cv.width,H=g.cv.height,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d'),px=g.px,cx=W/2,cy=H/2,D=g.D;
-  let gr=x.createRadialGradient(cx,cy*.85,H*.05,cx,cy,Math.max(W,H)*.78);gr.addColorStop(0,'#1c2823');gr.addColorStop(.5,'#0e1613');gr.addColorStop(1,'#040706');x.fillStyle=gr;x.fillRect(0,0,W,H);
-  // the paper: warm ivory, lit from the middle, with a little grain
-  const ch=46*px,cw=Math.min(46*px,W/2+4);
-  x.save();x.shadowColor='rgba(0,0,0,.6)';x.shadowBlur=26*px/10;x.fillStyle='#e9e1cc';x.fillRect(cx-ch,cy-ch,2*ch,2*ch);x.restore();
-  gr=x.createRadialGradient(cx,cy,10,cx,cy,Math.max(ch,H*.7));gr.addColorStop(0,'#f6efdc');gr.addColorStop(.6,'#e9e1cc');gr.addColorStop(1,'#cfc6ac');x.fillStyle=gr;x.fillRect(cx-ch,cy-ch,2*ch,2*ch);
-  x.globalAlpha=.05;for(let i=0;i<500;i++){x.fillStyle=Math.random()<.5?'#000':'#fff';x.fillRect(cx-ch+Math.random()*2*ch,cy-ch+Math.random()*2*ch,1+Math.random()*2,1);}x.globalAlpha=1;
-  // the rings
+  const W=g.cv.width,H=g.cv.height,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d'),px=g.px,cx=W/2,cy=H/2,D=g.D,dpr=g.dpr,ar=g.ar;
+  const lerp=(a,b,t)=>a+(b-a)*t,T=[.12,.3,.46,.6,.72,.82,.9],bw=ar*.55,bh=ar*.55;
+  let seed=11;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  // ── the range hall in perspective: ceiling with lamps, panelled walls with brass strips, a glossy floor, the target far away in the middle
+  x.fillStyle='#050807';x.fillRect(0,0,W,H);
+  let gr=x.createLinearGradient(0,0,0,cy-bh);gr.addColorStop(0,'#080c0a');gr.addColorStop(1,'#17231d');x.fillStyle=gr;x.beginPath();x.moveTo(0,0);x.lineTo(W,0);x.lineTo(cx+bw,cy-bh);x.lineTo(cx-bw,cy-bh);x.closePath();x.fill();
+  gr=x.createLinearGradient(0,H,0,cy+bh);gr.addColorStop(0,'#090d0b');gr.addColorStop(1,'#26332b');x.fillStyle=gr;x.beginPath();x.moveTo(0,H);x.lineTo(W,H);x.lineTo(cx+bw,cy+bh);x.lineTo(cx-bw,cy+bh);x.closePath();x.fill();
+  for(const sd of [-1,1]){const ex=sd<0?0:W;
+    gr=x.createLinearGradient(ex,0,cx+sd*bw,0);gr.addColorStop(0,'#0a120f');gr.addColorStop(1,'#1f2e26');x.fillStyle=gr;x.beginPath();x.moveTo(ex,0);x.lineTo(ex,H);x.lineTo(cx+sd*bw,cy+bh);x.lineTo(cx+sd*bw,cy-bh);x.closePath();x.fill();
+    for(const t of T){const xx=lerp(ex,cx+sd*bw,t),y0=lerp(0,cy-bh,t),y1=lerp(H,cy+bh,t);
+      x.strokeStyle='rgba(214,170,80,'+(.1+.22*t)+')';x.lineWidth=Math.max(1,(2.4-1.6*t)*dpr);x.beginPath();x.moveTo(xx,y0);x.lineTo(xx,y1);x.stroke();
+      // a wall lamp
+      const ly=lerp(H*.34,cy-bh*.5,t),lr=lerp(54,12,t)*dpr;const g2=x.createRadialGradient(xx,ly,0,xx,ly,lr);g2.addColorStop(0,'rgba(255,214,140,.55)');g2.addColorStop(1,'rgba(255,190,90,0)');x.fillStyle=g2;x.beginPath();x.arc(xx,ly,lr,0,6.283);x.fill();
+      x.fillStyle='rgba(255,236,190,.9)';x.beginPath();x.arc(xx,ly,Math.max(1,lerp(4,1.2,t)*dpr),0,6.283);x.fill();}}
+  // the lamps of the ceiling and their light on the floor
+  for(const t of T){const ly=lerp(0,cy-bh,t)+4*dpr,lw=lerp(W*.2,bw*.35,t),lh=lerp(11,3,t)*dpr;
+    const g3=x.createRadialGradient(cx,ly,0,cx,ly,lw*1.8);g3.addColorStop(0,'rgba(255,214,140,.5)');g3.addColorStop(1,'rgba(255,190,90,0)');x.fillStyle=g3;x.beginPath();x.ellipse(cx,ly,lw*1.8,lh*3.2,0,0,6.283);x.fill();
+    x.fillStyle='rgba(255,240,205,.95)';x.beginPath();x.ellipse(cx,ly,lw*.45,lh*.5,0,0,6.283);x.fill();
+    const fy=lerp(H,cy+bh,t),g4=x.createRadialGradient(cx,fy,0,cx,fy,lw*1.4);g4.addColorStop(0,'rgba(255,210,130,.16)');g4.addColorStop(1,'rgba(255,190,90,0)');x.fillStyle=g4;x.beginPath();x.ellipse(cx,fy,lw*1.4,lh*2.6,0,0,6.283);x.fill();
+    x.strokeStyle='rgba(230,190,90,.07)';x.lineWidth=dpr;x.beginPath();x.moveTo(lerp(0,cx-bw,t),fy);x.lineTo(lerp(W,cx+bw,t),fy);x.stroke();}
+  x.strokeStyle='rgba(230,190,90,.08)';x.lineWidth=dpr;for(let k=-4;k<=4;k++){x.beginPath();x.moveTo(cx+k*W*.22,H);x.lineTo(cx+k*bw*.4,cy+bh);x.stroke();}
+  x.fillStyle='#101a15';x.fillRect(cx-bw,cy-bh,2*bw,2*bh);
+  // the sign: how far away it is
+  if(cy-ar>30*dpr){const sy=(cy-ar)/2,sw=118*dpr,sh=22*dpr;
+    x.strokeStyle='rgba(180,140,60,.6)';x.lineWidth=dpr;x.beginPath();x.moveTo(cx-sw*.35,0);x.lineTo(cx-sw*.35,sy-sh/2);x.moveTo(cx+sw*.35,0);x.lineTo(cx+sw*.35,sy-sh/2);x.stroke();
+    gr=x.createLinearGradient(0,sy-sh/2,0,sy+sh/2);gr.addColorStop(0,'#f1d487');gr.addColorStop(1,'#a8802f');x.fillStyle=gr;x.beginPath();x.roundRect(cx-sw/2,sy-sh/2,sw,sh,5*dpr);x.fill();
+    x.fillStyle='#2a1c06';x.font='700 '+(12*dpr)+'px Cinzel,Georgia,serif';x.textAlign='center';x.textBaseline='middle';x.fillText('LANE 3  ·  10 m',cx,sy+dpr);}
+  // the bench and the barrel in front of you
+  const free=H-(cy+ar);
+  if(free>14*dpr){const rh=Math.min(free*.8,46*dpr),ry=H-rh;
+    gr=x.createLinearGradient(0,ry,0,H);gr.addColorStop(0,'#6a4326');gr.addColorStop(.35,'#4a2c16');gr.addColorStop(1,'#1d1109');x.fillStyle=gr;x.fillRect(0,ry,W,rh);
+    x.strokeStyle='rgba(20,10,4,.35)';x.lineWidth=dpr;for(let i=0;i<26;i++){const yy=ry+rnd()*rh;x.beginPath();x.moveTo(0,yy);x.bezierCurveTo(W*.3,yy+(rnd()-.5)*5*dpr,W*.6,yy+(rnd()-.5)*5*dpr,W,yy+(rnd()-.5)*3*dpr);x.stroke();}
+    x.fillStyle='rgba(236,196,92,.85)';x.fillRect(0,ry,W,2*dpr);
+    const bt=cy+ar-2*dpr,bwid0=26*dpr,bwid1=11*dpr;gr=x.createLinearGradient(cx-bwid0/2,0,cx+bwid0/2,0);gr.addColorStop(0,'#0c0d0e');gr.addColorStop(.35,'#6e7680');gr.addColorStop(.5,'#c9d0d8');gr.addColorStop(.65,'#5a626c');gr.addColorStop(1,'#0a0b0c');
+    x.fillStyle=gr;x.beginPath();x.moveTo(cx-bwid0/2,ry+2*dpr);x.lineTo(cx+bwid0/2,ry+2*dpr);x.lineTo(cx+bwid1/2,bt);x.lineTo(cx-bwid1/2,bt);x.closePath();x.fill();}
+  // ── the sight picture: a round window on the target card
+  x.save();x.beginPath();x.arc(cx,cy,ar,0,6.283);x.clip();
+  gr=x.createRadialGradient(cx,cy,10,cx,cy,ar*1.1);gr.addColorStop(0,'#f6efdc');gr.addColorStop(.6,'#e9e1cc');gr.addColorStop(1,'#cfc6ac');x.fillStyle=gr;x.fillRect(cx-ar,cy-ar,2*ar,2*ar);
+  x.globalAlpha=.05;for(let i=0;i<600;i++){x.fillStyle=rnd()<.5?'#000':'#fff';x.fillRect(cx-ar+rnd()*2*ar,cy-ar+rnd()*2*ar,1+rnd()*2,1);}x.globalAlpha=1;
   const R=k=>(D.r10+D.ringW*(10-k))*px;
   x.fillStyle='#0d0f0e';x.beginPath();x.arc(cx,cy,D.blackR*px,0,6.283);x.fill();
   for(let k=1;k<=10;k++){x.beginPath();x.arc(cx,cy,R(k),0,6.283);x.strokeStyle=k>=4?'rgba(233,225,204,.62)':'rgba(15,17,16,.82)';x.lineWidth=Math.max(1,px*.11);x.stroke();}
-  // the numbers 1-8 on the four axes
   x.font='700 '+Math.max(8,px*1.9)+'px Georgia,serif';x.textAlign='center';x.textBaseline='middle';
   for(let k=1;k<=8;k++){const rr=(R(k)+R(k+1))/2;x.fillStyle=k>=4?'rgba(233,225,204,.62)':'rgba(15,17,16,.72)';for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]])x.fillText(String(k),cx+dx*rr,cy+dy*rr);}
-  // the inner ten
   x.fillStyle='#f6efdc';x.beginPath();x.arc(cx,cy,Math.max(1.4,D.r10*px),0,6.283);x.fill();
-  // a soft pool of light and dark corners
-  gr=x.createRadialGradient(cx,cy,H*.15,cx,cy,Math.max(W,H)*.75);gr.addColorStop(0,'rgba(255,240,200,.05)');gr.addColorStop(1,'rgba(0,0,0,.4)');x.fillStyle=gr;x.fillRect(0,0,W,H);
+  gr=x.createRadialGradient(cx,cy,ar*.55,cx,cy,ar);gr.addColorStop(0,'rgba(0,0,0,0)');gr.addColorStop(1,'rgba(0,0,0,.5)');x.fillStyle=gr;x.fillRect(cx-ar,cy-ar,2*ar,2*ar);
+  x.restore();
+  // the rim of the window: black, with a thin ring of brass
+  x.beginPath();x.arc(cx,cy,ar+5*dpr,0,6.283);x.strokeStyle='#040504';x.lineWidth=10*dpr;x.stroke();
+  x.beginPath();x.arc(cx,cy,ar+10.5*dpr,0,6.283);x.strokeStyle='rgba(236,196,92,.8)';x.lineWidth=2*dpr;x.stroke();
+  x.beginPath();x.arc(cx,cy,ar+1*dpr,0,6.283);x.strokeStyle='rgba(255,255,255,.12)';x.lineWidth=dpr;x.stroke();
   g.bg=c;
 }
 function psHoleDraw(x,hx,hy,r,a,last){
@@ -31256,6 +31290,7 @@ function psDraw(g,now){
   x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,W,H);
   const k=fx.kick;const sx=k>0?(Math.random()-.5)*4*k*g.dpr:0,sy=k>0?(-3*k+(Math.random()-.5)*2*k)*g.dpr:0;
   x.save();x.translate(sx,sy);x.drawImage(g.bg,0,0);
+  x.save();x.beginPath();x.arc(cx,cy,g.ar,0,6.283);x.clip();
   const M=(mx,my)=>[cx+mx*px,cy+my*px];
   // the holes of the shooter whose target this is
   const list=g.sh[g.curI]||[];
@@ -31265,7 +31300,7 @@ function psDraw(g,now){
   if(fx.glow>0){x.save();x.globalCompositeOperation='lighter';const gr=x.createRadialGradient(cx,cy,0,cx,cy,px*9);gr.addColorStop(0,'rgba(240,210,122,'+(.5*fx.glow)+')');gr.addColorStop(1,'rgba(240,210,122,0)');x.fillStyle=gr;x.beginPath();x.arc(cx,cy,px*9,0,6.283);x.fill();x.restore();}
   // the sight and its stability ring (not while the shot is being revealed)
   if(g.phase==='aim'||g.phase==='hand'||(g.phase==='reveal'&&g.rv&&g.rv.step<1)){
-    const q=psSightPose(g);if(!q)return psDrawTail(g,x,W,H,cx,cy);const c0=M(q.bx,q.by),c1=M(q.vx,q.vy),rr=q.rr*px,pkOn=!!q.pk;
+    const q=psSightPose(g);if(!q){x.restore();return psDrawTail(g,x,W,H,cx,cy);}const c0=M(q.bx,q.by),c1=M(q.vx,q.vy),rr=q.rr*px,pkOn=!!q.pk;
     const bold=g.bold,col=bold?'#fff3b0':'#ffcf4a';
     // the ring (a dark line under the gold one: it must be seen on the paper and on the black)
     x.save();
@@ -31282,7 +31317,7 @@ function psDraw(g,now){
       x.beginPath();x.arc(c1[0],c1[1],Math.max(1.5,1.2*g.dpr)+(pass?0:1.2*g.dpr),0,6.283);x.fill();}
     x.restore();
   }
-  psDrawTail(g,x,W,H,cx,cy);
+  x.restore();psDrawTail(g,x,W,H,cx,cy);
 }
 function psDrawTail(g,x,W,H,cx,cy){
   const px=g.px,D=g.D,list=g.sh[g.curI]||[],M=(mx,my)=>[cx+mx*px,cy+my*px];
@@ -31379,6 +31414,7 @@ function psHud(g){
   const sn=g.phase==='setup'?'':g.total===Infinity?'SHOT '+((g.sh[g.curI]||[]).length+1):'SHOT '+Math.min(g.total,(g.sh[g.curI]||[]).length+(g.phase==='reveal'?0:1))+' / '+g.total;
   set('ps-sn',sn);
   const stab=document.getElementById('ps-sb');if(stab){const w=Math.round(g.S*100)+'%';if(stab._w!==w){stab._w=w;stab.style.width=w;}}
+  {const e=document.getElementById('ps-offs');if(e){const show=g.phase==='aim'&&!psWatch(g)&&!g.cur.bot&&(g.mode!=='match'||g.lv==='beginner');let t='';if(show){const bx=g.base.x,by=g.base.y,d=Math.hypot(bx,by);t=d<.15?'ON THE CENTRE':'CENTRE '+(Math.abs(bx)>=.05?(bx>0?'◀ ':'▶ ')+Math.abs(bx).toFixed(1):'')+(Math.abs(by)>=.05?'  '+(by>0?'▲ ':'▼ ')+Math.abs(by).toFixed(1):'')+' mm';}if(e._v!==t){e._v=t;e.textContent=t;}}}
   const pk=document.getElementById('ps-pk');if(pk){const on=g.breath&&g.phase==='aim'&&psPhase(g,g.t)>=.86&&!g.cur.bot;if(pk._o!==on){pk._o=on;pk.classList.toggle('on',on);}}
   const fb=document.getElementById('ps-fire');if(fb){const ok=g.phase==='aim'&&!g.cur.bot&&!psWatch(g);if(fb._ok!==ok){fb._ok=ok;fb.classList.toggle('off',!ok);}
     const lab=g.phase==='setup'?'FIRE':g.cur&&g.cur.bot?'ROBOT':g.phase==='hand'?'READY':g.phase==='reveal'?'…':'FIRE';set('ps-fl',lab);}
@@ -31403,7 +31439,7 @@ function rPrecisionTable(){
         <div class="ps-side ps-right" id="ps-right">
           <div class="ps-sn" id="ps-sn"></div>
           <div class="ps-rev" id="ps-rev"><div class="ps-rev-k" id="ps-r1">&nbsp;</div><div class="ps-rev-p" id="ps-r2">&nbsp;</div><div class="ps-rev-v" id="ps-r3">&nbsp;</div><div class="ps-rev-t" id="ps-r4">&nbsp;</div></div>
-          <div class="ps-stab"><div class="ps-h">STABILITY</div><div class="ps-bar"><i id="ps-sb"></i></div><div class="ps-pk" id="ps-pk">STABILITY PEAK</div></div>
+          <div class="ps-stab"><div class="ps-h">STABILITY</div><div class="ps-bar"><i id="ps-sb"></i></div><div class="ps-pk" id="ps-pk">STABILITY PEAK</div><div class="ps-offs" id="ps-offs"></div></div>
           <div class="ps-arrows" aria-label="Fine adjustment, 0.1 millimetre per step"><span></span><button data-psm="u" aria-label="Up">▲</button><span></span><button data-psm="l" aria-label="Left">◀</button><em>0.1 mm</em><button data-psm="r" aria-label="Right">▶</button><span></span><button data-psm="d" aria-label="Down">▼</button><span></span></div>
           <button class="ps-fire off" id="ps-fire" data-psfire aria-label="Fire"><b id="ps-fl">FIRE</b></button>
           <button class="ps-end" id="ps-endfree" data-psa="finishfree">FINISH PRACTICE</button>
@@ -31458,7 +31494,7 @@ function psBindInput(){
     drag={id:e.pointerId,x:e.clientX,y:e.clientY};},{passive:false});
   stage.addEventListener('pointermove',e=>{const g=G.ps;if(!drag||!g||e.pointerId!==drag.id||g.phase!=='aim'||g.cur.bot||psWatch(g))return;
     const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;
-    const css=(g.cv.clientHeight/2)/(g.D.view+1);   // CSS pixels per millimetre
+    const css=g.px/(g.dpr||1);   // CSS pixels per millimetre
     if(css>0)psMove(g,dx/css,dy/css);},{passive:true});
   const up=e=>{if(drag&&e.pointerId===drag.id)drag=null;stopRep();};
   stage.addEventListener('pointerup',up);stage.addEventListener('pointercancel',up);stage.addEventListener('lostpointercapture',up);
