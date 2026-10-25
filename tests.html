@@ -6159,18 +6159,18 @@ async function runPresentation(A,W,frame){
       // a clay is on its way; a cloud aimed exactly at it breaks it, a cloud aimed well behind it does not (the lead matters)
       const fly=()=>{F('clPull')(g);let n=0;while(g.phase!=='fly'&&n++<600)F('clStep')(g,1/60);for(let i=0;i<20;i++)F('clStep')(g,1/60);};
       const aimAt=(lead)=>{const c=g.clays[0],d0=Math.hypot(c.p[0]-g.eye[0],c.p[1]-g.eye[1],c.p[2]-g.eye[2]),T=d0/300*lead,q=[c.p[0]+c.v[0]*T,c.p[1]+c.v[1]*T-4.9*T*T,c.p[2]+c.v[2]*T],dv=[q[0]-g.eye[0],q[1]-g.eye[1],q[2]-g.eye[2]];g.yaw=Math.atan2(dv[0],dv[2]);g.pitch=Math.atan2(dv[1],Math.hypot(dv[0],dv[2]));};
-      fly();aimAt(1);F('clFire')(g);for(let i=0;i<200&&g.phase==='fly';i++)F('clStep')(g,1/60);
+      fly();aimAt(1-F('CL_LV')[g.lv].lead);F('clFire')(g);for(let i=0;i<200&&g.phase==='fly';i++)F('clStep')(g,1/60);
       check('a shot that leads the clay by the flight time of the pellets is a dead centre with the first barrel: 3 points',g.res[0].length===1&&g.res[0][0].pts===3&&g.res[0][0].first===true&&g.tot[0]===3);
       for(let i=0;i<120&&g.phase==='result';i++)F('clStep')(g,1/60);
       fly();aimAt(0);g.pitch-=.2;F('clFire')(g);for(let i=0;i<60;i++)F('clStep')(g,1/60);
       check('a shot far behind the clay misses and the second barrel is still there',g.shells===1&&g.res[0].length===1);
-      aimAt(1);F('clFire')(g);for(let i=0;i<200&&g.phase==='fly';i++)F('clStep')(g,1/60);
+      aimAt(1-F('CL_LV')[g.lv].lead);F('clFire')(g);for(let i=0;i<200&&g.phase==='fly';i++)F('clStep')(g,1/60);
       check('the second barrel breaks it for 1 point',g.res[0].length===2&&g.res[0][1].pts===1&&g.res[0][1].first===false&&g.tot[0]===4);
       // the whole round with a patient shooter and a robot
       {let steps=0;while(g.phase!=='over'&&steps<60*60*40){steps++;
         if(g.phase==='hand'&&!g.hand.bot)F('clAction')(g,'ready');
         if(g.phase==='ready'&&!g.cur.bot)F('clPull')(g);
-        if(g.phase==='fly'&&!g.cur.bot){const c=g.clays.find(q=>q.alive);if(c&&g.flyT>.5&&g.shells>0&&g.shots.every(s=>s.done)){aimAt(1);F('clFire')(g);}}
+        if(g.phase==='fly'&&!g.cur.bot){const c=g.clays.find(q=>q.alive);if(c&&g.flyT>.5&&g.shells>0&&g.shots.every(s=>s.done)){aimAt(1-F('CL_LV')[g.lv].lead);F('clFire')(g);}}
         F('clStep')(g,1/60);}
        const R=G().clResult;
        check('a round ends: 25 clays for each of the two shooters, the winner has the most points',g.phase==='over'&&g.res[0].length===25&&g.res[1].length===25&&!!R&&R.top===Math.max(g.tot[0],g.tot[1])&&g.tot.every(v=>v<=75));
