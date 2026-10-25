@@ -6127,6 +6127,45 @@ async function runPresentation(A,W,frame){
        }finally{W.eval('window._psOut=null');W.eval('_ch=null');if(ch0)W.eval('0');gg.isOnline=false;G().myPid=pid0;gg.srv=srv0;F('psStop')();}}
     }finally{const g=G();try{F('psStop')();}catch(e){}g.isOnline=k0[0];g.selGame=k0[1];g.lp=k0[2];g.scr=k0[3];g.ps=null;g.psResult=k0[5];ls.forEach(([k,v])=>{if(v===null)W.localStorage.removeItem(k);else W.localStorage.setItem(k,v);});}
   });
+  suite('Olympic Games: Clay Shooting (Trap and Skeet)',()=>{
+    const F=n=>W.eval(n),G=()=>F('G');
+    const k0=[G().isOnline,G().selGame,G().lp,G().scr,G().cl,G().clResult];
+    const ls=['ct_cl_pref','ct_ar'].map(k=>[k,W.localStorage.getItem(k)]);
+    try{
+      const gg=G();gg.isOnline=false;
+      check('clay shooting is in the Olympic Games with robots and the rules',F('GAMES').some(x=>x.id==='clay'&&x.cat==='olympic'&&x.rules.length>=5)&&F('BOT_GAMES').has('clay'));
+      check('Trap has five stations of five clays, Skeet eight stations and 25 clays with doubles on 1, 2, 6 and 7',F('clProgram')('trap').length===5&&F('clProgram')('trap').every(b=>b.ev.length===5)&&F('clProgram')('skeet').length===8&&F('clProgram')('skeet').reduce((a,b)=>a+b.ev.reduce((c,e)=>c+e.c.length,0),0)===25&&[1,2,6,7].every(s=>F('clProgram')('skeet')[s-1].ev.some(e=>e.c.length===2)));
+      W.localStorage.setItem('ct_cl_pref',JSON.stringify({disc:'trap',lv:'sport',mode:'round'}));W.localStorage.removeItem('ct_ar');
+      gg.lp=[{id:1,name:'AnnC',avatar:F('AVATARS')[0],hand:[],totalScore:0},{id:2,name:'Robo',bot:'steady',avatar:F('AVATARS')[1],hand:[],totalScore:0}];
+      gg.selGame='clay';F('lDealClay')();gg.scr='table';F('render')();F('clAttach')();let g=G().cl;
+      check('the field opens on the set-up card with the canvas and the button',!!g&&g.phase==='setup'&&!!W.document.getElementById('cl-cv')&&!!W.document.getElementById('cl-fire')&&/CLAY SHOOTING/.test(W.document.getElementById('cl-ov').innerHTML));
+      F('clBegin')(g);F('clAction')(g,'ready');
+      check('a round starts with the first shooter at station 1 and the gun at the trap house',g.phase==='ready'&&g.curI===0&&F('clBlock')(g).st===1&&Math.abs(g.yaw)<.01);
+      // a clay is on its way; a cloud aimed exactly at it breaks it, a cloud aimed well behind it does not (the lead matters)
+      const fly=()=>{F('clPull')(g);let n=0;while(g.phase!=='fly'&&n++<600)F('clStep')(g,1/60);for(let i=0;i<20;i++)F('clStep')(g,1/60);};
+      const aimAt=(lead)=>{const c=g.clays[0],d0=Math.hypot(c.p[0]-g.eye[0],c.p[1]-g.eye[1],c.p[2]-g.eye[2]),T=d0/300*lead,q=[c.p[0]+c.v[0]*T,c.p[1]+c.v[1]*T-4.9*T*T,c.p[2]+c.v[2]*T],dv=[q[0]-g.eye[0],q[1]-g.eye[1],q[2]-g.eye[2]];g.yaw=Math.atan2(dv[0],dv[2]);g.pitch=Math.atan2(dv[1],Math.hypot(dv[0],dv[2]));};
+      fly();aimAt(1);F('clFire')(g);for(let i=0;i<200&&g.phase==='fly';i++)F('clStep')(g,1/60);
+      check('a shot that leads the clay by the flight time of the pellets is a dead centre with the first barrel: 3 points',g.res[0].length===1&&g.res[0][0].pts===3&&g.res[0][0].first===true&&g.tot[0]===3);
+      for(let i=0;i<120&&g.phase==='result';i++)F('clStep')(g,1/60);
+      fly();aimAt(0);g.pitch-=.2;F('clFire')(g);for(let i=0;i<60;i++)F('clStep')(g,1/60);
+      check('a shot far behind the clay misses and the second barrel is still there',g.shells===1&&g.res[0].length===1);
+      aimAt(1);F('clFire')(g);for(let i=0;i<200&&g.phase==='fly';i++)F('clStep')(g,1/60);
+      check('the second barrel breaks it for 1 point',g.res[0].length===2&&g.res[0][1].pts===1&&g.res[0][1].first===false&&g.tot[0]===4);
+      // the whole round with a patient shooter and a robot
+      {let steps=0;while(g.phase!=='over'&&steps<60*60*40){steps++;
+        if(g.phase==='hand'&&!g.hand.bot)F('clAction')(g,'ready');
+        if(g.phase==='ready'&&!g.cur.bot)F('clPull')(g);
+        if(g.phase==='fly'&&!g.cur.bot){const c=g.clays.find(q=>q.alive);if(c&&g.flyT>.5&&g.shells>0&&g.shots.every(s=>s.done)){aimAt(1);F('clFire')(g);}}
+        F('clStep')(g,1/60);}
+       const R=G().clResult;
+       check('a round ends: 25 clays for each of the two shooters, the winner has the most points',g.phase==='over'&&g.res[0].length===25&&g.res[1].length===25&&!!R&&R.top===Math.max(g.tot[0],g.tot[1])&&g.tot.every(v=>v<=75));
+       check('the people get their points and the robot never makes a record',G().lp.every(x=>/pts/.test(x.psLine))&&!(JSON.parse(W.localStorage.getItem('ct_ar')||'{}').rec||{}).clay_trap||(JSON.parse(W.localStorage.getItem('ct_ar')||'{}').rec.clay_trap.topscore.by==='AnnC'));
+       gg.scr='matchend';F('render')();
+       check('the result screen tells the points and the clays broken',/pts/.test(W.document.body.innerText)&&/Clays broken/i.test(W.document.body.innerText));
+      }
+      F('clStop')();
+    }finally{const g=G();try{F('clStop')();}catch(e){}g.isOnline=k0[0];g.selGame=k0[1];g.lp=k0[2];g.scr=k0[3];g.cl=null;g.clResult=k0[5];ls.forEach(([k,v])=>{if(v===null)W.localStorage.removeItem(k);else W.localStorage.setItem(k,v);});}
+  });
   suite('Fairground: the LEVEL button works in every booth',()=>{
     const F=n=>W.eval(n),G=()=>F('G');
     const k0=[G().isOnline,G().selGame,G().lp,G().lstart,G().scr,G().fg];
