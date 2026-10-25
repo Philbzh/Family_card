@@ -4955,6 +4955,7 @@ const GAMES=[
      '<b>Hold still.</b> The sight never rests: it sways, and with BREATHING on it rises and falls with your breath. The <b>ring</b> shows how far it wanders and contracts as you steady yourself. In the pause after the breath out a gold mark shows the <b>STABILITY PEAK</b>, the best moment. Hold too long and your arm tires.',
      '<b>FIRE</b> (the big button) shoots at once. The pellet does not go exactly where the sight was: the trigger is a little late, a sight you have just pushed around gives a ragged trigger, and there is always a tiny spread.',
      '<b>Decimal scoring</b> like the electronic targets: 10.9 for the very heart (within a quarter of a millimetre), 0.1 less for every further quarter millimetre, 1.0 at the outer ring. A perfect match is 218.0.',
+     '<b>Three Positions</b> (the rifle again): fifteen shots in three series of five, <b>kneeling, prone and standing</b>. A card tells you when to change. Lying is the steadiest, kneeling is a little more restless and standing the most: every position has its own sway and its own fatigue.',
      '<b>Rapid Fire</b> (the third discipline, with the pistol): four series of five shots, each series <b>against the clock</b> (16, 12, 9 or 7 seconds by level). After a countdown the clock starts; you fire as fast as you can aim, the muzzle jumps with every shot, and a shot that is not fired in time scores nothing. The score of the series is told when it is over.',
      '<b>The match:</b> 20 shots in four series of five. With several people on one iPad you shoot a series each in turn; the highest total wins. Robots (gentle, steady, sharp) can join. <b>Training</b> (10 shots, shows where you aimed and where it went) and <b>free practice</b> are in the menu. LEVEL: Beginner, Sport, Elite, Olympic. This is OUR TABLE MODE: simplified for the family; an official ISSF mode follows later.']},
   {id:'balloonblast',cat:'fairground',icon:'🎈',name:'Balloon Blast',players:'1–4',dur:'4–7 min',diff:'medium',deal:0,minP:1,maxP:4,cover:'assets/games/balloonblast.jpg',
@@ -7956,6 +7957,7 @@ const AR_REC={
   pool:[['fastest','Longest pot','cm'],['bestRally','Most balls in one turn',''],['perfect','Most balls on a break','']],
   clay_trap:[['topscore','Best round','pts'],['bestRally','Longest straight','clays'],['perfect','Most dead centres',''],['saves','Most first-barrel hits','']],
   clay_skeet:[['topscore','Best round','pts'],['bestRally','Longest straight','clays'],['perfect','Most dead centres',''],['saves','Most first-barrel hits','']],
+  precision_3p:[['topscore','Best 15-shot total','pts'],['fastest','Best single shot','pts'],['saves','Best series of five','pts'],['perfect','Most 10.9 in one match',''],['bestRally','Longest run of tens','shots']],
   precision_rapid:[['topscore','Best 20-shot total','pts'],['fastest','Best single shot','pts'],['saves','Best series of five','pts'],['perfect','Most 10.9 in one match',''],['bestRally','Longest run of tens','shots']],
   precision_pistol:[['topscore','Best 20-shot total','pts'],['fastest','Best single shot','pts'],['saves','Best series of five','pts'],['perfect','Most 10.9 in one match',''],['bestRally','Longest run of tens','shots']],
   precision:[['topscore','Best 20-shot total','pts'],['fastest','Best single shot','pts'],['saves','Best series of five','pts'],['perfect','Most 10.9 in one match',''],['bestRally','Longest run of tens','shots']],
@@ -8015,8 +8017,8 @@ function arRecordUpdate(game,names,winnerName,score,rs){
   return won;
 }
 function arRecordsHTML(cat){
-  const a=arAll(),rec=a.rec||{},FGG=['balloonblast','marksman','hoopfever'],OLY=['precision','precision_pistol','precision_rapid','clay_trap','clay_skeet'];
-  const names={precision_rapid:['🏅','Precision · Rapid Fire'],clay_trap:['🥏','Clay · Trap'],clay_skeet:['🥏','Clay · Skeet'],precision_pistol:['🏅','Precision · Air Pistol'],precision:['🏅','Precision · Air Rifle'],pinball:['🕹️','Pinball'],airhockey:['🏒','Air Hockey'],pong:['🏓','Pong'],invaders:['👾','Invaders: Duel'],pool:['🎱','Pool'],balloonblast:['🎈','Balloon Blast'],marksman:['🎯','Marksman'],hoopfever:['🏀','Hoop Fever']};
+  const a=arAll(),rec=a.rec||{},FGG=['balloonblast','marksman','hoopfever'],OLY=['precision','precision_pistol','precision_rapid','precision_3p','clay_trap','clay_skeet'];
+  const names={precision_3p:['🏅','Precision · 3 Positions'],precision_rapid:['🏅','Precision · Rapid Fire'],clay_trap:['🥏','Clay · Trap'],clay_skeet:['🥏','Clay · Skeet'],precision_pistol:['🏅','Precision · Air Pistol'],precision:['🏅','Precision · Air Rifle'],pinball:['🕹️','Pinball'],airhockey:['🏒','Air Hockey'],pong:['🏓','Pong'],invaders:['👾','Invaders: Duel'],pool:['🎱','Pool'],balloonblast:['🎈','Balloon Blast'],marksman:['🎯','Marksman'],hoopfever:['🏀','Hoop Fever']};
   const rows=Object.keys(AR_REC).filter(g=>cat==='fairground'?FGG.includes(g):cat==='olympic'?OLY.includes(g):!FGG.includes(g)&&!OLY.includes(g)).map(g=>{
     const list=(AR_REC[g]).filter(([k])=>rec[g]&&rec[g][k]);if(!list.length)return'';
     return`<div class="ar-game"><div class="ar-gn">${names[g][0]} ${names[g][1]}</div>${list.map(([k,l,u])=>`<div class="ar-row"><span>${l}</span><b>${rec[g][k].v}${u?' '+u:''}</b><em>${esc(rec[g][k].by)}</em></div>`).join('')}</div>`;}).join('');
@@ -30943,7 +30945,10 @@ const PS_DISC={
   // the pistol target is 3.2 times bigger (ring 1 is 155.5 mm, ten ring 11.5 mm, black from ring 7) and a pistol is held with one hand: everything that moves is scaled with k
   air_pistol_10m:{id:'air_pistol_10m',name:'10 m Air Pistol',tag:'AIR PISTOL',dist:10,pellet:2.25,ringW:8,r10:5.75,dot:2.5,blackR:29.75,blackFrom:7,outerR:77.75,view:96,shots:20,series:5,step:.8,k:3.2,sw:1.2,micro:.3,sight:8.5,rec:'precision_pistol'},
   // rapid fire: the same pistol target, but every series of five shots has to be fired against the clock
-  rapid_fire_10m:{id:'rapid_fire_10m',name:'Rapid Fire Pistol',tag:'RAPID FIRE',dist:10,pellet:2.25,ringW:8,r10:5.75,dot:2.5,blackR:29.75,blackFrom:7,outerR:77.75,view:96,shots:20,series:5,step:.8,k:3.2,sw:1.2,micro:.3,sight:8.5,rec:'precision_rapid',rapid:true}
+  rapid_fire_10m:{id:'rapid_fire_10m',name:'Rapid Fire Pistol',tag:'RAPID FIRE',dist:10,pellet:2.25,ringW:8,r10:5.75,dot:2.5,blackR:29.75,blackFrom:7,outerR:77.75,view:96,shots:20,series:5,step:.8,k:3.2,sw:1.2,micro:.3,sight:8.5,rec:'precision_rapid',rapid:true},
+  // three positions: kneeling, prone and standing, one series of five in each, with the same target as the air rifle; every position has its own sway
+  rifle_3p_10m:{id:'rifle_3p_10m',name:'Three Positions Rifle',tag:'3 POSITIONS',dist:10,pellet:2.25,ringW:2.5,r10:.25,dot:.25,blackR:15.25,blackFrom:4,outerR:22.75,view:29,shots:15,series:5,step:.25,k:1,sw:1,micro:.1,sight:2.7,rec:'precision_3p',
+    pos:[{id:'kneel',n:'KNEELING',sw:1.25,gain:1,fat:1.2,t:'Down on one knee, the elbow on the knee: a little less steady than lying.'},{id:'prone',n:'PRONE',sw:.6,gain:1.4,fat:.7,t:'Lying down: the steadiest position, the sight settles fast.'},{id:'stand',n:'STANDING',sw:1.7,gain:.8,fat:1.4,t:'On your feet: the most restless, and the arm tires quickly.'}]}
 };
 const PS_LV={
   beginner:{n:'Beginner',rt:16,sway:3.4,gain:1.9,sig:.3,bot:.8,about:'A calm sight that settles fast.'},
@@ -30965,9 +30970,10 @@ function psSavePrefs(p){try{localStorage.setItem('ct_ps_pref',JSON.stringify({mo
 function psUnit(g,t){const s=g.seed;return[Math.sin(t*1.13+s)*.52+Math.sin(t*2.27+s*1.7)*.29+Math.sin(t*.47+s*2.3)*.19,Math.sin(t*.89+s*1.3)*.46+Math.sin(t*1.93+s*.7)*.3+Math.cos(t*.59+s*3.1)*.24];}
 function psBreathB(ph){return ph<.38?.5-.5*Math.cos(Math.PI*ph/.38):ph<.84?.5+.5*Math.cos(Math.PI*(ph-.38)/.46):0;}   // breathe in, breathe out, the natural pause
 function psPhase(g,t){return(((t-g.b0)/5.4)%1+1)%1;}
+function psPos(g){return g.D&&g.D.pos?g.D.pos[Math.floor((g.sStart?g.sStart[g.curI]||0:0)/g.D.series)%g.D.pos.length]:null;}
 function psAmp(g){
-  const lv=PS_LV[g.lv];let A=lv.sway*(1.55-1.1*g.S)*(g.D.k||1)*(g.D.sw||1);
-  A*=1+Math.min(1,Math.max(0,(g.hold-6)/12))*.7;   // an arm that has been up too long
+  const lv=PS_LV[g.lv],ps0=psPos(g);let A=lv.sway*(1.55-1.1*g.S)*(g.D.k||1)*(g.D.sw||1)*(ps0?ps0.sw:1);
+  A*=1+Math.min(1,Math.max(0,(g.hold-6)/12))*.7*(ps0?ps0.fat:1);   // an arm that has been up too long
   if(g.steady)A*=.62;
   return A*(1-.4*g.pk);
 }
@@ -31031,7 +31037,7 @@ function psBegin(g,cfg){
 // a new series for a shooter: fresh stance (the sight starts away from the middle), a hand-over card when the shooter changes
 function psStage(g,first){
   const a=Math.random()*6.283,r=(5+Math.random()*3)*(g.D.k||1);g.base={x:Math.cos(a)*r,y:Math.sin(a)*r};g.S=.25;g.hold=0;g.pk=0;g.lastMoveT=-9;
-  if(g.who.length>1&&(g.mode==='match'||g.mode==='rapid')){
+  if((g.who.length>1&&(g.mode==='match'||g.mode==='rapid'))||(g.D.pos&&g.mode==='match')){
     g.phase='hand';g.hand={at:g.t,bot:!!g.cur.bot};
     psPaintOv(g);
   }else psAimStart(g);
@@ -31246,7 +31252,7 @@ function psAfterShot(g){
     if(g.who.indexOf(g.order[g.oi-1])===g.who.length-1)g.rounds.push(g.tot.slice());
     if(g.oi>=g.order.length){psFinish(g);return;}
     const np=g.order[g.oi];
-    if(np===g.curI&&(g.who.length===1||g.mode!=='match')){g.sStart[np]=g.sh[np].length;psNextShot(g);return;}
+    if(np===g.curI&&(g.who.length===1||g.mode!=='match')&&!g.D.pos){g.sStart[np]=g.sh[np].length;psNextShot(g);return;}
     g.curI=np;g.cur=g.players[np];g.sStart[np]=g.sh[np].length;psStage(g,false);
     return;
   }
@@ -31354,7 +31360,7 @@ function psLbRows(list){return list.map((e,i)=>{const medal=['🥇','🥈','🥉
 function rPsLbOv(){
   const dcv=PS_DISC[G.psLbD]?G.psLbD:(PS_DISC[psPrefs().disc]?psPrefs().disc:'air_rifle_10m'),all=psLbAll(dcv),top=all.slice(0,10),best={};for(const e of all){const a=e.a||e.s/20;if(!best[e.n]||a>best[e.n].a)best[e.n]={n:e.n,a,s:e.s};}
   const acc=Object.values(best).sort((a,b)=>b.a-a.a).slice(0,8);
-  return`<div class="ov" data-a="close-pslb"><div class="ov-box hof-box" role="dialog" aria-modal="true" aria-label="Precision leaderboard"><div class="ov-title">🏅 The Family Range</div><div class="hof-sub">${esc(PS_DISC[dcv].name.toUpperCase())} · THE BEST 20-SHOT MATCHES</div><div class="ps-seg" style="margin:.2rem 0 .8rem;">${Object.keys(PS_DISC).map(k=>`<button class="${k===dcv?'on':''}" data-a="pslbd" data-v="${k}">${PS_DISC[k].tag}</button>`).join('')}</div>
+  return`<div class="ov" data-a="close-pslb"><div class="ov-box hof-box" role="dialog" aria-modal="true" aria-label="Precision leaderboard"><div class="ov-title">🏅 The Family Range</div><div class="hof-sub">${esc(PS_DISC[dcv].name.toUpperCase())} · THE BEST MATCHES</div><div class="ps-seg" style="margin:.2rem 0 .8rem;">${Object.keys(PS_DISC).map(k=>`<button class="${k===dcv?'on':''}" data-a="pslbd" data-v="${k}">${PS_DISC[k].tag}</button>`).join('')}</div>
     ${top.length?`<div class="hof-list">${psLbRows(top)}</div>`:'<p class="ov-sub">No match yet. Shoot twenty and be the first name on the board.</p>'}
     ${psMedals().length?`<div class="hof-h">MEDAL TABLE · FINALS NIGHT</div><div class="hof-list">${psMedals().map(e=>`<div class="hof-row"><span class="hof-rk">🏅</span><span class="hof-nm">${esc(e.n)}</span><span class="hof-sc">${e.g}🥇 ${e.s}🥈 ${e.b}🥉</span></div>`).join('')}</div>`:''}
     ${acc.length?`<div class="hof-h">THE MOST ACCURATE (BEST AVERAGE PER SHOT)</div><div class="hof-list">${acc.map((e,i)=>`<div class="hof-row"><span class="hof-rk">★</span><span class="hof-nm">${esc(e.n)}</span><span class="hof-sc">${e.a.toFixed(2)}</span><span class="hof-d">best match ${e.s.toFixed(1)}</span></div>`).join('')}</div>`:''}
@@ -31517,7 +31523,7 @@ function psDrawTail(g,x,W,H,cx,cy){
     x.font='700 '+(9*g.dpr)+'px Cinzel,serif';x.fillStyle='rgba(244,235,208,.8)';x.textAlign='left';x.fillText('AIM',a[0]+7*g.dpr,a[1]-6*g.dpr);x.fillStyle='#f0d27a';x.fillText('IMPACT',i[0]+7*g.dpr,i[1]+12*g.dpr);x.restore();
   }
   x.restore();
-  {const wI=psImg(g.D.id==='air_pistol_10m'?'pistol':'rifle'),free=H-(cy+g.ar);if(wI&&free>26*g.dpr&&g.phase!=='setup'){const hh=Math.min(H*.36,free*2.5),ww=hh*wI.width/wI.height;x.drawImage(wI,cx-ww/2,H-hh+g.fx.kick*10*g.dpr,ww,hh);}}
+  {const wI=psImg((g.D.k||1)>1?'pistol':'rifle'),free=H-(cy+g.ar);if(wI&&free>26*g.dpr&&g.phase!=='setup'){const hh=Math.min(H*.36,free*2.5),ww=hh*wI.width/wI.height;x.drawImage(wI,cx-ww/2,H-hh+g.fx.kick*10*g.dpr,ww,hh);}}
   if(g.mode==='rapid'&&g.rapid&&g.phase==='aim'&&g.rapid.cd<=0){const R=g.rapid,fr=Math.max(0,R.left/PS_LV[g.lv].rt),bw=W*.7,bx=cx-bw/2,by=10*g.dpr;x.save();x.fillStyle='rgba(0,0,0,.55)';x.fillRect(bx,by,bw,6*g.dpr);x.fillStyle=fr>.3?'#f0d27a':'#ff6a4a';x.fillRect(bx,by,bw*fr,6*g.dpr);x.restore();}
   // the breathing line along the bottom: one cycle, the pause in gold
   if(g.breath&&!g.focus&&g.phase==='aim'&&!psWatch(g)){
@@ -31557,7 +31563,7 @@ function psStep(g,dt){
       /* somebody else is aiming: their sight arrives by message */
     }else{
       g.hold+=dt;const lv=PS_LV[g.lv];
-      g.S=Math.min(1,g.S+dt*.34*lv.gain*(1-g.S));
+      g.S=Math.min(1,g.S+dt*.34*lv.gain*(psPos(g)?psPos(g).gain:1)*(1-g.S));
       if(g.hold>9)g.S=Math.max(0,g.S-dt*.018*(g.hold-9));
       if(inPause&&!g.inPeak){g.inPeak=true;psSnd.peak();}else if(!inPause)g.inPeak=false;
       if(g.net&&G.isOnline&&g.t-g.net.sightAt>.12){g.net.sightAt=g.t;const q=psSightPose(g),r2=v=>Math.round(v*100)/100;psSend(g,{k:'sight',x:r2(q.vx),y:r2(q.vy),bx:r2(q.bx),by:r2(q.by),rr:r2(q.rr),pk:q.pk?1:0});}
@@ -31621,7 +31627,7 @@ function psHud(g){
   const stg=document.getElementById('ps-stage');if(stg){const f=!!g.final&&(g.phase==='aim'||g.phase==='reveal');if(stg._f!==f){stg._f=f;stg.classList.toggle('ps-final',f);}
     if(stg._fo!==g.focus){stg._fo=g.focus;stg.classList.toggle('ps-focus',g.focus);}
     const fr=g.mode==='free'&&g.phase!=='setup';if(stg._fr!==fr){stg._fr=fr;stg.classList.toggle('ps-free',fr);}}
-  const top=document.getElementById('ps-top');if(top){const t=g.mode==='rapid'&&g.rapid&&g.phase==='aim'?(g.rapid.cd>0?'READY · '+Math.ceil(g.rapid.cd):'RAPID FIRE · '+g.rapid.left.toFixed(1)+' s · '+(g.D.series-g.rapid.n)+' to go'):g.final&&(g.phase==='aim'||g.phase==='reveal')?'FINAL SHOT · '+g.final.name.toUpperCase()+' NEEDS '+psFmt(g.final.need)+' TO WIN':'';if(top._v!==t){top._v=t;top.textContent=t;top.classList.toggle('on',!!t);}}
+  const top=document.getElementById('ps-top');if(top){const t=g.D.pos&&g.phase==='aim'&&!g.final&&!psWatch(g)?'POSITION · '+psPos(g).n:g.mode==='rapid'&&g.rapid&&g.phase==='aim'?(g.rapid.cd>0?'READY · '+Math.ceil(g.rapid.cd):'RAPID FIRE · '+g.rapid.left.toFixed(1)+' s · '+(g.D.series-g.rapid.n)+' to go'):g.final&&(g.phase==='aim'||g.phase==='reveal')?'FINAL SHOT · '+g.final.name.toUpperCase()+' NEEDS '+psFmt(g.final.need)+' TO WIN':'';if(top._v!==t){top._v=t;top.textContent=t;top.classList.toggle('on',!!t);}}
   set('ps-status',g.phase==='setup'?'OUR TABLE MODE · '+g.D.name:g.phase==='hand'?'Next shooter':psWatch(g)?g.cur.name+' is shooting · you are watching':g.mode==='final'&&g.fin&&g.cur?g.cur.name+' · '+psFinLabel(g).toLowerCase():g.cur?(g.cur.bot?g.cur.name+' (robot) is shooting':g.cur.name+' · '+((g.mode==='match'||g.mode==='rapid')?'series '+(Math.floor((g.sh[g.curI]||[]).length/g.D.series)+1)+' of '+(g.total/g.D.series):g.mode==='train10'?'training':'free practice')):'');
 }
 function psPlayersHTML(g){
@@ -31658,12 +31664,12 @@ function psPaintOv(g){
     const seg=(items,cur,key)=>`<div class="ps-seg">${items.map(([k,l])=>`<button class="${cur===k?'on':''}" data-psa="${key}" data-v="${k}">${l}</button>`).join('')}</div>`;
     const tg=(k,l,on)=>`<button class="ps-tg${on?' on':''}" data-psa="tg" data-v="${k}" aria-pressed="${on}">${l}</button>`;
     const sm=g.summary;
-    const modeNote={match:pr.disc==='rapid_fire_10m'?'Four series of five shots, each series against the clock: after a countdown of three the clock starts and you fire as fast as you can aim. A shot that is not fired in time scores nothing. The sight jumps with every shot.':'Twenty shots, shot in four series of five. Everybody shoots in turn; the highest total wins. Robots can join.',final:'The Olympic final: six finalists, robots fill the field. A series of five, then single shots, and after every two the lowest total is out, until two shoot for gold. One shot at a time, so the iPad goes round. Medals for the first three.',train10:'Ten shots for one person. You see where you aimed and where the pellet went.',free:'No limit. Practise as long as you like, then finish.'}[pr.mode];
+    const modeNote={match:pr.disc==='rifle_3p_10m'?'Fifteen shots in three series of five: kneeling, then prone, then standing. A card tells you when to change position. Every position wobbles differently.':pr.disc==='rapid_fire_10m'?'Four series of five shots, each series against the clock: after a countdown of three the clock starts and you fire as fast as you can aim. A shot that is not fired in time scores nothing. The sight jumps with every shot.':'Twenty shots, shot in four series of five. Everybody shoots in turn; the highest total wins. Robots can join.',final:'The Olympic final: six finalists, robots fill the field. A series of five, then single shots, and after every two the lowest total is out, until two shoot for gold. One shot at a time, so the iPad goes round. Medals for the first three.',train10:'Ten shots for one person. You see where you aimed and where the pellet went.',free:'No limit. Practise as long as you like, then finish.'}[pr.mode];
     h=`<div class="ps-card">
       <div class="ps-kick">OLYMPIC GAMES</div><div class="ps-h1">PRECISION SHOOTING</div><div class="ps-sub">${esc(PS_DISC[pr.disc].name)} · OUR TABLE MODE</div>
       ${sm?`<div class="ps-sum"><div class="ps-sum-h">PRACTICE COMPLETE</div><div class="ps-sum-r"><span><b>${psFmt(sm.tot)}</b>total</span><span><b>${(sm.avg/10).toFixed(2)}</b>average</span><span><b>${psFmt(sm.best)}</b>best</span><span><b>${sm.perfect}</b>10.9</span><span><b>${sm.streak}</b>tens in a row</span></div></div>`:''}
       ${onl&&!host?'<div class="ps-grp">DISCIPLINE</div><div class="ps-note">The host chooses the discipline and the level.</div>':`<div class="ps-grp">DISCIPLINE</div>${seg(Object.keys(PS_DISC).filter(k=>!(onl&&PS_DISC[k].rapid)).map(k=>[k,PS_DISC[k].tag]),pr.disc,'disc')}`}
-      ${onl?'<div class="ps-grp">ONLINE MATCH</div><div class="ps-note">20 shots each in four series of five. Everybody shoots a series in turn on their own device and watches the others aim. The highest total wins.</div>':`<div class="ps-grp">MODE</div>${seg([['match',pr.disc==='rapid_fire_10m'?'RAPID · 4 SERIES':'MATCH · 20 SHOTS'],['final','FINALS NIGHT'],['train10','TRAINING · 10'],['free','FREE PRACTICE']],pr.mode,'mode')}<div class="ps-note">${modeNote}</div>`}
+      ${onl?'<div class="ps-grp">ONLINE MATCH</div><div class="ps-note">20 shots each in four series of five. Everybody shoots a series in turn on their own device and watches the others aim. The highest total wins.</div>':`<div class="ps-grp">MODE</div>${seg([['match',pr.disc==='rapid_fire_10m'?'RAPID · 4 SERIES':pr.disc==='rifle_3p_10m'?'MATCH · 15 SHOTS':'MATCH · 20 SHOTS'],['final','FINALS NIGHT'],['train10','TRAINING · 10'],['free','FREE PRACTICE']],pr.mode,'mode')}<div class="ps-note">${modeNote}</div>`}
       ${onl&&!host?'':`<div class="ps-grp">LEVEL</div>${seg(PS_LVK.map(k=>[k,PS_LV[k].n.toUpperCase()]),pr.lv,'lv')}<div class="ps-note">${esc(PS_LV[pr.lv].about)}${pr.disc==='rapid_fire_10m'?' · '+PS_LV[pr.lv].rt+' seconds for every series of five.':''}</div>`}
       <div class="ps-grp">OPTIONS</div><div class="ps-tgs">${tg('breath','BREATHING',pr.breath)}${tg('focus','FOCUS',pr.focus)}${tg('steady','STEADY HAND',pr.steady)}${tg('bold','BOLD SIGHT',pr.bold)}</div>
       <div class="ps-ppl">${g.players.map(p=>`<span>${p.avatar?'<span class="ah-av">'+avHTML(p.avatar)+'</span>':''}${esc(p.name)}${p.bot?' · '+PS_BOTS[p.bot].n.toLowerCase()+' robot':''}</span>`).join('')}</div>
@@ -31673,7 +31679,7 @@ function psPaintOv(g){
   }else if(g.phase==='hand'&&g.hand&&!g.hand.bot&&onl&&psWatch(g)){
     h=`<div class="ps-card ps-small"><div class="ps-kick">NEXT SHOOTER</div><div class="ps-hand">${g.cur.avatar?'<span class="ah-av">'+avHTML(g.cur.avatar)+'</span>':''}<b>${esc(g.cur.name)}</b></div></div>`;
   }else if(g.phase==='hand'&&g.hand&&!g.hand.bot){
-    h=`<div class="ps-card ps-small"><div class="ps-kick">${g.mode==='final'?psFinLabel(g):g.oi===0?'FIRST SHOOTER':'SERIES '+(Math.floor(g.oi/g.who.length)+1)+' OF '+(g.total/g.D.series)}</div><div class="ps-hand">${g.cur.avatar?'<span class="ah-av">'+avHTML(g.cur.avatar)+'</span>':''}<b>${esc(g.cur.name)}</b></div><button class="btn btn-gold ps-go" data-psa="ready">READY</button></div>`;
+    h=`<div class="ps-card ps-small"><div class="ps-kick">${g.mode==='final'?psFinLabel(g):g.oi===0?'FIRST SHOOTER':'SERIES '+(Math.floor(g.oi/g.who.length)+1)+' OF '+(g.total/g.D.series)}</div><div class="ps-hand">${g.cur.avatar?'<span class="ah-av">'+avHTML(g.cur.avatar)+'</span>':''}<b>${esc(g.cur.name)}</b></div>${g.D.pos?`<div class="ps-note" style="text-align:center"><b style="color:#f0d27a;letter-spacing:.14em">POSITION · ${psPos(g).n}</b><br>${esc(psPos(g).t)}</div>`:''}<button class="btn btn-gold ps-go" data-psa="ready">READY</button></div>`;
   }
   if(ov.dataset.h!==h){ov.dataset.h=h;ov.innerHTML=h;}
   ov.classList.toggle('on',!!h);

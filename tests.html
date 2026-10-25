@@ -6113,6 +6113,20 @@ async function runPresentation(A,W,frame){
       for(let i=0;i<200&&p.phase==='recap';i++)F('psStep')(p,1/60);
       check('the next series starts with a fresh clock and the lost shot is a zero in the list',p.sh[0].length===5&&p.sh[0][4].v===0&&p.sh[0][4].miss===true&&p.phase==='aim'&&p.rapid.n===0&&p.rapid.cd===3);
       F('psStop')();
+      // ── three positions: fifteen shots, kneeling, prone and standing, every position with its own sway
+      W.localStorage.setItem('ct_ps_pref',JSON.stringify({mode:'match',lv:'sport',breath:true,focus:false,steady:false,bold:false,disc:'rifle_3p_10m'}));
+      gg.lp=[{id:1,name:'AnnP',avatar:F('AVATARS')[0],hand:[],totalScore:0}];F('lDealPrecision')();gg.scr='table';F('render')();F('psAttach')();p=G().ps;F('psBegin')(p);
+      check('three positions: fifteen shots in three series, the first card is kneeling even for one person',p.D.id==='rifle_3p_10m'&&p.total===15&&p.phase==='hand'&&F('psPos')(p).id==='kneel'&&/KNEELING/.test(W.document.getElementById('ps-ov').innerHTML));
+      {const amp=id=>{const pp=p.D.pos.find(q=>q.id===id);p.sStart[0]=p.D.pos.indexOf(pp)*5;p.S=.5;p.hold=2;p.pk=0;return F('psAmp')(p);};
+       const ak=amp('kneel'),ap=amp('prone'),as=amp('stand');p.sStart[0]=0;
+       check('lying is the steadiest, kneeling is in the middle, standing is the most restless',ap<ak&&ak<as&&as/ap>2.2);}
+      F('psAction')(p,'ready');
+      {let steps=0,seen=[];while(p.phase!=='over'&&steps<60*60*10){steps++;
+        if(p.phase==='hand'&&!p.hand.bot){seen.push(F('psPos')(p).id);F('psAction')(p,'ready');}
+        if(p.phase==='aim'&&p.hold>3.2&&(F('psPhase')(p,p.t)>=.9||p.hold>8)){p.base.x=0;p.base.y=0;F('psFireTap')(p);}
+        F('psStep')(p,1/60);}
+       check('the positions change after every series: kneeling, prone, standing',seen.join()==='prone,stand'&&p.sh[0].length===15&&p.phase==='over');
+       F('psStop')();}
       // ── the leaderboard
       W.localStorage.removeItem('ct_ps_lb');
       F('psLbAdd')([{n:'ZoeTest',s:201.5,a:10.07,d:'2026-11-01T10:00:00.000Z',lv:'sport'},{n:'MaxTest',s:207.3,a:10.36,d:'2026-11-02T10:00:00.000Z',lv:'elite',pf:2},{n:'Robo',s:215,a:10.7,d:'2026-11-02T10:00:00.000Z'},{n:'ZoeTest',s:201.5,a:10.07,d:'2026-11-01T10:00:00.000Z'}]);
