@@ -487,8 +487,8 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .ps-sum-r b{font:700 1.05rem 'Cinzel',serif;color:#F4EBD0;}
 .game-clay #cl-stage{touch-action:none;}
 .cl-shells{display:flex;gap:8px;justify-content:center;min-height:32px;}
-.cl-shells i{width:14px;height:30px;border-radius:3px 3px 7px 7px;background:linear-gradient(180deg,#b3261e 0 56%,#d9b660 56%);opacity:.25;}
-.cl-shells i.on{opacity:1;box-shadow:0 0 8px rgba(217,182,96,.5);}
+.cl-shells i{width:22px;height:42px;background:url(assets/games/cl_shell1.png) center/contain no-repeat;opacity:.28;filter:grayscale(.6);}
+.cl-shells i.on{opacity:1;filter:none;}
 .game-clay .ps-mid{background:#2f6db0;}
 .ps-final .ps-left,.ps-final .ps-right>*:not(.ps-fire){opacity:.18;transition:opacity .6s;}
 .ps-focus .ps-left,.ps-focus .ps-stab,.ps-focus .ps-sn{display:none;}
@@ -31775,6 +31775,7 @@ function clResolveShot(g,sh){
 function clBreak(g,c,q){
   for(let i=0;i<16;i++){const a=Math.random()*6.283,b=Math.random()*3.14-1.2,s=3+Math.random()*7;g.parts.push({p:c.p.slice(),v:[c.v[0]*.35+Math.cos(a)*Math.cos(b)*s,c.v[1]*.35+Math.sin(b)*s+2,c.v[2]*.35+Math.sin(a)*Math.cos(b)*s],l:0,life:1.1+Math.random()*.5,k:i<12?'f':'d',s:.05+Math.random()*.14});}
   g.parts.push({p:c.p.slice(),v:[c.v[0]*.1,.4,c.v[2]*.1],l:0,life:1.4,k:'p',s:q==='c'?1.9:1.1,q});
+  g.parts.push({p:c.p.slice(),v:[c.v[0]*.25,.8,c.v[2]*.25],l:0,life:.9,k:'F',s:1,q});
 }
 function clEventDone(g){
   // the clays are gone: the points of this call
@@ -31875,22 +31876,38 @@ function clBox(g,x,f,cx,cy,X,Y,Z,w,h,d,col){
   const c=[X+w/2,Y+h/2,Z+d/2],ev=[g.eye[0]-c[0],g.eye[1]-c[1],g.eye[2]-c[2]];
   faces.filter(fc=>fc[1][0]*ev[0]+fc[1][1]*ev[1]+fc[1][2]*ev[2]>0).sort((a,b)=>b[0].reduce((s,i)=>s+P[i][2],0)-a[0].reduce((s,i)=>s+P[i][2],0)).forEach(fc=>{x.fillStyle=fc[2];x.beginPath();fc[0].forEach((i,k)=>k?x.lineTo(P[i][0],P[i][1]):x.moveTo(P[i][0],P[i][1]));x.closePath();x.fill();});
 }
+// the pictures of the field (cut from the sheet made in ChatGPT); everything is drawn by code when a picture is missing
+const CL_IMG={};
+function clImg(n){let i=CL_IMG[n];if(!i){i=CL_IMG[n]=new Image();i.src='assets/games/cl_'+n+(n==='sky'||n==='grass'?'.jpg':'.png');}return i.complete&&i.naturalWidth?i:null;}
+// a strip that turns with the gun: it repeats every rad radians, every second copy mirrored so that the edges always meet
+function clTile(x,img,g,f,cx,y0,h,rad,sy,sh){
+  const tw=rad*f,k0=Math.floor((g.yaw-cx/f-.05)/rad),k1=Math.floor((g.yaw+cx/f+.05)/rad);
+  for(let k=k0;k<=k1;k++){const x0=cx+(k*rad-g.yaw)*f;
+    if(k&1){x.save();x.translate(x0+tw,0);x.scale(-1,1);if(sh)x.drawImage(img,0,sy,img.width,sh,0,y0,tw+1,h);else x.drawImage(img,0,y0,tw+1,h);x.restore();}else if(sh)x.drawImage(img,0,sy,img.width,sh,x0,y0,tw+1,h);else x.drawImage(img,x0,y0,tw+1,h);}
+}
+function clSkyCol(img){if(img._sc)return img._sc;try{const c=document.createElement('canvas');c.width=c.height=1;const q=c.getContext('2d');q.drawImage(img,0,0,img.width,5,0,0,1,1);const d=q.getImageData(0,0,1,1).data;img._sc=['rgb('+d[0]+','+d[1]+','+d[2]+')','rgb('+Math.round(d[0]*.62)+','+Math.round(d[1]*.7)+','+Math.round(d[2]*.82)+')'];}catch(e){img._sc=['#2f6db0','#1d4a80'];}return img._sc;}
+function clBill(g,x,f,cx,cy,img,P,hm){const p=clProj(g,P,f,cx,cy);if(!p||p[2]>260)return;const h=f*hm/p[2],w=h*img.width/img.height;x.drawImage(img,p[0]-w/2,p[1]-h,w,h);}
+function clGun(g,x,img,cx,cy,H,dpr){
+  const h=H-cy+6*dpr,w=h*img.width/img.height;x.drawImage(img,cx-w/2,cy-2*dpr,w,h);
+  if(g.kick>.2){const fl=clImg('flash');if(fl){const k=g.kick,sz=(50+110*k)*dpr,w2=sz*fl.width/fl.height;x.save();x.globalCompositeOperation='lighter';x.globalAlpha=Math.min(1,k*1.5);x.drawImage(fl,cx-w2/2,cy-sz*.92,w2,sz);x.restore();}}
+}
 function clDraw(g,now){
-  const cv=g.cv;if(!cv)return;const x=cv.getContext('2d'),W=cv.width,H=cv.height,f=g.f,cx=W/2,cy=H/2,dpr=g.dpr||1;
+  const cv=g.cv;if(!cv)return;const x=cv.getContext('2d'),W=cv.width,H=cv.height,f=g.f,cx=W/2,cy=H*.58,dpr=g.dpr||1;
   x.setTransform(1,0,0,1,0,0);
   const ky=g.kick>0?(-6*g.kick)*dpr:0;
   x.save();x.translate(g.kick>0?(Math.random()-.5)*3*g.kick*dpr:0,ky);
   const hy=cy+f*Math.tan(g.pitch);   // the horizon
   // sky
   let gr=x.createLinearGradient(0,Math.min(0,hy-H),0,Math.max(hy,1));gr.addColorStop(0,'#2f6db0');gr.addColorStop(.7,'#8dbbe0');gr.addColorStop(1,'#d9e8ee');x.fillStyle=gr;x.fillRect(-20,-20,W+40,Math.max(hy,0)+20);
+  const skyI=clImg('sky');if(skyI){const sc=clSkyCol(skyI),topY=hy-.5*f;if(topY>-20){clTile(x,skyI,g,f,cx,-20,topY+21,3.6,0,3);gr=x.createLinearGradient(0,Math.min(-20,topY-1.1*f),0,topY);gr.addColorStop(0,'rgba(8,30,70,.7)');gr.addColorStop(1,'rgba(8,30,70,0)');x.fillStyle=gr;x.fillRect(-20,-20,W+40,topY+21);}clTile(x,skyI,g,f,cx,topY,.5*f,3.6);}
   // the sun and the clouds are fixed in the world: they turn with the gun
   const sunA=.7,sunE=.62,sx=cx+f*Math.tan(sunA-g.yaw),sy=cy+f*Math.tan(g.pitch-sunE);
   gr=x.createRadialGradient(sx,sy,0,sx,sy,f*.5);gr.addColorStop(0,'rgba(255,248,220,.95)');gr.addColorStop(.12,'rgba(255,240,190,.55)');gr.addColorStop(1,'rgba(255,230,160,0)');x.fillStyle=gr;x.fillRect(sx-f*.5,sy-f*.5,f,f);
   if(!g.clouds){g.clouds=Array.from({length:14},(_,i)=>({a:(i/14)*6.283+clHash(i)*.5,e:.25+clHash(i+9)*.55,s:.7+clHash(i+3)*1.1,sp:.004+clHash(i+5)*.006}));}
-  for(const c of g.clouds){let da=((c.a+c.sp*g.t-g.yaw)%6.283+9.425)%6.283-3.1416;if(Math.abs(da)>.9)continue;const ccx=cx+f*Math.tan(da),ccy=cy+f*Math.tan(g.pitch-c.e),r=f*.07*c.s;
+  if(!skyI)for(const c of g.clouds){let da=((c.a+c.sp*g.t-g.yaw)%6.283+9.425)%6.283-3.1416;if(Math.abs(da)>.9)continue;const ccx=cx+f*Math.tan(da),ccy=cy+f*Math.tan(g.pitch-c.e),r=f*.07*c.s;
     x.fillStyle='rgba(255,255,255,.62)';for(let k=0;k<5;k++){x.beginPath();x.ellipse(ccx+(k-2)*r*.8,ccy+Math.sin(k*2.1)*r*.18,r*(1.05-Math.abs(k-2)*.18),r*.5,0,0,6.283);x.fill();}}
   // the tree line, two layers
-  for(const L of [{b:.012,h:.045,col:'#6f8f84',sd:1},{b:.004,h:.07,col:'#2c4a35',sd:7}]){
+  const trI=clImg('trees');if(trI)clTile(x,trI,g,f,cx,hy-.118*f+4*dpr,.118*f,1.4);else for(const L of [{b:.012,h:.045,col:'#6f8f84',sd:1},{b:.004,h:.07,col:'#2c4a35',sd:7}]){
     x.fillStyle=L.col;x.beginPath();x.moveTo(-10,hy+40);
     for(let px=-10;px<=W+10;px+=7*dpr){const ya=g.yaw+Math.atan((px-cx)/f),i=Math.floor(ya*40),u=ya*40-i,hh=(clHash(i+L.sd*100)*(1-u)+clHash(i+1+L.sd*100)*u),ang=L.b+L.h*(.35+.65*hh)*(.6+.4*Math.sin(ya*9+L.sd));x.lineTo(px,cy+f*Math.tan(g.pitch-ang));}
     x.lineTo(W+10,hy+40);x.closePath();x.fill();}
@@ -31900,35 +31917,40 @@ function clDraw(g,now){
   const bands=[400,160,90,60,42,30,22,16,12,9,7,5.5,4.2,3.2,2.4,1.8,1.3,1];
   for(let i=0;i<bands.length;i++){const a=Math.atan(eyeH/bands[i]),y1=cy+f*Math.tan(g.pitch+a);if(y1>prev){x.fillStyle=i%2?'#4a7a37':'#568a40';x.fillRect(-20,prev,W+40,y1-prev+1);prev=y1;}}
   gr=x.createLinearGradient(0,hy,0,hy+f*.25);gr.addColorStop(0,'rgba(210,225,215,.55)');gr.addColorStop(1,'rgba(210,225,215,0)');x.fillStyle=gr;x.fillRect(-20,hy,W+40,f*.25);
+  { const grI=clImg('grass');if(grI){x.save();x.globalAlpha=.82;clTile(x,grI,g,f,cx,hy-2,H-hy+4,2.2);x.restore();} }
   // the field's furniture
-  const stoneC={top:'#a9a39a',front:'#87827a',side:'#6d6962'};
+  const stoneC={top:'#a9a39a',front:'#87827a',side:'#6d6962'},I=clImg;
   if(g.disc==='trap'){
-    clBox(g,x,f,cx,cy,-3.6,-1.2,13.8,7.2,2.4,2.4,stoneC);
-    for(const sx2 of [-14,14])clBox(g,x,f,cx,cy,sx2-.1,0,12,.2,3.2,.2,{top:'#ddd',front:'#cfcfcf',side:'#b7b7b7'});
-    CL_TRAPX.forEach((px2,i)=>{const p=clProj(g,[px2,0,3],f,cx,cy);if(p){x.fillStyle=i+1===clBlock(g)?.st?'rgba(236,196,92,.95)':'rgba(255,255,255,.55)';x.beginPath();x.ellipse(p[0],p[1],f*.5/p[2],f*.14/p[2],0,0,6.283);x.fill();}});
+    if(I('trap'))clBill(g,x,f,cx,cy,I('trap'),[0,0,15],2.3);else clBox(g,x,f,cx,cy,-3.6,-1.2,13.8,7.2,2.4,2.4,stoneC);
+    if(I('sock'))clBill(g,x,f,cx,cy,I('sock'),[13,0,11],5.4);
+    CL_TRAPX.forEach((px2,i)=>{if(I('plate')){clBill(g,x,f,cx,cy,I('plate'),[px2,0,3.2],.55);return;}const p=clProj(g,[px2,0,3],f,cx,cy);if(p){x.fillStyle=i+1===clBlock(g)?.st?'rgba(236,196,92,.95)':'rgba(255,255,255,.55)';x.beginPath();x.ellipse(p[0],p[1],f*.5/p[2],f*.14/p[2],0,0,6.283);x.fill();}});
   }else{
-    clBox(g,x,f,cx,cy,-20.2,0,-1.4,3.4,3.05,2.8,{top:'#b9b2a5',front:'#8f897d',side:'#6f6a60'});     // the high house
-    clBox(g,x,f,cx,cy,16.8,0,-1.4,3.4,1.05,2.8,{top:'#b9b2a5',front:'#8f897d',side:'#6f6a60'});      // the low house
-    clBox(g,x,f,cx,cy,-.08,0,-.08,.16,4.6,.16,{top:'#ddd',front:'#e9e9e9',side:'#bdbdbd'});            // the centre stake
-    for(let k=1;k<=7;k++){const e=clEye('skeet',k),p=clProj(g,[e[0],0,e[2]],f,cx,cy);if(p){x.fillStyle=k===clBlock(g)?.st?'rgba(236,196,92,.95)':'rgba(255,255,255,.5)';x.beginPath();x.ellipse(p[0],p[1],f*.5/p[2],f*.14/p[2],0,0,6.283);x.fill();}}
+    if(I('hhouse'))clBill(g,x,f,cx,cy,I('hhouse'),[-19.6,0,0],5.2);else clBox(g,x,f,cx,cy,-20.2,0,-1.4,3.4,3.05,2.8,{top:'#b9b2a5',front:'#8f897d',side:'#6f6a60'});
+    if(I('lhouse'))clBill(g,x,f,cx,cy,I('lhouse'),[19.6,0,0],2.7);else clBox(g,x,f,cx,cy,16.8,0,-1.4,3.4,1.05,2.8,{top:'#b9b2a5',front:'#8f897d',side:'#6f6a60'});
+    if(I('stake'))clBill(g,x,f,cx,cy,I('stake'),[0,0,0],4.9);else clBox(g,x,f,cx,cy,-.08,0,-.08,.16,4.6,.16,{top:'#ddd',front:'#e9e9e9',side:'#bdbdbd'});
+    if(I('sock'))clBill(g,x,f,cx,cy,I('sock'),[26,0,9],5.4);
+    for(let k=1;k<=7;k++){const e=clEye('skeet',k);if(I('plate')){clBill(g,x,f,cx,cy,I('plate'),[e[0],0,e[2]],.55);continue;}const p=clProj(g,[e[0],0,e[2]],f,cx,cy);if(p){x.fillStyle=k===clBlock(g)?.st?'rgba(236,196,92,.95)':'rgba(255,255,255,.5)';x.beginPath();x.ellipse(p[0],p[1],f*.5/p[2],f*.14/p[2],0,0,6.283);x.fill();}}
   }
   // the clay and its fragments
   for(const c of g.clays){if(!c.alive&&!c.broke)continue;if(c.broke)continue;const p=clProj(g,c.p,f,cx,cy);if(!p)continue;const r=Math.max(2.8*dpr,f*.5/p[2]);
     // a faint glow so that it can always be found against the sky
     x.save();x.globalAlpha=.4;gr=x.createRadialGradient(p[0],p[1],0,p[0],p[1],r*2.4);gr.addColorStop(0,'rgba(255,150,40,.8)');gr.addColorStop(1,'rgba(255,150,40,0)');x.fillStyle=gr;x.beginPath();x.arc(p[0],p[1],r*2.4,0,6.283);x.fill();x.restore();
-    const tilt=.35+.25*Math.sin(c.t*7);x.fillStyle='#d9531c';x.beginPath();x.ellipse(p[0],p[1],r,r*tilt,0,0,6.283);x.fill();x.fillStyle='#f58a3a';x.beginPath();x.ellipse(p[0],p[1]-r*.08,r*.78,r*tilt*.62,0,0,6.283);x.fill();
+    const cI=I('clay'),tilt=.35+.25*Math.sin(c.t*7);if(cI){const w=r*2.5,h=w*cI.height/cI.width*(.7+.3*Math.abs(Math.sin(c.t*5)));x.drawImage(cI,p[0]-w/2,p[1]-h/2,w,h);}else{x.fillStyle='#d9531c';x.beginPath();x.ellipse(p[0],p[1],r,r*tilt,0,0,6.283);x.fill();x.fillStyle='#f58a3a';x.beginPath();x.ellipse(p[0],p[1]-r*.08,r*.78,r*tilt*.62,0,0,6.283);x.fill();}
     if(CL_LV[g.lv].assist&&g.phase==='fly'&&!g.cur.bot){const q=clProj(g,[c.p[0]+c.v[0]*.25,c.p[1]+c.v[1]*.25-1.2,c.p[2]+c.v[2]*.25],f,cx,cy);if(q){x.strokeStyle='rgba(255,236,160,.55)';x.setLineDash([3*dpr,4*dpr]);x.lineWidth=dpr*1.2;x.beginPath();x.moveTo(p[0],p[1]);x.lineTo(q[0],q[1]);x.stroke();x.setLineDash([]);}}}
   for(const q of g.parts){const p=clProj(g,q.p,f,cx,cy);if(!p)continue;const u=q.l/q.life;
-    if(q.k==='p'){const r=f*q.s*(.4+u*1.6)/p[2];x.fillStyle='rgba('+(q.q==='c'?'40,38,36':'200,190,175')+','+(.55*(1-u))+')';x.beginPath();x.arc(p[0],p[1],r,0,6.283);x.fill();}
+    if(q.k==='F'){const fi=I('frag');if(fi){const w=f*1.5*(.55+u*1.0)/p[2];x.globalAlpha=1-u*u;x.drawImage(fi,p[0]-w/2,p[1]-w*fi.height/fi.width/2,w,w*fi.height/fi.width);x.globalAlpha=1;}continue;}
+    if(q.k==='p'){const si=I(q.q==='c'?'smoke':'dust');if(si){const w=f*q.s*1.5*(.45+u*1.3)/p[2];x.globalAlpha=.95*(1-u);x.drawImage(si,p[0]-w/2,p[1]-w*si.height/si.width/2,w,w*si.height/si.width);x.globalAlpha=1;continue;}const r=f*q.s*(.4+u*1.6)/p[2];x.fillStyle='rgba('+(q.q==='c'?'40,38,36':'200,190,175')+','+(.55*(1-u))+')';x.beginPath();x.arc(p[0],p[1],r,0,6.283);x.fill();}
     else{x.globalAlpha=1-u*u;x.fillStyle=q.k==='f'?(Math.sin(q.l*30+q.s*50)>0?'#e8652a':'#1b1b1b'):'rgba(200,190,170,.7)';x.beginPath();x.ellipse(p[0],p[1],Math.max(1.5,f*q.s/p[2]),Math.max(1,f*q.s*.5/p[2]),q.l*8,0,6.283);x.fill();x.globalAlpha=1;}}
   x.restore();
-  // the gun: two barrels, a rib and a bead
-  {const bx=cx,by=cy+6*dpr;x.save();x.globalAlpha=.62;
+  // the gun
+  const gunI=clImg('gun');
+  if(gunI){clGun(g,x,gunI,cx,cy,H,dpr);if(CL_LV[g.lv].assist&&g.phase==='fly'&&!g.cur.bot){x.strokeStyle='rgba(255,230,150,.4)';x.lineWidth=dpr*1.3;x.beginPath();x.arc(cx,cy,CL_LV[g.lv].pr*f,0,6.283);x.stroke();}}
+  else {const bx=cx,by=cy+6*dpr;x.save();x.globalAlpha=.62;
     for(const sd of [-1,1]){gr=x.createLinearGradient(bx+sd*30*dpr,0,bx+sd*8*dpr,0);gr.addColorStop(0,'#101214');gr.addColorStop(.5,'#5a6068');gr.addColorStop(1,'#16181b');x.fillStyle=gr;x.beginPath();x.moveTo(bx+sd*26*dpr,H+4);x.lineTo(bx+sd*15*dpr,H+4);x.lineTo(bx+sd*4*dpr,by+26*dpr);x.lineTo(bx+sd*8*dpr,by+26*dpr);x.closePath();x.fill();}
     gr=x.createLinearGradient(0,by+26*dpr,0,H);gr.addColorStop(0,'rgba(236,196,92,.9)');gr.addColorStop(1,'rgba(160,120,40,.9)');x.fillStyle=gr;x.beginPath();x.moveTo(bx-3*dpr,by+28*dpr);x.lineTo(bx+3*dpr,by+28*dpr);x.lineTo(bx+9*dpr,H+4);x.lineTo(bx-9*dpr,H+4);x.closePath();x.fill();
     x.fillStyle='#ffe49a';x.shadowColor='#f0d27a';x.shadowBlur=8*dpr;x.beginPath();x.arc(bx,by+22*dpr,3.2*dpr,0,6.283);x.fill();x.restore();
     // beginners see the cloud
-    if(CL_LV[g.lv].assist&&g.phase==='fly'&&!g.cur.bot){x.strokeStyle='rgba(255,230,150,.35)';x.lineWidth=dpr*1.2;x.beginPath();x.arc(bx,by+22*dpr,CL_LV[g.lv].pr*f,0,6.283);x.stroke();}}
+    if(CL_LV[g.lv].assist&&g.phase==='fly'&&!g.cur.bot){x.strokeStyle='rgba(255,230,150,.35)';x.lineWidth=dpr*1.2;x.beginPath();x.arc(cx,cy,CL_LV[g.lv].pr*f,0,6.283);x.stroke();}}
 }
 function clStep(g,dt){
   g.t+=dt;g.kick=Math.max(0,g.kick-dt*6);
@@ -31991,7 +32013,7 @@ function clHud(g){
 function clPlayersHTML(g){return g.players.map((p,i)=>`<div class="ps-pl" id="cl-pl${i}"><span class="ah-av">${p.avatar?avHTML(p.avatar):''}</span><div class="ps-pn"><b>${esc((p.name||'').slice(0,12))}${p.bot?' 🤖':''}</b><i id="cl-pb${i}"></i></div><b class="ps-tot" id="cl-tot${i}">0</b><div class="ps-chips" id="cl-ch${i}"></div></div>`).join('');}
 function rClayTable(){
   if(!G.cl||!G.cl.live){clStop();G.cl=clNew();}
-  const g=G.cl;setTimeout(clAttach,0);
+  const g=G.cl;setTimeout(clAttach,0);['sky','trees','grass','hhouse','lhouse','trap','plate','stake','sock','clay','frag','smoke','dust','flash','gun'].forEach(clImg);
   return`<div id="s-table" class="scr on game-airhockey game-precision game-clay">
     <div class="game-bar"><div class="gb-game">🥏 <span>Clay Shooting</span></div><div class="gb-turn" id="cl-status">OUR TABLE MODE · Trap and Skeet</div><div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div></div>
     <div class="felt-table ah-felt" style="flex:1 1 auto;min-height:0;max-height:none;padding:0;">
