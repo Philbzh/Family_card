@@ -6083,6 +6083,26 @@ async function runPresentation(A,W,frame){
       F('psLbAdd')([{n:'ZoeTest',s:201.5,a:10.07,d:'2026-11-01T10:00:00.000Z',lv:'sport'},{n:'MaxTest',s:207.3,a:10.36,d:'2026-11-02T10:00:00.000Z',lv:'elite',pf:2},{n:'Robo',s:215,a:10.7,d:'2026-11-02T10:00:00.000Z'},{n:'ZoeTest',s:201.5,a:10.07,d:'2026-11-01T10:00:00.000Z'}]);
       {const all=F('psLbAll')().filter(e=>/Test$/.test(e.n));check('the leaderboard is sorted, has no double entries and no robots',all.length===2&&all[0].n==='MaxTest'&&!F('psLbAll')().some(e=>e.n==='Robo'));}
       check('the leaderboard window shows the names',/MaxTest/.test(F('rPsLbOv')())&&/Family Range/.test(F('rPsLbOv')()));
+      // ── online: the second device watches Ann's series, then shoots its own and tells the others
+      {const ch0=F('_ch'),pid0=G().myPid,srv0=G().srv;
+       try{W.eval("window._psOut=[];_ch={send:m=>{window._psOut.push(m.payload)}}");
+        gg.isOnline=true;G().myPid='B';gg.selGame='precision';gg.srv={phase:'game',gameId:'precision',host:'A',players:[{id:'A',name:'Ann',avatar:F('AVATARS')[0]},{id:'B',name:'Bo',avatar:F('AVATARS')[1]}],ah:{id:'x1',score:[0,0]},winner:null};
+        gg.scr='table';F('psStop')();F('render')();F('psAttach')();p=G().ps;
+        check('online the table knows its seat and waits for the host to start',!!p.net&&p.net.seat===1&&p.phase==='setup'&&/Waiting for the host/.test(W.document.getElementById('ps-ov').innerHTML));
+        F('psOnBroadcast')({k:'go',id:'x1',seat:0,lv:'elite',breath:1});
+        check('the start of the host brings everybody in with the level of the host',p.phase==='hand'&&p.lv==='elite'&&p.curI===0&&F('psWatch')(p));
+        F('psOnBroadcast')({k:'go',id:'x1',seat:1,lv:'beginner',breath:0});F('psOnBroadcast')({k:'ready',id:'x1',seat:1});
+        check('a message from the wrong player changes nothing',p.lv==='elite'&&p.phase==='hand');
+        F('psOnBroadcast')({k:'ready',id:'x1',seat:0});F('psOnBroadcast')({k:'sight',id:'x1',seat:0,x:1,y:2,bx:0,by:1,rr:3,pk:0});
+        check('the watcher sees the other sight',p.phase==='aim'&&!!p.wv&&p.wv.y===2);
+        F('psFireTap')(p);check('a watcher cannot fire',p.phase==='aim');
+        for(let n=0;n<5;n++){F('psOnBroadcast')({k:'shot',id:'x1',seat:0,n,s:{ax:0,ay:0,x:.3+n*.1,y:0,peak:0,S:.9}});F('psOnBroadcast')({k:'shot',id:'x1',seat:0,n,s:{ax:0,ay:0,x:.3+n*.1,y:0,peak:0,S:.9}});for(let i=0;i<200;i++)F('psStep')(p,1/60);}
+        check('the five shots of the first series are counted once each, the same on this device',p.sh[0].length===5&&p.shotN===5&&p.tot[0]===p.sh[0].reduce((a,x)=>a+x.v,0));
+        check('then it is the turn of this device, with a READY card',p.curI===1&&p.phase==='hand'&&!F('psWatch')(p)&&/READY/.test(W.document.getElementById('ps-ov').innerHTML));
+        F('psAction')(p,'ready');p.base={x:0,y:0};p.S=.9;p.hold=4;F('psFireTap')(p);
+        const out=W.eval('window._psOut');
+        check('this device tells the others it is ready and sends its shot (number 5)',out.some(m=>m.k==='ready')&&out.some(m=>m.k==='shot'&&m.n===5&&m.id==='x1'&&m.seat===1));
+       }finally{W.eval('window._psOut=null');W.eval('_ch=null');if(ch0)W.eval('0');gg.isOnline=false;G().myPid=pid0;gg.srv=srv0;F('psStop')();}}
     }finally{const g=G();try{F('psStop')();}catch(e){}g.isOnline=k0[0];g.selGame=k0[1];g.lp=k0[2];g.scr=k0[3];g.ps=null;g.psResult=k0[5];ls.forEach(([k,v])=>{if(v===null)W.localStorage.removeItem(k);else W.localStorage.setItem(k,v);});}
   });
   suite('Fairground: the LEVEL button works in every booth',()=>{

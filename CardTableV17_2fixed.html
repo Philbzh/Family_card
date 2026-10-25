@@ -4594,6 +4594,7 @@ function dbSub(id,cb){
       .on('broadcast',{event:'pl'},msg=>{try{plOnBroadcast(msg&&msg.payload);}catch(e){}})
       .on('broadcast',{event:'fg'},msg=>{try{fgOnBroadcast(msg&&msg.payload);}catch(e){}})
       .on('broadcast',{event:'pb'},msg=>{try{pbOnBroadcast(msg&&msg.payload);}catch(e){}})
+      .on('broadcast',{event:'ps'},msg=>{try{psOnBroadcast(msg&&msg.payload);}catch(e){}})
       .subscribe(status=>{if(status==='SUBSCRIBED')_ch.track({pid:G.myPid});});
   }
   if(_poll)clearInterval(_poll);
@@ -5074,7 +5075,7 @@ const GAMES=[
 ];
 // Single source of truth for which unlocked games have online-multiplayer support, so the "online"
 // gate and the local-only badge on a game's card can never drift out of sync with each other.
-const ONLINE_GAMES=['balloonblast','marksman','hoopfever','pool','invaders','pong','airhockey','maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice','summit','hotbomb','vault','bust','escape','shutbox','fourrow','skull','tension','mayhem','chainreaction','gauntlet','abyss','blackwater','pinball'];
+const ONLINE_GAMES=['precision','balloonblast','marksman','hoopfever','pool','invaders','pong','airhockey','maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice','summit','hotbomb','vault','bust','escape','shutbox','fourrow','skull','tension','mayhem','chainreaction','gauntlet','abyss','blackwater','pinball'];
 // The Games tab groups its (growing) roster into these, rather than one long scroll -- every GAMES
 // entry's `cat` must be one of these ids. Order here is the order the category tiles are shown in.
 const GAME_CATEGORIES=[
@@ -30028,8 +30029,9 @@ function onSrvCore(state){
           // the table plays its own finale first; the result screen follows
           if(fgIs(state.gameId)){G.fgResult=(state.ah&&state.ah.stats&&state.ah.stats.fg)||null;G.ahMoment=state.moment||'';fgStop();}
           if(state.gameId==='pinball'){const pbr=(state.ah&&state.ah.stats&&state.ah.stats.pb)||null;G.pbResult=pbr;G.ahMoment=state.moment||'';if(pbr&&Array.isArray(pbr.entries)){pbHofAdd(pbr.entries);const all=pbHofAll(),ix=all.findIndex(e=>e.n===String(pbr.winnerName||'').slice(0,24)&&e.s===pbr.top);pbr.rank=ix>=0&&ix<10?ix+1:0;}pbStop();}
-          _ahEndAt=Date.now()+(G.ah&&G.ah.live?3200:plLive()?plEndWaitMs():600);
-          setTimeout(()=>{if(G.isOnline&&G.srv&&ahIs(G.srv.gameId)&&G.srv.winner){ahStop();plStop();fgStop();G.scr='matchend';render();}},(_ahEndAt-Date.now())+80);
+          if(state.gameId==='precision'){const r=(state.ah&&state.ah.stats&&state.ah.stats.ps)||null;G.psResult=r;G.ahMoment=state.moment||'';if(r&&Array.isArray(r.names)){const when=new Date().toISOString();psLbAdd(r.names.map((n,i)=>({n:String(n||'').slice(0,24),s:r.st[i].tot/10,a:r.st[i].avg/10,d:when,lv:r.lv,pf:r.st[i].perfect})).filter(e=>e.s>0));const all=psLbAll(),ix=all.findIndex(e=>e.n===String(r.names[r.w]||'').slice(0,24)&&Math.abs(e.s-r.top/10)<.001);r.rank=ix>=0&&ix<10?ix+1:0;}}
+          _ahEndAt=Date.now()+(G.ah&&G.ah.live?3200:plLive()?plEndWaitMs():psLive()?2800:600);
+          setTimeout(()=>{if(G.isOnline&&G.srv&&ahIs(G.srv.gameId)&&G.srv.winner){ahStop();plStop();fgStop();psStop();G.scr='matchend';render();}},(_ahEndAt-Date.now())+80);
         }
         if(Date.now()<_ahEndAt){G.scr='table';return;}
         G.scr='matchend';render();return;
@@ -30952,17 +30954,25 @@ function psMove(g,dx,dy){
   g.base.x+=dx*gain;g.base.y+=dy*gain;psClampBase(g);
   const mv=Math.hypot(dx,dy)*gain;g.S=Math.max(0,g.S-mv*.05);g.hold=Math.max(0,g.hold-mv*.4);g.lastMoveT=g.t;
 }
-function psMicro(g,dx,dy){if(g.phase!=='aim'||g.cur.bot)return;g.base.x+=dx*.1;g.base.y+=dy*.1;psClampBase(g);g.S=Math.max(0,g.S-.012);g.lastMoveT=g.t-.3;psSnd.tick();}
+function psMicro(g,dx,dy){if(g.phase!=='aim'||g.cur.bot||psWatch(g))return;g.base.x+=dx*.1;g.base.y+=dy*.1;psClampBase(g);g.S=Math.max(0,g.S-.012);g.lastMoveT=g.t-.3;psSnd.tick();}
 
 // ── the match ──
 function psNew(){
   const pr=psPrefs(),D=PS_DISC[pr.disc]||PS_DISC.air_rifle_10m;
-  const players=G.lp.slice(0,4).map(p=>({name:p.name||'Player',avatar:p.avatar,bot:p.bot?(p.bot==='sharp'?'sharp':p.bot==='steady'?'steady':'gentle'):null}));
-  const g={live:true,D,pr,players,n:players.length,phase:'setup',mode:pr.mode,lv:pr.lv,breath:!!pr.breath,focus:!!pr.focus,steady:!!pr.steady,bold:!!pr.bold,
+  const src=G.isOnline?ahPlayers().slice(0,4):G.lp.slice(0,4);
+  const players=src.map(p=>({name:p.name||'Player',avatar:p.avatar,bot:G.isOnline?null:p.bot?(p.bot==='sharp'?'sharp':p.bot==='steady'?'steady':'gentle'):null}));
+  const g={live:true,D,pr,players,net:G.isOnline?{id:G.srv&&G.srv.ah&&G.srv.ah.id,seat:Math.max(0,src.findIndex(q=>q.id===G.myPid)),sightAt:-9,helloAt:-9,goAt:-9,goUntil:0,cfg:null}:null,shotN:0,pend:[],wv:null,wvs:null,n:players.length,phase:'setup',mode:pr.mode,lv:pr.lv,breath:!!pr.breath,focus:!!pr.focus,steady:!!pr.steady,bold:!!pr.bold,
     t:0,last:performance.now(),raf:0,cv:null,bg:null,px:10,base:{x:11,y:7},S:.25,pk:0,hold:0,lastMoveT:-9,seed:Math.random()*100,b0:Math.random()*5.4,inPeak:false,
     sh:[],tot:[],order:[],oi:0,k:0,cur:null,curI:0,total:20,rv:null,fx:{kick:0,pulse:0,glow:0,ripple:null,flash:0},bot:null,callAt:-9,
     stats:{start:Date.now(),microN:0},rounds:[],final:null,summary:null,over:false,hand:null,lead:-1};
   return g;
+}
+function psWatch(g){return !!(g&&g.net&&G.isOnline&&g.cur&&g.curI!==g.net.seat);}
+function psHost(){return !!(G.isOnline&&G.srv&&G.srv.host===G.myPid);}
+function psSend(g,m){if(!g||!g.net||!G.isOnline)return;try{m.id=g.net.id;m.seat=g.net.seat;if(_ch)_ch.send({type:'broadcast',event:'ps',payload:m});}catch(e){}}
+function psSightPose(g){
+  if(psWatch(g)){const w=g.wv;if(!w)return null;const q=g.wvs=g.wvs||{vx:w.x,vy:w.y,bx:w.bx,by:w.by,rr:w.rr};const k=.3;q.vx+=(w.x-q.vx)*k;q.vy+=(w.y-q.vy)*k;q.bx+=(w.bx-q.bx)*k;q.by+=(w.by-q.by)*k;q.rr+=(w.rr-q.rr)*k;return{vx:q.vx,vy:q.vy,bx:q.bx,by:q.by,rr:q.rr,pk:!!w.pk};}
+  const o=psOff(g,g.t);return{vx:g.base.x+o[0],vy:g.base.y+o[1],bx:g.base.x,by:g.base.y,rr:Math.max(.8,psAmp(g)*1.15),pk:g.breath&&psPhase(g,g.t)>=.86&&g.phase==='aim'};
 }
 function psStop(){const g=G.ps;if(!g)return;g.live=false;if(g.raf)cancelAnimationFrame(g.raf);g.raf=0;clearTimeout(g.endTm);G.ps=null;}
 function psLive(){return !!(G.ps&&G.ps.live&&G.scr==='table');}
@@ -30972,15 +30982,15 @@ function lDealPrecision(){
   G.ahMoment='';G.psResult=null;G.fgResult=null;G.pbResult=null;psStop();G.scr='table';
 }
 // the shooters: the match takes everybody, a training only the first person at the table
-function psBegin(g){
-  const pr=psPrefs();Object.assign(g,{mode:pr.mode,lv:pr.lv,breath:!!pr.breath,focus:!!pr.focus,steady:!!pr.steady,bold:!!pr.bold});
+function psBegin(g,cfg){
+  const pr=psPrefs();if(G.isOnline)pr.mode='match';if(cfg){pr.lv=cfg.lv;pr.breath=cfg.breath;}Object.assign(g,{mode:pr.mode,lv:pr.lv,breath:!!pr.breath,focus:!!pr.focus,steady:!!pr.steady,bold:!!pr.bold});
   const D=g.D,idx=g.players.map((p,i)=>i);
   let who=idx;if(g.mode!=='match'){const h=idx.find(i=>!g.players[i].bot);who=[h==null?0:h];}
   g.who=who;g.sh=g.players.map(()=>[]);g.tot=g.players.map(()=>0);g.rounds=[];g.over=false;g.summary=null;g.final=null;g.lead=-1;
   g.total=g.mode==='match'?D.shots:g.mode==='train10'?10:Infinity;
   const stages=g.total===Infinity?1:Math.ceil(g.total/D.series);g.order=[];
   for(let s=0;s<stages;s++)for(const p of who)g.order.push(p);
-  g.oi=0;g.k=0;g.stats={start:Date.now(),microN:0};g.t0=g.t;
+  g.oi=0;g.k=0;g.shotN=0;g.pend=[];g.stats={start:Date.now(),microN:0};g.t0=g.t;
   g.cur=g.players[g.order[0]];g.curI=g.order[0];g.sStart=g.players.map(()=>0);
   psStage(g,true);
 }
@@ -31001,7 +31011,9 @@ function psAimStart(g){
   }
   if(last&&g.mode!=='free')psCall(g,g.final?'FINAL SHOT.':'ONE SHOT REMAINS.',g.final?g.cur.name+' needs '+psFmt(g.final.need)+' to win':'',2600,true);
   if(g.cur.bot)psBotPlan(g);else g.bot=null;
+  g.wv=null;g.wvs=null;
   psPaintOv(g);
+  if(psWatch(g)&&g.pend.length){const m=g.pend.shift();if(m.n===g.shotN)psApplyShot(g,m);}
 }
 function psBotPlan(g){
   const b=PS_BOTS[g.cur.bot]||PS_BOTS.gentle,lv=PS_LV[g.lv],s=b.s*lv.bot,f=Math.random()<.07?2.1:1;
@@ -31010,7 +31022,7 @@ function psBotPlan(g){
 
 // ── firing ──
 function psFireTap(g){
-  if(!g||g.phase!=='aim'||g.cur.bot)return;
+  if(!g||g.phase!=='aim'||g.cur.bot||psWatch(g))return;
   const lv=PS_LV[g.lv],td=.045+Math.random()*.07,o=psOff(g,g.t+td),ax=g.base.x+o[0],ay=g.base.y+o[1];
   const mv=Math.max(0,1-(g.t-g.lastMoveT)/.55),fl=mv*(.35+Math.random()*.5)*lv.sway*.1,fa=Math.random()*6.283;   // a sight just pushed around makes a ragged trigger
   const sg=lv.sig*(1+(1-g.S)*.9)*(g.steady?.8:1);
@@ -31021,7 +31033,9 @@ function psFireBot(g){
   const b=g.bot,o=psOff(g,g.t);
   psShoot(g,{ax:g.base.x+o[0],ay:g.base.y+o[1],x:b.x,y:b.y,peak:false,S:g.S});
 }
-function psShoot(g,s){
+function psShoot(g,s,fromNet){
+  const nn=g.shotN++;
+  if(!fromNet&&G.isOnline&&g.net){const m={k:'shot',n:nn,s:{ax:+s.ax.toFixed(3),ay:+s.ay.toFixed(3),x:+s.x.toFixed(3),y:+s.y.toFixed(3),peak:s.peak?1:0,S:+s.S.toFixed(2)}};psSend(g,m);[400,900].forEach(d=>setTimeout(()=>{if(G.ps===g)psSend(g,Object.assign({},m));},d));}
   const d=Math.hypot(s.x,s.y);s.d=d;s.v=psScore(d);s.p=g.curI;s.n=g.sh[g.curI].length+1;s.ang=Math.atan2(s.y,s.x);
   g.rv={s,t:0,step:0,near:s.v===99||s.v===108};g.phase='reveal';
   g.fx.kick=1;psSnd.shot();haptic(8);
@@ -31083,8 +31097,42 @@ function psStatsOf(g,i){
   const ser=g.D.series;for(let k=0;k+ser<=n;k+=ser){const sm=a.slice(k,k+ser).reduce((x,y)=>x+y,0);if(sm>bestSer)bestSer=sm;}
   return{n,tot,avg:n?tot/n:0,best:n?Math.max(...a):0,perfect:a.filter(v=>v>=109).length,streak:best,bestSer,tens:a.filter(v=>v>=100).length,low:n?Math.min(...a):0,perfSer:(()=>{for(let k=0;k+ser<=n;k+=ser)if(a.slice(k,k+ser).every(v=>v>=100))return 1;return 0;})()};
 }
+function psApplyShot(g,m){
+  const q=m&&m.s;if(!q)return;const f=v=>Math.max(-60,Math.min(60,+v||0));
+  if(g.phase==='hand')psAimStart(g);
+  if(g.phase!=='aim')return;
+  psShoot(g,{ax:f(q.ax),ay:f(q.ay),x:f(q.x),y:f(q.y),peak:!!q.peak,S:Math.max(0,Math.min(1,+q.S||0))},true);
+}
+function psOnBroadcast(m){
+  const g=G.ps;if(!g||!g.live||!g.net||!G.isOnline||!m||m.id!==g.net.id||m.seat===g.net.seat)return;
+  const sp=ahPlayers(),sender=sp[m.seat];if(!sender)return;
+  if(m.k==='go'){if(g.phase==='setup'&&sender.id===G.srv.host){g.net.cfg={lv:PS_LV[m.lv]?m.lv:'sport',breath:!!m.breath};psBegin(g,g.net.cfg);psPaintOv(g);}}
+  else if(m.k==='hello'){if(psHost()&&g.phase!=='setup'&&g.net.cfg)g.net.goUntil=Math.max(g.net.goUntil,g.t+3);}
+  else if(m.k==='ready'){if(g.phase==='hand'&&m.seat===g.curI)psAimStart(g);}
+  else if(m.k==='sight'){if(psWatch(g)&&m.seat===g.curI&&g.phase==='aim'){const f=v=>Math.max(-60,Math.min(60,+v||0));g.wv={x:f(m.x),y:f(m.y),bx:f(m.bx),by:f(m.by),rr:Math.max(.5,Math.min(30,+m.rr||1)),pk:!!m.pk};}}
+  else if(m.k==='shot'){
+    if(m.seat!==g.curI||!(m.n>=g.shotN))return;
+    if(m.n>g.shotN)return;
+    if(g.phase==='aim'||g.phase==='hand')psApplyShot(g,m);
+    else if(g.phase==='reveal'&&!g.pend.some(x=>x.n===m.n))g.pend.push(m);
+  }
+}
+function psNetFinish(g,c){
+  if(g.netEnded||!G.srv)return;g.netEnded=true;
+  const st=c.st,tot=c.tot,winners=c.winners,w=c.w,n=g.n,dur=Math.round((Date.now()-g.stats.start)/1000);
+  const res={disc:g.D.id,lv:g.lv,names:g.players.map(p=>p.name),bots:g.players.map(()=>false),st,w,top:tot[w],margin:c.margin,dur,mom:c.mom,rank:0,steady:false};
+  try{hfSnd.cheer(1);}catch(e){}
+  const s2=JSON.parse(JSON.stringify(G.srv));
+  s2.players.forEach((q,i)=>{if(i>=n)return;q.totalScore=tot[i]/10;q.c4Result=winners.length>1&&winners.includes(i)?'draw':w===i?'win':'loss';q.psLine=psFmt(tot[i])+' · avg '+(st[i].avg/10).toFixed(2);});
+  s2.winner=s2.players[w].id;s2.winnerName=s2.players[w].name;s2.winnerAv=s2.players[w].avatar;s2.moment=c.mom;
+  s2.ah=Object.assign({},s2.ah||{},{score:tot.map(v=>v/10),dur,stats:{perfect:Math.max(...st.map(x=>x.perfect)),bestRally:Math.max(...st.map(x=>x.streak)),saves:Math.max(...st.map(x=>x.bestSer))/10,fastest:Math.max(...st.map(x=>x.best))/10,team:0,lv:g.lv,ps:res}});
+  s2.lastAct=esc(s2.winnerName)+(winners.length>1?' tied.':' won the match.');s2._ts=Date.now();
+  try{onSrv(s2);}catch(e){}
+  try{dbWrite(G.roomId,s2);}catch(e){}
+}
 function psFinish(g){
   if(g.over)return;g.over=true;g.phase='over';
+  if(G.isOnline&&g.net&&g.order[g.order.length-1]!==g.net.seat)return;   // the last shooter's device writes the result for everybody
   const st=g.players.map((p,i)=>psStatsOf(g,i));
   if(g.mode!=='match'){g.summary=st[g.who[0]];g.phase='setup';g.sumFor=g.who[0];psPaintOv(g);hfSnd.cheer(1);return;}
   const tot=st.map(s=>s.tot),top=Math.max(...tot),winners=tot.map((v,i)=>v===top?i:-1).filter(i=>i>=0),w=winners[0],n=g.n;
@@ -31104,6 +31152,7 @@ function psFinish(g){
   else if(st.some(s=>s.low>=90))mom='CLEAN ROUND · '+nm(st.findIndex(s=>s.low>=90))+' did not drop a shot below 9.0';
   else mom=n===1?nm(w)+' shot '+psFmt(top)+'.':winners.length>1?'A tie at the range.':nm(w)+' won with '+psFmt(top)+'.';
   g.moment=mom;
+  if(G.isOnline){psNetFinish(g,{st,tot,winners,w,margin,mom});return;}
   g.players.forEach((p,i)=>{const gp=G.lp[i];if(!gp)return;gp.totalScore=Math.round(tot[i])/10;gp.c4Result=n===1?'win':(winners.length>1&&winners.includes(i))?'draw':w===i?'win':'loss';gp.psLine=psFmt(tot[i])+' · avg '+(st[i].avg/10).toFixed(2);});
   const dur=Math.round((Date.now()-g.stats.start)/1000),when=new Date().toISOString();
   G.ahMoment=mom;G.fgResult=null;G.fgHighlight=null;G.pbResult=null;
@@ -31216,7 +31265,7 @@ function psDraw(g,now){
   if(fx.glow>0){x.save();x.globalCompositeOperation='lighter';const gr=x.createRadialGradient(cx,cy,0,cx,cy,px*9);gr.addColorStop(0,'rgba(240,210,122,'+(.5*fx.glow)+')');gr.addColorStop(1,'rgba(240,210,122,0)');x.fillStyle=gr;x.beginPath();x.arc(cx,cy,px*9,0,6.283);x.fill();x.restore();}
   // the sight and its stability ring (not while the shot is being revealed)
   if(g.phase==='aim'||g.phase==='hand'||(g.phase==='reveal'&&g.rv&&g.rv.step<1)){
-    const o=psOff(g,g.t),vx=g.base.x+o[0],vy=g.base.y+o[1],c0=M(g.base.x,g.base.y),c1=M(vx,vy),A=psAmp(g),rr=Math.max(px*.8,A*1.15*px),pkOn=g.breath&&psPhase(g,g.t)>=.86&&g.phase==='aim';
+    const q=psSightPose(g);if(!q)return psDrawTail(g,x,W,H,cx,cy);const c0=M(q.bx,q.by),c1=M(q.vx,q.vy),rr=q.rr*px,pkOn=!!q.pk;
     const bold=g.bold,col=bold?'#fff3b0':'#ffcf4a';
     // the ring (a dark line under the gold one: it must be seen on the paper and on the black)
     x.save();
@@ -31233,6 +31282,10 @@ function psDraw(g,now){
       x.beginPath();x.arc(c1[0],c1[1],Math.max(1.5,1.2*g.dpr)+(pass?0:1.2*g.dpr),0,6.283);x.fill();}
     x.restore();
   }
+  psDrawTail(g,x,W,H,cx,cy);
+}
+function psDrawTail(g,x,W,H,cx,cy){
+  const px=g.px,D=g.D,list=g.sh[g.curI]||[],M=(mx,my)=>[cx+mx*px,cy+my*px];
   // training: where you aimed and where it went
   if(g.mode!=='match'&&list.length&&(g.phase==='aim'||(g.phase==='reveal'&&g.rv&&g.rv.step>=1))){
     const s=list[list.length-1],a=M(s.ax,s.ay),i=M(s.x,s.y);x.save();x.setLineDash([4*g.dpr,5*g.dpr]);x.strokeStyle='rgba(244,235,208,.55)';x.lineWidth=1.2*g.dpr;x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(i[0],i[1]);x.stroke();x.setLineDash([]);
@@ -31241,7 +31294,7 @@ function psDraw(g,now){
   }
   x.restore();
   // the breathing line along the bottom: one cycle, the pause in gold
-  if(g.breath&&!g.focus&&g.phase==='aim'){
+  if(g.breath&&!g.focus&&g.phase==='aim'&&!psWatch(g)){
     const bw=Math.min(W*.42,260*g.dpr),bx=cx-bw/2,by=H-26*g.dpr,bh=14*g.dpr,ph=psPhase(g,g.t);
     x.save();x.lineWidth=1.4*g.dpr;x.strokeStyle='rgba(244,235,208,.35)';x.beginPath();for(let i=0;i<=60;i++){const u=i/60,yy=by-psBreathB(u)*bh;i?x.lineTo(bx+u*bw,yy):x.moveTo(bx,yy);}x.stroke();
     x.strokeStyle='rgba(240,210,122,.9)';x.lineWidth=2.4*g.dpr;x.beginPath();x.moveTo(bx+bw*.84,by);x.lineTo(bx+bw,by);x.stroke();
@@ -31254,6 +31307,11 @@ function psDraw(g,now){
 // ── the clock of the game ──
 function psStep(g,dt){
   g.t+=dt;const fx=g.fx;fx.kick=Math.max(0,fx.kick-dt*7);fx.glow=Math.max(0,fx.glow-dt*.9);fx.pulse=Math.max(0,fx.pulse-dt);if(fx.ripple){fx.ripple.t+=dt;if(fx.ripple.t>1.2)fx.ripple=null;}
+  if(g.net&&G.isOnline){
+    const N=g.net;
+    if(g.phase==='setup'&&!psHost()&&g.t-N.helloAt>2){N.helloAt=g.t;psSend(g,{k:'hello'});}
+    if(psHost()&&N.cfg&&g.t<N.goUntil&&g.t-N.goAt>1.2){N.goAt=g.t;psSend(g,{k:'go',lv:N.cfg.lv,breath:N.cfg.breath?1:0});}
+  }
   if(g.phase==='setup')return;
   const ph=psPhase(g,g.t),inPause=g.breath&&ph>=.86;
   g.pk+=((inPause&&g.phase==='aim'?1:0)-g.pk)*Math.min(1,dt*8);
@@ -31263,11 +31321,14 @@ function psStep(g,dt){
       const u=Math.min(1,(g.t-b.t0)/Math.max(.2,b.t1-b.t0-.35)),e=u*u*(3-2*u);
       g.base.x=b.sx+(b.x-b.sx)*e;g.base.y=b.sy+(b.y-b.sy)*e;g.S=.3+.55*e;g.hold=0;
       if(g.t>=b.t1)psFireBot(g);
+    }else if(psWatch(g)){
+      /* somebody else is aiming: their sight arrives by message */
     }else{
       g.hold+=dt;const lv=PS_LV[g.lv];
       g.S=Math.min(1,g.S+dt*.34*lv.gain*(1-g.S));
       if(g.hold>9)g.S=Math.max(0,g.S-dt*.018*(g.hold-9));
       if(inPause&&!g.inPeak){g.inPeak=true;psSnd.peak();}else if(!inPause)g.inPeak=false;
+      if(g.net&&G.isOnline&&g.t-g.net.sightAt>.12){g.net.sightAt=g.t;const q=psSightPose(g),r2=v=>Math.round(v*100)/100;psSend(g,{k:'sight',x:r2(q.vx),y:r2(q.vy),bx:r2(q.bx),by:r2(q.by),rr:r2(q.rr),pk:q.pk?1:0});}
     }
   }else if(g.phase==='reveal'&&g.rv){
     const r=g.rv;r.t+=dt*1000;
@@ -31275,7 +31336,7 @@ function psStep(g,dt){
     while(r.step<4&&r.t>=th[r.step+1]){r.step++;psRvStep(g);}
     const endAt=PS_RV[4]+(r.near?300:0)+(r.s.v>=109?700:0)+(g.final?900:0);
     if(r.t>=endAt){psAfterShot(g);}
-  }else if(g.phase==='hand'&&g.hand&&g.hand.bot&&g.t-g.hand.at>1.1){psHandGo(g);}
+  }else if(g.phase==='hand'&&g.hand&&(g.hand.bot&&g.t-g.hand.at>1.1||psWatch(g)&&g.t-g.hand.at>40)){psHandGo(g);}
 }
 function psHandGo(g){if(g.phase!=='hand')return;psAimStart(g);}
 function psFrame(now){
@@ -31319,19 +31380,19 @@ function psHud(g){
   set('ps-sn',sn);
   const stab=document.getElementById('ps-sb');if(stab){const w=Math.round(g.S*100)+'%';if(stab._w!==w){stab._w=w;stab.style.width=w;}}
   const pk=document.getElementById('ps-pk');if(pk){const on=g.breath&&g.phase==='aim'&&psPhase(g,g.t)>=.86&&!g.cur.bot;if(pk._o!==on){pk._o=on;pk.classList.toggle('on',on);}}
-  const fb=document.getElementById('ps-fire');if(fb){const ok=g.phase==='aim'&&!g.cur.bot;if(fb._ok!==ok){fb._ok=ok;fb.classList.toggle('off',!ok);}
+  const fb=document.getElementById('ps-fire');if(fb){const ok=g.phase==='aim'&&!g.cur.bot&&!psWatch(g);if(fb._ok!==ok){fb._ok=ok;fb.classList.toggle('off',!ok);}
     const lab=g.phase==='setup'?'FIRE':g.cur&&g.cur.bot?'ROBOT':g.phase==='hand'?'READY':g.phase==='reveal'?'…':'FIRE';set('ps-fl',lab);}
   const stg=document.getElementById('ps-stage');if(stg){const f=!!g.final&&(g.phase==='aim'||g.phase==='reveal');if(stg._f!==f){stg._f=f;stg.classList.toggle('ps-final',f);}
     if(stg._fo!==g.focus){stg._fo=g.focus;stg.classList.toggle('ps-focus',g.focus);}
     const fr=g.mode==='free'&&g.phase!=='setup';if(stg._fr!==fr){stg._fr=fr;stg.classList.toggle('ps-free',fr);}}
   const top=document.getElementById('ps-top');if(top){const t=g.final&&(g.phase==='aim'||g.phase==='reveal')?'FINAL SHOT · '+g.final.name.toUpperCase()+' NEEDS '+psFmt(g.final.need)+' TO WIN':'';if(top._v!==t){top._v=t;top.textContent=t;top.classList.toggle('on',!!t);}}
-  set('ps-status',g.phase==='setup'?'OUR TABLE MODE · '+g.D.name:g.phase==='hand'?'Next shooter':g.cur?(g.cur.bot?g.cur.name+' (robot) is shooting':g.cur.name+' · '+(g.mode==='match'?'series '+(Math.floor((g.sh[g.curI]||[]).length/g.D.series)+1)+' of '+(g.total/g.D.series):g.mode==='train10'?'training':'free practice')):'');
+  set('ps-status',g.phase==='setup'?'OUR TABLE MODE · '+g.D.name:g.phase==='hand'?'Next shooter':psWatch(g)?g.cur.name+' is shooting · you are watching':g.cur?(g.cur.bot?g.cur.name+' (robot) is shooting':g.cur.name+' · '+(g.mode==='match'?'series '+(Math.floor((g.sh[g.curI]||[]).length/g.D.series)+1)+' of '+(g.total/g.D.series):g.mode==='train10'?'training':'free practice')):'');
 }
 function psPlayersHTML(g){
   return g.players.map((p,i)=>`<div class="ps-pl" id="ps-pl${i}"><span class="ah-av">${p.avatar?avHTML(p.avatar):''}</span><div class="ps-pn"><b>${esc((p.name||'').slice(0,12))}${p.bot?' 🤖':''}</b><i id="ps-pb${i}"></i></div><b class="ps-tot" id="ps-tot${i}">0.0</b><div class="ps-chips" id="ps-ch${i}"></div></div>`).join('');
 }
 function rPrecisionTable(){
-  if(!G.ps||!G.ps.live){psStop();G.ps=psNew();}
+  if(!G.ps||!G.ps.live||(G.isOnline&&(!G.ps.net||!G.srv||!G.srv.ah||G.ps.net.id!==G.srv.ah.id))||(!G.isOnline&&G.ps.net)){psStop();G.psResult=null;G.ps=psNew();}
   const g=G.ps;setTimeout(psAttach,0);
   return`<div id="s-table" class="scr on game-airhockey game-precision">
     <div class="game-bar"><div class="gb-game">🏅 <span>Precision Shooting</span></div><div class="gb-turn" id="ps-status">OUR TABLE MODE · 10 m Air Rifle</div><div class="gb-right"><button class="ico-btn" data-a="pslb" aria-label="The Family Range">🏅</button>${rulesBtn()}${quitBtn()}${sndBtn()}</div></div>
@@ -31356,7 +31417,7 @@ function rPrecisionTable(){
 // ── the cards on the range: set-up, hand-over, practice summary ──
 function psPaintOv(g){
   const ov=document.getElementById('ps-ov');if(!ov||!g)return;let h='';
-  const pr=psPrefs();
+  const pr=psPrefs(),onl=G.isOnline,host=psHost();
   if(g.phase==='setup'){
     const seg=(items,cur,key)=>`<div class="ps-seg">${items.map(([k,l])=>`<button class="${cur===k?'on':''}" data-psa="${key}" data-v="${k}">${l}</button>`).join('')}</div>`;
     const tg=(k,l,on)=>`<button class="ps-tg${on?' on':''}" data-psa="tg" data-v="${k}" aria-pressed="${on}">${l}</button>`;
@@ -31365,13 +31426,15 @@ function psPaintOv(g){
     h=`<div class="ps-card">
       <div class="ps-kick">OLYMPIC GAMES</div><div class="ps-h1">PRECISION SHOOTING</div><div class="ps-sub">${esc(g.D.name)} · OUR TABLE MODE</div>
       ${sm?`<div class="ps-sum"><div class="ps-sum-h">PRACTICE COMPLETE</div><div class="ps-sum-r"><span><b>${psFmt(sm.tot)}</b>total</span><span><b>${(sm.avg/10).toFixed(2)}</b>average</span><span><b>${psFmt(sm.best)}</b>best</span><span><b>${sm.perfect}</b>10.9</span><span><b>${sm.streak}</b>tens in a row</span></div></div>`:''}
-      <div class="ps-grp">MODE</div>${seg([['match','MATCH · 20 SHOTS'],['train10','TRAINING · 10'],['free','FREE PRACTICE']],pr.mode,'mode')}<div class="ps-note">${modeNote}</div>
-      <div class="ps-grp">LEVEL</div>${seg(PS_LVK.map(k=>[k,PS_LV[k].n.toUpperCase()]),pr.lv,'lv')}<div class="ps-note">${esc(PS_LV[pr.lv].about)}</div>
+      ${onl?'<div class="ps-grp">ONLINE MATCH</div><div class="ps-note">20 shots each in four series of five. Everybody shoots a series in turn on their own device and watches the others aim. The highest total wins.</div>':`<div class="ps-grp">MODE</div>${seg([['match','MATCH · 20 SHOTS'],['train10','TRAINING · 10'],['free','FREE PRACTICE']],pr.mode,'mode')}<div class="ps-note">${modeNote}</div>`}
+      ${onl&&!host?'<div class="ps-grp">LEVEL</div><div class="ps-note">The host chooses the level.</div>':`<div class="ps-grp">LEVEL</div>${seg(PS_LVK.map(k=>[k,PS_LV[k].n.toUpperCase()]),pr.lv,'lv')}<div class="ps-note">${esc(PS_LV[pr.lv].about)}</div>`}
       <div class="ps-grp">OPTIONS</div><div class="ps-tgs">${tg('breath','BREATHING',pr.breath)}${tg('focus','FOCUS',pr.focus)}${tg('steady','STEADY HAND',pr.steady)}${tg('bold','BOLD SIGHT',pr.bold)}</div>
       <div class="ps-ppl">${g.players.map(p=>`<span>${p.avatar?'<span class="ah-av">'+avHTML(p.avatar)+'</span>':''}${esc(p.name)}${p.bot?' · '+PS_BOTS[p.bot].n.toLowerCase()+' robot':''}</span>`).join('')}</div>
-      <button class="btn btn-gold ps-go" data-psa="start">${sm?'SHOOT AGAIN':'ENTER THE RANGE'}</button>
+      ${onl&&!host?'<div class="ps-note" style="text-align:center;margin-top:.8rem;">Waiting for the host to start the match…</div>':`<button class="btn btn-gold ps-go" data-psa="start">${onl?'START FOR EVERYONE':sm?'SHOOT AGAIN':'ENTER THE RANGE'}</button>`}
       <div class="ps-fine">Drag on the target to move the sight: fast far away, fine near the middle. The small arrows move it 0.1 mm. Hold still and the ring contracts; the gold mark is the stability peak. An official ISSF mode follows later.</div>
     </div>`;
+  }else if(g.phase==='hand'&&g.hand&&!g.hand.bot&&onl&&psWatch(g)){
+    h=`<div class="ps-card ps-small"><div class="ps-kick">NEXT SHOOTER</div><div class="ps-hand">${g.cur.avatar?'<span class="ah-av">'+avHTML(g.cur.avatar)+'</span>':''}<b>${esc(g.cur.name)}</b></div></div>`;
   }else if(g.phase==='hand'&&g.hand&&!g.hand.bot){
     h=`<div class="ps-card ps-small"><div class="ps-kick">${g.oi===0?'FIRST SHOOTER':'SERIES '+(Math.floor(g.oi/g.who.length)+1)+' OF '+(g.total/g.D.series)}</div><div class="ps-hand">${g.cur.avatar?'<span class="ah-av">'+avHTML(g.cur.avatar)+'</span>':''}<b>${esc(g.cur.name)}</b></div><button class="btn btn-gold ps-go" data-psa="ready">READY</button></div>`;
   }
@@ -31390,10 +31453,10 @@ function psBindInput(){
     const mb=e.target.closest&&e.target.closest('[data-psm]');
     if(mb){e.preventDefault();const d={u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]}[mb.dataset.psm];psMicro(g,d[0],d[1]);stopRep();_psRep=setTimeout(()=>{_psRep=setInterval(()=>{const gg=G.ps;if(gg)psMicro(gg,d[0],d[1]);},95);},380);return;}
     if(!e.target.closest||!e.target.closest('#ps-mid')||e.target.closest('button,a,.ps-ov'))return;
-    if(g.phase!=='aim'||g.cur.bot)return;
+    if(g.phase!=='aim'||g.cur.bot||psWatch(g))return;
     e.preventDefault();try{stage.setPointerCapture(e.pointerId);}catch(x){}
     drag={id:e.pointerId,x:e.clientX,y:e.clientY};},{passive:false});
-  stage.addEventListener('pointermove',e=>{const g=G.ps;if(!drag||!g||e.pointerId!==drag.id||g.phase!=='aim'||g.cur.bot)return;
+  stage.addEventListener('pointermove',e=>{const g=G.ps;if(!drag||!g||e.pointerId!==drag.id||g.phase!=='aim'||g.cur.bot||psWatch(g))return;
     const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;
     const css=(g.cv.clientHeight/2)/(g.D.view+1);   // CSS pixels per millimetre
     if(css>0)psMove(g,dx/css,dy/css);},{passive:true});
@@ -31413,8 +31476,8 @@ function psAction(g,a,v){
   if(a==='mode'){pr.mode=v;psSavePrefs(pr);psPaintOv(g);}
   else if(a==='lv'){pr.lv=v;psSavePrefs(pr);psPaintOv(g);}
   else if(a==='tg'){pr[v]=!pr[v];psSavePrefs(pr);psPaintOv(g);}
-  else if(a==='start'){psBegin(g);psPaintOv(g);}
-  else if(a==='ready'){psAimStart(g);}
+  else if(a==='start'){if(G.isOnline){if(!psHost())return;pr.mode='match';psSavePrefs(pr);const cfg={lv:pr.lv,breath:!!pr.breath};g.net.cfg=cfg;g.net.goUntil=g.t+8;g.net.goAt=g.t;psSend(g,{k:'go',lv:cfg.lv,breath:cfg.breath?1:0});psBegin(g,cfg);}else psBegin(g);psPaintOv(g);}
+  else if(a==='ready'){if(G.isOnline&&g.net&&g.curI===g.net.seat){const m={k:'ready'};psSend(g,m);[300,800,1500].forEach(d=>setTimeout(()=>{if(G.ps===g)psSend(g,Object.assign({},m));},d));}psAimStart(g);}
   else if(a==='finishfree'){if(g.mode!=='free'||g.phase==='setup')return;if(g.phase==='reveal')return;psFinish(g);}
 }
 
@@ -31612,7 +31675,7 @@ function oStartGame(rs){
         return;
       }
       if(ahIs(rs.gameId)){
-        const players=rs.players.slice(0,(fgIs(rs.gameId)||rs.gameId==='pinball')?((GAMES.find(x=>x.id===rs.gameId)||{}).maxP||2):2).map(p=>({...p,totalScore:0,c4Result:null}));
+        const players=rs.players.slice(0,(fgIs(rs.gameId)||rs.gameId==='pinball'||rs.gameId==='precision')?((GAMES.find(x=>x.id===rs.gameId)||{}).maxP||2):2).map(p=>({...p,totalScore:0,c4Result:null}));
         const gs={phase:'game',gameId:rs.gameId,host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
           arSeries:rs.arSeries||null,ah:{id:'ah'+Date.now().toString(36)+Math.floor(Math.random()*1e4),score:[0,0]},pl:rs.gameId==='pool'?plNew(plRulesPref(),plAssistPref(),plNextStarter()):undefined,winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
         G.srv=gs;G.ah=null;G.pl=null;G.fg=null;G.fgResult=null;G.fgHighlight=null;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
