@@ -5918,6 +5918,22 @@ async function runPresentation(A,W,frame){
        try{W.localStorage.setItem('ct_pb_world','2');const V=F('pbNew')();W.localStorage.removeItem('ct_pb_world');const V0=F('pbNew')();
         check('the starting world can be chosen: everybody starts in it',V.st.every(q=>q.lvl===2)&&V0.st.every(q=>q.lvl===0));
        }finally{if(old===null)W.localStorage.removeItem('ct_pb_world');else W.localStorage.setItem('ct_pb_world',old);}}
+      // the secret rooms: no points from a resting ball, coins, time, perfect time
+      {p.phase='play';p.tilted=false;p.room=null;p.slow=0;p.freeze=0;F('pbResetTable')();const Q=F('PB_T').portals;
+       const mkRoom=kind=>{const bb={x:236,y:450,vx:0,vy:0,st:'tunnel',id:9500,stuck:0,tr:[],tun:{room:true,kind,t:1,dur:.9,from:Q[0],to:Q[1]}};p.balls=[bb];F('pbRoomOpen')(p,bb);return bb;};
+       {const bb=mkRoom('clock'),CK=F('PB_CK'),hr=CK.hours[8];bb.x=hr.x-9;bb.y=hr.y-19;bb.vx=bb.vy=0;const sc0=stt.score;for(let i=0;i<60*4;i++)F('pbStep')(p,1/60);
+        check('a ball that rests on a plate of the clock room does not make points by resting',stt.score-sc0<4000);
+        p.room.next=1;CK.hours.forEach(q=>q.done=false);CK.minute.a=Math.PI/6;const lf=p.room.left,sc1=stt.score;F('pbClockHit')(p,CK.hours[0]);
+        check('PERFECT TIME: the hour under the minute hand pays three times and adds 2 seconds',stt.score-sc1>=15000&&p.room.left>lf);
+        p.room=null;}
+       {const bb=mkRoom('vault');for(let i=0;i<60*3;i++)F('pbStep')(p,1/60);
+        check('gold coins fall from the ceiling in the vault',p.room&&p.room.coins.length>0);
+        const cn=p.room.coins[0],sc2=stt.score;bb.x=cn.x;bb.y=cn.y;bb.vx=bb.vy=0;F('pbStep')(p,1/60);
+        check('the ball catches a coin for 1,000',stt.score-sc2>=1000);
+        F('PB_RT').gems[1].got=false;const l0=p.room.left;F('pbRoomGem')(p,F('PB_RT').gems[1]);check('a gem adds 3 seconds',p.room.left>=l0+2.5);
+        check('the vault has only two wheels and no bumpers at the bottom',F('PB_RT').gears.length===2&&F('PB_RT').bumpers.length===0&&F('PB_CK').bumpers.length===0);
+        p.room=null;}
+       p.phase='play';p.tilt=6.3;p.balls=[nb];}
       // the hall of fame
       {const old=W.localStorage.getItem('ct_pb_hof');W.localStorage.removeItem('ct_pb_hof');
        F('pbHofAdd')([{n:'ZoeTest',s:5000,d:'2026-10-01T10:00:00.000Z'},{n:'MaxTest',s:9000,d:'2026-10-02T10:00:00.000Z',lv:2,bj:50000},{n:'ZoeTest',s:5000,d:'2026-10-01T10:00:00.000Z'}]);

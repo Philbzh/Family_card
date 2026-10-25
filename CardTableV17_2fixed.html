@@ -4866,10 +4866,10 @@ const GAMES=[
      '<b>Light the Forge.</b> Hit the three orange targets on the left wall: the <b>vault door</b> at the top opens. Roll a ball into it three times and the machine goes into <b>MULTIBALL</b>: three balls, and every ramp is a jackpot.',
      '<b>The blue targets</b> on the right wall light the <b>JACKPOT</b>: shoot a ramp. <b>Roll all three top lanes</b> for a higher multiplier (up to ×5); a tap on a flipper moves the lit lanes. 25 bumper hits start <b>SUPER BUMPERS</b>. Shots that follow each other quickly build a <b>COMBO</b>.',
      '<b>Missions.</b> The panel at the right shows your mission (hit the bumpers, shoot the ramps, spin the spinner, knock down the <b>drop targets</b>...). Three missions finish a <b>level</b> (Workshop, Forge, Vault, Core): the table changes colour, jackpots grow and you win an <b>EXTRA BALL</b>. Right after the launch a flashing top lane is a <b>SKILL SHOT</b>.',
-     '<b>The tunnels.</b> The two purple holes (left and right) swallow a ball and throw it out of the other one. Use <b>both within 15 seconds</b> and the next tunnel leads into the <b>SECRET ROOM</b>: it is a small <b>treasure vault</b> of its own with your flippers: 40 seconds, three wheels, a swinging blade and five gems. <b>Light all five gems</b> (each one pays more) to open the chest, then roll the ball into it for 150,000. A ball that drains comes back (three times).',
+     '<b>The tunnels.</b> The two purple holes (left and right) swallow a ball and throw it out of the other one. Use <b>both within 15 seconds</b> and the next tunnel leads into the <b>SECRET ROOM</b>: it is a small <b>treasure vault</b> of its own with your flippers: 40 seconds, two wheels, a swinging blade and five gems. <b>Light all five gems</b> (each one pays more and adds 3 seconds) to open the chest, then roll the ball into it for 150,000. <b>Gold coins fall from the ceiling</b>: catch them with the ball (1,000 each). A ball that drains comes back (three times).',
      '<b>The four worlds.</b> The table changes its world when you finish a level: <b>Workshop</b>, then <b>Forge</b>, <b>Vault</b> and <b>Core</b>. A level is three missions (see the box at the right, it says MISSION 1/3) and then a boss. Want to see a world right away? The <b>WORLD</b> button at the left chooses the world you start in.',
      '<b>Assist and the pot.</b> The ASSIST button at the left sets the help: <b>EASY</b> for the little ones (a slower ball, a long ball save, both kickbacks lit and a hint on the table about what to shoot), <b>NORMAL</b>, or <b>EXPERT</b>. Every bumper hit of every player feeds the shared <b>POT</b>: the next jackpot, whoever hits it, takes the whole pot.',
-     '<b>The second secret room.</b> Ride an orbit and fall into a tunnel <b>within 8 seconds</b>: the next tunnel leads to the <b>CLOCK ROOM</b>. Shoot the twelve hours <b>in order, 1 to 12</b>, before the hands and the pendulum throw the ball away: each hour pays more, and midnight pays 250,000. 45 seconds, three ball returns.',
+     '<b>The second secret room.</b> Ride an orbit and fall into a tunnel <b>within 8 seconds</b>: the next tunnel leads to the <b>CLOCK ROOM</b>. Shoot the twelve hours <b>in order, 1 to 12</b>, before the hands and the pendulum throw the ball away: each hour pays more and adds 2 seconds, and midnight pays 250,000. Hit an hour just when the <b>minute hand points at it</b> and it pays <b>three times</b> (PERFECT TIME). 45 seconds, three ball returns.',
      '<b>The orbit and the magnet.</b> Shoot the ball up the left side and it can run <b>round the top</b> of the table: three orbits light the jackpot. Every 12 bumper hits <b>charge the magnet</b> in the middle of the table: it catches the ball, and you choose the shot with the flippers: <b>left</b> for the left ramp, <b>right</b> for the right ramp, <b>both</b> for the vault.',
      '<b>Bosses and the wizard.</b> The third mission of a level calls a <b>BOSS</b>: bumpers, targets, ramps, the vault and the drop bank hurt it, and its life shows as a ring around the vault and a bar at the top. Beat it for a big prize, the next level and an extra ball. After the last boss comes the <b>WIZARD MODE</b>: 45 seconds, three balls, every shot ×3 and every ramp a huge jackpot.',
      '<b>The outlanes.</b> A ball that falls down the outer lane is lost, unless the <b>KICKBACK</b> light is on: it throws the ball back up. Roll the top lanes or clear the drop targets to light both kickbacks again.',
@@ -10576,8 +10576,8 @@ function pbMission(st){const m=PB_MIS[Math.min(3,st.lvl)][st.mi%3],f=st.lvl>3?1+
 function pbTable(){
   const T={walls:[],posts:[],bumpers:[],slings:[],targets:[],lanes:[],ramps:[],drops:[],outs:[],portals:[],orbits:[],saucer:{x:236,y:228,r:17},spin:{x:236,y:338,hw:24,ang:0,vel:0,dir:1,half:0}};
   const seg=(a,b,o)=>T.walls.push(Object.assign({a,b,e:.4},o||{}));
-  seg([20,260],[20,960]);
-  let prev=[20,260];for(let i=1;i<=40;i++){const t=Math.PI+Math.PI*i/40,p=[251+231*Math.cos(t),260+240*Math.sin(t)];seg(prev,p);prev=p;}
+  seg([20,260],[20,960],{edge:1});
+  let prev=[20,260];for(let i=1;i<=40;i++){const t=Math.PI+Math.PI*i/40,p=[251+231*Math.cos(t),260+240*Math.sin(t)];seg(prev,p,{edge:1});prev=p;}
   seg([482,260],[482,930]);seg([452,262],[452,925]);seg([452,930],[482,930],{e:.1});
   seg([454,238],[480,238],{k:'gate',e:.15});   // the one-way flap at the top of the plunger lane
   // the in- and outlanes: the outer lane drains (the kickback can throw the ball back), the inner lane runs onto the flipper
@@ -10906,7 +10906,7 @@ function pbNetSnap(g){
     fl:['L','R','U'].map(k=>[g.fl[k].th,g.fl[k].on?1:0]),
     d:PB_T.drops.map(q=>q.down?1:0),sp:[PB_T.spin.ang,PB_T.spin.vel,PB_T.spin.dir],
     w:g.wiz?[g.wiz.t,g.wiz.max]:0,
-    r:g.room?{kind:g.room.kind,t:g.room.t,left:g.room.left,max:g.room.max,lives:g.room.lives,gems:g.room.gems,next:g.room.next,state:g.room.state,score:g.room.score,fx:g.room.fx,fy:g.room.fy,gg:PB_RT.gems.map(q=>q.got?1:0),hh:PB_CK.hours.map(q=>q.done?1:0)}:0,
+    r:g.room?{kind:g.room.kind,t:g.room.t,left:g.room.left,max:g.room.max,lives:g.room.lives,gems:g.room.gems,next:g.room.next,state:g.room.state,score:g.room.score,fx:g.room.fx,fy:g.room.fy,gg:PB_RT.gems.map(q=>q.got?1:0),hh:PB_CK.hours.map(q=>q.done?1:0),cn:(g.room.coins||[]).map(q=>[q.x,q.y])}:0,
     bn:g.bonusShow||0,
     ev:N.hist.slice(-20)};
   if(N.stEv!==N.evn||g.t-N.stT>.4||g.t<N.stT||N.lastTurn!==g.turn||N.lastPhase!==g.phase){N.stEv=N.evn;N.stT=g.t;N.lastTurn=g.turn;N.lastPhase=g.phase;m.st=g.st.map(q=>{const o={};for(const k of PB_NET_ST)o[k]=q[k];return o;});}
@@ -10941,7 +10941,7 @@ function pbNetApply(g,m){
   const R=pbSane(m.r);
   if(R&&typeof R==='object'&&(R.kind==='vault'||R.kind==='clock')){
     if(!g.room||g.room.kind!==R.kind)g.room={b:null,from:PB_T.portals[0],to:PB_T.portals[1],kind:R.kind,t:0,state:'play',max:40,left:40,lives:3,endT:0,gems:0,score:0,next:1,fx:R.fx||60,fy:R.fy||425};
-    const r=g.room;r.t=+R.t||0;r.left=+R.left||0;r.max=+R.max||40;r.lives=+R.lives||0;r.gems=+R.gems||0;r.next=+R.next||1;r.state=String(R.state||'play');r.score=+R.score||0;
+    const r=g.room;r.t=+R.t||0;r.left=+R.left||0;r.max=+R.max||40;r.lives=+R.lives||0;r.gems=+R.gems||0;r.next=+R.next||1;r.state=String(R.state||'play');r.score=+R.score||0;if(Array.isArray(R.cn))r.coins=R.cn.slice(0,10).filter(a=>Array.isArray(a)).map(a=>({x:+a[0]||0,y:+a[1]||0,vy:0}));
     if(Array.isArray(R.gg))PB_RT.gems.forEach((q,i)=>{const on=!!R.gg[i];if(on&&!q.got)q.t=g.t;q.got=on;});
     if(Array.isArray(R.hh))PB_CK.hours.forEach((q,i)=>{const on=!!R.hh[i];if(on&&!q.done)q.t=g.t;q.done=on;});
     pbRoomAnim(g);
@@ -11024,19 +11024,20 @@ function pbPop(g,x,y,t,big){pbNetEv(g,['w',Math.round(x),Math.round(y),t,big?1:0
 // ── the secret room: the treasure vault, a small table of its own, played with the same flippers ──
 const PB_RT=(()=>{const T={walls:[],gears:[],gems:[],bumpers:[],chest:{x:236,y:352,r:20},blade:{px:236,py:46,len:150,amp:.62,freq:.42,ang:0,om:0,hit:-9}};
   const seg=(a,b,o)=>T.walls.push(Object.assign({a,b,e:.4},o||{}));
-  seg([62,184],[62,800]);let pv=[62,184];for(let i=1;i<=40;i++){const t=Math.PI+Math.PI*i/40,q=[236+174*Math.cos(t),184+164*Math.sin(t)];seg(pv,q);pv=q;}
-  seg([410,184],[410,800]);seg([62,800],[140,872],{e:.3,r:6.5});seg([410,800],[332,872],{e:.3,r:6.5});
-  T.gears.push({x:130,y:500,r:50,n:4,w:1.2,a:0,hit:-9},{x:342,y:500,r:50,n:4,w:-1.2,a:0,hit:-9},{x:236,y:620,r:40,n:3,w:1.9,a:0,hit:-9});
+  seg([62,184],[62,800],{edge:1});let pv=[62,184];for(let i=1;i<=40;i++){const t=Math.PI+Math.PI*i/40,q=[236+174*Math.cos(t),184+164*Math.sin(t)];seg(pv,q,{edge:1});pv=q;}
+  seg([410,184],[410,800],{edge:1});seg([62,800],[140,872],{e:.3,r:6.5});seg([410,800],[332,872],{e:.3,r:6.5});
+  T.gears.push({x:118,y:470,r:46,n:4,w:1.2,a:0,hit:-9},{x:354,y:470,r:46,n:4,w:-1.2,a:0,hit:-9});
   T.gems.push({x:84,y:350,c:'#ff3a55',n:'RUBY',got:false,t:-9},{x:150,y:270,c:'#3affa0',n:'EMERALD',got:false,t:-9},{x:236,y:238,c:'#bfefff',n:'DIAMOND',got:false,t:-9},{x:322,y:270,c:'#4a8aff',n:'SAPPHIRE',got:false,t:-9},{x:388,y:350,c:'#ffc94a',n:'TOPAZ',got:false,t:-9});
-  T.bumpers.push({x:150,y:742,r:20,hit:-9},{x:322,y:742,r:20,hit:-9});
   return T;})();
 // ── the second secret room: the clock room. Shoot the twelve hours in order before the hands and the pendulum throw the ball away ──
-const PB_CK=(()=>{const T={cx:226,cy:429,hours:[],minute:{len:104,a:0,w:1.0},hourH:{len:68,a:2,w:-.55},pend:{px:236,py:606,len:96,amp:.5,freq:.35,ang:0,om:0,hit:-9},bumpers:[{x:150,y:742,r:20,hit:-9},{x:322,y:742,r:20,hit:-9}]};
+const PB_CK=(()=>{const T={cx:226,cy:429,hours:[],minute:{len:104,a:0,w:1.0},hourH:{len:68,a:2,w:-.55},pend:{px:236,py:596,len:74,amp:.42,freq:.3,ang:0,om:0,hit:-9},bumpers:[]};
   for(let k=1;k<=12;k++){const a=k*Math.PI/6;T.hours.push({k,x:226+Math.sin(a)*137,y:429-Math.cos(a)*134,done:false,t:-9});}
   return T;})();
 function pbClockHit(g,h){
   const r=g.room;if(h.done||h.k!==r.next){pbRoomPts(g,300);PBS.peg();return;}
-  h.done=true;h.t=g.t;r.next++;const v=5000*h.k;pbRoomPts(g,v);PBS.bell(784*Math.pow(2,[0,2,4,5,7,9,11,12,14,16,17,19][h.k-1]/12),.1);pbSay(g,'HOUR '+h.k,'+'+v.toLocaleString(),'#9fe8ff',1100);pbRing(g,h.x,h.y,'#9fe8ff',90);pbSpark(g,h.x,h.y,'#9fe8ff',12);haptic([10,20]);
+  h.done=true;h.t=g.t;r.next++;r.left=Math.min(r.max+15,r.left+2);let v=5000*h.k;
+  {const C2=PB_CK,two=6.2832,a=((C2.minute.a%two)+two)%two,tg=(h.k%12)*(Math.PI/6),df=Math.min(Math.abs(a-tg),two-Math.abs(a-tg));if(df<.5){v*=3;pbSay(g,'PERFECT TIME','the minute hand shows the hour · ×3','#ffe08a',1400);pbSpark(g,h.x,h.y,'#ffe08a',18);}}
+  pbRoomPts(g,v);PBS.bell(784*Math.pow(2,[0,2,4,5,7,9,11,12,14,16,17,19][h.k-1]/12),.1);pbSay(g,'HOUR '+h.k,'+'+v.toLocaleString()+' · +2 s','#9fe8ff',1100);pbRing(g,h.x,h.y,'#9fe8ff',90);pbSpark(g,h.x,h.y,'#9fe8ff',12);haptic([10,20]);
   pbPop(g,h.x,h.y-16,'+'+v.toLocaleString(),v>=30000);
   if(r.next>12){const b=r.b;r.state='chest';b.st='room';b.x=PB_CK.cx;b.y=PB_CK.cy;b.vx=b.vy=0;r.endT=2.4;pbRoomPts(g,250000);pbShow(g,'MIDNIGHT','+250,000','#ffd96a');PBS.jackpot();g.freeze=.08;g.fx.flash=.9;g.fx.shake=7;pbSpark(g,PB_CK.cx,PB_CK.cy,'#ffe08a',50);pbRing(g,PB_CK.cx,PB_CK.cy,'#ffd96a',240);}
 }
@@ -11047,15 +11048,16 @@ function pbClockCollide(g,b,h){
   for(const hd of [C.minute,C.hourH]){const tx=C.cx+Math.sin(hd.a)*hd.len,ty=C.cy-Math.cos(hd.a)*hd.len,c=pbSeg(b,C.cx,C.cy,tx,ty,6,.5,hd.w,C.cx,C.cy);if(c&&Math.abs(c.vn)>150&&g.t-(hd.hit||-9)>.1){hd.hit=g.t;pbRoomPts(g,150);PBS.peg();}}
   {const pd=C.pend,c=pbSeg(b,pd.px,pd.py,pd.px+Math.sin(pd.ang)*pd.len,pd.py+Math.cos(pd.ang)*pd.len,7,.55,pd.om,pd.px,pd.py);if(c&&g.t-pd.hit>.15){pd.hit=g.t;pbRoomPts(g,200);PBS.bossHit();}
     pbCirc(b,pd.px+Math.sin(pd.ang)*pd.len,pd.py+Math.cos(pd.ang)*pd.len,19,.55);}
-  for(const hr of C.hours){if(pbCirc(b,hr.x,hr.y,14,.6))pbClockHit(g,hr);}
+  for(const hr of C.hours){const c=pbCirc(b,hr.x,hr.y,14,.6);if(c){b.vx+=c.nx*260;b.vy+=c.ny*260;if(c.vn<-60&&g.t-(hr.ht||-9)>.35){hr.ht=g.t;pbClockHit(g,hr);}}}
   for(const bm of C.bumpers){const c=pbCirc(b,bm.x,bm.y,bm.r,.2);if(c){b.vx+=c.nx*520;b.vy+=c.ny*520;bm.hit=g.t;pbRoomPts(g,250);PBS.bumper();haptic(8);pbSpark(g,bm.x,bm.y,'#ffd27a',6);}}
   for(const k of ['L','R']){const f=g.fl[k],F=PB_FL[k],tip=pbFlipTip(f,F),c=pbSeg(b,F.px,F.py,tip[0],tip[1],7.5,.34,f.w,F.px,F.py);if(c&&g.t-(f.hitT||-9)>.12&&(Math.abs(f.w)>.5||c.vn<-250)){f.hitT=g.t;if(Math.abs(f.w)>.5)PBS.flip();}if(c&&f.on&&Math.abs(f.w)<.3&&c.vn>-160){b.vx*=.97;b.vy*=.97;}}
+  if(Math.hypot(b.vx,b.vy)<10&&b.y<860){b.stuck=(b.stuck||0)+h;if(b.stuck>.9){b.vx=(Math.random()<.5?-1:1)*220;b.vy=-260;b.stuck=0;}}else b.stuck=0;
   if(b.y>PB.H+14)b.st='gone';
 }
 function pbRoomPts(g,n){const r=g.room,st=g.st[g.turn];st.score+=n;if(r)r.score+=n;st.bonus+=Math.round(n*.05);}
 function pbRoomServe(g,b){b.st='play';b.x=88;b.y=250;b.vx=240;b.vy=60;b.tr=[];}
 function pbRoomOpen(g,b){
-  const from=b.tun.from,kind=b.tun.kind||'vault',ck=kind==='clock';g.room={b,from,to:b.tun.to,fx:from.x,fy:from.y,t:0,state:'play',kind,max:ck?45:40,left:ck?45:40,lives:3,endT:0,gems:0,score:0,next:1};
+  const from=b.tun.from,kind=b.tun.kind||'vault',ck=kind==='clock';g.room={b,from,to:b.tun.to,fx:from.x,fy:from.y,t:0,state:'play',kind,coins:[],coinT:1,max:ck?45:40,left:ck?45:40,lives:3,endT:0,gems:0,score:0,next:1};
   if(ck){for(const q of PB_CK.hours){q.done=false;q.t=-9;}PB_CK.minute.a=0;PB_CK.hourH.a=2;PB_CK.pend.hit=-9;PB_CK.bumpers.forEach(q=>q.hit=-9);pbRoomServe(g,b);g.saveT=0;g.stats.secrets++;PBS.room();pbShow(g,'THE CLOCK ROOM','shoot the hours 1 to 12 in order','#9fe8ff');haptic([20,30,40]);if(!g.moment)g.moment=g.players[g.turn].name+' found the clock room.';return;}
   for(const q of PB_RT.gems){q.got=false;q.t=-9;}PB_RT.gears.forEach(q=>{q.a=0;q.hit=-9;});PB_RT.bumpers.forEach(q=>q.hit=-9);PB_RT.blade.ang=0;PB_RT.blade.hit=-9;
   pbRoomServe(g,b);g.saveT=0;g.stats.secrets++;PBS.room();pbShow(g,'SECRET ROOM','light the five gems · open the chest','#e8c8ff');haptic([20,30,40]);
@@ -11064,7 +11066,8 @@ function pbRoomOpen(g,b){
 function pbRoomGem(g,gm){
   const r=g.room,idx=PB_RT.gems.indexOf(gm);
   if(gm.got){pbRoomPts(g,500);PBS.peg();return;}
-  gm.got=true;gm.t=g.t;r.gems++;const v=10000*r.gems;pbRoomPts(g,v);PBS.bell(1046*Math.pow(2,[0,2,4,7,9][idx]/12),.1);pbSay(g,gm.n,'+'+v.toLocaleString(),gm.c,1300);pbRing(g,gm.x,gm.y,gm.c,100);pbSpark(g,gm.x,gm.y,gm.c,16);haptic([10,20]);
+  r.left=Math.min(r.max+15,r.left+3);
+  gm.got=true;gm.t=g.t;r.gems++;const v=10000*r.gems;pbRoomPts(g,v);PBS.bell(1046*Math.pow(2,[0,2,4,7,9][idx]/12),.1);pbSay(g,gm.n,'+'+v.toLocaleString()+' · +3 s',gm.c,1300);pbRing(g,gm.x,gm.y,gm.c,100);pbSpark(g,gm.x,gm.y,gm.c,16);haptic([10,20]);
   pbPop(g,gm.x,gm.y-16,'+'+v.toLocaleString(),true);
   if(r.gems>=5){pbShow(g,'FULL SET','the chest is open · roll the ball in','#ffd96a');PBS.lit();pbChase(g,'#ffd96a');g.fx.flash=.6;}
 }
@@ -11076,10 +11079,14 @@ function pbRoomCollide(g,b,h){
   for(const gr of R.gears){pbCirc(b,gr.x,gr.y,9,.4);for(let i=0;i<gr.n;i++){const a=gr.a+i*6.2832/gr.n,c=pbSeg(b,gr.x,gr.y,gr.x+Math.cos(a)*gr.r,gr.y+Math.sin(a)*gr.r,5,.45,gr.w,gr.x,gr.y);if(c&&Math.abs(c.vn)>150&&g.t-gr.hit>.1){gr.hit=g.t;pbRoomPts(g,100);PBS.peg();}}}
   {const bl=R.blade,c=pbSeg(b,bl.px,bl.py,bl.px+Math.sin(bl.ang)*bl.len,bl.py+Math.cos(bl.ang)*bl.len,6,.5,bl.om,bl.px,bl.py);if(c&&g.t-bl.hit>.15){bl.hit=g.t;pbRoomPts(g,200);PBS.bossHit();}
     const hx=bl.px+Math.sin(bl.ang)*(bl.len-12),hy=bl.py+Math.cos(bl.ang)*(bl.len-12),ux=Math.cos(bl.ang)*28,uy=-Math.sin(bl.ang)*28,c2=pbSeg(b,hx-ux,hy-uy,hx+ux,hy+uy,5,.5,bl.om,bl.px,bl.py);if(c2&&g.t-bl.hit>.15){bl.hit=g.t;pbRoomPts(g,200);PBS.bossHit();}}
-  for(const gm of R.gems){if(pbCirc(b,gm.x,gm.y,15,.6))pbRoomGem(g,gm);}
+  for(const gm of R.gems){const c=pbCirc(b,gm.x,gm.y,15,.6);if(c){b.vx+=c.nx*120;b.vy+=c.ny*120;if(c.vn<-60&&g.t-(gm.ht||-9)>.35){gm.ht=g.t;pbRoomGem(g,gm);}}}
+  // the gold coins that fall from the ceiling: touch them with the ball
+  for(const cn of r.coins){if(Math.hypot(b.x-cn.x,b.y-cn.y)<20){cn.gone=1;pbRoomPts(g,1000);PBS.lane();pbSpark(g,cn.x,cn.y,'#ffd96a',8);pbPop(g,cn.x,cn.y-10,'+1,000',false);}}
+  r.coins=r.coins.filter(q=>!q.gone);
   {const ch=R.chest,d=Math.hypot(b.x-ch.x,b.y-ch.y);if(r.gems>=5&&r.state==='play'){if(d<ch.r-3&&Math.hypot(b.vx,b.vy)<1300)pbRoomChest(g,b);}else pbCirc(b,ch.x,ch.y,ch.r,.5);}
   for(const bm of R.bumpers){const c=pbCirc(b,bm.x,bm.y,bm.r,.2);if(c){b.vx+=c.nx*520;b.vy+=c.ny*520;bm.hit=g.t;pbRoomPts(g,250);PBS.bumper();haptic(8);pbSpark(g,bm.x,bm.y,'#ffd27a',6);}}
   for(const k of ['L','R']){const f=g.fl[k],F=PB_FL[k],tip=pbFlipTip(f,F),c=pbSeg(b,F.px,F.py,tip[0],tip[1],7.5,.34,f.w,F.px,F.py);if(c&&g.t-(f.hitT||-9)>.12&&(Math.abs(f.w)>.5||c.vn<-250)){f.hitT=g.t;if(Math.abs(f.w)>.5)PBS.flip();}if(c&&f.on&&Math.abs(f.w)<.3&&c.vn>-160){b.vx*=.97;b.vy*=.97;}}
+  if(Math.hypot(b.vx,b.vy)<10&&b.y<860){b.stuck=(b.stuck||0)+h;if(b.stuck>.9){b.vx=(Math.random()<.5?-1:1)*220;b.vy=-260;b.stuck=0;}}else b.stuck=0;
   if(b.y>PB.H+14)b.st='gone';
 }
 function pbRoomTick(g,dt){
@@ -11088,6 +11095,7 @@ function pbRoomTick(g,dt){
   else{for(const gr of R.gears)gr.a+=gr.w*dt;
   {const bl=R.blade,ph=r.t*bl.freq*6.2832;bl.ang=bl.amp*Math.sin(ph);bl.om=-bl.amp*bl.freq*6.2832*Math.cos(ph);}}
   if(r.state==='play'){
+    if(r.kind==='vault'){r.coinT-=dt;if(r.coinT<=0&&r.t>.8){r.coinT=.7+Math.random()*.6;r.coins.push({x:100+Math.random()*270,y:110,vy:55+Math.random()*30});if(r.coins.length>8)r.coins.shift();}for(const q of r.coins)q.y+=q.vy*dt;r.coins=r.coins.filter(q=>q.y<790);}
     if(r.t>.7)r.left-=dt;pbAdvance(g,dt);
     for(const b of g.balls){b.tr=b.tr||[];if(b.st==='play'){b.tr.push([b.x,b.y]);if(b.tr.length>9)b.tr.shift();}
       if(b.st==='gone'){if(r.lives>0){r.lives--;pbRoomServe(g,b);pbSay(g,'BALL RETURNED',r.lives+' left','#e8c8ff',1100);PBS.lit();}else{pbRoomEnd(g);return;}}}
@@ -11230,11 +11238,11 @@ function pbBuild(g){
   // the guide rails: polished steel
   const chr=pbChrome(x,W);
   for(const w of PB_T.walls){if(w.k==='sling'||w.k==='target')continue;
-    const lw=w.k==='gate'?3:w.r?w.r*2:5.2;x.lineCap='round';
+    const lw=w.k==='gate'?3:w.r?w.r*2:w.edge?3.4:5.2;x.lineCap='round';x.globalAlpha=w.edge?.5:1;
     x.strokeStyle='rgba(0,0,0,.6)';x.lineWidth=lw+4;x.beginPath();x.moveTo(w.a[0]+1.5,w.a[1]+3);x.lineTo(w.b[0]+1.5,w.b[1]+3);x.stroke();
     x.strokeStyle='#161a20';x.lineWidth=lw+1.6;x.beginPath();x.moveTo(w.a[0],w.a[1]);x.lineTo(w.b[0],w.b[1]);x.stroke();
     x.strokeStyle=chr;x.lineWidth=lw;x.beginPath();x.moveTo(w.a[0],w.a[1]);x.lineTo(w.b[0],w.b[1]);x.stroke();
-    x.strokeStyle='rgba(255,255,255,.38)';x.lineWidth=Math.max(1,lw*.2);x.beginPath();x.moveTo(w.a[0]-lw*.2,w.a[1]-lw*.2);x.lineTo(w.b[0]-lw*.2,w.b[1]-lw*.2);x.stroke();}
+    x.strokeStyle='rgba(255,255,255,.38)';x.lineWidth=Math.max(1,lw*.2);x.beginPath();x.moveTo(w.a[0]-lw*.2,w.a[1]-lw*.2);x.lineTo(w.b[0]-lw*.2,w.b[1]-lw*.2);x.stroke();x.globalAlpha=1;}
   g.statik=c;
 }
 // the lights in the playfield
@@ -11320,11 +11328,12 @@ function pbDrawRoom(x,g,P,t){
     if(bi){const h=(bl.len+12)/.94,w=h*bi.naturalWidth/bi.naturalHeight;x.drawImage(bi,-w/2,-h*.06,w,h);}else{x.strokeStyle='#aab3be';x.lineWidth=5;x.beginPath();x.moveTo(0,0);x.lineTo(0,bl.len-18);x.stroke();x.fillStyle='#dfe6ee';x.beginPath();x.moveTo(-26,bl.len-30);x.quadraticCurveTo(0,bl.len+22,26,bl.len-30);x.quadraticCurveTo(0,bl.len-6,-26,bl.len-30);x.fill();x.fillStyle='#e6c36a';x.beginPath();x.arc(0,0,8,0,6.283);x.fill();}
     x.restore();}
   }
+  if(!ck){const ci=pbImg('coin');for(const cn of (r.coins||[])){const fl=Math.abs(Math.cos(t*4+cn.x));pbGlow(x,cn.x,cn.y,26,'#ffd96a',.4);if(ci)x.drawImage(ci,cn.x-11*(.4+.6*fl),cn.y-11,22*(.4+.6*fl),22);else{x.fillStyle='#e6c36a';x.beginPath();x.ellipse(cn.x,cn.y,10*(.4+.6*fl),10,0,0,6.283);x.fill();}}}
   // the two pop bumpers
   for(const bm of (ck?PB_CK.bumpers:R.bumpers)){const bi=pbImg(g.t-bm.hit<.12?'bumphit':'bump'),d=(bm.r+8)*2;if(bi)x.drawImage(bi,bm.x-d/2,bm.y-d/2,d,d);else{x.fillStyle='#c0482e';x.beginPath();x.arc(bm.x,bm.y,bm.r,0,6.283);x.fill();}}
   x.restore();
   // the rails of the room
-  const chr=pbChrome(x,PB.W);for(const w of R.walls){const lw=w.r?w.r*2:5.2;x.lineCap='round';x.strokeStyle='#161a20';x.lineWidth=lw+1.6;x.beginPath();x.moveTo(w.a[0],w.a[1]);x.lineTo(w.b[0],w.b[1]);x.stroke();x.strokeStyle=chr;x.lineWidth=lw;x.beginPath();x.moveTo(w.a[0],w.a[1]);x.lineTo(w.b[0],w.b[1]);x.stroke();}
+  const chr=pbChrome(x,PB.W);for(const w of R.walls){const lw=w.r?w.r*2:w.edge?3.4:5.2;x.lineCap='round';x.globalAlpha=w.edge?.5:1;x.strokeStyle='#161a20';x.lineWidth=lw+1.6;x.beginPath();x.moveTo(w.a[0],w.a[1]);x.lineTo(w.b[0],w.b[1]);x.stroke();x.strokeStyle=chr;x.lineWidth=lw;x.beginPath();x.moveTo(w.a[0],w.a[1]);x.lineTo(w.b[0],w.b[1]);x.stroke();x.globalAlpha=1;}
   pbDrawFlippers(x,g,P,['L','R']);
   // the ball
   for(const b of g.balls){if(b.st!=='play')continue;const R2=PB.R*1.1,bli=pbImg('ball');
@@ -11333,7 +11342,7 @@ function pbDrawRoom(x,g,P,t){
     if(bli)x.drawImage(bli,b.x-R2,b.y-R2,R2*2,R2*2);else{x.fillStyle='#d8dde4';x.beginPath();x.arc(b.x,b.y,R2,0,6.283);x.fill();}
     x.strokeStyle='rgba(255,255,255,.8)';x.lineWidth=1.3;x.beginPath();x.arc(b.x,b.y,R2*1.03,0,6.283);x.stroke();}
   // the clock and the lives
-  {const u=Math.max(0,r.left/r.max);x.fillStyle='rgba(6,10,14,.78)';pbRR(x,126,64,220,18,9);x.fill();x.fillStyle=u<.25?'#ff6a55':(ck?'#9fe8ff':'#e8c8ff');pbRR(x,129,67,214*u,12,6);x.fill();
+  {const u=Math.max(0,Math.min(1,r.left/r.max));x.fillStyle='rgba(6,10,14,.78)';pbRR(x,126,64,220,18,9);x.fill();x.fillStyle=u<.25?'#ff6a55':(ck?'#9fe8ff':'#e8c8ff');pbRR(x,129,67,214*u,12,6);x.fill();
    x.fillStyle='#fff';x.font='700 10px Cinzel, Georgia, serif';x.textAlign='center';x.fillText((ck?'CLOCK ROOM · NEXT '+Math.min(12,r.next)+' · ':'TREASURE VAULT · ')+Math.ceil(r.left)+' s',236,77);
    for(let i=0;i<3;i++){x.fillStyle=i<r.lives?'#ffe9a8':'rgba(255,255,255,.2)';x.beginPath();x.arc(206+i*30,100,5,0,6.283);x.fill();}}
   x.restore();
@@ -11566,7 +11575,7 @@ function pbHud(g){
   const r=document.getElementById('pb-right');if(!r)return;
   const lv=Math.min(3,st.lvl),P=PB_PAL[lv],m=pbMission(st),stg=document.getElementById('pb-stage');
   if(stg&&stg._lv!==lv){stg._lv=lv;stg.style.setProperty('--pbc',P.c);stg.style.setProperty('--pbr',P.r);}
-  set('pb-lvl',P.n+(st.lvl>3?' · '+(st.lvl-2):'')+(st.boss?' · BOSS':' · MISSION '+(st.mi+1)+'/3'));{let mt='MISSION '+(st.mi+1)+' / 3',mn=m.n,mc=st.mp+' / '+m.need,mw=Math.min(100,st.mp/m.need*100);if(st.boss){mt='BOSS FIGHT';mn=PB_BOSS[st.boss.i];mc=Math.ceil(st.boss.hp/st.boss.max*100)+'%';mw=st.boss.hp/st.boss.max*100;}if(g.wiz){mt='WIZARD MODE';mn='ALL SHOTS ×3';mc=Math.ceil(g.wiz.t)+' s';mw=g.wiz.t/g.wiz.max*100;}if(g.room){const ck=g.room.kind==='clock';mt=ck?'SECRET ROOM II':'SECRET ROOM';mn=ck?'THE CLOCK ROOM':'TREASURE VAULT';mc=ck?(g.room.next-1)+' of 12 hours':g.room.gems+' of 5 gems';mw=Math.max(0,g.room.left/g.room.max*100);}g._mw=mw;set('pb-mt',mt);set('pb-mn',mn);set('pb-mc',mc);}set('pb-md',m.k==='lock'&&!st.lockLit?'Light the 3 orange targets, then roll into the vault':m.d);
+  set('pb-lvl',P.n+(st.lvl>3?' · '+(st.lvl-2):'')+(st.boss?' · BOSS':' · MISSION '+(st.mi+1)+'/3'));{let mt='MISSION '+(st.mi+1)+' / 3',mn=m.n,mc=st.mp+' / '+m.need,mw=Math.min(100,st.mp/m.need*100);if(st.boss){mt='BOSS FIGHT';mn=PB_BOSS[st.boss.i];mc=Math.ceil(st.boss.hp/st.boss.max*100)+'%';mw=st.boss.hp/st.boss.max*100;}if(g.wiz){mt='WIZARD MODE';mn='ALL SHOTS ×3';mc=Math.ceil(g.wiz.t)+' s';mw=g.wiz.t/g.wiz.max*100;}if(g.room){const ck=g.room.kind==='clock';mt=ck?'SECRET ROOM II':'SECRET ROOM';mn=ck?'THE CLOCK ROOM':'TREASURE VAULT';mc=ck?(g.room.next-1)+' of 12 hours':g.room.gems+' of 5 gems';mw=Math.max(0,Math.min(100,g.room.left/g.room.max*100));}g._mw=mw;set('pb-mt',mt);set('pb-mn',mn);set('pb-mc',mc);}set('pb-md',m.k==='lock'&&!st.lockLit?'Light the 3 orange targets, then roll into the vault':m.d);
   const mp=document.getElementById('pb-mp');if(mp){const w=Math.min(100,g._mw||0)+'%';if(mp._w!==w){mp._w=w;mp.style.width=w;}}
   r.querySelectorAll('.pb-d').forEach(el=>{const k=el.dataset.k,i=+k[1];let on=false;if(k[0]==='f')on=!!st.forge[i]||st.forgeOn;else if(k[0]==='l')on=st.locks>i;else on=!!st.lanes[i];if(el._o!==on){el._o=on;el.classList.toggle('on',on);}});
   set('pb-diff','ASSIST · '+(PB_DIFF[g.diff]||PB_DIFF.normal).n);set('pb-world','WORLD · '+PB_PAL[pbWorldPref()].n.replace('THE ',''));set('pb-pot','POT '+Math.round(g.pot||0).toLocaleString());
