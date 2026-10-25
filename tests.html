@@ -6081,6 +6081,23 @@ async function runPresentation(A,W,frame){
       check('a training of ten shots ends with a summary on the set-up card, not a match result',p.phase==='setup'&&!!p.summary&&p.summary.n===10&&G().scr==='table');
       check('a training leaves nothing in the family history',F('getHistory')().length===h0);
       check('the summary card tells the total and the average',/PRACTICE COMPLETE/.test(W.document.getElementById('ps-ov').innerHTML));
+      // ── finals night: six finalists, the lowest out after every two shots, two shoot for gold
+      W.localStorage.setItem('ct_ps_pref',JSON.stringify({mode:'final',lv:'sport',breath:true,focus:false,steady:false,bold:false,disc:'air_rifle_10m'}));
+      W.localStorage.removeItem('ct_ps_medals');
+      gg.lp=[{id:1,name:'AnnT',avatar:F('AVATARS')[0],hand:[],totalScore:0},{id:2,name:'BoT',avatar:F('AVATARS')[1],hand:[],totalScore:0}];
+      F('lDealPrecision')();gg.scr='table';F('render')();F('psAttach')();p=G().ps;F('psBegin')(p);
+      check('the final has six finalists: the two people and four robots, and starts with the opening series',p.mode==='final'&&p.players.length===6&&p.players.filter(q=>q.bot).length===4&&p.fin.st==='s1'&&p.fin.seq.length===30);
+      {let steps=0,outs=[];while(p.phase!=='over'&&steps<60*60*30){steps++;
+        if(p.phase==='hand'&&!p.hand.bot)F('psAction')(p,'ready');
+        if(p.phase==='aim'&&!p.cur.bot&&p.hold>3.2&&(F('psPhase')(p,p.t)>=.9||p.hold>8)){p.base.x=0;p.base.y=0;F('psFireTap')(p);}
+        const al=p.fin.alive.length;F('psStep')(p,1/60);if(p.fin.alive.length<al)outs.push(p.fin.out[p.fin.out.length-1].rank);}
+       check('after every elimination round one finalist goes out: sixth, fifth, fourth, third',outs.join()==='6,5,4,3');
+       const R=G().psResult;
+       check('the final ends with a gold and a silver, the gold has the better total after the duel',p.phase==='over'&&!!R&&R.fin===1&&R.list.length===6&&R.list[0].rank===1&&R.list[1].rank===2&&R.list[0].tot>=R.list[1].tot);
+       check('everybody shot five opening shots, the last two shot two more in the duel',R.list[0].shots>=15&&R.list.every(e=>e.shots>=5));
+       check('the people get their place on the result screen, a robot never gets a medal in the table',G().lp.every(x=>/(1st|2nd|3rd|4th|5th|6th) ·/.test(x.psLine))&&F('psMedals')().every(e=>!F('pbIsBotName')(e.n)));
+       check('a final does not go into the leaderboard of the matches',!F('psLbAll')().some(e=>e.n==='AnnT'||e.n==='BoT'));}
+      F('psStop')();
       // ── the leaderboard
       W.localStorage.removeItem('ct_ps_lb');
       F('psLbAdd')([{n:'ZoeTest',s:201.5,a:10.07,d:'2026-11-01T10:00:00.000Z',lv:'sport'},{n:'MaxTest',s:207.3,a:10.36,d:'2026-11-02T10:00:00.000Z',lv:'elite',pf:2},{n:'Robo',s:215,a:10.7,d:'2026-11-02T10:00:00.000Z'},{n:'ZoeTest',s:201.5,a:10.07,d:'2026-11-01T10:00:00.000Z'}]);

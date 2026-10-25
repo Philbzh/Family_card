@@ -419,6 +419,8 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .ps-pl{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:3px 8px;padding:8px 10px;border-radius:12px;background:linear-gradient(180deg,rgba(22,27,24,.92),rgba(9,12,10,.94));border:1px solid rgba(230,195,106,.14);transition:border-color .3s,box-shadow .3s,transform .3s;}
 .ps-pl.on{border-color:rgba(230,195,106,.7);box-shadow:0 0 16px rgba(230,195,106,.25);}
 .ps-pl.pop{animation:psPop 1.3s ease;}
+.ps-pl.out{opacity:.42;}.ps-pl.out .ps-pn b{text-decoration:line-through;}
+.ps-left .ps-pl{transition:opacity .4s;}
 @keyframes psPop{0%{box-shadow:0 0 0 rgba(240,210,122,0);transform:scale(1)}30%{box-shadow:0 0 28px rgba(240,210,122,.85);transform:scale(1.035)}100%{box-shadow:0 0 16px rgba(230,195,106,.25);transform:scale(1)}}
 .ps-pl .ah-av{width:30px;height:30px;display:inline-flex;}
 .ps-pn{display:flex;flex-direction:column;min-width:0;}
@@ -30990,6 +30992,7 @@ function lDealPrecision(){
 function psBegin(g,cfg){
   const pr=psPrefs();if(G.isOnline)pr.mode='match';if(cfg){pr.lv=cfg.lv;pr.breath=cfg.breath;if(cfg.dc)pr.disc=cfg.dc;}Object.assign(g,{mode:pr.mode,lv:pr.lv,breath:!!pr.breath,focus:!!pr.focus,steady:!!pr.steady,bold:!!pr.bold});
   g.D=PS_DISC[pr.disc]||PS_DISC.air_rifle_10m;g.bg=null;try{psSize(g);}catch(e){}
+  if(g.mode==='final'&&!G.isOnline){psFinStart(g);return;}
   const D=g.D,idx=g.players.map((p,i)=>i);
   let who=idx;if(g.mode!=='match'){const h=idx.find(i=>!g.players[i].bot);who=[h==null?0:h];}
   g.who=who;g.sh=g.players.map(()=>[]);g.tot=g.players.map(()=>0);g.rounds=[];g.over=false;g.summary=null;g.final=null;g.lead=-1;
@@ -31016,6 +31019,11 @@ function psAimStart(g){
     if(need<=109)g.final={need:Math.max(1,need),name:g.cur.name};
   }
   if(last&&g.mode!=='free')psCall(g,g.final?'FINAL SHOT.':'ONE SHOT REMAINS.',g.final?g.cur.name+' needs '+psFmt(g.final.need)+' to win':'',2600,true);
+  if(g.mode==='final'&&g.fin){const F=g.fin;let need=null;
+    if(F.st==='duel'&&F.si===F.seq.length-1){const o=F.alive.find(q=>q!==g.curI);need=g.tot[o]-g.tot[g.curI]+1;}
+    else if(F.st==='so'&&F.si===1){const o=F.alive.find(q=>q!==g.curI);need=g.sh[o][g.sh[o].length-1].v+1;}
+    if(need!==null&&need<=109){g.final={need:Math.max(1,need),name:g.cur.name};psCall(g,'FINAL SHOT.',g.cur.name+' needs '+psFmt(g.final.need)+' to win',2600,true);}
+  }
   if(g.cur.bot)psBotPlan(g);else g.bot=null;
   g.wv=null;g.wvs=null;
   psPaintOv(g);
@@ -31024,6 +31032,85 @@ function psAimStart(g){
 function psBotPlan(g){
   const b=PS_BOTS[g.cur.bot]||PS_BOTS.gentle,lv=PS_LV[g.lv],s=b.s*lv.bot*(g.D.k||1),f=Math.random()<.07?2.1:1;
   g.bot={t0:g.t,t1:g.t+1.5+Math.random()*1.6,x:psGauss()*s*f,y:psGauss()*s*f*.9,sx:g.base.x,sy:g.base.y};
+}
+
+
+/* ── FINALS NIGHT: the Olympic final, simplified. Six finalists (the people at the table, robots fill the field). Everybody shoots a series of five,
+   then single shots, two each, and after every two shots the lowest total is out (ties: the last shots decide) until two remain; they shoot two
+   shots each for gold, and a sudden death if they are level. One shot at a time, so the iPad goes round. A camera zooms on every hole. ── */
+function psOrd(n){return n===1?'1st':n===2?'2nd':n===3?'3rd':n+'th';}
+function psFinStart(g){
+  const D=g.D,sets={beginner:['gentle','gentle','steady'],sport:['gentle','steady','steady','sharp'],elite:['steady','sharp','sharp'],olympic:['sharp','sharp','sharp']}[g.lv]||['steady'];
+  g.players=g.players.slice(0,4);const used=new Set(g.players.map(p=>p.name));let bi=0;
+  while(g.players.length<6){const nm=BOT_NAMES.find(n=>!used.has(n))||('Bot '+(g.players.length+1));used.add(nm);g.players.push({name:nm,avatar:AVATARS[(g.players.length+2)%AVATARS.length],bot:sets[bi%sets.length]});bi++;}
+  g.n=g.players.length;g.sh=g.players.map(()=>[]);g.tot=g.players.map(()=>0);g.sStart=g.players.map(()=>0);g.rounds=[];g.over=false;g.summary=null;g.final=null;g.lead=-1;
+  g.shotN=0;g.pend=[];g.stats={start:Date.now(),microN:0};g.total=Infinity;g.order=[];g.oi=0;g.k=0;
+  const field=g.players.map((p,i)=>i);g.who=field.slice();
+  g.fin={field,alive:field.slice(),out:[],st:'s1',seq:field.flatMap(p=>Array(D.series).fill(p)),si:0,prev:-1,round:0};
+  const L=document.getElementById('ps-left');if(L)L.innerHTML=psPlayersHTML(g);
+  psCall(g,'THE FINAL.',g.players.length+' finalists · '+D.name,2400,true);
+  psFinTurn(g,g.fin.seq[0]);
+}
+function psFinTurn(g,p){
+  const F=g.fin,same=F.prev===p;F.prev=p;g.curI=p;g.cur=g.players[p];g.hand=null;
+  if(same){psNextShot(g);return;}
+  const a=Math.random()*6.283,r=(5+Math.random()*3)*(g.D.k||1);g.base={x:Math.cos(a)*r,y:Math.sin(a)*r};g.S=.25;g.hold=0;g.pk=0;g.lastMoveT=-9;
+  g.phase='hand';g.hand={at:g.t,bot:!!g.cur.bot};psPaintOv(g);
+}
+function psFinKey(g,p){return[g.tot[p]].concat(g.sh[p].slice().reverse().map(s=>s.v));}
+function psFinCmp(a,b){for(let i=0;i<Math.min(a.length,b.length);i++){if(a[i]!==b[i])return a[i]-b[i];}return 0;}
+function psFinRound(g){const F=g.fin;F.st='elim';F.round++;F.seq=F.alive.concat(F.alive);F.si=0;psFinTurn(g,F.seq[0]);}
+function psFinAfter(g){
+  const F=g.fin;g.rv=null;F.si++;
+  if(F.si<F.seq.length){psFinTurn(g,F.seq[F.si]);return;}
+  if(F.st==='s1'){psFinRound(g);return;}
+  if(F.st==='elim'){
+    let low=F.alive[0];for(const q of F.alive){if(psFinCmp(psFinKey(g,q),psFinKey(g,low))<0)low=q;}
+    const rank=F.alive.length;F.out.push({p:low,rank});F.alive=F.alive.filter(q=>q!==low);
+    try{psSnd.out();}catch(e){}
+    psCall(g,rank===3?'BRONZE.':'ELIMINATED.',g.players[low].name+' · '+psOrd(rank)+' place',2600,true);
+    if(F.alive.length===2){F.st='duel';const a=F.alive[0],b=F.alive[1];F.seq=[a,b,a,b];F.si=0;psFinTurn(g,a);setTimeout(()=>{if(G.ps===g)psCall(g,'THE DUEL.','two shots each for gold',2200,true);},2700);}
+    else psFinRound(g);
+    return;
+  }
+  const a=F.alive[0],b=F.alive[1];
+  if(F.st==='duel'){if(g.tot[a]!==g.tot[b]){psFinFinish(g,g.tot[a]>g.tot[b]?a:b);return;}F.st='so';F.seq=[a,b];F.si=0;psCall(g,'SUDDEN DEATH.','level after four shots',2400,true);psFinTurn(g,a);return;}
+  if(F.st==='so'){const va=g.sh[a][g.sh[a].length-1].v,vb=g.sh[b][g.sh[b].length-1].v;if(va!==vb){psFinFinish(g,va>vb?a:b);return;}F.seq=[a,b];F.si=0;psFinTurn(g,a);}
+}
+function psFinLabel(g){const F=g.fin;if(!F)return'';return F.st==='s1'?'OPENING SERIES':F.st==='elim'?'ELIMINATION · '+F.alive.length+' REMAIN':F.st==='duel'?'THE DUEL':'SUDDEN DEATH';}
+function psFinRanks(g){   // best first: the finalists still in by total, then the ones who are out, the last one out first
+  const F=g.fin,alive=F.alive.slice().sort((a,b)=>psFinCmp(psFinKey(g,b),psFinKey(g,a))),out=F.out.slice().sort((a,b)=>a.rank-b.rank).map(o=>o.p);
+  return alive.concat(out);
+}
+function psFinFinish(g,gold){
+  if(g.over)return;g.over=true;g.phase='over';const F=g.fin,silver=F.alive.find(q=>q!==gold);
+  F.out.push({p:silver,rank:2},{p:gold,rank:1});
+  const rk={};F.out.forEach(o=>{rk[o.p]=o.rank;});
+  const st=g.players.map((p,i)=>psStatsOf(g,i)),n=g.n,dur=Math.round((Date.now()-g.stats.start)/1000),when=new Date().toISOString();
+  const list=g.players.map((p,i)=>({n:p.name,av:p.avatar,bot:!!p.bot,rank:rk[i],tot:g.tot[i],best:st[i].best,perfect:st[i].perfect,shots:st[i].n})).sort((a,b)=>a.rank-b.rank);
+  const margin=Math.abs(g.tot[gold]-g.tot[silver]),so=F.st==='so';
+  const mom=so?'SHOOT-OFF · '+g.players[gold].name+' takes gold in sudden death':margin<=5?'PHOTO FINISH · '+g.players[gold].name+' wins gold by '+psFmt(margin):'GOLD · '+g.players[gold].name+' wins the final with '+psFmt(g.tot[gold]);
+  g.moment=mom;
+  g.players.forEach((p,i)=>{const gp=G.lp[i];if(!gp||p.bot)return;gp.totalScore=1000*(n-rk[i]+1)+g.tot[i]/10;gp.c4Result=rk[i]===1?'win':'loss';gp.psLine=psOrd(rk[i])+' · '+psFmt(g.tot[i]);});
+  G.ahMoment=mom;G.fgResult=null;G.fgHighlight=null;G.pbResult=null;
+  G.psResult={fin:1,disc:g.D.id,lv:g.lv,names:g.players.map(p=>p.name),bots:g.players.map(p=>!!p.bot),st,w:gold,top:g.tot[gold],margin,dur,mom,rank:0,list,goldName:g.players[gold].name,goldAv:g.players[gold].avatar};
+  G.tw=(G.tw||0)+1;try{localStorage.setItem('ct_tw',G.tw);}catch(e){}
+  try{addHistory({game:'precision',winner:g.players[gold].name,winnerAvatar:g.players[gold].avatar,date:when,players:g.players.map(p=>p.name),moment:mom,stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats?G.matchStats.reactions:0,ah:{score:g.tot.map(v=>v/10),dur,lv:g.lv,dc:g.D.id,fin:1}}});}catch(e){}
+  try{psMedalAdd(list.filter(e=>!e.bot).map(e=>({n:e.n,rank:e.rank})));}catch(e){}
+  try{const hs=g.players.map((p,i)=>p.bot?-1:i).filter(i=>i>=0);if(hs.length){const hb=hs.reduce((a,i)=>rk[i]<rk[a]?i:a,hs[0]);
+    const rs={perfect:Math.max(...hs.map(i=>st[i].perfect)),bestRally:Math.max(...hs.map(i=>st[i].streak)),saves:0,fastest:Math.max(...hs.map(i=>st[i].best))/10,team:0};
+    const nr=arRecordUpdate(g.D.rec,g.players.map(p=>p.name),g.players[hb].name,[0,0],rs);if(nr.length)setTimeout(()=>toast('🏆 New Precision record'),900);}}catch(e){}
+  try{psSnd.fanfare();}catch(e){}
+  psCall(g,'GOLD · '+g.players[gold].name.toUpperCase(),psFmt(g.tot[gold]),2800,true);
+  g.endTm=setTimeout(()=>{if(G.ps===g&&G.scr==='table'){psStop();G.scr='matchend';render();}},3600);
+}
+function psMedalAdd(list){try{const m=JSON.parse(localStorage.getItem('ct_ps_medals')||'{}');for(const e of list){if(e.rank>3||!e.n||pbIsBotName(e.n))continue;const q=m[e.n]=m[e.n]||[0,0,0];q[e.rank-1]++;}localStorage.setItem('ct_ps_medals',JSON.stringify(m));}catch(e){}}
+function psMedals(){try{const m=JSON.parse(localStorage.getItem('ct_ps_medals')||'{}');return Object.keys(m).map(n=>({n,g:m[n][0],s:m[n][1],b:m[n][2]})).filter(e=>!pbIsBotName(e.n)&&e.g+e.s+e.b>0).sort((a,b)=>b.g-a.g||b.s-a.s||b.b-a.b);}catch(e){return[];}}
+// the camera: a slow push in on the hole, a moment, and back
+function psCamZoom(g){
+  if(g.mode!=='final'||g.phase!=='reveal'||!g.rv||g.rv.step<1)return{k:1};
+  const t=g.rv.t,s=g.rv.s,e=u=>u*u*(3-2*u),up=Math.min(1,Math.max(0,(t-350)/380)),dn=Math.min(1,Math.max(0,(t-1500)/420));
+  return{k:1+1.35*e(up)*(1-e(dn)),x:g.cv.width/2+s.x*g.px,y:g.cv.height/2+s.y*g.px};
 }
 
 // ── firing ──
@@ -31065,12 +31152,14 @@ function psRvStep(g){
     psSay(g,2);
   }else if(r.step===2){   // the score; a near miss waits a heartbeat longer
     psSay(g,3);
+    if(g.mode==='final'){try{if(s.v>=109)psSnd.roar();else if(s.v>=100)psSnd.cheer(s.v);else if(s.v<90)psSnd.groan();else psSnd.cheer(s.v*.45);}catch(e){}}
   }else if(r.step===3){g.tot[g.curI]+=s.v;psSay(g,4);
     if(s.v>=109){psCall(g,'PERFECT.','',1800);g.fx.pulse=1;const el=document.getElementById('ps-pl'+g.curI);if(el){el.classList.add('pop');setTimeout(()=>el.classList.remove('pop'),1400);}}
     else if(r.near)psCall(g,'SO CLOSE.','',1500);
   }
 }
 function psAfterShot(g){
+  if(g.mode==='final'){psFinAfter(g);return;}
   const s=g.rv.s;g.rv=null;g.k++;
   const p=g.curI,leadBefore=g.lead;
   // the leader, among the shooters who have the same number of shots as the one who just shot
@@ -31184,7 +31273,7 @@ function psLbAdd(list){try{const cur=psLbLoad(),keys=new Set(cur.map(e=>e.n+'|'+
 function psLbAll(dc){
   dc=dc||'air_rifle_10m';
   const out=psLbLoad().slice(),keys=new Set(out.map(e=>e.n+'|'+e.s)),fam=[];
-  try{for(const h of familyHistory()){if(!h||h.game!=='precision'||!h.stats||!h.stats.ah||!Array.isArray(h.stats.ah.score))continue;
+  try{for(const h of familyHistory()){if(!h||h.game!=='precision'||!h.stats||!h.stats.ah||h.stats.ah.fin||!Array.isArray(h.stats.ah.score))continue;
     (h.players||[]).forEach((n,i)=>{const sc=h.stats.ah.score[i],e={n:String(n||''),s:sc,a:sc/20,d:h.date||'',lv:h.stats.ah.lv||'sport',dc:h.stats.ah.dc||'air_rifle_10m'};if(!psLbOk(e))return;const k=e.n+'|'+sc;if(keys.has(k))return;keys.add(k);out.push(e);fam.push(e);});}}catch(e){}
   if(fam.length&&_familyHistoryCache)psLbAdd(fam);
   const res=out.filter(e=>(e.dc||'air_rifle_10m')===dc);res.sort((a,b)=>b.s-a.s);return res;
@@ -31195,11 +31284,13 @@ function rPsLbOv(){
   const acc=Object.values(best).sort((a,b)=>b.a-a.a).slice(0,8);
   return`<div class="ov" data-a="close-pslb"><div class="ov-box hof-box" role="dialog" aria-modal="true" aria-label="Precision leaderboard"><div class="ov-title">🏅 The Family Range</div><div class="hof-sub">${esc(PS_DISC[dcv].name.toUpperCase())} · THE BEST 20-SHOT MATCHES</div><div class="ps-seg" style="margin:.2rem 0 .8rem;">${Object.keys(PS_DISC).map(k=>`<button class="${k===dcv?'on':''}" data-a="pslbd" data-v="${k}">${PS_DISC[k].tag}</button>`).join('')}</div>
     ${top.length?`<div class="hof-list">${psLbRows(top)}</div>`:'<p class="ov-sub">No match yet. Shoot twenty and be the first name on the board.</p>'}
+    ${psMedals().length?`<div class="hof-h">MEDAL TABLE · FINALS NIGHT</div><div class="hof-list">${psMedals().map(e=>`<div class="hof-row"><span class="hof-rk">🏅</span><span class="hof-nm">${esc(e.n)}</span><span class="hof-sc">${e.g}🥇 ${e.s}🥈 ${e.b}🥉</span></div>`).join('')}</div>`:''}
     ${acc.length?`<div class="hof-h">THE MOST ACCURATE (BEST AVERAGE PER SHOT)</div><div class="hof-list">${acc.map((e,i)=>`<div class="hof-row"><span class="hof-rk">★</span><span class="hof-nm">${esc(e.n)}</span><span class="hof-sc">${e.a.toFixed(2)}</span><span class="hof-d">best match ${e.s.toFixed(1)}</span></div>`).join('')}</div>`:''}
     <button class="btn btn-ghost" data-a="close-pslb" style="margin-top:.8rem;">Close</button></div></div>`;
 }
 function psChipsHTML(){
-  const r=G.psResult;if(!r)return'';const s=r.st[r.w];
+  const r=G.psResult;if(!r)return'';
+  if(r.fin)return`<div class="tonight-stats ps-medals">${r.list.map(e=>`<div class="tonight-stat"><div class="ts-val">${['🥇','🥈','🥉'][e.rank-1]||psOrd(e.rank)}</div><div class="ts-lbl">${esc(e.n)}${e.bot?' 🤖':''} · ${psFmt(e.tot)}</div></div>`).join('')}</div><button class="btn btn-ghost" data-a="pslb" style="margin-top:.6rem;">🏅 The Family Range</button>`;const s=r.st[r.w];
   return`${r.rank?`<div class="hof-badge">🏅 #${r.rank} on the Family Range</div>`:''}<div class="tonight-stats">
     <div class="tonight-stat"><div class="ts-val">${psFmt(s.tot)}</div><div class="ts-lbl">🎯 Total · ${esc((PS_LV[r.lv]||PS_LV.sport).n)}</div></div>
     <div class="tonight-stat"><div class="ts-val">${(s.avg/10).toFixed(2)}</div><div class="ts-lbl">📐 Average per shot</div></div>
@@ -31219,6 +31310,11 @@ const psSnd={
     else if(v>0){hfNz(.035,3800,2200,.1,{type:'highpass',a:.001});hfOsc(420,300,.08,.1,{a:.002});}
     else{hfOsc(150,80,.18,.22,{a:.002});}},
   peak(){_hfK=1;hfOsc(2300,2300,.07,.035,{a:.002});},
+  cheer(v){_hfK=2;const a=Math.min(1,.3+v/109*.7);hfNz(1.5,900,2100,.15*a,{type:'bandpass',q:.5,a:.14,rev:.4});hfNz(1,2600,1300,.05*a,{type:'highpass',a:.06});[0,90,170,260,350,470].forEach(d=>hfNz(.05,3000,1500,.05*a,{type:'highpass',a:.001,d}));},
+  roar(){_hfK=2;psSnd.cheer(109);hfNz(2.2,600,1800,.2,{type:'bandpass',q:.4,a:.2,rev:.5});},
+  groan(){_hfK=2;hfNz(.9,700,260,.14,{type:'bandpass',q:.7,a:.1,rev:.3});hfOsc(220,140,.7,.04,{type:'sawtooth',lp:500,a:.08});},
+  out(){_hfK=2;hfOsc(196,98,.7,.1,{a:.01,lp:900});hfNz(.5,500,200,.1,{type:'lowpass',a:.02});},
+  fanfare(){_hfK=2;[392,523,659,784,1047].forEach((f,i)=>hfOsc(f,f,1.1,.06,{type:'sawtooth',lp:1800,a:.02,rev:.4,d:i*190}));psSnd.cheer(109);},
   tick(){_hfK=1;hfOsc(1250,1100,.03,.04,{a:.001});}
 };
 
@@ -31251,11 +31347,16 @@ function psBuildBg(g){
     x.strokeStyle='rgba(230,190,90,.07)';x.lineWidth=dpr;x.beginPath();x.moveTo(lerp(0,cx-bw,t),fy);x.lineTo(lerp(W,cx+bw,t),fy);x.stroke();}
   x.strokeStyle='rgba(230,190,90,.08)';x.lineWidth=dpr;for(let k=-4;k<=4;k++){x.beginPath();x.moveTo(cx+k*W*.22,H);x.lineTo(cx+k*bw*.4,cy+bh);x.stroke();}
   x.fillStyle='#101a15';x.fillRect(cx-bw,cy-bh,2*bw,2*bh);
+  // finals night: a crowd on both sides, little lights of phones
+  if(g.mode==='final'){for(const sd of [-1,1]){const ex=sd<0?0:W;
+    for(let j=0;j<4;j++)for(let i=0;i<22;i++){const t=.04+i/22*.9,xx=lerp(ex,cx+sd*bw,t)+(rnd()-.5)*8*dpr*(1-t),yy=lerp(H*(.5+j*.1),cy+bh*(.1+j*.28),t)+(rnd()-.5)*5*dpr,hr=lerp(15,3.5,t)*dpr;
+      x.fillStyle='rgba(4,6,5,.92)';x.beginPath();x.arc(xx,yy,hr,0,6.283);x.fill();x.beginPath();x.ellipse(xx,yy+hr*1.9,hr*1.5,hr*1.1,0,0,6.283);x.fill();
+      if(rnd()<.14){x.fillStyle='rgba(235,245,255,'+(.4+rnd()*.5)+')';x.fillRect(xx-hr*.2,yy-hr*1.9,Math.max(1.5,hr*.5),Math.max(2,hr*.7));}}}}
   // the sign: how far away it is
   if(cy-ar>30*dpr){const sy=(cy-ar)/2,sw=118*dpr,sh=22*dpr;
     x.strokeStyle='rgba(180,140,60,.6)';x.lineWidth=dpr;x.beginPath();x.moveTo(cx-sw*.35,0);x.lineTo(cx-sw*.35,sy-sh/2);x.moveTo(cx+sw*.35,0);x.lineTo(cx+sw*.35,sy-sh/2);x.stroke();
     gr=x.createLinearGradient(0,sy-sh/2,0,sy+sh/2);gr.addColorStop(0,'#f1d487');gr.addColorStop(1,'#a8802f');x.fillStyle=gr;x.beginPath();x.roundRect(cx-sw/2,sy-sh/2,sw,sh,5*dpr);x.fill();
-    x.fillStyle='#2a1c06';x.font='700 '+(12*dpr)+'px Cinzel,Georgia,serif';x.textAlign='center';x.textBaseline='middle';x.fillText('LANE 3  ·  10 m',cx,sy+dpr);}
+    x.fillStyle='#2a1c06';x.font='700 '+(12*dpr)+'px Cinzel,Georgia,serif';x.textAlign='center';x.textBaseline='middle';x.fillText(g.mode==='final'?'FINAL  ·  10 m':'LANE 3  ·  10 m',cx,sy+dpr);}
   // the bench and the barrel in front of you
   const free=H-(cy+ar);
   if(free>14*dpr){const rh=Math.min(free*.8,46*dpr),ry=H-rh;
@@ -31297,6 +31398,7 @@ function psDraw(g,now){
   const k=fx.kick;const sx=k>0?(Math.random()-.5)*4*k*g.dpr:0,sy=k>0?(-3*k+(Math.random()-.5)*2*k)*g.dpr:0;
   x.save();x.translate(sx,sy);x.drawImage(g.bg,0,0);
   x.save();x.beginPath();x.arc(cx,cy,g.ar,0,6.283);x.clip();
+  {const z=psCamZoom(g);if(z.k>1.001){x.translate(z.x,z.y);x.scale(z.k,z.k);x.translate(-z.x,-z.y);x.drawImage(g.bg,0,0);}}
   const M=(mx,my)=>[cx+mx*px,cy+my*px];
   // the holes of the shooter whose target this is
   const list=g.sh[g.curI]||[];
@@ -31328,7 +31430,7 @@ function psDraw(g,now){
 function psDrawTail(g,x,W,H,cx,cy){
   const px=g.px,D=g.D,list=g.sh[g.curI]||[],M=(mx,my)=>[cx+mx*px,cy+my*px];
   // training: where you aimed and where it went
-  if(g.mode!=='match'&&list.length&&(g.phase==='aim'||(g.phase==='reveal'&&g.rv&&g.rv.step>=1))){
+  if(g.mode!=='match'&&g.mode!=='final'&&list.length&&(g.phase==='aim'||(g.phase==='reveal'&&g.rv&&g.rv.step>=1))){
     const s=list[list.length-1],a=M(s.ax,s.ay),i=M(s.x,s.y);x.save();x.setLineDash([4*g.dpr,5*g.dpr]);x.strokeStyle='rgba(244,235,208,.55)';x.lineWidth=1.2*g.dpr;x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(i[0],i[1]);x.stroke();x.setLineDash([]);
     x.strokeStyle='#f4ebd0';x.beginPath();x.arc(a[0],a[1],4*g.dpr,0,6.283);x.stroke();x.fillStyle='#f0d27a';x.beginPath();x.arc(i[0],i[1],3*g.dpr,0,6.283);x.fill();
     x.font='700 '+(9*g.dpr)+'px Cinzel,serif';x.fillStyle='rgba(244,235,208,.8)';x.textAlign='left';x.fillText('AIM',a[0]+7*g.dpr,a[1]-6*g.dpr);x.fillStyle='#f0d27a';x.fillText('IMPACT',i[0]+7*g.dpr,i[1]+12*g.dpr);x.restore();
@@ -31377,7 +31479,7 @@ function psStep(g,dt){
     while(r.step<4&&r.t>=th[r.step+1]){r.step++;psRvStep(g);}
     const endAt=PS_RV[4]+(r.near?300:0)+(r.s.v>=109?700:0)+(g.final?900:0);
     if(r.t>=endAt){psAfterShot(g);}
-  }else if(g.phase==='hand'&&g.hand&&(g.hand.bot&&g.t-g.hand.at>1.1||psWatch(g)&&g.t-g.hand.at>40)){psHandGo(g);}
+  }else if(g.phase==='hand'&&g.hand&&(g.hand.bot&&g.t-g.hand.at>(g.mode==='final'?.6:1.1)||psWatch(g)&&g.t-g.hand.at>40)){psHandGo(g);}
 }
 function psHandGo(g){if(g.phase!=='hand')return;psAimStart(g);}
 function psFrame(now){
@@ -31413,12 +31515,13 @@ function psHud(g){
     if(el){el.style.display=g.phase==='setup'||on?'':'none';const cur=g.phase!=='setup'&&i===g.curI;if(el._c!==cur){el._c=cur;el.classList.toggle('on',cur);}}
     set('ps-tot'+i,psFmt(g.tot[i]||0));
     const a=g.sh[i]||[],ch=document.getElementById('ps-ch'+i);
-    if(ch){const ser=g.D.series,cut=a.slice(Math.max(g.sStart?g.sStart[i]||0:0,a.length-ser));
+    if(ch){const ser=g.D.series,cut=g.mode==='final'?a.slice(-3):a.slice(Math.max(g.sStart?g.sStart[i]||0:0,a.length-ser));
       const h=cut.map(s=>`<i class="${s.v>=109?'g':s.v>=100?'t':s.v===0?'z':''}">${psFmt(s.v)}</i>`).join('');if(ch._h!==h){ch._h=h;ch.innerHTML=h;}}
+    if(g.mode==='final'&&g.fin&&el){const rk=psFinRanks(g),pos=rk.indexOf(i),o=g.fin.out.find(q=>q.p===i);el.style.order=pos;if(el._o!==!!o){el._o=!!o;el.classList.toggle('out',!!o);}set('ps-pb'+i,o?'OUT · '+psOrd(o.rank):'#'+(pos+1));return;}
     set('ps-pb'+i,g.phase==='setup'?'':(g.mode==='match'?'SERIES '+Math.min(g.total/g.D.series,Math.floor(a.length/g.D.series)+1)+' / '+(g.total/g.D.series):''));
   });
   set('ps-ms',(g.D.micro||.1).toFixed(1)+' mm');
-  const sn=g.phase==='setup'?'':g.total===Infinity?'SHOT '+((g.sh[g.curI]||[]).length+1):'SHOT '+Math.min(g.total,(g.sh[g.curI]||[]).length+(g.phase==='reveal'?0:1))+' / '+g.total;
+  const sn=g.phase==='setup'?'':g.mode==='final'&&g.fin?psFinLabel(g):g.total===Infinity?'SHOT '+((g.sh[g.curI]||[]).length+1):'SHOT '+Math.min(g.total,(g.sh[g.curI]||[]).length+(g.phase==='reveal'?0:1))+' / '+g.total;
   set('ps-sn',sn);
   const stab=document.getElementById('ps-sb');if(stab){const w=Math.round(g.S*100)+'%';if(stab._w!==w){stab._w=w;stab.style.width=w;}}
   {const e=document.getElementById('ps-offs');if(e){const show=g.phase==='aim'&&!psWatch(g)&&!g.cur.bot&&(g.mode!=='match'||g.lv==='beginner');let t='';if(show){const bx=g.base.x,by=g.base.y,d=Math.hypot(bx,by);t=d<.15?'ON THE CENTRE':'CENTRE '+(Math.abs(bx)>=.05?(bx>0?'◀ ':'▶ ')+Math.abs(bx).toFixed(1):'')+(Math.abs(by)>=.05?'  '+(by>0?'▲ ':'▼ ')+Math.abs(by).toFixed(1):'')+' mm';}if(e._v!==t){e._v=t;e.textContent=t;}}}
@@ -31429,7 +31532,7 @@ function psHud(g){
     if(stg._fo!==g.focus){stg._fo=g.focus;stg.classList.toggle('ps-focus',g.focus);}
     const fr=g.mode==='free'&&g.phase!=='setup';if(stg._fr!==fr){stg._fr=fr;stg.classList.toggle('ps-free',fr);}}
   const top=document.getElementById('ps-top');if(top){const t=g.final&&(g.phase==='aim'||g.phase==='reveal')?'FINAL SHOT · '+g.final.name.toUpperCase()+' NEEDS '+psFmt(g.final.need)+' TO WIN':'';if(top._v!==t){top._v=t;top.textContent=t;top.classList.toggle('on',!!t);}}
-  set('ps-status',g.phase==='setup'?'OUR TABLE MODE · '+g.D.name:g.phase==='hand'?'Next shooter':psWatch(g)?g.cur.name+' is shooting · you are watching':g.cur?(g.cur.bot?g.cur.name+' (robot) is shooting':g.cur.name+' · '+(g.mode==='match'?'series '+(Math.floor((g.sh[g.curI]||[]).length/g.D.series)+1)+' of '+(g.total/g.D.series):g.mode==='train10'?'training':'free practice')):'');
+  set('ps-status',g.phase==='setup'?'OUR TABLE MODE · '+g.D.name:g.phase==='hand'?'Next shooter':psWatch(g)?g.cur.name+' is shooting · you are watching':g.mode==='final'&&g.fin&&g.cur?g.cur.name+' · '+psFinLabel(g).toLowerCase():g.cur?(g.cur.bot?g.cur.name+' (robot) is shooting':g.cur.name+' · '+(g.mode==='match'?'series '+(Math.floor((g.sh[g.curI]||[]).length/g.D.series)+1)+' of '+(g.total/g.D.series):g.mode==='train10'?'training':'free practice')):'');
 }
 function psPlayersHTML(g){
   return g.players.map((p,i)=>`<div class="ps-pl" id="ps-pl${i}"><span class="ah-av">${p.avatar?avHTML(p.avatar):''}</span><div class="ps-pn"><b>${esc((p.name||'').slice(0,12))}${p.bot?' 🤖':''}</b><i id="ps-pb${i}"></i></div><b class="ps-tot" id="ps-tot${i}">0.0</b><div class="ps-chips" id="ps-ch${i}"></div></div>`).join('');
@@ -31465,12 +31568,12 @@ function psPaintOv(g){
     const seg=(items,cur,key)=>`<div class="ps-seg">${items.map(([k,l])=>`<button class="${cur===k?'on':''}" data-psa="${key}" data-v="${k}">${l}</button>`).join('')}</div>`;
     const tg=(k,l,on)=>`<button class="ps-tg${on?' on':''}" data-psa="tg" data-v="${k}" aria-pressed="${on}">${l}</button>`;
     const sm=g.summary;
-    const modeNote={match:'Twenty shots, shot in four series of five. Everybody shoots in turn; the highest total wins. Robots can join.',train10:'Ten shots for one person. You see where you aimed and where the pellet went.',free:'No limit. Practise as long as you like, then finish.'}[pr.mode];
+    const modeNote={match:'Twenty shots, shot in four series of five. Everybody shoots in turn; the highest total wins. Robots can join.',final:'The Olympic final: six finalists, robots fill the field. A series of five, then single shots, and after every two the lowest total is out, until two shoot for gold. One shot at a time, so the iPad goes round. Medals for the first three.',train10:'Ten shots for one person. You see where you aimed and where the pellet went.',free:'No limit. Practise as long as you like, then finish.'}[pr.mode];
     h=`<div class="ps-card">
       <div class="ps-kick">OLYMPIC GAMES</div><div class="ps-h1">PRECISION SHOOTING</div><div class="ps-sub">${esc(PS_DISC[pr.disc].name)} · OUR TABLE MODE</div>
       ${sm?`<div class="ps-sum"><div class="ps-sum-h">PRACTICE COMPLETE</div><div class="ps-sum-r"><span><b>${psFmt(sm.tot)}</b>total</span><span><b>${(sm.avg/10).toFixed(2)}</b>average</span><span><b>${psFmt(sm.best)}</b>best</span><span><b>${sm.perfect}</b>10.9</span><span><b>${sm.streak}</b>tens in a row</span></div></div>`:''}
       ${onl&&!host?'<div class="ps-grp">DISCIPLINE</div><div class="ps-note">The host chooses the discipline and the level.</div>':`<div class="ps-grp">DISCIPLINE</div>${seg(Object.keys(PS_DISC).map(k=>[k,PS_DISC[k].tag]),pr.disc,'disc')}`}
-      ${onl?'<div class="ps-grp">ONLINE MATCH</div><div class="ps-note">20 shots each in four series of five. Everybody shoots a series in turn on their own device and watches the others aim. The highest total wins.</div>':`<div class="ps-grp">MODE</div>${seg([['match','MATCH · 20 SHOTS'],['train10','TRAINING · 10'],['free','FREE PRACTICE']],pr.mode,'mode')}<div class="ps-note">${modeNote}</div>`}
+      ${onl?'<div class="ps-grp">ONLINE MATCH</div><div class="ps-note">20 shots each in four series of five. Everybody shoots a series in turn on their own device and watches the others aim. The highest total wins.</div>':`<div class="ps-grp">MODE</div>${seg([['match','MATCH · 20 SHOTS'],['final','FINALS NIGHT'],['train10','TRAINING · 10'],['free','FREE PRACTICE']],pr.mode,'mode')}<div class="ps-note">${modeNote}</div>`}
       ${onl&&!host?'':`<div class="ps-grp">LEVEL</div>${seg(PS_LVK.map(k=>[k,PS_LV[k].n.toUpperCase()]),pr.lv,'lv')}<div class="ps-note">${esc(PS_LV[pr.lv].about)}</div>`}
       <div class="ps-grp">OPTIONS</div><div class="ps-tgs">${tg('breath','BREATHING',pr.breath)}${tg('focus','FOCUS',pr.focus)}${tg('steady','STEADY HAND',pr.steady)}${tg('bold','BOLD SIGHT',pr.bold)}</div>
       <div class="ps-ppl">${g.players.map(p=>`<span>${p.avatar?'<span class="ah-av">'+avHTML(p.avatar)+'</span>':''}${esc(p.name)}${p.bot?' · '+PS_BOTS[p.bot].n.toLowerCase()+' robot':''}</span>`).join('')}</div>
@@ -31480,7 +31583,7 @@ function psPaintOv(g){
   }else if(g.phase==='hand'&&g.hand&&!g.hand.bot&&onl&&psWatch(g)){
     h=`<div class="ps-card ps-small"><div class="ps-kick">NEXT SHOOTER</div><div class="ps-hand">${g.cur.avatar?'<span class="ah-av">'+avHTML(g.cur.avatar)+'</span>':''}<b>${esc(g.cur.name)}</b></div></div>`;
   }else if(g.phase==='hand'&&g.hand&&!g.hand.bot){
-    h=`<div class="ps-card ps-small"><div class="ps-kick">${g.oi===0?'FIRST SHOOTER':'SERIES '+(Math.floor(g.oi/g.who.length)+1)+' OF '+(g.total/g.D.series)}</div><div class="ps-hand">${g.cur.avatar?'<span class="ah-av">'+avHTML(g.cur.avatar)+'</span>':''}<b>${esc(g.cur.name)}</b></div><button class="btn btn-gold ps-go" data-psa="ready">READY</button></div>`;
+    h=`<div class="ps-card ps-small"><div class="ps-kick">${g.mode==='final'?psFinLabel(g):g.oi===0?'FIRST SHOOTER':'SERIES '+(Math.floor(g.oi/g.who.length)+1)+' OF '+(g.total/g.D.series)}</div><div class="ps-hand">${g.cur.avatar?'<span class="ah-av">'+avHTML(g.cur.avatar)+'</span>':''}<b>${esc(g.cur.name)}</b></div><button class="btn btn-gold ps-go" data-psa="ready">READY</button></div>`;
   }
   if(ov.dataset.h!==h){ov.dataset.h=h;ov.innerHTML=h;}
   ov.classList.toggle('on',!!h);
@@ -33675,7 +33778,7 @@ function rMatchEnd(){
   return`<div id="s-matchend" class="scr on">
     <div class="topbar"><span class="top-title" style="font-family:var(--serif);">Tonight at Our Table</span><div class="top-right">${sndBtn()}</div></div>
     <div class="res-body">
-      <div class="winner-banner" style="--acc:${MOMENT_ACCENT[G.isOnline?G.srv?.gameId:G.selGame]||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${avChar(sorted[0]?.avatar)} ${(ahr&&ahr.team)?(ahr.won?'Team victory!':'Overrun!'):c4Draw?'A draw!':esc(sorted[0]?.name||'')+' won!'}</div><button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div>
+      <div class="winner-banner" style="--acc:${MOMENT_ACCENT[G.isOnline?G.srv?.gameId:G.selGame]||'#c9a45c'};"><div class="wb-trophy">${iconTrophy()}</div><div class="wb-title">${avChar(isPS&&G.psResult&&G.psResult.fin?G.psResult.goldAv:sorted[0]?.avatar)} ${isPS&&G.psResult&&G.psResult.fin?esc(G.psResult.goldName)+' takes gold!':(ahr&&ahr.team)?(ahr.won?'Team victory!':'Overrun!'):c4Draw?'A draw!':esc(sorted[0]?.name||'')+' won!'}</div><button class="snap-btn" data-a="snapshot">📸 Capture the moment</button></div>
       ${fgHighlightHTML()}
       ${statChips}
       <div class="panel" style="text-align:center;margin-bottom:.8rem;"><div class="panel-lbl">TABLE MOMENT</div><div style="font-family:var(--serif);font-size:1.1rem;color:var(--paper);margin:.2rem 0;">${matchMoment(sorted)}</div></div>
