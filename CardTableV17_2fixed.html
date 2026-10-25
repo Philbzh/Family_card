@@ -403,9 +403,6 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
    focus style below still gets a visible ring for keyboard users, without ever fighting a more
    specific rule (die, roulette cell, hand card, etc.) that wants its own custom treatment. */
 :where([role="button"]):focus-visible{outline:2px solid var(--gold2);outline-offset:2px;border-radius:8px;}
-.die.die-img{background:var(--dimg) center/100% 100% no-repeat !important;box-shadow:0 5px 8px rgba(0,0,0,.45) !important;border-radius:.55rem;}
-.die.die-img .pip{visibility:hidden;}
-.die.die-img.held{filter:drop-shadow(0 0 8px rgba(255,214,120,.9));}
 .coin-ic{width:1.05em;height:1.05em;vertical-align:-.2em;margin-right:.1em;filter:drop-shadow(0 1px 1px rgba(0,0,0,.6));}
 .stacks{display:inline-flex;align-items:flex-end;margin-right:.35em;vertical-align:middle;}
 .stack-ic{height:1.7em;width:auto;margin-right:-.15em;filter:drop-shadow(0 2px 2px rgba(0,0,0,.6));}
@@ -30051,7 +30048,7 @@ const FACE_IMG={
 
 function makeCard(card,w,h,extraClass){
   extraClass=extraClass||'';
-  var red=isRed(card.suit), sym=SYM[card.suit], r=card.rank, sk=({spades:'s',hearts:'h',diamonds:'d',clubs:'c'})[card.suit]||'s';
+  var red=isRed(card.suit), sym=SYM[card.suit], r=card.rank;
   var isFace='JQK'.includes(r), INK=red?'#b21f2d':'#18201c';
   var cr=Math.round(w*.09), isSpecial=['7','8','J'].includes(r);
   var borderColor=isSpecial?'#c7a75d':'#c9c1b2', borderW=isSpecial?1.8:1;
@@ -30066,21 +30063,20 @@ function makeCard(card,w,h,extraClass){
   var center='';
   var clipId=uid+'_clip';
   if(isFace){
-    var fW=Math.round(w*.84), fH=Math.round(h*.66);
-    var fX=Math.round((w-fW)/2), fY=Math.round(h*.17);
+    var fW=Math.round(w*.78), fH=Math.round(h*.78);
+    var fX=Math.round((w-fW)/2), fY=Math.round(h*.13);
     center='<rect width="'+w+'" height="'+h+'" fill="#ffffff"/>'
-      +'<image href="assets/ui/court_'+r+'_'+sk+'.jpg" x="'+fX+'" y="'+fY+'" width="'+fW+'" height="'+fH+'" preserveAspectRatio="xMidYMid meet"/>';
+      +'<image href="'+FACE_IMG[r]+'" x="'+fX+'" y="'+fY+'" width="'+fW+'" height="'+fH+'" preserveAspectRatio="xMidYMin meet"/>';
   }else if(r==='A'){
     center='<circle cx="'+(w/2)+'" cy="'+(h/2)+'" r="'+Math.round(w*.26)+'" fill="'+(red?'#fff1ef':'#f1f3ee')+'" opacity=".72"/>'
-      +'<image href="assets/ui/suit_'+sk+'.png" x="'+Math.round(w/2-h*.21)+'" y="'+Math.round(h/2-h*.21)+'" width="'+Math.round(h*.42)+'" height="'+Math.round(h*.42)+'" preserveAspectRatio="xMidYMid meet"/>';
+      +'<text x="'+(w/2)+'" y="'+(h/2)+'" text-anchor="middle" dominant-baseline="central" font-family="Georgia,serif" font-size="'+Math.round(h*.42)+'" fill="'+INK+'">'+sym+'</text>';
   }else{
     var grid=PIPS[r]||[], pipFs=r==='10'?Math.round(h*.13):r==='9'?Math.round(h*.135):Math.round(h*.14);
     var insetX=Math.round(w*.12), insetT=badgeH+Math.round(h*.01), areaW=w-insetX*2, areaH=h-insetT*2;
     center=grid.map(function(pip){
       var cpx=(insetX+areaW*pip[0]/100).toFixed(1), cpy=(insetT+areaH*pip[1]/100).toFixed(1);
       var rot=pip[2]?' transform="rotate(180 '+cpx+' '+cpy+')"':'';
-      var ps=Math.round(pipFs*1.08);
-      return '<image href="assets/ui/suit_'+sk+'.png" x="'+(cpx-ps/2).toFixed(1)+'" y="'+(cpy-ps/2).toFixed(1)+'" width="'+ps+'" height="'+ps+'" preserveAspectRatio="xMidYMid meet"'+rot+'/>';
+      return '<text x="'+cpx+'" y="'+cpy+'" text-anchor="middle" dominant-baseline="central" font-family="Georgia,serif" font-size="'+pipFs+'" fill="'+INK+'"'+rot+'>'+sym+'</text>';
     }).join('');
   }
   return '<span class="v13-card-wrap" style="display:inline-block;line-height:0;filter:drop-shadow(0 3px 6px rgba(0,0,0,.25));">'
@@ -32781,18 +32777,6 @@ function podiumHTML(sorted){
   if(!sorted||sorted.length<2)return'';const top=sorted.slice(0,3),order=top.length===3?[1,0,2]:[1,0],hts={0:112,1:84,2:62},med=['🥇','🥈','🥉'];
   return`<div class="podium">${order.map(i=>{const p=top[i];return`<div class="pd-col pd-${i}"><div class="pd-av">${avHTML(p.avatar)}</div><div class="pd-nm">${esc((p.name||'').slice(0,12))}</div><div class="pd-bar" style="--h:${hts[i]}px;animation-delay:${.15+i*.18}s"><span>${med[i]}</span></div></div>`;}).join('')}</div>`;
 }
-// every die with 1 to 6 pips gets the picture of the real face: the ivory set normally, the onyx set while it is held
-function uiDiceSkin(){
-  try{document.querySelectorAll('.die').forEach(el=>{
-    if(el.classList.contains('dd-die-hidden'))return;
-    let n=0;for(const c of el.children)if(c.classList&&c.classList.contains('pip'))n++;
-    if(n<1||n>6)return;
-    const key=(el.classList.contains('held')?'o':'i')+n;if(el.dataset.dskin===key)return;
-    el.dataset.dskin=key;el.style.setProperty('--dimg',"url('assets/ui/die_"+key+".png')");el.classList.add('die-img');});}catch(e){}
-}
-let _dskinQ=0;
-(function(){const root=document.getElementById('app');if(!root||typeof MutationObserver==='undefined')return;
-  new MutationObserver(()=>{if(_dskinQ)return;_dskinQ=requestAnimationFrame(()=>{_dskinQ=0;uiDiceSkin();});}).observe(root,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});})();
 function uiCountUp(){
   try{const els=document.querySelectorAll('#s-matchend .ts-val');els.forEach(el=>{const t=(el.textContent||'').trim();if(!/^\d{1,6}$/.test(t))return;const v=+t;if(v<2)return;const t0=performance.now(),D=900;el.textContent='0';
     const step=now=>{const u=Math.min(1,(now-t0)/D),e=1-Math.pow(1-u,3);el.textContent=String(Math.round(v*e));if(u<1)requestAnimationFrame(step);else el.textContent=String(v);};requestAnimationFrame(step);});}catch(e){}
@@ -33455,7 +33439,6 @@ function render(){
   appEl.innerHTML=html;
   if(_uiPrevScr!==s){_uiPrevScr=s;if(s!=='table'){const sc=appEl.querySelector('.scr');if(sc){sc.classList.add('scr-enter');setTimeout(()=>sc.classList.remove('scr-enter'),520);}}}
   if(s==='matchend')setTimeout(uiCountUp,40);
-  uiDiceSkin();if(!window._dskinObs&&typeof MutationObserver!=='undefined'){window._dskinObs=new MutationObserver(()=>{if(_dskinQ)return;_dskinQ=requestAnimationFrame(()=>{_dskinQ=0;uiDiceSkin();});});window._dskinObs.observe(appEl,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});}
   // Re-home the in-flight reactions onto the freshly built felt. If this render navigated away from
   // the table there's no felt to land on and they're simply dropped, which is the right outcome.
   if(flying.length){
