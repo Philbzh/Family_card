@@ -5946,6 +5946,17 @@ async function runPresentation(A,W,frame){
         check('twelve bumper hits in the forge make white heat: ten seconds of triple points',stt.hotT>9&&stt.mp===1);
         stt.lvl=0;F('pbStep')(p,1/60);check('and in the workshop the table is the old one again',F('PB_T').world===0&&F('PB_T').bumpers.length===3&&F('PB_T').hammers.length===0);
        }finally{stt.lvl=lv0;F('pbWorldApply')(Math.min(3,lv0));stt.hotT=0;stt.heat=0;p.balls=[nb];p.tilt=6.3;}}
+      // the vault is a table of its own
+      {const lv0=stt.lvl;p.phase='play';p.tilted=false;p.room=null;p.slow=0;p.freeze=0;stt.boss=null;
+       try{stt.lvl=2;F('pbStep')(p,1/60);const T=F('PB_T');
+        check('in the vault the three bumpers are the tumblers in a row, with two laser beams',T.world===2&&T.bumpers.length===3&&T.bumpers[0].y===T.bumpers[1].y&&T.lasers.length===2&&T.hammers.length===0);
+        stt.tum=[2,2,1];stt.tumA=[p.t,p.t,p.t];stt.lockLit=false;const b3=T.bumpers[2];F('pbEvent')(p,'bumper',{bm:b3,b:{x:b3.x,y:b3.y}});
+        check('the third tumbler turns green: the safe is cracked and the vault door is lit',stt.lockLit===true&&stt.tum.join()==='0,0,0');
+        stt.tum=[2,0,0];stt.tumA=[p.t-9,p.t,p.t];F('pbWorldTick')(p,1/60);check('a green tumbler falls back after eight seconds',stt.tum[0]===1);
+        F('pbResetTable')();const l=T.lasers[0];p.t=1.0;const ly=F('pbLaserY')(l,p.t);check('the laser is on at that moment',F('pbLaserOn')(l,p.t)===true);
+        p.balls=[{x:100,y:ly-14,vx:0,vy:260,st:'play',id:9700,stuck:0,tr:[]}];p.saveT=99;const sc0=stt.score;p.t=1.0;for(let i=0;i<4;i++){F('pbStep')(p,1/240);}
+        check('a switched-on laser bounces the ball like a wall and pays',p.balls[0].vy<100&&stt.score-sc0>=250);
+       }finally{stt.lvl=lv0;F('pbWorldApply')(Math.min(3,lv0));stt.lockLit=false;stt.tum=[0,0,0];p.balls=[nb];p.tilt=6.3;}}
       // the hall of fame
       {const old=W.localStorage.getItem('ct_pb_hof');W.localStorage.removeItem('ct_pb_hof');
        F('pbHofAdd')([{n:'ZoeTest',s:5000,d:'2026-11-01T10:00:00.000Z'},{n:'MaxTest',s:9000,d:'2026-11-02T10:00:00.000Z',lv:2,bj:50000},{n:'ZoeTest',s:5000,d:'2026-11-01T10:00:00.000Z'}]);
