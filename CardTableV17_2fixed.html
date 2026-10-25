@@ -4542,7 +4542,7 @@ function isPlayerAbsent(pid,graceMs){
   return since!=null&&(Date.now()-since)>=(graceMs||0);
 }
 // The people at the table are not just names: while somebody else is on turn their avatar is there, thinking (and, in Blackwater, aiming).
-const PEER_NO_TURN=new Set(['balloonblast','marksman','hoopfever','invaders','pong','airhockey','roulette','slots','bingo','drawit','vault','escape','battle','hotbomb']);
+const PEER_NO_TURN=new Set(['precision','clay','pinball','pool','balloonblast','marksman','hoopfever','invaders','pong','airhockey','roulette','slots','bingo','drawit','vault','escape','battle','hotbomb']);
 function peerSend(kind){try{if(_ch&&G.isOnline&&G.myPid)_ch.send({type:'broadcast',event:'pk',payload:{pid:G.myPid,kind}});}catch(e){}}
 function peerOnBroadcast(p){if(!p||!p.pid||p.pid===G.myPid)return;G.peer={pid:p.pid,kind:p.kind,at:Date.now()};peerThinkTick();}
 function peerThinkTick(){
@@ -4573,7 +4573,7 @@ function _onPresenceSync(){
     if(_presentPids.has(pid))delete _absentSince[pid];
     else if(_absentSince[pid]==null)_absentSince[pid]=Date.now();
   });
-  if(!bwSeqBusy()&&!ahLive()&&!plLive())render();
+  if(!bwSeqBusy()&&!ahLive()&&!plLive()&&!fgLive()&&!pbLive()&&!psLive()&&!clLive())render();   // the live games draw their own screen: a new screen would throw the picture away
 }
 // What to do with each snapshot the poll / realtime channel hands back. A snapshot this device has not seen is
 // applied. One it HAS seen is normally either the state already on screen or an old read arriving late, and is
@@ -4620,7 +4620,7 @@ function dbSub(id,cb){
   // showing "may be away" long past the point the skip button should have appeared.
   if(_awayTick)clearInterval(_awayTick);
   bwTimerStart();
-  _awayTick=setInterval(()=>{if(Object.keys(_absentSince).length&&!bwSeqBusy()&&!ahLive()&&!plLive())render();oRoulCheckStuckSpin();},4000);
+  _awayTick=setInterval(()=>{if(Object.keys(_absentSince).length&&!bwSeqBusy()&&!ahLive()&&!plLive()&&!fgLive()&&!pbLive()&&!psLive()&&!clLive())render();oRoulCheckStuckSpin();},4000);
 }
 // keepSeat=true means "I am walking away from this screen", not "I am done with this game". Tapping
 // Home used to be irreversible: it wiped ct_online_session, and join() refuses any room already in
