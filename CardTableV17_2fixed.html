@@ -491,6 +491,7 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .cl-hero{position:relative;height:132px;margin:.4rem auto .6rem;text-align:center;}
 .cl-hero .w{height:132px;}
 .cl-hero .c{position:absolute;left:50%;top:50%;height:92px;transform:translate(-50%,-50%);filter:drop-shadow(0 4px 8px rgba(0,0,0,.5));}
+.cl-fps{position:absolute;right:8px;top:8px;z-index:4;font:700 .55rem monospace;color:#9be8a0;background:rgba(0,0,0,.55);padding:3px 6px;border-radius:6px;pointer-events:none;}
 .cl-shells{display:flex;gap:8px;justify-content:center;min-height:32px;}
 .cl-shells i{width:22px;height:42px;background:url(assets/games/cl_shell1.png) center/contain no-repeat;opacity:.28;filter:grayscale(.6);}
 .cl-shells i.on{opacity:1;filter:none;}
@@ -31774,11 +31775,12 @@ function clProj(g,P,f,cx,cy){
   const xr=d[0]*cY-d[2]*sY,zr=d[0]*sY+d[2]*cY,yy=d[1]*cP-zr*sP,zz=d[1]*sP+zr*cP;
   if(zz<.6)return null;return[cx+f*xr/zz,cy-f*yy/zz,zz];
 }
-function clPrefs(){let p={};try{p=JSON.parse(localStorage.getItem('ct_cl_pref')||'{}')||{};}catch(e){}return Object.assign({disc:'trap',lv:'beginner',mode:'round',venue:'golden',gun:'classic',mix:false},p);}
+function clPrefs(){let p={};try{p=JSON.parse(localStorage.getItem('ct_cl_pref')||'{}')||{};}catch(e){}return Object.assign({disc:'trap',lv:'beginner',mode:'round',venue:'golden',gun:'classic',mix:false,sens:'normal',fps:false},p);}
+const CL_SENS={slow:.9,normal:1.6,fast:2.4};
 const CL_GUNS={classic:'CLASSIC',e:'ENGRAVED',ou:'OVER & UNDER',sp:'SPORTING',si:'SILVER'},CL_GUNIMG={classic:'gun',e:'gun_e',ou:'gun_ou',sp:'gun_sp',si:'gun_si'};
 function clPickVariant(){const r=Math.random();return r<.03?'g':r<.08?'m':r<.13?'p':r<.25?'w':r<.37?'y':r<.45?'b':'o';}
 const CL_VENUES={golden:'GOLDEN HOUR',night:'NIGHT',winter:'WINTER',coast:'COAST'};
-function clSavePrefs(p){try{localStorage.setItem('ct_cl_pref',JSON.stringify({disc:p.disc,lv:p.lv,mode:p.mode,venue:p.venue,gun:p.gun,mix:!!p.mix}));}catch(e){}}
+function clSavePrefs(p){try{localStorage.setItem('ct_cl_pref',JSON.stringify({disc:p.disc,lv:p.lv,mode:p.mode,venue:p.venue,gun:p.gun,mix:!!p.mix,sens:p.sens,fps:!!p.fps}));}catch(e){}}
 
 // ── a game ──
 function clNew(){
@@ -31795,7 +31797,7 @@ function lDealClay(){
   G.ahMoment='';G.psResult=null;G.clResult=null;G.fgResult=null;G.pbResult=null;clStop();G.scr='table';
 }
 function clBegin(g,cfg){
-  const pr=clPrefs();if(G.isOnline)pr.mode='round';if(cfg){pr.disc=cfg.disc;pr.lv=cfg.lv;if(cfg.venue)pr.venue=cfg.venue;}Object.assign(g,{disc:pr.disc,lv:pr.lv,mode:pr.mode,venue:CL_VENUES[pr.venue]?pr.venue:'golden',gun:CL_GUNS[pr.gun]?pr.gun:'classic',mix:cfg&&cfg.mix!==undefined?!!cfg.mix:!!pr.mix});g.cases=[];
+  const pr=clPrefs();if(G.isOnline)pr.mode='round';if(cfg){pr.disc=cfg.disc;pr.lv=cfg.lv;if(cfg.venue)pr.venue=cfg.venue;}Object.assign(g,{disc:pr.disc,lv:pr.lv,mode:pr.mode,venue:CL_VENUES[pr.venue]?pr.venue:'golden',sens:CL_SENS[pr.sens]?pr.sens:'normal',gun:CL_GUNS[pr.gun]?pr.gun:'classic',mix:cfg&&cfg.mix!==undefined?!!cfg.mix:!!pr.mix});g.cases=[];g.fpsOn=!!pr.fps;
   g.prog=clProgram(g.disc);if(g.mode==='train'){g.prog=g.prog.slice(0,clIsTrap(g.disc)?(g.disc==='triple'?1:2):3);}
   g.nCl=g.prog.reduce((a,b)=>a+b.ev.reduce((c,e)=>c+e.c.length,0),0);g.bonus=g.players.map(()=>0);
   const idx=g.players.map((p,i)=>i);let who=idx;if(g.mode!=='round'){const h=idx.find(i=>!g.players[i].bot);who=[h==null?0:h];}
@@ -32055,21 +32057,43 @@ function clGun(g,x,img,cx,cy,H,dpr){
   if(age>.08&&age<1){const sr=clImg('smokering');if(sr){const k=(age-.08)/.92,w2=(36+150*k)*dpr,h2=w2*sr.height/sr.width;x.save();x.globalAlpha=(1-k)*.7;x.drawImage(sr,cx-w2/2,cy-30*dpr-k*90*dpr-h2/2,w2,h2);x.restore();}}
   const cs=clImg('case');if(cs&&g.cases)for(const c of g.cases){const w2=34*dpr,h2=w2*cs.height/cs.width;x.save();x.translate(c.x*dpr,c.y*dpr);x.rotate(c.rot);x.globalAlpha=Math.max(0,1-c.l/.9);x.drawImage(cs,-w2/2,-h2/2,w2,h2);x.restore();}
 }
+// the whole backdrop (sky, tree line, lawn) is made once as one wide picture; every frame it is copied, nothing is stretched any more
+function clPano(g,V,vn,f,H){
+  const skyI=clImg(vn('sky')),trI=clImg(vn('trees')),grI=clImg(vn('grass'));if(!skyI||!trI||!grI)return null;
+  const key=V+'|'+Math.round(f)+'|'+H;if(g.pano&&g.panoKey===key)return g.pano;
+  const Pr=4.4,pw=Math.round(Pr*f),skyH=Math.round(.62*f),gh=Math.round(1.25*H),ph=skyH+gh;if(pw>4300||pw*ph>9e6)return null;
+  const c=document.createElement('canvas');c.width=pw;c.height=ph;const q=c.getContext('2d');clSkyCol(skyI);const sn=skyI._sn||[47,109,176];
+  q.drawImage(clTileCache(skyI,V==='golden'?Math.round(skyI.width*.3):0,V==='golden'?Math.round(skyI.width*.7):skyI.width),0,0,pw,skyH);
+  let gr=q.createLinearGradient(0,0,0,skyH*.4);gr.addColorStop(0,'rgba('+sn[0]+','+sn[1]+','+sn[2]+',1)');gr.addColorStop(1,'rgba('+sn[0]+','+sn[1]+','+sn[2]+',0)');q.fillStyle=gr;q.fillRect(0,0,pw,skyH*.4);
+  const th=1.4*f*trI.height/trI.width*(V==='golden'?1:1.25),td=clTileCache(trI,0,trI.width);for(let i=0;i<2;i++)q.drawImage(td,i*pw/2,skyH-th+3,pw/2+1,th);
+  q.fillStyle='#4f7f3a';q.fillRect(0,skyH,pw,gh);q.drawImage(clTileCache(grI,0,grI.width),0,skyH-2,pw,gh+2);
+  gr=q.createLinearGradient(0,skyH,0,skyH+f*.25);gr.addColorStop(0,'rgba(210,225,215,.5)');gr.addColorStop(1,'rgba(210,225,215,0)');q.fillStyle=gr;q.fillRect(0,skyH,pw,f*.25);
+  g.panoKey=key;g.panoSky=skyH;g.panoW=pw;return g.pano=c;
+}
+function clPanoDraw(g,x,pano,f,cx,cy,hy,W,H,V){
+  const skyI=clImg(V==='golden'?'sky':V+'_sky'),sn=(skyI&&skyI._sn)||[47,109,176],dy=Math.round(hy-g.panoSky);
+  if(dy>-20){const gr=x.createLinearGradient(0,Math.min(-20,dy-1.2*f),0,dy+2);gr.addColorStop(0,'rgb('+Math.round(sn[0]*.7)+','+Math.round(sn[1]*.78)+','+Math.round(sn[2]*.88)+')');gr.addColorStop(1,'rgb('+sn[0]+','+sn[1]+','+sn[2]+')');x.fillStyle=gr;x.fillRect(-20,-20,W+40,dy+24);}
+  const per=g.panoW;for(let m=Math.floor((g.yaw-cx/f)/4.4);;m++){const x0=Math.round(cx+(m*4.4-g.yaw)*f);if(x0>W)break;if(x0+per<0)continue;x.drawImage(pano,x0,dy);}
+  const sunA=.7,sunE={golden:.62,winter:.1,coast:.035}[V]||.62,sx=cx+f*Math.tan(sunA-g.yaw),sy=cy+f*Math.tan(g.pitch-sunE);
+  if(!((g.q||0)>=1)&&V!=='night'&&sx>-f*.5&&sx<W+f*.5&&sy>-f*.5&&sy<H+f*.5){const gr=x.createRadialGradient(sx,sy,0,sx,sy,f*.5);gr.addColorStop(0,'rgba(255,248,220,.8)');gr.addColorStop(.12,'rgba(255,240,190,.4)');gr.addColorStop(1,'rgba(255,230,160,0)');x.save();x.globalCompositeOperation='lighter';x.fillStyle=gr;x.fillRect(sx-f*.5,sy-f*.5,f,f);x.restore();}
+}
 function clDraw(g,now){
   const cv=g.cv;if(!cv)return;const x=cv.getContext('2d'),W=cv.width,H=cv.height,f=g.f,cx=W/2,cy=H*.58,dpr=g.dpr||1,V=g.venue||'golden',vn=n=>V==='golden'?n:V+'_'+n;
   x.setTransform(1,0,0,1,0,0);
   const ky=g.kick>0?(-6*g.kick)*dpr:0;
   x.save();x.translate(g.kick>0?(Math.random()-.5)*3*g.kick*dpr:0,ky);
   const hy=cy+f*Math.tan(g.pitch);   // the horizon
+  let gr;const lite=(g.q||0)>=1;
+  const pano=clPano(g,V,vn,f,H);
+  if(pano){clPanoDraw(g,x,pano,f,cx,cy,hy,W,H,V);}else{
   // sky
-  let gr=x.createLinearGradient(0,Math.min(0,hy-H),0,Math.max(hy,1));gr.addColorStop(0,'#2f6db0');gr.addColorStop(.7,'#8dbbe0');gr.addColorStop(1,'#d9e8ee');x.fillStyle=gr;x.fillRect(-20,-20,W+40,Math.max(hy,0)+20);
+  gr=x.createLinearGradient(0,Math.min(0,hy-H),0,Math.max(hy,1));gr.addColorStop(0,'#2f6db0');gr.addColorStop(.7,'#8dbbe0');gr.addColorStop(1,'#d9e8ee');x.fillStyle=gr;x.fillRect(-20,-20,W+40,Math.max(hy,0)+20);
   const skyI=clImg(vn('sky'));if(skyI){clSkyCol(skyI);const sn=skyI._sn||[47,109,176],bh2=.62*f,topY=hy-bh2,col=(al)=>'rgba('+sn[0]+','+sn[1]+','+sn[2]+','+al+')';
     gr=x.createLinearGradient(0,Math.min(-20,topY-1.2*f),0,topY+2);gr.addColorStop(0,'rgb('+Math.round(sn[0]*.7)+','+Math.round(sn[1]*.78)+','+Math.round(sn[2]*.88)+')');gr.addColorStop(1,col(1));x.fillStyle=gr;x.fillRect(-20,-20,W+40,Math.max(0,topY)+24);
     clTile(x,skyI,g,f,cx,topY,bh2,3.4,0,skyI.height,V==='golden'?Math.round(skyI.width*.3):0,V==='golden'?Math.round(skyI.width*.7):skyI.width);
     gr=x.createLinearGradient(0,topY,0,topY+bh2*.4);gr.addColorStop(0,col(1));gr.addColorStop(1,col(0));x.fillStyle=gr;x.fillRect(-20,topY,W+40,bh2*.4);}
   // the sun and the clouds are fixed in the world: they turn with the gun
   const sunA=.7,sunE={golden:.62,winter:.1,coast:.035}[V]||.62,sx=cx+f*Math.tan(sunA-g.yaw),sy=cy+f*Math.tan(g.pitch-sunE);
-  const lite=(g.q||0)>=1;
   if(!lite&&V!=='night'&&sx>-f*.5&&sx<W+f*.5&&sy>-f*.5&&sy<H+f*.5){gr=x.createRadialGradient(sx,sy,0,sx,sy,f*.5);gr.addColorStop(0,'rgba(255,248,220,.95)');gr.addColorStop(.12,'rgba(255,240,190,.55)');gr.addColorStop(1,'rgba(255,230,160,0)');x.fillStyle=gr;x.fillRect(sx-f*.5,sy-f*.5,f,f);}
   if(!g.clouds){g.clouds=Array.from({length:14},(_,i)=>({a:(i/14)*6.283+clHash(i)*.5,e:.25+clHash(i+9)*.55,s:.7+clHash(i+3)*1.1,sp:.004+clHash(i+5)*.006}));}
   if(!skyI)for(const c of g.clouds){let da=((c.a+c.sp*g.t-g.yaw)%6.283+9.425)%6.283-3.1416;if(Math.abs(da)>.9)continue;const ccx=cx+f*Math.tan(da),ccy=cy+f*Math.tan(g.pitch-c.e),r=f*.07*c.s;
@@ -32086,6 +32110,7 @@ function clDraw(g,now){
   const bands=[400,160,90,60,42,30,22,16,12,9,7,5.5,4.2,3.2,2.4,1.8,1.3,1];
   if(!grI0)for(let i=0;i<bands.length;i++){const a=Math.atan(eyeH/bands[i]),y1=cy+f*Math.tan(g.pitch+a);if(y1>prev){x.fillStyle=i%2?'#4a7a37':'#568a40';x.fillRect(-20,prev,W+40,y1-prev+1);prev=y1;}}
   gr=x.createLinearGradient(0,hy,0,hy+f*.25);gr.addColorStop(0,'rgba(210,225,215,.55)');gr.addColorStop(1,'rgba(210,225,215,0)');x.fillStyle=gr;x.fillRect(-20,hy,W+40,f*.25);
+  }
   // the field's furniture
   const stoneC={top:'#a9a39a',front:'#87827a',side:'#6d6962'},I=clImg;
   if(clIsTrap(g.disc)){
@@ -32176,7 +32201,9 @@ function clFrame(now){
   if(document.hidden||G.rulesOpen||G.quitOpen||G.tour){g.last=now;return;}
   const raw=Math.max(0,(now-g.last)/1000),dt=Math.min(.05,raw);g.last=now;
   g.ema=(g.ema||.016)*.92+raw*.08;if(g.t>2&&g.ema>.021&&(g.q||0)<2&&g.t-(g.qAt||0)>2.5){g.q=(g.q||0)+1;g.qAt=g.t;g.ema=.016;clSize(g);}   // too slow: fewer pixels
-  clStep(g,dt);clDraw(g,now);clHud(g);
+  const t0=performance.now();clStep(g,dt);clDraw(g,now);clHud(g);
+  g.costE=(g.costE||4)*.9+(performance.now()-t0)*.1;g.fpsE=(g.fpsE||60)*.92+(1/Math.max(.004,raw))*.08;
+  if(g.fpsOn&&now-(g.fpsAt||0)>500){g.fpsAt=now;const e=document.getElementById('cl-fps');if(e)e.textContent=Math.round(g.fpsE)+' fps · '+g.costE.toFixed(1)+' ms · q'+(g.q||0)+' · '+g.cv.width+'x'+g.cv.height+' · '+(g.pmN||0)+' ev';g.pmN=0;}
 }
 function clAttach(){
   const g=G.cl;if(!g||!g.live)return;
@@ -32212,7 +32239,7 @@ function rClayTable(){
     <div class="felt-table ah-felt" style="flex:1 1 auto;min-height:0;max-height:none;padding:0;">
       <div class="ah-stage ps-stage" id="cl-stage">
         <div class="ps-side ps-left" id="cl-left">${clPlayersHTML(g)}</div>
-        <div class="ps-mid" id="cl-mid"><canvas id="cl-cv" aria-label="The field"></canvas><div class="ps-call" id="ps-call"></div><div class="ps-ov" id="cl-ov"></div></div>
+        <div class="ps-mid" id="cl-mid"><canvas id="cl-cv" aria-label="The field"></canvas><div class="cl-fps" id="cl-fps"></div><div class="ps-call" id="ps-call"></div><div class="ps-ov" id="cl-ov"></div></div>
         <div class="ps-side ps-right" id="cl-right">
           <div class="ps-sn" id="cl-sn"></div>
           <div class="ps-rev" id="cl-rev"><div class="ps-rev-k" id="cl-r1">&nbsp;</div><div class="ps-rev-p" id="cl-r2">&nbsp;</div><div class="ps-rev-v" id="cl-r3">&nbsp;</div><div class="ps-rev-t" id="cl-r4">&nbsp;</div></div>
@@ -32234,7 +32261,9 @@ function clPaintOv(g){
       ${sm?`<div class="ps-sum"><div class="ps-sum-h">TRAINING COMPLETE</div><div class="ps-sum-r"><span><b>${sm.tot}</b>points</span><span><b>${sm.hits} / ${sm.n}</b>broken</span><span><b>${sm.first}</b>first barrel</span><span><b>${sm.cen}</b>dead centre</span></div></div>`:''}
       <div class="ps-grp">DISCIPLINE</div>${onl&&!host?'<div class="ps-note">The host chooses the discipline and the level.</div>':seg([['trap','TRAP'],['skeet','SKEET'],['triple','TRIPLE']],pr.disc,'disc')}
       ${onl&&!host?'':`<div class="ps-grp">FIELD</div>${seg(Object.keys(CL_VENUES).map(k=>[k,CL_VENUES[k]]),pr.venue,'venue')}`}
+      <div class="ps-grp">TURNING SPEED OF THE GUN</div>${seg([['slow','SLOW'],['normal','NORMAL'],['fast','FAST']],pr.sens,'sens')}
       <div class="ps-grp">GUN</div>${seg(Object.keys(CL_GUNS).map(k=>[k,CL_GUNS[k]]),pr.gun,'gun')}
+      <div class="ps-tgs" style="margin-top:.5rem"><button class="ps-tg${pr.fps?' on':''}" data-clact="fps" aria-pressed="${!!pr.fps}">SHOW THE SPEED (FPS) IN THE CORNER</button></div>
       ${onl&&!host?'':`<div class="ps-tgs" style="margin-top:.5rem"><button class="ps-tg${pr.mix?' on':''}" data-clact="mix" aria-pressed="${!!pr.mix}">CLAY MIX · colours, a golden clay (5) and a tiny one</button></div>`}<div class="ps-note">${pr.disc==='triple'?'Three clays are thrown from the trap house shortly after one another, in three different directions. You have four shells for the three: first dead centre 3 points, a chip 2, and 3 extra points for breaking all three.':pr.disc==='trap'?'Clays fly away from the trap house in front of you, at any angle. Five stations, five clays each, two barrels: first barrel 3 points for a dead centre or 2 for a chip, second barrel 1.':'Eight stations round a half circle between the high house (left) and the low house (right). The clays cross in front of you: lead them! One shot each, doubles on stations 1, 2, 6 and 7.'}</div>
       ${onl?'':`<div class="ps-grp">MODE</div>${seg([['round','ROUND · '+(pr.disc==='triple'?30:25)+' CLAYS'],['train','TRAINING']],pr.mode,'mode')}`}
       <div class="ps-grp">LEVEL</div>${onl&&!host?'':seg(Object.keys(CL_LV).map(k=>[k,CL_LV[k].n.toUpperCase()]),pr.lv,'lv')+'<div class="ps-note">'+esc(CL_LV[pr.lv].about)+'</div>'}
@@ -32261,8 +32290,8 @@ function clBindInput(){
     e.preventDefault();try{stage.setPointerCapture(e.pointerId);}catch(x){}
     drag={id:e.pointerId,x:e.clientX,y:e.clientY};},{passive:false});
   stage.addEventListener('pointermove',e=>{const g=G.cl;if(!drag||!g||e.pointerId!==drag.id||(g.cur&&g.cur.bot)||clWatch(g)||(g.phase!=='ready'&&g.phase!=='wait'&&g.phase!=='fly'))return;
-    const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;
-    const f=g.f/(g.dpr||1);g.yaw+=dx/f*.85;g.pitch=Math.max(-.25,Math.min(1.3,g.pitch-dy/f*.85));},{passive:true});
+    g.pmN=(g.pmN||0)+1;const dx=e.clientX-drag.x,dy=e.clientY-drag.y,tm=e.timeStamp,dtm=Math.max(4,tm-(drag.t||tm-16));drag.x=e.clientX;drag.y=e.clientY;drag.t=tm;
+    const f=g.f/(g.dpr||1),sp=Math.hypot(dx,dy)/dtm*1000,k=(CL_SENS[g.sens||'normal']||1.6)*(1+Math.min(1,sp/1800)*.7);g.yaw+=dx/f*k;g.pitch=Math.max(-.25,Math.min(1.3,g.pitch-dy/f*k));},{passive:true});
   const up=e=>{if(drag&&e.pointerId===drag.id)drag=null;};
   stage.addEventListener('pointerup',up);stage.addEventListener('pointercancel',up);stage.addEventListener('lostpointercapture',up);
   stage.addEventListener('click',e=>{const g=G.cl;const b=e.target.closest&&e.target.closest('[data-clact]');if(!b||!g)return;e.preventDefault();clAction(g,b.dataset.clact,b.dataset.v);});
@@ -32276,6 +32305,8 @@ function clBindInput(){
 function clAction(g,a,v){
   const pr=clPrefs();
   if(a==='disc'){pr.disc=v;clSavePrefs(pr);clPaintOv(g);}
+  else if(a==='fps'){pr.fps=!pr.fps;clSavePrefs(pr);g.fpsOn=!!pr.fps;clPaintOv(g);}
+  else if(a==='sens'){if(!CL_SENS[v])return;pr.sens=v;clSavePrefs(pr);g.sens=v;clPaintOv(g);}
   else if(a==='gun'){if(!CL_GUNS[v])return;pr.gun=v;clSavePrefs(pr);g.gun=v;clPaintOv(g);}
   else if(a==='mix'){pr.mix=!pr.mix;clSavePrefs(pr);g.mix=!!pr.mix;clPaintOv(g);}
   else if(a==='venue'){if(!CL_VENUES[v])return;pr.venue=v;clSavePrefs(pr);g.venue=v;clPaintOv(g);}
