@@ -6213,7 +6213,12 @@ async function runPresentation(A,W,frame){
       gg.lp=[{id:1,name:'AnnWind',avatar:F('AVATARS')[0],hand:[],totalScore:0}];gg.selGame='clay';F('lDealClay')();gg.scr='table';F('render')();F('clAttach')();g=G().cl;F('clBegin')(g);
       F('clHud')(g);check('on Olympic there is wind before the clay is called, shown on the panel',Math.hypot(g.wind[0],g.wind[1])>0&&/WIND [◀▶] /.test(W.document.getElementById('cl-wind').textContent));
       F('clPull')(g);{let n=0;while(g.phase!=='fly'&&n++<900)F('clStep')(g,1/60);}
-      {const c=g.clays[0],vx0=c.v[0];g.wind=[4,0];for(let i=0;i<60;i++)F('clStep')(g,1/60);check('the wind pushes the clay sideways while it flies',c.v[0]>vx0+.8);}
+      {const c=g.clays[0],vx0=c.v[0];g.wind=[4,0];for(let i=0;i<60;i++)F('clStep')(g,1/60);check("the wind pushes the clay sideways while it flies",c.v[0]-vx0*.93>.8);}
+      // ── duel: the result of a call is shared out clay by clay
+      {g.duel=true;g.net=g.net||{};g.net.seat=0;g.res=[[],[]];g.tot=[0,0];g.dApplied=false;g.clays=[{},{}];
+       F('clDuelApply')(g,[{o:0,pts:3,ql:'c',b:1,f:1},{o:1,pts:2,ql:'e',b:2,f:0}]);
+       check('duel: each clay scores only for the one who was first',g.tot[0]===3&&g.tot[1]===2&&g.res[0][1].pts===0&&g.res[1][0].pts===0);
+       check('duel: the result is applied once only',(F('clDuelApply')(g,[{o:1,pts:5}]),g.tot[0]===3&&g.phase==='result'));}
       F('clStop')();
       W.localStorage.setItem('ct_cl_pref',JSON.stringify({disc:'trap',lv:'beginner',mode:'round',venue:'golden',gun:'classic',mix:false}));
       gg.lp=[{id:1,name:'AnnCalm',avatar:F('AVATARS')[0],hand:[],totalScore:0}];F('lDealClay')();gg.scr='table';F('render')();F('clAttach')();g=G().cl;F('clBegin')(g);
