@@ -32048,7 +32048,7 @@ function clFinish(g){
   g.players.forEach((p,i)=>{const gp=G.lp[i];if(!gp)return;gp.totalScore=tot[i];gp.c4Result=n===1?'win':(tie&&cand.includes(i))?'draw':w===i?'win':'loss';gp.psLine=tot[i]+' pts · '+st[i].hits+' of '+g.nCl;});
   const dur=Math.round((Date.now()-g.stats.start)/1000),when=new Date().toISOString();
   G.ahMoment=mom;G.fgResult=null;G.fgHighlight=null;G.pbResult=null;G.psResult=null;
-  G.clResult={n:g.nCl,disc:g.disc,lv:g.lv,names:g.players.map(p=>p.name),bots:g.players.map(p=>!!p.bot),st,w,top,dur,mom};
+  G.clResult={n:g.nCl,disc:g.disc,lv:g.lv,names:g.players.map(p=>p.name),bots:g.players.map(p=>!!p.bot),st,w,top,dur,mom,duel:!!g.duel,tot:tot.slice()};
   G.tw=(G.tw||0)+1;try{localStorage.setItem('ct_tw',G.tw);}catch(e){}
   try{addHistory({game:'clay',winner:nm(w),winnerAvatar:g.players[w].avatar,date:when,players:g.players.map(p=>p.name),moment:mom,stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats?G.matchStats.reactions:0,ah:{score:tot,dur,lv:g.lv,dc:g.disc}}});}catch(e){}
   try{const hs=g.players.map((p,i)=>p.bot?-1:i).filter(i=>i>=0);
@@ -32060,7 +32060,8 @@ function clFinish(g){
 }
 function clChipsHTML(){
   const r=G.clResult;if(!r)return'';const s=r.st[r.w],clean=s.hits===(r.n||25);
-  return`<div class="cl-hero">${clean?'<img class="w" src="assets/games/cl_wreath.png" alt="">':''}<img class="c" src="assets/games/cl_trophy.png" alt=""></div><div class="tonight-stats">
+  const dl=r.duel&&r.tot?`<div style="display:flex;align-items:center;justify-content:center;gap:.8rem;margin:.2rem 0 .6rem"><div style="text-align:center"><img src="assets/games/cl_medal_${r.w===0?'g':'s'}.png" alt="" style="height:4.2rem"><div class="ts-lbl">${esc(r.names[0])} · ${r.tot[0]}</div></div><img src="assets/games/cl_vs.png" alt="" style="height:3.2rem"><div style="text-align:center"><img src="assets/games/cl_medal_${r.w===1?'g':'s'}.png" alt="" style="height:4.2rem"><div class="ts-lbl">${esc(r.names[1])} · ${r.tot[1]}</div></div></div>`:'';
+  return dl+`<div class="cl-hero">${clean?'<img class="w" src="assets/games/cl_wreath.png" alt="">':''}<img class="c" src="assets/games/cl_trophy.png" alt=""></div><div class="tonight-stats">
     <div class="tonight-stat"><div class="ts-val">${s.tot}</div><div class="ts-lbl">🎯 Points · ${esc(CL_DISC[r.disc].name)} · ${esc(CL_LV[r.lv].n)}</div></div>
     <div class="tonight-stat"><div class="ts-val">${s.hits} / ${r.n||25}</div><div class="ts-lbl">🥏 Clays broken</div></div>
     <div class="tonight-stat"><div class="ts-val">${s.first}</div><div class="ts-lbl">⭐ First-barrel hits</div></div>
