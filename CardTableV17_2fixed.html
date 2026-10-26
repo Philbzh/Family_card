@@ -4956,6 +4956,7 @@ const GAMES=[
      '<b>Trap:</b> five stations, five clays each; the clay flies away from the trap house in front of you at a random angle; <b>two barrels</b>: first barrel 3 points (dead centre) or 2 (chip), second barrel 1.',
      '<b>Skeet:</b> eight stations round a half circle between the <b>high house</b> (left) and the <b>low house</b> (right); the clays cross in front of you; one shot each; doubles (two clays at once) on stations 1, 2, 6 and 7. Same points.',
      '<b>Triple:</b> three clays are thrown from the trap house <b>shortly after one another</b>, in three different directions, and you have <b>four shells</b>: break them one after the other (3 points for a dead centre, 2 for a chip) and a <b>clean triple</b> is worth 3 extra points. Five stations, two triples each: 30 clays, 120 points at most.',
+     '<b>Finals Night</b> (offline, mode on the set-up card): six finalists, you and robots. Everybody shoots two series, then after every series the lowest are out (6, 4, 3, 2). The last two shoot a series and, if they are level, one clay at a time until one is ahead. Gold, silver and bronze medals at the end.',
      '<b>Duel</b> (online, two people, switched on by the host): you both shoot the <b>same clays at the same time</b>, each on your own device. A clay that one of you breaks breaks for the other as well, and only the one who was <b>first</b> scores for it (the host decides from the flight time of the clay, corrected for the delay of the line). A tie is decided by the first-barrel hits.',
      '<b>Wind.</b> On Sport, Elite and Olympic the wind blows: the line under the shells shows its direction and strength, the wind sock shows it on the field, and it pushes the clays sideways while they fly. <b>Slow motion</b> shows a golden clay, a clean triple and the last clay of the round.',
      '<b>Clay mix</b> (an option on the set-up card): white, yellow and black clays fly too, a pink clay bursts into powder, a tiny <b>mini clay</b> is hard to hit (+1 point) and a rare <b>golden clay</b> is worth <b>5 points</b>. You choose your <b>gun</b> before the round (it only changes what you see in your hands).',
@@ -31754,6 +31755,35 @@ const CL_LV={
 const CL_BOT={gentle:{n:'Gentle',p:.5},steady:{n:'Steady',p:.74},sharp:{n:'Sharp',p:.9}};
 const CL_TRAPX=[-3,-1.5,0,1.5,3];
 const CL_R=18.4;
+
+// ── FINALS NIGHT (not online): six finalists (you and robots). Two series for everybody, then after every series the lowest are out:
+//    6 → 4 → 3 → 2, the last two shoot a series and then clay after clay (sudden death) until one of them is ahead. ──
+const CL_FINBOTS=[['Marco','steady'],['Lena','sharp'],['Akira','gentle'],['Sven','steady'],['Rosa','sharp']];
+function clFinBlock(g,one){const base=clProgram(g.disc),k=g.fin.nb++,b=base[k%base.length];
+  if(one){const e=b.ev.find(v=>v.c.length===1)||b.ev[0];return{st:b.st,ev:[Object.assign({},e)]};}
+  return{st:b.st,ev:b.ev.map(e=>Object.assign({},e))};}
+function clFinSetup(g){
+  let k=0;while(g.players.length<6){const b=CL_FINBOTS[k++%CL_FINBOTS.length];g.players.push({name:b[0],avatar:(typeof AVATARS!=='undefined'?AVATARS[(g.players.length+2)%AVATARS.length]:null),bot:b[1]});}
+  g.n=g.players.length;g.fin={alive:g.players.map((p,i)=>i),out:[],stage:0,nb:0,sd:0,champ:null,rank:null};
+  g.prog=[clFinBlock(g),clFinBlock(g)];
+  const L=document.getElementById('cl-left');if(L)L.innerHTML=clPlayersHTML(g);
+}
+function clFinKey(g,i){const s=clStatsOf(g,i);return[s.tot,s.first,s.cen];}
+function clFinCmp(g,a,b){const x=clFinKey(g,a),y=clFinKey(g,b);for(let k=0;k<3;k++)if(x[k]!==y[k])return y[k]-x[k];return 0;}
+function clFinStatus(g){const F=g.fin;return 'FINALS NIGHT · '+(F.stage===0?'OPENING SERIES':F.stage<4?F.alive.length+' REMAIN':F.sd?'SUDDEN DEATH':'THE FINAL')+' · station '+(clBlock(g)?clBlock(g).st:'');}
+function clFinCut(g){   // after every series; true when the finals are over
+  const F=g.fin,al=F.alive.slice().sort((a,b)=>clFinCmp(g,a,b)||(Math.random()-.5)),keep={0:4,1:3,2:2}[F.stage];
+  if(keep!==undefined){
+    const gone=al.slice(keep);F.out.push(...gone.slice().reverse());F.alive=al.slice(0,keep);g.who=F.alive.slice();F.stage++;
+    gone.forEach(i=>{const e=document.getElementById('cl-pl'+i);if(e)e.style.opacity='.35';});
+    clCall(g,gone.map(i=>g.players[i].name).join(' · ').toUpperCase(),'is out · '+keep+' remain',2400,true);
+    g.prog.push(clFinBlock(g));return false;
+  }
+  const a=al[0],b=al[1],t=clStatsOf(g,a).tot-clStatsOf(g,b).tot;
+  if(t===0&&F.sd<8){F.sd++;if(F.sd===1)clCall(g,'SUDDEN DEATH.','one clay at a time',2200,true);g.prog.push(clFinBlock(g,true));return false;}
+  F.champ=t>=0?a:b;F.rank=[F.champ,F.champ===a?b:a].concat(F.out.slice().reverse());F.alive=[F.champ];
+  clFinish(g);return true;
+}
 function clProgram(disc){
   const b=[];
   if(disc==='triple'){for(let s=0;s<5;s++)b.push({st:s+1,ev:[0,1].map(()=>({c:['T','T','T'],d:[0,.85,1.7],shells:4}))});return b;}
@@ -31804,8 +31834,8 @@ function lDealClay(){
   G.ahMoment='';G.psResult=null;G.clResult=null;G.fgResult=null;G.pbResult=null;clStop();G.scr='table';
 }
 function clBegin(g,cfg){
-  const pr=clPrefs();if(G.isOnline)pr.mode='round';if(cfg){pr.disc=cfg.disc;pr.lv=cfg.lv;if(cfg.venue)pr.venue=cfg.venue;}Object.assign(g,{ret:CL_RET.includes(pr.ret)?pr.ret:'off',disc:pr.disc,lv:pr.lv,mode:pr.mode,venue:CL_VENUES[pr.venue]?pr.venue:'golden',sens:CL_SENS[pr.sens]?pr.sens:'normal',gun:CL_GUNS[pr.gun]?pr.gun:'classic',mix:cfg&&cfg.mix!==undefined?!!cfg.mix:!!pr.mix});g.cases=[];g.fpsOn=!!pr.fps;g.duel=!!(G.isOnline&&g.players.length===2&&(cfg?cfg.duel:pr.duel));g.claims={};g.rclaims={};
-  g.prog=clProgram(g.disc);if(g.mode==='train'){g.prog=g.prog.slice(0,clIsTrap(g.disc)?(g.disc==='triple'?1:2):3);}
+  const pr=clPrefs();const wantFin=pr.mode==='final'&&!G.isOnline;if(G.isOnline||pr.mode==='final')pr.mode='round';g.fin=null;if(cfg){pr.disc=cfg.disc;pr.lv=cfg.lv;if(cfg.venue)pr.venue=cfg.venue;}Object.assign(g,{ret:CL_RET.includes(pr.ret)?pr.ret:'off',disc:pr.disc,lv:pr.lv,mode:pr.mode,venue:CL_VENUES[pr.venue]?pr.venue:'golden',sens:CL_SENS[pr.sens]?pr.sens:'normal',gun:CL_GUNS[pr.gun]?pr.gun:'classic',mix:cfg&&cfg.mix!==undefined?!!cfg.mix:!!pr.mix});g.cases=[];g.fpsOn=!!pr.fps;g.duel=!!(G.isOnline&&g.players.length===2&&(cfg?cfg.duel:pr.duel));g.claims={};g.rclaims={};
+  g.prog=clProgram(g.disc);if(wantFin)clFinSetup(g);if(g.mode==='train'){g.prog=g.prog.slice(0,clIsTrap(g.disc)?(g.disc==='triple'?1:2):3);}
   g.nCl=g.prog.reduce((a,b)=>a+b.ev.reduce((c,e)=>c+e.c.length,0),0);g.bonus=g.players.map(()=>0);
   const idx=g.players.map((p,i)=>i);let who=idx;if(g.mode!=='round'){const h=idx.find(i=>!g.players[i].bot);who=[h==null?0:h];}
   g.who=who;g.res=g.players.map(()=>[]);g.tot=g.players.map(()=>0);g.bi=0;g.pi=0;g.ei=0;g.over=false;g.summary=null;g.stats={start:Date.now()};
@@ -32023,7 +32053,7 @@ function clNextEvent(g){
   if(g.duel){g.bi++;g.pi=0;if(g.bi>=g.prog.length){clFinish(g);return;}clTurn(g);return;}
   // the station is over for this shooter
   g.pi++;g.ei=0;
-  if(g.pi>=g.who.length){g.pi=0;g.bi++;if(g.bi>=g.prog.length){clFinish(g);return;}}
+  if(g.pi>=g.who.length){g.pi=0;g.bi++;if(g.fin){if(clFinCut(g))return;}if(g.bi>=g.prog.length){clFinish(g);return;}}
   clTurn(g);
 }
 function clStatsOf(g,i){
@@ -32039,10 +32069,12 @@ function clFinish(g){
   const tot=st.map(s=>s.tot),top=Math.max(...tot),cand=tot.map((v,i)=>v===top?i:-1).filter(i=>i>=0);
   // level: the one with more first-barrel hits (dead), then more dead centres
   cand.sort((a,b)=>st[b].first-st[a].first||st[b].cen-st[a].cen);
-  const w=cand[0],tie=cand.length>1&&st[cand[0]].first===st[cand[1]].first&&st[cand[0]].cen===st[cand[1]].cen,n=g.n;
+  let w=cand[0],tie=cand.length>1&&st[cand[0]].first===st[cand[1]].first&&st[cand[0]].cen===st[cand[1]].cen;const n=g.n;
+  if(g.fin&&g.fin.champ!=null){w=g.fin.champ;tie=false;cand.length=0;cand.push(w);g.nCl=st[w].n;}
   const nm=i=>g.players[i].name;
   let mom='';
-  if(st[w].hits===g.nCl)mom='CLEAN ROUND · '+nm(w)+' broke all '+g.nCl+' clays';
+  if(g.fin)mom='FINALS NIGHT · '+nm(w)+' is the champion with '+st[w].tot+' points';
+  else if(st[w].hits===g.nCl)mom='CLEAN ROUND · '+nm(w)+' broke all '+g.nCl+' clays';
   else if(st[w].streak>=15)mom=st[w].streak+' STRAIGHT · '+nm(w)+' did not miss for '+st[w].streak+' clays';
   else if(n>1&&cand.length>1&&!tie)mom='PHOTO FINISH · '+nm(w)+' won on first-barrel hits';
   else if(n>1&&tie)mom='A tie on the field.';
@@ -32052,7 +32084,7 @@ function clFinish(g){
   g.players.forEach((p,i)=>{const gp=G.lp[i];if(!gp)return;gp.totalScore=tot[i];gp.c4Result=n===1?'win':(tie&&cand.includes(i))?'draw':w===i?'win':'loss';gp.psLine=tot[i]+' pts · '+st[i].hits+' of '+g.nCl;});
   const dur=Math.round((Date.now()-g.stats.start)/1000),when=new Date().toISOString();
   G.ahMoment=mom;G.fgResult=null;G.fgHighlight=null;G.pbResult=null;G.psResult=null;
-  G.clResult={n:g.nCl,disc:g.disc,lv:g.lv,names:g.players.map(p=>p.name),bots:g.players.map(p=>!!p.bot),st,w,top,dur,mom,duel:!!g.duel,tot:tot.slice()};
+  G.clResult={n:g.nCl,disc:g.disc,lv:g.lv,names:g.players.map(p=>p.name),bots:g.players.map(p=>!!p.bot),st,w,top,dur,mom,duel:!!g.duel,tot:tot.slice(),rank:g.fin&&g.fin.rank?g.fin.rank.slice():null};
   G.tw=(G.tw||0)+1;try{localStorage.setItem('ct_tw',G.tw);}catch(e){}
   try{addHistory({game:'clay',winner:nm(w),winnerAvatar:g.players[w].avatar,date:when,players:g.players.map(p=>p.name),moment:mom,stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats?G.matchStats.reactions:0,ah:{score:tot,dur,lv:g.lv,dc:g.disc}}});}catch(e){}
   try{const hs=g.players.map((p,i)=>p.bot?-1:i).filter(i=>i>=0);
@@ -32065,7 +32097,8 @@ function clFinish(g){
 function clChipsHTML(){
   const r=G.clResult;if(!r)return'';const s=r.st[r.w],clean=s.hits===(r.n||25);
   const dl=r.duel&&r.tot?`<div style="display:flex;align-items:center;justify-content:center;gap:.8rem;margin:.2rem 0 .6rem"><div style="text-align:center"><img src="assets/games/cl_medal_${r.w===0?'g':'s'}.png" alt="" style="height:4.2rem"><div class="ts-lbl">${esc(r.names[0])} · ${r.tot[0]}</div></div><img src="assets/games/cl_vs.png" alt="" style="height:3.2rem"><div style="text-align:center"><img src="assets/games/cl_medal_${r.w===1?'g':'s'}.png" alt="" style="height:4.2rem"><div class="ts-lbl">${esc(r.names[1])} · ${r.tot[1]}</div></div></div>`:'';
-  return dl+`<div class="cl-hero">${clean?'<img class="w" src="assets/games/cl_wreath.png" alt="">':''}<img class="c" src="assets/games/cl_trophy.png" alt=""></div><div class="tonight-stats">
+  const pod=r.rank&&r.rank.length>=3?`<div style="display:flex;align-items:flex-end;justify-content:center;gap:.9rem;margin:.2rem 0 .6rem">${[1,0,2].map(k=>`<div style="text-align:center"><img src="assets/games/cl_medal_${['g','s','b'][k]}.png" alt="" style="height:${k===0?4.8:3.6}rem"><div class="ts-lbl">${esc(r.names[r.rank[k]])} · ${r.tot[r.rank[k]]}</div></div>`).join('')}</div>`:'';
+  return pod+dl+`<div class="cl-hero">${clean?'<img class="w" src="assets/games/cl_wreath.png" alt="">':''}<img class="c" src="assets/games/cl_trophy.png" alt=""></div><div class="tonight-stats">
     <div class="tonight-stat"><div class="ts-val">${s.tot}</div><div class="ts-lbl">🎯 Points · ${esc(CL_DISC[r.disc].name)} · ${esc(CL_LV[r.lv].n)}</div></div>
     <div class="tonight-stat"><div class="ts-val">${s.hits} / ${r.n||25}</div><div class="ts-lbl">🥏 Clays broken</div></div>
     <div class="tonight-stat"><div class="ts-val">${s.first}</div><div class="ts-lbl">⭐ First-barrel hits</div></div>
@@ -32319,7 +32352,7 @@ function clHud(g){
     set('cl-pb'+i,g.phase==='setup'?'':(g.res[i]||[]).length+' / '+(g.nCl||25));});
   const b=g.phase!=='setup'&&g.prog[g.bi]?g.prog[g.bi]:null;
   set('cl-sn',b?'STATION '+b.st+' · CALL '+Math.min(b.ev.length,g.ei+1)+' / '+b.ev.length:'');
-  set('cl-status',g.phase==='setup'?'OUR TABLE MODE · '+CL_DISC[g.disc].name:g.duel?'DUEL · '+CL_DISC[g.disc].name.toLowerCase()+' · station '+(clBlock(g)?clBlock(g).st:'')+' · the first to break it scores':g.phase==='hand'?'Next shooter':clWatch(g)?g.cur.name+' is shooting · you are watching':g.cur?(g.cur.bot?g.cur.name+' (robot) is shooting':g.cur.name+' · '+CL_DISC[g.disc].name.toLowerCase()+' · station '+(b?b.st:'')):'');
+  set('cl-status',g.phase==='setup'?'OUR TABLE MODE · '+CL_DISC[g.disc].name:g.fin?clFinStatus(g):g.duel?'DUEL · '+CL_DISC[g.disc].name.toLowerCase()+' · station '+(clBlock(g)?clBlock(g).st:'')+' · the first to break it scores':g.phase==='hand'?'Next shooter':clWatch(g)?g.cur.name+' is shooting · you are watching':g.cur?(g.cur.bot?g.cur.name+' (robot) is shooting':g.cur.name+' · '+CL_DISC[g.disc].name.toLowerCase()+' · station '+(b?b.st:'')):'');
   clHudShells(g);
   {const w=g.wind||[0,0],yw=g.wy0!==undefined?g.wy0:g.yaw,sr=w[0]*Math.cos(yw)-w[1]*Math.sin(yw),sp=Math.hypot(w[0],w[1]),t=g.phase==='setup'?'':sp<.3?'WIND · CALM':'WIND '+(sr<0?'◀ ':'▶ ')+sp.toFixed(1)+' m/s';set('cl-wind',t);}
   const fb=document.getElementById('cl-fire');if(fb){const can=(!g.cur||!g.cur.bot)&&!clWatch(g);let lab='PULL',ok=false;
@@ -32367,7 +32400,7 @@ function clPaintOv(g){
       ${onl&&host&&g.players.length===2&&pr.duel?'<img src="assets/games/cl_duel.jpg" alt="" style="width:100%;border-radius:.6rem;margin-top:.5rem;display:block">':''}
       ${onl&&host&&g.players.length===2?`<div class="ps-tgs" style="margin-top:.5rem"><button class="ps-tg${pr.duel?' on':''}" data-clact="duel" aria-pressed="${!!pr.duel}">DUEL · both shoot the same clays at the same time</button></div>`:''}
       ${onl&&!host?'':`<div class="ps-tgs" style="margin-top:.5rem"><button class="ps-tg${pr.mix?' on':''}" data-clact="mix" aria-pressed="${!!pr.mix}">CLAY MIX · colours, a golden clay (5) and a tiny one</button></div>`}<div class="ps-note">${pr.disc==='triple'?'Three clays are thrown from the trap house shortly after one another, in three different directions. You have four shells for the three: first dead centre 3 points, a chip 2, and 3 extra points for breaking all three.':pr.disc==='trap'?'Clays fly away from the trap house in front of you, at any angle. Five stations, five clays each, two barrels: first barrel 3 points for a dead centre or 2 for a chip, second barrel 1.':'Eight stations round a half circle between the high house (left) and the low house (right). The clays cross in front of you: lead them! One shot each, doubles on stations 1, 2, 6 and 7.'}</div>
-      ${onl?'':`<div class="ps-grp">MODE</div>${seg([['round','ROUND · '+(pr.disc==='triple'?30:25)+' CLAYS'],['train','TRAINING']],pr.mode,'mode')}`}
+      ${onl?'':`<div class="ps-grp">MODE</div>${seg([['round','ROUND · '+(pr.disc==='triple'?30:25)+' CLAYS'],['train','TRAINING'],['final','FINALS NIGHT']],pr.mode,'mode')}${pr.mode==='final'?'<div class="ps-grp" style="text-transform:none;letter-spacing:.02em">Six finalists, you and robots. After every series the lowest are out (6 → 4 → 3 → 2), then the last two shoot it out clay by clay.</div>':''}`}
       <div class="ps-grp">LEVEL</div>${onl&&!host?'':seg(Object.keys(CL_LV).map(k=>[k,CL_LV[k].n.toUpperCase()]),pr.lv,'lv')+'<div class="ps-note">'+esc(CL_LV[pr.lv].about)+'</div>'}
       <div class="ps-ppl">${g.players.map(p=>`<span>${p.avatar?'<span class="ah-av">'+avHTML(p.avatar)+'</span>':''}${esc(p.name)}${p.bot?' · '+CL_BOT[p.bot].n.toLowerCase()+' robot':''}</span>`).join('')}</div>
       ${onl&&!host?'<div class="ps-note" style="text-align:center;margin-top:.8rem;">Waiting for the host to start the round…</div>':`<button class="btn btn-gold ps-go" data-clact="start">${onl?'START FOR EVERYONE':sm?'SHOOT AGAIN':'GO TO THE FIELD'}</button>`}
