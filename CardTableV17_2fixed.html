@@ -4956,7 +4956,7 @@ const GAMES=[
      '<b>Trap:</b> five stations, five clays each; the clay flies away from the trap house in front of you at a random angle; <b>two barrels</b>: first barrel 3 points (dead centre) or 2 (chip), second barrel 1.',
      '<b>Skeet:</b> eight stations round a half circle between the <b>high house</b> (left) and the <b>low house</b> (right); the clays cross in front of you; one shot each; doubles (two clays at once) on stations 1, 2, 6 and 7. Same points.',
      '<b>Triple:</b> three clays are thrown from the trap house <b>shortly after one another</b>, in three different directions, and you have <b>four shells</b>: break them one after the other (3 points for a dead centre, 2 for a chip) and a <b>clean triple</b> is worth 3 extra points. Five stations, two triples each: 30 clays, 120 points at most.',
-     '<b>Finals Night</b> (offline, mode on the set-up card): six finalists, you and robots. Everybody shoots two series, then after every series the lowest are out (6, 4, 3, 2). The last two shoot a series and, if they are level, one clay at a time until one is ahead. Gold, silver and bronze medals at the end.',
+     '<b>Finals Night</b> (mode on the set-up card; online the host switches it on, two to four people, no robots): offline six finalists, you and robots. Everybody shoots two series, then after every series the lowest are out (6, 4, 3, 2). The last two shoot a series and, if they are level, one clay at a time until one is ahead. Gold, silver and bronze medals at the end.',
      '<b>Duel</b> (online, two people, switched on by the host): you both shoot the <b>same clays at the same time</b>, each on your own device. A clay that one of you breaks breaks for the other as well, and only the one who was <b>first</b> scores for it (the host decides from the flight time of the clay, corrected for the delay of the line). A tie is decided by the first-barrel hits.',
      '<b>Wind.</b> On Sport, Elite and Olympic the wind blows: the line under the shells shows its direction and strength, the wind sock shows it on the field, and it pushes the clays sideways while they fly. <b>Slow motion</b> shows a golden clay, a clean triple and the last clay of the round.',
      '<b>Clay mix</b> (an option on the set-up card): white, yellow and black clays fly too, a pink clay bursts into powder, a tiny <b>mini clay</b> is hard to hit (+1 point) and a rare <b>golden clay</b> is worth <b>5 points</b>. You choose your <b>gun</b> before the round (it only changes what you see in your hands).',
@@ -31763,16 +31763,16 @@ function clFinBlock(g,one){const base=clProgram(g.disc),k=g.fin.nb++,b=base[k%ba
   if(one){const e=b.ev.find(v=>v.c.length===1)||b.ev[0];return{st:b.st,ev:[Object.assign({},e)]};}
   return{st:b.st,ev:b.ev.map(e=>Object.assign({},e))};}
 function clFinSetup(g){
-  let k=0;while(g.players.length<6){const b=CL_FINBOTS[k++%CL_FINBOTS.length];g.players.push({name:b[0],avatar:(typeof AVATARS!=='undefined'?AVATARS[(g.players.length+2)%AVATARS.length]:null),bot:b[1]});}
-  g.n=g.players.length;g.fin={alive:g.players.map((p,i)=>i),out:[],stage:0,nb:0,sd:0,champ:null,rank:null};
+  let k=0;if(!G.isOnline)while(g.players.length<6){const b=CL_FINBOTS[k++%CL_FINBOTS.length];g.players.push({name:b[0],avatar:(typeof AVATARS!=='undefined'?AVATARS[(g.players.length+2)%AVATARS.length]:null),bot:b[1]});}
+  g.n=g.players.length;g.fin={alive:g.players.map((p,i)=>i),out:[],stage:0,nb:0,sd:0,champ:null,rank:null,cuts:[4,3,2].filter(k=>k<g.players.length)};
   g.prog=[clFinBlock(g),clFinBlock(g)];
   const L=document.getElementById('cl-left');if(L)L.innerHTML=clPlayersHTML(g);
 }
 function clFinKey(g,i){const s=clStatsOf(g,i);return[s.tot,s.first,s.cen];}
 function clFinCmp(g,a,b){const x=clFinKey(g,a),y=clFinKey(g,b);for(let k=0;k<3;k++)if(x[k]!==y[k])return y[k]-x[k];return 0;}
-function clFinStatus(g){const F=g.fin;return 'FINALS NIGHT · '+(F.stage===0?'OPENING SERIES':F.stage<4?F.alive.length+' REMAIN':F.sd?'SUDDEN DEATH':'THE FINAL')+' · station '+(clBlock(g)?clBlock(g).st:'');}
+function clFinStatus(g){const F=g.fin;return 'FINALS NIGHT · '+(F.stage===0?'OPENING SERIES':F.stage<=F.cuts.length&&!F.sd?F.alive.length+' REMAIN':F.sd?'SUDDEN DEATH':'THE FINAL')+' · station '+(clBlock(g)?clBlock(g).st:'');}
 function clFinCut(g){   // after every series; true when the finals are over
-  const F=g.fin,al=F.alive.slice().sort((a,b)=>clFinCmp(g,a,b)||(Math.random()-.5)),keep={0:4,1:3,2:2}[F.stage];
+  const F=g.fin,al=F.alive.slice().sort((a,b)=>clFinCmp(g,a,b)||(a-b)),keep=F.cuts[F.stage];
   if(keep!==undefined){
     const gone=al.slice(keep);F.out.push(...gone.slice().reverse());F.alive=al.slice(0,keep);g.who=F.alive.slice();F.stage++;
     gone.forEach(i=>{const e=document.getElementById('cl-pl'+i);if(e)e.style.opacity='.35';});
@@ -31834,7 +31834,7 @@ function lDealClay(){
   G.ahMoment='';G.psResult=null;G.clResult=null;G.fgResult=null;G.pbResult=null;clStop();G.scr='table';
 }
 function clBegin(g,cfg){
-  const pr=clPrefs();const wantFin=pr.mode==='final'&&!G.isOnline;if(G.isOnline||pr.mode==='final')pr.mode='round';g.fin=null;if(cfg){pr.disc=cfg.disc;pr.lv=cfg.lv;if(cfg.venue)pr.venue=cfg.venue;}Object.assign(g,{ret:CL_RET.includes(pr.ret)?pr.ret:'off',disc:pr.disc,lv:pr.lv,mode:pr.mode,venue:CL_VENUES[pr.venue]?pr.venue:'golden',sens:CL_SENS[pr.sens]?pr.sens:'normal',gun:CL_GUNS[pr.gun]?pr.gun:'classic',mix:cfg&&cfg.mix!==undefined?!!cfg.mix:!!pr.mix});g.cases=[];g.fpsOn=!!pr.fps;g.duel=!!(G.isOnline&&g.players.length===2&&(cfg?cfg.duel:pr.duel));g.claims={};g.rclaims={};
+  const pr=clPrefs();const wantFin=G.isOnline?!!(cfg&&cfg.fin&&G.srv):pr.mode==='final';if(G.isOnline||pr.mode==='final')pr.mode='round';g.fin=null;if(cfg){pr.disc=cfg.disc;pr.lv=cfg.lv;if(cfg.venue)pr.venue=cfg.venue;}Object.assign(g,{ret:CL_RET.includes(pr.ret)?pr.ret:'off',disc:pr.disc,lv:pr.lv,mode:pr.mode,venue:CL_VENUES[pr.venue]?pr.venue:'golden',sens:CL_SENS[pr.sens]?pr.sens:'normal',gun:CL_GUNS[pr.gun]?pr.gun:'classic',mix:cfg&&cfg.mix!==undefined?!!cfg.mix:!!pr.mix});g.cases=[];g.fpsOn=!!pr.fps;g.duel=!!(G.isOnline&&g.players.length===2&&!wantFin&&(cfg?cfg.duel:pr.duel));g.claims={};g.rclaims={};
   g.prog=clProgram(g.disc);if(wantFin)clFinSetup(g);if(g.mode==='train'){g.prog=g.prog.slice(0,clIsTrap(g.disc)?(g.disc==='triple'?1:2):3);}
   g.nCl=g.prog.reduce((a,b)=>a+b.ev.reduce((c,e)=>c+e.c.length,0),0);g.bonus=g.players.map(()=>0);
   const idx=g.players.map((p,i)=>i);let who=idx;if(g.mode!=='round'){const h=idx.find(i=>!g.players[i].bot);who=[h==null?0:h];}
@@ -31862,7 +31862,7 @@ function clOnBroadcast(m){
   const g=G.cl;if(!g||!g.live||!g.net||!G.isOnline||!m||m.id!==g.net.id||m.seat===g.net.seat)return;
   const sp=ahPlayers(),sender=sp[m.seat];if(!sender)return;
   if(m.k!=='sight'&&m.k!=='hello'){const key=m.seat+':'+m.s;if(g.net.seen[key])return;g.net.seen[key]=1;}
-  if(m.k==='go'){if(g.phase==='setup'&&sender.id===G.srv.host){g.net.cfg={disc:CL_DISC[m.disc]?m.disc:'trap',lv:CL_LV[m.lv]?m.lv:'sport',venue:CL_VENUES[m.venue]?m.venue:'golden',mix:!!m.mix,duel:!!m.duel};clBegin(g,g.net.cfg);clPaintOv(g);}}
+  if(m.k==='go'){if(g.phase==='setup'&&sender.id===G.srv.host){g.net.cfg={disc:CL_DISC[m.disc]?m.disc:'trap',lv:CL_LV[m.lv]?m.lv:'sport',venue:CL_VENUES[m.venue]?m.venue:'golden',mix:!!m.mix,duel:!!m.duel,fin:!!m.fin};clBegin(g,g.net.cfg);clPaintOv(g);}}
   else if(m.k==='hello'){if(clHost()&&g.phase!=='setup'&&g.net.cfg)g.net.goUntil=Math.max(g.net.goUntil,g.t+3);}
   else if(g.duel){clDuelMsg(g,m);}
   else if(m.seat!==g.curI)return;
@@ -31877,7 +31877,7 @@ function clOnBroadcast(m){
 function clNetFinish(g,c){
   if(g.netEnded||!G.srv)return;g.netEnded=true;
   const st=c.st,tot=c.tot,w=c.w,n=g.n,dur=Math.round((Date.now()-g.stats.start)/1000);
-  const res={n:g.nCl,disc:g.disc,lv:g.lv,names:g.players.map(p=>p.name),bots:g.players.map(()=>false),st,w,top:tot[w],dur,mom:c.mom};
+  const res={n:g.nCl,disc:g.disc,lv:g.lv,names:g.players.map(p=>p.name),bots:g.players.map(()=>false),st,w,top:tot[w],dur,mom:c.mom,duel:!!g.duel,tot:tot.slice(),rank:g.fin&&g.fin.rank?g.fin.rank.slice():null};
   try{hfSnd.cheer(1);}catch(e){}
   const s2=JSON.parse(JSON.stringify(G.srv));
   s2.players.forEach((q,i)=>{if(i>=n)return;q.totalScore=tot[i];q.c4Result=n===1?'win':(c.tie&&c.cand.includes(i))?'draw':w===i?'win':'loss';q.psLine=tot[i]+' pts · '+st[i].hits+' of '+g.nCl;});
@@ -32283,7 +32283,7 @@ function clStep(g,dt){
   for(const q of g.parts){q.l+=dt;q.p[0]+=q.v[0]*dt;q.p[1]+=q.v[1]*dt;q.p[2]+=q.v[2]*dt;if(q.k!=='p')q.v[1]-=9.8*dt;q.v[0]*=1-1.6*dt;q.v[2]*=1-1.6*dt;}for(let i=g.parts.length-1;i>=0;i--)if(g.parts[i].l>=g.parts[i].life)g.parts.splice(i,1);
   if(g.net&&G.isOnline){const N=g.net;
     if(g.phase==='setup'&&!clHost()&&g.t-N.helloAt>2){N.helloAt=g.t;clSend(g,{k:'hello'},false);}
-    if(clHost()&&N.cfg&&g.t<N.goUntil&&g.t-N.goAt>1.2){N.goAt=g.t;clSend(g,{k:'go',disc:N.cfg.disc,lv:N.cfg.lv,venue:N.cfg.venue,mix:N.cfg.mix?1:0,duel:N.cfg.duel?1:0},false);}
+    if(clHost()&&N.cfg&&g.t<N.goUntil&&g.t-N.goAt>1.2){N.goAt=g.t;clSend(g,{k:'go',disc:N.cfg.disc,lv:N.cfg.lv,venue:N.cfg.venue,mix:N.cfg.mix?1:0,duel:N.cfg.duel?1:0,fin:N.cfg.fin?1:0},false);}
     if(g.cur&&!clWatch(g)&&!g.duel&&(g.phase==='ready'||g.phase==='wait'||g.phase==='fly')&&g.t-N.sightAt>.1&&(Math.abs(g.yaw-(N.ly||0))>.0012||Math.abs(g.pitch-(N.lp||0))>.0012||g.t-N.sightAt>.5)){N.sightAt=g.t;N.ly=g.yaw;N.lp=g.pitch;clSend(g,{k:'sight',y:clR(g.yaw),p:clR(g.pitch)},false);}
     if(clWatch(g)&&g.sightOk&&(g.phase==='ready'||g.phase==='wait'||g.phase==='fly')){const k=Math.min(1,dt*14);g.yaw+=(g.wy-g.yaw)*k;g.pitch+=(g.wp-g.pitch)*k;}
   }
@@ -32398,7 +32398,8 @@ function clPaintOv(g){
       <div class="ps-grp">GUN</div>${seg(Object.keys(CL_GUNS).map(k=>[k,CL_GUNS[k]]),pr.gun,'gun')}
       <div class="ps-tgs" style="margin-top:.5rem"><button class="ps-tg${pr.fps?' on':''}" data-clact="fps" aria-pressed="${!!pr.fps}">SHOW THE SPEED (FPS) IN THE CORNER</button></div>
       ${onl&&host&&g.players.length===2&&pr.duel?'<img src="assets/games/cl_duel.jpg" alt="" style="width:100%;border-radius:.6rem;margin-top:.5rem;display:block">':''}
-      ${onl&&host&&g.players.length===2?`<div class="ps-tgs" style="margin-top:.5rem"><button class="ps-tg${pr.duel?' on':''}" data-clact="duel" aria-pressed="${!!pr.duel}">DUEL · both shoot the same clays at the same time</button></div>`:''}
+      ${onl&&host&&g.players.length>=2?`<div class="ps-tgs" style="margin-top:.5rem"><button class="ps-tg${pr.mode==='final'?' on':''}" data-clact="finnight" aria-pressed="${pr.mode==='final'}">FINALS NIGHT · the lowest are out after every series</button></div>`:''}
+      ${onl&&host&&g.players.length===2&&pr.mode!=='final'?`<div class="ps-tgs" style="margin-top:.5rem"><button class="ps-tg${pr.duel?' on':''}" data-clact="duel" aria-pressed="${!!pr.duel}">DUEL · both shoot the same clays at the same time</button></div>`:''}
       ${onl&&!host?'':`<div class="ps-tgs" style="margin-top:.5rem"><button class="ps-tg${pr.mix?' on':''}" data-clact="mix" aria-pressed="${!!pr.mix}">CLAY MIX · colours, a golden clay (5) and a tiny one</button></div>`}<div class="ps-note">${pr.disc==='triple'?'Three clays are thrown from the trap house shortly after one another, in three different directions. You have four shells for the three: first dead centre 3 points, a chip 2, and 3 extra points for breaking all three.':pr.disc==='trap'?'Clays fly away from the trap house in front of you, at any angle. Five stations, five clays each, two barrels: first barrel 3 points for a dead centre or 2 for a chip, second barrel 1.':'Eight stations round a half circle between the high house (left) and the low house (right). The clays cross in front of you: lead them! One shot each, doubles on stations 1, 2, 6 and 7.'}</div>
       ${onl?'':`<div class="ps-grp">MODE</div>${seg([['round','ROUND · '+(pr.disc==='triple'?30:25)+' CLAYS'],['train','TRAINING'],['final','FINALS NIGHT']],pr.mode,'mode')}${pr.mode==='final'?'<div class="ps-grp" style="text-transform:none;letter-spacing:.02em">Six finalists, you and robots. After every series the lowest are out (6 → 4 → 3 → 2), then the last two shoot it out clay by clay.</div>':''}`}
       <div class="ps-grp">LEVEL</div>${onl&&!host?'':seg(Object.keys(CL_LV).map(k=>[k,CL_LV[k].n.toUpperCase()]),pr.lv,'lv')+'<div class="ps-note">'+esc(CL_LV[pr.lv].about)+'</div>'}
@@ -32443,6 +32444,7 @@ function clBindInput(){
 function clAction(g,a,v){
   const pr=clPrefs();
   if(a==='disc'){pr.disc=v;clSavePrefs(pr);clPaintOv(g);}
+  else if(a==='finnight'){if(!G.isOnline)return;pr.mode=pr.mode==='final'?'round':'final';if(pr.mode==='final')pr.duel=false;clSavePrefs(pr);clPaintOv(g);}
   else if(a==='duel'){pr.duel=!pr.duel;clSavePrefs(pr);clPaintOv(g);}
   else if(a==='fps'){pr.fps=!pr.fps;clSavePrefs(pr);g.fpsOn=!!pr.fps;clPaintOv(g);}
   else if(a==='ret'){if(!CL_RET.includes(v))return;pr.ret=v;clSavePrefs(pr);g.ret=v;clPaintOv(g);}
@@ -32452,7 +32454,7 @@ function clAction(g,a,v){
   else if(a==='venue'){if(!CL_VENUES[v])return;pr.venue=v;clSavePrefs(pr);g.venue=v;clPaintOv(g);}
   else if(a==='mode'){pr.mode=v;clSavePrefs(pr);clPaintOv(g);}
   else if(a==='lv'){pr.lv=v;clSavePrefs(pr);clPaintOv(g);}
-  else if(a==='start'){if(G.isOnline){if(!clHost())return;pr.mode='round';clSavePrefs(pr);const cfg={disc:pr.disc,lv:pr.lv,venue:pr.venue,mix:!!pr.mix,duel:!!pr.duel&&g.players.length===2};g.net.cfg=cfg;g.net.goUntil=g.t+8;g.net.goAt=g.t;clSend(g,{k:'go',disc:cfg.disc,lv:cfg.lv,venue:cfg.venue,mix:cfg.mix?1:0,duel:cfg.duel?1:0},true);clBegin(g,cfg);}else clBegin(g);clPaintOv(g);}
+  else if(a==='start'){if(G.isOnline){if(!clHost())return;clSavePrefs(pr);const fn=pr.mode==='final'&&g.players.length>=2,cfg={disc:pr.disc,lv:pr.lv,venue:pr.venue,mix:!!pr.mix,duel:!!pr.duel&&g.players.length===2&&!fn,fin:fn};g.net.cfg=cfg;g.net.goUntil=g.t+8;g.net.goAt=g.t;clSend(g,{k:'go',disc:cfg.disc,lv:cfg.lv,venue:cfg.venue,mix:cfg.mix?1:0,duel:cfg.duel?1:0,fin:cfg.fin?1:0},true);clBegin(g,cfg);}else clBegin(g);clPaintOv(g);}
   else if(a==='ready'){if(g.net&&G.isOnline&&g.curI===g.net.seat)clSend(g,{k:'ready'},true);clReadyStart(g);}
   else if(a==='finishtrain'){if(g.mode==='train'&&g.phase!=='setup'&&g.phase!=='fly'&&g.phase!=='wait')clFinish(g);}
 }

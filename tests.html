@@ -6271,6 +6271,22 @@ async function runPresentation(A,W,frame){
         const out=W.eval('window._clOut');
         check('this device tells the others it is ready, sends its gun and the launch of its clay',out.some(m=>m.k==='ready'&&m.seat===1)&&out.some(m=>m.k==='sight'&&m.seat===1)&&out.some(m=>m.k==='launch'&&m.seat===1&&m.c.length===1));
        }finally{W.eval('window._clOut=null');W.eval('_ch=null');gg.isOnline=false;G().myPid=pid0;gg.srv=srv0;F('clStop')();}}
+      // ── online finals night with three people: 3 → 2, then the final; this device (seat 1) watches the others and shoots its own turns
+      {const ch0=F('_ch'),pid0=G().myPid,srv0=G().srv;
+       try{W.eval("window._clOut=[];_ch={send:m=>{window._clOut.push(m.payload)}}");
+        gg.isOnline=true;G().myPid='B';gg.selGame='clay';gg.srv={phase:'game',gameId:'clay',host:'A',players:[{id:'A',name:'Ann',avatar:F('AVATARS')[0]},{id:'B',name:'Bo',avatar:F('AVATARS')[1]},{id:'C',name:'Cy',avatar:F('AVATARS')[2]}],ah:{id:'c2',score:[0,0,0]},winner:null};
+        gg.scr='table';F('clStop')();F('render')();F('clAttach')();g=G().cl;
+        F('clOnBroadcast')({k:'go',id:'c2',seat:0,s:1,disc:'trap',lv:'sport',fin:1});
+        check('online finals: three finalists, no robots, cuts 3 to 2',!!g.fin&&g.players.length===3&&g.fin.cuts.join()==='2'&&!g.duel&&g.prog.length===2);
+        g.netEnded=true;let sq=5,guard=0,seen=[];
+        while(!g.over&&guard++<20000){
+          if(g.fin&&seen[seen.length-1]!==g.fin.alive.length)seen.push(g.fin.alive.length);
+          if(g.phase==='hand'){if(F('clWatch')(g))F('clOnBroadcast')({k:'ready',id:'c2',seat:g.curI,s:sq++});else F('clAction')(g,'ready');}
+          else if((g.phase==='ready'||g.phase==='wait')&&F('clWatch')(g)){F('clOnBroadcast')({k:'launch',id:'c2',seat:g.curI,s:sq++,c:[{k:'T',p:[0,1.2,15],v:[3,12,28]}]});F('clOnBroadcast')({k:'evdone',id:'c2',seat:g.curI,s:sq++,rs:[((g.curI+sq)%3===0)?null:{pts:3,ql:'c',b:1,f:1}]});}
+          else F('clStep')(g,1/30);
+        }
+        check('online finals: the watcher goes through 3 → 2 and ends with a champion and a full ranking',g.over&&seen.join()==='3,2'&&g.fin.champ!=null&&g.fin.rank.length===3&&g.fin.rank[0]===g.fin.champ);
+       }finally{W.eval('window._clOut=null');W.eval('_ch=null');gg.isOnline=false;G().myPid=pid0;gg.srv=srv0;F('clStop')();}}
     }finally{const g=G();try{F('clStop')();}catch(e){}g.isOnline=k0[0];g.selGame=k0[1];g.lp=k0[2];g.scr=k0[3];g.cl=null;g.clResult=k0[5];ls.forEach(([k,v])=>{if(v===null)W.localStorage.removeItem(k);else W.localStorage.setItem(k,v);});}
   });
   suite('Fairground: the LEVEL button works in every booth',()=>{
