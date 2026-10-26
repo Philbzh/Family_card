@@ -32202,6 +32202,12 @@ function clDraw(g,now){
     if(q.k==='p'){const si=I(q.im||(q.q==='c'?'smoke':'dust'));if(si){const w=f*q.s*1.5*(.45+u*1.3)/p[2];x.globalAlpha=.95*(1-u);x.drawImage(si,p[0]-w/2,p[1]-w*si.height/si.width/2,w,w*si.height/si.width);x.globalAlpha=1;continue;}const r=f*q.s*(.4+u*1.6)/p[2];x.fillStyle='rgba('+(q.q==='c'?'40,38,36':'200,190,175')+','+(.55*(1-u))+')';x.beginPath();x.arc(p[0],p[1],r,0,6.283);x.fill();}
     else{x.globalAlpha=1-u*u;x.fillStyle=q.k==='f'?(q.cols||['#e8652a','#1b1b1b'])[Math.sin(q.l*30+q.s*50)>0?0:1]:'rgba(200,190,170,.7)';x.beginPath();x.ellipse(p[0],p[1],Math.max(1.5,f*q.s/p[2]),Math.max(1,f*q.s*.5/p[2]),q.l*8,0,6.283);x.fill();x.globalAlpha=1;}}
   x.restore();
+  // weather: mist drifts over the field on Elite, rain falls on Olympic (not on a slow device)
+  if(!lite&&(g.lv==='elite'||g.lv==='olympic')&&g.phase!=='setup'){const wi=I(g.lv==='olympic'?'rain':'mist'),tt=performance.now()/1000;
+    if(wi){x.save();x.globalCompositeOperation='lighter';
+      if(g.lv==='olympic'){const w=W*.7,h=w*wi.height/wi.width,ox=(tt*40*dpr)%w,oy=(tt*320*dpr)%h;x.globalAlpha=.8;for(let i=-1;i<2;i++)for(let j=-1;j<2;j++)x.drawImage(wi,i*w-ox+(W-w*2)/2,j*h+oy,w,h);}
+      else{const w=W*1.1,h=w*wi.height/wi.width,ox=(tt*18*dpr)%(w*1.2);x.globalAlpha=.5;x.drawImage(wi,W-ox,H*.5-h*.1,w,h);x.drawImage(wi,W-ox-w*1.2,H*.5-h*.1,w,h);}
+      x.restore();}}
   // the gun
   const gunI=clImg(CL_GUNIMG[g.gun||'classic']||'gun')||clImg('gun');
   if(gunI){clGun(g,x,gunI,cx,cy,H,dpr);if(CL_LV[g.lv].assist&&g.phase==='fly'&&!g.cur.bot){x.strokeStyle='rgba(255,230,150,.4)';x.lineWidth=dpr*1.3;x.beginPath();x.arc(cx,cy,CL_LV[g.lv].pr*f,0,6.283);x.stroke();}}
@@ -32305,7 +32311,7 @@ function clHud(g){
 function clPlayersHTML(g){return g.players.map((p,i)=>`<div class="ps-pl" id="cl-pl${i}"><span class="ah-av">${p.avatar?avHTML(p.avatar):''}</span><div class="ps-pn"><b>${esc((p.name||'').slice(0,12))}${p.bot?' 🤖':''}</b><i id="cl-pb${i}"></i></div><b class="ps-tot" id="cl-tot${i}">0</b><div class="ps-chips" id="cl-ch${i}"></div></div>`).join('');}
 function rClayTable(){
   if(!G.cl||!G.cl.live||(G.isOnline&&(!G.cl.net||!G.srv||!G.srv.ah||G.cl.net.id!==G.srv.ah.id))||(!G.isOnline&&G.cl.net)){clStop();G.clResult=null;G.cl=clNew();}
-  const g=G.cl;setTimeout(clAttach,0);['sky','trees','grass','hhouse','lhouse','trap','plate','stake','sock','clay','frag','smoke','dust','flash','gun'].forEach(clImg);['night','winter','coast'].forEach(v=>['sky','trees','grass'].forEach(n=>clImg(v+'_'+n)));['clay_w','clay_y','clay_b','clay_p','clay_g','clay_m','frag_w','frag_yb','pink','goldb','pellets','ring','gun_e','gun_ou','gun_sp','gun_si','case','smokering','spark','trophy','wreath'].forEach(clImg);
+  const g=G.cl;setTimeout(clAttach,0);['sky','trees','grass','hhouse','lhouse','trap','plate','stake','sock','clay','frag','smoke','dust','flash','gun'].forEach(clImg);['night','winter','coast'].forEach(v=>['sky','trees','grass'].forEach(n=>clImg(v+'_'+n)));['clay_w','clay_y','clay_b','clay_p','clay_g','clay_m','frag_w','frag_yb','pink','goldb','pellets','ring','gun_e','gun_ou','gun_sp','gun_si','case','smokering','spark','trophy','wreath','rain','mist'].forEach(clImg);
   return`<div id="s-table" class="scr on game-airhockey game-precision game-clay">
     <div class="game-bar"><div class="gb-game">🥏 <span>Clay Shooting</span></div><div class="gb-turn" id="cl-status">OUR TABLE MODE · Trap and Skeet</div><div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div></div>
     <div class="felt-table ah-felt" style="flex:1 1 auto;min-height:0;max-height:none;padding:0;">
