@@ -31943,7 +31943,8 @@ function clReadyStart(g){g.phase='ready';g.hand=null;g.shells=2;g.autoAt=g.t+(g.
   clPaintOv(g);
   if(g.net&&g.net.pend&&(clWatch(g)||(g.duel&&!clHost()))){const m=g.net.pend;g.net.pend=null;clApplyLaunch(g,m);}}
 // PULL: the clay leaves after a short random moment
-function clPull(g){if(g.phase!=='ready'||g.cur.bot||clWatch(g)||(g.duel&&!clHost()))return;g.phase='wait';g.wait=g.t+.25+Math.random()*(g.lv==='beginner'?.4:.9);}
+function clVoice(){try{if(!G.snd||!window.speechSynthesis)return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance('Pull!');u.rate=1.15;u.pitch=.75;u.volume=.9;u.lang='en-GB';speechSynthesis.speak(u);}catch(e){}}
+function clPull(g){if(g.phase!=='ready'||g.cur.bot||clWatch(g)||(g.duel&&!clHost()))return;clVoice();g.phase='wait';g.wait=g.t+.25+Math.random()*(g.lv==='beginner'?.4:.9);}
 function clLaunchEvent(g){
   const lv=CL_LV[g.lv],r=Math.random,ev=g.ev,out=[];
   const sect=[-1,0,1].sort(()=>r()-.5).map(v=>v*({beginner:.3,sport:.42,elite:.5,olympic:.55}[g.lv]||.42));
@@ -32157,7 +32158,7 @@ function clBead(img){if(img._bx!==undefined)return img._bx;img._bx=.5;
       if(n>2){let s2=0,n2=0;for(let y2=y;y2<Math.min(c.height,y+8);y2++)for(let xx=0;xx<c.width;xx++)if(d[(y2*c.width+xx)*4+3]>140){s2+=xx;n2++;}img._bx=s2/n2/c.width;break;}}}catch(e){}
   return img._bx;}
 function clGun(g,x,img,cx,cy,H,dpr){
-  const h=H-cy+6*dpr,w=h*img.width/img.height;x.drawImage(img,cx-w*clBead(img),cy-2*dpr,w,h);
+  const h=H-cy+6*dpr,w=h*img.width/img.height;const rk=g.kick>0?g.kick:0;x.save();x.translate(cx,cy+h);x.rotate(-rk*.025);x.translate(-cx,-(cy+h));x.drawImage(img,cx-w*clBead(img),cy-2*dpr+rk*18*dpr,w,h);x.restore();
   const age=g.t-(g.shotT||-9);
   if(g.kick>.2){const fl=clImg('flash');if(fl){const k=g.kick,sz=(50+110*k)*dpr,w2=sz*fl.width/fl.height;x.save();x.globalCompositeOperation='lighter';x.globalAlpha=Math.min(1,k*1.5);x.drawImage(fl,cx-w2/2,cy-sz*.92,w2,sz);x.restore();}}
   if(age<.4){const pl=clImg('pellets');if(pl){const k=age/.4,w2=(70+520*k)*dpr,h2=w2*pl.height/pl.width;x.save();x.globalCompositeOperation='lighter';x.globalAlpha=(1-k)*.85;x.drawImage(pl,cx-w2/2,cy-h2,w2,h2);x.restore();}}
@@ -32234,8 +32235,15 @@ function clDraw0(g,now){
     for(let k=1;k<=7;k++){const e=clEye('skeet',k);if(I('plate')){clBill(g,x,f,cx,cy,I('plate'),[e[0],0,e[2]],.55);continue;}const p=clProj(g,[e[0],0,e[2]],f,cx,cy);if(p){x.fillStyle=k===clBlock(g)?.st?'rgba(236,196,92,.95)':'rgba(255,255,255,.5)';x.beginPath();x.ellipse(p[0],p[1],f*.5/p[2],f*.14/p[2],0,0,6.283);x.fill();}}
   }
   {const tint={night:'rgba(8,16,40,.26)',winter:'rgba(215,230,255,.08)',coast:'rgba(255,150,70,.11)'}[V];if(tint){x.fillStyle=tint;x.fillRect(0,0,W,H);}}
+  // life on the field: a flock of birds passes slowly (not at night, not on a slow device), a box of shells next to the stand
+  if(!lite&&V!=='night'&&I('birds')){const bi=I('birds'),tt=performance.now()/1000;for(let k=0;k<2;k++){const az=((tt*.035*(k?-1:1)+k*2.4+1.2)%6.2)-3.1,el=.5+k*.12+.03*Math.sin(tt*.9+k),bx=cx+f*Math.tan(az-g.yaw),by=cy-f*Math.tan(el-g.pitch);
+      if(bx>-90&&bx<W+90&&by>-60&&by<H){const bw=f*(k?.2:.28),bh=bw*bi.height/bi.width*(.82+.18*Math.sin(tt*9+k*2));x.save();x.globalAlpha=.8;x.drawImage(bi,k?bx:bx,by,k?-bw:bw,bh);x.restore();}}}
+  if(I('shellbox')&&!lite){const e=g.eye;clBill(g,x,f,cx,cy,I('shellbox'),[e[0]+1.1,0,e[2]+2.6],.3);}
   // the clay and its fragments
   for(const c of g.clays){if(!c.alive&&!c.broke)continue;if(c.broke)continue;const p=clProj(g,c.p,f,cx,cy);if(!p)continue;const r=Math.max(3.4*dpr,f*.72/p[2]);
+    // the shadow on the lawn and a short trail behind it
+    if(!lite){const sp=clProj(g,[c.p[0],0,c.p[2]],f,cx,cy);if(sp){const sr=Math.max(2*dpr,f*.55/sp[2]),al=Math.max(0,.34-c.p[1]*.02);if(al>.02){x.save();x.globalAlpha=al;x.fillStyle='#10200c';x.beginPath();x.ellipse(sp[0],sp[1],sr*1.5,sr*.42,0,0,6.283);x.fill();x.restore();}}
+      if(c.tr&&c.tr.length>2){x.save();x.lineCap='round';for(let k=1;k<c.tr.length;k++){const a=clProj(g,c.tr[k-1],f,cx,cy),b=clProj(g,c.tr[k],f,cx,cy);if(!a||!b)continue;const u=k/c.tr.length;x.globalAlpha=u*.35;x.strokeStyle='rgba(255,246,225,1)';x.lineWidth=Math.max(1,r*.55*u);x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(b[0],b[1]);x.stroke();}x.restore();}}
     // a faint glow so that it can always be found against the sky
     x.save();x.globalAlpha=.4;const gc={g:'255,215,100',p:'255,90,170',w:'255,255,255',y:'255,225,60',b:'255,235,190'}[c.vt]||'255,150,40';gr=x.createRadialGradient(p[0],p[1],0,p[0],p[1],r*2.4);gr.addColorStop(0,'rgba('+gc+',.8)');gr.addColorStop(1,'rgba('+gc+',0)');x.fillStyle=gr;x.beginPath();x.arc(p[0],p[1],r*2.4,0,6.283);x.fill();x.restore();
     const cI=I(c.vt&&c.vt!=='o'?'clay_'+c.vt:'clay')||I('clay'),tilt=.35+.25*Math.sin(c.t*7);if(cI){const w=r*2.5*(c.vt==='m'?.7:1),h=w*cI.height/cI.width*(.7+.3*Math.abs(Math.sin(c.t*5)));x.drawImage(cI,p[0]-w/2,p[1]-h/2,w,h);}else{x.fillStyle='#d9531c';x.beginPath();x.ellipse(p[0],p[1],r,r*tilt,0,0,6.283);x.fill();x.fillStyle='#f58a3a';x.beginPath();x.ellipse(p[0],p[1]-r*.08,r*.78,r*tilt*.62,0,0,6.283);x.fill();}
@@ -32295,7 +32303,7 @@ function clStep(g,dt){
   else if(g.phase==='wait'&&g.t>=g.wait&&!clWatch(g)){clLaunchEvent(g);}
   else if(g.phase==='fly'){
     g.flyT+=dt;
-    for(const c of g.clays){if(c.pend){if(g.flyT>=c.delay){c.pend=false;c.alive=true;c.t=0;try{clSnd.launch();}catch(e){}}continue;}if(!c.alive)continue;c.t+=dt;c.p[0]+=c.v[0]*dt;c.p[1]+=c.v[1]*dt;c.p[2]+=c.v[2]*dt;c.v[1]-=9.8*dt;c.v[0]*=1-.07*dt;c.v[2]*=1-.07*dt;if(g.wind){c.v[0]+=g.wind[0]*dt*.5;c.v[2]+=g.wind[1]*dt*.5;}if(c.p[1]<.15||c.t>3.4||Math.hypot(c.p[0]-g.eye[0],c.p[2]-g.eye[2])>115){c.alive=false;}}
+    for(const c of g.clays){if(c.pend){if(g.flyT>=c.delay){c.pend=false;c.alive=true;c.t=0;try{clSnd.launch();}catch(e){}}continue;}if(!c.alive)continue;c.t+=dt;c.p[0]+=c.v[0]*dt;c.p[1]+=c.v[1]*dt;c.p[2]+=c.v[2]*dt;c.v[1]-=9.8*dt;c.v[0]*=1-.07*dt;c.v[2]*=1-.07*dt;if(g.wind){c.v[0]+=g.wind[0]*dt*.5;c.v[2]+=g.wind[1]*dt*.5;}if(!c.tr)c.tr=[];if(!c.trT||c.t-c.trT>.035){c.trT=c.t;c.tr.push(c.p.slice());if(c.tr.length>9)c.tr.shift();}if(c.p[1]<.15||c.t>3.4||Math.hypot(c.p[0]-g.eye[0],c.p[2]-g.eye[2])>115){c.alive=false;}}
     // the help of the level: the gun is drawn gently towards a clay that is near the bead
     if(!g.cur.bot&&!clWatch(g)&&CL_LV[g.lv].mag){const m=CL_LV[g.lv].mag;let bc=null,be=1e9;for(const c of g.clays){if(!c.alive)continue;const d0=Math.hypot(c.p[0]-g.eye[0],c.p[1]-g.eye[1],c.p[2]-g.eye[2]),Tl=(1-(CL_LV[g.lv].lead||0))*d0/300,q=[c.p[0]+c.v[0]*Tl,c.p[1]+c.v[1]*Tl-4.9*Tl*Tl,c.p[2]+c.v[2]*Tl],dv=[q[0]-g.eye[0],q[1]-g.eye[1],q[2]-g.eye[2]],ty=Math.atan2(dv[0],dv[2]),tp=Math.atan2(dv[1],Math.hypot(dv[0],dv[2])),ey=ty-g.yaw,ep=tp-g.pitch,e=Math.hypot(ey,ep);if(e<be){be=e;bc={ey,ep};}}   // the pull goes to the point you have to aim at, not to the clay
       if(bc&&be<.38){const k=Math.min(1,dt*m*(1-be/.45));g.yaw+=bc.ey*k;g.pitch+=bc.ep*k;}}
@@ -32364,7 +32372,7 @@ function clHud(g){
 function clPlayersHTML(g){return g.players.map((p,i)=>`<div class="ps-pl" id="cl-pl${i}"><span class="ah-av">${p.avatar?avHTML(p.avatar):''}</span><div class="ps-pn"><b>${esc((p.name||'').slice(0,12))}${p.bot?' 🤖':''}</b><i id="cl-pb${i}"></i></div><b class="ps-tot" id="cl-tot${i}">0</b><div class="ps-chips" id="cl-ch${i}"></div></div>`).join('');}
 function rClayTable(){
   if(!G.cl||!G.cl.live||(G.isOnline&&(!G.cl.net||!G.srv||!G.srv.ah||G.cl.net.id!==G.srv.ah.id))||(!G.isOnline&&G.cl.net)){clStop();G.clResult=null;G.cl=clNew();}
-  const g=G.cl;setTimeout(clAttach,0);['sky','trees','grass','hhouse','lhouse','trap','plate','stake','sock','clay','frag','smoke','dust','flash','gun'].forEach(clImg);['night','winter','coast'].forEach(v=>['sky','trees','grass'].forEach(n=>clImg(v+'_'+n)));['clay_w','clay_y','clay_b','clay_p','clay_g','clay_m','frag_w','frag_yb','pink','goldb','pellets','ring','gun_e','gun_ou','gun_sp','gun_si','case','smokering','spark','trophy','wreath','rain','mist'].forEach(clImg);
+  const g=G.cl;setTimeout(clAttach,0);['sky','trees','grass','hhouse','lhouse','trap','plate','stake','sock','clay','frag','smoke','dust','flash','gun'].forEach(clImg);['night','winter','coast'].forEach(v=>['sky','trees','grass'].forEach(n=>clImg(v+'_'+n)));['clay_w','clay_y','clay_b','clay_p','clay_g','clay_m','frag_w','frag_yb','pink','goldb','pellets','ring','gun_e','gun_ou','gun_sp','gun_si','case','smokering','spark','trophy','wreath','rain','mist','birds','shellbox'].forEach(clImg);
   return`<div id="s-table" class="scr on game-airhockey game-precision game-clay">
     <div class="game-bar"><div class="gb-game">🥏 <span>Clay Shooting</span></div><div class="gb-turn" id="cl-status">OUR TABLE MODE · Trap and Skeet</div><div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div></div>
     <div class="felt-table ah-felt" style="flex:1 1 auto;min-height:0;max-height:none;padding:0;">
