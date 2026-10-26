@@ -492,6 +492,8 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .cl-hero .w{height:132px;}
 .cl-hero .c{position:absolute;left:50%;top:50%;height:92px;transform:translate(-50%,-50%);filter:drop-shadow(0 4px 8px rgba(0,0,0,.5));}
 .cl-fps{position:absolute;right:8px;top:8px;z-index:4;font:700 .55rem monospace;color:#9be8a0;background:rgba(0,0,0,.55);padding:3px 6px;border-radius:6px;pointer-events:none;}
+#cl-stage,#cl-mid,#cl-cv{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
+#cl-mid,#cl-cv{touch-action:none;}
 .cl-wind{text-align:center;font:700 .6rem 'Cinzel',serif;letter-spacing:.16em;color:#9db09f;min-height:.9rem;}
 .cl-shells{display:flex;gap:8px;justify-content:center;min-height:32px;}
 .cl-shells i{width:22px;height:42px;background:url(assets/games/cl_shell1.png) center/contain no-repeat;opacity:.28;filter:grayscale(.6);}
@@ -31900,6 +31902,7 @@ function clTurn(g){
   if(g.who.length>1&&g.mode==='round'){g.phase='hand';g.hand={at:g.t,bot:!!g.cur.bot};clPaintOv(g);}else clReadyStart(g);
 }
 function clReadyStart(g){g.phase='ready';g.hand=null;g.shells=2;g.autoAt=g.t+(g.lv==='beginner'?4:3);g.autoN=9;g.ev=clBlock(g).ev[g.ei];g.clays=[];g.shots=[];g.rv=null;g.bot=null;
+  g.pyaw=0;g.ppitch=0;
   const rd=clReady(g.disc,clBlock(g).st,g.ev);g.yaw=rd[0];g.pitch=rd[1];if(g.cur.bot)g.wait=g.t+.9;
   g.sightOk=false;g.wy=rd[0];g.wp=rd[1];
   if(g.duel){g.claims={};g.rclaims={};g.dEnded=false;g.dApplied=false;g.dSent=false;g.gotFin=false;
@@ -32228,6 +32231,7 @@ function clAmbient(g){
   }catch(e){}
 }
 function clStep(g,dt){
+  if(g.pyaw||g.ppitch){const k=1-Math.exp(-Math.min(.05,dt)*30),ay=(g.pyaw||0)*k,ap=(g.ppitch||0)*k;g.yaw+=ay;g.pitch=Math.max(-.25,Math.min(1.3,g.pitch+ap));g.pyaw-=ay;g.ppitch-=ap;if(Math.abs(g.pyaw)<1e-5)g.pyaw=0;if(Math.abs(g.ppitch)<1e-5)g.ppitch=0;}   // the finger's movement is spread over the frames, so it looks smooth at any refresh rate
   if(g.slowT>0){const raw=dt,u=1-g.slowT/(g.slowDur||1.25);g.slowT-=raw;dt*=.25;g.fz=1+.45*Math.sin(Math.PI*Math.min(1,u));
     if(g.camTo){const dv=[g.camTo[0]-g.eye[0],g.camTo[1]-g.eye[1],g.camTo[2]-g.eye[2]],ty=Math.atan2(dv[0],dv[2]),tp=Math.atan2(dv[1],Math.hypot(dv[0],dv[2])),k=Math.min(1,raw*3);g.yaw+=(ty-g.yaw)*k;g.pitch+=(tp-g.pitch)*k;}
     if(g.slowT<=0){g.fz=1;g.camTo=null;}}
@@ -32363,6 +32367,8 @@ let _clKeys=false;
 function clBindInput(){
   const stage=document.getElementById('cl-stage');if(!stage||stage._cl)return;stage._cl=1;
   let drag=null;
+  for(const ev of ['contextmenu','selectstart','dragstart'])stage.addEventListener(ev,e=>{if(clLive())e.preventDefault();});
+  stage.addEventListener('touchstart',e=>{if(clLive()&&e.target.closest&&e.target.closest('#cl-mid')&&!e.target.closest('button,a,.ps-ov'))e.preventDefault();},{passive:false});
   stage.addEventListener('pointerdown',e=>{const g=G.cl;if(!g||!g.live)return;
     const fb=e.target.closest&&e.target.closest('[data-clfire]');
     if(fb){e.preventDefault();if(g.phase==='ready')clPull(g);else if(g.phase==='fly'){if(g.shells>0)clFire(g);else clSnd.empty();}return;}
@@ -32371,8 +32377,9 @@ function clBindInput(){
     e.preventDefault();try{stage.setPointerCapture(e.pointerId);}catch(x){}
     drag={id:e.pointerId,x:e.clientX,y:e.clientY};},{passive:false});
   stage.addEventListener('pointermove',e=>{const g=G.cl;if(!drag||!g||e.pointerId!==drag.id||(g.cur&&g.cur.bot)||clWatch(g)||(g.phase!=='ready'&&g.phase!=='wait'&&g.phase!=='fly'))return;
-    g.pmN=(g.pmN||0)+1;const dx=e.clientX-drag.x,dy=e.clientY-drag.y,tm=e.timeStamp,dtm=Math.max(4,tm-(drag.t||tm-16));drag.x=e.clientX;drag.y=e.clientY;drag.t=tm;
-    const f=g.f/(g.dpr||1),sp=Math.hypot(dx,dy)/dtm*1000,k=(CL_SENS[g.sens||'normal']||1.6)*(1+Math.min(1,sp/1800)*.7);g.yaw+=dx/f*k;g.pitch=Math.max(-.25,Math.min(1.3,g.pitch-dy/f*k));},{passive:true});
+    const evs=e.getCoalescedEvents?e.getCoalescedEvents():null,list=evs&&evs.length?evs:[e],f=g.f/(g.dpr||1),ks=CL_SENS[g.sens||'normal']||1.6;
+    for(const q of list){g.pmN=(g.pmN||0)+1;const dx=q.clientX-drag.x,dy=q.clientY-drag.y,tm=q.timeStamp||e.timeStamp,dtm=Math.max(4,tm-(drag.t||tm-16));drag.x=q.clientX;drag.y=q.clientY;drag.t=tm;
+      const sp=Math.hypot(dx,dy)/dtm*1000,k=ks*(1+Math.min(1,sp/1800)*.7);g.pyaw=(g.pyaw||0)+dx/f*k;g.ppitch=(g.ppitch||0)-dy/f*k;}},{passive:true});
   const up=e=>{if(drag&&e.pointerId===drag.id)drag=null;};
   stage.addEventListener('pointerup',up);stage.addEventListener('pointercancel',up);stage.addEventListener('lostpointercapture',up);
   stage.addEventListener('click',e=>{const g=G.cl;const b=e.target.closest&&e.target.closest('[data-clact]');if(!b||!g)return;e.preventDefault();clAction(g,b.dataset.clact,b.dataset.v);});
