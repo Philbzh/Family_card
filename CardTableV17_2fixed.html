@@ -31780,13 +31780,14 @@ function clProj(g,P,f,cx,cy){
   const xr=d[0]*cY-d[2]*sY,zr=d[0]*sY+d[2]*cY,yy=d[1]*cP-zr*sP,zz=d[1]*sP+zr*cP;
   if(zz<.6)return null;return[cx+f*xr/zz,cy-f*yy/zz,zz];
 }
-function clPrefs(){let p={};try{p=JSON.parse(localStorage.getItem('ct_cl_pref')||'{}')||{};}catch(e){}return Object.assign({disc:'trap',lv:'beginner',mode:'round',venue:'golden',gun:'classic',mix:false,sens:'normal',fps:false,duel:false},p);}
+function clPrefs(){let p={};try{p=JSON.parse(localStorage.getItem('ct_cl_pref')||'{}')||{};}catch(e){}return Object.assign({disc:'trap',lv:'beginner',mode:'round',venue:'golden',gun:'classic',mix:false,sens:'normal',ret:'off',fps:false,duel:false},p);}
 const CL_WIND={beginner:0,sport:2,elite:3.5,olympic:5};
+const CL_RET=['off','dot','cross','tactical','ring'];
 const CL_SENS={slow:.9,normal:1.6,fast:2.4};
 const CL_GUNS={classic:'CLASSIC',e:'ENGRAVED',ou:'OVER & UNDER',sp:'SPORTING',si:'SILVER'},CL_GUNIMG={classic:'gun',e:'gun_e',ou:'gun_ou',sp:'gun_sp',si:'gun_si'};
 function clPickVariant(){const r=Math.random();return r<.03?'g':r<.08?'m':r<.13?'p':r<.25?'w':r<.37?'y':r<.45?'b':'o';}
 const CL_VENUES={golden:'GOLDEN HOUR',night:'NIGHT',winter:'WINTER',coast:'COAST'};
-function clSavePrefs(p){try{localStorage.setItem('ct_cl_pref',JSON.stringify({disc:p.disc,lv:p.lv,mode:p.mode,venue:p.venue,gun:p.gun,mix:!!p.mix,sens:p.sens,fps:!!p.fps,duel:!!p.duel}));}catch(e){}}
+function clSavePrefs(p){try{localStorage.setItem('ct_cl_pref',JSON.stringify({disc:p.disc,lv:p.lv,mode:p.mode,venue:p.venue,gun:p.gun,mix:!!p.mix,sens:p.sens,ret:p.ret,fps:!!p.fps,duel:!!p.duel}));}catch(e){}}
 
 // ── a game ──
 function clNew(){
@@ -31803,7 +31804,7 @@ function lDealClay(){
   G.ahMoment='';G.psResult=null;G.clResult=null;G.fgResult=null;G.pbResult=null;clStop();G.scr='table';
 }
 function clBegin(g,cfg){
-  const pr=clPrefs();if(G.isOnline)pr.mode='round';if(cfg){pr.disc=cfg.disc;pr.lv=cfg.lv;if(cfg.venue)pr.venue=cfg.venue;}Object.assign(g,{disc:pr.disc,lv:pr.lv,mode:pr.mode,venue:CL_VENUES[pr.venue]?pr.venue:'golden',sens:CL_SENS[pr.sens]?pr.sens:'normal',gun:CL_GUNS[pr.gun]?pr.gun:'classic',mix:cfg&&cfg.mix!==undefined?!!cfg.mix:!!pr.mix});g.cases=[];g.fpsOn=!!pr.fps;g.duel=!!(G.isOnline&&g.players.length===2&&(cfg?cfg.duel:pr.duel));g.claims={};g.rclaims={};
+  const pr=clPrefs();if(G.isOnline)pr.mode='round';if(cfg){pr.disc=cfg.disc;pr.lv=cfg.lv;if(cfg.venue)pr.venue=cfg.venue;}Object.assign(g,{ret:CL_RET.includes(pr.ret)?pr.ret:'off',disc:pr.disc,lv:pr.lv,mode:pr.mode,venue:CL_VENUES[pr.venue]?pr.venue:'golden',sens:CL_SENS[pr.sens]?pr.sens:'normal',gun:CL_GUNS[pr.gun]?pr.gun:'classic',mix:cfg&&cfg.mix!==undefined?!!cfg.mix:!!pr.mix});g.cases=[];g.fpsOn=!!pr.fps;g.duel=!!(G.isOnline&&g.players.length===2&&(cfg?cfg.duel:pr.duel));g.claims={};g.rclaims={};
   g.prog=clProgram(g.disc);if(g.mode==='train'){g.prog=g.prog.slice(0,clIsTrap(g.disc)?(g.disc==='triple'?1:2):3);}
   g.nCl=g.prog.reduce((a,b)=>a+b.ev.reduce((c,e)=>c+e.c.length,0),0);g.bonus=g.players.map(()=>0);
   const idx=g.players.map((p,i)=>i);let who=idx;if(g.mode!=='round'){const h=idx.find(i=>!g.players[i].bot);who=[h==null?0:h];}
@@ -32211,6 +32212,13 @@ function clDraw(g,now){
       if(g.lv==='olympic'){const w=W*.7,h=w*wi.height/wi.width,ox=(tt*40*dpr)%w,oy=(tt*320*dpr)%h;x.globalAlpha=.8;for(let i=-1;i<2;i++)for(let j=-1;j<2;j++)x.drawImage(wi,i*w-ox+(W-w*2)/2,j*h+oy,w,h);}
       else{const w=W*1.1,h=w*wi.height/wi.width,ox=(tt*18*dpr)%(w*1.2);x.globalAlpha=.5;x.drawImage(wi,W-ox,H*.5-h*.1,w,h);x.drawImage(wi,W-ox-w*1.2,H*.5-h*.1,w,h);}
       x.restore();}}
+  // the aiming mark: a light red reticle where the pellets will go
+  if(g.ret&&g.ret!=='off'&&g.phase!=='setup'&&g.phase!=='hand'){const u=dpr,m=g.ret;x.save();x.globalAlpha=.6;x.strokeStyle='#ff4a3a';x.fillStyle='#ff4a3a';x.lineWidth=1.4*u;x.shadowColor='rgba(0,0,0,.6)';x.shadowBlur=2*u;
+    if(m==='dot'){x.beginPath();x.arc(cx,cy,2.6*u,0,6.283);x.fill();}
+    else if(m==='tactical'){const a=6*u,b=26*u;x.lineWidth=1.6*u;x.beginPath();x.moveTo(cx-b,cy);x.lineTo(cx-a,cy);x.moveTo(cx+a,cy);x.lineTo(cx+b,cy);x.moveTo(cx,cy-b);x.lineTo(cx,cy-a);x.moveTo(cx,cy+a);x.lineTo(cx,cy+b);x.stroke();x.lineWidth=1.2*u;x.beginPath();for(let k=1;k<=4;k++){const yy=cy+(a+k*4.2*u),w=(k%2?3.5:2.2)*u;x.moveTo(cx-w,yy);x.lineTo(cx+w,yy);}x.stroke();x.beginPath();x.arc(cx,cy,1.3*u,0,6.283);x.fill();}
+    else if(m==='cross'){const a=6*u,b=24*u;x.lineWidth=1.8*u;x.beginPath();x.moveTo(cx-b,cy);x.lineTo(cx-a,cy);x.moveTo(cx+a,cy);x.lineTo(cx+b,cy);x.moveTo(cx,cy-b);x.lineTo(cx,cy-a);x.moveTo(cx,cy+a);x.lineTo(cx,cy+b);x.stroke();x.beginPath();x.arc(cx,cy,1.2*u,0,6.283);x.fill();}
+    else{x.beginPath();x.arc(cx,cy,13*u,0,6.283);x.stroke();x.beginPath();x.arc(cx,cy,2*u,0,6.283);x.fill();}
+    x.restore();}
   // the gun
   const gunI=clImg(CL_GUNIMG[g.gun||'classic']||'gun')||clImg('gun');
   if(gunI){clGun(g,x,gunI,cx,cy,H,dpr);if(CL_LV[g.lv].assist&&g.phase==='fly'&&!g.cur.bot){x.strokeStyle='rgba(255,230,150,.4)';x.lineWidth=dpr*1.3;x.beginPath();x.arc(cx,cy,CL_LV[g.lv].pr*f,0,6.283);x.stroke();}}
@@ -32344,6 +32352,7 @@ function clPaintOv(g){
       ${sm?`<div class="ps-sum"><div class="ps-sum-h">TRAINING COMPLETE</div><div class="ps-sum-r"><span><b>${sm.tot}</b>points</span><span><b>${sm.hits} / ${sm.n}</b>broken</span><span><b>${sm.first}</b>first barrel</span><span><b>${sm.cen}</b>dead centre</span></div></div>`:''}
       <div class="ps-grp">DISCIPLINE</div>${onl&&!host?'<div class="ps-note">The host chooses the discipline and the level.</div>':seg([['trap','TRAP'],['skeet','SKEET'],['triple','TRIPLE']],pr.disc,'disc')}
       ${onl&&!host?'':`<div class="ps-grp">FIELD</div>${seg(Object.keys(CL_VENUES).map(k=>[k,CL_VENUES[k]]),pr.venue,'venue')}`}
+      <div class="ps-grp">AIMING MARK (RETICLE)</div>${seg([['off','OFF'],['dot','DOT'],['cross','CROSS'],['tactical','TACTICAL'],['ring','CIRCLE']],pr.ret,'ret')}
       <div class="ps-grp">TURNING SPEED OF THE GUN</div>${seg([['slow','SLOW'],['normal','NORMAL'],['fast','FAST']],pr.sens,'sens')}
       <div class="ps-grp">GUN</div>${seg(Object.keys(CL_GUNS).map(k=>[k,CL_GUNS[k]]),pr.gun,'gun')}
       <div class="ps-tgs" style="margin-top:.5rem"><button class="ps-tg${pr.fps?' on':''}" data-clact="fps" aria-pressed="${!!pr.fps}">SHOW THE SPEED (FPS) IN THE CORNER</button></div>
@@ -32395,6 +32404,7 @@ function clAction(g,a,v){
   if(a==='disc'){pr.disc=v;clSavePrefs(pr);clPaintOv(g);}
   else if(a==='duel'){pr.duel=!pr.duel;clSavePrefs(pr);clPaintOv(g);}
   else if(a==='fps'){pr.fps=!pr.fps;clSavePrefs(pr);g.fpsOn=!!pr.fps;clPaintOv(g);}
+  else if(a==='ret'){if(!CL_RET.includes(v))return;pr.ret=v;clSavePrefs(pr);g.ret=v;clPaintOv(g);}
   else if(a==='sens'){if(!CL_SENS[v])return;pr.sens=v;clSavePrefs(pr);g.sens=v;clPaintOv(g);}
   else if(a==='gun'){if(!CL_GUNS[v])return;pr.gun=v;clSavePrefs(pr);g.gun=v;clPaintOv(g);}
   else if(a==='mix'){pr.mix=!pr.mix;clSavePrefs(pr);g.mix=!!pr.mix;clPaintOv(g);}
