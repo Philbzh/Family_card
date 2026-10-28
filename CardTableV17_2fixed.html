@@ -4966,7 +4966,7 @@ const GAMES=[
      '<b>The round:</b> 25 clays, 75 points at most. With several people on one iPad you shoot a station each in turn; robots (gentle, steady, sharp) can join. A tie is decided by first-barrel hits. TRAINING gives a short practice. LEVEL: Beginner, Sport, Elite, Olympic. This is OUR TABLE MODE: simplified for the family.']},
   {id:'archery',cat:'olympic',icon:'🏹',name:'Archery',players:'1–4',dur:'6–12 min',diff:'hard',deal:0,minP:1,maxP:4,cover:'assets/games/archery.jpg',
    rules:['<b>The field trail.</b> You walk a trail and shoot from eight stations, three arrows each: faces hung in the trees, bullseye posts, a swinging target, a sliding target on a rail, a balloon field, pop-ups that jump out of the bushes and a golden target at 70 m with a flying golden clay. The bow is in your hand in front of you, held upright, like the gun in Clay Shooting.',
-     '<b>Look, draw, aim, release.</b> <b>Drag on the scenery</b> to look around and pick a target. Then <b>pull the string down</b> with a finger in the lower part of the screen: the bow bends and the view zooms in. At full draw keep your finger down and <b>move it to aim</b>. <b>Lift your finger to release.</b> Letting go too early gives a weak arrow that falls short.',
+     '<b>Two thumbs: aim, draw, release.</b> One thumb <b>drags on the scenery</b> to look around and aim (finer when the bow is drawn). The other <b>holds the big DRAW button</b> on the right: the string comes back by itself, the bow bends and the view zooms in. <b>Lift the button finger to release.</b> Letting go too early gives a weak arrow that falls short; RELAX lets the bow down without shooting.',
      '<b>The view breathes.</b> It never rests. The wave at the top shows your breath: the <b>gold part is the calm moment</b>, the best time to shoot. Hold too long and your arms tire. A jerky finger spoils the arrow. The sight is set (like a range finder) for the target in the middle of the view, the arrow still drops over the distance by itself.',
      '<b>The arrow flies for real</b> in three dimensions: <b>the wind</b> pushes it sideways (flags show it; Beginner and Sport show a dotted hint), and <b>moving targets</b> must be led: aim where they will be when the arrow arrives.',
      '<b>Scoring.</b> Faces have ten rings (gold 10-9, red 8-7, blue 6-5, black 4-3, white 2-1, X in the middle of the gold); a steel disc gives 10, 7 or 4 and rings when you hit it; balloons are worth 5, 7, 9 or 15 (clear them all for +10); the golden clay is worth 25. Three good arrows in a row (7 or more) start a <b>streak</b> that adds up to 3 bonus points per arrow.',
@@ -32663,7 +32663,7 @@ function acRelease(g,sp){
   const near=!!(h&&h.tg&&h.tg.k==='face'&&sc.v>=8&&sc.v<10&&sc.rr!==undefined&&(sc.rr-(10-sc.v)*.1)<.012),perfect=!!(h&&h.tg&&h.tg.k==='face'&&sc.v===10&&sc.rr<.2);
   g.fl={t:0,u:0,path:fl.path,hit:h,sc,T:fl.path.length?fl.path[fl.path.length-1][0]:1,perfect,near,pi:g.curI,yaw,pitch,shown:0,tr:[]};
   g.phase='flight';g.shotAt=g.t;g.relDraw=g.draw;g.vib=g.t;acSnd.release(g.draw);if(perfect)g.hushT=g.t+2.6;try{haptic(16);}catch(e){}
-  g.draw=0;g.clockEnd=0;
+  g.draw=0;g.clockEnd=0;g.holding=false;
 }
 function acImpact(g){
   const f=g.fl,h=f.hit,sc=f.sc;g.phase='result';g.resT=g.t;
@@ -32902,7 +32902,7 @@ function acDrawBow(g,x,now){
   const bw=W*.34,bx=W*.04,by=H-H*.035;x.fillStyle='rgba(255,255,255,.14)';x.fillRect(bx,by,bw,4);x.fillStyle=dr>=1?'#f2c744':'#d4af37';x.fillRect(bx,by,bw*dr,4);x.fillStyle='rgba(255,255,255,.5)';x.fillRect(bx+bw*.4-.5,by-3,1,10);x.fillRect(bx+bw*.75-.5,by-3,1,10);
   x.font='700 '+Math.max(10,Math.round(H*.022))+'px Cinzel,serif';x.textAlign='left';x.fillStyle='#d4af37';
   x.fillText(g.phase==='set'?'SET':g.phase==='draw'?(dr<.4?'DRAWING':dr<.75?'FULL DRAW':'ALMOST SET'):'',bx,by-8);
-  if(g.phase==='ready'&&g.cur&&!g.cur.bot){x.globalAlpha=.6+.35*Math.sin(tt*3);x.textAlign='center';x.fillStyle='#f4ebd0';x.fillText('LOOK AROUND · PULL THE STRING DOWN',W*.5,H*.965);x.globalAlpha=1;}
+  if(g.phase==='ready'&&g.cur&&!g.cur.bot){x.globalAlpha=.6+.35*Math.sin(tt*3);x.textAlign='center';x.fillStyle='#f4ebd0';x.fillText('DRAG TO AIM · HOLD THE BUTTON TO DRAW · LIFT TO SHOOT',W*.5,H*.965);x.globalAlpha=1;}
   if(g.phase==='draw'||g.phase==='set'){const wx=W*.04,ww=W*.3,wy=H*.07,wh=H*.012,ph=((g.holdT+g.boff*5.4)/5.4)%1;x.save();x.strokeStyle='rgba(255,255,255,.4)';x.lineWidth=1.2;x.beginPath();for(let i=0;i<=40;i++){const u=i/40,px=wx+u*ww,py=wy-Math.sin(u*6.283)*wh;if(i)x.lineTo(px,py);else x.moveTo(px,py);}x.stroke();
     x.strokeStyle='#f2c744';x.lineWidth=2.6;x.beginPath();for(let i=0;i<=40;i++){const u=.58+i/40*.24,px=wx+u*ww,py=wy-Math.sin(u*6.283)*wh;if(i)x.lineTo(px,py);else x.moveTo(px,py);}x.stroke();
     x.fillStyle='#fff';x.beginPath();x.arc(wx+ph*ww,wy-Math.sin(ph*6.283)*wh,3.4,0,6.283);x.fill();x.font='600 '+Math.max(8,Math.round(H*.016))+'px Cinzel,serif';x.fillStyle='rgba(244,235,208,.8)';x.textAlign='left';x.fillText('BREATHE · SHOOT IN THE GOLD',wx,wy+wh+H*.022);x.restore();}
@@ -32920,6 +32920,7 @@ function acStep(g,dt){
   if(g.phase==='ready'){
     if(g.cur&&g.cur.bot&&g.bot&&g.t>=g.bot.t0){g.phase='draw';g.holdT=0;g.bot.ds=g.t;g.bot.fy=g.yaw;g.bot.fp=g.pitch;acSnd.nock();}
   }else if(g.phase==='draw'){
+    if(!g.cur.bot&&g.holding){const d0=g.draw;g.draw=Math.min(1,g.draw+dt/.95);if(Math.floor(g.draw*6)!==Math.floor(d0*6))acSnd.draw(g.draw);}
     if(g.cur.bot&&g.bot){const u=Math.min(1,(g.t-g.bot.ds)/g.bot.drawT);g.draw=u*u*(3-2*u);if(g.t%.3<dt)acSnd.draw(g.draw);
       const tg=g.bot.tg,p=tg?acTP(tg,g.tt):[0,1.5,25],a=acAngles(g,p);g.yaw=g.bot.fy+(a[0]-g.bot.fy)*u;g.pitch=g.bot.fp+(a[1]-g.bot.fp)*u;
       if(u>=1){g.draw=1;g.phase='set';g.holdT=0;g.bot.ss=g.t;acSnd.full();}}
@@ -32969,7 +32970,7 @@ function acHud(g){
   set('ac-status',g.phase==='setup'?'OUR TABLE MODE · Archery':g.phase==='hand'?'Next archer':g.cur?(g.cur.bot?g.cur.name+' (robot) is shooting':g.cur.name+' · '+g.st.n):'');
   const w=g.wind||0;set('ac-wind',g.phase==='setup'||!(g.windMax>0)?(g.phase==='setup'?'':'NO WIND'):'WIND '+(w<0?'◀ ':'▶ ')+Math.abs(w).toFixed(1)+' m/s');
   const fb=document.getElementById('ac-fire');if(fb){const can=g.cur&&!g.cur.bot;let lab='DRAW',ok=false;
-    if((g.phase==='draw'||g.phase==='set')&&can){lab='RELAX';ok=true;}else if(g.phase==='flight'||g.phase==='result'){lab='…';}else if(g.cur&&g.cur.bot){lab='ROBOT';}else if(g.phase==='ready'){lab='PULL THE STRING';}
+    if(g.phase==='draw'&&can){lab='DRAWING…';ok=true;}else if(g.phase==='set'&&can){lab='LIFT TO SHOOT';ok=true;}else if(g.phase==='flight'||g.phase==='result'){lab='…';}else if(g.cur&&g.cur.bot){lab='ROBOT';}else if(g.phase==='ready'&&can){lab='HOLD TO DRAW';ok=true;}
     if(fb._ok!==ok){fb._ok=ok;fb.classList.toggle('off',!ok);}set('ac-fl',lab);}
   const stg=document.getElementById('ac-stage');if(stg){const fr=g.mode==='train'&&g.phase!=='setup';if(stg._fr!==fr){stg._fr=fr;stg.classList.toggle('ps-free',fr);}}
 }
@@ -32987,7 +32988,8 @@ function rArcheryTable(){
           <div class="ps-sn" id="ac-sn"></div>
           <div class="ps-rev" id="ac-rev"><div class="ps-rev-k" id="ac-r1">&nbsp;</div><div class="ps-rev-p" id="ac-r2">&nbsp;</div><div class="ps-rev-v" id="ac-r3">&nbsp;</div><div class="ps-rev-t" id="ac-r4">&nbsp;</div></div>
           <div class="cl-wind" id="ac-wind"></div>
-          <button class="ps-fire off" id="ac-fire" data-acfire aria-label="Relax the bow"><b id="ac-fl">DRAW</b></button>
+          <button class="ps-fire off" id="ac-fire" data-acfire aria-label="Hold to draw the bow, lift to shoot"><b id="ac-fl">HOLD TO DRAW</b></button>
+          <button class="ps-end" data-acrelax style="margin-top:.4rem">RELAX · LET DOWN</button>
           <button class="ps-end" data-acact="finishtrain">FINISH TRAINING</button>
         </div>
       </div>
@@ -33010,7 +33012,7 @@ function acPaintOv(g){
       <div class="ps-grp">LOOKING AROUND</div>${seg([['slow','SLOW'],['normal','NORMAL'],['fast','FAST']],pr.sens,'sens')}
       <div class="ps-ppl">${g.players.map(p=>`<span>${p.avatar?'<span class="ah-av">'+avHTML(p.avatar)+'</span>':''}${esc(p.name)}${p.bot?' · '+AC_BOT[p.bot].n.toLowerCase()+' robot':''}</span>`).join('')}</div>
       <button class="btn btn-gold ps-go" data-acact="start">${sm?'SHOOT AGAIN':'TO THE TRAIL'}</button>
-      <div class="ps-fine">Drag on the scenery to look around. To shoot, pull the string down with a finger in the lower part of the screen: the bow bends and the view zooms in. At full draw keep your finger down and move it to aim; the view breathes, shoot in the gold part of the wave. Lift your finger to release. The sight is set for the target in the middle of the view; the wind pushes the arrow, so aim into it.</div></div>`;
+      <div class="ps-fine">Two thumbs: <b>drag on the scenery</b> with one to look around and aim (it gets finer when you draw). <b>Hold the big DRAW button</b> on the right with the other: the string comes back by itself, the bow bends and the view zooms in. The view breathes: shoot in the gold part of the wave. <b>Lift the button finger to release.</b> The sight is set for the target in the middle of the view; the wind pushes the arrow, so aim into it.</div></div>`;
   }else if(g.phase==='hand'&&g.hand){
     h=`<div class="ps-card ps-small"><div class="ps-kick">${esc((g.st&&g.st.n||'').toUpperCase())} · ARROW ${g.nowArrow}</div><div class="ps-hand">${g.cur.avatar?'<span class="ah-av">'+avHTML(g.cur.avatar)+'</span>':''}<b>${esc(g.cur.name)}</b></div><button class="btn btn-gold ps-go" data-acact="ready">READY</button></div>`;
   }
@@ -33019,28 +33021,28 @@ function acPaintOv(g){
 }
 function acBindInput(){
   const stage=document.getElementById('ac-stage');if(!stage||stage._ac)return;stage._ac=1;
-  let drag=null;
+  let aim=null,btn=null;
   for(const ev of ['contextmenu','selectstart','dragstart'])stage.addEventListener(ev,e=>{if(acLive())e.preventDefault();});
-  stage.addEventListener('touchstart',e=>{if(acLive()&&e.target.closest&&e.target.closest('#ac-mid')&&!e.target.closest('button,a,.ps-ov'))e.preventDefault();},{passive:false});
+  stage.addEventListener('touchstart',e=>{if(acLive()&&e.target.closest&&(e.target.closest('#ac-mid')||e.target.closest('[data-acfire]'))&&!e.target.closest('.ps-ov'))e.preventDefault();},{passive:false});
   stage.addEventListener('pointerdown',e=>{const g=G.ac;if(!g||!g.live)return;
     const fb=e.target.closest&&e.target.closest('[data-acfire]');
-    if(fb){e.preventDefault();if(g.phase==='draw'||g.phase==='set'){g.phase='ready';g.draw=0;drag=null;acPaintOv(g);}return;}
+    if(fb){e.preventDefault();if(!g.cur||g.cur.bot||g.phase!=='ready'||btn)return;try{stage.setPointerCapture(e.pointerId);}catch(x){}
+      g.phase='draw';g.draw=0;g.holdT=0;g.holding=true;btn={id:e.pointerId};acSnd.nock();return;}
+    const rb=e.target.closest&&e.target.closest('[data-acrelax]');
+    if(rb){e.preventDefault();if(g.phase==='draw'||g.phase==='set'){g.phase='ready';g.draw=0;g.holding=false;btn=null;acPaintOv(g);}return;}
     if(!e.target.closest||!e.target.closest('#ac-mid')||e.target.closest('button,a,.ps-ov'))return;
-    if(!g.cur||g.cur.bot||g.phase==='flight'||g.phase==='result'||g.phase==='hand'||g.phase==='setup')return;
-    const r=document.getElementById('ac-mid').getBoundingClientRect(),low=(e.clientY-r.top)>r.height*.66;
+    if(!g.cur||g.cur.bot||g.phase==='flight'||g.phase==='result'||g.phase==='hand'||g.phase==='setup'||aim)return;
     e.preventDefault();try{stage.setPointerCapture(e.pointerId);}catch(x){}
-    if(g.phase==='ready'&&low){g.phase='draw';g.draw=0;g.holdT=0;acSnd.nock();drag={id:e.pointerId,x:e.clientX,y:e.clientY,sy:e.clientY,t:e.timeStamp,sp:0,mode:'draw'};}
-    else if(g.phase==='ready'){drag={id:e.pointerId,x:e.clientX,y:e.clientY,t:e.timeStamp,sp:0,mode:'look'};}
-    else drag={id:e.pointerId,x:e.clientX,y:e.clientY,sy:e.clientY,t:e.timeStamp,sp:0,mode:g.phase==='set'?'aim':'draw'};},{passive:false});
-  stage.addEventListener('pointermove',e=>{const g=G.ac;if(!drag||!g||e.pointerId!==drag.id)return;
-    const r=document.getElementById('ac-mid').getBoundingClientRect(),evs=e.getCoalescedEvents?e.getCoalescedEvents():null,list=evs&&evs.length?evs:[e],f=g.f/(g.dpr||1),ks={slow:.55,normal:1,fast:1.7}[g.sens||'normal']||1;
-    for(const q of list){const dx=q.clientX-drag.x,dy=q.clientY-drag.y,tm=q.timeStamp||e.timeStamp,dt=Math.max(4,tm-drag.t);drag.x=q.clientX;drag.y=q.clientY;drag.t=tm;drag.sp=drag.sp*.7+Math.hypot(dx,dy)/dt*1000*.3;
-      if(drag.mode==='look'&&g.phase==='ready'){g.pyaw=(g.pyaw||0)+dx/f*1.4*ks;g.ppitch=(g.ppitch||0)-dy/f*1.4*ks;}
-      else if(drag.mode==='draw'&&g.phase==='draw'){const nd=Math.max(0,Math.min(1,(q.clientY-drag.sy)/(r.height*.26)));if(Math.floor(nd*6)!==Math.floor(g.draw*6))acSnd.draw(nd);g.draw=Math.max(g.draw,nd);if(nd<g.draw-.4)g.draw=Math.max(0,nd);}
-      else if((drag.mode==='aim'||g.phase==='set')&&g.phase==='set'){const zf=f*(g.zm||1);g.pyaw=(g.pyaw||0)+dx/zf*.8*ks;g.ppitch=(g.ppitch||0)-dy/zf*.8*ks;}}},{passive:true});
-  const up=e=>{const g=G.ac;if(!drag||e.pointerId!==drag.id)return;const sp=drag.sp;drag=null;if(!g)return;
-    if(g.phase==='set'||(g.phase==='draw'&&g.draw>=.3))acRelease(g,sp);else if(g.phase==='draw'){g.phase='ready';g.draw=0;}};
-  stage.addEventListener('pointerup',up);stage.addEventListener('pointercancel',e=>{const g=G.ac;if(drag&&e.pointerId===drag.id){drag=null;if(g&&(g.phase==='draw'||g.phase==='set')){g.phase='ready';g.draw=0;}}});
+    aim={id:e.pointerId,x:e.clientX,y:e.clientY,t:e.timeStamp,sp:0};},{passive:false});
+  stage.addEventListener('pointermove',e=>{const g=G.ac;if(!aim||!g||e.pointerId!==aim.id||(g.phase!=='ready'&&g.phase!=='draw'&&g.phase!=='set'))return;
+    const evs=e.getCoalescedEvents?e.getCoalescedEvents():null,list=evs&&evs.length?evs:[e],f=g.f/(g.dpr||1),ks={slow:.55,normal:1,fast:1.7}[g.sens||'normal']||1,zf=f*Math.max(1,g.zm||1);
+    for(const q of list){const dx=q.clientX-aim.x,dy=q.clientY-aim.y,tm=q.timeStamp||e.timeStamp,dt=Math.max(4,tm-aim.t);aim.x=q.clientX;aim.y=q.clientY;aim.t=tm;aim.sp=aim.sp*.7+Math.hypot(dx,dy)/dt*1000*.3;
+      const k=(g.phase==='ready'?1.5:1.0)*ks;g.pyaw=(g.pyaw||0)+dx/zf*k;g.ppitch=(g.ppitch||0)-dy/zf*k;}},{passive:true});
+  const up=e=>{const g=G.ac;
+    if(aim&&e.pointerId===aim.id){const sp=aim.sp;aim=null;if(g)g.lastSp=sp;}
+    if(btn&&e.pointerId===btn.id){btn=null;if(!g)return;g.holding=false;
+      if(g.phase==='set'||(g.phase==='draw'&&g.draw>=.3))acRelease(g,g.lastSp||0);else if(g.phase==='draw'){g.phase='ready';g.draw=0;}}};
+  stage.addEventListener('pointerup',up);stage.addEventListener('pointercancel',up);
   stage.addEventListener('click',e=>{const g=G.ac;const b=e.target.closest&&e.target.closest('[data-acact]');if(!b||!g)return;e.preventDefault();acAction(g,b.dataset.acact,b.dataset.v);});
 }
 function acAction(g,a,v){
