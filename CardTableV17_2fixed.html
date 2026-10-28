@@ -4965,7 +4965,7 @@ const GAMES=[
      '<b>Clay mix</b> (an option on the set-up card): white, yellow and black clays fly too, a pink clay bursts into powder, a tiny <b>mini clay</b> is hard to hit (+1 point) and a rare <b>golden clay</b> is worth <b>5 points</b>. You choose your <b>gun</b> before the round (it only changes what you see in your hands).',
      '<b>The round:</b> 25 clays, 75 points at most. With several people on one iPad you shoot a station each in turn; robots (gentle, steady, sharp) can join. A tie is decided by first-barrel hits. TRAINING gives a short practice. LEVEL: Beginner, Sport, Elite, Olympic. This is OUR TABLE MODE: simplified for the family.']},
   {id:'archery',cat:'olympic',icon:'🏹',name:'Archery',players:'1–4',dur:'6–12 min',diff:'hard',deal:0,minP:1,maxP:4,cover:'assets/games/archery.jpg',
-   rules:['<b>The field trail.</b> You walk a trail and shoot from six stations, three arrows each: faces hung in the trees, a swinging target, a balloon field, pop-ups that jump out of the bushes, a face at 70 m and a flying golden clay. The bow is in your hand in front of you, held upright, like the gun in Clay Shooting.',
+   rules:['<b>The field trail.</b> You walk a trail and shoot from eight stations, three arrows each: faces hung in the trees, bullseye posts, a swinging target, a sliding target on a rail, a balloon field, pop-ups that jump out of the bushes and a golden target at 70 m with a flying golden clay. The bow is in your hand in front of you, held upright, like the gun in Clay Shooting.',
      '<b>Look, draw, aim, release.</b> <b>Drag on the scenery</b> to look around and pick a target. Then <b>pull the string down</b> with a finger in the lower part of the screen: the bow bends and the view zooms in. At full draw keep your finger down and <b>move it to aim</b>. <b>Lift your finger to release.</b> Letting go too early gives a weak arrow that falls short.',
      '<b>The view breathes.</b> It never rests. The wave at the top shows your breath: the <b>gold part is the calm moment</b>, the best time to shoot. Hold too long and your arms tire. A jerky finger spoils the arrow. The sight is set (like a range finder) for the target in the middle of the view, the arrow still drops over the distance by itself.',
      '<b>The arrow flies for real</b> in three dimensions: <b>the wind</b> pushes it sideways (flags show it; Beginner and Sport show a dotted hint), and <b>moving targets</b> must be led: aim where they will be when the arrow arrives.',
@@ -32498,12 +32498,14 @@ const AC_COL=['#f0c44c','#e5534b','#4aa3e0','#6fcf7f'];
 const AC_ST=[
   {id:'warm',n:'Warm-up',tip:'three faces, get your eye in',clock:0},
   {id:'trees',n:'Tree line',tip:'four small faces hung at different heights',clock:0},
+  {id:'bulls',n:'Bullseye posts',tip:'four small faces on posts, near and far',clock:0},
   {id:'swing',n:'Swinging target',tip:'it swings from side to side: aim where it will be',clock:0},
+  {id:'slide',n:'Sliding target',tip:'a face on a cart runs along its rail: lead it',clock:0},
   {id:'balloons',n:'Balloon field',tip:'red 5, blue 7, green 9, gold 15; clear them all for +10',clock:0},
   {id:'popup',n:'Pop-ups',tip:'faces jump up from the bushes for a moment: be quick',clock:0},
-  {id:'long',n:'The long shot',tip:'a face at 70 m in the wind, and a golden clay flies by (25)',clock:0}
+  {id:'long',n:'The golden target',tip:'a golden face at 70 m in the wind, and a golden clay flies by (25)',clock:0}
 ];
-const AC_MODES={trail:{n:'FIELD TRAIL',st:6},quick:{n:'QUICK SHOT',st:1},duel:{n:'OLYMPIC MATCH',st:5},train:{n:'TRAINING',st:0}};
+const AC_MODES={trail:{n:'FIELD TRAIL',st:8},quick:{n:'QUICK SHOT',st:1},duel:{n:'OLYMPIC MATCH',st:5},train:{n:'TRAINING',st:0}};
 function acPrefs(){let p={};try{p=JSON.parse(localStorage.getItem('ct_ac_pref')||'{}')||{};}catch(e){}return Object.assign({lv:'beginner',mode:'trail',venue:'golden',sens:'normal',st:'warm'},p);}
 function acSavePrefs(p){try{localStorage.setItem('ct_ac_pref',JSON.stringify({lv:p.lv,mode:p.mode,venue:p.venue,sens:p.sens,st:p.st}));}catch(e){}}
 const acG=()=>{let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(6.283*v);};
@@ -32537,13 +32539,27 @@ function acBegin(g){
 // the things that stand along the trail: seeded, the same for everybody
 function acDecor(g){
   const R=acRnd(g.seed+g.endNo*131+7),out=[],V=g.venue;
-  for(const t of g.tg){if(t.k==='face'||t.k==='popup'||t.k==='disc'){if(R()<.7)out.push({im:R()<.5?'hay_r':'hay_s',x:t.x+(R()<.5?-1:1)*(t.r*1.9+.7),z:t.z+.3,w:1.5});}}
+  const side=()=>R()<.5?-1:1;
+  for(const t of g.tg){if((t.k==='face'||t.k==='popup'||t.k==='disc')&&!t.mov&&R()<.6)out.push({im:R()<.5?'hay_r':'hay_s',x:t.x+side()*(t.r*1.9+.7),z:t.z+.3,w:1.5});}
+  // trees at the edge of the path: a different mix in every place
+  const mix={golden:['pine','oak','birch','fir','pine'],night:['pine','fir','fir','pine','oak'],winter:['fir','fir2','fir','pine','fir'],coast:['pine','birch','oak','pine','birch']}[V]||['pine','oak'];
+  const th={pine:11,fir:9,fir2:5.5,oak:9,birch:10};
+  for(let i=0;i<9;i++){const sd=i%2?1:-1,im=mix[Math.floor(R()*mix.length)];out.push({im,x:sd*(5+R()*9),z:34+R()*42,h:th[im]*(.8+R()*.4)});}
   const bush=V==='winter'?'snow':V==='coast'?'dune':null;
-  for(let i=0;i<7;i++){const side=i%2?1:-1;out.push({im:bush||(R()<.5?'bush1':'bush2'),x:side*(7+R()*9),z:9+R()*34,w:2.2+R()*1.6});}
-  out.push({im:'sign',x:-3.2,z:7,w:1.5});
+  for(let i=0;i<7;i++){const sd=i%2?1:-1;out.push({im:bush||(R()<.5?'bush1':'bush2'),x:sd*(6+R()*9),z:8+R()*34,w:2.2+R()*1.6});}
+  for(let i=0;i<4;i++)out.push({im:['rock1','rock2','rock3'][Math.floor(R()*3)],x:side()*(5+R()*10),z:9+R()*30,w:1.1+R()*1.2});
+  out.push({im:'fence',x:-8.5,z:11,w:3.6});out.push({im:'fence',x:9,z:15,w:3.6});out.push({im:'fence2',x:-9.5,z:24,w:1.8});
+  // the start of the trail: the sign, the board with the number of the station, the gear, the gate and the finish arch
+  out.push({im:'sign',x:-3.4,z:7,w:1.5});out.push({im:'board1',x:3.2,z:7,w:1.5,num:true});
+  out.push({im:'quiver',x:4.6,z:6.2,h:1.1});out.push({im:'stand',x:5.7,z:6.6,h:1.2});out.push({im:'bottle',x:4.1,z:6,h:.3});
+  if(g.endNo===1&&g.mode!=='duel')out.push({im:'gate',x:-11,z:12,w:6});
+  if(g.mode==='trail'&&g.endNo===AC_MODES.trail.st)out.push({im:'arch',x:11,z:10,w:6.5});
   if(V==='night'){out.push({im:'lantern',x:-2.6,z:8,w:.8});out.push({im:'lantern',x:2.6,z:8,w:.8});for(let i=0;i<4;i++)out.push({im:'lantern',x:(i%2?1:-1)*(5+R()*5),z:16+i*8,w:.8});}
   return out;
 }
+const AC_TINT={night:'rgba(6,14,38,.6)',winter:'rgba(225,238,255,.22)',coast:'rgba(255,170,90,.14)'};
+const AC_TC={};
+function acTinted(n,V){const im=acImg(n);if(!im)return null;const t=AC_TINT[V];if(!t||n==='lantern')return im;const k=n+'|'+V;if(AC_TC[k])return AC_TC[k];const c=document.createElement('canvas');c.width=im.width;c.height=im.height;const q=c.getContext('2d');q.drawImage(im,0,0);q.globalCompositeOperation='source-atop';q.fillStyle=t;q.fillRect(0,0,c.width,c.height);AC_TC[k]=c;return c;}
 function acStationFor(g){
   if(g.mode==='duel')return{id:'face70',n:'Olympic match',tip:'one face at 70 m, sets of three arrows',clock:0};
   if(g.mode==='train')return AC_ST.find(s=>s.id===g.pr.st)||AC_ST[0];
@@ -32556,10 +32572,12 @@ function acBuildTargets(g,st){
   const face=(x,z,r,y,im)=>T.push({id:k++,k:'face',x,y:y||1.3,z,r,alive:true,hit:0,im:im||'face_boss'});
   if(st.id==='warm'){face(-5+R()*2,17+R()*3,.5);face(4+R()*3,24+R()*3,.45);face(-1+R()*2,33+R()*4,.4);}
   else if(st.id==='trees'){for(let i=0;i<4;i++){const x=(i-1.5)*5.5+(R()-.5)*2,z=15+i*5+R()*5;face(x,z,.26,1+R()*1.7,'face_hang');}}
+  else if(st.id==='bulls'){[[-6,15],[5,21],[-3,29],[7,38]].forEach(p=>T.push({id:k++,k:'face',x:p[0]+(R()-.5)*2,y:1.2,z:p[1]+R()*2,r:.2,alive:true,hit:0,im:'bull'}));}
+  else if(st.id==='slide'){const per={beginner:6.5,sport:5,elite:4,olympic:3.3}[g.lv];T.push({id:k++,k:'face',x:0,y:1.5,z:24+R()*4,r:.4,alive:true,hit:0,im:'slide',mov:{amp:5,per,ph:R()*6.28}});T.push({id:k++,k:'face',x:-7,y:1.2,z:16,r:.2,alive:true,hit:0,im:'bull'});T.push({id:k++,k:'face',x:7,y:1.2,z:33,r:.2,alive:true,hit:0,im:'bull'});}
   else if(st.id==='swing'){const per={beginner:6,sport:4.8,elite:3.8,olympic:3.2}[g.lv];T.push({id:k++,k:'face',x:0,y:1.6,z:26+R()*4,r:.42,alive:true,hit:0,im:'swing',mov:{amp:4.2,per,ph:R()*6.28}});T.push({id:k++,k:'disc',x:-6*sgn()*R()-2,y:1.3,z:17,r:.17,alive:true,hit:0});face(sgn()*5,40,.5);}
   else if(st.id==='balloons'){const cols=[['#e5534b',5],['#4aa3e0',7],['#6fcf7f',9],['#f2c744',15],['#e5534b',5],['#4aa3e0',7]];cols.forEach((c,i)=>T.push({id:k++,k:'balloon',x:(i-2.5)*3.2+(R()-.5)*2,y:2.4+R()*3.6,z:15+R()*20,r:.4,v:c[1],col:c[0],alive:true,hit:0,ph:R()*6.28}));}
   else if(st.id==='popup'){for(let i=0;i<4;i++)T.push({id:k++,k:'popup',x:(i-1.5)*5+(R()-.5)*2,y:1.2,z:14+R()*13,r:.34,alive:true,hit:0,pop:{per:L.pop+2.4,up:L.pop,ph:i*1.1+R()*.6}});}
-  else if(st.id==='long'){face((R()-.5)*8,70,.61,1.6);T.push({id:k++,k:'bonus',x:-16,y:9+R()*3,z:34,r:.5,v:25,alive:true,hit:0,mov:{vx:3.4,wrap:16}});}
+  else if(st.id==='long'){face((R()-.5)*8,70,.61,1.6,'gold');T.push({id:k++,k:'bonus',x:-16,y:9+R()*3,z:34,r:.5,v:25,alive:true,hit:0,mov:{vx:3.4,wrap:16}});}
   else if(st.id==='face70'){face(0,70,.61,1.6);}
   return T;
 }
@@ -32744,7 +32762,7 @@ function acSize(g){
 }
 const AC_IMG={};
 function acImg(n){let i=AC_IMG[n];if(!i){i=AC_IMG[n]=new Image();i.src='assets/games/ac_'+n+'.png';}return i.complete&&i.naturalWidth?i:null;}
-const AC_FACES={face_boss:[94.5,86,67.5],face_hang:[102.5,112,62],swing:[114.5,116.5,49],popup:[75.5,51.5,55],disc:[104,103,65]};
+const AC_FACES={face_boss:[94.5,86,67.5],face_hang:[102.5,112,62],swing:[114.5,116.5,49],popup:[75.5,51.5,55],disc:[104,103,65],bull:[58,92,28],slide:[125,57,44],gold:[94.5,88,68]};
 const AC_BALIMG={'#e5534b':'bal_r','#4aa3e0':'bal_b','#6fcf7f':'bal_g','#f2c744':'bal_y'};
 function acFx(g,k,w,sc,life,col){(g.fx=g.fx||[]).push({k,w,sc,life:life||.6,l:0,col});if(g.fx.length>24)g.fx.shift();}
 function acProj(cam,P,f,cx,cy){return clProj(cam,P,f,cx,cy);}
@@ -32806,8 +32824,11 @@ function acDraw(g,now){
   }
   // decoration: bales beside the targets, bushes and a trail sign at the edge of the path, lanterns at night
   {const dec=g.dec||(g.dec=acDecor(g)),V2=g.venue;
-   for(const d of dec.sort((a,b)=>b.z-a.z)){const im=acImg(d.im);if(!im)continue;const pr=acProj(cam,[d.x,0,d.z],f,cx,cy);if(!pr)continue;const s=f/pr[2],w=d.w*s,h=w*im.height/im.width;if(pr[0]<-w||pr[0]>W+w)continue;
-     x.drawImage(im,pr[0]-w/2,pr[1]-h+h*.06,w,h);
+   for(const d of dec.sort((a,b)=>b.z-a.z)){const im=acTinted(d.im,V2);if(!im)continue;const pr=acProj(cam,[d.x,0,d.z],f,cx,cy);if(!pr)continue;const s=f/pr[2];let w,h;
+     if(d.h){h=d.h*s;w=h*im.width/im.height;}else{w=d.w*s;h=w*im.height/im.width;}
+     if(pr[0]<-w||pr[0]>W+w||h<2)continue;
+     x.drawImage(im,pr[0]-w/2,pr[1]-h+h*.04,w,h);
+     if(d.num&&h>12){x.save();x.font='800 '+Math.round(h*.5)+'px Cinzel,serif';x.textAlign='center';x.fillStyle='#f6e7b4';x.shadowColor='rgba(0,0,0,.7)';x.shadowBlur=3;x.fillText(String(g.endNo),pr[0],pr[1]-h*.55);x.restore();}
      if(d.im==='lantern'){x.save();x.globalCompositeOperation='lighter';const gr=x.createRadialGradient(pr[0],pr[1]-h*.62,0,pr[0],pr[1]-h*.62,h*1.3);gr.addColorStop(0,'rgba(255,200,110,.55)');gr.addColorStop(1,'rgba(255,170,70,0)');x.fillStyle=gr;x.fillRect(pr[0]-h*1.4,pr[1]-h*2,h*2.8,h*2.8);x.restore();}}}
   // flags, the wind
   if(g.windMax>0&&acImg('flag')){for(const fx of [-7,7]){const pr=acProj(cam,[fx,0,22],f,cx,cy);if(pr){const im=acImg('flag'),s=f/pr[2],h=s*3,w=h*im.width/im.height,dir=g.wind>=0?1:-1;x.save();x.translate(pr[0],pr[1]);x.scale(dir,1);x.rotate(0);x.drawImage(im,-w*.1,-h,w,h);x.restore();}}}
@@ -32825,6 +32846,12 @@ function acDraw(g,now){
   for(const p of g.puffs){const u=p.l/p.life;if(u>=1)continue;const w=[p.w[0]+p.vx*p.l,p.w[1]+p.vy*p.l-2*p.l*p.l,p.w[2]+p.vz*p.l],pr=acProj(cam,w,f,cx,cy);if(!pr)continue;x.globalAlpha=(1-u)*.8;x.fillStyle=p.col;x.beginPath();x.arc(pr[0],pr[1],Math.max(1.4,f/pr[2]*.06*(1+u)),0,6.283);x.fill();x.globalAlpha=1;}
   for(const p of g.pops){const u=p.t/1;if(u>=1)continue;const pr=acProj(cam,p.w,f,cx,cy);if(!pr)continue;x.save();x.globalAlpha=1-u*u;x.fillStyle=p.txt==='X'||p.txt==='10'?'#ffe08a':'#fff';x.shadowColor='rgba(0,0,0,.7)';x.shadowBlur=6;x.font='800 '+Math.round(Math.max(16*dpr,f/pr[2]*.55))+'px Cinzel,serif';x.textAlign='center';x.fillText(p.txt,pr[0],pr[1]-u*f/pr[2]*.6);x.restore();}
   x.restore();
+  // the air: motes of light and a ray of the sun, fireflies at night, snow in winter, wind lines at the coast
+  if(!lite&&g.phase!=='setup'){const sl=(n,al,ox,oy,sw,sh,mode)=>{const im=acImg(n);if(!im)return;x.save();x.globalAlpha=al;if(mode)x.globalCompositeOperation=mode;x.drawImage(im,ox,oy,sw,sh||sw*im.height/im.width);x.restore();};
+    if(V==='golden'){sl('ray',.35,-W*.1,-H*.05,W*.8,null,'lighter');sl('motes',.2+.06*Math.sin(tt*.5),((tt*8)%W)-W*.2,H*.25+Math.sin(tt*.3)*8,W*1.1,null,'lighter');}
+    else if(V==='night'){sl('fly',.7+.3*Math.sin(tt*2),((tt*5)%(W*.3))-W*.1,H*.2+Math.sin(tt*.7)*10,W*1.2,null,'lighter');}
+    else if(V==='winter'){const sw=W*1.1,im=acImg('snowfx');if(im){const sh=sw*im.height/im.width,oy=(tt*40*dpr)%sh;sl('snowfx',.8,-W*.05,oy-sh,sw,sh);sl('snowfx',.8,-W*.05,oy,sw,sh);}}
+    else if(V==='coast'){sl('wind',.5,((tt*60*dpr)%(W*1.6))-W*.5,H*.28,W*.7,null,'lighter');sl('motes',.25,((tt*10)%W)-W*.2,H*.3,W,null,'lighter');}}
   // the sight, like the one in the bow: a thin ring and a point in the middle of the view
   const calm=acCalm(((g.holdT+g.boff*5.4)/5.4)%1);
   if(g.phase!=='setup'&&g.phase!=='over'&&g.phase!=='hand'){x.save();const sr=Math.min(W,H)*(aimOn?.045:.03);x.globalAlpha=aimOn?.8:.45;x.strokeStyle=calm>.5&&aimOn?'#f4e3a0':'#f4f1e6';x.lineWidth=Math.max(1.2,dpr*1.2);x.shadowColor='rgba(0,0,0,.6)';x.shadowBlur=2*dpr;
@@ -32949,7 +32976,7 @@ function acHud(g){
 function acPlayersHTML(g){return g.players.map((p,i)=>`<div class="ps-pl" id="ac-pl${i}"><span class="ah-av">${p.avatar?avHTML(p.avatar):''}</span><div class="ps-pn"><b>${esc((p.name||'').slice(0,12))}${p.bot?' 🤖':''}</b><i id="ac-pb${i}"></i></div><b class="ps-tot" id="ac-tot${i}">0</b><div class="ps-chips" id="ac-ch${i}"></div></div>`).join('');}
 function rArcheryTable(){
   if(!G.ac||!G.ac.live){acStop();G.acResult=null;G.ac=acNew();}
-  const g=G.ac;setTimeout(acAttach,0);['sky','trees','grass','clay_g','clay'].forEach(clImg);['bow','hand','face_boss','face_hang','swing','popup','disc','bal_r','bal_b','bal_g','bal_y','bush1','bush2','snow','dune','hay_r','hay_s','sign','flag','lantern','dust','straw','pop','spark','ring'].forEach(acImg);['night','winter','coast'].forEach(v=>['sky','trees','grass'].forEach(n=>clImg(v+'_'+n)));
+  const g=G.ac;setTimeout(acAttach,0);['sky','trees','grass','clay_g','clay'].forEach(clImg);['bow','hand','face_boss','face_hang','swing','popup','disc','bal_r','bal_b','bal_g','bal_y','bush1','bush2','snow','dune','hay_r','hay_s','sign','flag','lantern','dust','straw','pop','spark','ring','pine','fir','fir2','oak','birch','rock1','rock2','rock3','fence','fence2','board1','gate','arch','stand','quiver','bottle','bull','slide','gold','motes','fly','ray','snowfx','wind'].forEach(acImg);['night','winter','coast'].forEach(v=>['sky','trees','grass'].forEach(n=>clImg(v+'_'+n)));
   return`<div id="s-table" class="scr on game-airhockey game-precision game-clay game-archery">
     <div class="game-bar"><div class="gb-game">🏹 <span>Archery</span></div><div class="gb-turn" id="ac-status">OUR TABLE MODE · Archery</div><div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div></div>
     <div class="felt-table ah-felt" style="flex:1 1 auto;min-height:0;max-height:none;padding:0;">
@@ -32976,7 +33003,7 @@ function acPaintOv(g){
     h=`<div class="ps-card"><div class="ps-kick">OLYMPIC GAMES</div><div class="ps-h1">ARCHERY</div><div class="ps-sub">THE FIELD TRAIL · OUR TABLE MODE</div>
       ${sm?`<div class="ps-sum"><div class="ps-sum-h">TRAINING COMPLETE</div><div class="ps-sum-r"><span><b>${sm.tot}</b>points</span><span><b>${sm.n}</b>arrows</span><span><b>${sm.tens}</b>tens</span><span><b>${sm.X}</b>X</span></div></div>`:''}
       <div class="ps-grp">MODE</div>${seg([['trail','FIELD TRAIL'],['quick','QUICK SHOT'],['duel','OLYMPIC MATCH'],['train','TRAINING']],pr.mode,'mode')}
-      <div class="ps-note">${pr.mode==='trail'?'Walk a trail of six stations, three arrows each: faces in the trees, a swinging target, a balloon field, pop-ups, a face at 70 m and a golden clay. Streaks of good arrows earn bonus points. Gold, silver and bronze at the end.':pr.mode==='quick'?'One station, three arrows each, the highest total wins.':pr.mode==='duel'?(two?'The official head-to-head format on one face at 70 m: sets of three arrows, you take turns one arrow at a time. A set is worth 2 points (1 each if tied); the first to 6 set points wins. If it is 5 : 5, one arrow each: the higher ring wins.':'The Olympic match needs exactly two players. With another number of players it plays as a quick shot.'):'Practise one station as long as you like, no winner.'}</div>
+      <div class="ps-note">${pr.mode==='trail'?'Walk a trail of eight stations, three arrows each: faces in the trees, bullseye posts, a swinging target, a sliding target, a balloon field, pop-ups and a golden target at 70 m with a golden clay. Streaks of good arrows earn bonus points. Gold, silver and bronze at the end.':pr.mode==='quick'?'One station, three arrows each, the highest total wins.':pr.mode==='duel'?(two?'The official head-to-head format on one face at 70 m: sets of three arrows, you take turns one arrow at a time. A set is worth 2 points (1 each if tied); the first to 6 set points wins. If it is 5 : 5, one arrow each: the higher ring wins.':'The Olympic match needs exactly two players. With another number of players it plays as a quick shot.'):'Practise one station as long as you like, no winner.'}</div>
       ${pr.mode==='train'?'<div class="ps-grp">STATION</div>'+seg(AC_ST.map(s=>[s.id,s.n.toUpperCase()]),pr.st,'st'):''}
       <div class="ps-grp">PLACE</div>${seg(Object.keys(AC_VENUES).map(k=>[k,AC_VENUES[k]]),pr.venue,'venue')}
       <div class="ps-grp">LEVEL</div>${seg(Object.keys(AC_LV).map(k=>[k,AC_LV[k].n.toUpperCase()]),pr.lv,'lv')}<div class="ps-note">${esc(AC_LV[pr.lv].about)}</div>
