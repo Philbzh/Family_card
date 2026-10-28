@@ -6289,6 +6289,48 @@ async function runPresentation(A,W,frame){
        }finally{W.eval('window._clOut=null');W.eval('_ch=null');gg.isOnline=false;G().myPid=pid0;gg.srv=srv0;F('clStop')();}}
     }finally{const g=G();try{F('clStop')();}catch(e){}g.isOnline=k0[0];g.selGame=k0[1];g.lp=k0[2];g.scr=k0[3];g.cl=null;g.clResult=k0[5];ls.forEach(([k,v])=>{if(v===null)W.localStorage.removeItem(k);else W.localStorage.setItem(k,v);});}
   });
+  suite('Olympic Games: Archery (draw, aim, release, rings, matches)',()=>{
+    const F=n=>W.eval(n),G=()=>F('G');const gg=G();
+    const k0=[gg.isOnline,gg.selGame,gg.lp,gg.scr,gg.ac],pref0=W.localStorage.getItem('ct_ac_pref');
+    const play=(mode,disc,lv,bot)=>{
+      W.localStorage.setItem('ct_ac_pref',JSON.stringify({disc,lv,mode,venue:'arena',sens:'normal'}));
+      gg.isOnline=false;gg.lp=[{id:1,name:'AnnArc',avatar:F('AVATARS')[0],hand:[],totalScore:0},{id:2,name:'RobArc',avatar:F('AVATARS')[1],hand:[],totalScore:0,bot:bot||'steady'}];gg.selGame='archery';F('lDealArchery')();gg.scr='table';F('render')();F('acAttach')();
+      const g=G().ac;F('acSize')(g);F('acAction')(g,'start');let n=0;
+      while(!g.over&&n++<80000){if(g.phase==='hand')F('acAction')(g,'ready');else if(g.phase==='ready'&&!g.cur.bot){g.phase='set';g.draw=1;g.holdT=0;g.aim=[F('acG')()*.06,F('acG')()*.06];F('acRelease')(g,0);}F('acStep')(g,1/30);}
+      return g;};
+    try{
+      // the scoring of one arrow: rings of a tenth of the radius, a line cutter counts for the higher ring
+      {W.localStorage.setItem('ct_ac_pref',JSON.stringify({disc:'olympic',lv:'beginner',mode:'quick',venue:'arena',sens:'normal'}));gg.lp=[{id:1,name:'AnnArc',avatar:F('AVATARS')[0],hand:[],totalScore:0}];gg.selGame='archery';F('lDealArchery')();gg.scr='table';F('render')();F('acAttach')();const g=G().ac;
+       const sc=(x,y)=>{const R=g.D.face/2,d=Math.hypot(x,y),d2=d-.0045/R;return d2<=0?10:10-Math.floor(d2/.1);};
+       check('a centre arrow is a 10, 0.45 of the radius a 6, outside a miss',sc(0,0)===10&&sc(.45,0)===6&&sc(0,1.2)<1);
+       check('an arrow that touches a higher ring counts for it',sc(.1015,0)===10&&sc(.1+.001,0)===10);
+       g.wind=3;check('the wind pushes the arrow further at 70 m than at 18 m',(()=>{g.D=F('AC_DISC').olympic;const a=Math.abs(F('acDrift')(g));g.D=F('AC_DISC').indoor;const b=Math.abs(F('acDrift')(g));g.D=F('AC_DISC').olympic;return a>0&&b>0&&a>b*0.1;})());
+       g.wind=0;g.phase='set';g.draw=1;g.aim=[0,0];g.cur=g.players[0];g.curI=0;F('acSize')(g);
+       const sw0=F('acSway');g.holdT=0;g.boff=0;g.sw1=0;g.sw2=0;g.sw3=0;const calmPh=.7*5.4,wildPh=.2*5.4;g.holdT=calmPh;const a1=Math.hypot(...sw0(g,0)),sampleWild=(()=>{g.holdT=wildPh;return Math.hypot(...sw0(g,0));})();
+       check('the sight is calmer in the gold part of the breath than outside it',a1<sampleWild||sampleWild===0);F('acStop')();}
+      // quick shot, match, olympic match and training run to the end through the real engine
+      {const g=play('quick','indoor','sport');check('a quick shot ends after three arrows each with a winner',g.over&&g.arrows[0].length===3&&g.arrows[1].length===3&&!!G().acResult&&G().acResult.names.length===2);F('acStop')();}
+      {const g=play('match','outdoor','elite','sharp');check('a match is six ends of three arrows',g.over&&g.arrows[0].length===18&&g.arrows[1].length===18&&g.ends[0].length===6);F('acStop')();}
+      {const g=play('duel','indoor','sport','gentle');check('an olympic match is decided by set points, 6 wins',g.over&&(g.setPts[0]>=6||g.setPts[1]>=6||g.shootoff)&&g.setLog.length>=3);
+       const r=G().acResult;check('the olympic match result is ranked by set points',!!r&&r.rank.length===2&&r.tot[r.w]>=Math.max(...r.tot));F('acStop')();}
+      // the field course: six different ends, a moving target is led, balloons pop
+      {W.localStorage.setItem('ct_ac_pref',JSON.stringify({disc:'olympic',lv:'sport',mode:'course',venue:'golden',sens:'normal',chal:'still'}));
+       gg.isOnline=false;gg.lp=[{id:1,name:'AnnArc',avatar:F('AVATARS')[0],hand:[],totalScore:0},{id:2,name:'RobArc',avatar:F('AVATARS')[1],hand:[],totalScore:0,bot:'sharp'}];gg.selGame='archery';F('lDealArchery')();gg.scr='table';F('render')();F('acAttach')();
+       const g=G().ac;F('acSize')(g);F('acAction')(g,'start');const seq=[];let n=0,le=0,pops=0,movHits=0,movN=0;
+       while(!g.over&&n++<90000){if(g.endNo!==le){le=g.endNo;seq.push(g.chal);}
+        if(g.phase==='hand')F('acAction')(g,'ready');
+        else if(g.phase==='ready'&&!g.cur.bot){g.phase='set';g.draw=1;g.holdT=0;if(g.chal==='moving')g.aim=[F('acTx')(g,g.tt+.75+g.D.D/70*1.2),0];else if(g.chal==='balloons'){const b=g.bal.find(b=>b.alive);g.aim=b?[b.x,b.y]:[0,0];}else g.aim=[0,0];F('acRelease')(g,0);}
+        F('acStep')(g,1/30);}
+       check('the field course has six different ends in order',g.over&&seq.join()==='still,moving,balloons,clock,gusts,moving');
+       const bl=g.arrows[0].filter((a,i)=>i>=6&&i<9);check('the balloons give 5, 7, 9 or 15 points per arrow (or nothing)',bl.length===3&&bl.every(a=>[0,5,7,9,15].includes(a.v)));
+       check('a led moving target is hit by the player on most arrows',g.arrows[0].filter((a,i)=>(i>=3&&i<6)||i>=15).filter(a=>a.v>0).length>=4);
+       check('the result lists gold, silver and bronze for the course',!!G().acResult&&G().acResult.mode==='course'&&G().acResult.rank.length===2);F('acStop')();}
+      // a half drawn bow shoots short, a full draw does not
+      {W.localStorage.setItem('ct_ac_pref',JSON.stringify({disc:'olympic',lv:'beginner',mode:'quick',venue:'arena',sens:'normal'}));gg.lp=[{id:1,name:'AnnArc',avatar:F('AVATARS')[0],hand:[],totalScore:0}];gg.selGame='archery';F('lDealArchery')();gg.scr='table';F('render')();F('acAttach')();const g=G().ac;F('acSize')(g);F('acAction')(g,'start');
+       let lowSum=0,fullSum=0;for(let i=0;i<40;i++){lowSum+=F('acHit')(g,[0,0],.4,[0,0],1).y;fullSum+=F('acHit')(g,[0,0],1,[0,0],1).y;}
+       check('a short draw drops the arrow below the aim, a full draw does not',lowSum/40<-.3&&Math.abs(fullSum/40)<.05);F('acStop')();}
+    }finally{if(pref0===null)W.localStorage.removeItem('ct_ac_pref');else W.localStorage.setItem('ct_ac_pref',pref0);try{F('acStop')();}catch(e){}gg.isOnline=k0[0];gg.selGame=k0[1];gg.lp=k0[2];gg.scr=k0[3];gg.ac=null;}
+  });
   suite('Fairground: the LEVEL button works in every booth',()=>{
     const F=n=>W.eval(n),G=()=>F('G');
     const k0=[G().isOnline,G().selGame,G().lp,G().lstart,G().scr,G().fg];
