@@ -6321,8 +6321,8 @@ async function runPresentation(A,W,frame){
        check('the result lists the medals',!!G().acResult&&G().acResult.mode==='trail'&&G().acResult.rank.length===2);F('acStop')();}
       {const g=play(start('quick','sport','gentle'));check('a quick shot ends after three arrows each',g.over&&g.arrows[0].length===3&&g.arrows[1].length===3);F('acStop')();}
       {const g=play(start('duel','sport','steady'));check('an olympic match is decided by set points, 6 wins',g.over&&(g.setPts[0]>=6||g.setPts[1]>=6||g.shootoff)&&g.setLog.length>=3&&g.st.id==='face70');F('acStop')();}
-      {const g=start('train','sport',null,'balloons');let n=0;while(n++<60&&g.phase!=='over'){if(g.phase==='ready'){const t=g.tg.find(t=>t.alive);if(!t)break;const a=F('acAngles')(g,F('acTP')(t,g.tt+.7));g.yaw=a[0];g.pitch=a[1];g.phase='set';g.draw=1;g.holdT=3.5;g.boff=0;F('acRelease')(g,0);}for(let i=0;i<60;i++)F('acStep')(g,1/30);}
-       check('training can be played on a single station and balloons pop',g.mode==='train'&&g.st.id==='balloons'&&g.tg.some(t=>!t.alive));F('acStop')();}
+      {const g=start('train','sport',null,'balloons');let n=0,popped=false;while(n++<12){if(g.phase==='ready'){const t=g.tg.find(t=>t.alive);if(!t)break;const D=Math.hypot(t.x,t.z),a=F('acAngles')(g,F('acTP')(t,g.tt+D/F('AC_V0')+.2));g.yaw=a[0]-F('acDriftM')(g,D)/D;g.pitch=a[1];g.phase='set';g.draw=1;g.holdT=3.5;g.boff=0;F('acRelease')(g,0);}for(let i=0;i<60;i++){F('acStep')(g,1/30);if(g.tg.some(t=>!t.alive))popped=true;}}
+       check('training can be played on a single station and balloons pop',g.mode==='train'&&g.st.id==='balloons'&&popped);F('acStop')();}
     }finally{if(pref0===null)W.localStorage.removeItem('ct_ac_pref');else W.localStorage.setItem('ct_ac_pref',pref0);try{F('acStop')();}catch(e){}gg.isOnline=k0[0];gg.selGame=k0[1];gg.lp=k0[2];gg.scr=k0[3];gg.ac=null;}
   });
   suite('Fairground: the LEVEL button works in every booth',()=>{
