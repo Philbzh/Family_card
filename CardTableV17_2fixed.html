@@ -4966,7 +4966,7 @@ const GAMES=[
      '<b>The round:</b> 25 clays, 75 points at most. With several people on one iPad you shoot a station each in turn; robots (gentle, steady, sharp) can join. A tie is decided by first-barrel hits. TRAINING gives a short practice. LEVEL: Beginner, Sport, Elite, Olympic. This is OUR TABLE MODE: simplified for the family.']},
   {id:'archery',cat:'olympic',icon:'🏹',name:'Archery',players:'1–4',dur:'6–12 min',diff:'hard',deal:0,minP:1,maxP:4,cover:'assets/games/archery.jpg',
    rules:['<b>The field trail.</b> You walk a trail and shoot from eight stations, three arrows each: faces hung in the trees, bullseye posts, a swinging target, a sliding target on a rail, a balloon field, pop-ups that jump out of the bushes and a golden target at 70 m with a flying golden clay. The bow is in your hand in front of you, held upright, like the gun in Clay Shooting.',
-     '<b>Two thumbs: aim, draw, release.</b> One thumb <b>drags on the scenery</b> to look around and aim (finer when the bow is drawn). The other <b>holds the big DRAW button</b> on the right: the string comes back by itself, the bow bends and the view zooms in. <b>Lift the button finger to release.</b> Let go before the bow is fully drawn and nothing is shot (the bow is let down); RELAX does the same. <b>Aim help</b> (on the set-up card) gently draws the sight to the target it is nearest to.',
+     '<b>Easy controls (the default):</b> <b>tap a target</b> and the sight glides onto it; a drag nudges it a little. If you do not tap, the nearest target is locked when you draw. <b>Pro controls:</b> one thumb <b>drags on the scenery</b> to look around and aim (finer when the bow is drawn). The other <b>holds the big DRAW button</b> on the right: the string comes back by itself, the bow bends and the view zooms in. <b>Lift the button finger to release.</b> Let go before the bow is fully drawn and nothing is shot (the bow is let down); RELAX does the same. <b>Aim help</b> (on the set-up card) gently draws the sight to the target it is nearest to.',
      '<b>The view breathes.</b> It never rests. The wave at the top shows your breath: the <b>gold part is the calm moment</b>, the best time to shoot. Hold too long and your arms tire. A jerky finger spoils the arrow. The sight is set (like a range finder) for the target in the middle of the view, the arrow still drops over the distance by itself.',
      '<b>The arrow flies for real</b> in three dimensions: <b>the wind</b> pushes it sideways (flags show it; Beginner and Sport show a dotted hint), and <b>moving targets</b> must be led: aim where they will be when the arrow arrives.',
      '<b>Scoring.</b> Faces have ten rings (gold 10-9, red 8-7, blue 6-5, black 4-3, white 2-1, X in the middle of the gold); a steel disc gives 10, 7 or 4 and rings when you hit it; balloons are worth 5, 7, 9 or 15 (clear them all for +10); the golden clay is worth 25. Three good arrows in a row (7 or more) start a <b>streak</b> that adds up to 3 bonus points per arrow.',
@@ -32505,9 +32505,17 @@ const AC_ST=[
   {id:'popup',n:'Pop-ups',tip:'faces jump up from the bushes for a moment: be quick',clock:0},
   {id:'long',n:'The golden target',tip:'a golden face at 70 m in the wind, and a golden clay flies by (25)',clock:0}
 ];
+// the goals of the stations: the points of the three arrows that give one, two and three stars
+const AC_GOAL={warm:[14,21,26],trees:[12,19,24],bulls:[12,19,24],swing:[11,18,23],slide:[11,18,23],balloons:[10,17,24],popup:[10,17,24],long:[10,17,25]};
+const AC_UNLOCK={lv:{beginner:0,sport:3,elite:8,olympic:15},venue:{golden:0,night:2,winter:6,coast:10}};
+function acProg(){let p={};try{p=JSON.parse(localStorage.getItem('ct_ac_prog')||'{}')||{};}catch(e){}p.stars=p.stars||{};p.best=p.best||{};return p;}
+function acSaveProg(p){try{localStorage.setItem('ct_ac_prog',JSON.stringify(p));}catch(e){}}
+function acStarsTotal(){const p=acProg();return Object.values(p.stars).reduce((a,v)=>a+(v|0),0);}
+function acStarsOf(id,score){const t=AC_GOAL[id];return t?t.filter(v=>score>=v).length:0;}
+function acLocked(kind,key){return (AC_UNLOCK[kind][key]||0)>acStarsTotal();}
 const AC_MODES={trail:{n:'FIELD TRAIL',st:8},quick:{n:'QUICK SHOT',st:1},duel:{n:'OLYMPIC MATCH',st:5},train:{n:'TRAINING',st:0}};
-function acPrefs(){let p={};try{p=JSON.parse(localStorage.getItem('ct_ac_pref')||'{}')||{};}catch(e){}return Object.assign({lv:'beginner',mode:'trail',venue:'golden',sens:'normal',st:'warm',assist:'high'},p);}
-function acSavePrefs(p){try{localStorage.setItem('ct_ac_pref',JSON.stringify({lv:p.lv,mode:p.mode,venue:p.venue,sens:p.sens,st:p.st,assist:p.assist}));}catch(e){}}
+function acPrefs(){let p={};try{p=JSON.parse(localStorage.getItem('ct_ac_pref')||'{}')||{};}catch(e){}return Object.assign({lv:'beginner',mode:'trail',venue:'golden',sens:'normal',st:'warm',assist:'high',ctrl:'easy'},p);}
+function acSavePrefs(p){try{localStorage.setItem('ct_ac_pref',JSON.stringify({lv:p.lv,mode:p.mode,venue:p.venue,sens:p.sens,st:p.st,assist:p.assist,ctrl:p.ctrl}));}catch(e){}}
 const acG=()=>{let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(6.283*v);};
 const acSS=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
 const acCalm=ph=>acSS(.54,.62,ph)*(1-acSS(.78,.86,ph));   // the stability window of the breathing cycle
@@ -32528,7 +32536,8 @@ function lDealArchery(){
   G.ahMoment='';G.psResult=null;G.clResult=null;G.fgResult=null;G.pbResult=null;G.acResult=null;acStop();G.scr='table';
 }
 function acBegin(g){
-  const pr=acPrefs();Object.assign(g,{assist:['off','low','high'].includes(pr.assist)?pr.assist:'high',lv:AC_LV[pr.lv]?pr.lv:'beginner',mode:AC_MODES[pr.mode]?pr.mode:'trail',venue:AC_VENUES[pr.venue]?pr.venue:'golden',sens:pr.sens||'normal'});
+  const pr=acPrefs();if(acLocked('lv',pr.lv))pr.lv=Object.keys(AC_LV).filter(k=>!acLocked('lv',k)).pop();if(acLocked('venue',pr.venue))pr.venue='golden';g.stationStars={};
+  Object.assign(g,{ctrl:pr.ctrl==='pro'?'pro':'easy',lock:null,offY:0,offP:0,assist:['off','low','high'].includes(pr.assist)?pr.assist:'high',lv:AC_LV[pr.lv]?pr.lv:'beginner',mode:AC_MODES[pr.mode]?pr.mode:'trail',venue:AC_VENUES[pr.venue]?pr.venue:'golden',sens:pr.sens||'normal'});
   if(g.mode==='duel'&&g.players.length!==2)g.mode='quick';
   if(g.mode==='train'){const h=g.players.findIndex(p=>!p.bot);g.who=[h<0?0:h];}else g.who=g.players.map((p,i)=>i);
   g.arrows=g.players.map(()=>[]);g.tot=g.players.map(()=>0);g.ends=g.players.map(()=>[]);g.setPts=g.players.map(()=>0);g.setLog=[];g.over=false;g.endNo=0;g.shootoff=false;
@@ -32606,9 +32615,9 @@ function acTurn(g){
 }
 function acReadyStart(g){
   g.phase='ready';g.hand=null;g.draw=0;g.holdT=0;g.boff=Math.random();g.sw1=Math.random()*6.28;g.sw2=Math.random()*6.28;g.sw3=Math.random()*6.28;g.lastShooter=g.curI;g.pyaw=0;g.ppitch=0;
-  g.yaw=0;g.pitch=.06;g.clockEnd=0;
+  g.yaw=0;g.pitch=.06;g.clockEnd=0;g.lock=null;g.offY=0;g.offP=0;
   if(g.st.id==='popup'&&!g.cur.bot)g.clockEnd=g.t+{beginner:16,sport:13,elite:10,olympic:8}[g.lv];
-  if(g.annTxt!==false&&g.nowArrow===1&&(g.endArrows[g.curI]||[]).length===0&&g.queue.indexOf(g.curI)===g.qi){acCall(g,g.st.n.toUpperCase()+'.',g.st.tip,2800,true);}
+  if(g.annTxt!==false&&g.nowArrow===1&&(g.endArrows[g.curI]||[]).length===0&&g.queue.indexOf(g.curI)===g.qi){acCall(g,g.st.n.toUpperCase()+'.',g.st.tip+(AC_GOAL[g.st.id]?' · ★★★ = '+AC_GOAL[g.st.id][2]+' points':''),3000,true);}
   g.bot=null;if(g.cur.bot){const B=AC_BOT[g.cur.bot];
     const live=g.tg.filter(t=>t.alive&&t.k!=='bonus'&&t.k!=='popup');live.sort((a,b)=>(b.v||5)-(a.v||5)+(a.z-b.z)*.02);
     const pick=g.st.id==='popup'?g.tg.filter(t=>acVis(t,g.tt+1)>.5)[0]||g.tg[0]:live[Math.floor(Math.random()*Math.min(live.length,B.comp>.7?2:live.length))]||g.tg[0];
@@ -32660,6 +32669,25 @@ function acAssist(g,dt){
   for(const t of g.tg){if(!t.alive||t.k==='bonus'||acVis(t,g.tt)<.5)continue;const D=Math.hypot(t.x,t.z),p=acTP(t,g.tt+D/Va),a=acAngles(g,p),d=Math.hypot(a[0]-g.yaw,a[1]-g.pitch);if(d<bd){bd=d;best=[a[0]-acDriftM(g,D)/D,a[1],D];}}
   if(!best)return;const w=Math.min(1,dt*k)*(1-bd/.05*.5);g.yaw+=(best[0]-g.yaw)*w;g.pitch+=(best[1]-g.pitch)*w;
 }
+function acLockTarget(g){return g.lock==null?null:g.tg.find(t=>t.id===g.lock)||null;}
+function acLockStep(g,dt){
+  const t=acLockTarget(g);if(!t||!t.alive||acVis(t,g.tt)<.3){g.lock=null;return false;}
+  const D=Math.hypot(t.x,t.z),lead={beginner:1,sport:1,elite:.6,olympic:0}[g.lv],wind={beginner:1,sport:1,elite:.4,olympic:0}[g.lv];
+  const p=acTP(t,g.tt+D/(AC_V0*.9)*lead),a=acAngles(g,p),ty=a[0]-acDriftM(g,D)/D*wind+g.offY,tp=a[1]+g.offP,r=Math.min(1,dt*(g.phase==='ready'?6:10));
+  g.yaw+=(ty-g.yaw)*r;g.pitch+=(tp-g.pitch)*r;return true;
+}
+// a tap on a target locks on to it (or lets go of it when the tap hits nothing)
+function acTap(g,px,py){
+  if(!g||g.ctrl!=='easy'||!g.cv)return;const W=g.cv.width,H=g.cv.height,cx=W/2,cy=H*.5,dpr=g.dpr||1,z=Math.max(1,g.zm||1),cam={eye:g.eye,yaw:g.yaw,pitch:g.pitch};
+  let best=null,bd=(Math.min(W,H)*.14);
+  for(const t of g.tg){if(!t.alive||acVis(t,g.tt)<.3)continue;const pr=acProj(cam,acTP(t,g.tt),g.f,cx,cy);if(!pr)continue;const sx=cx+(pr[0]-cx)*z,sy=cy+(pr[1]-cy)*z,d=Math.hypot(px*dpr-sx,py*dpr-sy)-t.r*g.f/pr[2]*z*.6;if(d<bd){bd=d;best=t;}}
+  if(best){if(g.lock!==best.id){g.lock=best.id;g.offY=0;g.offP=0;try{acSnd.nock();}catch(e){}}}else if(g.lock!=null){g.lock=null;}
+}
+function acAutoLock(g){
+  if(g.ctrl!=='easy'||g.lock!=null)return;let best=null,bd=9;
+  for(const t of g.tg){if(!t.alive||t.k==='bonus'||acVis(t,g.tt)<.5)continue;const a=acAngles(g,acTP(t,g.tt)),d=Math.hypot(a[0]-g.yaw,(a[1]-g.pitch)*1.4);if(d<bd){bd=d;best=t;}}
+  if(best){g.lock=best.id;g.offY=0;g.offP=0;}
+}
 function acRelease(g,sp){
   if(g.phase!=='set'&&g.phase!=='draw')return;
   const sw=acSway(g,g.t),bot=g.cur.bot?AC_BOT[g.cur.bot]:null,L=AC_LV[g.lv];
@@ -32705,8 +32733,17 @@ function acImpact(g){
   else if(sc.miss&&!sc.disc)acCall(g,'MISS.','',1000);
   const al=g.tg.filter(t=>t.k==='balloon');if(al.length&&al.every(t=>!t.alive)&&!g.sweep){g.sweep=1;g.tot[f.pi]+=10;g.arrows[f.pi][g.arrows[f.pi].length-1].v+=10;acCall(g,'BALLOONS CLEARED.','+10',1600,true);}
 }
+function acStationDone(g){
+  const i=g.curI,id=g.st&&g.st.id,arr=g.endArrows[i]||[];if(!id||!AC_GOAL[id]||g.cur.bot||arr.length<3||g.mode==='duel')return;
+  const score=arr.reduce((a,r)=>a+r.v,0),n=acStarsOf(id,score),P=acProg(),before=acStarsTotal(),old=P.stars[id]|0;
+  if(n>old)P.stars[id]=n;const b=P.best[id];let rec=false;if(!b||score>b.v){P.best[id]={v:score,by:g.cur.name};rec=!!b;}acSaveProg(P);
+  g.stationStars=g.stationStars||{};g.stationStars[i]=(g.stationStars[i]||0)+n;
+  acCall(g,g.cur.name.toUpperCase()+' · '+'★'.repeat(n)+'☆'.repeat(3-n),score+' points'+(rec?' · STATION RECORD':'')+(n>old?' · new best':''),2400,true);
+  if(n===3)try{hfSnd.cheer(1);}catch(e){}
+  const after=acStarsTotal();for(const k of ['lv','venue'])for(const key of Object.keys(AC_UNLOCK[k])){const need=AC_UNLOCK[k][key];if(need>before&&need<=after)setTimeout(()=>toast('🔓 Unlocked: '+(k==='lv'?AC_LV[key].n+' level':AC_VENUES[key]+' place')),1200);}
+}
 function acAfter(g){
-  g.qi++;g.fl=null;g.sweep=0;
+  acStationDone(g);g.qi++;g.fl=null;g.sweep=0;
   if(g.qi<g.queue.length){acTurn(g);return;}
   acEndDone(g);
 }
@@ -32741,7 +32778,7 @@ function acFinish(g){
   g.players.forEach((p,i)=>{const gp=G.lp[i];if(!gp)return;gp.totalScore=g.mode==='duel'?g.setPts[i]:st[i].tot;gp.c4Result=n===1?'win':(tie&&cmp(i,rank[0])===0)?'draw':w===i?'win':'loss';gp.psLine=g.mode==='duel'?g.setPts[i]+' set points':st[i].tot+' pts · '+st[i].tens+' tens';});
   const dur=Math.round((Date.now()-g.stats.start)/1000),when=new Date().toISOString();
   G.ahMoment=mom;G.fgResult=null;G.fgHighlight=null;G.pbResult=null;G.psResult=null;G.clResult=null;
-  G.acResult={mode:g.mode,lv:g.lv,names:g.players.map(p=>p.name),bots:g.players.map(p=>!!p.bot),st,w,top:tot[w],dur,mom,rank,tot,setLog:g.setLog.slice(),venue:g.venue};
+  G.acResult={mode:g.mode,lv:g.lv,names:g.players.map(p=>p.name),bots:g.players.map(p=>!!p.bot),st,w,top:tot[w],dur,mom,rank,tot,setLog:g.setLog.slice(),venue:g.venue,stars:g.players.map((p,i)=>(g.stationStars&&g.stationStars[i])||0)};
   G.tw=(G.tw||0)+1;try{localStorage.setItem('ct_tw',G.tw);}catch(e){}
   try{addHistory({game:'archery',winner:nm(w),winnerAvatar:g.players[w].avatar,date:when,players:g.players.map(p=>p.name),moment:mom,stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats?G.matchStats.reactions:0,ah:{score:tot,dur,lv:g.lv,dc:g.mode}}});}catch(e){}
   try{const hs=g.players.map((p,i)=>p.bot?-1:i).filter(i=>i>=0);
@@ -32842,6 +32879,9 @@ function acDraw(g,now){
      x.drawImage(im,pr[0]-w/2,pr[1]-h+h*.04,w,h);x.globalAlpha=1;
      if(d.num&&h>12){x.save();x.font='800 '+Math.round(h*.5)+'px Cinzel,serif';x.textAlign='center';x.fillStyle='#f6e7b4';x.shadowColor='rgba(0,0,0,.7)';x.shadowBlur=3;x.fillText(String(g.endNo),pr[0],pr[1]-h*.55);x.restore();}
      if(d.im==='lantern'){x.save();x.globalCompositeOperation='lighter';const gr=x.createRadialGradient(pr[0],pr[1]-h*.62,0,pr[0],pr[1]-h*.62,h*1.3);gr.addColorStop(0,'rgba(255,200,110,.55)');gr.addColorStop(1,'rgba(255,170,70,0)');x.fillStyle=gr;x.fillRect(pr[0]-h*1.4,pr[1]-h*2,h*2.8,h*2.8);x.restore();}}}
+  // the lock: four gold corners round the chosen target
+  {const lt=acLockTarget(g);if(lt&&lt.alive&&g.phase!=='flight'&&g.phase!=='result'){const P=acTP(lt,g.tt),pr=acProj(cam,P,f,cx,cy);if(pr){const rp=Math.max(10,lt.r*f/pr[2]*1.35),cl=rp*.4;x.save();x.strokeStyle='#f2c744';x.lineWidth=Math.max(1.6,rp*.05);x.globalAlpha=.85;x.shadowColor='rgba(0,0,0,.6)';x.shadowBlur=3;
+    for(const [sx,sy] of [[-1,-1],[1,-1],[1,1],[-1,1]]){x.beginPath();x.moveTo(pr[0]+sx*rp,pr[1]+sy*(rp-cl));x.lineTo(pr[0]+sx*rp,pr[1]+sy*rp);x.lineTo(pr[0]+sx*(rp-cl),pr[1]+sy*rp);x.stroke();}x.restore();}}}
   // flags, the wind
   if(g.windMax>0&&acImg('flag')){for(const fx of [-7,7]){const pr=acProj(cam,[fx,0,22],f,cx,cy);if(pr){const im=acImg('flag'),s=f/pr[2],h=s*3,w=h*im.width/im.height,dir=g.wind>=0?1:-1;x.save();x.translate(pr[0],pr[1]);x.scale(dir,1);x.rotate(0);x.drawImage(im,-w*.1,-h,w,h);x.restore();}}}
   else if(g.windMax>0){for(const fx of [-5,5]){const pr=acProj(cam,[fx,0,12],f,cx,cy);if(pr){const s=f/pr[2],len=s*1.6;const str=Math.min(1,Math.abs(g.wind)/4),dir=g.wind>=0?1:-1;x.strokeStyle='#d8d8d0';x.lineWidth=Math.max(1.5,s*.06);x.beginPath();x.moveTo(pr[0],pr[1]);x.lineTo(pr[0],pr[1]-len*1.5);x.stroke();
@@ -32914,7 +32954,7 @@ function acDrawBow(g,x,now){
   const bw=W*.34,bx=W*.04,by=H-H*.035;x.fillStyle='rgba(255,255,255,.14)';x.fillRect(bx,by,bw,4);x.fillStyle=dr>=1?'#f2c744':'#d4af37';x.fillRect(bx,by,bw*dr,4);x.fillStyle='rgba(255,255,255,.5)';x.fillRect(bx+bw*.4-.5,by-3,1,10);x.fillRect(bx+bw*.75-.5,by-3,1,10);
   x.font='700 '+Math.max(10,Math.round(H*.022))+'px Cinzel,serif';x.textAlign='left';x.fillStyle='#d4af37';
   x.fillText(g.phase==='set'?'SET':g.phase==='draw'?(dr<.4?'DRAWING':dr<.75?'FULL DRAW':'ALMOST SET'):'',bx,by-8);
-  if(g.phase==='ready'&&g.cur&&!g.cur.bot){x.globalAlpha=.6+.35*Math.sin(tt*3);x.textAlign='center';x.fillStyle='#f4ebd0';x.fillText('DRAG TO AIM · HOLD THE BUTTON TO DRAW · LIFT TO SHOOT',W*.5,H*.965);x.globalAlpha=1;}
+  if(g.phase==='ready'&&g.cur&&!g.cur.bot){x.globalAlpha=.6+.35*Math.sin(tt*3);x.textAlign='center';x.fillStyle='#f4ebd0';x.fillText(g.ctrl==='easy'?'TAP A TARGET · HOLD THE BUTTON TO DRAW · LIFT TO SHOOT':'DRAG TO AIM · HOLD THE BUTTON TO DRAW · LIFT TO SHOOT',W*.5,H*.965);x.globalAlpha=1;}
   if(g.phase==='draw'||g.phase==='set'){const wx=W*.04,ww=W*.3,wy=H*.07,wh=H*.012,ph=((g.holdT+g.boff*5.4)/5.4)%1;x.save();x.strokeStyle='rgba(255,255,255,.4)';x.lineWidth=1.2;x.beginPath();for(let i=0;i<=40;i++){const u=i/40,px=wx+u*ww,py=wy-Math.sin(u*6.283)*wh;if(i)x.lineTo(px,py);else x.moveTo(px,py);}x.stroke();
     x.strokeStyle='#f2c744';x.lineWidth=2.6;x.beginPath();for(let i=0;i<=40;i++){const u=.58+i/40*.24,px=wx+u*ww,py=wy-Math.sin(u*6.283)*wh;if(i)x.lineTo(px,py);else x.moveTo(px,py);}x.stroke();
     x.fillStyle='#fff';x.beginPath();x.arc(wx+ph*ww,wy-Math.sin(ph*6.283)*wh,3.4,0,6.283);x.fill();x.font='600 '+Math.max(8,Math.round(H*.016))+'px Cinzel,serif';x.fillStyle='rgba(244,235,208,.8)';x.textAlign='left';x.fillText('BREATHE · SHOOT IN THE GOLD',wx,wy+wh+H*.022);x.restore();}
@@ -32933,16 +32973,17 @@ function acStep(g,dt){
   for(const p of g.pops)p.t+=dt;g.pops=g.pops.filter(p=>p.t<1);
   if(g.pyaw||g.ppitch){const k=1-Math.exp(-Math.min(.05,dt)*30),ay=g.pyaw*k,ap=g.ppitch*k;g.yaw=Math.max(-.95,Math.min(.95,g.yaw+ay));g.pitch=Math.max(-.12,Math.min(.8,g.pitch+ap));g.pyaw-=ay;g.ppitch-=ap;if(Math.abs(g.pyaw)<1e-5)g.pyaw=0;if(Math.abs(g.ppitch)<1e-5)g.ppitch=0;}
   if(g.clockEnd&&g.t>g.clockEnd&&(g.phase==='ready'||g.phase==='draw'||g.phase==='set')){g.clockEnd=0;acCall(g,'TIME.','the arrow has to go',1200,true);if(g.phase!=='set'){g.phase='set';g.draw=Math.max(.4,g.draw);}acRelease(g,0);}
+  if(!g.cur||!g.cur.bot){if((g.phase==='ready'||g.phase==='draw')&&g.ctrl==='easy'&&g.lock!=null)acLockStep(g,dt);}
   if(g.phase==='ready'){
     if(g.cur&&g.cur.bot&&g.bot&&g.t>=g.bot.t0){g.phase='draw';g.holdT=0;g.bot.ds=g.t;g.bot.fy=g.yaw;g.bot.fp=g.pitch;acSnd.nock();}
   }else if(g.phase==='draw'){
-    if(!g.cur.bot&&g.holding){const d0=g.draw;g.draw=Math.min(1,g.draw+dt/.95);if(Math.floor(g.draw*6)!==Math.floor(d0*6))acSnd.draw(g.draw);}
+    if(!g.cur.bot&&g.holding){acAutoLock(g);const d0=g.draw;g.draw=Math.min(1,g.draw+dt/.95);if(Math.floor(g.draw*6)!==Math.floor(d0*6))acSnd.draw(g.draw);}
     if(g.cur.bot&&g.bot){const u=Math.min(1,(g.t-g.bot.ds)/g.bot.drawT);g.draw=u*u*(3-2*u);if(g.t%.3<dt)acSnd.draw(g.draw);
       const tg=g.bot.tg,p=tg?acTP(tg,g.tt):[0,1.5,25],a=acAngles(g,p);g.yaw=g.bot.fy+(a[0]-g.bot.fy)*u;g.pitch=g.bot.fp+(a[1]-g.bot.fp)*u;
       if(u>=1){g.draw=1;g.phase='set';g.holdT=0;g.bot.ss=g.t;acSnd.full();}}
     else if(g.draw>=1){g.phase='set';g.holdT=0;acSnd.full();try{haptic([14,30,14]);}catch(e){}acCall(g,'FULL DRAW.','aim, breathe, then lift your finger',1400);}
   }else if(g.phase==='set'){
-    g.holdT+=dt;if(!g.cur.bot)acAssist(g,dt);
+    g.holdT+=dt;if(!g.cur.bot&&!(g.ctrl==='easy'&&g.lock!=null&&acLockStep(g,dt)))acAssist(g,dt);
     if(g.cur.bot&&g.bot){const B=AC_BOT[g.cur.bot],tg=g.bot.tg;let a=[g.yaw,g.pitch];
       if(tg){const D=Math.hypot(tg.x,tg.z),Tf=D/AC_V0,lead=tg.mov?B.comp:0,p=acTP(tg,g.tt+Tf*lead),aa=acAngles(g,p);a=[aa[0]-acDriftM(g,D)/D*B.comp,aa[1]];}
       const ph=((g.holdT+g.boff*5.4)/5.4)%1;g.yaw+=(a[0]-g.yaw)*Math.min(1,dt*6);g.pitch+=(a[1]-g.pitch)*Math.min(1,dt*6);
@@ -33015,6 +33056,7 @@ function rArcheryTable(){
 }
 function acPaintOv(g){
   const ov=document.getElementById('ac-ov');if(!ov||!g)return;let h='';const pr=acPrefs();
+  if(acLocked('lv',pr.lv))pr.lv=Object.keys(AC_LV).filter(k=>!acLocked('lv',k)).pop();if(acLocked('venue',pr.venue))pr.venue='golden';
   if(g.phase==='setup'){
     const seg=(items,cur,key)=>`<div class="ps-seg">${items.map(([k,l])=>`<button class="${cur===k?'on':''}" data-acact="${key}" data-v="${k}">${l}</button>`).join('')}</div>`;
     const sm=g.summary,two=g.players.length===2;
@@ -33023,8 +33065,10 @@ function acPaintOv(g){
       <div class="ps-grp">MODE</div>${seg([['trail','FIELD TRAIL'],['quick','QUICK SHOT'],['duel','OLYMPIC MATCH'],['train','TRAINING']],pr.mode,'mode')}
       <div class="ps-note">${pr.mode==='trail'?'Walk a trail of eight stations, three arrows each: faces in the trees, bullseye posts, a swinging target, a sliding target, a balloon field, pop-ups and a golden target at 70 m with a golden clay. Streaks of good arrows earn bonus points. Gold, silver and bronze at the end.':pr.mode==='quick'?'One station, three arrows each, the highest total wins.':pr.mode==='duel'?(two?'The official head-to-head format on one face at 70 m: sets of three arrows, you take turns one arrow at a time. A set is worth 2 points (1 each if tied); the first to 6 set points wins. If it is 5 : 5, one arrow each: the higher ring wins.':'The Olympic match needs exactly two players. With another number of players it plays as a quick shot.'):'Practise one station as long as you like, no winner.'}</div>
       ${pr.mode==='train'?'<div class="ps-grp">STATION</div>'+seg(AC_ST.map(s=>[s.id,s.n.toUpperCase()]),pr.st,'st'):''}
-      <div class="ps-grp">PLACE</div>${seg(Object.keys(AC_VENUES).map(k=>[k,AC_VENUES[k]]),pr.venue,'venue')}
-      <div class="ps-grp">LEVEL</div>${seg(Object.keys(AC_LV).map(k=>[k,AC_LV[k].n.toUpperCase()]),pr.lv,'lv')}<div class="ps-note">${esc(AC_LV[pr.lv].about)}</div>
+      <div class="ps-note" style="text-align:center">★ ${acStarsTotal()} / ${AC_ST.length*3} stars on this iPad${(()=>{const t=acStarsTotal(),nx=[].concat(Object.entries(AC_UNLOCK.lv).map(([k,v])=>[v,AC_LV[k].n+' level']),Object.entries(AC_UNLOCK.venue).map(([k,v])=>[v,AC_VENUES[k]])).filter(a=>a[0]>t).sort((a,b)=>a[0]-b[0])[0];return nx?' · next: '+nx[1]+' at '+nx[0]+' ★':' · everything unlocked';})()}</div>
+      <div class="ps-grp">PLACE</div>${seg(Object.keys(AC_VENUES).map(k=>[k,(acLocked('venue',k)?'🔒 ':'')+AC_VENUES[k]+(acLocked('venue',k)?' · '+AC_UNLOCK.venue[k]+'★':'')]),pr.venue,'venue')}
+      <div class="ps-grp">LEVEL</div>${seg(Object.keys(AC_LV).map(k=>[k,(acLocked('lv',k)?'🔒 ':'')+AC_LV[k].n.toUpperCase()+(acLocked('lv',k)?' · '+AC_UNLOCK.lv[k]+'★':'')]),pr.lv,'lv')}<div class="ps-note">${esc(AC_LV[pr.lv].about)}</div>
+      <div class="ps-grp">CONTROLS</div>${seg([['easy','EASY · TAP TO LOCK ON'],['pro','PRO · FREE AIM']],pr.ctrl,'ctrl')}<div class="ps-note">${pr.ctrl==='easy'?'Tap a target and the sight glides onto it (with the lead for a moving one and, on the easier levels, the wind). A drag nudges it a little. You hold the DRAW button, breathe and lift to shoot. If you do not tap, the target nearest to the middle is locked when you draw.':'Drag on the scenery to turn the view and aim yourself.'}</div>
       <div class="ps-grp">AIM HELP</div>${seg([['off','OFF'],['low','LOW'],['high','HIGH']],pr.assist,'assist')}<div class="ps-note">${pr.assist==='high'?'The sight is gently drawn to the target it is nearest to, with the lead for a moving one and the wind. You still have to hold, breathe and release.':pr.assist==='low'?'A light pull towards the nearest target.':'No help: pure aiming.'}</div>
       <div class="ps-grp">LOOKING AROUND</div>${seg([['slow','SLOW'],['normal','NORMAL'],['fast','FAST']],pr.sens,'sens')}
       <div class="ps-ppl">${g.players.map(p=>`<span>${p.avatar?'<span class="ah-av">'+avHTML(p.avatar)+'</span>':''}${esc(p.name)}${p.bot?' · '+AC_BOT[p.bot].n.toLowerCase()+' robot':''}</span>`).join('')}</div>
@@ -33050,13 +33094,14 @@ function acBindInput(){
     if(!e.target.closest||e.target.closest('button,a,.ps-ov,.talk-strip,#talk-strip'))return;
     if(!g.cur||g.cur.bot||g.phase==='flight'||g.phase==='result'||g.phase==='hand'||g.phase==='setup'||aim)return;
     e.preventDefault();try{stage.setPointerCapture(e.pointerId);}catch(x){}
-    aim={id:e.pointerId,x:e.clientX,y:e.clientY,t:e.timeStamp,sp:0};},{passive:false});
+    aim={id:e.pointerId,x:e.clientX,y:e.clientY,t:e.timeStamp,t0:e.timeStamp,sp:0,moved:0};},{passive:false});
   stage.addEventListener('pointermove',e=>{const g=G.ac;if(!aim||!g||e.pointerId!==aim.id||(g.phase!=='ready'&&g.phase!=='draw'&&g.phase!=='set'))return;
     const evs=e.getCoalescedEvents?e.getCoalescedEvents():null,list=evs&&evs.length?evs:[e],f=g.f/(g.dpr||1),ks={slow:.55,normal:1,fast:1.7}[g.sens||'normal']||1,zf=f*Math.max(1,g.zm||1);
-    for(const q of list){const dx=q.clientX-aim.x,dy=q.clientY-aim.y,tm=q.timeStamp||e.timeStamp,dt=Math.max(4,tm-aim.t);aim.x=q.clientX;aim.y=q.clientY;aim.t=tm;aim.sp=aim.sp*.7+Math.hypot(dx,dy)/dt*1000*.3;
-      const k=(g.phase==='ready'?1.5:1.0)*ks;g.pyaw=(g.pyaw||0)+dx/zf*k;g.ppitch=(g.ppitch||0)-dy/zf*k;}},{passive:true});
+    for(const q of list){const dx=q.clientX-aim.x,dy=q.clientY-aim.y,tm=q.timeStamp||e.timeStamp,dt=Math.max(4,tm-aim.t);aim.x=q.clientX;aim.y=q.clientY;aim.t=tm;aim.sp=aim.sp*.7+Math.hypot(dx,dy)/dt*1000*.3;aim.moved=(aim.moved||0)+Math.hypot(dx,dy);
+      if(g.ctrl==='easy'&&g.lock!=null){const k=.45*ks;g.offY=Math.max(-.05,Math.min(.05,(g.offY||0)+dx/zf*k));g.offP=Math.max(-.05,Math.min(.05,(g.offP||0)-dy/zf*k));}
+      else{const k=(g.phase==='ready'?1.5:1.0)*ks;g.pyaw=(g.pyaw||0)+dx/zf*k;g.ppitch=(g.ppitch||0)-dy/zf*k;}}},{passive:true});
   const up=e=>{const g=G.ac;
-    if(aim&&e.pointerId===aim.id){const sp=aim.sp;aim=null;if(g)g.lastSp=sp;}
+    if(aim&&e.pointerId===aim.id){const sp=aim.sp,tap=(aim.moved||0)<12&&e.timeStamp-aim.t0<420,r=document.getElementById('ac-mid').getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top;aim=null;if(g){g.lastSp=sp;if(tap&&e.type==='pointerup')acTap(g,px,py);}}
     if(btn&&e.pointerId===btn.id){btn=null;if(!g)return;g.holding=false;
       if(g.phase==='set')acRelease(g,g.lastSp||0);else if(g.phase==='draw'){g.phase='ready';g.draw=0;acCall(g,'NOT FULLY DRAWN.','keep holding until the bow is at full draw',1600,true);}}};
   stage.addEventListener('pointerup',up);stage.addEventListener('pointercancel',up);
@@ -33066,9 +33111,10 @@ function acAction(g,a,v){
   const pr=acPrefs();
   if(a==='mode'){if(!AC_MODES[v])return;pr.mode=v;acSavePrefs(pr);acPaintOv(g);}
   else if(a==='st'){if(!AC_ST.find(s=>s.id===v))return;pr.st=v;acSavePrefs(pr);acPaintOv(g);}
-  else if(a==='venue'){if(!AC_VENUES[v])return;pr.venue=v;acSavePrefs(pr);acPaintOv(g);}
-  else if(a==='lv'){if(!AC_LV[v])return;pr.lv=v;acSavePrefs(pr);acPaintOv(g);}
+  else if(a==='venue'){if(!AC_VENUES[v])return;if(acLocked('venue',v)){toast('🔒 '+AC_UNLOCK.venue[v]+' stars unlock this place');return;}pr.venue=v;acSavePrefs(pr);acPaintOv(g);}
+  else if(a==='lv'){if(!AC_LV[v])return;if(acLocked('lv',v)){toast('🔒 '+AC_UNLOCK.lv[v]+' stars unlock this level');return;}pr.lv=v;acSavePrefs(pr);acPaintOv(g);}
   else if(a==='sens'){if(!['slow','normal','fast'].includes(v))return;pr.sens=v;acSavePrefs(pr);g.sens=v;acPaintOv(g);}
+  else if(a==='ctrl'){if(!['easy','pro'].includes(v))return;pr.ctrl=v;acSavePrefs(pr);g.ctrl=v;acPaintOv(g);}
   else if(a==='assist'){if(!['off','low','high'].includes(v))return;pr.assist=v;acSavePrefs(pr);g.assist=v;acPaintOv(g);}
   else if(a==='start'){acBegin(g);acPaintOv(g);}
   else if(a==='ready'){if(g.phase==='hand')acReadyStart(g);}
@@ -33081,6 +33127,7 @@ function acChipsHTML(){
     <div class="tonight-stat"><div class="ts-val">${s.tens}</div><div class="ts-lbl">🎯 Tens</div></div>
     <div class="tonight-stat"><div class="ts-val">${s.X}</div><div class="ts-lbl">✨ Dead centre (X)</div></div>
     <div class="tonight-stat"><div class="ts-val">${s.streak}</div><div class="ts-lbl">🔥 Best streak</div></div>
+    ${r.stars&&r.stars[r.w]!==undefined?`<div class="tonight-stat"><div class="ts-val">★ ${r.stars[r.w]}</div><div class="ts-lbl">Stars of this trail</div></div>`:''}
     <div class="tonight-stat"><div class="ts-val">${s.avg.toFixed(1)}</div><div class="ts-lbl">📊 Average per arrow</div></div>
     <div class="tonight-stat"><div class="ts-val">${fmtPlayTime((r.dur||0)*1000)}</div><div class="ts-lbl">⏱ Play Time</div></div>
   </div>`;

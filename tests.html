@@ -6291,7 +6291,8 @@ async function runPresentation(A,W,frame){
   });
   suite('Olympic Games: Archery (field trail, flight, scoring, matches)',()=>{
     const F=n=>W.eval(n),G=()=>F('G');const gg=G();
-    const k0=[gg.isOnline,gg.selGame,gg.lp,gg.scr,gg.ac],pref0=W.localStorage.getItem('ct_ac_pref');
+    const k0=[gg.isOnline,gg.selGame,gg.lp,gg.scr,gg.ac],pref0=W.localStorage.getItem('ct_ac_pref'),prog0=W.localStorage.getItem('ct_ac_prog');
+    W.localStorage.setItem('ct_ac_prog',JSON.stringify({stars:{warm:3,trees:3,bulls:3,swing:3,slide:3,balloons:3,popup:3,long:3},best:{}}));
     const start=(mode,lv,bot,st)=>{
       W.localStorage.setItem('ct_ac_pref',JSON.stringify({lv,mode,venue:'golden',sens:'normal',st:st||'warm'}));
       gg.isOnline=false;gg.lp=[{id:1,name:'AnnArc',avatar:F('AVATARS')[0],hand:[],totalScore:0}].concat(bot?[{id:2,name:'RobArc',avatar:F('AVATARS')[1],hand:[],totalScore:0,bot}]:[]);gg.selGame='archery';F('lDealArchery')();gg.scr='table';F('render')();F('acAttach')();
@@ -6324,11 +6325,14 @@ async function runPresentation(A,W,frame){
        check('everybody shoots three arrows at every station',g.arrows[0].length===24&&g.arrows[1].length===24);
        check('a good player scores on most arrows',g.arrows[0].filter(a=>a.base>0).length>=16);
        check('the result lists the medals',!!G().acResult&&G().acResult.mode==='trail'&&G().acResult.rank.length===2);F('acStop')();}
+      {check('stars come from the points of the three arrows (goal per station)',F('acStarsOf')('warm',13)===0&&F('acStarsOf')('warm',14)===1&&F('acStarsOf')('warm',21)===2&&F('acStarsOf')('warm',26)===3);
+       W.localStorage.setItem('ct_ac_prog',JSON.stringify({stars:{warm:1},best:{}}));check('levels and places are locked until enough stars are earned',F('acLocked')('lv','beginner')===false&&F('acLocked')('lv','sport')===true&&F('acLocked')('lv','olympic')===true&&F('acLocked')('venue','winter')===true&&F('acStarsTotal')()===1);
+       W.localStorage.setItem('ct_ac_prog',JSON.stringify({stars:{warm:3,trees:3,bulls:3,swing:3,slide:3,balloons:3,popup:3,long:3},best:{}}));}
       {const g=play(start('quick','sport','gentle'));check('a quick shot ends after three arrows each',g.over&&g.arrows[0].length===3&&g.arrows[1].length===3);F('acStop')();}
       {const g=play(start('duel','sport','steady'));check('an olympic match is decided by set points, 6 wins',g.over&&(g.setPts[0]>=6||g.setPts[1]>=6||g.shootoff)&&g.setLog.length>=3&&g.st.id==='face70');F('acStop')();}
       {const g=start('train','sport',null,'balloons');let n=0,popped=false;while(n++<12){if(g.phase==='ready'){const t=g.tg.find(t=>t.alive);if(!t)break;const D=Math.hypot(t.x,t.z),a=F('acAngles')(g,F('acTP')(t,g.tt+D/F('AC_V0')+.2));g.yaw=a[0]-F('acDriftM')(g,D)/D;g.pitch=a[1];g.phase='set';g.draw=1;g.holdT=3.5;g.boff=0;F('acRelease')(g,0);}for(let i=0;i<60;i++){F('acStep')(g,1/30);if(g.tg.some(t=>!t.alive))popped=true;}}
        check('training can be played on a single station and balloons pop',g.mode==='train'&&g.st.id==='balloons'&&popped);F('acStop')();}
-    }finally{if(pref0===null)W.localStorage.removeItem('ct_ac_pref');else W.localStorage.setItem('ct_ac_pref',pref0);try{F('acStop')();}catch(e){}gg.isOnline=k0[0];gg.selGame=k0[1];gg.lp=k0[2];gg.scr=k0[3];gg.ac=null;}
+    }finally{if(pref0===null)W.localStorage.removeItem('ct_ac_pref');else W.localStorage.setItem('ct_ac_pref',pref0);if(prog0===null)W.localStorage.removeItem('ct_ac_prog');else W.localStorage.setItem('ct_ac_prog',prog0);try{F('acStop')();}catch(e){}gg.isOnline=k0[0];gg.selGame=k0[1];gg.lp=k0[2];gg.scr=k0[3];gg.ac=null;}
   });
   suite('Fairground: the LEVEL button works in every booth',()=>{
     const F=n=>W.eval(n),G=()=>F('G');
