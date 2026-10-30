@@ -32497,7 +32497,7 @@ const AC_LV={
   olympic:{n:'Olympic',sway:.008,sig:.003,wind:4.5,hint:0,pop:1.7,about:'The strictest hold, a strong wind, no help.'}
 };
 const AC_BOT={gentle:{n:'Gentle',sig:2.2,comp:.15},steady:{n:'Steady',sig:1.5,comp:.55},sharp:{n:'Sharp',sig:1.0,comp:.9}};
-const AC_VENUES={golden:'GOLDEN HOUR',night:'NIGHT',winter:'WINTER',coast:'COAST'};
+const AC_VENUES={golden:'GOLDEN HOUR',night:'NIGHT',winter:'WINTER',coast:'COAST',mountain:'MOUNTAIN PASS',autumn:'AUTUMN FOREST',lake:'LAKE AT DAWN'};
 const AC_COL=['#f0c44c','#e5534b','#4aa3e0','#6fcf7f'];
 const AC_ST=[
   {id:'warm',n:'Warm-up',tip:'three faces, get your eye in',clock:0},
@@ -32511,7 +32511,7 @@ const AC_ST=[
 ];
 // the goals of the stations: the points of the three arrows that give one, two and three stars
 const AC_GOAL={warm:[14,21,26],trees:[12,19,24],bulls:[12,19,24],swing:[11,18,23],slide:[11,18,23],balloons:[10,17,24],popup:[10,17,24],long:[10,17,25]};
-const AC_UNLOCK={lv:{beginner:0,sport:3,elite:8,olympic:15},venue:{golden:0,night:2,winter:6,coast:10}};
+const AC_UNLOCK={lv:{beginner:0,sport:3,elite:8,olympic:15},venue:{golden:0,night:2,mountain:4,winter:6,autumn:8,coast:10,lake:12}};
 function acProg(){let p={};try{p=JSON.parse(localStorage.getItem('ct_ac_prog')||'{}')||{};}catch(e){}p.stars=p.stars||{};p.best=p.best||{};return p;}
 function acSaveProg(p){try{localStorage.setItem('ct_ac_prog',JSON.stringify(p));}catch(e){}}
 function acStarsTotal(){const p=acProg();return Object.values(p.stars).reduce((a,v)=>a+(v|0),0);}
@@ -32584,7 +32584,7 @@ function acDecor(g){
   const side=()=>R()<.5?-1:1;
   for(const t of g.tg){if((t.k==='face'||t.k==='popup'||t.k==='disc')&&!t.mov&&R()<.6)out.push({im:R()<.5?'hay_r':'hay_s',x:t.x+side()*(t.r*1.9+.7),z:t.z+.3,w:1.5});}
   // trees at the edge of the path: a different mix in every place
-  const mix={golden:['pine','oak','birch','fir','pine'],night:['pine','fir','fir','pine','oak'],winter:['fir','fir2','fir','pine','fir'],coast:['pine','birch','oak','pine','birch']}[V]||['pine','oak'];
+  const mix={golden:['pine','oak','birch','fir','pine'],night:['pine','fir','fir','pine','oak'],winter:['fir','fir2','fir','pine','fir'],coast:['pine','birch','oak','pine','birch'],mountain:['fir','pine','fir','fir2','pine'],autumn:['oak','birch','oak','birch','pine'],lake:['birch','pine','birch','oak','pine']}[V]||['pine','oak'];
   const th={pine:11,fir:9,fir2:5.5,oak:9,birch:10};
   for(let i=0;i<9;i++){const sd=i%2?1:-1,im=mix[Math.floor(R()*mix.length)];out.push({im,x:sd*(5+R()*9),z:34+R()*42,h:th[im]*(.8+R()*.4)});}
   const bush=V==='winter'?'snow':V==='coast'?'dune':null;
@@ -33016,6 +33016,9 @@ function acDraw(g,now){
     if(V==='golden'){sl('ray',.35,-W*.1,-H*.05,W*.8,null,'lighter');sl('motes',.2+.06*Math.sin(tt*.5),((tt*8)%W)-W*.2,H*.25+Math.sin(tt*.3)*8,W*1.1,null,'lighter');}
     else if(V==='night'){sl('fly',.7+.3*Math.sin(tt*2),((tt*5)%(W*.3))-W*.1,H*.2+Math.sin(tt*.7)*10,W*1.2,null,'lighter');}
     else if(V==='winter'){const sw=W*1.1,im=acImg('snowfx');if(im){const sh=sw*im.height/im.width,oy=(tt*40*dpr)%sh;sl('snowfx',.8,-W*.05,oy-sh,sw,sh);sl('snowfx',.8,-W*.05,oy,sw,sh);}}
+    else if(V==='mountain'){sl('ray',.3,-W*.1,-H*.05,W*.8,null,'lighter');sl('wind',.3,((tt*40*dpr)%(W*1.6))-W*.5,H*.3,W*.7,null,'lighter');}
+    else if(V==='autumn'){sl('motes',.3+.08*Math.sin(tt*.6),((tt*14)%W)-W*.2,H*.28+Math.sin(tt*.4)*10,W*1.1,null,'lighter');}
+    else if(V==='lake'){sl('motes',.22,((tt*6)%W)-W*.2,H*.3,W,null,'lighter');sl('wind',.25,((tt*25*dpr)%(W*1.6))-W*.5,H*.32,W*.7,null,'lighter');}
     else if(V==='coast'){sl('wind',.5,((tt*60*dpr)%(W*1.6))-W*.5,H*.28,W*.7,null,'lighter');sl('motes',.25,((tt*10)%W)-W*.2,H*.3,W,null,'lighter');}}
   // the sight, like the one in the bow: a thin ring and a point in the middle of the view
   const calm=acCalm(((g.holdT+g.boff*5.4)/5.4)%1);
