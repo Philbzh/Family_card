@@ -268,6 +268,9 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .app-sb-item:hover{background:rgba(255,255,255,.045);color:var(--paper);}
 .app-sb-item.active{background:linear-gradient(90deg,rgba(201,155,78,.24),rgba(201,155,78,.05) 88%);border-color:rgba(232,201,135,.5);color:#f0d998;box-shadow:0 8px 22px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,235,190,.14);}
 .app-sb-item.active::before{content:"";position:absolute;left:-15px;top:50%;transform:translateY(-50%);width:3px;height:20px;border-radius:0 3px 3px 0;background:linear-gradient(180deg,#f6e2b0,#c99b4e);box-shadow:0 0 14px rgba(232,201,135,.65);}
+.nav-ic{width:1.3rem;height:1.3rem;display:block;object-fit:contain;opacity:.62;filter:saturate(.7) drop-shadow(0 1px 2px rgba(0,0,0,.5));transition:opacity .2s,filter .2s,transform .2s;}
+.app-sb-item.active .nav-ic,.app-mnav-item.active .nav-ic{opacity:1;filter:saturate(1.1) drop-shadow(0 0 7px rgba(255,214,120,.75));transform:scale(1.08);}
+.app-sb-item:hover .nav-ic{opacity:.95;}
 .app-sb-item .ico{font-size:1rem;width:1.2rem;text-align:center;display:inline-flex;align-items:center;justify-content:center;}
 .app-sb-item .ico .icon-svg{width:1.05rem;height:1.05rem;}
 .app-sb-item.active .ico{filter:drop-shadow(0 0 8px rgba(232,201,135,.6));}
@@ -303,6 +306,10 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .btn-red{background:linear-gradient(160deg,#ef4444,#dc2626);color:white;box-shadow:0 4px 0 #991b1b,0 6px 20px rgba(0,0,0,.4);}
 
 .ico-btn{width:2.75rem;height:2.75rem;border-radius:11px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:var(--paper2);font-size:.95rem;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .12s;}
+.bar-ic{width:1.5rem;height:1.5rem;object-fit:contain;display:block;pointer-events:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));}
+.ov-pic{height:9.5rem;margin:-1.9rem -1.9rem 1rem;border-radius:26px 26px 0 0;background:var(--pg) center/cover no-repeat;-webkit-mask-image:linear-gradient(#000 62%,transparent);mask-image:linear-gradient(#000 62%,transparent);}
+.pg-banner{height:clamp(120px,24vw,200px);border-radius:18px;margin-bottom:.9rem;background:linear-gradient(180deg,transparent 55%,rgba(7,17,14,.75)),var(--pg) center/cover no-repeat;border:1px solid rgba(217,180,90,.4);box-shadow:0 12px 30px -14px rgba(0,0,0,.8);}
+.empty-pic{display:block;width:min(100%,360px);margin:0 auto .9rem;border-radius:18px;border:1px solid rgba(217,180,90,.4);box-shadow:0 14px 34px -14px rgba(0,0,0,.85);}
 .ico-btn:hover{background:rgba(255,255,255,.12);}
 .ico-btn.on{background:rgba(212,168,67,.18);border-color:rgba(212,168,67,.5);color:var(--gold2);}
 
@@ -30559,7 +30566,7 @@ function rMoments(){
       </div>
     </div>`;
   }).join('');
-  const empty=`<div class="moments-empty"><div style="font-size:2.4rem;margin-bottom:.6rem;">✦</div><div style="font-family:var(--serif);font-size:1.2rem;color:var(--paper);margin-bottom:.3rem;">No moments yet</div><div style="font-size:.8rem;color:var(--paper3);">Play a round and the wall starts filling in.</div></div>`;
+  const empty=`<div class="moments-empty"><img class="empty-pic" src="assets/ui/pg_empty_moments.jpg" alt=""><div style="display:none">✦</div><div style="font-family:var(--serif);font-size:1.2rem;color:var(--paper);margin-bottom:.3rem;">No moments yet</div><div style="font-size:.8rem;color:var(--paper3);">Play a round and the wall starts filling in.</div></div>`;
   return`<div id="s-moments" class="scr on" style="padding:1.8rem 2.2rem;overflow-y:auto;">
     <div class="ui-hero" style="--img:url(assets/ui/moments.jpg)"><div class="ui-hero-txt">
       <div style="font-family:var(--serif);font-size:1.9rem;color:var(--paper);margin-bottom:.2rem;">The Wall of Fame</div>
@@ -30575,7 +30582,7 @@ function rPlayer(){
   const back=`<button class="back-btn" data-a="nav-family" style="margin-bottom:1.1rem;">← Family</button>`;
   if(!p){
     return`<div id="s-player" class="scr on" style="padding:1.8rem 2.2rem;overflow-y:auto;">${back}
-      <div class="moments-empty"><div style="font-size:2.4rem;margin-bottom:.6rem;">♠</div>
+      <div class="moments-empty"><img class="empty-pic" src="assets/ui/pg_empty_family.jpg" alt=""><div style="display:none">♠</div>
       <div style="font-family:var(--serif);font-size:1.2rem;color:var(--paper);margin-bottom:.3rem;">${esc(name)} hasn't played yet</div>
       <div style="font-size:.8rem;color:var(--paper3);">Deal them in and their record starts here.</div></div></div>`;
   }
@@ -30725,7 +30732,7 @@ function rFamily(){
     :suggestions.length
       ?['Welcome to the table!',`Your table has played ${totalGames} game${totalGames!==1?'s':''}. <b>Tap a name below</b> to add that person to your family list.`]
       :['No one added yet','Add the people who play at your table below. Once games have been played together, their names also appear here to add with one tap.'];
-  const emptyState=`<div class="moments-empty"><div style="font-size:2.4rem;margin-bottom:.6rem;">♥</div><div style="font-family:var(--serif);font-size:1.2rem;color:var(--paper);margin-bottom:.3rem;">${emptyMsg[0]}</div><div style="font-size:.8rem;color:var(--paper3);">${emptyMsg[1]}</div></div>`;
+  const emptyState=`<div class="moments-empty"><img class="empty-pic" src="assets/ui/pg_empty_family.jpg" alt=""><div style="display:none">♥</div><div style="font-family:var(--serif);font-size:1.2rem;color:var(--paper);margin-bottom:.3rem;">${emptyMsg[0]}</div><div style="font-size:.8rem;color:var(--paper3);">${emptyMsg[1]}</div></div>`;
   const codeLine=`<div class="fam-code"><span>🔒 Your table code <b>${tcShow(tableCode())}</b></span><span class="fam-code-sub">Every device that uses this code shares these results. Your family list below is kept on each device — add the names you want to follow.</span><button class="btn btn-ghost btn-sm" data-a="open-data">View or change</button></div>`;
   const suggestRow=suggestions.length?`<div class="family-suggest-row"><span class="family-suggest-lbl">Seen at your table:</span>${suggestions.map(n=>`<button class="family-suggest-chip" data-a="family-quickadd" data-name="${esc(n)}">+ ${esc(n)}</button>`).join('')}</div>`:'';
   const legendData=houseLegends();
@@ -30770,21 +30777,22 @@ function rFamily(){
 // mobile bottom bar. Kept in one place deliberately: these two used to be one rail that simply
 // vanished below 1100px, which quietly made Moments, Trophies and Family unreachable on exactly the
 // phones and tablets this app is mostly played on.
+function navIco(n){return'<img class="nav-ic" src="assets/ui/nav_'+n+'.png" alt="" draggable="false">';}
 function navModel(){
   // 'player' keeps Family lit: a profile is a page you reached THROUGH Family, and dropping the
   // highlight entirely would make the nav look like you'd navigated off the map.
   const active=G.scr==='home'?'home':G.scr==='moments'?'moments':G.scr==='trophies'?'trophies':(G.scr==='family'||G.scr==='player')?'family':hasActiveTable()?'table':(G.scr==='games'||G.scr==='setup'||G.scr==='online')?'games':G.scr==='matchend'?'table':'';
   const items=[
-    {id:'home',ico:iconHome(),label:'Home',enabled:true,soon:false},
-    {id:'games',ico:'♠',label:'Games',enabled:true,soon:false},
+    {id:'home',ico:navIco('home'),label:'Home',enabled:true,soon:false},
+    {id:'games',ico:navIco('games'),label:'Games',enabled:true,soon:false},
     // Only shown at all once there's an actual game to return to — a permanently-visible,
     // permanently-greyed nav item just reads as broken, whether or not it technically "works".
-    {id:'table',ico:iconCards(),label:'Table',enabled:hasActiveTable()||G.scr==='matchend',soon:false},
-    {id:'moments',ico:'✦',label:'Moments',enabled:true,soon:false},
+    {id:'table',ico:navIco('table'),label:'Table',enabled:hasActiveTable()||G.scr==='matchend',soon:false},
+    {id:'moments',ico:navIco('moments'),label:'Moments',enabled:true,soon:false},
     // A monochrome glyph, not a 🏆 emoji — the nav rail is ♠ ✦ ♥ and one full-colour emoji in the
     // middle of that reads as a foreign object rather than a menu item.
-    {id:'trophies',ico:'♛',label:'Trophies',enabled:true,soon:false},
-    {id:'family',ico:'♥',label:'Family',enabled:true,soon:false},
+    {id:'trophies',ico:navIco('trophies'),label:'Trophies',enabled:true,soon:false},
+    {id:'family',ico:navIco('family'),label:'Family',enabled:true,soon:false},
   ].filter(it=>it.id!=='table'||it.enabled);
   return{active,items};
 }
@@ -33743,6 +33751,7 @@ function rOnline(){
   return`<div id="s-online" class="scr on">
     <div class="topbar"><button class="back-btn" data-a="home">← Home</button><span class="top-title">${game.icon} ${game.name} · Online</span><div class="top-right">${sndBtn()}</div></div>
     <div class="setup-body">
+      <div class="pg-banner" style="--pg:url(assets/ui/pg_lobby.jpg)"></div>
       <div class="panel"><div class="panel-lbl">Your identity</div><div style="display:flex;gap:.65rem;align-items:center;"><button class="av-btn" data-a="ol-av" aria-label="Change avatar">${avHTML(G.myAvatar)}</button><input class="nm-inp" id="ol-name" type="text" maxlength="16" placeholder="Your name" value="${esc(G.myName)}" autocomplete="off" aria-label="Your name"></div></div>
       <div class="panel"><div class="panel-lbl">Create a room</div><p style="font-size:.8rem;color:var(--paper3);margin-bottom:.75rem;line-height:1.5;">Share the code via WhatsApp — family taps the link, enters their name, and joins instantly.</p><button class="btn btn-gold btn-full" data-a="create">🎲 Create Room</button></div>
       <div class="divider-or">or join an existing room</div>
@@ -33760,6 +33769,7 @@ function rLobby(){
   return`<div id="s-lobby" class="scr on">
     <div class="topbar"><button class="back-btn" data-a="home">← Leave</button><span class="top-title">${game.icon} ${game.name}</span><div class="top-right">${sndBtn()}</div></div>
     <div class="lobby-body">
+      <div class="pg-banner" style="--pg:url(assets/ui/pg_lobby.jpg)"></div>
       <div class="room-code-card" data-a="copy" role="button" tabindex="0" aria-label="Copy invite link, room code ${G.roomId||''}"><div class="rcc-eye">Tap to copy invite link</div><div class="rcc-code">${G.roomId||'----'}</div><div class="rcc-hint">Share via WhatsApp · iMessage · Any messaging app</div></div>
       <div class="panel"><div class="panel-lbl">Players (${players.length} joined)</div><div class="seat-grid">${seats}</div></div>
       <div style="display:flex;justify-content:center;margin:-.3rem 0 .3rem;">
@@ -35230,8 +35240,8 @@ function rMauOv(mp){
     ${canCall?`<button class="btn btn-gold" data-a="mau" style="min-width:11rem;">${word}</button>`:''}
   </div></div>`;
 }
-function rRulesOv(){const game=currentGame();const paylineHTML=game.id==='slots'?slotPaylineDiagramHTML():'';return`<div class="ov" data-a="close-rules"><div class="ov-box" role="dialog" aria-modal="true" aria-label="${esc(game.name)} rules"><div class="ov-title">${game.icon} ${game.name}</div>${paylineHTML}<div class="rules-list">${(game.rules||[]).map(r=>`<div>${r}</div>`).join('')}</div>${tourBtnHTML(game.id)}<button class="btn btn-ghost" data-a="close-rules" style="margin-top:.4rem;">Got it ✓</button></div></div>`;}
-function rQuitOv(){return`<div class="ov" data-a="close-quit"><div class="ov-box" role="dialog" aria-modal="true" aria-label="End the game?"><div class="ov-title">End the game?</div><p class="ov-sub">Current scores and chips will be lost.</p><div class="quit-btns"><button class="btn btn-danger" data-a="quit-confirm">Yes, end game</button><button class="btn btn-ghost" data-a="close-quit">Keep playing</button></div></div></div>`;}
+function rRulesOv(){const game=currentGame();const paylineHTML=game.id==='slots'?slotPaylineDiagramHTML():'';return`<div class="ov" data-a="close-rules"><div class="ov-box" role="dialog" aria-modal="true" aria-label="${esc(game.name)} rules"><div class="ov-pic" style="--pg:url(assets/ui/pg_rules.jpg)"></div><div class="ov-title">${game.icon} ${game.name}</div>${paylineHTML}<div class="rules-list">${(game.rules||[]).map(r=>`<div>${r}</div>`).join('')}</div>${tourBtnHTML(game.id)}<button class="btn btn-ghost" data-a="close-rules" style="margin-top:.4rem;">Got it ✓</button></div></div>`;}
+function rQuitOv(){return`<div class="ov" data-a="close-quit"><div class="ov-box" role="dialog" aria-modal="true" aria-label="End the game?"><div class="ov-pic" style="--pg:url(assets/ui/pg_quit.jpg)"></div><div class="ov-title">End the game?</div><p class="ov-sub">Current scores and chips will be lost.</p><div class="quit-btns"><button class="btn btn-danger" data-a="quit-confirm">Yes, end game</button><button class="btn btn-ghost" data-a="close-quit">Keep playing</button></div></div></div>`;}
 // An honest accounting of what this app actually stores and where, plus the two actions that
 // matter: take a copy of it, or wipe the local copy. Synced results deliberately can't be
 // "deleted" from here -- the RLS policy on game_history blocks anon DELETE entirely (a earlier
@@ -35400,13 +35410,13 @@ function rRoundEnd(){
 }
 
 
-function quitBtn(){return`<button class="ico-btn" data-a="quit-ask" aria-label="End game">⏹</button>`;}
+function quitBtn(){return`<button class="ico-btn" data-a="quit-ask" aria-label="End game"><img class="bar-ic" src="assets/ui/bar_quit.png" alt="⏹" draggable="false"></button>`;}
 
-function rulesBtn(){return`<button class="ico-btn" data-a="rules" aria-label="Show rules">📖</button>`;}
+function rulesBtn(){return`<button class="ico-btn" data-a="rules" aria-label="Show rules"><img class="bar-ic" src="assets/ui/bar_rules.png" alt="📖" draggable="false"></button>`;}
 
 /* ════════ HOME ════════ */
 
-function sndBtn(){return`<button class="ico-btn" data-a="snd" aria-label="${G.snd?'Mute sound':'Unmute sound'}" aria-pressed="${G.snd}">${G.snd?'🔊':'🔇'}</button>`;}
+function sndBtn(){return`<button class="ico-btn" data-a="snd" aria-label="${G.snd?'Mute sound':'Unmute sound'}" aria-pressed="${G.snd}">${G.snd?'<img class="bar-ic" src="assets/ui/bar_snd.png" alt="🔊" draggable="false">':'<img class="bar-ic" src="assets/ui/bar_mute.png" alt="🔇" draggable="false">'}</button>`;}
 function beginnerBtn(){return`<button class="ico-btn${G.beginnerMode?' on':''}" data-a="beginner" aria-label="${G.beginnerMode?'Hide playable-card hints':'Show playable-card hints'}" aria-pressed="${G.beginnerMode}" title="Beginner mode">💡</button>`;}
 
 
