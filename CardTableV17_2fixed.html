@@ -111,7 +111,8 @@ body[data-felt="charcoal"]{--felt-tex:none;--felt-a:#4a4642;--felt-b:#2b2825;--f
 html,body{height:100%;overflow:hidden;}
 body{font-family:var(--sans);background:var(--bg);color:var(--paper);height:100vh;height:-webkit-fill-available;}
 
-#app{max-width:700px;margin:0 auto;height:100vh;height:-webkit-fill-available;display:flex;flex-direction:column;overflow:hidden;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0);}
+#room-bg{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0;transition:opacity .5s;background:#050a08 var(--room) center/cover no-repeat;filter:blur(2px) saturate(1.1);transform:scale(1.04);}#room-bg::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 75% 65% at 50% 50%,rgba(4,8,6,.72),rgba(4,8,6,.4) 100%);}#room-bg.on{opacity:1;}
+#app{position:relative;z-index:1;max-width:700px;margin:0 auto;height:100vh;height:-webkit-fill-available;display:flex;flex-direction:column;overflow:hidden;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0);}
 .scr{display:none;flex-direction:column;flex:1;overflow:hidden;}
 #app-sidebar-root{display:none;}
 /* ═══ DESKTOP SIDEBAR (wide screens only — mobile flow is untouched below this breakpoint) ═══ */
@@ -1058,7 +1059,7 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 /* ════════════════════════════════════════
    GAME TABLE — the main event
 ════════════════════════════════════════ */
-#s-table{overflow:hidden;background:var(--bg);}
+#s-table{overflow:hidden;background:var(--bg);}body.room-on #s-table{background:transparent;}
 
 .game-bar{
   display:flex;align-items:center;gap:.5rem;
@@ -4412,6 +4413,7 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
   </defs>
 </svg>
 <div id="app-sidebar-root"></div>
+<div id="room-bg" aria-hidden="true"></div>
 <div id="app"></div>
 <div id="app-mobile-nav-root"></div>
 <div id="overlay-root"></div>
@@ -5153,6 +5155,9 @@ const GAME_CATEGORIES=[
 (function(){try{const h=new Date().getHours();document.documentElement.style.setProperty('--heroimg',(h>=18||h<6)?'url(assets/ui/home_night.jpg)':'url(assets/ui/home.jpg)');}catch(e){}})();
 function rankMark(i){return i<3?`<img class="sr-medal" src="assets/ui/rk_${i+1}.png" alt="${['🥇','🥈','🥉'][i]}">`:(['④','⑤','⑥','⑦','⑧'][i-3]||i+1);}
 function achTier(a,earned){if(!earned)return a.secret?'secret':'locked';let m=0;try{m=(a.progress&&a.progress().max)||0;}catch(e){}return a.secret?'gold':m>=100?'platinum':m>=25?'gold':m>=5?'silver':m>0?'bronze':'silver';}
+// every game that used to have only a flat dark screen behind its board plays in its own room
+const ROOM_BG={drawit:'drawit',liarsdice:'liarsdice',shutbox:'shutbox',skull:'skull',tension:'tension',hotbomb:'hotbomb',fourrow:'fourrow',mayhem:'fourrow',chainreaction:'chainreaction',gauntlet:'gauntlet',abyss:'abyss',summit:'summit',bingo:'bingo'};
+function applyRoomBg(){const el=document.getElementById('room-bg');if(!el)return;const id=G.scr==='table'?(G.isOnline?(G.srv&&G.srv.gameId):G.selGame):null,r=id&&ROOM_BG[id];if(r){const u='url(assets/rooms/g_'+r+'.jpg)';if(el._u!==u){el._u=u;el.style.setProperty('--room',u);}el.classList.add('on');}else el.classList.remove('on');document.body.classList.toggle('room-on',!!r);}
 function isRed(s){return s==='hearts'||s==='diamonds';}
 function mod(n,m){return((n%m)+m)%m;}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -36048,7 +36053,7 @@ function render(){
   // Same idea for a guesser mid-word: presence blips and away-ticks also call render(), and each rebuild
   // would dismiss the iPad keyboard. Held until the field loses focus.
   if(document.activeElement&&(document.activeElement.id==='dw-guess-input'||(document.activeElement.id==='talk-input'&&G.selGame==='drawit'))&&G.scr==='table'){_dwPendingRender=true;return;}
-  applyTableAge();
+  applyTableAge();applyRoomBg();
   checkpointLocalMatch();
   maybeBotTurn();
   maybeDdReveal();
