@@ -6332,6 +6332,30 @@ async function runPresentation(A,W,frame){
       {const g=play(start('duel','sport','steady'));check('an olympic match is decided by set points, 6 wins',g.over&&(g.setPts[0]>=6||g.setPts[1]>=6||g.shootoff)&&g.setLog.length>=3&&g.st.id==='face70');F('acStop')();}
       {const g=start('train','sport',null,'balloons');let n=0,popped=false;while(n++<12){if(g.phase==='ready'){const t=g.tg.find(t=>t.alive);if(!t)break;const D=Math.hypot(t.x,t.z),a=F('acAngles')(g,F('acTP')(t,g.tt+D/F('AC_V0')+.2));g.yaw=a[0]-F('acDriftM')(g,D)/D;g.pitch=a[1];g.phase='set';g.draw=1;g.holdT=3.5;g.boff=0;F('acRelease')(g,0);}for(let i=0;i<60;i++){F('acStep')(g,1/30);if(g.tg.some(t=>!t.alive))popped=true;}}
        check('training can be played on a single station and balloons pop',g.mode==='train'&&g.st.id==='balloons'&&popped);F('acStop')();}
+      // ── online: the host shoots, the second device sees the same flight and the same result
+      {const pid0=G().myPid,srv0=G().srv;
+       try{W.eval("window._acOut=[];_ch={send:m=>{window._acOut.push(m.payload)}}");
+        const mk=()=>({phase:'game',gameId:'archery',host:'A',players:[{id:'A',name:'Ann',avatar:F('AVATARS')[0]},{id:'B',name:'Bo',avatar:F('AVATARS')[1]}],ah:{id:'a1',score:[0,0]},winner:null});
+        gg.isOnline=true;gg.selGame='archery';gg.srv=mk();G().myPid='A';gg.scr='table';F('acStop')();F('render')();F('acAttach')();let g=G().ac;F('acSize')(g);
+        check('online the set-up waits for the host to start (the host sees a start button)',!!g.net&&g.net.seat===0&&g.phase==='setup');
+        W.localStorage.setItem('ct_ac_pref',JSON.stringify({lv:'beginner',mode:'quick',venue:'golden',sens:'normal',st:'warm',assist:'off',ctrl:'pro'}));
+        F('acAction')(g,'start');const out0=W.eval('window._acOut'),go=out0.find(m=>m.k==='go');
+        check('the start of the host sends the settings and the seed to everybody',!!go&&go.mode==='quick'&&go.seed>0&&g.phase==='ready'&&g.curI===0&&!F('acWatch')(g));
+        const t=g.tg[0],D=Math.hypot(t.x,t.z),a=F('acAngles')(g,F('acTP')(t,g.tt+D/F('AC_V0')));g.yaw=a[0]-F('acDriftM')(g,D)/D;g.pitch=a[1];g.phase='set';g.draw=1;g.holdT=3.5;g.boff=0;F('acRelease')(g,0);
+        const shot=W.eval('window._acOut').find(m=>m.k==='shot');check('the shot of the shooter carries the flight, the target and the score',!!shot&&shot.path.length>3&&!!shot.hit&&shot.sc.v>=0&&shot.pi===0);
+        let n=0;while(g.phase==='flight'&&n++<900)F('acStep')(g,1/30);const totA=g.tot[0],vA=g.arrows[0][0].v;
+        check('the host sees the arrow arrive and counts it',g.phase==='result'&&totA>=0&&g.arrows[0].length===1);
+        // the second device
+        W.eval("window._acOut=[]");G().myPid='B';F('acStop')();gg.srv=mk();F('render')();F('acAttach')();const b=G().ac;F('acSize')(b);
+        check('the second device is seat 1 and waits in the set-up',b.net.seat===1&&b.phase==='setup'&&!F('acWatch')(b));
+        F('acOnBroadcast')(go);check('the start of the host starts the game here with the same targets',b.phase==='ready'&&b.mode==='quick'&&b.seed===g.seed&&b.tg.length===g.tg.length&&b.tg[0].x===g.tg[0].x&&F('acWatch')(b));
+        F('acOnBroadcast')({k:'sight',id:'a1',seat:0,s:50,y:.2,p:.1,d:.7,ph:'draw',tt:1.5,hl:0,lk:null});check('the watcher sees the view and the bow of the shooter',Math.abs(b.yaw-.2)<.001&&b.phase==='draw'&&Math.abs(b.draw-.7)<.01);
+        F('acOnBroadcast')(shot);check('the shot starts the same flight here',b.phase==='flight'&&!!b.fl&&b.fl.sc.v===shot.sc.v);
+        n=0;while(b.phase==='flight'&&n++<900)F('acStep')(b,1/30);
+        check('the watcher gets exactly the same score for the arrow',b.phase==='result'&&b.tot[0]===totA&&b.arrows[0][0].v===vA);
+        F('acOnBroadcast')(shot);check('the same message twice is counted once',b.arrows[0].length===1);
+        F('acStop')();
+       }finally{W.eval('window._acOut=null');W.eval('_ch=null');gg.isOnline=false;G().myPid=pid0;gg.srv=srv0;F('acStop')();}}
     }finally{if(pref0===null)W.localStorage.removeItem('ct_ac_pref');else W.localStorage.setItem('ct_ac_pref',pref0);if(prog0===null)W.localStorage.removeItem('ct_ac_prog');else W.localStorage.setItem('ct_ac_prog',prog0);try{F('acStop')();}catch(e){}gg.isOnline=k0[0];gg.selGame=k0[1];gg.lp=k0[2];gg.scr=k0[3];gg.ac=null;}
   });
   suite('Fairground: the LEVEL button works in every booth',()=>{

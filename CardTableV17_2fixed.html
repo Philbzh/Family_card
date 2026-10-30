@@ -4616,6 +4616,7 @@ function dbSub(id,cb){
       .on('broadcast',{event:'pb'},msg=>{try{pbOnBroadcast(msg&&msg.payload);}catch(e){}})
       .on('broadcast',{event:'ps'},msg=>{try{psOnBroadcast(msg&&msg.payload);}catch(e){}})
       .on('broadcast',{event:'cl'},msg=>{try{clOnBroadcast(msg&&msg.payload);}catch(e){}})
+      .on('broadcast',{event:'ac'},msg=>{try{acOnBroadcast(msg&&msg.payload);}catch(e){}})
       .subscribe(status=>{if(status==='SUBSCRIBED')_ch.track({pid:G.myPid});});
   }
   if(_poll)clearInterval(_poll);
@@ -5117,7 +5118,7 @@ const GAMES=[
 ];
 // Single source of truth for which unlocked games have online-multiplayer support, so the "online"
 // gate and the local-only badge on a game's card can never drift out of sync with each other.
-const ONLINE_GAMES=['clay','precision','balloonblast','marksman','hoopfever','pool','invaders','pong','airhockey','maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice','summit','hotbomb','vault','bust','escape','shutbox','fourrow','skull','tension','mayhem','chainreaction','gauntlet','abyss','blackwater','pinball'];
+const ONLINE_GAMES=['archery','clay','precision','balloonblast','marksman','hoopfever','pool','invaders','pong','airhockey','maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice','summit','hotbomb','vault','bust','escape','shutbox','fourrow','skull','tension','mayhem','chainreaction','gauntlet','abyss','blackwater','pinball'];
 // The Games tab groups its (growing) roster into these, rather than one long scroll -- every GAMES
 // entry's `cat` must be one of these ids. Order here is the order the category tiles are shown in.
 const GAME_CATEGORIES=[
@@ -30074,7 +30075,7 @@ function onSrvCore(state){
         if(state.winner!==prevWinner){
           if(state.winner===G.myPid){G.tw++;localStorage.setItem('ct_tw',G.tw);}
           const nms=(state.players||[]).map(p=>p.name),sc=(state.ah&&state.ah.score)||[0,0];
-          try{const nr=arRecordUpdate(state.gameId==='precision'?psRecKey(state.ah&&state.ah.stats&&state.ah.stats.ps&&state.ah.stats.ps.disc):state.gameId==='clay'?(CL_DISC[(state.ah&&state.ah.stats&&state.ah.stats.cl&&state.ah.stats.cl.disc)||'trap']||CL_DISC.trap).rec:state.gameId,nms,state.winnerName,sc,(state.ah&&state.ah.stats)||{});if(nr.length)setTimeout(()=>toast('🏆 New Arcade record'),900);}catch(e){}
+          try{const nr=arRecordUpdate(state.gameId==='precision'?psRecKey(state.ah&&state.ah.stats&&state.ah.stats.ps&&state.ah.stats.ps.disc):state.gameId==='clay'?(CL_DISC[(state.ah&&state.ah.stats&&state.ah.stats.cl&&state.ah.stats.cl.disc)||'trap']||CL_DISC.trap).rec:state.gameId==='archery'?((state.ah&&state.ah.stats&&state.ah.stats.ac&&state.ah.stats.ac.mode)==='quick'?'archery_quick':'archery_trail'):state.gameId,nms,state.winnerName,sc,(state.ah&&state.ah.stats)||{});if(nr.length)setTimeout(()=>toast('🏆 New Arcade record'),900);}catch(e){}
           addHistory({game:state.gameId,winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),players:nms,mode:'online',
             moment:state.moment||`${state.winnerName} won ${Math.max(sc[0],sc[1])}–${Math.min(sc[0],sc[1])}.`,
             stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions,ah:Object.assign({score:sc},state.ah&&state.ah.stats?state.ah.stats:{},{dur:(state.ah&&state.ah.dur)||0})}});
@@ -30082,9 +30083,10 @@ function onSrvCore(state){
           if(fgIs(state.gameId)){G.fgResult=(state.ah&&state.ah.stats&&state.ah.stats.fg)||null;G.ahMoment=state.moment||'';fgStop();}
           if(state.gameId==='pinball'){const pbr=(state.ah&&state.ah.stats&&state.ah.stats.pb)||null;G.pbResult=pbr;G.ahMoment=state.moment||'';if(pbr&&Array.isArray(pbr.entries)){pbHofAdd(pbr.entries);const all=pbHofAll(),ix=all.findIndex(e=>e.n===String(pbr.winnerName||'').slice(0,24)&&e.s===pbr.top);pbr.rank=ix>=0&&ix<10?ix+1:0;}pbStop();}
           if(state.gameId==='clay'){G.clResult=(state.ah&&state.ah.stats&&state.ah.stats.cl)||null;G.ahMoment=state.moment||'';}
+          if(state.gameId==='archery'){G.acResult=(state.ah&&state.ah.stats&&state.ah.stats.ac)||null;G.ahMoment=state.moment||'';}
           if(state.gameId==='precision'){const r=(state.ah&&state.ah.stats&&state.ah.stats.ps)||null;G.psResult=r;G.ahMoment=state.moment||'';if(r&&Array.isArray(r.names)){const when=new Date().toISOString();psLbAdd(r.names.map((n,i)=>({n:String(n||'').slice(0,24),s:r.st[i].tot/10,a:r.st[i].avg/10,d:when,lv:r.lv,dc:r.disc,pf:r.st[i].perfect})).filter(e=>e.s>0));const all=psLbAll(r.disc),ix=all.findIndex(e=>e.n===String(r.names[r.w]||'').slice(0,24)&&Math.abs(e.s-r.top/10)<.001);r.rank=ix>=0&&ix<10?ix+1:0;}}
-          _ahEndAt=Date.now()+(G.ah&&G.ah.live?3200:plLive()?plEndWaitMs():(psLive()||clLive())?2800:600);
-          setTimeout(()=>{if(G.isOnline&&G.srv&&ahIs(G.srv.gameId)&&G.srv.winner){ahStop();plStop();fgStop();psStop();clStop();G.scr='matchend';render();}},(_ahEndAt-Date.now())+80);
+          _ahEndAt=Date.now()+(G.ah&&G.ah.live?3200:plLive()?plEndWaitMs():(psLive()||clLive()||acLive())?2800:600);
+          setTimeout(()=>{if(G.isOnline&&G.srv&&ahIs(G.srv.gameId)&&G.srv.winner){ahStop();plStop();fgStop();psStop();clStop();acStop();G.scr='matchend';render();}},(_ahEndAt-Date.now())+80);
         }
         if(Date.now()<_ahEndAt){G.scr='table';return;}
         G.scr='matchend';render();return;
@@ -32523,10 +32525,17 @@ function acRnd(seed){let s=seed>>>0||1;return()=>{s=(s*1664525+1013904223)>>>0;r
 
 // ── a game ──
 function acNew(){
-  const pr=acPrefs(),src=G.lp.slice(0,4),players=src.map(p=>({name:p.name||'Player',avatar:p.avatar,bot:p.bot?(p.bot==='sharp'?'sharp':p.bot==='steady'?'steady':'gentle'):null}));
-  return{live:true,players,n:players.length,pr,lv:pr.lv,mode:pr.mode,venue:pr.venue,phase:'setup',t:0,last:performance.now(),raf:0,cv:null,q:0,dpr:1,f:400,
+  const pr=acPrefs(),src=G.isOnline?ahPlayers().slice(0,4):G.lp.slice(0,4),players=src.map(p=>({name:p.name||'Player',avatar:p.avatar,bot:G.isOnline?null:p.bot?(p.bot==='sharp'?'sharp':p.bot==='steady'?'steady':'gentle'):null}));
+  return{live:true,players,n:players.length,pr,net:G.isOnline?{id:G.srv&&G.srv.ah&&G.srv.ah.id,seat:Math.max(0,src.findIndex(q=>q.id===G.myPid)),sq:0,seen:{},helloAt:-9,goAt:-9,goUntil:0,cfg:null,sightAt:-9}:null,lv:pr.lv,mode:pr.mode,venue:pr.venue,phase:'setup',t:0,last:performance.now(),raf:0,cv:null,q:0,dpr:1,f:400,
     eye:[0,1.6,0],yaw:0,pitch:.05,zm:1,arrows:[],tot:[],ends:[],setPts:[],cur:null,curI:0,queue:[],qi:0,endNo:0,draw:0,wind:0,holdT:0,boff:0,sw1:0,sw2:0,sw3:0,fl:null,
     tg:[],stuck:[],puffs:[],pops:[],streak:[],bestStreak:[],stats:{start:Date.now()},hand:null,over:false,bot:null,lastShooter:-1,resT:0,hushT:0,callAt:-9,tt:0};
+}
+function acHost(){return !!(G.isOnline&&G.srv&&G.srv.host===G.myPid);}
+function acWatch(g){return !!(g&&g.net&&G.isOnline&&g.cur&&g.curI!==g.net.seat);}
+function acSend(g,m,rep){
+  if(!g||!g.net||!G.isOnline)return;m.id=g.net.id;m.seat=g.net.seat;m.s=++g.net.sq;
+  const go=()=>{try{if(_ch)_ch.send({type:'broadcast',event:'ac',payload:m});}catch(e){}};go();
+  if(rep)[300,900].forEach(d=>setTimeout(()=>{if(G.ac===g)go();},d));
 }
 function acStop(){const g=G.ac;if(!g)return;g.live=false;if(g.raf)cancelAnimationFrame(g.raf);g.raf=0;clearTimeout(g.endTm);G.ac=null;}
 function acLive(){return !!(G.ac&&G.ac.live&&G.scr==='table');}
@@ -32535,13 +32544,14 @@ function lDealArchery(){
   G.lp.forEach(p=>{p.totalScore=0;p.c4Result=null;p.psLine='';});
   G.ahMoment='';G.psResult=null;G.clResult=null;G.fgResult=null;G.pbResult=null;G.acResult=null;acStop();G.scr='table';
 }
-function acBegin(g){
-  const pr=acPrefs();if(acLocked('lv',pr.lv))pr.lv=Object.keys(AC_LV).filter(k=>!acLocked('lv',k)).pop();if(acLocked('venue',pr.venue))pr.venue='golden';g.stationStars={};
+function acBegin(g,cfg){
+  const pr=acPrefs();if(cfg){pr.mode=cfg.mode;pr.lv=cfg.lv;pr.venue=cfg.venue;}if(!cfg){if(acLocked('lv',pr.lv))pr.lv=Object.keys(AC_LV).filter(k=>!acLocked('lv',k)).pop();if(acLocked('venue',pr.venue))pr.venue='golden';}g.stationStars={};
   Object.assign(g,{ctrl:pr.ctrl==='pro'?'pro':'easy',lock:null,offY:0,offP:0,assist:['off','low','high'].includes(pr.assist)?pr.assist:'high',lv:AC_LV[pr.lv]?pr.lv:'beginner',mode:AC_MODES[pr.mode]?pr.mode:'trail',venue:AC_VENUES[pr.venue]?pr.venue:'golden',sens:pr.sens||'normal'});
   if(g.mode==='duel'&&g.players.length!==2)g.mode='quick';
+  if(G.isOnline&&g.mode==='train')g.mode='quick';
   if(g.mode==='train'){const h=g.players.findIndex(p=>!p.bot);g.who=[h<0?0:h];}else g.who=g.players.map((p,i)=>i);
   g.arrows=g.players.map(()=>[]);g.tot=g.players.map(()=>0);g.ends=g.players.map(()=>[]);g.setPts=g.players.map(()=>0);g.setLog=[];g.over=false;g.endNo=0;g.shootoff=false;
-  g.streak=g.players.map(()=>0);g.bestStreak=g.players.map(()=>0);g.bestArrow=null;g.seed=(Math.random()*1e9)|0;g.stats={start:Date.now()};g.stuck=[];g.wind=0;g.pano=null;
+  g.streak=g.players.map(()=>0);g.bestStreak=g.players.map(()=>0);g.bestArrow=null;g.seed=cfg&&cfg.seed?cfg.seed|0:(Math.random()*1e9)|0;g.stats={start:Date.now()};g.stuck=[];g.wind=0;g.pano=null;
   if(g.cv)acSize(g);acEndStart(g);
 }
 // which station is played in this end
@@ -32597,7 +32607,7 @@ function acEndStart(g){
   else{g.queue=[];g.who.forEach(p=>{for(let k=0;k<3;k++)g.queue.push(p);});}
   g.qi=0;g.fresh=true;acNewWind(g);acTurn(g);
 }
-function acNewWind(g){const L=AC_LV[g.lv],m=L.wind*(g.st&&g.st.id==='long'||g.st&&g.st.id==='face70'?1.15:1);g.windMax=m;g.gustAt=g.t+2;if(!m){g.wind=0;g.windT=0;return;}g.wind=Math.max(-m,Math.min(m,(g.wind||0)+(Math.random()-.5)*m*1.2+(g.endNo===1?(Math.random()-.5)*m:0)));g.windT=g.wind;}
+function acNewWind(g){const L=AC_LV[g.lv],R0=acRnd(g.seed+g.endNo*55+3),m=L.wind*(g.st&&g.st.id==='long'||g.st&&g.st.id==='face70'?1.15:1);g.windMax=m;g.gustAt=g.t+2;if(!m){g.wind=0;g.windT=0;return;}g.wind=Math.max(-m,Math.min(m,(g.wind||0)+(R0()-.5)*m*1.2+(g.endNo===1?(R0()-.5)*m:0)));g.windT=g.wind;}
 // where a target is at time t (they swing, drift, pop up)
 function acTP(tg,t){
   if(tg.mov){if(tg.mov.amp)return[tg.x+tg.mov.amp*Math.sin(6.283*t/tg.mov.per+tg.mov.ph),tg.y,tg.z];if(tg.mov.vx){const w=tg.mov.wrap*2,off=((tg.x+tg.mov.vx*t+tg.mov.wrap)%w+w)%w-tg.mov.wrap;return[off,tg.y,tg.z];}}
@@ -32610,13 +32620,13 @@ function acTurn(g){
   // each archer finds the station as it was for the one before
   if(g.mode!=='duel'&&(g.endArrows[g.curI]||[]).length===0||g.fresh){g.tg=acBuildTargets(g,g.st);g.stuck=[];g.tt=0;g.fresh=false;}
   const humans=g.players.filter(p=>!p.bot).length;
-  if(!g.cur.bot&&humans>1&&g.lastShooter!==g.curI){g.phase='hand';g.hand={at:g.t};acPaintOv(g);return;}
+  if(!G.isOnline&&!g.cur.bot&&humans>1&&g.lastShooter!==g.curI){g.phase='hand';g.hand={at:g.t};acPaintOv(g);return;}
   acReadyStart(g);
 }
 function acReadyStart(g){
   g.phase='ready';g.hand=null;g.draw=0;g.holdT=0;g.boff=Math.random();g.sw1=Math.random()*6.28;g.sw2=Math.random()*6.28;g.sw3=Math.random()*6.28;g.lastShooter=g.curI;g.pyaw=0;g.ppitch=0;
   g.yaw=0;g.pitch=.06;g.clockEnd=0;g.lock=null;g.offY=0;g.offP=0;
-  if(g.st.id==='popup'&&!g.cur.bot)g.clockEnd=g.t+{beginner:16,sport:13,elite:10,olympic:8}[g.lv];
+  if(g.st.id==='popup'&&!g.cur.bot&&!acWatch(g))g.clockEnd=g.t+{beginner:16,sport:13,elite:10,olympic:8}[g.lv];
   if(g.annTxt!==false&&g.nowArrow===1&&(g.endArrows[g.curI]||[]).length===0&&g.queue.indexOf(g.curI)===g.qi){acCall(g,g.st.n.toUpperCase()+'.',g.st.tip+(AC_GOAL[g.st.id]?' · ★★★ = '+AC_GOAL[g.st.id][2]+' points':''),3000,true);}
   g.bot=null;if(g.cur.bot){const B=AC_BOT[g.cur.bot];
     const live=g.tg.filter(t=>t.alive&&t.k!=='bonus'&&t.k!=='popup');live.sort((a,b)=>(b.v||5)-(a.v||5)+(a.z-b.z)*.02);
@@ -32688,6 +32698,9 @@ function acAutoLock(g){
   for(const t of g.tg){if(!t.alive||t.k==='bonus'||acVis(t,g.tt)<.5)continue;const a=acAngles(g,acTP(t,g.tt)),d=Math.hypot(a[0]-g.yaw,(a[1]-g.pitch)*1.4);if(d<bd){bd=d;best=t;}}
   if(best){g.lock=best.id;g.offY=0;g.offP=0;}
 }
+function acZoomFor(g,h){const tg=h&&h.tg?h.tg:null,W=g.cv?g.cv.width:600,H=g.cv?g.cv.height:800;let zh=1.8;
+  if(tg){const C=h.C||[tg.x,tg.y,tg.z],dist=Math.hypot(C[0],C[1]-1.6,C[2]),rp=tg.r*g.f/dist;zh=Math.max(1.8,Math.min(4.2,Math.min(W,H)*.3/Math.max(rp,1)));}
+  return zh;}
 function acRelease(g,sp){
   if(g.phase!=='set'&&g.phase!=='draw')return;
   const sw=acSway(g,g.t),bot=g.cur.bot?AC_BOT[g.cur.bot]:null,L=AC_LV[g.lv];
@@ -32697,11 +32710,12 @@ function acRelease(g,sp){
   const fl=acFly(g,yaw,pitch,g.draw,g.tt),h=fl.hit,sc=acScore(g,h&&!h.ground?h:null);
   const near=!!(h&&h.tg&&h.tg.k==='face'&&sc.v>=8&&sc.v<10&&sc.rr!==undefined&&(sc.rr-(10-sc.v)*.1)<.012),perfect=!!(h&&h.tg&&h.tg.k==='face'&&sc.v===10&&sc.rr<.2);
   g.fl={tt0:g.tt,t:0,u:0,path:fl.path,hit:h,sc,T:fl.path.length?fl.path[fl.path.length-1][0]:1,perfect,near,pi:g.curI,yaw,pitch,shown:0,tr:[]};
-  {const tg=h&&h.tg?h.tg:null,W=g.cv?g.cv.width:600,H=g.cv?g.cv.height:800;let zh=1.8;
-   if(tg){const C=h.C||[tg.x,tg.y,tg.z],dist=Math.hypot(C[0],C[1]-1.6,C[2]),rp=tg.r*g.f/dist;zh=Math.max(1.8,Math.min(4.2,Math.min(W,H)*.3/Math.max(rp,1)));}
-   g.fl.zh=zh;}
+  g.fl.zh=acZoomFor(g,h);
   g.phase='flight';g.shotAt=g.t;g.relDraw=g.draw;g.vib=g.t;g.kick=1;acSnd.release(g.draw);acSnd.whoosh(fl.path.length?fl.path[fl.path.length-1][0]*1.35:1);if(perfect)g.hushT=g.t+2.6;try{haptic(16);}catch(e){}
   g.draw=0;g.clockEnd=0;g.holding=false;
+  if(g.net&&G.isOnline&&!acWatch(g)){const pth=g.fl.path,n=pth.length,step=Math.max(1,Math.floor(n/36)),pp=[];for(let i=0;i<n;i+=step)pp.push([clR(pth[i][0]),clR(pth[i][1][0]),clR(pth[i][1][1]),clR(pth[i][1][2])]);if(n&&(n-1)%step)pp.push([clR(pth[n-1][0]),clR(pth[n-1][1][0]),clR(pth[n-1][1][1]),clR(pth[n-1][1][2])]);
+    const hh=g.fl.hit;acSend(g,{k:'shot',pi:g.curI,tt0:clR(g.fl.tt0),dr:clR(g.relDraw),yw:clR(yaw),pt:clR(pitch),w:clR(g.wind||0),T:clR(g.fl.T),path:pp,perfect:g.fl.perfect?1:0,near:g.fl.near?1:0,sc:{v:g.fl.sc.v|0,X:g.fl.sc.X?1:0,miss:g.fl.sc.miss?1:0,bal:g.fl.sc.bal?1:0,disc:g.fl.sc.disc?1:0,bonus:g.fl.sc.bonus?1:0,rr:clR(g.fl.sc.rr||0)},
+      hit:hh?{id:hh.tg?hh.tg.id:-1,ground:hh.ground?1:0,t:clR(hh.t),P:hh.P.map(clR),C:hh.C?hh.C.map(clR):null,off:hh.off?hh.off.map(clR):null,u:hh.u?hh.u.map(clR):null,ro:clR(hh.ro||0)}:null},true);}
 }
 function acImpact(g){
   const f=g.fl,h=f.hit,sc=f.sc;g.phase='result';g.resT=g.t;
@@ -32727,7 +32741,7 @@ function acImpact(g){
   g.pops.push({w:h&&h.P?h.P:[0,2,20],txt:sc.miss?'M':sc.X?'X':String(pts),t:0});
   const r1=document.getElementById('ac-r1'),r2=document.getElementById('ac-r2'),r3=document.getElementById('ac-r3'),r4=document.getElementById('ac-r4');
   if(r1)r1.textContent=g.cur.name.toUpperCase()+' · ARROW '+g.arrows[f.pi].length;if(r2)r2.textContent=lab+(streakTxt?' · '+streakTxt:'');if(r3){r3.textContent=sc.miss?'M':sc.X?'X':String(pts);r3.className='ps-rev-v'+(pts>=10?' gold':pts>=8?' ten':'');}if(r4)r4.textContent='TOTAL '+g.tot[f.pi];
-  if(!g.cur.bot){
+  if(!g.cur.bot&&!acWatch(g)){
     if(f.perfect)acSay(g,'Perfect shot!',.85,1);else if(sc.X)acSay(g,'Bullseye!',.9,1.05);else if(sc.bonus)acSay(g,'Golden clay!',1,1.05);else if(sc.v===10)acSay(g,'Ten!',.9,1.1);
     else if(g.streak[f.pi]>=5)acSay(g,g.streak[f.pi]+' in a row!',.9,1.05);else if(g.streak[f.pi]===3)acSay(g,'On fire!',.9,1.05);else if(sc.miss&&!sc.disc&&Math.random()<.5)acSay(g,'Missed.',.8,1);
     if(sc.v>=9||sc.bonus||sc.bal&&sc.v>=9)acSnd.clap(f.perfect||sc.X?3:g.streak[f.pi]>=3?2:1);}
@@ -32740,12 +32754,30 @@ function acImpact(g){
 }
 function acStationDone(g){
   const i=g.curI,id=g.st&&g.st.id,arr=g.endArrows[i]||[];if(!id||!AC_GOAL[id]||g.cur.bot||arr.length<3||g.mode==='duel')return;
-  const score=arr.reduce((a,r)=>a+r.v,0),n=acStarsOf(id,score),P=acProg(),before=acStarsTotal(),old=P.stars[id]|0;
-  if(n>old)P.stars[id]=n;const b=P.best[id];let rec=false;if(!b||score>b.v){P.best[id]={v:score,by:g.cur.name};rec=!!b;}acSaveProg(P);
+  const score=arr.reduce((a,r)=>a+r.v,0),n=acStarsOf(id,score),P=acProg(),before=acStarsTotal(),old=P.stars[id]|0;let rec=false;
+  if(!acWatch(g)){if(n>old)P.stars[id]=n;const b=P.best[id];if(!b||score>b.v){P.best[id]={v:score,by:g.cur.name};rec=!!b;}acSaveProg(P);}
   g.stationStars=g.stationStars||{};g.stationStars[i]=(g.stationStars[i]||0)+n;
   acCall(g,g.cur.name.toUpperCase()+' · '+'★'.repeat(n)+'☆'.repeat(3-n),score+' points'+(rec?' · STATION RECORD':'')+(n>old?' · new best':''),2400,true);
   if(n===3){try{hfSnd.cheer(1);}catch(e){}acSnd.clap(3);acSay(g,'Three stars!',1,1.05);}else if(n>=1)acSnd.clap(1);
   const after=acStarsTotal();for(const k of ['lv','venue'])for(const key of Object.keys(AC_UNLOCK[k])){const need=AC_UNLOCK[k][key];if(need>before&&need<=after)setTimeout(()=>toast('🔓 Unlocked: '+(k==='lv'?AC_LV[key].n+' level':AC_VENUES[key]+' place')),1200);}
+}
+function acOnBroadcast(m){
+  const g=G.ac;if(!g||!g.live||!g.net||!G.isOnline||!m||m.id!==g.net.id||m.seat===g.net.seat)return;
+  const sp=ahPlayers(),sender=sp[m.seat];if(!sender)return;
+  if(m.k!=='sight'&&m.k!=='hello'){const key=m.seat+':'+m.s;if(g.net.seen[key])return;g.net.seen[key]=1;}
+  if(m.k==='go'){if(g.phase==='setup'&&sender.id===G.srv.host){const cfg={mode:AC_MODES[m.mode]&&m.mode!=='train'?m.mode:'quick',lv:AC_LV[m.lv]?m.lv:'beginner',venue:AC_VENUES[m.venue]?m.venue:'golden',seed:m.seed|0};g.net.cfg=cfg;acBegin(g,cfg);acPaintOv(g);}}
+  else if(m.k==='hello'){if(acHost()&&g.phase!=='setup'&&g.net.cfg)g.net.goUntil=Math.max(g.net.goUntil,g.t+3);}
+  else if(m.seat!==g.curI)return;
+  else if(m.k==='sight'){if(!acWatch(g)||(g.phase!=='ready'&&g.phase!=='draw'&&g.phase!=='set'))return;const f=v=>Math.max(-7,Math.min(7,+v||0));g.yaw=f(m.y);g.pitch=Math.max(-.3,Math.min(1.4,+m.p||0));g.draw=Math.max(0,Math.min(1,+m.d||0));g.holdT=Math.max(0,Math.min(30,+m.hl||0));g.tt=Math.max(0,Math.min(600,+m.tt||0));g.lock=m.lk===null||m.lk===undefined?null:m.lk|0;
+    g.phase=m.ph==='draw'?'draw':m.ph==='set'?'set':'ready';}
+  else if(m.k==='shot'){if(!acWatch(g)||g.phase==='flight'||g.phase==='result')return;
+    const num=v=>+v||0,P3=a=>Array.isArray(a)&&a.length===3?[num(a[0]),num(a[1]),num(a[2])]:null;
+    const path=(m.path||[]).slice(0,80).map(a=>[num(a[0]),[num(a[1]),num(a[2]),num(a[3])]]);if(!path.length)return;
+    let hit=null;if(m.hit){const hh=m.hit,tg=hh.id>=0?g.tg.find(t=>t.id===hh.id):null;hit={t:num(hh.t),P:P3(hh.P)||path[path.length-1][1]};if(hh.ground)hit.ground=true;if(tg){hit.tg=tg;hit.C=P3(hh.C)||[tg.x,tg.y,tg.z];hit.off=P3(hh.off)||[0,0,0];hit.u=P3(hh.u)||[0,0,1];hit.ro=num(hh.ro);}}
+    const sc={v:Math.max(0,Math.min(30,m.sc&&m.sc.v|0)),X:!!(m.sc&&m.sc.X),miss:!!(m.sc&&m.sc.miss),bal:!!(m.sc&&m.sc.bal),disc:!!(m.sc&&m.sc.disc),bonus:!!(m.sc&&m.sc.bonus),rr:num(m.sc&&m.sc.rr)};
+    g.tt=Math.max(0,Math.min(600,num(m.tt0)));g.wind=Math.max(-12,Math.min(12,num(m.w)));
+    g.fl={tt0:g.tt,t:0,u:0,path,hit,sc,T:Math.max(.2,Math.min(6,num(m.T))),perfect:!!m.perfect,near:!!m.near,pi:g.curI,yaw:num(m.yw),pitch:num(m.pt),shown:0,tr:[]};
+    g.fl.zh=acZoomFor(g,hit&&!hit.ground?hit:null);g.relDraw=Math.max(0,Math.min(1,num(m.dr)));g.phase='flight';g.shotAt=g.t;g.vib=g.t;g.kick=1;g.draw=0;acSnd.release(g.relDraw);acSnd.whoosh(g.fl.T*1.35);if(g.fl.perfect)g.hushT=g.t+2.6;}
 }
 function acAfter(g){
   acStationDone(g);g.qi++;g.fl=null;g.sweep=0;
@@ -32770,6 +32802,7 @@ function acEndDone(g){
 function acStatsOf(g,i){const a=g.arrows[i],n=a.length,t=a.reduce((s,r)=>s+r.v,0);return{n,tot:t,tens:a.filter(r=>r.base>=10).length,X:a.filter(r=>r.X).length,nines:a.filter(r=>r.base>=9).length,best:Math.max(0,...(g.ends[i]||[0])),avg:n?t/n:0,miss:a.filter(r=>r.base===0).length,streak:g.bestStreak[i]||0};}
 function acFinish(g){
   if(g.over)return;g.over=true;g.phase='over';
+  if(G.isOnline&&g.net&&g.curI!==g.net.seat)return;   // the last shooter's device writes the result for everybody
   const st=g.players.map((p,i)=>acStatsOf(g,i));
   if(g.mode==='train'){g.summary=st[g.who[0]];g.phase='setup';acPaintOv(g);try{hfSnd.cheer(1);}catch(e){}return;}
   const key=i=>g.mode==='duel'?[g.setPts[i],st[i].tot,st[i].X]:[st[i].tot,st[i].tens,st[i].X],cmp=(a,b)=>{const x=key(a),y=key(b);for(let k=0;k<3;k++)if(x[k]!==y[k])return y[k]-x[k];return 0;};
@@ -32784,6 +32817,7 @@ function acFinish(g){
   const dur=Math.round((Date.now()-g.stats.start)/1000),when=new Date().toISOString();
   G.ahMoment=mom;G.fgResult=null;G.fgHighlight=null;G.pbResult=null;G.psResult=null;G.clResult=null;
   G.acResult={mode:g.mode,lv:g.lv,names:g.players.map(p=>p.name),bots:g.players.map(p=>!!p.bot),st,w,top:tot[w],dur,mom,rank,tot,setLog:g.setLog.slice(),venue:g.venue,best:g.bestArrow||null,stars:g.players.map((p,i)=>(g.stationStars&&g.stationStars[i])||0)};
+  if(G.isOnline){acNetFinish(g,{st,tot,w,tie,rank,mom});return;}
   G.tw=(G.tw||0)+1;try{localStorage.setItem('ct_tw',G.tw);}catch(e){}
   try{addHistory({game:'archery',winner:nm(w),winnerAvatar:g.players[w].avatar,date:when,players:g.players.map(p=>p.name),moment:mom,stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats?G.matchStats.reactions:0,ah:{score:tot,dur,lv:g.lv,dc:g.mode}}});}catch(e){}
   try{const hs=g.players.map((p,i)=>p.bot?-1:i).filter(i=>i>=0);
@@ -32792,6 +32826,19 @@ function acFinish(g){
       const nr=arRecordUpdate(g.mode==='quick'?'archery_quick':'archery_trail',g.players.map(p=>p.name),g.players[hb].name,[st[hb].tot,0],rs);if(nr.length)setTimeout(()=>toast('🏹 New Archery record'),900);}}catch(e){}
   try{hfSnd.cheer(1);}catch(e){}acCall(g,nm(w).toUpperCase()+(tie?' · TIE':' WINS.'),String(tot[w]),2400,true);
   g.endTm=setTimeout(()=>{if(G.ac===g&&G.scr==='table'){acStop();G.scr='matchend';render();}},2800);
+}
+function acNetFinish(g,c){
+  if(g.netEnded||!G.srv)return;g.netEnded=true;
+  const st=c.st,tot=c.tot,w=c.w,n=g.n,dur=Math.round((Date.now()-g.stats.start)/1000);
+  const res={mode:g.mode,lv:g.lv,names:g.players.map(p=>p.name),bots:g.players.map(()=>false),st,w,top:tot[w],dur,mom:c.mom,rank:c.rank,tot,setLog:g.setLog.slice(),venue:g.venue,best:g.bestArrow||null,stars:g.players.map((p,i)=>(g.stationStars&&g.stationStars[i])||0)};
+  try{hfSnd.cheer(1);}catch(e){}
+  const s2=JSON.parse(JSON.stringify(G.srv));
+  s2.players.forEach((q,i)=>{if(i>=n)return;q.totalScore=tot[i];q.c4Result=n===1?'win':(c.tie&&c.rank.slice(0,2).includes(i))?'draw':w===i?'win':'loss';q.psLine=g.mode==='duel'?tot[i]+' set points':st[i].tot+' pts · '+st[i].tens+' tens';});
+  s2.winner=s2.players[w].id;s2.winnerName=s2.players[w].name;s2.winnerAv=s2.players[w].avatar;s2.moment=c.mom;
+  s2.ah=Object.assign({},s2.ah||{},{score:tot,dur,stats:{perfect:Math.max(...st.map(x=>x.X)),bestRally:Math.max(...st.map(x=>x.streak)),saves:Math.max(...st.map(x=>x.tens)),team:0,lv:g.lv,dc:g.mode,ac:res}});
+  s2.lastAct=esc(s2.winnerName)+(c.tie?' tied.':' won the trail.');s2._ts=Date.now();
+  try{onSrv(s2);}catch(e){}
+  try{dbWrite(G.roomId,s2);}catch(e){}
 }
 function acCall(g,t,s,ms,force){psCall(g,t,s,ms,force);}
 function acLater(g,sec,fn){(g.later=g.later||[]).push({at:g.t+sec,fn});}
@@ -32982,7 +33029,10 @@ function acStep(g,dt){
   for(const p of g.pops)p.t+=dt;g.pops=g.pops.filter(p=>p.t<1);
   if(g.pyaw||g.ppitch){const k=1-Math.exp(-Math.min(.05,dt)*30),ay=g.pyaw*k,ap=g.ppitch*k;g.yaw=Math.max(-.95,Math.min(.95,g.yaw+ay));g.pitch=Math.max(-.12,Math.min(.8,g.pitch+ap));g.pyaw-=ay;g.ppitch-=ap;if(Math.abs(g.pyaw)<1e-5)g.pyaw=0;if(Math.abs(g.ppitch)<1e-5)g.ppitch=0;}
   if(g.clockEnd&&g.t>g.clockEnd&&(g.phase==='ready'||g.phase==='draw'||g.phase==='set')){g.clockEnd=0;acCall(g,'TIME.','the arrow has to go',1200,true);if(g.phase!=='set'){g.phase='set';g.draw=Math.max(.4,g.draw);}acRelease(g,0);}
-  if(!g.cur||!g.cur.bot){if((g.phase==='ready'||g.phase==='draw')&&g.ctrl==='easy'&&g.lock!=null)acLockStep(g,dt);}
+  if((!g.cur||!g.cur.bot)&&!acWatch(g)){if((g.phase==='ready'||g.phase==='draw')&&g.ctrl==='easy'&&g.lock!=null)acLockStep(g,dt);}
+  if(g.net&&G.isOnline&&g.cur&&!acWatch(g)&&(g.phase==='ready'||g.phase==='draw'||g.phase==='set')&&g.t-g.net.sightAt>.1){g.net.sightAt=g.t;acSend(g,{k:'sight',y:clR(g.yaw),p:clR(g.pitch),d:clR(g.draw),ph:g.phase,tt:clR(g.tt),hl:clR(g.holdT),lk:g.lock===undefined?null:g.lock},false);}
+  if(g.net&&G.isOnline){if(g.phase==='setup'&&!acHost()&&g.t-g.net.helloAt>1.2){g.net.helloAt=g.t;acSend(g,{k:'hello'},false);}
+    if(acHost()&&g.net.cfg&&g.t<g.net.goUntil&&g.t-g.net.goAt>1){g.net.goAt=g.t;acSend(g,{k:'go',mode:g.net.cfg.mode,lv:g.net.cfg.lv,venue:g.net.cfg.venue,seed:g.net.cfg.seed},false);}}
   if(g.phase==='ready'){
     if(g.cur&&g.cur.bot&&g.bot&&g.t>=g.bot.t0){g.phase='draw';g.holdT=0;g.bot.ds=g.t;g.bot.fy=g.yaw;g.bot.fp=g.pitch;acSnd.nock();}
   }else if(g.phase==='draw'){
@@ -32990,14 +33040,14 @@ function acStep(g,dt){
     if(g.cur.bot&&g.bot){const u=Math.min(1,(g.t-g.bot.ds)/g.bot.drawT);g.draw=u*u*(3-2*u);if(g.t%.3<dt)acSnd.draw(g.draw);
       const tg=g.bot.tg,p=tg?acTP(tg,g.tt):[0,1.5,25],a=acAngles(g,p);g.yaw=g.bot.fy+(a[0]-g.bot.fy)*u;g.pitch=g.bot.fp+(a[1]-g.bot.fp)*u;
       if(u>=1){g.draw=1;g.phase='set';g.holdT=0;g.bot.ss=g.t;acSnd.full();}}
-    else if(g.draw>=1){g.phase='set';g.holdT=0;acSnd.full();try{haptic([14,30,14]);}catch(e){}acCall(g,'FULL DRAW.','aim, breathe, then lift your finger',1400);}
+    else if(g.draw>=1&&!acWatch(g)){g.phase='set';g.holdT=0;acSnd.full();try{haptic([14,30,14]);}catch(e){}acCall(g,'FULL DRAW.','aim, breathe, then lift your finger',1400);}
   }else if(g.phase==='set'){
-    g.holdT+=dt;if(!g.cur.bot&&!(g.ctrl==='easy'&&g.lock!=null&&acLockStep(g,dt)))acAssist(g,dt);
+    if(!acWatch(g))g.holdT+=dt;else g.holdT+=0;if(!g.cur.bot&&!acWatch(g)&&!(g.ctrl==='easy'&&g.lock!=null&&acLockStep(g,dt)))acAssist(g,dt);
     if(g.cur.bot&&g.bot){const B=AC_BOT[g.cur.bot],tg=g.bot.tg;let a=[g.yaw,g.pitch];
       if(tg){const D=Math.hypot(tg.x,tg.z),Tf=D/AC_V0,lead=tg.mov?B.comp:0,p=acTP(tg,g.tt+Tf*lead),aa=acAngles(g,p);a=[aa[0]-acDriftM(g,D)/D*B.comp,aa[1]];}
       const ph=((g.holdT+g.boff*5.4)/5.4)%1;g.yaw+=(a[0]-g.yaw)*Math.min(1,dt*6);g.pitch+=(a[1]-g.pitch)*Math.min(1,dt*6);
       if(g.holdT>=g.bot.holdT&&(acCalm(ph)>.6||g.holdT>g.bot.holdT+3))acRelease(g,0);}
-    else if(g.holdT>9&&!g.late){g.late=1;acCall(g,'TOO LONG.','your arms are tiring: the sight shakes',1500);}
+    else if(g.holdT>9&&!g.late&&!acWatch(g)){g.late=1;acCall(g,'TOO LONG.','your arms are tiring: the sight shakes',1500);}
   }else if(g.phase==='flight'&&g.fl){
     const f=g.fl,k=(f.perfect&&f.u>.55?.3:1)*(g.replay?.7:1);f.u+=dt*k/(f.T*1.35);
     if(f.u>=1){f.u=1;if(g.replay){g.replay=false;g.tt=f.ttSave!==undefined?f.ttSave:g.tt;g.phase='result';g.resT=g.t;}else acImpact(g);}
@@ -33043,7 +33093,7 @@ function acHud(g){
 }
 function acPlayersHTML(g){return g.players.map((p,i)=>`<div class="ps-pl" id="ac-pl${i}"><span class="ah-av">${p.avatar?avHTML(p.avatar):''}</span><div class="ps-pn"><b>${esc((p.name||'').slice(0,12))}${p.bot?' 🤖':''}</b><i id="ac-pb${i}"></i></div><b class="ps-tot" id="ac-tot${i}">0</b><div class="ps-chips" id="ac-ch${i}"></div></div>`).join('');}
 function rArcheryTable(){
-  if(!G.ac||!G.ac.live){acStop();G.acResult=null;G.ac=acNew();}
+  if(!G.ac||!G.ac.live||(G.isOnline&&(!G.ac.net||!G.srv||!G.srv.ah||G.ac.net.id!==G.srv.ah.id))||(!G.isOnline&&G.ac.net)){acStop();G.acResult=null;G.ac=acNew();}
   const g=G.ac;setTimeout(acAttach,0);['sky','trees','grass','clay_g','clay'].forEach(clImg);['bow','hand','face_boss','face_hang','swing','popup','disc','bal_r','bal_b','bal_g','bal_y','bush1','bush2','snow','dune','hay_r','hay_s','sign','flag','lantern','dust','straw','pop','spark','ring','pine','fir','fir2','oak','birch','rock1','rock2','rock3','fence','fence2','board1','gate','arch','stand','quiver','bottle','bull','slide','gold','motes','fly','ray','snowfx','wind'].forEach(acImg);['night','winter','coast'].forEach(v=>['sky','trees','grass'].forEach(n=>clImg(v+'_'+n)));
   return`<div id="s-table" class="scr on game-airhockey game-precision game-clay game-archery">
     <div class="game-bar"><div class="gb-game">🏹 <span>Archery</span></div><div class="gb-turn" id="ac-status">OUR TABLE MODE · Archery</div><div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div></div>
@@ -33069,21 +33119,22 @@ function acPaintOv(g){
   const ov=document.getElementById('ac-ov');if(!ov||!g)return;let h='';const pr=acPrefs();
   if(acLocked('lv',pr.lv))pr.lv=Object.keys(AC_LV).filter(k=>!acLocked('lv',k)).pop();if(acLocked('venue',pr.venue))pr.venue='golden';
   if(g.phase==='setup'){
+    const onl=G.isOnline,host=acHost();
     const seg=(items,cur,key)=>`<div class="ps-seg">${items.map(([k,l])=>`<button class="${cur===k?'on':''}" data-acact="${key}" data-v="${k}">${l}</button>`).join('')}</div>`;
     const sm=g.summary,two=g.players.length===2;
     h=`<div class="ps-card"><div class="ps-kick">OLYMPIC GAMES</div><div class="ps-h1">ARCHERY</div><div class="ps-sub">THE FIELD TRAIL · OUR TABLE MODE</div>
       ${sm?`<div class="ps-sum"><div class="ps-sum-h">TRAINING COMPLETE</div><div class="ps-sum-r"><span><b>${sm.tot}</b>points</span><span><b>${sm.n}</b>arrows</span><span><b>${sm.tens}</b>tens</span><span><b>${sm.X}</b>X</span></div></div>`:''}
-      <div class="ps-grp">MODE</div>${seg([['trail','FIELD TRAIL'],['quick','QUICK SHOT'],['duel','OLYMPIC MATCH'],['train','TRAINING']],pr.mode,'mode')}
+      ${onl&&!host?'<div class="ps-note" style="text-align:center">The host chooses the mode, the place and the level.</div>':`<div class="ps-grp">MODE</div>${seg(onl?[['trail','FIELD TRAIL'],['quick','QUICK SHOT'],['duel','OLYMPIC MATCH']]:[['trail','FIELD TRAIL'],['quick','QUICK SHOT'],['duel','OLYMPIC MATCH'],['train','TRAINING']],pr.mode,'mode')}`}
       <div class="ps-note">${pr.mode==='trail'?'Walk a trail of eight stations, three arrows each: faces in the trees, bullseye posts, a swinging target, a sliding target, a balloon field, pop-ups and a golden target at 70 m with a golden clay. Streaks of good arrows earn bonus points. Gold, silver and bronze at the end.':pr.mode==='quick'?'One station, three arrows each, the highest total wins.':pr.mode==='duel'?(two?'The official head-to-head format on one face at 70 m: sets of three arrows, you take turns one arrow at a time. A set is worth 2 points (1 each if tied); the first to 6 set points wins. If it is 5 : 5, one arrow each: the higher ring wins.':'The Olympic match needs exactly two players. With another number of players it plays as a quick shot.'):'Practise one station as long as you like, no winner.'}</div>
-      ${pr.mode==='train'?'<div class="ps-grp">STATION</div>'+seg(AC_ST.map(s=>[s.id,s.n.toUpperCase()]),pr.st,'st'):''}
+      ${pr.mode==='train'&&!onl?'<div class="ps-grp">STATION</div>'+seg(AC_ST.map(s=>[s.id,s.n.toUpperCase()]),pr.st,'st'):''}
       <div class="ps-note" style="text-align:center">★ ${acStarsTotal()} / ${AC_ST.length*3} stars on this iPad${(()=>{const t=acStarsTotal(),nx=[].concat(Object.entries(AC_UNLOCK.lv).map(([k,v])=>[v,AC_LV[k].n+' level']),Object.entries(AC_UNLOCK.venue).map(([k,v])=>[v,AC_VENUES[k]])).filter(a=>a[0]>t).sort((a,b)=>a[0]-b[0])[0];return nx?' · next: '+nx[1]+' at '+nx[0]+' ★':' · everything unlocked';})()}</div>
-      <div class="ps-grp">PLACE</div>${seg(Object.keys(AC_VENUES).map(k=>[k,(acLocked('venue',k)?'🔒 ':'')+AC_VENUES[k]+(acLocked('venue',k)?' · '+AC_UNLOCK.venue[k]+'★':'')]),pr.venue,'venue')}
-      <div class="ps-grp">LEVEL</div>${seg(Object.keys(AC_LV).map(k=>[k,(acLocked('lv',k)?'🔒 ':'')+AC_LV[k].n.toUpperCase()+(acLocked('lv',k)?' · '+AC_UNLOCK.lv[k]+'★':'')]),pr.lv,'lv')}<div class="ps-note">${esc(AC_LV[pr.lv].about)}</div>
+      ${onl&&!host?'':`<div class="ps-grp">PLACE</div>`}${onl&&!host?'':seg(Object.keys(AC_VENUES).map(k=>[k,(acLocked('venue',k)?'🔒 ':'')+AC_VENUES[k]+(acLocked('venue',k)?' · '+AC_UNLOCK.venue[k]+'★':'')]),pr.venue,'venue')}
+      ${onl&&!host?'':`<div class="ps-grp">LEVEL</div>`}${onl&&!host?'':seg(Object.keys(AC_LV).map(k=>[k,(acLocked('lv',k)?'🔒 ':'')+AC_LV[k].n.toUpperCase()+(acLocked('lv',k)?' · '+AC_UNLOCK.lv[k]+'★':'')]),pr.lv,'lv')}<div class="ps-note">${esc(AC_LV[pr.lv].about)}</div>
       <div class="ps-grp">CONTROLS</div>${seg([['easy','EASY · TAP TO LOCK ON'],['pro','PRO · FREE AIM']],pr.ctrl,'ctrl')}<div class="ps-note">${pr.ctrl==='easy'?'Tap a target and the sight glides onto it (with the lead for a moving one and, on the easier levels, the wind). A drag nudges it a little. You hold the DRAW button, breathe and lift to shoot. If you do not tap, the target nearest to the middle is locked when you draw.':'Drag on the scenery to turn the view and aim yourself.'}</div>
       <div class="ps-grp">AIM HELP</div>${seg([['off','OFF'],['low','LOW'],['high','HIGH']],pr.assist,'assist')}<div class="ps-note">${pr.assist==='high'?'The sight is gently drawn to the target it is nearest to, with the lead for a moving one and the wind. You still have to hold, breathe and release.':pr.assist==='low'?'A light pull towards the nearest target.':'No help: pure aiming.'}</div>
       <div class="ps-grp">LOOKING AROUND</div>${seg([['slow','SLOW'],['normal','NORMAL'],['fast','FAST']],pr.sens,'sens')}
       <div class="ps-ppl">${g.players.map(p=>`<span>${p.avatar?'<span class="ah-av">'+avHTML(p.avatar)+'</span>':''}${esc(p.name)}${p.bot?' · '+AC_BOT[p.bot].n.toLowerCase()+' robot':''}</span>`).join('')}</div>
-      <button class="btn btn-gold ps-go" data-acact="start">${sm?'SHOOT AGAIN':'TO THE TRAIL'}</button>
+      ${onl&&!host?'<div class="ps-note" style="text-align:center;margin-top:.8rem;">Waiting for the host to start the trail…</div>':`<button class="btn btn-gold ps-go" data-acact="start">${onl?'START FOR EVERYONE':sm?'SHOOT AGAIN':'TO THE TRAIL'}</button>`}
       <div class="ps-fine">Two thumbs: <b>drag on the scenery</b> with one to look around and aim (it gets finer when you draw). <b>Hold the big DRAW button</b> on the right with the other: the string comes back by itself, the bow bends and the view zooms in. The view breathes: shoot in the gold part of the wave. <b>Lift the button finger to release.</b> The sight is set for the target in the middle of the view; the wind pushes the arrow, so aim into it.</div></div>`;
   }else if(g.phase==='hand'&&g.hand){
     h=`<div class="ps-card ps-small"><div class="ps-kick">${esc((g.st&&g.st.n||'').toUpperCase())} · ARROW ${g.nowArrow}</div><div class="ps-hand">${g.cur.avatar?'<span class="ah-av">'+avHTML(g.cur.avatar)+'</span>':''}<b>${esc(g.cur.name)}</b></div><button class="btn btn-gold ps-go" data-acact="ready">READY</button></div>`;
@@ -33098,14 +33149,14 @@ function acBindInput(){
   stage.addEventListener('touchstart',e=>{if(acLive()&&e.target.closest&&(e.target.closest('#ac-mid')||e.target.closest('[data-acfire]'))&&!e.target.closest('.ps-ov'))e.preventDefault();},{passive:false});
   stage.addEventListener('pointerdown',e=>{const g=G.ac;if(!g||!g.live)return;
     const fb=e.target.closest&&e.target.closest('[data-acfire]');
-    if(fb){e.preventDefault();if(!g.cur||g.cur.bot||g.phase!=='ready'||btn)return;try{stage.setPointerCapture(e.pointerId);}catch(x){}
+    if(fb){e.preventDefault();if(!g.cur||g.cur.bot||acWatch(g)||g.phase!=='ready'||btn)return;try{stage.setPointerCapture(e.pointerId);}catch(x){}
       g.phase='draw';g.draw=0;g.holdT=0;g.holding=true;btn={id:e.pointerId};acSnd.nock();return;}
     const rp=e.target.closest&&e.target.closest('[data-acreplay]');
     if(rp){e.preventDefault();if(g.phase==='result'&&g.fl&&g.fl.hit&&!g.over&&!g.replay){g.replay=true;g.fl.ttSave=g.tt;g.tt=g.fl.tt0;g.fl.u=0;g.phase='flight';g.vib=g.t;acSnd.release(.9);acSnd.whoosh(g.fl.T*1.35/.7);}return;}
     const rb=e.target.closest&&e.target.closest('[data-acrelax]');
     if(rb){e.preventDefault();if(g.phase==='draw'||g.phase==='set'){g.phase='ready';g.draw=0;g.holding=false;btn=null;acPaintOv(g);}return;}
     if(!e.target.closest||e.target.closest('button,a,.ps-ov,.talk-strip,#talk-strip'))return;
-    if(!g.cur||g.cur.bot||g.phase==='flight'||g.phase==='result'||g.phase==='hand'||g.phase==='setup'||aim)return;
+    if(!g.cur||g.cur.bot||acWatch(g)||g.phase==='flight'||g.phase==='result'||g.phase==='hand'||g.phase==='setup'||aim)return;
     e.preventDefault();try{stage.setPointerCapture(e.pointerId);}catch(x){}
     aim={id:e.pointerId,x:e.clientX,y:e.clientY,t:e.timeStamp,t0:e.timeStamp,sp:0,moved:0};},{passive:false});
   stage.addEventListener('pointermove',e=>{const g=G.ac;if(!aim||!g||e.pointerId!==aim.id||(g.phase!=='ready'&&g.phase!=='draw'&&g.phase!=='set'))return;
@@ -33129,7 +33180,7 @@ function acAction(g,a,v){
   else if(a==='sens'){if(!['slow','normal','fast'].includes(v))return;pr.sens=v;acSavePrefs(pr);g.sens=v;acPaintOv(g);}
   else if(a==='ctrl'){if(!['easy','pro'].includes(v))return;pr.ctrl=v;acSavePrefs(pr);g.ctrl=v;acPaintOv(g);}
   else if(a==='assist'){if(!['off','low','high'].includes(v))return;pr.assist=v;acSavePrefs(pr);g.assist=v;acPaintOv(g);}
-  else if(a==='start'){acBegin(g);acPaintOv(g);}
+  else if(a==='start'){if(G.isOnline){if(!acHost())return;const cfg={mode:pr.mode==='train'?'quick':(pr.mode==='duel'&&g.players.length!==2?'quick':pr.mode),lv:acLocked('lv',pr.lv)?'beginner':pr.lv,venue:acLocked('venue',pr.venue)?'golden':pr.venue,seed:((Math.random()*1e9)|0)+1};g.net.cfg=cfg;g.net.goUntil=g.t+8;g.net.goAt=g.t;acSend(g,{k:'go',mode:cfg.mode,lv:cfg.lv,venue:cfg.venue,seed:cfg.seed},true);acBegin(g,cfg);}else acBegin(g);acPaintOv(g);}
   else if(a==='ready'){if(g.phase==='hand')acReadyStart(g);}
   else if(a==='finishtrain'){if(g.mode==='train'&&g.phase!=='setup'&&g.phase!=='flight'&&g.phase!=='result')acFinish(g);}
 }
@@ -33341,7 +33392,7 @@ function oStartGame(rs){
         return;
       }
       if(ahIs(rs.gameId)){
-        const players=rs.players.slice(0,(fgIs(rs.gameId)||rs.gameId==='pinball'||rs.gameId==='precision'||rs.gameId==='clay')?((GAMES.find(x=>x.id===rs.gameId)||{}).maxP||2):2).map(p=>({...p,totalScore:0,c4Result:null}));
+        const players=rs.players.slice(0,(fgIs(rs.gameId)||rs.gameId==='pinball'||rs.gameId==='precision'||rs.gameId==='clay'||rs.gameId==='archery')?((GAMES.find(x=>x.id===rs.gameId)||{}).maxP||2):2).map(p=>({...p,totalScore:0,c4Result:null}));
         const gs={phase:'game',gameId:rs.gameId,host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
           arSeries:rs.arSeries||null,ah:{id:'ah'+Date.now().toString(36)+Math.floor(Math.random()*1e4),score:[0,0]},pl:rs.gameId==='pool'?plNew(plRulesPref(),plAssistPref(),plNextStarter()):undefined,winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
         G.srv=gs;G.ah=null;G.pl=null;G.fg=null;G.fgResult=null;G.fgHighlight=null;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
