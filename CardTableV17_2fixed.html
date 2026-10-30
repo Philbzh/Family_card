@@ -256,6 +256,7 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 }
 /* sidebar only ever renders above 1100px (#app-sidebar-root is display:none otherwise) */
 .app-sb-brand{text-align:center;margin-bottom:26px;}
+.app-sb-suit img{width:40px;height:auto;display:block;margin:0 auto 2px;filter:drop-shadow(0 0 10px rgba(232,201,135,.55));}
 .app-sb-suit{font-family:'Cinzel Decorative',var(--serif);font-weight:900;font-size:18px;color:#e0b463;line-height:1;margin-bottom:5px;text-shadow:0 0 20px rgba(232,201,135,.75);}
 .app-sb-word{font-family:var(--serif);font-weight:700;font-size:1.32rem;letter-spacing:.1em;line-height:1.02;text-transform:uppercase;
   background:linear-gradient(180deg,#f8ecc6 0%,#f0d998 38%,#c99b4e 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;}
@@ -340,8 +341,8 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .home-v10{position:relative;}
 .home-v10::before{content:"";position:fixed;width:38rem;height:38rem;border-radius:50%;left:-15rem;bottom:-12rem;background:radial-gradient(circle,rgba(50,150,100,.22),transparent 70%);pointer-events:none;z-index:0;animation:home-glow-drift 16s ease-in-out infinite;}
 @keyframes home-glow-drift{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(2.5rem,-2rem) scale(1.1);}}
-.v10-hero{padding:clamp(250px,70vw,380px) 1.2rem 1.1rem;position:relative;background:linear-gradient(180deg,rgba(8,17,14,0) 0%,rgba(8,17,14,0) 52%,rgba(8,17,14,.6) 66%,#08110e 84%),url(assets/ui/home.jpg) center top/100% auto no-repeat,#08110e;border-radius:0 0 24px 24px;}
-@media(min-width:600px){.v10-hero{background:linear-gradient(180deg,rgba(8,17,14,0) 0%,rgba(8,17,14,0) 46%,rgba(8,17,14,.6) 62%,#08110e 82%),url(assets/ui/home.jpg) center 70%/cover no-repeat,#08110e;padding-top:360px;}}
+.v10-hero{padding:clamp(250px,70vw,380px) 1.2rem 1.1rem;position:relative;background:linear-gradient(180deg,rgba(8,17,14,0) 0%,rgba(8,17,14,0) 52%,rgba(8,17,14,.6) 66%,#08110e 84%),var(--heroimg,url(assets/ui/home.jpg)) center top/100% auto no-repeat,#08110e;border-radius:0 0 24px 24px;}
+@media(min-width:600px){.v10-hero{background:linear-gradient(180deg,rgba(8,17,14,0) 0%,rgba(8,17,14,0) 46%,rgba(8,17,14,.6) 62%,#08110e 82%),var(--heroimg,url(assets/ui/home.jpg)) center 70%/cover no-repeat,#08110e;padding-top:360px;}}
 .v10-hero::before{content:"";position:absolute;width:26rem;height:26rem;border-radius:50%;right:-9rem;top:-12rem;background:radial-gradient(circle,rgba(220,180,100,.32),transparent 68%);pointer-events:none;}
 .v10-hero::after{content:"";position:absolute;width:17rem;height:17rem;border-radius:50%;left:-7rem;top:1rem;background:radial-gradient(circle,rgba(130,80,190,.18),transparent 70%);pointer-events:none;}
 .v10-kicker{font-size:.63rem;text-transform:uppercase;letter-spacing:.24em;color:var(--paper2);font-weight:600;margin-bottom:.55rem;opacity:.8;}
@@ -370,6 +371,7 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .v10-game-meta{font-size:.66rem;color:var(--paper3);margin-top:.12rem;}
 .v10-arrow{width:2.25rem;height:2.25rem;border-radius:50%;border:1px solid rgba(234,208,138,.25);background:rgba(0,0,0,.12);display:grid;place-items:center;color:var(--gold2);font-size:1rem;}
 .v10-section{display:flex;align-items:end;justify-content:space-between;margin:1.15rem 1.2rem .6rem;}
+.v10-section-title::after{content:'';display:block;height:12px;margin-top:.3rem;background:url(assets/ui/divider.png) left center/auto 12px no-repeat;opacity:.9;}
 .v10-section-title{font-family:var(--serif);font-size:1rem;color:var(--gold2);text-transform:uppercase;letter-spacing:.14em;font-weight:600;}
 .v10-section-note{font-size:.6rem;text-transform:uppercase;letter-spacing:.14em;color:var(--paper3);}
 /* ─── THE PLAQUE — an engraved nameplate for your table ─── */
@@ -771,7 +773,7 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 
   /* ── hero table photo (desktop-only element, hidden below 1100px) ── */
   .v10-table-motif{display:block;position:absolute;right:0;top:0;bottom:0;width:min(64%,760px);pointer-events:none;z-index:1;
-    background-image:url('assets/ui/home.jpg');background-size:cover;background-position:50% 64%;
+    background-image:var(--heroimg,url('assets/ui/home.jpg'));background-size:cover;background-position:50% 64%;
     -webkit-mask-image:linear-gradient(to right,transparent,rgba(0,0,0,.55) 18%,#000 42%);
     mask-image:linear-gradient(to right,transparent,rgba(0,0,0,.55) 18%,#000 42%);}
 
@@ -5144,6 +5146,8 @@ const GAME_CATEGORIES=[
   {id:'coop',icon:'🔐',name:'Co-op Adventures',desc:'Escape together, one screen each'},
 ];
 
+// the hero picture of the home screen follows the clock: the salon by day, by candlelight after six in the evening
+(function(){try{const h=new Date().getHours();document.documentElement.style.setProperty('--heroimg',(h>=18||h<6)?'url(assets/ui/home_night.jpg)':'url(assets/ui/home.jpg)');}catch(e){}})();
 function isRed(s){return s==='hearts'||s==='diamonds';}
 function mod(n,m){return((n%m)+m)%m;}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -30716,7 +30720,7 @@ function rMobileNav(){
 function rSidebar(){
   const{active:nav,items}=navModel();
   const rows=items.map(it=>`<div class="app-sb-item${nav===it.id?' active':''}${it.enabled?'':' disabled'}" ${it.enabled?`data-a="nav-${it.id}"`:''}><span class="ico">${it.ico}</span>${esc(it.label)}${it.soon?' <span style="font-size:.56rem;opacity:.7;margin-left:auto;">SOON</span>':''}</div>`).join('');
-  return`<div class="app-sb-brand"><div class="app-sb-suit">&spades;</div><div class="app-sb-word">OUR <em>TABLE</em></div><div class="app-sb-ver">2.0</div></div>
+  return`<div class="app-sb-brand"><div class="app-sb-suit"><img src="assets/ui/emblem.png" alt="" width="40" height="37"></div><div class="app-sb-word">OUR <em>TABLE</em></div><div class="app-sb-ver">2.0</div></div>
     <div class="app-sb-nav">${rows}</div>
     <div class="app-sb-foot" data-a="profile-edit" role="button" tabindex="0" aria-label="Edit your name and avatar"><div class="av">${avHTML(G.myAvatar||AVATARS[0])}</div><div><div class="app-sb-foot-name">${esc(G.myName||'Player')}</div><div class="app-sb-foot-sub">${G.gp} games · ${G.tw} wins</div></div></div>`;
 }
