@@ -6326,6 +6326,16 @@ async function runPresentation(A,W,frame){
        check('everybody shoots three arrows at every station',g.arrows[0].length===24&&g.arrows[1].length===24);
        check('a good player scores on most arrows',g.arrows[0].filter(a=>a.base>0).length>=16);
        check('the result lists the medals',!!G().acResult&&G().acResult.mode==='trail'&&G().acResult.rank.length===2);F('acStop')();}
+      {const g=start('time','sport','sharp');check('time attack: smaller faces than on the trail, a clock for every archer',g.mode==='time'&&g.tg[0].r<.5&&g.tlLeft===g.tl&&g.tl===60);
+       const q=start('quick','sport',null);check('time attack faces are smaller than the quick shot faces',q.tg[0].r>.55);
+       const g2=start('time','sport','sharp');const waves=[];let lw=0,n=0,r0=0;
+       while(!g2.over&&n++<150000){if(g2.wave!==lw&&g2.curI===0){lw=g2.wave;waves.push(g2.st.id);}
+        if(g2.phase==='hand')F('acAction')(g2,'ready');
+        else if(g2.phase==='ready'&&!g2.cur.bot){const tgs=g2.tg.filter(t=>t.alive&&t.k!=='bonus'&&(t.k!=='popup'||F('acVis')(t,g2.tt+.8)>.5));const t=tgs[0]||g2.tg[0],D=Math.hypot(t.x,t.z),a=F('acAngles')(g2,F('acTP')(t,g2.tt+D/F('AC_V0')+.2));g2.yaw=a[0]-F('acDriftM')(g2,D)/D;g2.pitch=a[1];g2.lock=t.id;g2.phase='set';g2.draw=1;g2.holdT=1;F('acRelease')(g2,0);}
+        F('acStep')(g2,1/30);}
+       check('time attack ends after both archers had their minute',g2.over&&g2.arrows[0].length>=8&&g2.arrows[1].length>=5);
+       check('the waves of targets follow each other every three arrows',waves.length>=3&&waves[0]==='warm'&&waves[1]==='trees');
+       check('the result is a time attack with the highest total on top',!!G().acResult&&G().acResult.mode==='time'&&G().acResult.tl===60&&G().acResult.rank.length===2&&G().acResult.tot[G().acResult.rank[0]]>=G().acResult.tot[G().acResult.rank[1]]);F('acStop')();}
       {check('stars come from the points of the three arrows (goal per station)',F('acStarsOf')('warm',13)===0&&F('acStarsOf')('warm',14)===1&&F('acStarsOf')('warm',21)===2&&F('acStarsOf')('warm',26)===3);
        W.localStorage.setItem('ct_ac_prog',JSON.stringify({stars:{warm:1},best:{}}));check('levels and places are locked until enough stars are earned',F('acLocked')('lv','beginner')===false&&F('acLocked')('lv','sport')===true&&F('acLocked')('lv','olympic')===true&&F('acLocked')('venue','winter')===true&&F('acStarsTotal')()===1);
        W.localStorage.setItem('ct_ac_prog',JSON.stringify({stars:{warm:3,trees:3,bulls:3,swing:3,slide:3,balloons:3,popup:3,long:3},best:{}}));}
