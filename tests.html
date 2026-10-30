@@ -6328,6 +6328,12 @@ async function runPresentation(A,W,frame){
       {check('stars come from the points of the three arrows (goal per station)',F('acStarsOf')('warm',13)===0&&F('acStarsOf')('warm',14)===1&&F('acStarsOf')('warm',21)===2&&F('acStarsOf')('warm',26)===3);
        W.localStorage.setItem('ct_ac_prog',JSON.stringify({stars:{warm:1},best:{}}));check('levels and places are locked until enough stars are earned',F('acLocked')('lv','beginner')===false&&F('acLocked')('lv','sport')===true&&F('acLocked')('lv','olympic')===true&&F('acLocked')('venue','winter')===true&&F('acStarsTotal')()===1);
        W.localStorage.setItem('ct_ac_prog',JSON.stringify({stars:{warm:3,trees:3,bulls:3,swing:3,slide:3,balloons:3,popup:3,long:3},best:{}}));}
+      {const g=start('finals','sport',null);const seq=[];let le=0,n=0;
+       while(!g.over&&n++<250000){if(g.endNo!==le){le=g.endNo;seq.push(g.fin.alive.length+(g.fin.sd?'s':''));}
+        if(g.phase==='ready'&&!g.cur.bot){const tgs=g.tg.filter(t=>t.alive&&t.k!=='bonus'&&(t.k!=='popup'||F('acVis')(t,g.tt+.8)>.5));const t=tgs[0]||g.tg[0],D=Math.hypot(t.x,t.z),a=F('acAngles')(g,F('acTP')(t,g.tt+D/F('AC_V0')+.2));g.yaw=a[0]-F('acDriftM')(g,D)/D;g.pitch=a[1];g.phase='set';g.draw=1;g.holdT=3.5;g.boff=0;F('acRelease')(g,0);}
+        F('acStep')(g,1/30);}
+       check('finals night: you and three robots, 4 then 3 then 2 finalists',g.over&&g.players.length===4&&seq.slice(0,5).join()==='4,4,3,2,2'.replace('2,2','2')||seq.slice(0,4).join()==='4,4,3,2');
+       check('finals night ends with a champion and a full ranking',g.fin.champ!=null&&g.fin.rank.length===4&&new Set(g.fin.rank).size===4&&g.fin.rank[0]===g.fin.champ&&G().acResult.rank[0]===g.fin.champ);F('acStop')();}
       {const g=play(start('quick','sport','gentle'));check('a quick shot ends after three arrows each',g.over&&g.arrows[0].length===3&&g.arrows[1].length===3);F('acStop')();}
       {const g=play(start('duel','sport','steady'));check('an olympic match is decided by set points, 6 wins',g.over&&(g.setPts[0]>=6||g.setPts[1]>=6||g.shootoff)&&g.setLog.length>=3&&g.st.id==='face70');F('acStop')();}
       {const g=start('train','sport',null,'balloons');let n=0,popped=false;while(n++<12){if(g.phase==='ready'){const t=g.tg.find(t=>t.alive);if(!t)break;const D=Math.hypot(t.x,t.z),a=F('acAngles')(g,F('acTP')(t,g.tt+D/F('AC_V0')+.2));g.yaw=a[0]-F('acDriftM')(g,D)/D;g.pitch=a[1];g.phase='set';g.draw=1;g.holdT=3.5;g.boff=0;F('acRelease')(g,0);}for(let i=0;i<60;i++){F('acStep')(g,1/30);if(g.tg.some(t=>!t.alive))popped=true;}}

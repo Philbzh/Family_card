@@ -4971,7 +4971,8 @@ const GAMES=[
      '<b>The view breathes.</b> It never rests. The wave at the top shows your breath: the <b>gold part is the calm moment</b>, the best time to shoot. Hold too long and your arms tire. A jerky finger spoils the arrow. The sight is set (like a range finder) for the target in the middle of the view, the arrow still drops over the distance by itself.',
      '<b>The arrow flies for real</b> in three dimensions: <b>the wind</b> pushes it sideways (flags show it; Beginner and Sport show a dotted hint), and <b>moving targets</b> must be led: aim where they will be when the arrow arrives.',
      '<b>Scoring.</b> Faces have ten rings (gold 10-9, red 8-7, blue 6-5, black 4-3, white 2-1, X in the middle of the gold); a steel disc gives 10, 7 or 4 and rings when you hit it; balloons are worth 5, 7, 9 or 15 (clear them all for +10); the golden clay is worth 25. Three good arrows in a row (7 or more) start a <b>streak</b> that adds up to 3 bonus points per arrow.',
-     '<b>Modes:</b> Field Trail (six stations), Quick Shot (one station), Training (any station) and the <b>Olympic Match</b> for two players, the official head-to-head format on one face at 70 m: sets of three arrows with one arrow each in turn, 2 points for the set (1 each if it is tied), the first to 6 set points wins, a 5 : 5 is decided by one arrow each. With several people on one iPad you shoot in turn; robots (gentle, steady, sharp) can join. This is OUR TABLE MODE: simplified for the family.']},
+     '<b>Finals Night:</b> you and three robots (online: the people in the room). Everybody shoots two stations, then after every station the lowest goes out until two are left; they shoot one more station and, if they are level, one arrow each at the golden face until one is ahead. Gold, silver and bronze for the first three.',
+     '<b>Modes:</b> Field Trail (eight stations), Quick Shot (one station), Training (any station) and the <b>Olympic Match</b> for two players, the official head-to-head format on one face at 70 m: sets of three arrows with one arrow each in turn, 2 points for the set (1 each if it is tied), the first to 6 set points wins, a 5 : 5 is decided by one arrow each. With several people on one iPad you shoot in turn; robots (gentle, steady, sharp) can join. This is OUR TABLE MODE: simplified for the family.']},
   {id:'precision',cat:'olympic',icon:'🏅',name:'Precision Shooting',players:'1–4',dur:'8–15 min',diff:'hard',deal:0,minP:1,maxP:4,cover:'assets/games/precision.jpg',
    rules:['<b>Air Rifle and Air Pistol, 10 m.</b> Calm, exact, honest. You shoot twenty pellets at a real air target (choose the DISCIPLINE before you start). Everything is true to scale: the rifle target is 45.5 mm wide with a dot for a ten, the pistol target is 155.5 mm wide and a pistol is held with one hand, so it wobbles more. The pellet is 4.5 mm.',
      '<b>The sight.</b> Drag a finger on the target: the sight moves fast when it is far from the middle and very finely near it. The three small arrows move it exactly <b>0.1 mm</b> per tap (hold for a slow movement).',
@@ -32515,7 +32516,7 @@ function acSaveProg(p){try{localStorage.setItem('ct_ac_prog',JSON.stringify(p));
 function acStarsTotal(){const p=acProg();return Object.values(p.stars).reduce((a,v)=>a+(v|0),0);}
 function acStarsOf(id,score){const t=AC_GOAL[id];return t?t.filter(v=>score>=v).length:0;}
 function acLocked(kind,key){return (AC_UNLOCK[kind][key]||0)>acStarsTotal();}
-const AC_MODES={trail:{n:'FIELD TRAIL',st:8},quick:{n:'QUICK SHOT',st:1},duel:{n:'OLYMPIC MATCH',st:5},train:{n:'TRAINING',st:0}};
+const AC_MODES={finals:{n:'FINALS NIGHT',st:99},trail:{n:'FIELD TRAIL',st:8},quick:{n:'QUICK SHOT',st:1},duel:{n:'OLYMPIC MATCH',st:5},train:{n:'TRAINING',st:0}};
 function acPrefs(){let p={};try{p=JSON.parse(localStorage.getItem('ct_ac_pref')||'{}')||{};}catch(e){}return Object.assign({lv:'beginner',mode:'trail',venue:'golden',sens:'normal',st:'warm',assist:'high',ctrl:'easy'},p);}
 function acSavePrefs(p){try{localStorage.setItem('ct_ac_pref',JSON.stringify({lv:p.lv,mode:p.mode,venue:p.venue,sens:p.sens,st:p.st,assist:p.assist,ctrl:p.ctrl}));}catch(e){}}
 const acG=()=>{let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(6.283*v);};
@@ -32544,14 +32545,18 @@ function lDealArchery(){
   G.lp.forEach(p=>{p.totalScore=0;p.c4Result=null;p.psLine='';});
   G.ahMoment='';G.psResult=null;G.clResult=null;G.fgResult=null;G.pbResult=null;G.acResult=null;acStop();G.scr='table';
 }
+const AC_FINBOTS=[['Marco','steady'],['Lena','sharp'],['Akira','gentle']];
 function acBegin(g,cfg){
   const pr=acPrefs();if(cfg){pr.mode=cfg.mode;pr.lv=cfg.lv;pr.venue=cfg.venue;}if(!cfg){if(acLocked('lv',pr.lv))pr.lv=Object.keys(AC_LV).filter(k=>!acLocked('lv',k)).pop();if(acLocked('venue',pr.venue))pr.venue='golden';}g.stationStars={};
   Object.assign(g,{ctrl:pr.ctrl==='pro'?'pro':'easy',lock:null,offY:0,offP:0,assist:['off','low','high'].includes(pr.assist)?pr.assist:'high',lv:AC_LV[pr.lv]?pr.lv:'beginner',mode:AC_MODES[pr.mode]?pr.mode:'trail',venue:AC_VENUES[pr.venue]?pr.venue:'golden',sens:pr.sens||'normal'});
   if(g.mode==='duel'&&g.players.length!==2)g.mode='quick';
+  if(g.mode==='finals'&&!G.isOnline){let k=0;while(g.players.length<4){const b=AC_FINBOTS[k++%AC_FINBOTS.length];g.players.push({name:b[0],avatar:AVATARS[(g.players.length+2)%AVATARS.length],bot:b[1]});}g.n=g.players.length;const L=document.getElementById('ac-left');if(L)L.innerHTML=acPlayersHTML(g);}
+  if(g.mode==='finals'&&g.players.length<2)g.mode='quick';
   if(G.isOnline&&g.mode==='train')g.mode='quick';
   if(g.mode==='train'){const h=g.players.findIndex(p=>!p.bot);g.who=[h<0?0:h];}else g.who=g.players.map((p,i)=>i);
   g.arrows=g.players.map(()=>[]);g.tot=g.players.map(()=>0);g.ends=g.players.map(()=>[]);g.setPts=g.players.map(()=>0);g.setLog=[];g.over=false;g.endNo=0;g.shootoff=false;
-  g.streak=g.players.map(()=>0);g.bestStreak=g.players.map(()=>0);g.bestArrow=null;g.seed=cfg&&cfg.seed?cfg.seed|0:(Math.random()*1e9)|0;g.stats={start:Date.now()};g.stuck=[];g.wind=0;g.pano=null;
+  g.streak=g.players.map(()=>0);g.bestStreak=g.players.map(()=>0);g.bestArrow=null;
+  g.fin=g.mode==='finals'?{alive:g.players.map((p,i)=>i),out:[],stage:0,sd:0,champ:null,rank:null,cuts:Array.from({length:Math.max(0,g.players.length-2)},(_,i)=>g.players.length-1-i)}:null;g.seed=cfg&&cfg.seed?cfg.seed|0:(Math.random()*1e9)|0;g.stats={start:Date.now()};g.stuck=[];g.wind=0;g.pano=null;
   if(g.cv)acSize(g);acEndStart(g);
 }
 // which station is played in this end
@@ -32580,6 +32585,7 @@ const AC_TINT={night:'rgba(6,14,38,.6)',winter:'rgba(225,238,255,.22)',coast:'rg
 const AC_TC={};
 function acTinted(n,V){const im=acImg(n);if(!im)return null;const t=AC_TINT[V];if(!t||n==='lantern')return im;const k=n+'|'+V;if(AC_TC[k])return AC_TC[k];const c=document.createElement('canvas');c.width=im.width;c.height=im.height;const q=c.getContext('2d');q.drawImage(im,0,0);q.globalCompositeOperation='source-atop';q.fillStyle=t;q.fillRect(0,0,c.width,c.height);AC_TC[k]=c;return c;}
 function acStationFor(g){
+  if(g.fin&&g.fin.sd>0)return{id:'face70',n:'Sudden death',tip:'one arrow each at the golden face: the higher ring wins',clock:0};
   if(g.mode==='duel')return{id:'face70',n:'Olympic match',tip:'one face at 70 m, sets of three arrows',clock:0};
   if(g.mode==='train')return AC_ST.find(s=>s.id===g.pr.st)||AC_ST[0];
   if(g.mode==='quick')return AC_ST[0];
@@ -32603,7 +32609,8 @@ function acBuildTargets(g,st){
 }
 function acEndStart(g){
   g.endNo++;g.endArrows=g.players.map(()=>[]);g.stuck=[];g.st=acStationFor(g);g.late=0;g.dec=null;
-  if(g.mode==='duel')g.queue=g.shootoff?[0,1]:[0,1,0,1,0,1];
+  if(g.fin&&g.fin.sd>0)g.queue=g.fin.alive.slice();
+  else if(g.mode==='duel')g.queue=g.shootoff?[0,1]:[0,1,0,1,0,1];
   else{g.queue=[];g.who.forEach(p=>{for(let k=0;k<3;k++)g.queue.push(p);});}
   g.qi=0;g.fresh=true;acNewWind(g);acTurn(g);
 }
@@ -32753,7 +32760,7 @@ function acImpact(g){
   const al=g.tg.filter(t=>t.k==='balloon');if(al.length&&al.every(t=>!t.alive)&&!g.sweep){g.sweep=1;g.tot[f.pi]+=10;g.arrows[f.pi][g.arrows[f.pi].length-1].v+=10;acCall(g,'BALLOONS CLEARED.','+10',1600,true);}
 }
 function acStationDone(g){
-  const i=g.curI,id=g.st&&g.st.id,arr=g.endArrows[i]||[];if(!id||!AC_GOAL[id]||g.cur.bot||arr.length<3||g.mode==='duel')return;
+  const i=g.curI,id=g.st&&g.st.id,arr=g.endArrows[i]||[];if(!id||!AC_GOAL[id]||g.cur.bot||arr.length<3||g.mode==='duel'||g.mode==='finals')return;
   const score=arr.reduce((a,r)=>a+r.v,0),n=acStarsOf(id,score),P=acProg(),before=acStarsTotal(),old=P.stars[id]|0;let rec=false;
   if(!acWatch(g)){if(n>old)P.stars[id]=n;const b=P.best[id];if(!b||score>b.v){P.best[id]={v:score,by:g.cur.name};rec=!!b;}acSaveProg(P);}
   g.stationStars=g.stationStars||{};g.stationStars[i]=(g.stationStars[i]||0)+n;
@@ -32795,9 +32802,28 @@ function acEndDone(g){
     if(g.endNo>=5){g.shootoff=true;acCall(g,'SHOOT-OFF.','one arrow each, the higher ring wins',2400,true);}
     acLater(g,1.9,()=>{if(!g.over)acEndStart(g);});g.phase='result';return;
   }
+  if(g.fin){acFinAdvance(g);return;}
   if(g.mode==='train'){acLater(g,.9,()=>{if(!g.over)acEndStart(g);});g.phase='result';return;}
   if(g.endNo>=AC_MODES[g.mode].st){acFinish(g);return;}
   acLater(g,.8,()=>{if(!g.over)acEndStart(g);});g.phase='result';
+}
+function acFinKey(g,i){const a=g.arrows[i],t=a.reduce((x,r)=>x+r.v,0),ten=a.filter(r=>r.base>=10).length,X=a.filter(r=>r.X).length;return[t,ten,X];}
+function acFinCmp(g,a,b){const x=acFinKey(g,a),y=acFinKey(g,b);for(let k=0;k<3;k++)if(x[k]!==y[k])return y[k]-x[k];return a-b;}
+function acFinAdvance(g){
+  const F=g.fin;g.phase='result';
+  const crown=(w,l)=>{F.champ=w;F.rank=[w,l].concat(F.out.slice().reverse());acLater(g,1.8,()=>acFinish(g));};
+  if(F.sd>0){const a=F.alive[0],b=F.alive[1],la=g.endArrows[a][0],lb=g.endArrows[b][0];
+    if(la&&lb&&la.base!==lb.base){const w=la.base>lb.base?a:b;crown(w,w===a?b:a);return;}
+    if(F.sd>=6){const w=acFinCmp(g,a,b)<=0?a:b;crown(w,w===a?b:a);return;}
+    F.sd++;acCall(g,'STILL LEVEL.','one more arrow each',1800,true);acLater(g,1.9,()=>{if(!g.over)acEndStart(g);});return;}
+  if(g.endNo<2){acLater(g,.9,()=>{if(!g.over)acEndStart(g);});return;}
+  if(F.stage<F.cuts.length){const al=F.alive.slice().sort((a,b)=>acFinCmp(g,a,b)),keep=F.cuts[F.stage],gone=al.slice(keep);F.out.push(...gone.slice().reverse());F.alive=al.slice(0,keep);g.who=F.alive.slice();F.stage++;
+    gone.forEach(i=>{const e=document.getElementById('ac-pl'+i);if(e)e.style.opacity='.35';});
+    acCall(g,gone.map(i=>g.players[i].name).join(' · ').toUpperCase(),'is out · '+keep+' remain',2400,true);acLater(g,2.2,()=>{if(!g.over)acEndStart(g);});return;}
+  // the last two have shot the final station
+  const a=F.alive[0],b=F.alive[1],c=acFinCmp(g,a,b);
+  if(c!==0&&acFinKey(g,a)[0]!==acFinKey(g,b)[0]){const w=c<0?a:b;crown(w,w===a?b:a);return;}
+  F.sd=1;acCall(g,'SUDDEN DEATH.','one arrow each at the golden face',2200,true);acLater(g,2.3,()=>{if(!g.over)acEndStart(g);});
 }
 function acStatsOf(g,i){const a=g.arrows[i],n=a.length,t=a.reduce((s,r)=>s+r.v,0);return{n,tot:t,tens:a.filter(r=>r.base>=10).length,X:a.filter(r=>r.X).length,nines:a.filter(r=>r.base>=9).length,best:Math.max(0,...(g.ends[i]||[0])),avg:n?t/n:0,miss:a.filter(r=>r.base===0).length,streak:g.bestStreak[i]||0};}
 function acFinish(g){
@@ -32806,9 +32832,11 @@ function acFinish(g){
   const st=g.players.map((p,i)=>acStatsOf(g,i));
   if(g.mode==='train'){g.summary=st[g.who[0]];g.phase='setup';acPaintOv(g);try{hfSnd.cheer(1);}catch(e){}return;}
   const key=i=>g.mode==='duel'?[g.setPts[i],st[i].tot,st[i].X]:[st[i].tot,st[i].tens,st[i].X],cmp=(a,b)=>{const x=key(a),y=key(b);for(let k=0;k<3;k++)if(x[k]!==y[k])return y[k]-x[k];return 0;};
-  const rank=g.players.map((p,i)=>i).sort(cmp),w=rank[0],tie=g.n>1&&cmp(rank[0],rank[1])===0,n=g.n,nm=i=>g.players[i].name,tot=g.mode==='duel'?g.setPts.slice():st.map(s=>s.tot);
+  let rank=g.players.map((p,i)=>i).sort(cmp),w=rank[0],tie=g.n>1&&cmp(rank[0],rank[1])===0;const n=g.n,nm=i=>g.players[i].name,tot=g.mode==='duel'?g.setPts.slice():st.map(s=>s.tot);
+  if(g.fin&&g.fin.champ!=null){w=g.fin.champ;tie=false;rank=g.fin.rank.slice();}
   let mom='';
-  if(g.mode==='duel')mom=nm(w)+' won the match '+g.setPts[w]+' : '+g.setPts[1-w]+' in sets';
+  if(g.fin)mom='FINALS NIGHT · '+nm(w)+' is the champion with '+st[w].tot+' points';
+  else if(g.mode==='duel')mom=nm(w)+' won the match '+g.setPts[w]+' : '+g.setPts[1-w]+' in sets';
   else if(st[w].X>=2)mom=st[w].X+' DEAD CENTRES · '+nm(w)+' put '+st[w].X+' arrows in the X';
   else if(st[w].streak>=5)mom=st[w].streak+' IN A ROW · '+nm(w)+' did not miss for '+st[w].streak+' arrows';
   else mom=nm(w)+' scored '+st[w].tot+' with '+st[w].n+' arrows';
@@ -32821,7 +32849,7 @@ function acFinish(g){
   G.tw=(G.tw||0)+1;try{localStorage.setItem('ct_tw',G.tw);}catch(e){}
   try{addHistory({game:'archery',winner:nm(w),winnerAvatar:g.players[w].avatar,date:when,players:g.players.map(p=>p.name),moment:mom,stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats?G.matchStats.reactions:0,ah:{score:tot,dur,lv:g.lv,dc:g.mode}}});}catch(e){}
   try{const hs=g.players.map((p,i)=>p.bot?-1:i).filter(i=>i>=0);
-    if(hs.length&&g.mode!=='duel'){const hb=hs.reduce((a,i)=>st[i].tot>st[a].tot?i:a,hs[0]);
+    if(hs.length&&g.mode!=='duel'&&g.mode!=='finals'){const hb=hs.reduce((a,i)=>st[i].tot>st[a].tot?i:a,hs[0]);
       const rs={perfect:Math.max(...hs.map(i=>st[i].X)),bestRally:Math.max(...hs.map(i=>st[i].streak)),saves:Math.max(...hs.map(i=>st[i].tens)),team:0};
       const nr=arRecordUpdate(g.mode==='quick'?'archery_quick':'archery_trail',g.players.map(p=>p.name),g.players[hb].name,[st[hb].tot,0],rs);if(nr.length)setTimeout(()=>toast('🏹 New Archery record'),900);}}catch(e){}
   try{hfSnd.cheer(1);}catch(e){}acCall(g,nm(w).toUpperCase()+(tie?' · TIE':' WINS.'),String(tot[w]),2400,true);
@@ -33082,7 +33110,7 @@ function acHud(g){
     set('ac-tot'+i,String(g.mode==='duel'?g.setPts[i]:g.tot[i]||0));
     const ch=document.getElementById('ac-ch'+i);if(ch){const a=(g.arrows[i]||[]).slice(-8),h=a.map(r=>`<i class="${r.X?'g':r.v>=9?'t':r.base===0?'z':''}">${r.X?'X':r.v}</i>`).join('');if(ch._h!==h){ch._h=h;ch.innerHTML=h;}}
     set('ac-pb'+i,g.phase==='setup'?'':g.mode==='duel'?'arrows '+g.tot[i]:(g.arrows[i]||[]).length+' arrows');});
-  set('ac-sn',g.phase==='setup'||!g.st?'':g.mode==='duel'?(g.shootoff?'SHOOT-OFF':'SET '+g.endNo+' · SETS '+g.setPts[0]+' : '+g.setPts[1]):g.mode==='train'?'TRAINING · '+g.st.n.toUpperCase():'STATION '+g.endNo+(AC_MODES[g.mode].st?' / '+AC_MODES[g.mode].st:'')+' · '+g.st.n.toUpperCase()+' · ARROW '+Math.min(3,g.nowArrow||1)+' / 3');
+  set('ac-sn',g.phase==='setup'||!g.st?'':g.fin?'FINALS NIGHT · '+(g.fin.sd?'SUDDEN DEATH':'STATION '+g.endNo+' · '+g.fin.alive.length+' REMAIN'):g.mode==='duel'?(g.shootoff?'SHOOT-OFF':'SET '+g.endNo+' · SETS '+g.setPts[0]+' : '+g.setPts[1]):g.mode==='train'?'TRAINING · '+g.st.n.toUpperCase():'STATION '+g.endNo+(AC_MODES[g.mode].st?' / '+AC_MODES[g.mode].st:'')+' · '+g.st.n.toUpperCase()+' · ARROW '+Math.min(3,g.nowArrow||1)+' / 3');
   set('ac-status',g.phase==='setup'?'OUR TABLE MODE · Archery':g.phase==='hand'?'Next archer':g.cur?(g.cur.bot?g.cur.name+' (robot) is shooting':g.cur.name+' · '+g.st.n):'');
   const w=g.wind||0;set('ac-wind',g.phase==='setup'||!(g.windMax>0)?(g.phase==='setup'?'':'NO WIND'):'WIND '+(w<0?'◀ ':'▶ ')+Math.abs(w).toFixed(1)+' m/s');
   const fb=document.getElementById('ac-fire');if(fb){const can=g.cur&&!g.cur.bot;let lab='DRAW',ok=false;
@@ -33124,8 +33152,8 @@ function acPaintOv(g){
     const sm=g.summary,two=g.players.length===2;
     h=`<div class="ps-card"><div class="ps-kick">OLYMPIC GAMES</div><div class="ps-h1">ARCHERY</div><div class="ps-sub">THE FIELD TRAIL · OUR TABLE MODE</div>
       ${sm?`<div class="ps-sum"><div class="ps-sum-h">TRAINING COMPLETE</div><div class="ps-sum-r"><span><b>${sm.tot}</b>points</span><span><b>${sm.n}</b>arrows</span><span><b>${sm.tens}</b>tens</span><span><b>${sm.X}</b>X</span></div></div>`:''}
-      ${onl&&!host?'<div class="ps-note" style="text-align:center">The host chooses the mode, the place and the level.</div>':`<div class="ps-grp">MODE</div>${seg(onl?[['trail','FIELD TRAIL'],['quick','QUICK SHOT'],['duel','OLYMPIC MATCH']]:[['trail','FIELD TRAIL'],['quick','QUICK SHOT'],['duel','OLYMPIC MATCH'],['train','TRAINING']],pr.mode,'mode')}`}
-      <div class="ps-note">${pr.mode==='trail'?'Walk a trail of eight stations, three arrows each: faces in the trees, bullseye posts, a swinging target, a sliding target, a balloon field, pop-ups and a golden target at 70 m with a golden clay. Streaks of good arrows earn bonus points. Gold, silver and bronze at the end.':pr.mode==='quick'?'One station, three arrows each, the highest total wins.':pr.mode==='duel'?(two?'The official head-to-head format on one face at 70 m: sets of three arrows, you take turns one arrow at a time. A set is worth 2 points (1 each if tied); the first to 6 set points wins. If it is 5 : 5, one arrow each: the higher ring wins.':'The Olympic match needs exactly two players. With another number of players it plays as a quick shot.'):'Practise one station as long as you like, no winner.'}</div>
+      ${onl&&!host?'<div class="ps-note" style="text-align:center">The host chooses the mode, the place and the level.</div>':`<div class="ps-grp">MODE</div>${seg(onl?[['trail','FIELD TRAIL'],['finals','FINALS NIGHT'],['quick','QUICK SHOT'],['duel','OLYMPIC MATCH']]:[['trail','FIELD TRAIL'],['finals','FINALS NIGHT'],['quick','QUICK SHOT'],['duel','OLYMPIC MATCH'],['train','TRAINING']],pr.mode,'mode')}`}
+      <div class="ps-note">${pr.mode==='finals'?(G.isOnline?'Everybody shoots two stations, then after every station the lowest goes out until two are left. The last two shoot a station and, if they are level, one arrow each at the golden face until one is ahead. Gold, silver and bronze for the first three.':'You and three robots. Everybody shoots two stations, then after every station the lowest goes out until two are left. The last two shoot a station and, if they are level, one arrow each at the golden face until one is ahead.'):pr.mode==='trail'?'Walk a trail of eight stations, three arrows each: faces in the trees, bullseye posts, a swinging target, a sliding target, a balloon field, pop-ups and a golden target at 70 m with a golden clay. Streaks of good arrows earn bonus points. Gold, silver and bronze at the end.':pr.mode==='quick'?'One station, three arrows each, the highest total wins.':pr.mode==='duel'?(two?'The official head-to-head format on one face at 70 m: sets of three arrows, you take turns one arrow at a time. A set is worth 2 points (1 each if tied); the first to 6 set points wins. If it is 5 : 5, one arrow each: the higher ring wins.':'The Olympic match needs exactly two players. With another number of players it plays as a quick shot.'):'Practise one station as long as you like, no winner.'}</div>
       ${pr.mode==='train'&&!onl?'<div class="ps-grp">STATION</div>'+seg(AC_ST.map(s=>[s.id,s.n.toUpperCase()]),pr.st,'st'):''}
       <div class="ps-note" style="text-align:center">★ ${acStarsTotal()} / ${AC_ST.length*3} stars on this iPad${(()=>{const t=acStarsTotal(),nx=[].concat(Object.entries(AC_UNLOCK.lv).map(([k,v])=>[v,AC_LV[k].n+' level']),Object.entries(AC_UNLOCK.venue).map(([k,v])=>[v,AC_VENUES[k]])).filter(a=>a[0]>t).sort((a,b)=>a[0]-b[0])[0];return nx?' · next: '+nx[1]+' at '+nx[0]+' ★':' · everything unlocked';})()}</div>
       ${onl&&!host?'':`<div class="ps-grp">PLACE</div>`}${onl&&!host?'':seg(Object.keys(AC_VENUES).map(k=>[k,(acLocked('venue',k)?'🔒 ':'')+AC_VENUES[k]+(acLocked('venue',k)?' · '+AC_UNLOCK.venue[k]+'★':'')]),pr.venue,'venue')}
@@ -33180,7 +33208,7 @@ function acAction(g,a,v){
   else if(a==='sens'){if(!['slow','normal','fast'].includes(v))return;pr.sens=v;acSavePrefs(pr);g.sens=v;acPaintOv(g);}
   else if(a==='ctrl'){if(!['easy','pro'].includes(v))return;pr.ctrl=v;acSavePrefs(pr);g.ctrl=v;acPaintOv(g);}
   else if(a==='assist'){if(!['off','low','high'].includes(v))return;pr.assist=v;acSavePrefs(pr);g.assist=v;acPaintOv(g);}
-  else if(a==='start'){if(G.isOnline){if(!acHost())return;const cfg={mode:pr.mode==='train'?'quick':(pr.mode==='duel'&&g.players.length!==2?'quick':pr.mode),lv:acLocked('lv',pr.lv)?'beginner':pr.lv,venue:acLocked('venue',pr.venue)?'golden':pr.venue,seed:((Math.random()*1e9)|0)+1};g.net.cfg=cfg;g.net.goUntil=g.t+8;g.net.goAt=g.t;acSend(g,{k:'go',mode:cfg.mode,lv:cfg.lv,venue:cfg.venue,seed:cfg.seed},true);acBegin(g,cfg);}else acBegin(g);acPaintOv(g);}
+  else if(a==='start'){if(G.isOnline){if(!acHost())return;const cfg={mode:pr.mode==='train'?'quick':(pr.mode==='duel'&&g.players.length!==2?'quick':(pr.mode==='finals'&&g.players.length<2?'quick':pr.mode)),lv:acLocked('lv',pr.lv)?'beginner':pr.lv,venue:acLocked('venue',pr.venue)?'golden':pr.venue,seed:((Math.random()*1e9)|0)+1};g.net.cfg=cfg;g.net.goUntil=g.t+8;g.net.goAt=g.t;acSend(g,{k:'go',mode:cfg.mode,lv:cfg.lv,venue:cfg.venue,seed:cfg.seed},true);acBegin(g,cfg);}else acBegin(g);acPaintOv(g);}
   else if(a==='ready'){if(g.phase==='hand')acReadyStart(g);}
   else if(a==='finishtrain'){if(g.mode==='train'&&g.phase!=='setup'&&g.phase!=='flight'&&g.phase!=='result')acFinish(g);}
 }
