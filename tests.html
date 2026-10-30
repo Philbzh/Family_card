@@ -6309,6 +6309,11 @@ async function runPresentation(A,W,frame){
        const fk=(ro)=>F('acScore')(g,{tg:{k:'face',r:.5},ro});check('the rings of a face: centre 10, half way 6, off the face a miss',fk(0).v===10&&fk(.25).v===6&&fk(.6).miss===true&&fk(.01).X===true);
        const dk=(ro)=>F('acScore')(g,{tg:{k:'disc',r:.2},ro});check('a steel disc gives 10, 7 or 4',dk(.01).v===10&&dk(.1).v===7&&dk(.19).v===4);
        check('a balloon gives its value and the golden clay 25',F('acScore')(g,{tg:{k:'balloon',v:9,r:.4},ro:.1}).v===9&&F('acScore')(g,{tg:{k:'bonus',v:25,r:.5},ro:.1}).v===25);
+       // the aim help draws the sight towards the nearest target, and the targets are bigger on the easier levels
+       g.assist='high';g.phase='set';g.draw=1;g.cur=g.players[0];const tt=g.tg[0],D2=Math.hypot(tt.x,tt.z),a0=F('acAngles')(g,F('acTP')(tt,g.tt+D2/(F('AC_V0')*.9)));g.yaw=a0[0]+.02;g.pitch=a0[1];for(let i=0;i<30;i++)F('acStep')(g,1/30);
+       const a1=F('acAngles')(g,F('acTP')(tt,g.tt+D2/(F('AC_V0')*.9)));check('the aim help pulls the sight towards the target',Math.abs(g.yaw-a1[0])<.012);
+       g.assist='off';g.phase='set';g.yaw=a1[0]+.02;g.pitch=a1[1];for(let i=0;i<30;i++)F('acStep')(g,1/30);check('with the aim help off the sight stays where you put it',Math.abs(g.yaw-(a1[0]+.02))<.002);
+       check('the faces are bigger on Sport than their basic size',g.tg[0].r>.55);
        F('acStop')();}
       {const g=start('trail','beginner','sharp');const seq=[];let le=0;let n=0;
        while(!g.over&&n++<150000){if(g.endNo!==le){le=g.endNo;seq.push(g.st.id);}

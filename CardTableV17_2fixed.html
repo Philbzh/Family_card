@@ -4966,7 +4966,7 @@ const GAMES=[
      '<b>The round:</b> 25 clays, 75 points at most. With several people on one iPad you shoot a station each in turn; robots (gentle, steady, sharp) can join. A tie is decided by first-barrel hits. TRAINING gives a short practice. LEVEL: Beginner, Sport, Elite, Olympic. This is OUR TABLE MODE: simplified for the family.']},
   {id:'archery',cat:'olympic',icon:'🏹',name:'Archery',players:'1–4',dur:'6–12 min',diff:'hard',deal:0,minP:1,maxP:4,cover:'assets/games/archery.jpg',
    rules:['<b>The field trail.</b> You walk a trail and shoot from eight stations, three arrows each: faces hung in the trees, bullseye posts, a swinging target, a sliding target on a rail, a balloon field, pop-ups that jump out of the bushes and a golden target at 70 m with a flying golden clay. The bow is in your hand in front of you, held upright, like the gun in Clay Shooting.',
-     '<b>Two thumbs: aim, draw, release.</b> One thumb <b>drags on the scenery</b> to look around and aim (finer when the bow is drawn). The other <b>holds the big DRAW button</b> on the right: the string comes back by itself, the bow bends and the view zooms in. <b>Lift the button finger to release.</b> Letting go too early gives a weak arrow that falls short; RELAX lets the bow down without shooting.',
+     '<b>Two thumbs: aim, draw, release.</b> One thumb <b>drags on the scenery</b> to look around and aim (finer when the bow is drawn). The other <b>holds the big DRAW button</b> on the right: the string comes back by itself, the bow bends and the view zooms in. <b>Lift the button finger to release.</b> Let go before the bow is fully drawn and nothing is shot (the bow is let down); RELAX does the same. <b>Aim help</b> (on the set-up card) gently draws the sight to the target it is nearest to.',
      '<b>The view breathes.</b> It never rests. The wave at the top shows your breath: the <b>gold part is the calm moment</b>, the best time to shoot. Hold too long and your arms tire. A jerky finger spoils the arrow. The sight is set (like a range finder) for the target in the middle of the view, the arrow still drops over the distance by itself.',
      '<b>The arrow flies for real</b> in three dimensions: <b>the wind</b> pushes it sideways (flags show it; Beginner and Sport show a dotted hint), and <b>moving targets</b> must be led: aim where they will be when the arrow arrives.',
      '<b>Scoring.</b> Faces have ten rings (gold 10-9, red 8-7, blue 6-5, black 4-3, white 2-1, X in the middle of the gold); a steel disc gives 10, 7 or 4 and rings when you hit it; balloons are worth 5, 7, 9 or 15 (clear them all for +10); the golden clay is worth 25. Three good arrows in a row (7 or more) start a <b>streak</b> that adds up to 3 bonus points per arrow.',
@@ -32506,8 +32506,8 @@ const AC_ST=[
   {id:'long',n:'The golden target',tip:'a golden face at 70 m in the wind, and a golden clay flies by (25)',clock:0}
 ];
 const AC_MODES={trail:{n:'FIELD TRAIL',st:8},quick:{n:'QUICK SHOT',st:1},duel:{n:'OLYMPIC MATCH',st:5},train:{n:'TRAINING',st:0}};
-function acPrefs(){let p={};try{p=JSON.parse(localStorage.getItem('ct_ac_pref')||'{}')||{};}catch(e){}return Object.assign({lv:'beginner',mode:'trail',venue:'golden',sens:'normal',st:'warm'},p);}
-function acSavePrefs(p){try{localStorage.setItem('ct_ac_pref',JSON.stringify({lv:p.lv,mode:p.mode,venue:p.venue,sens:p.sens,st:p.st}));}catch(e){}}
+function acPrefs(){let p={};try{p=JSON.parse(localStorage.getItem('ct_ac_pref')||'{}')||{};}catch(e){}return Object.assign({lv:'beginner',mode:'trail',venue:'golden',sens:'normal',st:'warm',assist:'high'},p);}
+function acSavePrefs(p){try{localStorage.setItem('ct_ac_pref',JSON.stringify({lv:p.lv,mode:p.mode,venue:p.venue,sens:p.sens,st:p.st,assist:p.assist}));}catch(e){}}
 const acG=()=>{let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(6.283*v);};
 const acSS=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
 const acCalm=ph=>acSS(.54,.62,ph)*(1-acSS(.78,.86,ph));   // the stability window of the breathing cycle
@@ -32528,7 +32528,7 @@ function lDealArchery(){
   G.ahMoment='';G.psResult=null;G.clResult=null;G.fgResult=null;G.pbResult=null;G.acResult=null;acStop();G.scr='table';
 }
 function acBegin(g){
-  const pr=acPrefs();Object.assign(g,{lv:AC_LV[pr.lv]?pr.lv:'beginner',mode:AC_MODES[pr.mode]?pr.mode:'trail',venue:AC_VENUES[pr.venue]?pr.venue:'golden',sens:pr.sens||'normal'});
+  const pr=acPrefs();Object.assign(g,{assist:['off','low','high'].includes(pr.assist)?pr.assist:'high',lv:AC_LV[pr.lv]?pr.lv:'beginner',mode:AC_MODES[pr.mode]?pr.mode:'trail',venue:AC_VENUES[pr.venue]?pr.venue:'golden',sens:pr.sens||'normal'});
   if(g.mode==='duel'&&g.players.length!==2)g.mode='quick';
   if(g.mode==='train'){const h=g.players.findIndex(p=>!p.bot);g.who=[h<0?0:h];}else g.who=g.players.map((p,i)=>i);
   g.arrows=g.players.map(()=>[]);g.tot=g.players.map(()=>0);g.ends=g.players.map(()=>[]);g.setPts=g.players.map(()=>0);g.setLog=[];g.over=false;g.endNo=0;g.shootoff=false;
@@ -32579,6 +32579,7 @@ function acBuildTargets(g,st){
   else if(st.id==='popup'){for(let i=0;i<4;i++)T.push({id:k++,k:'popup',x:(i-1.5)*5+(R()-.5)*2,y:1.2,z:14+R()*13,r:.34,alive:true,hit:0,pop:{per:L.pop+2.4,up:L.pop,ph:i*1.1+R()*.6}});}
   else if(st.id==='long'){face((R()-.5)*8,70,.61,1.6,'gold');T.push({id:k++,k:'bonus',x:-16,y:9+R()*3,z:34,r:.5,v:25,alive:true,hit:0,mov:{vx:3.4,wrap:16}});}
   else if(st.id==='face70'){face(0,70,.61,1.6);}
+  const m={beginner:1.5,sport:1.25,elite:1,olympic:.9}[g.lv]||1;for(const t of T)t.r*=m;
   return T;
 }
 function acEndStart(g){
@@ -32652,6 +32653,12 @@ function acScore(g,h){
   if(tg.k==='bonus')return{v:tg.v,X:false,miss:false,bonus:true};
   if(tg.k==='disc')return{v:rr<.33?10:rr<.66?7:4,X:false,miss:false,disc:true};
   const ring=rr<=0?10:10-Math.floor(rr/.1),v=ring<1?0:ring;return{v,X:rr<.05,miss:v===0,rr};
+}
+function acAssist(g,dt){
+  const k={high:3.4,low:1.5,off:0}[g.assist||'high']||0;if(!k||!g.tg.length)return;
+  let best=null,bd=.05;const Va=AC_V0*.9;
+  for(const t of g.tg){if(!t.alive||t.k==='bonus'||acVis(t,g.tt)<.5)continue;const D=Math.hypot(t.x,t.z),p=acTP(t,g.tt+D/Va),a=acAngles(g,p),d=Math.hypot(a[0]-g.yaw,a[1]-g.pitch);if(d<bd){bd=d;best=[a[0]-acDriftM(g,D)/D,a[1],D];}}
+  if(!best)return;const w=Math.min(1,dt*k)*(1-bd/.05*.5);g.yaw+=(best[0]-g.yaw)*w;g.pitch+=(best[1]-g.pitch)*w;
 }
 function acRelease(g,sp){
   if(g.phase!=='set'&&g.phase!=='draw')return;
@@ -32935,7 +32942,7 @@ function acStep(g,dt){
       if(u>=1){g.draw=1;g.phase='set';g.holdT=0;g.bot.ss=g.t;acSnd.full();}}
     else if(g.draw>=1){g.phase='set';g.holdT=0;acSnd.full();try{haptic([14,30,14]);}catch(e){}acCall(g,'FULL DRAW.','aim, breathe, then lift your finger',1400);}
   }else if(g.phase==='set'){
-    g.holdT+=dt;
+    g.holdT+=dt;if(!g.cur.bot)acAssist(g,dt);
     if(g.cur.bot&&g.bot){const B=AC_BOT[g.cur.bot],tg=g.bot.tg;let a=[g.yaw,g.pitch];
       if(tg){const D=Math.hypot(tg.x,tg.z),Tf=D/AC_V0,lead=tg.mov?B.comp:0,p=acTP(tg,g.tt+Tf*lead),aa=acAngles(g,p);a=[aa[0]-acDriftM(g,D)/D*B.comp,aa[1]];}
       const ph=((g.holdT+g.boff*5.4)/5.4)%1;g.yaw+=(a[0]-g.yaw)*Math.min(1,dt*6);g.pitch+=(a[1]-g.pitch)*Math.min(1,dt*6);
@@ -33018,6 +33025,7 @@ function acPaintOv(g){
       ${pr.mode==='train'?'<div class="ps-grp">STATION</div>'+seg(AC_ST.map(s=>[s.id,s.n.toUpperCase()]),pr.st,'st'):''}
       <div class="ps-grp">PLACE</div>${seg(Object.keys(AC_VENUES).map(k=>[k,AC_VENUES[k]]),pr.venue,'venue')}
       <div class="ps-grp">LEVEL</div>${seg(Object.keys(AC_LV).map(k=>[k,AC_LV[k].n.toUpperCase()]),pr.lv,'lv')}<div class="ps-note">${esc(AC_LV[pr.lv].about)}</div>
+      <div class="ps-grp">AIM HELP</div>${seg([['off','OFF'],['low','LOW'],['high','HIGH']],pr.assist,'assist')}<div class="ps-note">${pr.assist==='high'?'The sight is gently drawn to the target it is nearest to, with the lead for a moving one and the wind. You still have to hold, breathe and release.':pr.assist==='low'?'A light pull towards the nearest target.':'No help: pure aiming.'}</div>
       <div class="ps-grp">LOOKING AROUND</div>${seg([['slow','SLOW'],['normal','NORMAL'],['fast','FAST']],pr.sens,'sens')}
       <div class="ps-ppl">${g.players.map(p=>`<span>${p.avatar?'<span class="ah-av">'+avHTML(p.avatar)+'</span>':''}${esc(p.name)}${p.bot?' · '+AC_BOT[p.bot].n.toLowerCase()+' robot':''}</span>`).join('')}</div>
       <button class="btn btn-gold ps-go" data-acact="start">${sm?'SHOOT AGAIN':'TO THE TRAIL'}</button>
@@ -33039,7 +33047,7 @@ function acBindInput(){
       g.phase='draw';g.draw=0;g.holdT=0;g.holding=true;btn={id:e.pointerId};acSnd.nock();return;}
     const rb=e.target.closest&&e.target.closest('[data-acrelax]');
     if(rb){e.preventDefault();if(g.phase==='draw'||g.phase==='set'){g.phase='ready';g.draw=0;g.holding=false;btn=null;acPaintOv(g);}return;}
-    if(!e.target.closest||!e.target.closest('#ac-mid')||e.target.closest('button,a,.ps-ov'))return;
+    if(!e.target.closest||e.target.closest('button,a,.ps-ov,.talk-strip,#talk-strip'))return;
     if(!g.cur||g.cur.bot||g.phase==='flight'||g.phase==='result'||g.phase==='hand'||g.phase==='setup'||aim)return;
     e.preventDefault();try{stage.setPointerCapture(e.pointerId);}catch(x){}
     aim={id:e.pointerId,x:e.clientX,y:e.clientY,t:e.timeStamp,sp:0};},{passive:false});
@@ -33050,7 +33058,7 @@ function acBindInput(){
   const up=e=>{const g=G.ac;
     if(aim&&e.pointerId===aim.id){const sp=aim.sp;aim=null;if(g)g.lastSp=sp;}
     if(btn&&e.pointerId===btn.id){btn=null;if(!g)return;g.holding=false;
-      if(g.phase==='set'||(g.phase==='draw'&&g.draw>=.3))acRelease(g,g.lastSp||0);else if(g.phase==='draw'){g.phase='ready';g.draw=0;}}};
+      if(g.phase==='set')acRelease(g,g.lastSp||0);else if(g.phase==='draw'){g.phase='ready';g.draw=0;acCall(g,'NOT FULLY DRAWN.','keep holding until the bow is at full draw',1600,true);}}};
   stage.addEventListener('pointerup',up);stage.addEventListener('pointercancel',up);
   stage.addEventListener('click',e=>{const g=G.ac;const b=e.target.closest&&e.target.closest('[data-acact]');if(!b||!g)return;e.preventDefault();acAction(g,b.dataset.acact,b.dataset.v);});
 }
@@ -33061,6 +33069,7 @@ function acAction(g,a,v){
   else if(a==='venue'){if(!AC_VENUES[v])return;pr.venue=v;acSavePrefs(pr);acPaintOv(g);}
   else if(a==='lv'){if(!AC_LV[v])return;pr.lv=v;acSavePrefs(pr);acPaintOv(g);}
   else if(a==='sens'){if(!['slow','normal','fast'].includes(v))return;pr.sens=v;acSavePrefs(pr);g.sens=v;acPaintOv(g);}
+  else if(a==='assist'){if(!['off','low','high'].includes(v))return;pr.assist=v;acSavePrefs(pr);g.assist=v;acPaintOv(g);}
   else if(a==='start'){acBegin(g);acPaintOv(g);}
   else if(a==='ready'){if(g.phase==='hand')acReadyStart(g);}
   else if(a==='finishtrain'){if(g.mode==='train'&&g.phase!=='setup'&&g.phase!=='flight'&&g.phase!=='result')acFinish(g);}
