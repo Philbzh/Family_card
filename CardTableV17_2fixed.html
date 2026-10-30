@@ -3754,6 +3754,23 @@ html[data-anim="full"] .sr:nth-child(2){animation-delay:1.05s;}html[data-anim="f
 html[data-anim="full"] .sr-medal{transform-origin:50% 0;animation:medalSwing 1.5s ease-out 1.4s both;}
 @keyframes medalSwing{0%{transform:rotate(-42deg) translateY(-8px);opacity:0;}25%{opacity:1;}50%{transform:rotate(18deg);}72%{transform:rotate(-8deg);}100%{transform:none;}}
 html[data-anim="off"] .winner-banner::after,html[data-anim="off"] .trophy-card.earned::after,html[data-anim="off"] .scr-enter{animation:none !important;}
+/* drifting dust in the light of the hero, and cards that rise one after another when a screen opens */
+.hero-dust{display:none;}
+html[data-anim="full"] .hero-dust{display:block;position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;}
+html[data-anim="full"] .hero-dust::before,html[data-anim="full"] .hero-dust::after{content:'';position:absolute;inset:-40px 0 0 0;
+  background-image:radial-gradient(circle,rgba(255,236,180,.9) 0 1.2px,transparent 2.4px),radial-gradient(circle,rgba(255,225,150,.7) 0 1px,transparent 2px),radial-gradient(circle,rgba(255,240,200,.8) 0 1.6px,transparent 3px);
+  background-size:170px 190px,230px 210px,310px 260px;background-position:12px 30px,90px 120px,160px 60px;opacity:.55;animation:dustUp 38s linear infinite;}
+html[data-anim="full"] .hero-dust::after{background-size:210px 240px,150px 170px,270px 300px;background-position:60px 0,10px 90px,200px 150px;opacity:.4;animation:dustUp 55s linear infinite reverse,dustTwinkle 5s ease-in-out infinite;}
+@keyframes dustUp{from{transform:translateY(0);}to{transform:translateY(-260px);}}
+@keyframes dustTwinkle{0%,100%{opacity:.25;}50%{opacity:.6;}}
+html[data-anim="full"] .scr-enter .home-room,html[data-anim="full"] .scr-enter .v10-game-card{animation:cardRise .5s cubic-bezier(.2,.8,.2,1) both;}
+html[data-anim="full"] .scr-enter .home-room:nth-child(2),html[data-anim="full"] .scr-enter .v10-game-card:nth-child(2){animation-delay:.04s;}
+html[data-anim="full"] .scr-enter .home-room:nth-child(3),html[data-anim="full"] .scr-enter .v10-game-card:nth-child(3){animation-delay:.08s;}
+html[data-anim="full"] .scr-enter .home-room:nth-child(4),html[data-anim="full"] .scr-enter .v10-game-card:nth-child(4){animation-delay:.12s;}
+html[data-anim="full"] .scr-enter .home-room:nth-child(5),html[data-anim="full"] .scr-enter .v10-game-card:nth-child(5){animation-delay:.16s;}
+html[data-anim="full"] .scr-enter .home-room:nth-child(6),html[data-anim="full"] .scr-enter .v10-game-card:nth-child(6){animation-delay:.2s;}
+html[data-anim="full"] .scr-enter .home-room:nth-child(n+7),html[data-anim="full"] .scr-enter .v10-game-card:nth-child(n+7){animation-delay:.24s;}
+@keyframes cardRise{from{opacity:0;transform:translateY(22px) scale(.97);}to{opacity:1;transform:none;}}
 /* the front door breathes: the glow in the hero, a candle flicker by night, a glint on the emblem */
 html:not([data-anim="off"]) .v10-hero::before{animation:heroBreath 7s ease-in-out infinite;}
 @keyframes heroBreath{0%,100%{opacity:.7;transform:scale(1);}50%{opacity:1;transform:scale(1.08);}}
@@ -30997,7 +31014,7 @@ function rHome(){
   return`<div id="s-home" class="scr on home-v10">
     <div class="v10-grid">
       <div class="v10-main">
-        <div class="v10-hero">
+        <div class="v10-hero"><i class="hero-dust" aria-hidden="true"></i>
           <div class="v10-kicker">${homeGreeting()}${playerName!=='Player'?', '+esc(playerName):''}</div>
           <h1 class="v10-title">Our <em>Table</em></h1>
           <p class="v10-sub">${homeTagline(history)}</p>
@@ -36152,7 +36169,7 @@ function render(){
   else if(s==='player')html=rPlayer();
   else if(s==='family')html=rFamily();
   appEl.innerHTML=html;
-  if(_uiPrevScr!==s){_uiPrevScr=s;if(s!=='table'){const sc=appEl.querySelector('.scr');if(sc){sc.classList.add('scr-enter');setTimeout(()=>sc.classList.remove('scr-enter'),520);}}}
+  if(_uiPrevScr!==s){_uiPrevScr=s;if(s!=='table'){const sc=appEl.querySelector('.scr');if(sc){sc.classList.add('scr-enter');setTimeout(()=>sc.classList.remove('scr-enter'),820);}}}
   if(s==='matchend')setTimeout(uiCountUp,40);
   if(s==='table'){const cg=G.isOnline?(G.srv&&G.srv.gameId):G.selGame;if(cg&&cg!==_curtainGid){_curtainGid=cg;maybeCurtain(cg);}}else _curtainGid=null;
   // Re-home the in-flight reactions onto the freshly built felt. If this render navigated away from
