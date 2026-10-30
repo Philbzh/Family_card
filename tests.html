@@ -9840,7 +9840,7 @@ async function runPresentation(A,W,frame){
       const btns=[...d.querySelectorAll('.react-strip .rb')];
       check('the strip shows 12 reactions, then ⋯, then 💬 (the way into typing)',btns.length===14&&btns[12].getAttribute('data-a')==='react-more'&&btns[13].getAttribute('data-a')==='talk-toggle'&&btns.slice(0,12).every(b=>b.getAttribute('data-a')==='react'));
       check('on a phone only the first 7 are shown (the rest appear on wider screens and in ⋯)',btns.slice(0,7).every(b=>!/rb-mid|rb-wide/.test(b.className))&&btns.slice(7,10).every(b=>/rb-mid/.test(b.className))&&btns.slice(10,12).every(b=>/rb-wide/.test(b.className)));
-      check('Liar\'s Dice leads with 👀 😏 😈',btns.slice(0,3).map(b=>b.textContent).join('')==='👀😏😈');
+      check('Liar\'s Dice leads with 👀 😏 😈',btns.slice(0,3).map(b=>(b.textContent||[...b.querySelectorAll('img')].map(i=>i.alt).join(''))).join('')==='👀😏😈');
       check('the ⋯ panel is closed to begin with',!d.querySelector('.react-more'));
       G.reactMore=true;
       d=new DOMParser().parseFromString(F('talkStripHTML')(),'text/html');
@@ -9851,8 +9851,8 @@ async function runPresentation(A,W,frame){
       const old=new Set(W.document.querySelectorAll('.float-r'));
       F('spawnFloatEmoji')('💀');F('spawnFloatEmoji')('👏');
       const fl=[...W.document.querySelectorAll('.float-r')].filter(e=>!old.has(e));
-      check('💀 floats with its own wobble, and still reads as 💀',!!fl[0].querySelector('.fr-in.fr-skull')&&fl[0].textContent==='💀');
-      check('a reaction without its own motion floats plainly',!fl[1].querySelector('.fr-in')&&fl[1].textContent==='👏');
+      check('💀 floats with its own wobble, and still reads as 💀',!!fl[0].querySelector('.fr-in.fr-skull')&&(fl[0].textContent||[...fl[0].querySelectorAll('img')].map(i=>i.alt).join(''))==='💀');
+      check('a reaction without its own motion floats plainly',!fl[1].querySelector('.fr-in')&&(fl[1].textContent||[...fl[1].querySelectorAll('img')].map(i=>i.alt).join(''))==='👏');
       check('every animated reaction has a keyframe animation that resolves',Object.entries(F('REACTION_MOTION')).every(([e,cls])=>{const el=W.document.createElement('span');el.className='fr-in '+cls;felt.appendChild(el);return W.getComputedStyle(el).animationName!=='none';}));
       fl.forEach(e=>e.remove());felt.remove();
     } finally { G.isOnline=keep.on;G.selGame=keep.sel;G.reactMore=keep.more;G.talkOpen=keep.talk; }

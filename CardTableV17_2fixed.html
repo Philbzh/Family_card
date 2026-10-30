@@ -2938,7 +2938,8 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 /* ── lobby options ── */
 .vt-options{margin:.8rem 0;padding:.9rem;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);}
 .vt-optlist{display:flex;flex-direction:column;gap:.5rem;margin-top:.4rem;}
-.vt-opt{display:flex;align-items:center;gap:.7rem;text-align:left;padding:.65rem .8rem;border-radius:14px;border:1.5px solid rgba(255,255,255,.18);background:rgba(255,255,255,.05);color:inherit;font:inherit;cursor:pointer;}
+.vt-opt::before{content:'';position:absolute;inset:0;z-index:0;background:linear-gradient(90deg,rgba(6,12,10,.9) 26%,rgba(6,12,10,.4)),var(--vt) center/cover no-repeat;opacity:.8;transition:opacity .2s;}.vt-opt.on::before{opacity:1;}.vt-opt>*{position:relative;z-index:1;}
+.vt-opt{position:relative;overflow:hidden;min-height:5rem;display:flex;align-items:center;gap:.7rem;text-align:left;padding:.65rem .8rem;border-radius:14px;border:1.5px solid rgba(255,255,255,.18);background:rgba(255,255,255,.05);color:inherit;font:inherit;cursor:pointer;}
 .vt-opt.on{border-color:#e0b040;background:rgba(224,176,64,.16);}
 .vt-opt-space.on{border-color:#5ee6ff;background:rgba(94,230,255,.12);}
 .vt-opt-ic{font-size:1.9rem;}
@@ -3567,6 +3568,7 @@ button.mh-col.no{cursor:not-allowed;opacity:.55;}
 
 .react-strip{display:flex;gap:.32rem;justify-content:center;padding:.3rem .8rem .5rem;flex-shrink:0;overflow-x:auto;scrollbar-width:none;}
 .react-strip::-webkit-scrollbar{display:none;}
+.rx{display:block;width:1.65rem;height:1.65rem;object-fit:contain;pointer-events:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,.4));}.rb .rx{width:1.7rem;height:1.7rem;}.float-r .rx{width:2.6rem;height:2.6rem;}.v13-reaction-pop .rx{width:46px;height:46px;}
 .rb{width:2.75rem;height:2.75rem;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.2rem;
   background:radial-gradient(circle at 35% 30%,rgba(212,168,67,.14),rgba(255,255,255,.02));
   border:1px solid rgba(212,168,67,.16);border-radius:50%;cursor:pointer;opacity:.85;
@@ -4869,6 +4871,9 @@ function iconCards(){return `<svg class="icon-svg" viewBox="0 0 24 24" fill="non
 function iconChip(){return `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 4v3M12 17v3M4 12h3M17 12h3M6.34 6.34l2.12 2.12M15.54 15.54l2.12 2.12M6.34 17.66l2.12-2.12M15.54 8.46l2.12-2.12"/></svg>`;}
 // Table talk reactions. The strip shows the first 7 on a phone, 10 on a small tablet and all 12 on a wide screen (CSS),
 // and the ⋯ button opens every reaction, grouped by feeling. Each game moves the 3 reactions that fit it to the front.
+// our own painted reaction stickers (the phone's emoji stay as the fallback and as the alt text)
+const RX_CODE={'😂':'1f602','😱':'1f631','👏':'1f44f','🔥':'1f525','❤':'2764','👀':'1f440','💀':'1f480','😏':'1f60f','😈':'1f608','🤔':'1f914','🎉':'1f389','🙈':'1f648','🏆':'1f3c6','🫡':'1fae1','😎':'1f60e','🤯':'1f92f','🫣':'1fae3','💥':'1f4a5','😭':'1f62d','🤦':'1f926','🙄':'1f644','🙏':'1f64f','🤞':'1f91e','💪':'1f4aa'};
+function rxIcon(e){const c=RX_CODE[String(e).replace(/️/g,'')];return c?'<img class="rx" src="assets/react/'+c+'.png" alt="'+e+'" draggable="false">':esc(e);}
 const REACTION_DEFAULT=['😂','😱','👏','🔥','❤️','👀','💀','😏','😈','🤔','🎉','🙈'];
 const REACTION_GROUPS=[['Cheer',['👏','🔥','❤️','🎉','🏆','🫡']],['Fun',['😂','🙈','😎']],['Sly',['👀','😏','😈','🤔']],['Shock',['😱','🤯','🫣','💥']],['Ouch',['💀','😭','🤦','🙄']],['Hope',['🙏','🤞','💪']]];
 const REACTION_GAME={
@@ -24791,7 +24796,7 @@ function vtSetOption(kind,val){
 }
 function vtOptionsHTML(){
   const o=vtOptions();
-  const advs=VT_ADV_IDS.map(id=>{const a=VT_ADV[id];return`<button class="vt-opt vt-opt-${id}${o.adv===id?' on':''}" data-a="vt-adv" data-id="${id}"><span class="vt-opt-ic">${a.icon}</span><span><b>${esc(a.title)}</b><small>${esc(a.tagline)}</small></span></button>`;}).join('');
+  const advs=VT_ADV_IDS.map(id=>{const a=VT_ADV[id];return`<button class="vt-opt vt-opt-${id}${o.adv===id?' on':''}" style="--vt:url(assets/rooms/vt_${id}.jpg)" data-a="vt-adv" data-id="${id}"><span class="vt-opt-ic">${a.icon}</span><span><b>${esc(a.title)}</b><small>${esc(a.tagline)}</small></span></button>`;}).join('');
   const diffs=VT_DIFFS.map((d,i)=>{const L=VT_LEVELS[d];return`<button class="vt-diff${o.diff===i?' on':''}" data-a="vt-diff" data-i="${i}"><b>${L.label}</b><small>${L.min} min · ${L.hints} hints</small></button>`;}).join('');
   return`<div class="vt-options"><div class="panel-lbl">CHOOSE YOUR ADVENTURE</div><div class="vt-optlist">${advs}</div><div class="panel-lbl" style="margin-top:.7rem;">DIFFICULTY</div><div class="vt-difflist">${diffs}</div><p class="vt-optnote">Everyone plays on their own device — each of you will see clues the others can’t. ${o.diff>=1?'On this level, things go wrong mid-chapter: surges and lost signals.':''}</p></div>`;
 }
@@ -36913,7 +36918,7 @@ function spawnFloatEmoji(emoji){
   const isStorm=_reactStormTimes.length>=3;
   const el=document.createElement('div');el.className='float-r'+(isStorm?' storm':'');
   const fr=REACTION_MOTION[emoji];
-  if(fr){const sp=document.createElement('span');sp.className='fr-in '+fr;sp.textContent=emoji;el.appendChild(sp);}else el.textContent=emoji;
+  if(fr){const sp=document.createElement('span');sp.className='fr-in '+fr;sp.innerHTML=rxIcon(emoji);el.appendChild(sp);}else el.innerHTML=rxIcon(emoji);
   el.style.cssText=`left:${15+Math.random()*70}%;bottom:20%;`;
   felt.appendChild(el);setTimeout(()=>el.remove(),3300);
   if(isStorm)fxPulse('gold');
@@ -36960,7 +36965,7 @@ async function sendTalk(entry){
 }
 function talkStripHTML(){
   const gid=G.isOnline?(G.srv&&G.srv.gameId):G.selGame;
-  const btn=(r,cls)=>`<button class="rb${cls?' '+cls:''}" data-a="react" data-r="${r}" aria-label="React with ${r}">${r}</button>`;
+  const btn=(r,cls)=>`<button class="rb${cls?' '+cls:''}" data-a="react" data-r="${r}" aria-label="React with ${r}">${rxIcon(r)}</button>`;
   const reacts=reactionsFor(gid).map((r,k)=>btn(r,k>=10?'rb-wide':k>=7?'rb-mid':'')).join('');
   const more=`<button class="rb react-more-toggle${G.reactMore?' on':''}" data-a="react-more" aria-label="More reactions" aria-expanded="${!!G.reactMore}">⋯</button>`;
   const toggle=`<button class="rb talk-toggle${G.talkOpen?' on':''}" data-a="talk-toggle" aria-label="Say something">💬</button>`;
@@ -37009,7 +37014,7 @@ window.addEventListener('appinstalled',()=>{_deferredInstallPrompt=null;render()
 // ===== OUR TABLE V12 interactions =====
 function otEnhanceTable(){}
 function otReaction(emoji,source){
-  const el=document.createElement('div');el.className='v13-reaction-pop';el.textContent=emoji;
+  const el=document.createElement('div');el.className='v13-reaction-pop';el.innerHTML=rxIcon(emoji);
   const r=source?.getBoundingClientRect?.();el.style.left=((r?.left||innerWidth/2)+(r?.width||0)/2)+'px';
   el.style.top=((r?.top||innerHeight*.78))+'px';el.style.setProperty('--rx',(Math.random()*150-75)+'px');el.style.setProperty('--rot',(Math.random()*26-13)+'deg');
   document.body.appendChild(el);setTimeout(()=>el.remove(),1700);
