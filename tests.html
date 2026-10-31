@@ -6400,6 +6400,41 @@ async function runPresentation(A,W,frame){
       gg.tableName=keepG.name;gg.scr=keepG.scr;gg.tablesOpen=false;gg.gp=keepG.gp;gg.tw=keepG.tw;
     }
   }
+  // ── a family with MORE than 6000 games: every device ends with the same number, also after a restart ──
+  const bigRes={};
+  {
+    const F=n=>W.eval(n),gg=W.eval('G'),LS=W.localStorage,AV=F('AVATARS');
+    const keep={};['ct_table_code','ct_tables','ct_history','ct_family','ct_fcache:BIGFAM0001'].forEach(k=>keep[k]=LS.getItem(k));
+    try{
+      LS.setItem('ct_table_code','BIGFAM0001');LS.setItem('ct_tables',JSON.stringify([{code:'BIGFAM0001',name:''}]));LS.setItem('ct_history','[]');LS.setItem('ct_family','[]');LS.removeItem('ct_fcache:BIGFAM0001');
+      const rows=[];const base=Date.parse('2026-01-01T00:00:00Z');
+      for(let i=0;i<7300;i++){const t=new Date(base+i*60000).toISOString().replace('Z','123+00:00');rows.push({client_id:i%3?'c'+i:null,game_id:'pig',mode:'local',winner_name:i%2?'Papa':'Mama',players:['Papa','Mama'],played_at:t,synced_at:i<7000&&i%500===499?new Date(base+(i-1)*60000).toISOString().replace('Z','123+00:00'):t});}
+      rows.sort((a,b)=>a.synced_at<b.synced_at?-1:a.synced_at>b.synced_at?1:0);
+      let calls=0;const sb={rpc:(fn,a)=>{calls++;if(fn==='history_since'){const out=rows.filter(r=>!a.p_since||r.synced_at>a.p_since).slice(0,a.p_limit||1000);return Promise.resolve({data:out,error:null});}return Promise.resolve({data:[],error:null});},channel:()=>({on(){return this;},subscribe(){return this;},send(){}}),removeChannel(){}};
+      W._famSb=sb;F('famReset')();await F('famSyncAll')({announce:false});
+      const count=()=>F('getHistory')().filter(h=>(h.players||[]).includes('Papa')).length;
+      bigRes.first=count();bigRes.rows=F('FAM').rows.length;
+      // a restart: everything in memory is gone, the saved copy is read, nothing new on the server
+      W.eval("FAM.rows=[];FAM.keys=new Set();FAM.since=null;FAM.ready=false;FAM.members=[];famBump();");F('famLoadCache')();bigRes.afterLoad=F('FAM').rows.length;
+      await F('famSyncAll')({announce:false});bigRes.second=count();
+      // a copy from the old format is not trusted
+      LS.setItem('ct_fcache:BIGFAM0001',JSON.stringify({code:'BIGFAM0001',since:'2026-02-01T00:00:00+00:00',rows:[{game:'pig',winner:'X',players:['X'],date:'2026-01-01'}]}));
+      W.eval("FAM.rows=[];FAM.keys=new Set();FAM.since=null;FAM.ready=false;famBump();");bigRes.oldFormat=F('famLoadCache')();
+      bigRes.before=F('famBefore')('2026-10-31T09:26:11.242682+00:00');
+    }catch(e){bigRes.err=String(e&&e.stack||e);}
+    finally{
+      delete W._famSb;try{F('famReset')();W.eval('clearTimeout(_famTimer);_famAgain=null;_famBusy=false;');}catch(e){}
+      Object.keys(keep).forEach(k=>{if(keep[k]===null)LS.removeItem(k);else LS.setItem(k,keep[k]);});
+    }
+  }
+  suite('A big family record (more than 6000 games) stays complete on every device',()=>{
+    check('the big sync ran without an error',!bigRes.err);
+    check('all 7300 games arrive, none lost at a page border',bigRes.rows===7300);
+    check("Papa's games are counted over the whole record (3650 wins by Papa + Mama's games with him = every game)",bigRes.first===7300);
+    check('after a restart the saved copy brings back every game, not only the first 6000',bigRes.afterLoad===7300&&bigRes.second===7300);
+    check('a saved copy in the old format is not trusted',bigRes.oldFormat===false);
+    check('the "sync up to here" mark is one microsecond earlier, so rows with the same time come again',bigRes.before==='2026-10-31T09:26:11.242681+00:00');
+  });
   suite('Tables (groups): each with its own people, games and trophies',()=>{
     check('the tables sync ran without an error',!tbRes.err);
     check("a table's list shows only its own games (and the old games that carry no mark belong to the first table)",tbRes.oneHist==='farkle,pig');

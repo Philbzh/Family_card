@@ -5838,14 +5838,24 @@ function famMerge(local,remote){
   local.forEach(h=>{const r=famFind(h,ix,used);if(r){used.add(r);out.push(Object.assign({},r,h,{scores:h.scores||r.scores,winnerAvatar:h.winnerAvatar||r.winnerAvatar,moment:h.moment||r.moment}));}else out.push(h);});
   remote.forEach(r=>{if(!used.has(r))out.push(r);});
   out.sort((a,b)=>new Date(b.date)-new Date(a.date));
-  return out.length>6000?out.slice(0,6000):out;
+  return out;
 }
 function famSmall(x){try{const j=JSON.stringify(x||null);return j&&j.length<2500?x:null;}catch(e){return null;}}
 function famScoresNow(){try{const src=G.isOnline?((G.srv&&G.srv.players)||[]):G.lp;const o=src.slice(0,8).map(p=>({n:String(p.name||'').slice(0,24),s:Math.round(+p.totalScore||0),r:p.c4Result||undefined,b:p.bot||undefined})).filter(x=>x.n);return o.length?o:undefined;}catch(e){return undefined;}}
 function famRowOut(e){return{device_id:DEVICE_ID,client_id:e.cid,game_id:e.game,mode:e.mode||'local',winner_name:e.winner,winner_avatar:e.winnerAvatar||null,players:e.players,rules:e.rules||null,played_at:e.date||null,moment:e.moment?String(e.moment).slice(0,200):null,scores:e.scores||null,stats:famSmall(e.stats)};}
-function famSave(){try{let c={code:tableCode(),since:FAM.since,rows:FAM.rows.slice(0,6000),members:FAM.members,settings:FAM.settings};let j=JSON.stringify(c);if(j.length>3.6e6){c.rows=c.rows.map(r=>Object.assign({},r,{stats:undefined,scores:undefined}));j=JSON.stringify(c);}localStorage.setItem('ct_fcache:'+tableCode(),j);}catch(e){}}
-function famLoadCache(){try{const c=JSON.parse(localStorage.getItem('ct_fcache:'+tableCode())||localStorage.getItem('ct_fcache')||'null');if(c&&c.code===tableCode()&&Array.isArray(c.rows)){FAM.rows=c.rows;FAM.keys=new Set(c.rows.map(r=>r.cid||('o'+r.sa+'|'+r.winner+'|'+r.game)));FAM.since=c.since||null;FAM.members=c.members||[];FAM.settings=c.settings||null;FAM.ready=true;famBump();return true;}}catch(e){}return false;}
+// the saved copy keeps EVERY game (packed small) or nothing: a partial copy plus a "synced up to here" mark loses games for good
+function famPack(r,lean){return lean?[r.cid||0,r.game,r.mode,r.winner,r.players,r.date,0,0,0,r.sa||0,0]:[r.cid||0,r.game,r.mode,r.winner,r.players,r.date,r.moment||0,r.scores||0,r.winnerAvatar||0,r.sa||0,r.stats||0];}
+function famUnpack(a){return{cid:a[0]||undefined,game:a[1],mode:a[2],winner:a[3],players:a[4],date:a[5],moment:a[6]||undefined,scores:a[7]||undefined,winnerAvatar:a[8]||undefined,sa:a[9]||undefined,stats:a[10]||undefined,remote:1};}
+function famCacheRows(c){return(c&&Array.isArray(c.rows))?(c.v===3?c.rows.map(famUnpack):c.rows):[];}
+function famSave(){
+  const key='ct_fcache:'+tableCode();
+  for(const lean of [false,true]){try{localStorage.setItem(key,JSON.stringify({v:3,code:tableCode(),since:FAM.since,rows:FAM.rows.map(r=>famPack(r,lean)),members:FAM.members,settings:FAM.settings}));return true;}catch(e){}}
+  try{localStorage.removeItem(key);}catch(e){}return false;
+}
+function famLoadCache(){try{const c=JSON.parse(localStorage.getItem('ct_fcache:'+tableCode())||'null');if(c&&c.v===3&&c.code===tableCode()&&Array.isArray(c.rows)){FAM.rows=famCacheRows(c);FAM.keys=new Set(FAM.rows.map(r=>r.cid||('o'+r.sa+'|'+r.winner+'|'+r.game)));FAM.since=c.since||null;FAM.members=c.members||[];FAM.settings=c.settings||null;FAM.ready=true;famBump();return true;}}catch(e){}return false;}
 function famReset(){FAM.gen++;FAM.rows=[];FAM.keys=new Set();FAM.members=[];FAM.settings=null;FAM.since=null;FAM.ready=false;FAM.v2=null;FAM.err='';FAM.progress=0;FAM.info=null;famBump();try{localStorage.removeItem('ct_fcache');localStorage.removeItem('ct_fcache:'+tableCode());}catch(e){}}
+// the mark one microsecond earlier, so that rows with the same time as the last one of a page come again (and are recognised)
+function famBefore(ts){const m=String(ts||'').match(/^(.*\.)(\d{1,6})(\d*)(.*)$/);if(!m)return ts;const f=m[2].padEnd(6,'0');const n=parseInt(f,10);if(n<1)return ts;return m[1]+String(n-1).padStart(6,'0')+m[4];}
 async function famPullHistory(sb,gen){
   let guard=0;
   while(guard++<30){
@@ -5853,9 +5863,9 @@ async function famPullHistory(sb,gen){
     if(gen!==FAM.gen)return false;
     if(r.error){if(histFnMissing(r.error)){FAM.v2=false;return false;}FAM.err=r.error.message||'error';return false;}
     const rows=r.data||[];
-    for(const x of rows){const k=famRowKey(x);if(FAM.keys.has(k))continue;FAM.keys.add(k);FAM.rows.push(famFromRow(x));}
-    if(rows.length){FAM.since=rows[rows.length-1].synced_at||FAM.since;FAM.progress=FAM.rows.length;famProgress();}
-    if(rows.length<1000)break;
+    let fresh=0;for(const x of rows){const k=famRowKey(x);if(FAM.keys.has(k))continue;FAM.keys.add(k);FAM.rows.push(famFromRow(x));fresh++;}
+    if(rows.length){FAM.since=famBefore(rows[rows.length-1].synced_at)||FAM.since;FAM.progress=FAM.rows.length;famProgress();}
+    if(rows.length<1000||!fresh)break;
   }
   FAM.v2=true;FAM.err='';return true;
 }
@@ -5943,7 +5953,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=230;
+const APP_BUILD=231;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -6067,7 +6077,7 @@ async function tbFetch(sb,code){
     const r=await sb.rpc('history_since',{p_code:code,p_since:since,p_limit:1000});
     if(r.error)return null;
     const d=r.data||[];d.forEach(x=>{const k=famRowKey(x);if(!keys.has(k)){keys.add(k);rows.push(famFromRow(x));}});
-    if(d.length)since=d[d.length-1].synced_at||since;
+    if(d.length)since=famBefore(d[d.length-1].synced_at)||since;
     if(d.length<1000)break;
   }
   let members=[];try{const m=await sb.rpc('members_for',{p_code:code});if(!m.error)members=(m.data||[]).filter(x=>x&&x.name).map(x=>({name:x.name,avatar:x.avatar||undefined,deleted:!!x.deleted}));}catch(e){}
@@ -6079,10 +6089,10 @@ async function tbOverviewLoad(){
     for(const t of tbEnsure()){
       if(t.code===tableCode()){out[t.code]=tbStatsFrom(getHistory(),getFamily(),me);continue;}
       let c=null;try{c=JSON.parse(localStorage.getItem('ct_fcache:'+t.code)||'null');}catch(e){}
-      let rows=(c&&c.rows)||[],members=(c&&c.members)||[];
+      let rows=famCacheRows(c),members=(c&&c.members)||[];
       if(sb&&(!c||Date.now()-(c.fetched||0)>120000)){
         const f=await tbFetch(sb,t.code);
-        if(f){rows=f.rows;members=f.members;try{localStorage.setItem('ct_fcache:'+t.code,JSON.stringify({code:t.code,since:f.since,rows:f.rows.slice(0,6000),members:f.members,settings:(c&&c.settings)||null,fetched:Date.now()}));}catch(e){}}
+        if(f){rows=f.rows;members=f.members;try{localStorage.setItem('ct_fcache:'+t.code,JSON.stringify({v:3,code:t.code,since:f.since,rows:f.rows.map(r=>famPack(r,false)),members:f.members,settings:(c&&c.settings)||null,fetched:Date.now()}));}catch(e){}}
       }
       out[t.code]=tbStatsFrom(famMerge(getAllLocalHistory().filter(h=>h.tc===t.code),rows),members,me);
     }
@@ -6128,7 +6138,7 @@ function famStatusHTML(){
   else if(FAM.err)line='⚠️ Could not reach your table just now ('+esc(FAM.err)+')';
   else if(FAM.ready)line='✅ In sync · '+g+' game'+(g!==1?'s':'')+' · '+m+' member'+(m!==1?'s':'')+(FAM.at?' · '+new Date(FAM.at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'');
   else line='Not synced yet.';
-  return`<div class="panel" style="text-align:left;"><div class="panel-lbl">Family sync</div><div id="fam-status" style="font-size:.8rem;color:var(--paper2);line-height:1.55;margin-bottom:.55rem;">${line}</div><button class="btn btn-ghost btn-sm" data-a="fam-sync">↻ Sync now</button></div>`;
+  return`<div class="panel" style="text-align:left;"><div class="panel-lbl">Family sync</div><div id="fam-status" style="font-size:.8rem;color:var(--paper2);line-height:1.55;margin-bottom:.55rem;">${line}</div><div style="font-size:.7rem;color:var(--paper3);margin-bottom:.55rem;">${FAM.rows.length} games in the shared record on this device${FAM.since?' · up to '+esc(String(FAM.since).slice(0,16).replace('T',' ')):''}</div><div style="display:flex;gap:.5rem;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" data-a="fam-sync">↻ Sync now</button><button class="btn btn-ghost btn-sm" data-a="fam-reload">⟲ Reload everything from the table</button></div></div>`;
 }
 function syncHistory(e){
   if(isDevHost())return;
@@ -36817,6 +36827,7 @@ document.addEventListener('click',e=>{
   else if(a==='tb-join-ok'){const v=((document.getElementById('tb-join-name')||{}).value||'').trim().slice(0,20);if(!v){toast('Type your name first');return;}G.myName=v;try{localStorage.setItem('ct_myname',v);localStorage.setItem('ct_myavatar',G.myAvatar||AVATARS[0]);}catch(e){}const j=G.joinInv;G.joinInv=null;tbJoin(j.code,j.name);}
   else if(a==='tb-join-no'){G.joinInv=null;render();}
   else if(a==='fam-sync'){famSyncAll({announce:true});}
+  else if(a==='fam-reload'){famReset();toast('⟲ Loading every game again…');famSyncAll({announce:true});}
   else if(a==='mom-all'){G.momAll=true;render();}
   else if(a==='tc-noop'){/* clicks inside the table-code box must not close the panel */}
   else if(a==='tc-save'){
