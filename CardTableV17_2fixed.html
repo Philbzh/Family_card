@@ -382,6 +382,12 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .tp-go{display:inline-block;padding:.38rem .8rem;border-radius:999px;background:linear-gradient(180deg,#f0cc60,#c99b4e);color:#241a08;font:700 .68rem 'Jost',sans-serif;letter-spacing:.1em;text-transform:uppercase;}
 .tp-skip{position:absolute;top:.5rem;right:.6rem;width:2rem;height:2rem;border-radius:50%;border:1px solid rgba(230,195,106,.3);background:rgba(0,0,0,.35);color:#e8c46a;font-size:1rem;cursor:pointer;}
 .tp-skip:active{transform:rotate(180deg);}
+.v10-medal{width:3.5rem;height:3.5rem;display:grid;place-items:center;background:var(--medal) center/contain no-repeat;font-size:1.15rem;filter:drop-shadow(0 4px 8px rgba(0,0,0,.5));transition:transform .18s;}
+.v10-medal span{display:block;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6));}
+.v10-medal:hover{transform:translateY(-3px) scale(1.06);}
+.v10-trophy-strip{gap:.55rem !important;}
+.v10-trophy-bar{height:5px;border-radius:99px;background:rgba(255,255,255,.08);margin:.1rem .4rem .8rem;overflow:hidden;}
+.v10-trophy-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#c99b4e,#f6e2b0);box-shadow:0 0 10px rgba(240,200,110,.6);}
 .fav-row{display:flex;gap:.7rem;overflow-x:auto;padding:0 1.2rem .5rem;scrollbar-width:none;}
 .fav-row::-webkit-scrollbar{display:none;}
 .fav-card{position:relative;flex:0 0 8.6rem;aspect-ratio:3/4;border-radius:16px;border:1px solid rgba(230,195,106,.4);background-size:cover;background-position:center;display:flex;flex-direction:column;justify-content:flex-end;padding:.7rem;cursor:pointer;box-shadow:0 10px 22px -12px #000;transition:transform .15s;}
@@ -5925,6 +5931,15 @@ function homeFavsHTML(history){
   if(!cards)return'';
   return`<div class="v10-section"><div class="v10-section-title">Favourites</div><div class="v10-section-note">${favs.length?'Tap to play':'Most played'}</div></div><div class="fav-row">${cards}</div>${hint?`<div class="fav-hint">${hint}</div>`:''}`;
 }
+// the button that starts a game says what happens in THAT game (not "Deal the Cards" everywhere)
+const START_LABELS={maumau:'🃏 Deal the Cards',battle:'⚔️ Flip the First Cards',lepouilleux:'🃏 Deal the Cards',romme:'🃏 Deal the Cards',uno:'🃏 Deal the Cards',hearts:'🃏 Deal the Cards',bridge:'🃏 Deal the Cards',texas:'🃏 Deal the Cards',fivecard:'🃏 Deal the Cards',blackjack:'🃏 Deal the Cards',
+  yahtzee:'🎲 Start Rolling',farkle:'🎲 Start Rolling',pig:'🎲 Start Rolling',dicedual:'🎲 Start Rolling',bust:'🎲 Roll the Dice',liarsdice:'🎲 Roll the Dice',summit:'🏔️ Start the Climb',shutbox:'📦 Open the Box',
+  roulette:'🎡 Open the Table',slots:'🎰 Power Up the Machine',bingo:'🎱 Call the Numbers',fourrow:'🔴 Drop the First Disc',chainreaction:'⚛️ Start the Chain',blackwater:'⚓ Take Your Positions',mayhem:'💥 Let it Rip',
+  gauntlet:'🏁 To the Starting Line',abyss:'🕳️ Enter the Abyss',drawit:'🎨 Start Drawing',hotbomb:'💣 Light the Fuse',skull:'🌹 Place Your First Rose',tension:'⚙️ Start the Machine',
+  airhockey:'🏒 Drop the Puck',pong:'🏓 Serve',invaders:'👾 Start the Wave',pinball:'🎱 Launch the Ball',pool:'🎱 Break the Rack',
+  clay:'🥏 To the Field',archery:'🏹 To the Trail',precision:'🎯 Enter the Range',balloonblast:'🎈 Step Right Up',marksman:'🎯 Take Aim',hoopfever:'🏀 Take the First Shot',vault:'🔐 Start the Adventure',escape:'🗝️ Start the Adventure'};
+const START_BY_CAT={cards:'🃏 Deal the Cards',dice:'🎲 Start Rolling',casino:'🎰 Open the Table',classic:'🎯 Start the Game',party:'🎉 Let\'s Play',arcade:'🕹️ Start the Game',fairground:'🎪 Step Right Up',olympic:'🏅 To the Field',coop:'🔐 Start the Adventure'};
+function startLabel(game){return START_LABELS[game.id]||START_BY_CAT[game.cat]||'▶ Start the Game';}
 function famAskWho(){
   if(G.myName||G.whoOpen||G.joinInv||G.tablesOpen||!['home','family','moments','trophies','player','games'].includes(G.scr))return;
   let skip=false;try{skip=!!localStorage.getItem('ct_who_skip:'+tableCode());}catch(e){}
@@ -5954,7 +5969,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=233;
+const APP_BUILD=234;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -31431,8 +31446,8 @@ function rHome(){
     .sort((x,y)=>new Date(trophyUnlocked[y.id]||0)-new Date(trophyUnlocked[x.id]||0));
   const trophiesPanel=`<div class="v10-side-card">
     <div class="v10-side-card-title">Trophy Room</div>
-    ${trophyEarned.length?`<div class="v10-trophy-strip">${trophyEarned.slice(0,4).map(a=>`<div class="v10-trophy-chip" title="${esc(a.name)} — ${esc(a.desc)}"><span>${a.icon}</span></div>`).join('')}</div>
-      <div class="v10-trophy-count">${trophyEarned.length} of ${ACHIEVEMENTS.length} earned</div>`
+    ${trophyEarned.length?`<div class="v10-trophy-strip">${trophyEarned.slice(0,4).map(a=>`<div class="v10-medal" style="--medal:url(assets/ui/medal_${achTier(a,true)}.png)" title="${esc(a.name)} — ${esc(a.desc)}"><span>${a.icon}</span></div>`).join('')}</div>
+      <div class="v10-trophy-count">${trophyEarned.length} of ${ACHIEVEMENTS.length} earned</div><div class="v10-trophy-bar"><i style="width:${Math.round(trophyEarned.length/ACHIEVEMENTS.length*100)}%"></i></div>`
     :`<div class="v10-moment-empty">No trophies yet — your first is one game away.</div>`}
     <div class="v10-side-link" data-a="nav-trophies" role="button" tabindex="0">Open the trophy room →</div>
   </div>`;
@@ -33874,7 +33889,7 @@ function rSetup(){
       ${game.id==='blackwater'?bwOptionsHTML():''}
       ${game.id==='mayhem'?mhOptionsHTML():''}
       ${game.id==='tension'?tnOptionsHTML():''}
-      <button class="btn btn-gold btn-full" data-a="deal" style="padding:1rem;">${game.id==='yahtzee'?'🎲 Start Rolling':game.id==='roulette'?'🎡 Open the Table':game.id==='slots'?'🎰 Power Up the Machine':game.id==='drawit'?'🎨 Start Drawing':game.id==='liarsdice'?'🎲 Roll the Dice':game.id==='summit'?'🏔️ Start the Climb':game.id==='shutbox'?'📦 Open the Box':game.id==='tension'?'⚙️ Start the Machine':game.id==='mayhem'?'💥 Let it Rip':game.id==='hotbomb'?'💣 Light the Fuse':'🃏 Deal the Cards'}</button>
+      <button class="btn btn-gold btn-full" data-a="deal" style="padding:1rem;">${startLabel(game)}</button>
     </div>
   </div>`;
 }

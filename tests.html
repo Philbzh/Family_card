@@ -6479,6 +6479,14 @@ async function runPresentation(A,W,frame){
       Object.keys(keep).forEach(k=>{if(keep[k]===null)LS.removeItem(k);else LS.setItem(k,keep[k]);});
     }
   }
+  suite('The start button names what happens in each game',()=>{
+    const F=n=>W.eval(n),all=F('GAMES').filter(g=>!g.hidden);
+    const labels=all.map(g=>F('startLabel')(g));
+    check('every game has a start label of its own kind (no game is left without)',labels.every(l=>typeof l==='string'&&l.length>5));
+    check('only the card games say Deal the Cards',all.every(g=>!/Deal the Cards/.test(F('startLabel')(g))||['cards','casino'].includes(g.cat)));
+    check('dice, arcade, olympic and fairground games do not say Deal the Cards',all.filter(g=>['dice','arcade','olympic','fairground','coop','party'].includes(g.cat)).every(g=>!/Deal/.test(F('startLabel')(g))));
+    check('a game that has no label of its own falls back to a label of its room',F('startLabel')({id:'zzz',cat:'arcade'})==='🕹️ Start the Game'&&F('startLabel')({id:'zzz',cat:'nothing'})==='▶ Start the Game');
+  });
   suite('Favourites (starred games, shared by the table)',()=>{
     check('the favourites ran without an error',!favRes.err);
     check('a star adds a game, another star removes it, in order',favRes.one==='farkle'&&favRes.two==='farkle,pig'&&favRes.three==='pig');
@@ -11610,7 +11618,8 @@ async function runPresentation(A,W,frame){
       })());
     });
 
-    const phaseAfter=await waitWhileSpinning();
+    let phaseAfter=await waitWhileSpinning();
+    if(phaseAfter==='decide'){slotCollect();phaseAfter=G.slot.phase;}   // about one spin in seven ends in a near miss that offers a second chance first: take the result as it is
     suite('A spin resolves on its own into a real, playable result',()=>{
       check('the spin resolves to a result within a few seconds of real time',phaseAfter==='result');
       check('the result carries a real, non-negative total win',G.slot.result&&G.slot.result.totalWin>=0);
