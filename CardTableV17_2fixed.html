@@ -4592,6 +4592,8 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
 .bl-bt{flex:none;width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(230,195,106,.2);padding:2px;cursor:pointer;}
 .bl-bt canvas{width:100%;height:100%;display:block;}
 .bl-bt.on{border-color:#f0d27a;background:rgba(240,210,122,.16);box-shadow:0 0 12px -3px rgba(240,210,122,.7);}
+.bl-logo{display:block;width:min(100%,19rem);margin:.15rem auto .35rem;filter:drop-shadow(0 3px 8px rgba(0,0,0,.6));}
+.bl-spic{display:block;width:100%;max-height:7.5rem;object-fit:cover;border-radius:10px;margin-bottom:.35rem;box-shadow:0 2px 10px rgba(0,0,0,.5);}
 .bl-fxs button{min-width:3rem;padding:.45rem .2rem;font-size:.48rem;letter-spacing:.06em;}
 @media(max-width:560px){.bl-nm{width:3.6rem;font-size:.55rem;}.bl-nm b{overflow:hidden;text-overflow:ellipsis;}.bl-m u{font-size:.56rem;}.bl-t{font-size:.62rem;}.bl-tt{width:2rem;font-size:.8rem;}.bl-hint{font-size:.54rem;letter-spacing:.14em;}}
 @media(max-height:560px){.bl-bigw canvas{width:84px;height:84px;}}
@@ -6073,7 +6075,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=257;
+const APP_BUILD=258;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -33800,12 +33802,12 @@ function blDrama(g,K,pl,streak){
   const nm=pl.name.toUpperCase();let big=null;
   if(K.strike){
     const word={1:'STRIKE',2:'DOUBLE',3:'TURKEY',4:'FOUR-BAGGER',5:'FIVE-BAGGER',6:'SIX-BAGGER'}[Math.min(6,streak)]||(streak>=7?streak+' IN A ROW':'STRIKE');
-    big={t:word,s:streak>=2?nm+' · '+streak+' strikes in a row':nm,col:streak>=3?'#ffe58a':'#f6d675',k:'strike',st:streak};
+    big={t:word,s:streak>=2?nm+' · '+streak+' strikes in a row':nm,col:streak>=3?'#ffe58a':'#f6d675',k:'strike',st:streak,img:streak>=3?'turkey':'strike'};blConfetti(g,28+Math.min(5,streak)*14,streak>=3);
     blSnd[streak>=3?'turkey':'strike']();blSnd.crash(1);
   }else if(K.spare){
-    big={t:K.converted?'SPLIT CONVERTED':'SPARE',s:K.converted?'the '+K.converted+' split · '+nm:nm,col:K.converted?'#ffd36b':'#9be3b8',k:K.converted?'strike':'spare'};blSnd.spare();if(K.converted)blSnd.turkey();
-  }else if(K.split){big={t:'SPLIT',s:blSplitName(K.standing),col:'#ff9d5c',k:'split'};blSnd.split();}
-  else if(K.n===0){big={t:K.gut?'GUTTER':'MISS',s:nm,col:'#c9d2cc',k:'miss'};}
+    big={t:K.converted?'SPLIT CONVERTED':'SPARE',s:K.converted?'the '+K.converted+' split · '+nm:nm,col:K.converted?'#ffd36b':'#9be3b8',k:K.converted?'strike':'spare',img:'spare'};blConfetti(g,K.converted?50:24,false);blSnd.spare();if(K.converted)blSnd.turkey();
+  }else if(K.split){big={t:'SPLIT',s:blSplitName(K.standing),col:'#ff9d5c',k:'split',img:'split'};blSnd.split();}
+  else if(K.n===0){big={t:K.gut?'GUTTER':'MISS',s:nm,col:'#c9d2cc',k:'miss',img:K.gut?'gutter':null};}
   else{big={t:K.n+(K.n===1?' PIN':' PINS'),s:nm,col:'#e9e1c9',k:'open'};blSnd.open();}
   g.banner={t0:g.t,dur:K.strike||K.spare?2.1:1.4,big,sz:K.strike||K.spare?1:.72};
   if(K.strike||K.spare){g.flash=1;g.shake=K.strike?1:.6;try{haptic(K.strike?[30,40,30,40,60]:[30,30,40]);}catch(e){}}
@@ -33828,7 +33830,7 @@ function blAfterResult(g){
     const prevLead=g.lead;
     tot.forEach((t,k)=>{g.maxDef[k]=Math.max(g.maxDef[k],mx-t);});
     if(g.n>1&&g.turnEnds){const lead=tot.indexOf(mx),uniq=tot.filter(t=>t===mx).length===1;
-      if(uniq&&lead!==prevLead){if(prevLead>=0&&g.maxDef[lead]>=40&&blPos(g.rolls[lead],g.N).f>=3){g.comeback[lead]=Math.max(g.comeback[lead],g.maxDef[lead]);g.banner={t0:g.t,dur:1.9,big:{t:'COMEBACK',s:g.players[lead].name.toUpperCase()+' takes the lead',col:'#ffd36b',k:'comeback'},sz:.9};blSnd.turkey();g.flash=.8;g.moments.push({k:'comeback',who:g.players[lead].name,txt:g.players[lead].name+' came back from '+g.maxDef[lead]+' pins behind to take the lead'});g.resultFor2=1.2;}
+      if(uniq&&lead!==prevLead){if(prevLead>=0&&g.maxDef[lead]>=40&&blPos(g.rolls[lead],g.N).f>=3){g.comeback[lead]=Math.max(g.comeback[lead],g.maxDef[lead]);g.banner={t0:g.t,dur:1.9,big:{t:'COMEBACK',s:g.players[lead].name.toUpperCase()+' takes the lead',col:'#ffd36b',k:'comeback',img:'comeback'},sz:.9};blConfetti(g,36,false);blSnd.turkey();g.flash=.8;g.moments.push({k:'comeback',who:g.players[lead].name,txt:g.players[lead].name+' came back from '+g.maxDef[lead]+' pins behind to take the lead'});g.resultFor2=1.2;}
         g.lead=lead;}}
   }
   blSweepStart(g);
@@ -33916,7 +33918,7 @@ function blFinish(g){
       const rs={perfect:Math.max(...hs.map(i=>st[i].strikes)),bestRally:Math.max(...hs.map(i=>st[i].best)),saves:Math.max(...hs.map(i=>st[i].spares)),comeback:Math.max(0,...hs.map(i=>g.comeback[i]||0)),team:0};
       const nr=arRecordUpdate(g.mode==='quick'?'bowling_quick':g.mode==='splits'?'bowling_splits':'bowling',g.players.map(p=>p.name),g.players[hb].name,[tot[hb],0],rs);if(nr.length)setTimeout(()=>toast('🎳 New Bowling record'),900);}}catch(e){}
   }
-  if(perfect>=0){blSnd.perfect();g.banner={t0:g.t,dur:4,big:{t:'300',s:'A PERFECT GAME · '+nm(perfect).toUpperCase(),col:'#ffe58a',k:'perfect'},sz:1.3};g.flash=1;}
+  if(perfect>=0){blConfetti(g,150,true);blSnd.perfect();g.banner={t0:g.t,dur:4,big:{t:'300',s:'A PERFECT GAME · '+nm(perfect).toUpperCase(),col:'#ffe58a',k:'perfect'},sz:1.3};g.flash=1;}
   else{try{hfSnd.cheer(1);}catch(e){}g.banner={t0:g.t,dur:2.4,big:{t:tie?'LEVEL':nm(w).toUpperCase()+(g.n>1?' WINS':''),s:String(tot[w]),col:'#ffe58a',k:'win'},sz:1};}
   if(!(g.net&&G.isOnline))g.endTm=setTimeout(()=>{if(G.bl===g&&G.scr==='table'){blStop();G.scr='matchend';render();}},perfect>=0?5200:3300);
 }
@@ -34051,6 +34053,7 @@ function blDrawLane(g,x){
   blQuad(x,g,[[-hw,0,zA],[hw,0,zA],[hw,0,zB],[-hw,0,zB]],lg);
   blLaneSlices(g,x,zA,zB,hw);
   blQuad(x,g,[[-hw,0,zA],[hw,0,zA],[hw,0,-.02],[-hw,0,-.02]],'rgba(40,22,8,.2)');
+  blDrawReturn(g,x);
   // soft long reflections of the lamps in the lacquer
   {x.save();x.globalCompositeOperation='lighter';for(const sx of[-.3,.3]){const a=blP(g,sx,0,3),b=blP(g,sx,0,17.8);if(a&&b){const gr=x.createLinearGradient(0,a[1],0,b[1]);gr.addColorStop(0,'rgba(255,225,160,.12)');gr.addColorStop(1,'rgba(255,225,160,0)');x.fillStyle=gr;x.beginPath();x.moveTo(a[0]-a[2]*.06,a[1]);x.lineTo(a[0]+a[2]*.06,a[1]);x.lineTo(b[0]+b[2]*.03,b[1]);x.lineTo(b[0]-b[2]*.03,b[1]);x.closePath();x.fill();}}x.restore();}
   // the sheen: a soft light from the middle, and a warm pool on the pin deck
@@ -34153,6 +34156,31 @@ function blStepParts(g,dt){
     if(a.k==='d'){a.vx*=.96;a.vz*=.96;a.vy*=.95;}
     if(a.y<0&&a.k!=='d'&&a.k!=='t'){a.y=0;a.vy*=-.32;a.vx*=.7;a.vz*=.7;if(Math.abs(a.vy)<.4)a.vy=0;}}
 }
+function blDrawReturn(g,x){
+  const im=blPhoto('return');if(!im)return;
+  for(const sd of[-1,1]){const p=blP(g,sd*1.0,0,-.4);if(!p)continue;const w=.6*p[2],h=w*im.height/im.width;if(w<8)continue;
+    x.save();x.translate(p[0],p[1]);if(sd<0)x.scale(-1,1);x.drawImage(im,-w/2,-h*.92,w,h);x.restore();}
+}
+// the confetti and the streamers fall from above the pins: pieces of the real picture, a few hundred pixels in all
+function blConfetti(g,n,streamers){
+  const R=BL_CONF_RECTS;g.cf=g.cf||[];const cz=g.cam?g.cam.z:0,ch=g.cam?g.cam.h:2.2;   // they fall in front of the camera, wherever it is
+  for(let i=0;i<n&&g.cf.length<170;i++){g.cf.push({x:(Math.random()-.5)*2.2,y:ch+.7+Math.random()*.9,z:cz+3+Math.random()*7,vx:(Math.random()-.5)*.5,vy:-1.1-Math.random()*.9,vz:(Math.random()-.5)*.3,r:Math.random()*6,vr:(Math.random()-.5)*8,k:Math.floor(Math.random()*R.length),s:.05+Math.random()*.045,l:2.4+Math.random()*1.4,m:4.2,ph:Math.random()*6,st:-1});}
+  if(streamers)for(let i=0;i<9&&g.cf.length<190;i++){g.cf.push({x:(Math.random()-.5)*1.8,y:ch+.8+Math.random()*.8,z:cz+3.5+Math.random()*6,vx:(Math.random()-.5)*.3,vy:-.7-Math.random()*.4,vz:0,r:(Math.random()-.5)*.8,vr:(Math.random()-.5)*1.2,k:0,s:.32+Math.random()*.12,l:3+Math.random()*1.2,m:4.6,ph:Math.random()*6,st:i%4});}
+}
+const BL_CONF_RECTS=[[0,0,50,37],[52,0,39,29],[93,0,32,32],[127,0,39,32],[168,0,42,40],[212,0,39,31],[253,0,66,47],[321,0,52,36],[375,0,61,38],[438,0,45,39],[485,0,39,30],[526,0,36,31],[564,0,38,37],[604,0,41,31],[647,0,42,43],[691,0,49,36]];
+function blStepConf(g,dt){
+  const L=g.cf;if(!L||!L.length)return;
+  for(let i=L.length-1;i>=0;i--){const c=L[i];c.l-=dt;if(c.l<=0||c.y<0){L.splice(i,1);continue;}
+    c.ph+=dt*3;c.x+=(c.vx+Math.sin(c.ph)*.18)*dt;c.y+=c.vy*dt;c.z+=c.vz*dt;c.r+=c.vr*dt;}
+}
+function blDrawConf(g,x){
+  const L=g.cf;if(!L||!L.length)return;const at=blPhoto('confetti');
+  for(const c of L){const p=blP(g,c.x,c.y,c.z);if(!p)continue;const al=Math.min(1,c.l*1.6),w=Math.min(c.s*p[2],g.cv.height*(c.st>=0?.12:.05));if(w<2)continue;
+    x.save();x.globalAlpha=al;x.translate(p[0],p[1]);x.rotate(c.r);
+    if(c.st>=0){const sm=blPhoto('stream_'+c.st);if(sm){const h=w*sm.height/sm.width;x.drawImage(sm,-w/2,-h/2,w,h);}}
+    else if(at){const R=BL_CONF_RECTS[c.k],h=w*R[3]/R[2],sq=.45+.55*Math.abs(Math.sin(c.ph*1.3));x.scale(1,sq);x.drawImage(at,R[0],R[1],R[2],R[3],-w/2,-h/2,w,h);}
+    x.restore();}
+}
 function blDrawBursts(g,x){
   const L=g.fxs;if(!L||!L.length)return;
   x.save();x.globalCompositeOperation='lighter';
@@ -34194,6 +34222,16 @@ function blDrawBanner(g,x){
   const W=g.cv.width,H=g.cv.height,dpr=g.dpr||1,big=b.big;
   const pop=Math.min(1,u*b.dur/.28),e=pop<1?1+2.2*Math.pow(pop-1,3)+1.2*Math.pow(pop-1,2):1,sc=(.55+.45*e)*b.sz,al=u>.82?1-(u-.82)/.18:1;
   x.save();x.globalAlpha=Math.max(0,al);x.textAlign='center';x.textBaseline='middle';
+  const wim=big.img?blPhoto('word_'+big.img):null;
+  if(wim){
+    const cyw=H*.5,ww=Math.min(W*.84,H*.66)*(.55+.45*e)*(b.sz>1?1.1:1),hw=ww*wim.height/wim.width;
+    x.save();x.translate(W/2,cyw);
+    const bg2=x.createLinearGradient(-W/2,0,W/2,0);bg2.addColorStop(0,'rgba(0,0,0,0)');bg2.addColorStop(.2,'rgba(0,0,0,.34)');bg2.addColorStop(.8,'rgba(0,0,0,.34)');bg2.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=bg2;x.fillRect(-W/2,-hw*.7,W,hw*1.4+(big.s?H*.05:0));
+    x.shadowColor='rgba(255,200,90,.55)';x.shadowBlur=(g.q||0)<2?26*dpr:0;x.drawImage(wim,-ww/2,-hw/2,ww,hw);x.shadowBlur=0;
+    const sh2=(u*b.dur-.1)/.6;if(sh2>0&&sh2<1){x.save();x.globalCompositeOperation='lighter';x.globalAlpha=.5*Math.max(0,al);const gx=(-.6+sh2*1.2)*ww*.5;const gg=x.createLinearGradient(gx-ww*.1,0,gx+ww*.1,0);gg.addColorStop(0,'rgba(255,255,255,0)');gg.addColorStop(.5,'rgba(255,255,255,.8)');gg.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=gg;x.fillRect(-ww/2,-hw/2,ww,hw);x.restore();}
+    if(big.s){x.font='700 '+Math.round(Math.min(H*.026,W*.05))+'px Cinzel,serif';x.fillStyle='rgba(245,236,205,.97)';x.textAlign='center';x.fillText(big.s,0,hw*.62);}
+    x.restore();x.restore();return;
+  }
   const cy=H*.5,fs=Math.round(Math.min(W*.13,H*.1)*sc*(big.t.length>9?.72:big.t.length>6?.86:1));
   x.translate(W/2,cy);
   // a dark band so the word reads on any picture
@@ -34216,7 +34254,7 @@ function blDrawTurnCard(g,x){
   const prac=g.mode==='practice',spl=g.mode==='splits',solo=g.n===1;
   x.fillStyle='#f6e7b4';x.font='800 '+Math.round(Math.min(H*.034,W*.07))+'px Cinzel,serif';x.fillText(prac?'PRACTICE':spl?BL_SPLITS[g.si].n:solo?'FRAME '+blFrameNo(g):pl.name.toUpperCase()+"'S TURN",W/2,H*.44);
   x.font='700 '+Math.round(Math.min(H*.018,W*.036))+'px Cinzel,serif';x.fillStyle='rgba(235,201,120,.92)';x.fillText(prac?'BALL '+(g.pk+1):spl?(solo?'':pl.name.toUpperCase()+'  ·  ')+'BALL '+(g.pk+1):(solo?'':'FRAME '+blFrameNo(g)+'  ·  ')+'BALL '+blBallNo(g),W/2,H*.485);
-  {const md=blModNow(g);if(md){x.font='800 '+Math.round(Math.min(H*.02,W*.04))+'px Cinzel,serif';x.fillStyle='rgb('+BL_MODCOL[md]+')';x.fillText('THIS BALL: '+BL_MODS[md].n+' · '+BL_MODS[md].d,W/2,H*.52);}}
+  {const md=blModNow(g);if(md){x.font='800 '+Math.round(Math.min(H*.02,W*.04))+'px Cinzel,serif';x.fillStyle='rgb('+BL_MODCOL[md]+')';const tx='THIS BALL: '+BL_MODS[md].n+' · '+BL_MODS[md].d;x.fillText(tx,W/2,H*.52);const em=blPhoto('emb_'+md);if(em){const es=H*.05,tw=x.measureText(tx).width;x.drawImage(em,W/2-tw/2-es-6,H*.52-es/2,es,es);}}}
   x.restore();
 }
 function blDrawFlashVig(g,x){
@@ -34248,7 +34286,7 @@ function blDraw(g,now){
       x.save();x.globalCompositeOperation='lighter';for(let i=1;i<g.trail.length;i++){const a=blP(g,g.trail[i-1][0],BL.BR*.9,g.trail[i-1][1]),c=blP(g,g.trail[i][0],BL.BR*.9,g.trail[i][1]);if(a&&c){x.strokeStyle='rgba(150,205,255,'+(i/g.trail.length*.55).toFixed(2)+')';x.lineWidth=Math.max(1,c[2]*.09*i/g.trail.length);x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(c[0],c[1]);x.stroke();}}x.restore();}
     const rz=b.z+(g.relZ||0)*Math.pow(Math.max(0,1-g.sim.t/.16),2);blDrawBallAt(g,x,b.x,BL.BR+(b.y||0),rz,ball,b.roll,g.spinV*.75,1,g.rollMod);
   }else if(g.phase==='result'&&g.sim){}
-  blDrawParts(g,x);blDrawBursts(g,x);
+  blDrawParts(g,x);blDrawBursts(g,x);blDrawConf(g,x);
   blDrawBanner(g,x);blDrawTurnCard(g,x);
   blDrawFlashVig(g,x);
 }
@@ -34258,14 +34296,14 @@ function blDrawIntro(g,x){
   const a1=Math.min(1,t/.5),a2=Math.max(0,Math.min(1,(t-.55)/.45)),out=Math.max(0,Math.min(1,(t-g.introLen+.3)/.3));
   x.save();x.globalAlpha=1-out;x.textAlign='center';x.textBaseline='middle';
   x.globalAlpha=a1*(1-out);x.fillStyle='rgba(235,201,120,.85)';x.font='700 '+Math.round(W*.035)+'px Cinzel,serif';x.fillText('OUR TABLE',W/2,H*.4);
-  x.globalAlpha=a2*(1-out);x.shadowColor='rgba(240,200,90,.7)';x.shadowBlur=22*dpr;x.fillStyle='#f6dc8e';x.font='800 '+Math.round(W*.13)+'px Cinzel,serif';x.fillText('BOWLING',W/2,H*.5);x.shadowBlur=0;
+  x.globalAlpha=a2*(1-out);const lg=blPhoto('logo');if(lg){const lw=Math.min(W*.86,H*.7);x.drawImage(lg,W/2-lw/2,H*.5-lw*lg.height/lg.width/2,lw,lw*lg.height/lg.width);}else{x.shadowColor='rgba(240,200,90,.7)';x.shadowBlur=22*dpr;x.fillStyle='#f6dc8e';x.font='800 '+Math.round(W*.13)+'px Cinzel,serif';x.fillText('BOWLING',W/2,H*.5);x.shadowBlur=0;}
   x.globalAlpha=a2*(1-out)*.8;x.fillStyle='#e8e2cf';x.font='600 '+Math.round(W*.027)+'px Cinzel,serif';x.fillText('Find the line. Feel the spin. Knock them down.',W/2,H*.58);
   x.restore();
 }
 
 /* ═══════ BOWLING: the screen, the touch, the score sheet ═══════ */
 // make the first ball smooth: the pictures and sounds are built now, not in the middle of the first roll
-function blWarm(g){try{['ui_plaque'].forEach(n=>blPhoto(n));['fire','ice','electric','vortex','gold','shock'].forEach(n=>blPhoto('fx_'+n,'.jpg'));BL_BALLS.forEach(b=>blPhoto('ball_'+b.id));blPhoto('pin_stand');blPinSprite();{const ac=bwAc();if(ac)blBufs(ac);}(g.balls||[]).forEach(b=>{const o=BL_BALLS.find(q=>q.id===b.id)||BL_BALLS[0];[256,160,96].forEach(S=>blBallBase(o,S));blPatCanvas(o);});[256,160,96].forEach(blBallShade);const ac=bwAc();if(ac){hfBus(ac);bwNoise(ac,'brown');bwNoise(ac,'white');}}catch(e){}}
+function blWarm(g){try{['ui_plaque','logo','return','confetti','stream_0','stream_1','stream_2','stream_3','emb_rocket','emb_magnet','emb_giant','emb_heavy'].forEach(n=>blPhoto(n));['strike','spare','split','turkey','gutter','comeback'].forEach(n=>blPhoto('word_'+n));['fire','ice','electric','vortex','gold','shock'].forEach(n=>blPhoto('fx_'+n,'.jpg'));BL_BALLS.forEach(b=>blPhoto('ball_'+b.id));blPhoto('pin_stand');blPinSprite();{const ac=bwAc();if(ac)blBufs(ac);}(g.balls||[]).forEach(b=>{const o=BL_BALLS.find(q=>q.id===b.id)||BL_BALLS[0];[256,160,96].forEach(S=>blBallBase(o,S));blPatCanvas(o);});[256,160,96].forEach(blBallShade);const ac=bwAc();if(ac){hfBus(ac);bwNoise(ac,'brown');bwNoise(ac,'white');}}catch(e){}}
 function lDealBowling(){
   if(G.lp.length>4)G.lp=G.lp.slice(0,4);
   G.lp.forEach(p=>{p.totalScore=0;p.c4Result=null;p.psLine='';});
@@ -34330,7 +34368,7 @@ function blStep(g,dt){
     g.sw=Math.min(1,(g.t-g.phaseT)/1.15);
     if(g.sw>=1){blNextTurn(g);}
   }
-  blStepParts(g,dt);
+  blStepParts(g,dt);blStepConf(g,dt);
   if(g.phase==='aim'||g.phase==='sweep'||g.phase==='result'){if(g.trail&&g.trail.length)g.trail=[];}
 }
 // what happened in the physics this frame: sounds, sparks, shakes
@@ -34454,10 +34492,10 @@ function blPaintOv(g){
       <div class="ps-note" style="text-align:center;margin-top:.8rem;">Waiting for the host to start the game…</div></div>`;
   }else if(g.phase==='setup'){
     const MD={classic:['🎳','CLASSIC','Ten frames. The real thing.'],quick:['⚡','QUICK GAME','Five frames. A fast family game.'],practice:['🎯','PRACTICE','Unlimited balls. Find your line.'],splits:['🧩','SPLIT CHALLENGE','Ten famous splits, two balls each. Convert them all.']};
-    h=`<div class="ps-card"><div class="ps-kick">OUR TABLE</div><div class="ps-h1">BOWLING</div><div class="ps-sub">FIND THE LINE · FEEL THE SPIN · KNOCK THEM DOWN</div>
-      <div class="ps-grp">CHOOSE A GAME</div>${ovCards((g.net&&G.isOnline?['classic','quick']:['classic','quick','practice','splits']).map(k=>[k,MD[k][0],MD[k][1],MD[k][2]]),g.net&&G.isOnline&&pr.mode==='practice'?'classic':pr.mode,'data-blact="mode"')}
+    h=`<div class="ps-card"><div class="ps-kick">OUR TABLE</div><img class="bl-logo" src="assets/games/bl_logo.png" alt="Bowling"><div class="ps-sub">FIND THE LINE · FEEL THE SPIN · KNOCK THEM DOWN</div>
+      <div class="ps-grp">CHOOSE A GAME</div>${ovCards((g.net&&G.isOnline?['classic','quick']:['classic','quick','practice','splits']).map(k=>[k,MD[k][0],MD[k][1],MD[k][2],'bl_'+k]),g.net&&G.isOnline&&pr.mode==='practice'?'classic':pr.mode,'data-blact="mode"')}
       <div class="ps-grp">STYLE</div>${seg([['classic','CLASSIC · PURE BOWLING'],['table','OUR TABLE · FUN BALLS'],['mayhem','MAYHEM']],pr.style,'style')}
-      <div class="ps-note">${pr.style==='mayhem'?'Every ball is a surprise: a ROCKET (fast and straight), a MAGNET (curves twice as much), a GIANT (a big ball) or a HEAVY one (it plows through). Mayhem games do not count for the records.':pr.style==='table'?'The rules stay exactly the same. Your ball leaves a trail and a glow when it hits the pins: only for the show.':'No effects at all. Just the lane, the ball and the pins.'}</div>
+      <div class="ps-note">${pr.style==='mayhem'?'<img class="bl-spic" src="assets/games/card_bl_mayhem.jpg" alt=""><br>Every ball is a surprise: a ROCKET (fast and straight), a MAGNET (curves twice as much), a GIANT (a big ball) or a HEAVY one (it plows through). Mayhem games do not count for the records.':pr.style==='table'?'The rules stay exactly the same. Your ball leaves a trail and a glow when it hits the pins: only for the show.':'No effects at all. Just the lane, the ball and the pins.'}</div>
       <div class="ps-grp">AIM HELP</div>${seg(Object.keys(BL_LV).map(k=>[k,BL_LV[k].n.toUpperCase()]),pr.lv,'lv')}
       <div class="ps-note">${BL_LV[pr.lv].about} The ball is never aimed for you.</div>
       <div class="ps-grp">YOUR BALL</div>${blBallCards(g,pr,pr.style==='table'||pr.style==='mayhem',{id:pr.ball,fx:pr.fx})}
