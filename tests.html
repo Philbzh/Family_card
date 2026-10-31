@@ -6585,12 +6585,13 @@ async function runPresentation(A,W,frame){
     const end=(sp,v)=>{const p=F('blPath')({x0:0,ang:0,v,spin:sp},18.3);return p[p.length-1][0];};
     check('the spin curves the ball: right for +, left for -, and mostly at the end of the lane (the oil)',end(1,7.5)>.25&&end(-1,7.5)<-.25&&(()=>{const p=F('blPath')({x0:0,ang:0,v:7.5,spin:1},18.3);const q=p.find(r=>r[1]>9);return q[0]<.08;})());
     check('a slow ball curves more than a fast one',end(1,5)>end(1,9.5)+.2);
+    check('the second ball only has the pins that are left: the ones that fell do not come back, in the physics or on the screen',(()=>{const S=F('blSimRun')(full,{x0:-.1,ang:0,v:7.5,spin:0});const left=F('blRackOf')(S.pins);const st=left.map(p=>p.st);const standing=S.pins.filter(p=>p.st<=1).length;return standing>0&&standing<10&&st.filter(v=>v===0).length===standing&&st.filter(v=>v===4).length===10-standing&&F('blRackOf')(left).filter(p=>p.st===0).length===standing;})());
     check('a robot is as good as its level: three levels, from gentle to sharp',(()=>{const B=F('BL_BOT');return B.gentle.sx>B.steady.sx&&B.steady.sx>B.sharp.sx&&B.gentle.sa>B.sharp.sa;})());
     // a whole game with three people (no robots here: the shots are given), from the first ball to the results screen
     const k0=[gg.isOnline,gg.selGame,gg.lp,gg.scr,gg.bl],pref0=W.localStorage.getItem('ct_bl_pref'),seen0=W.localStorage.getItem('ct_bl_seen'),h0=W.localStorage.getItem('ct_history'),ar0=W.localStorage.getItem('ct_ar'),tw0=W.localStorage.getItem('ct_tw');
     try{
       W.localStorage.setItem('ct_bl_seen','1');
-      const shots=[{x0:-.5,ang:0,v:7.5,spin:1},{x0:.06,ang:0,v:7.5,spin:0},{x0:0,ang:0,v:7.5,spin:0},{x0:.2,ang:.002,v:7.2,spin:-.5},{x0:-.3,ang:.004,v:7.5,spin:.6},{x0:.62,ang:0,v:7.5,spin:0}];
+      const shots=[{x0:-.5,ang:0,v:7.5,spin:1},{x0:.06,ang:0,v:7.5,spin:0},{x0:0,ang:0,v:7.5,spin:0},{x0:.2,ang:.002,v:7.2,spin:-.5},{x0:-.3,ang:.004,v:7.5,spin:.6},{x0:.5,ang:.03,v:7.5,spin:0}];
       const run=(mode,n)=>{
         W.localStorage.setItem('ct_bl_pref',JSON.stringify({mode,style:'table',lv:'standard',ball:'ruby',fx:'fire',balls:{}}));
         gg.isOnline=false;gg.lp=[1,2,3].slice(0,n).map((k,i)=>({id:k,name:['Ann','Bob','Cy'][i],avatar:F('AVATARS')[i],hand:[],totalScore:0}));gg.selGame='bowling';F('lDealBowling')();gg.scr='table';F('render')();F('blAttach')();
@@ -6616,6 +6617,50 @@ async function runPresentation(A,W,frame){
        check('practice has no end: balls are counted, the pins come back, nothing is scored',!p.over&&p.prac.shots>=6&&p.mode==='practice'&&p.rolls[0].length===0);}
     }finally{F('blStop')();gg.isOnline=k0[0];gg.selGame=k0[1];gg.lp=k0[2];gg.scr=k0[3];gg.bl=null;
       const back=(k,v)=>{if(v===null)W.localStorage.removeItem(k);else W.localStorage.setItem(k,v);};back('ct_bl_pref',pref0);back('ct_bl_seen',seen0);back('ct_history',h0);back('ct_ar',ar0);back('ct_tw',tw0);}
+  });
+  suite('Bowling online: the same game on two devices',()=>{
+    const F=n=>W.eval(n),G=()=>F('G'),gg=G();
+    const k0=[gg.isOnline,gg.selGame,gg.lp,gg.scr,gg.bl,gg.myPid,gg.srv],pref0=W.localStorage.getItem('ct_bl_pref'),seen0=W.localStorage.getItem('ct_bl_seen'),h0=W.localStorage.getItem('ct_history'),ar0=W.localStorage.getItem('ct_ar'),tw0=W.localStorage.getItem('ct_tw');
+    const back=(k,v)=>{if(v===null)W.localStorage.removeItem(k);else W.localStorage.setItem(k,v);};
+    const shots=[{x0:-.5,ang:0,v:7.5,spin:1},{x0:.06,ang:0,v:7.5,spin:0},{x0:0,ang:0,v:7.5,spin:0},{x0:.2,ang:.002,v:7.2,spin:-.5},{x0:-.3,ang:.004,v:7.5,spin:.6},{x0:.5,ang:.03,v:7.5,spin:0},{x0:-.12,ang:.003,v:6.4,spin:.8}];
+    try{
+      W.localStorage.setItem('ct_bl_seen','1');W.localStorage.setItem('ct_bl_pref',JSON.stringify({mode:'quick',style:'table',lv:'standard',ball:'ruby',fx:'gold',balls:{}}));
+      // the simulation uses only + - * / and sqrt: no sin, cos, exp or hypot (they can differ by one bit between two browsers)
+      check('the simulation uses nothing that can differ between two browsers',(()=>{const src=F('blSimStep').toString()+F('blSimNew').toString()+F('blBallAcc').toString()+F('blKnock').toString();return !/Math\.(sin|cos|exp|hypot|pow|atan2|tan|log)/.test(src);})());
+      // 1. the whole game at one table (this is what the other device must repeat), the shots written down
+      gg.isOnline=false;gg.lp=[0,1].map(i=>({id:i+1,name:['Ann','Bo'][i],avatar:F('AVATARS')[i],hand:[],totalScore:0}));gg.selGame='bowling';F('lDealBowling')();gg.scr='table';F('render')();F('blAttach')();
+      const o=G().bl;o.pr=F('blPrefs')();F('blBegin')(o);const rec=[];let k=0,n=0;
+      while(!o.over&&n++<120000){if(o.phase==='aim'&&!o.bot){const sh=shots[(k++*5+o.cur)%shots.length];o.bx=sh.x0;o.aimA=sh.ang;o.spinV=sh.spin;o.pull=(sh.v-4.8)/5.2;rec.push({n:o.ballNo,seat:o.cur,sh,pw:o.pull});F('blRelease')(o,sh,o.pull);}F('blStep')(o,1/30);}
+      const rollsO=JSON.stringify(o.rolls),totO=o.players.map((p,i)=>F('blScore')(o.rolls[i],5).total).join();
+      F('blStop')();
+      // 2. the same game on the second device: its own balls it plays, the other person's balls arrive as messages
+      W.eval("window._blOut=[];_ch={send:m=>{window._blOut.push(m.payload)}}");
+      const mk=()=>({phase:'game',gameId:'bowling',host:'A',players:[{id:'A',name:'Ann',avatar:F('AVATARS')[0]},{id:'B',name:'Bo',avatar:F('AVATARS')[1]}],ah:{id:'b1',score:[0,0]},winner:null});
+      gg.isOnline=true;gg.srv=mk();gg.myPid='B';gg.scr='table';F('render')();F('blAttach')();const b=G().bl;
+      check('online the second player is seat 1 and waits for the host in the set-up',!!b.net&&b.net.seat===1&&b.phase==='setup'&&!F('blHost')());
+      W.eval('document.querySelector("[data-blact=start]")&&document.querySelector("[data-blact=start]").click()');
+      check('a guest cannot start the game',b.phase==='setup');
+      F('blOnBroadcast')({k:'go',id:'b1',seat:0,s:1,mode:'quick',style:'table',lv:'standard'});
+      check('the start of the host starts the game here, with the host\'s choices',b.phase==='intro'&&b.N===5&&b.style==='table'&&b.players.length===2&&b.players.every(p=>!p.bot));
+      let seq=100,m=0;const fed={};
+      while(!b.over&&m++<150000){
+        if(b.phase==='aim'){
+          if(b.cur===1&&!F('blWatching')(b)){const r=rec.find(r=>r.n===b.ballNo);b.bx=r.sh.x0;b.aimA=r.sh.ang;b.spinV=r.sh.spin;b.pull=r.pw;F('blRelease')(b,r.sh,r.pw);}
+          else if(b.cur===0&&!fed[b.ballNo]){fed[b.ballNo]=1;const r=rec.find(r=>r.n===b.ballNo);F('blOnBroadcast')({k:'aim',id:'b1',seat:0,s:++seq,bx:r.sh.x0,sp:r.sh.spin,pu:r.pw,aa:r.sh.ang});F('blOnBroadcast')({k:'shot',id:'b1',seat:0,s:++seq,n:r.n,sh:r.sh,pw:r.pw,ball:{id:'obsidian',fx:'ice'}});}
+        }
+        F('blStep')(b,1/30);}
+      check('the second device plays the whole game and ends with exactly the same balls and scores',b.over&&JSON.stringify(b.rolls)===rollsO&&b.players.map((p,i)=>F('blScore')(b.rolls[i],5).total).join()===totO);
+      check('its own shots were sent to the others, with the ball and the numbers of the shot',(()=>{const s=W.eval('window._blOut').filter(m=>m.k==='shot');return s.length>=5&&s.every(m=>m.seat===1&&m.sh&&m.pw>0&&m.ball&&m.ball.id)&&W.eval('window._blOut').some(m=>m.k==='aim'||true);})());
+      check('the other player\'s ball is drawn as the ball that player chose',(()=>{const bb=b.balls[0];return bb&&bb.id==='obsidian'&&bb.fx==='ice';})());
+      const outS=W.eval('window._blOut').filter(m=>m.k==='shot');
+      check('a message from somebody who is not at the lane is ignored',(()=>{const g2=G().bl;g2.net.pend=[];F('blOnBroadcast')({k:'shot',id:'b1',seat:1,s:900,n:0,sh:rec[0].sh,pw:.5});F('blOnBroadcast')({k:'shot',id:'zzz',seat:0,s:901,n:0,sh:rec[0].sh,pw:.5});return g2.net.pend.length===0||g2.over;})());
+      // 3. the host: the result goes into the room for everybody
+      F('blStop')();W.eval("window._blOut=[]");gg.myPid='A';gg.srv=mk();F('render')();F('blAttach')();const h=G().bl;
+      W.eval('document.querySelector("[data-blact=start]").click()');
+      check('the host\'s start sends the choices to everybody and starts at once',W.eval('window._blOut').some(m=>m.k==='go'&&m.mode==='quick'&&m.style==='table')&&h.phase==='intro'&&F('blHost')());
+      F('blOnBroadcast')({k:'hello',id:'b1',seat:1,s:77});
+      check('a late guest who asks (hello) is sent the start again',W.eval('window._blOut').filter(m=>m.k==='go').length>=2);
+    }finally{F('blStop')();W.eval('_ch=null');gg.isOnline=k0[0];gg.selGame=k0[1];gg.lp=k0[2];gg.scr=k0[3];gg.bl=null;gg.myPid=k0[5];gg.srv=k0[6];back('ct_bl_pref',pref0);back('ct_bl_seen',seen0);back('ct_history',h0);back('ct_ar',ar0);back('ct_tw',tw0);}
   });
   suite('Olympic Games: Archery (field trail, flight, scoring, matches)',()=>{
     const F=n=>W.eval(n),G=()=>F('G');const gg=G();

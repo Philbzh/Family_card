@@ -4825,6 +4825,7 @@ function dbSub(id,cb){
       .on('broadcast',{event:'ps'},msg=>{try{psOnBroadcast(msg&&msg.payload);}catch(e){}})
       .on('broadcast',{event:'cl'},msg=>{try{clOnBroadcast(msg&&msg.payload);}catch(e){}})
       .on('broadcast',{event:'ac'},msg=>{try{acOnBroadcast(msg&&msg.payload);}catch(e){}})
+      .on('broadcast',{event:'bl'},msg=>{try{blOnBroadcast(msg&&msg.payload);}catch(e){}})
       .subscribe(status=>{if(status==='SUBSCRIBED')_ch.track({pid:G.myPid});});
   }
   if(_poll)clearInterval(_poll);
@@ -5337,7 +5338,7 @@ const GAMES=[
 ];
 // Single source of truth for which unlocked games have online-multiplayer support, so the "online"
 // gate and the local-only badge on a game's card can never drift out of sync with each other.
-const ONLINE_GAMES=['archery','clay','precision','balloonblast','marksman','hoopfever','pool','invaders','pong','airhockey','maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice','summit','hotbomb','vault','bust','escape','shutbox','fourrow','skull','tension','mayhem','chainreaction','gauntlet','abyss','blackwater','pinball'];
+const ONLINE_GAMES=['bowling','archery','clay','precision','balloonblast','marksman','hoopfever','pool','invaders','pong','airhockey','maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice','summit','hotbomb','vault','bust','escape','shutbox','fourrow','skull','tension','mayhem','chainreaction','gauntlet','abyss','blackwater','pinball'];
 // The Games tab groups its (growing) roster into these, rather than one long scroll -- every GAMES
 // entry's `cat` must be one of these ids. Order here is the order the category tiles are shown in.
 const GAME_CATEGORIES=[
@@ -6059,7 +6060,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=243;
+const APP_BUILD=244;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -7221,7 +7222,7 @@ let _ahEndAt=0;
 function ahLive(){return !!(G.ah&&G.ah.live&&G.scr==='table'&&!(G.isOnline&&G.srv&&G.srv.winner)&&!(!G.isOnline&&G.ah.over&&G.ah.overAt&&Date.now()-G.ah.overAt>2600));}
 const ahRnd=(a,b)=>a+Math.random()*(b-a);
 // the two games of the arcade that share this module
-function ahIs(id){return id==='airhockey'||id==='pong'||id==='invaders'||id==='pool'||id==='pinball'||id==='precision'||id==='clay'||id==='archery'||fgIs(id);}
+function ahIs(id){return id==='airhockey'||id==='pong'||id==='invaders'||id==='pool'||id==='pinball'||id==='precision'||id==='clay'||id==='archery'||id==='bowling'||fgIs(id);}
 function ahKindOf(id){return id==='pong'?'pong':id==='invaders'?'invaders':'airhockey';}
 function ahGameId(){return G.isOnline?(G.srv&&G.srv.gameId):G.selGame;}
 // Pong Evolution: the ball grows more dangerous as a rally goes on
@@ -30723,7 +30724,7 @@ function onSrvCore(state){
         if(state.winner!==prevWinner){
           if(state.winner===G.myPid){G.tw++;localStorage.setItem('ct_tw',G.tw);}
           const nms=(state.players||[]).map(p=>p.name),sc=(state.ah&&state.ah.score)||[0,0];
-          try{const nr=arRecordUpdate(state.gameId==='precision'?psRecKey(state.ah&&state.ah.stats&&state.ah.stats.ps&&state.ah.stats.ps.disc):state.gameId==='clay'?(CL_DISC[(state.ah&&state.ah.stats&&state.ah.stats.cl&&state.ah.stats.cl.disc)||'trap']||CL_DISC.trap).rec:state.gameId==='archery'?((state.ah&&state.ah.stats&&state.ah.stats.ac&&state.ah.stats.ac.mode)==='quick'?'archery_quick':(state.ah&&state.ah.stats&&state.ah.stats.ac&&state.ah.stats.ac.mode)==='time'?'archery_time'+((state.ah&&state.ah.stats&&state.ah.stats.ac&&state.ah.stats.ac.tl)||60):'archery_trail'):state.gameId,nms,state.winnerName,sc,(state.ah&&state.ah.stats)||{});if(nr.length)setTimeout(()=>toast('🏆 New Arcade record'),900);}catch(e){}
+          try{const nr=arRecordUpdate(state.gameId==='precision'?psRecKey(state.ah&&state.ah.stats&&state.ah.stats.ps&&state.ah.stats.ps.disc):state.gameId==='clay'?(CL_DISC[(state.ah&&state.ah.stats&&state.ah.stats.cl&&state.ah.stats.cl.disc)||'trap']||CL_DISC.trap).rec:state.gameId==='bowling'?((state.ah&&state.ah.stats&&state.ah.stats.bl&&state.ah.stats.bl.mode)==='quick'?'bowling_quick':'bowling'):state.gameId==='archery'?((state.ah&&state.ah.stats&&state.ah.stats.ac&&state.ah.stats.ac.mode)==='quick'?'archery_quick':(state.ah&&state.ah.stats&&state.ah.stats.ac&&state.ah.stats.ac.mode)==='time'?'archery_time'+((state.ah&&state.ah.stats&&state.ah.stats.ac&&state.ah.stats.ac.tl)||60):'archery_trail'):state.gameId,nms,state.winnerName,sc,(state.ah&&state.ah.stats)||{});if(nr.length)setTimeout(()=>toast('🏆 New Arcade record'),900);}catch(e){}
           addHistory({game:state.gameId,winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),players:nms,mode:'online',
             moment:state.moment||`${state.winnerName} won ${Math.max(sc[0],sc[1])}–${Math.min(sc[0],sc[1])}.`,
             stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions,ah:Object.assign({score:sc},state.ah&&state.ah.stats?state.ah.stats:{},{dur:(state.ah&&state.ah.dur)||0})}});
@@ -30732,9 +30733,10 @@ function onSrvCore(state){
           if(state.gameId==='pinball'){const pbr=(state.ah&&state.ah.stats&&state.ah.stats.pb)||null;G.pbResult=pbr;G.ahMoment=state.moment||'';if(pbr&&Array.isArray(pbr.entries)){pbHofAdd(pbr.entries);const all=pbHofAll(),ix=all.findIndex(e=>e.n===String(pbr.winnerName||'').slice(0,24)&&e.s===pbr.top);pbr.rank=ix>=0&&ix<10?ix+1:0;}pbStop();}
           if(state.gameId==='clay'){G.clResult=(state.ah&&state.ah.stats&&state.ah.stats.cl)||null;G.ahMoment=state.moment||'';}
           if(state.gameId==='archery'){G.acResult=(state.ah&&state.ah.stats&&state.ah.stats.ac)||null;G.ahMoment=state.moment||'';}
+          if(state.gameId==='bowling'){G.blResult=(state.ah&&state.ah.stats&&state.ah.stats.bl)||null;G.ahMoment=state.moment||'';}
           if(state.gameId==='precision'){const r=(state.ah&&state.ah.stats&&state.ah.stats.ps)||null;G.psResult=r;G.ahMoment=state.moment||'';if(r&&Array.isArray(r.names)){const when=new Date().toISOString();psLbAdd(r.names.map((n,i)=>({n:String(n||'').slice(0,24),s:r.st[i].tot/10,a:r.st[i].avg/10,d:when,lv:r.lv,dc:r.disc,pf:r.st[i].perfect})).filter(e=>e.s>0));const all=psLbAll(r.disc),ix=all.findIndex(e=>e.n===String(r.names[r.w]||'').slice(0,24)&&Math.abs(e.s-r.top/10)<.001);r.rank=ix>=0&&ix<10?ix+1:0;}}
-          _ahEndAt=Date.now()+(G.ah&&G.ah.live?3200:plLive()?plEndWaitMs():(psLive()||clLive()||acLive())?2800:600);
-          setTimeout(()=>{if(G.isOnline&&G.srv&&ahIs(G.srv.gameId)&&G.srv.winner){ahStop();plStop();fgStop();psStop();clStop();acStop();G.scr='matchend';render();}},(_ahEndAt-Date.now())+80);
+          _ahEndAt=Date.now()+(G.ah&&G.ah.live?3200:plLive()?plEndWaitMs():(psLive()||clLive()||acLive()||blLive())?2800:600);
+          setTimeout(()=>{if(G.isOnline&&G.srv&&ahIs(G.srv.gameId)&&G.srv.winner){ahStop();plStop();fgStop();psStop();clStop();acStop();blStop();G.scr='matchend';render();}},(_ahEndAt-Date.now())+80);
         }
         if(Date.now()<_ahEndAt){G.scr='table';return;}
         G.scr='matchend';render();return;
@@ -33218,6 +33220,7 @@ function acDrawIntro(g,x,now){
   if(t>4.4){x.save();x.globalAlpha=.55+.4*Math.sin(now/300);x.textAlign='center';x.fillStyle='#f4ebd0';x.font='700 '+Math.round(W*.04)+'px Cinzel,serif';x.fillText('TAP TO ENTER',cx,H*.9);x.restore();}
 }
 function acStop(){const g=G.ac;if(!g)return;g.live=false;if(g.raf)cancelAnimationFrame(g.raf);g.raf=0;clearTimeout(g.endTm);G.ac=null;}
+function blLive(){return !!(G.bl&&G.bl.live&&G.scr==='table');}
 function acLive(){return !!(G.ac&&G.ac.live&&G.scr==='table');}
 /* ═══════ BOWLING: the rules and the physics (no drawing in here) ═══════
    Metres and seconds. x across the lane (0 = middle, + to the right), z down the lane (0 = the foul line, the head pin at 18.288).
@@ -33227,9 +33230,14 @@ BL.ROW=BL.SP*.8660254;
 // pin n (0..9) = pin number n+1: 1 head, 2 3, 4 5 6, 7 8 9 10 (7 is the left corner, 10 the right)
 BL.POS=(function(){const o=[];let n=0;for(let r=0;r<4;r++)for(let c=0;c<=r;c++){o.push([(c-r/2)*BL.SP,BL.HEAD+r*BL.ROW]);n++;}return o;})();
 const BL_HOOK=.75,BL_FALL=.95,BL_WOB=.4,BL_EBP=.66,BL_EPP=.55,BL_SL=1.7,BL_MR=1.4,BL_EARLY=.05;
+// Only + - * / and sqrt are used inside the simulation (they are exact in every browser): sin, cos, exp and hypot are not, and a
+// one-bit difference would let a strike on one iPad be a split on the other. That is why the same shot gives the same pins everywhere.
+function blHy(x,z){return Math.sqrt(x*x+z*z);}
+function blSin(a){const a2=a*a;return a*(1-a2/6*(1-a2/20*(1-a2/42*(1-a2/72))));}
+function blCos(a){const a2=a*a;return 1-a2/2*(1-a2/12*(1-a2/30*(1-a2/56)));}
 function blSmooth(u){u=u<0?0:u>1?1:u;return u*u*(3-2*u);}
 // the pins: st 0 standing, 1 wobbling, 2 sliding (knocked), 3 lying still, 4 gone into the pit
-function blPins(stand){return BL.POS.map((p,i)=>({x:p[0],z:p[1],vx:0,vz:0,st:stand[i]?0:3,wa:0,wt:0,wx:0,wz:0,ft:0,dx:0,dz:1,rot:0,delay:-1,gone:stand[i]?0:1}));}
+function blPins(stand){return BL.POS.map((p,i)=>({x:p[0],z:p[1],vx:0,vz:0,st:stand[i]?0:4,wa:0,wt:0,wx:0,wz:0,ft:0,dx:0,dz:1,rot:0,delay:-1,gone:stand[i]?0:1}));}
 function blFull(){return blPins([1,1,1,1,1,1,1,1,1,1]);}
 // pins that are down are not in the game any more (the sweep took them): this is the rack for the next ball
 function blRackOf(pins){return blPins(pins.map(p=>p.st===0||p.st===1));}
@@ -33238,7 +33246,7 @@ function blStandingNow(pins){return pins.map(p=>p.st<=1);}
 // a shot: x0 start (m), ang launch angle (rad, + to the right), v speed (m/s), spin -1..1 (+ curves right)
 function blSimNew(pins,sh){
   const v=sh.v;
-  return{pins:pins,ball:{x:sh.x0,z:0,vx:v*Math.sin(sh.ang),vz:v*Math.cos(sh.ang),spin:sh.spin,gut:0,gone:0,roll:0,y:0,v0:v},t:0,ev:[],quiet:0,first:0,hits:0,sh:sh};
+  return{pins:pins,ball:{x:sh.x0,z:0,vx:v*blSin(sh.ang),vz:v*blCos(sh.ang),spin:sh.spin,gut:0,gone:0,roll:0,y:0,v0:v},t:0,ev:[],quiet:0,first:0,hits:0,sh:sh};
 }
 function blBallAcc(b){
   const k=BL_EARLY+(1-BL_EARLY)*blSmooth((b.z-9)/6);       // the first part of the lane is oiled: little grip, then the ball bites and hooks
@@ -33250,17 +33258,17 @@ function blSimStep(S,dt){
   const b=S.ball,P=S.pins,ev=S.ev;S.t+=dt;
   // ── the ball ──
   if(!b.gone){
-    const sp0=Math.hypot(b.vx,b.vz);
+    const sp0=blHy(b.vx,b.vz);
     if(!b.gut){
       b.vx+=blBallAcc(b)*dt;
-      const sp=Math.hypot(b.vx,b.vz);const f=(sp-.15*dt)/sp;b.vx*=f;b.vz*=f;
+      const sp=blHy(b.vx,b.vz);const f=(sp-.15*dt)/sp;b.vx*=f;b.vz*=f;
       if(b.x>BL.W/2||b.x<-BL.W/2){b.gut=b.x>0?1:-1;ev.push({k:'gut',x:b.x,z:b.z});}
     }else{
       b.vx+=(b.gut*.64-b.x)*40*dt-b.vx*8*dt;b.y=Math.max(-.07,b.y-.5*dt);
       if(b.z>BL.HEAD-.3&&b.z<BL.HEAD+1.2&&Math.abs(b.x)<.6){}
     }
     b.x+=b.vx*dt;b.z+=b.vz*dt;
-    b.roll+=Math.hypot(b.vx,b.vz)*dt/BL.BR;
+    b.roll+=blHy(b.vx,b.vz)*dt/BL.BR;
     if(b.z>BL.PITZ+.3){b.gone=1;ev.push({k:'ballpit',x:b.x,z:b.z});}
   }
   // ── the pins ──
@@ -33269,13 +33277,13 @@ function blSimStep(S,dt){
     const p=P[i];
     if(p.st===4||p.st===3)continue;
     if(p.st===1){
-      p.wt+=dt;p.wa*=Math.exp(-2.6*dt);
+      p.wt+=dt;p.wa*=1-2.6*dt;
       if(p.delay>0){p.delay-=dt;if(p.delay<=0){p.st=2;p.ft=0;p.vx=p.wx*.9;p.vz=p.wz*.9;p.dx=p.wx;p.dz=p.wz;ev.push({k:'fall',i:i,late:1,x:p.x,z:p.z});}}
       else if(p.wa<.02){p.st=0;p.wa=0;}
       moving++;continue;
     }
     if(p.st===2){
-      p.ft+=dt;const sp=Math.hypot(p.vx,p.vz);
+      p.ft+=dt;const sp=blHy(p.vx,p.vz);
       if(sp>.001){const dec=BL_SL*dt;const f=Math.max(0,sp-dec)/sp;p.vx*=f;p.vz*=f;}
       p.x+=p.vx*dt;p.z+=p.vz*dt;
       p.rot+=(p.vx*p.dz-p.vz*p.dx)*dt*2.2;
@@ -33302,7 +33310,7 @@ function blSimStep(S,dt){
       const e=BL_EBP,j=-(1+e)*vn/(1/BL.BM+1/BL.PM);
       b.vx-=j/BL.BM*nx;b.vz-=j/BL.BM*nz;
       p.vx+=j/BL.PM*nx;p.vz+=j/BL.PM*nz;
-      const pv=Math.hypot(p.vx,p.vz);
+      const pv=blHy(p.vx,p.vz);
       ev.push({k:'bp',i:i,x:p.x,z:p.z,j:j,v:pv});if(!S.first){S.first=S.t;}S.hits++;
       blKnock(S,p,i,pv,p.vx,p.vz);
     }
@@ -33321,7 +33329,7 @@ function blSimStep(S,dt){
       if(vn>=0)continue;
       const j=-(1+BL_EPP)*vn/2;                         // equal masses
       a.vx-=j*nx;a.vz-=j*nz;c.vx+=j*nx;c.vz+=j*nz;
-      const pv=Math.hypot(c.vx,c.vz);
+      const pv=blHy(c.vx,c.vz);
       ev.push({k:'pp',i:k,x:c.x,z:c.z,j:j*BL.PM,v:pv});
       if(c.st<=1)blKnock(S,c,k,pv,c.vx,c.vz);
     }
@@ -33357,7 +33365,7 @@ function blPath(sh,upto){
   return pts;
 }
 function blSimBallOnly(S,dt){const b=S.ball;
-  if(!b.gut){b.vx+=blBallAcc(b)*dt;const sp=Math.hypot(b.vx,b.vz),f=(sp-.15*dt)/sp;b.vx*=f;b.vz*=f;if(Math.abs(b.x)>BL.W/2)b.gut=b.x>0?1:-1;}
+  if(!b.gut){b.vx+=blBallAcc(b)*dt;const sp=blHy(b.vx,b.vz),f=(sp-.15*dt)/sp;b.vx*=f;b.vz*=f;if(Math.abs(b.x)>BL.W/2)b.gut=b.x>0?1:-1;}
   else{b.vx+=(b.gut*.64-b.x)*40*dt-b.vx*8*dt;}
   b.x+=b.vx*dt;b.z+=b.vz*dt;}
 
@@ -33533,38 +33541,72 @@ function blSpawn(g,k,x,y,z,vx,vy,vz,life,col,size,grav){
   const P=blParts(g),a=P[g.ppi=(g.ppi+1)%P.length];a.on=1;a.k=k;a.x=x;a.y=y;a.z=z;a.vx=vx;a.vy=vy;a.vz=vz;a.l=life;a.m=life;a.c=col;a.s=size*.5;a.g=grav==null?6:grav;a.r=Math.random()*6;a.vr=(Math.random()-.5)*14;return a;
 }
 function blBurst(g,x,y,z,n,col,spd,life,size,k,grav){for(let i=0;i<n;i++){const a=Math.random()*6.283,u=Math.random(),s=spd*(.3+u);blSpawn(g,k||'s',x,y,z,Math.cos(a)*s,spd*.25+Math.random()*spd*.7,Math.sin(a)*s*.7,life*(.6+Math.random()*.6),col,size*(.6+Math.random()*.8),grav);}}
-// ── the sounds of the lane ──
-let _blRoll=null;
+// ── the sounds of the lane: built as little recordings (modes of a piece of wood, a heavy ball on a hollow floor), not as beeps ──
+let _blRoll=null,_blBuf=null;
+function blBufs(ac){
+  if(_blBuf&&_blBuf.ac===ac)return _blBuf;
+  const sr=ac.sampleRate,R=blRnd(4242),B={ac},nz=()=>R()*2-1;
+  const mk=(dur,fn)=>{const n=Math.round(dur*sr),b=ac.createBuffer(1,n,sr),d=b.getChannelData(0);fn(d,n);let pk=0;for(let i=0;i<n;i++)pk=Math.max(pk,Math.abs(d[i]));if(pk>0){const k=.9/pk;for(let i=0;i<n;i++)d[i]*=k;}return b;};
+  // a pin knocking a pin: a short crack of hard maple, a hollow "tok" under it (a few modes of a bottle-shaped piece of wood, each dying fast)
+  B.clack=[0,1,2,3,4,5].map(k=>mk(.2,(d,n)=>{const f0=560+k*83+R()*30,md=[[1,1,.016],[2.31,.75,.011],[3.9,.5,.0065],[6.2,.3,.0035],[9.4,.16,.002]];
+    for(let i=0;i<n;i++){const t=i/sr;let v=0;for(const m of md)v+=m[1]*Math.sin(6.2832*f0*m[0]*t)*Math.exp(-t/m[2]);v+=nz()*Math.exp(-t/.0011)*1.1;d[i]=v*.5;}}));
+  // a pin that lands on the lane (heavier, lower, longer)
+  B.knock=[0,1,2].map(k=>mk(.3,(d,n)=>{const f0=210+k*55+R()*20,md=[[1,1,.035],[2.05,.6,.02],[3.3,.35,.011],[5.1,.18,.006]];let lp=0;
+    for(let i=0;i<n;i++){const t=i/sr;let v=0;for(const m of md)v+=m[1]*Math.sin(6.2832*f0*m[0]*t)*Math.exp(-t/m[2]);lp+=(nz()-lp)*.12;v+=lp*Math.exp(-t/.02)*1.6;d[i]=v*.55;}}));
+  // the ball meeting the pins: a deep thump and a crack
+  B.thump=mk(.5,(d,n)=>{let lp=0;for(let i=0;i<n;i++){const t=i/sr,f=48+55*Math.exp(-t/.05);lp+=(nz()-lp)*.08;d[i]=(Math.sin(6.2832*f*t)*Math.exp(-t/.13)*1.1+lp*Math.exp(-t/.07)*.9+nz()*Math.exp(-t/.002)*.6)*.7;}});
+  // the ball coming down on the boards
+  B.land=mk(.55,(d,n)=>{let lp=0;for(let i=0;i<n;i++){const t=i/sr,f=42+38*Math.exp(-t/.06);lp+=(nz()-lp)*.06;d[i]=(Math.sin(6.2832*f*t)*Math.exp(-t/.16)*1.2+Math.sin(6.2832*170*t)*Math.exp(-t/.03)*.4+lp*Math.exp(-t/.05)*.8+nz()*Math.exp(-t/.0015)*.35)*.75;}});
+  // the ball rolling down the lane: a low, steady rumble with a soft beat as the ball turns over the boards (a loop)
+  B.roll=mk(1.4,(d,n)=>{let a=0,b=0;for(let i=0;i<n;i++){const t=i/sr;a+=(nz()-a)*.035;b+=(a-b)*.05;const beat=.72+.28*Math.pow(Math.max(0,Math.sin(6.2832*11.5*t)),3);d[i]=b*beat*5.2;}
+    const f=Math.round(sr*.05);for(let i=0;i<f;i++){const u=i/f;d[i]=d[i]*u+d[n-f+i]*(1-u);}});
+  B.gut=mk(1.4,(d,n)=>{let a=0,b=0;for(let i=0;i<n;i++){const t=i/sr;a+=(nz()-a)*.02;b+=(a-b)*.04;d[i]=(b*4.6+Math.sin(6.2832*96*t)*.06)*(.8+.2*Math.sin(6.2832*9*t));}const f=Math.round(sr*.05);for(let i=0;i<f;i++){const u=i/f;d[i]=d[i]*u+d[n-f+i]*(1-u);}});
+  B.pit=mk(.5,(d,n)=>{let lp=0;for(let i=0;i<n;i++){const t=i/sr;lp+=(nz()-lp)*.05;d[i]=(lp*Math.exp(-t/.09)*2.4+Math.sin(6.2832*70*t)*Math.exp(-t/.1)*.6);}});
+  // the pinsetter: a motor, a rail and two clanks
+  B.sweep=mk(1.3,(d,n)=>{let a=0;for(let i=0;i<n;i++){const t=i/sr,u=t/1.3,e=Math.min(1,t/.12)*Math.min(1,(1.3-t)/.25);a+=(nz()-a)*(.05+.12*Math.sin(3.14*u));d[i]=(a*2.6*e+Math.sin(6.2832*(55+30*u)*t)*.18*e)*.8;}
+    for(const c of[.05,.86]){const s0=Math.round(c*sr);for(let i=0;i<sr*.18&&s0+i<n;i++){const t=i/sr;d[s0+i]+=(Math.sin(6.2832*520*t)*.5+Math.sin(6.2832*1210*t)*.3)*Math.exp(-t/.03)*.45;}}});
+  B.set=mk(.6,(d,n)=>{for(let k=0;k<10;k++){const s0=Math.round((k*.045+R()*.01)*sr),f=520+R()*260;for(let i=0;i<sr*.12&&s0+i<n;i++){const t=i/sr;d[s0+i]+=(Math.sin(6.2832*f*t)*.6+nz()*Math.exp(-t/.001))*Math.exp(-t/.02)*.35;}}});
+  return _blBuf=B;
+}
+function blPlay(buf,vol,rate,o){
+  const ac=bwAc();if(!ac||!buf)return null;
+  try{const s=ac.createBufferSource(),g=ac.createGain();s.buffer=buf;s.playbackRate.value=rate||1;g.gain.value=vol;s.connect(g);hfWire(ac,g,(o&&o.rev)||.05);s.start(ac.currentTime+((o&&o.d)||0)/1000);return s;}catch(e){return null;}
+}
+function blPick(list,x,z){return list[Math.floor((Math.abs(Math.sin(x*91+z*53))*997)%list.length)];}
 const blSnd={
-  pick(){_hfK=1.2;hfNz(.09,500,220,.14,{type:'lowpass',a:.004});hfOsc(180,110,.1,.12,{a:.003});},
-  tick(){_hfK=1.4;hfOsc(1200,900,.04,.05,{a:.001});},
-  slide(v){_hfK=1;hfNz(.18,700,1400,.035*v,{type:'bandpass',q:.7,a:.03});},
-  pull(p){_hfK=1;hfOsc(90+p*140,90+p*170,.07,.05*p,{type:'triangle',a:.004});},
-  release(p){_hfK=1.5;hfNz(.3,300,1200,.12+.1*p,{type:'bandpass',q:.6,a:.02});hfOsc(120,70,.16,.3,{a:.002});hfNz(.06,1800,600,.12,{type:'highpass',a:.001});},
-  thud(){_hfK=1.6;hfOsc(95,52,.22,.4,{a:.002,rev:.1});hfNz(.1,900,260,.2,{type:'lowpass',a:.002});},
+  pick(){const ac=bwAc();if(!ac)return;const B=blBufs(ac);blPlay(B.land,.22,1.5);},
+  tick(){_hfK=1.2;hfOsc(1500,1200,.03,.04,{a:.001});},
+  slide(v){const ac=bwAc();if(!ac)return;_hfK=1;hfNz(.16,500,900,.03*v,{type:'bandpass',q:.6,a:.03});},
+  pull(p){_hfK=1;hfOsc(70+p*40,70+p*55,.07,.03*p,{type:'triangle',a:.004});},
+  release(p){const ac=bwAc();if(!ac)return;const B=blBufs(ac);blPlay(B.land,.5+.3*p,.9+.2*p,{rev:.1});},
+  thud(){const ac=bwAc();if(!ac)return;const B=blBufs(ac);blPlay(B.thump,.9,1,{rev:.12});},
   // one pin knocking another: dry wood, a little different every time (it depends on where it is)
-  clack(v,x,z){_hfK=1.2;v=Math.max(.15,Math.min(1,v));const t=Math.abs(Math.sin(x*91+z*53)),f=780+t*620;hfNz(.07,f*2.2,f*1.1,.2*v,{q:1.5,a:.001});hfOsc(f,f*.62,.1,.17*v,{type:'triangle',a:.001,rev:.1});if(v>.5)hfOsc(f*.5,f*.3,.14,.1*v,{a:.001});},
-  crash(v){_hfK=1.8;v=Math.max(.3,Math.min(1,v));hfNz(.5,2200,500,.3*v,{type:'bandpass',q:.5,a:.002,rev:.2});hfOsc(120,60,.3,.42*v,{a:.002,rev:.12});hfNz(.2,900,200,.3*v,{type:'lowpass',a:.002});for(let i=0;i<5;i++)hfNz(.05,1400+i*350,700,.1*v,{q:1.4,a:.001,d:30+i*34});},
-  pit(){_hfK=1.2;hfNz(.3,500,160,.14,{type:'lowpass',a:.01});hfOsc(80,50,.2,.16,{a:.004});},
-  gutter(){_hfK=1.4;hfNz(.7,260,120,.2,{type:'lowpass',a:.05,rev:.3,n:'brown'});hfOsc(70,55,.5,.1,{a:.04});},
-  sweep(){_hfK=1.1;hfNz(.7,160,520,.1,{type:'lowpass',a:.1,n:'brown'});hfNz(.25,900,300,.06,{type:'bandpass',a:.02,d:420});hfOsc(70,60,.3,.1,{a:.03,d:500});},
-  set(){_hfK=1;for(let i=0;i<5;i++)hfNz(.05,1500+i*160,700,.07,{q:1.5,a:.001,d:i*55});hfOsc(110,80,.1,.1,{a:.002});},
-  strike(){_hfK=2.2;[523,659,784,1047,1319].forEach((f,i)=>hfOsc(f,f,.55-i*.04,.1,{a:.003,d:i*70,rev:.3}));hfOsc(98,70,.5,.34,{a:.004,rev:.2});hfNz(.8,2600,600,.12,{type:'bandpass',q:.4,a:.05,rev:.3,d:60});},
-  spare(){_hfK=2;[659,880,1109].forEach((f,i)=>hfOsc(f,f,.45,.1,{a:.003,d:i*90,rev:.3}));hfOsc(110,80,.3,.2,{a:.004});},
-  split(){_hfK=1.8;[392,370,330].forEach((f,i)=>hfOsc(f,f*.99,.4,.08,{type:'triangle',a:.004,d:i*110,rev:.25}));},
-  open(){_hfK=1.4;hfOsc(330,262,.3,.08,{type:'triangle',a:.004,rev:.2});},
-  turkey(){_hfK=2.2;[523,659,784,988,1319,1568].forEach((f,i)=>hfOsc(f,f,.5,.1,{a:.003,d:i*85,rev:.35}));hfOsc(130,90,.6,.34,{a:.004,rev:.2});},
-  perfect(){_hfK=2.6;for(let k=0;k<4;k++)[523,659,784,1047,1319,1568,2093].forEach((f,i)=>hfOsc(f*(1+k*.12),f*(1+k*.12),.7,.07,{a:.003,d:k*300+i*55,rev:.4}));hfOsc(98,65,1.2,.4,{a:.01,rev:.3});try{hfSnd.cheer(1);}catch(e){}},
-  count(){_hfK=1.4;hfOsc(1320,1320,.05,.05,{a:.001});},
-  bonus(i){_hfK=1.6;const f=660*Math.pow(1.122,Math.min(8,i||0));hfOsc(f,f,.22,.07,{a:.002,rev:.2});}
+  clack(v,x,z){const ac=bwAc();if(!ac)return;const B=blBufs(ac);v=Math.max(.12,Math.min(1,v));blPlay(blPick(B.clack,x,z),.22+.5*v,.9+.25*Math.abs(Math.sin(x*37+z*11)),{rev:.07});},
+  // the crowd of pins in a strike: many cracks, close together, falling off
+  crash(v){const ac=bwAc();if(!ac)return;const B=blBufs(ac);v=Math.max(.3,Math.min(1,v));for(let i=0;i<9;i++)blPlay(B.clack[i%6],(.5-i*.03)*v,.8+Math.random()*.5,{d:20+i*38+Math.random()*30,rev:.12});},
+  knock(v,x,z){const ac=bwAc();if(!ac)return;const B=blBufs(ac);blPlay(blPick(B.knock,x,z),.3+.35*Math.min(1,v),.85+.3*Math.abs(Math.sin(x*53+z*17)),{rev:.1});},
+  pit(){const ac=bwAc();if(!ac)return;const B=blBufs(ac);blPlay(B.pit,.5,.9+Math.random()*.2);},
+  gutter(){const ac=bwAc();if(!ac)return;const B=blBufs(ac);blPlay(B.land,.35,.8);},
+  sweep(){const ac=bwAc();if(!ac)return;const B=blBufs(ac);blPlay(B.sweep,.5,1,{rev:.15});},
+  set(){const ac=bwAc();if(!ac)return;const B=blBufs(ac);blPlay(B.set,.5,1,{rev:.1});},
+  // the "applause" is a room, not a fanfare: a low rumble of people and one soft bell
+  strike(){const ac=bwAc();if(!ac)return;_hfK=1.4;hfOsc(1760,1760,.55,.04,{a:.003,rev:.4});try{hfSnd.cheer(.5);}catch(e){}},
+  spare(){const ac=bwAc();if(!ac)return;_hfK=1.2;hfOsc(1320,1320,.45,.035,{a:.003,rev:.4});try{hfSnd.cheer(.3);}catch(e){}},
+  split(){const ac=bwAc();if(!ac)return;_hfK=1.2;hfOsc(196,190,.45,.06,{type:'triangle',a:.01,rev:.3});},
+  open(){},
+  turkey(){const ac=bwAc();if(!ac)return;_hfK=1.5;[1568,1976,2349].forEach((f,i)=>hfOsc(f,f,.6,.04,{a:.003,d:i*110,rev:.45}));try{hfSnd.cheer(.9);}catch(e){}},
+  perfect(){const ac=bwAc();if(!ac)return;_hfK=1.8;[1568,1976,2349,3136].forEach((f,i)=>hfOsc(f,f,.9,.045,{a:.003,d:i*140,rev:.5}));try{hfSnd.cheer(1.3);}catch(e){}},
+  count(){_hfK=1.2;hfOsc(1320,1320,.04,.03,{a:.001});},
+  bonus(i){_hfK=1.2;hfOsc(880,880,.15,.04,{a:.002,rev:.2});}
 };
-// the ball rolling: a low rumble that follows its speed; louder and hollow in the gutter
+// the ball rolling: a low rumble that follows its speed; hollow and louder in the gutter
 function blRollSnd(on,sp,gut){
   const ac=bwAc();if(!ac){return;}
   try{
-    if(!on){if(_blRoll){const t=ac.currentTime;_blRoll.g.gain.cancelScheduledValues(t);_blRoll.g.gain.setTargetAtTime(0,t,.05);const r=_blRoll;_blRoll=null;setTimeout(()=>{try{r.s.stop();}catch(e){}},400);}return;}
-    if(!_blRoll){const s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();s.buffer=bwNoise(ac,'brown');s.loop=true;f.type='lowpass';f.frequency.value=300;g.gain.value=0;s.connect(f);f.connect(g);hfWire(ac,g,.08);s.start();_blRoll={s,f,g};}
-    const t=ac.currentTime,v=Math.min(1,sp/9);_blRoll.f.frequency.setTargetAtTime(gut?170:230+v*320,t,.05);_blRoll.g.gain.setTargetAtTime((gut?.34:.22)*v*(G.snd?1:0),t,.06);
+    if(!on){if(_blRoll){const t=ac.currentTime;_blRoll.g.gain.cancelScheduledValues(t);_blRoll.g.gain.setTargetAtTime(0,t,.04);const r=_blRoll;_blRoll=null;setTimeout(()=>{try{r.s.stop();}catch(e){}},300);}return;}
+    const B=blBufs(ac);
+    if(!_blRoll||_blRoll.gut!==!!gut){if(_blRoll){try{_blRoll.s.stop();}catch(e){}}const s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();s.buffer=gut?B.gut:B.roll;s.loop=true;f.type='lowpass';f.frequency.value=420;g.gain.value=0;s.connect(f);f.connect(g);hfWire(ac,g,.05);s.start();_blRoll={s,f,g,gut:!!gut};}
+    const t=ac.currentTime,v=Math.min(1,sp/9);_blRoll.s.playbackRate.setTargetAtTime(.78+v*.55,t,.06);_blRoll.f.frequency.setTargetAtTime(260+v*380,t,.06);_blRoll.g.gain.setTargetAtTime((gut?.62:.55)*v*(G.snd?1:0),t,.05);
   }catch(e){}
 }
 
@@ -33574,17 +33616,20 @@ function blPrefs(){let p={};try{p=JSON.parse(localStorage.getItem('ct_bl_pref')|
 function blSavePrefs(p){try{localStorage.setItem('ct_bl_pref',JSON.stringify(p));}catch(e){}}
 function blSeen(){try{return localStorage.getItem('ct_bl_seen')==='1';}catch(e){return false;}}
 function blNew(){
-  const pr=blPrefs(),src=G.lp.slice(0,4);
-  const players=src.map(p=>({name:p.name||'Player',avatar:p.avatar,bot:p.bot?(p.bot==='sharp'?'sharp':p.bot==='steady'?'steady':'gentle'):null}));
-  return{live:true,players,n:players.length,pr,mode:pr.mode,N:10,phase:'setup',t:0,last:performance.now(),raf:0,cv:null,q:0,rolls:[],balls:[],prac:{shots:0,pins:0,strikes:0,spares:0,streak:0,best:0,last:null},pk:0,cur:0,bx:0,pull:0,spinV:0,ts:1,acc:0,over:false,stats:{start:Date.now()},cam:null,camMode:'pre',ctl:null,banner:null,shake:0,flash:0,pins:blFull(),sim:null,sw:0,rackFull:true,lastX:[],lastS:[],parts:null};
+  const pr=blPrefs(),on=G.isOnline,src=on?ahPlayers().slice(0,4):G.lp.slice(0,4);
+  const players=src.map(p=>({name:p.name||'Player',avatar:p.avatar,bot:on?null:p.bot?(p.bot==='sharp'?'sharp':p.bot==='steady'?'steady':'gentle'):null}));
+  const net=on?{id:G.srv&&G.srv.ah&&G.srv.ah.id,seat:Math.max(0,src.findIndex(q=>q.id===G.myPid)),sq:0,seen:{},helloAt:-9,cfg:null,pend:[],aimAt:-9,aimKey:''}:null;
+  return{live:true,players,net,ballNo:0,n:players.length,pr,mode:pr.mode,N:10,phase:'setup',t:0,last:performance.now(),raf:0,cv:null,q:0,rolls:[],balls:[],prac:{shots:0,pins:0,strikes:0,spares:0,streak:0,best:0,last:null},pk:0,cur:0,bx:0,pull:0,spinV:0,ts:1,acc:0,over:false,stats:{start:Date.now()},cam:null,camMode:'pre',ctl:null,banner:null,shake:0,flash:0,pins:blFull(),sim:null,sw:0,rackFull:true,lastX:[],lastS:[],parts:null};
 }
-function blIsHuman(g){return g.players[g.cur]&&!g.players[g.cur].bot;}
-function blBegin(g){
-  const pr=blPrefs();g.pr=pr;g.mode=['classic','quick','practice'].includes(pr.mode)?pr.mode:'classic';g.lv=BL_LV[pr.lv]?pr.lv:'standard';g.style=pr.style==='table'?'table':'classic';
+function blIsHuman(g){return !!(g.players[g.cur]&&!g.players[g.cur].bot&&(!(g.net&&G.isOnline)||g.cur===g.net.seat));}
+function blWatching(g){return !!(g.net&&G.isOnline&&g.cur!==g.net.seat);}
+function blBegin(g,cfg){
+  const pr=blPrefs();if(cfg){pr.mode=cfg.mode;pr.style=cfg.style;pr.lv=cfg.lv;}g.pr=pr;g.mode=['classic','quick','practice'].includes(pr.mode)?pr.mode:'classic';if(g.net&&g.mode==='practice')g.mode='classic';g.lv=BL_LV[pr.lv]?pr.lv:'standard';g.style=pr.style==='table'?'table':'classic';g.ballNo=0;
+  {const ov=document.getElementById('bl-ov');if(ov){ov.dataset.h='';ov.innerHTML='';ov.classList.remove('on');}}
   if(g.mode==='practice'){const h=G.lp.slice(0,4).findIndex(p=>!p.bot);const k=h<0?0:h;g.players=[g.players[k]];g.players[0]=Object.assign({},g.players[0],{bot:null});}
   g.n=g.players.length;g.N=g.mode==='quick'?5:10;
   g.rolls=g.players.map(()=>[]);g.cur=0;g.lastX=g.players.map(()=>0);g.lastS=g.players.map(()=>0);
-  g.balls=g.players.map((p,i)=>{if(p.bot){const b=BL_BALLS[(i*3+g.n*2+Math.floor(Math.random()*5))%BL_BALLS.length];return{id:b.id,fx:g.style==='table'&&Math.random()<.5?BL_FX[1+Math.floor(Math.random()*(BL_FX.length-1))].id:'none'};}
+  g.balls=g.players.map((p,i)=>{if(g.net&&i!==g.net.seat)return{id:'classic',fx:'none'};if(p.bot){const b=BL_BALLS[(i*3+g.n*2+Math.floor(Math.random()*5))%BL_BALLS.length];return{id:b.id,fx:g.style==='table'&&Math.random()<.5?BL_FX[1+Math.floor(Math.random()*(BL_FX.length-1))].id:'none'};}
     const sv=pr.balls&&pr.balls[p.name];return{id:(sv&&BL_BALLS.some(b=>b.id===sv.id)?sv.id:pr.ball),fx:g.style==='table'?(sv&&BL_FX.some(f=>f.id===sv.fx)?sv.fx:pr.fx):'none'};});
   blWarm(g);
   g.st=g.players.map(()=>({strikes:0,spares:0,open:0,gutters:0,streak:0,best:0,splits:0,splitsHit:0,hi:0,pins:0,balls:0,fell:0,pocket:0}));
@@ -33613,8 +33658,9 @@ function blShotOf(g){
   const ang=g.aimA||0,v=4.8+5.2*Math.max(0,Math.min(1,g.pull));
   return{x0:g.bx,ang:ang,v:v,spin:g.spinV,z0:0};
 }
-function blRelease(g,sh,pw){
+function blRelease(g,sh,pw,remote){
   const i=g.cur;g.lastX[i]=g.bx;g.lastS[i]=g.spinV;
+  if(g.net&&G.isOnline&&!remote){blSend(g,{k:'shot',n:g.ballNo,sh:{x0:sh.x0,ang:sh.ang,v:sh.v,spin:sh.spin},pw:pw,ball:g.balls[i]},true);}
   const S=blSimNew(blCopy(g.pins),sh);g.relZ=-.9-.9*pw;g.pins=S.pins;
   g.sim=S;g.phase='roll';g.phaseT=g.t;g.camMode='roll';g.rollT=0;g.ts=1;g.hitT=-9;g.pitSeen=0;g.sndCool=0;g.nfall=0;g.fxT=0;g.lastClack=-9;
   g.ctl=null;g.stats.balls=(g.stats.balls||0)+1;
@@ -33635,7 +33681,7 @@ function blIsSplit(st,sb){
 }
 function blSplitName(st){const a=st.map((s,i)=>s?i+1:0).filter(Boolean);return a.join('–');}
 function blRollDone(g){
-  const i=g.cur,S=g.sim,n=blDownCount(blPinsFrom(g.standBefore),S.pins),K=blKind(g,n,S.pins);g.res=K;
+  const i=g.cur,S=g.sim,n=blDownCount(blPinsFrom(g.standBefore),S.pins),K=blKind(g,n,S.pins);g.res=K;g.ballNo++;
   blRollSnd(false);
   const pl=g.players[i],st=g.st[i];
   g.stats.balls++;
@@ -33770,21 +33816,69 @@ function blFinish(g){
   else mom=nm(w)+' won with '+tot[w]+' ('+st[w].strikes+' strike'+(st[w].strikes===1?'':'s')+', '+st[w].spares+' spare'+(st[w].spares===1?'':'s')+')';
   if(tie)mom='A tie on the lane, '+tot[w]+' each.';
   g.moment=mom;
-  g.players.forEach((p,i)=>{const gp=G.lp[i];if(!gp)return;gp.totalScore=tot[i];gp.c4Result=g.n===1?'win':(tie&&tot[i]===tot[w])?'draw':w===i?'win':'loss';gp.psLine=tot[i]+' pins · '+st[i].strikes+' strikes · '+st[i].spares+' spares';});
+  if(!(g.net&&G.isOnline))g.players.forEach((p,i)=>{const gp=G.lp[i];if(!gp)return;gp.totalScore=tot[i];gp.c4Result=g.n===1?'win':(tie&&tot[i]===tot[w])?'draw':w===i?'win':'loss';gp.psLine=tot[i]+' pins · '+st[i].strikes+' strikes · '+st[i].spares+' spares';});
   const dur=Math.round((Date.now()-g.stats.start)/1000),when=new Date().toISOString();
   G.ahMoment=mom;G.fgResult=null;G.fgHighlight=null;G.pbResult=null;G.psResult=null;G.clResult=null;G.acResult=null;
   G.blResult={mode:g.mode,N:g.N,names:g.players.map(p=>p.name),bots:g.players.map(p=>!!p.bot),avatars:g.players.map(p=>p.avatar),st,w,tie,tot,rank,dur,mom,perfect:perfect>=0,balls:g.balls.slice(),fx:g.style,best:g.best,comeback:g.comeback.slice(),moments:g.moments.slice(0,4)};
+  if(g.net&&G.isOnline){if(g.cur===g.net.seat)blNetFinish(g,{st,tot,w,tie,rank,mom});}
+  else{
   G.tw=(G.tw||0)+1;try{localStorage.setItem('ct_tw',G.tw);}catch(e){}
   try{addHistory({game:'bowling',winner:nm(w),winnerAvatar:g.players[w].avatar,date:when,players:g.players.map(p=>p.name),moment:mom,stats:{cardsPlayed:0,comebacks:0,reactions:G.matchStats?G.matchStats.reactions:0,ah:{score:tot,dur,lv:g.lv,dc:g.mode}}});}catch(e){}
   try{const hs=g.players.map((p,i)=>p.bot?-1:i).filter(i=>i>=0);
     if(hs.length&&g.mode!=='practice'){const hb=hs.reduce((a,i)=>tot[i]>tot[a]?i:a,hs[0]);
       const rs={perfect:Math.max(...hs.map(i=>st[i].strikes)),bestRally:Math.max(...hs.map(i=>st[i].best)),saves:Math.max(...hs.map(i=>st[i].spares)),comeback:Math.max(0,...hs.map(i=>g.comeback[i]||0)),team:0};
       const nr=arRecordUpdate(g.mode==='quick'?'bowling_quick':'bowling',g.players.map(p=>p.name),g.players[hb].name,[tot[hb],0],rs);if(nr.length)setTimeout(()=>toast('🎳 New Bowling record'),900);}}catch(e){}
+  }
   if(perfect>=0){blSnd.perfect();g.banner={t0:g.t,dur:4,big:{t:'300',s:'A PERFECT GAME · '+nm(perfect).toUpperCase(),col:'#ffe58a',k:'perfect'},sz:1.3};g.flash=1;}
   else{try{hfSnd.cheer(1);}catch(e){}g.banner={t0:g.t,dur:2.4,big:{t:tie?'LEVEL':nm(w).toUpperCase()+(g.n>1?' WINS':''),s:String(tot[w]),col:'#ffe58a',k:'win'},sz:1};}
-  g.endTm=setTimeout(()=>{if(G.bl===g&&G.scr==='table'){blStop();G.scr='matchend';render();}},perfect>=0?5200:3300);
+  if(!(g.net&&G.isOnline))g.endTm=setTimeout(()=>{if(G.bl===g&&G.scr==='table'){blStop();G.scr='matchend';render();}},perfect>=0?5200:3300);
 }
 function blStop(){const g=G.bl;if(!g)return;g.live=false;if(g.raf)cancelAnimationFrame(g.raf);g.raf=0;clearTimeout(g.endTm);blRollSnd(false);G.bl=null;}
+
+// ── online: the room, the shots, the results ──
+function blNetFinish(g,c){
+  if(g.netEnded||!G.srv)return;g.netEnded=true;
+  const st=c.st,tot=c.tot,w=c.w,n=g.n,dur=Math.round((Date.now()-g.stats.start)/1000),res=G.blResult;
+  const s2=JSON.parse(JSON.stringify(G.srv));
+  s2.players.forEach((q,i)=>{if(i>=n)return;q.totalScore=tot[i];q.c4Result=n===1?'win':(c.tie&&tot[i]===tot[w])?'draw':w===i?'win':'loss';q.psLine=tot[i]+' pins · '+st[i].strikes+' strikes · '+st[i].spares+' spares';});
+  s2.winner=s2.players[w].id;s2.winnerName=s2.players[w].name;s2.winnerAv=s2.players[w].avatar;s2.moment=c.mom;
+  s2.ah=Object.assign({},s2.ah||{},{score:tot,dur,stats:{perfect:Math.max(...st.map(x=>x.strikes)),bestRally:Math.max(...st.map(x=>x.best)),saves:Math.max(...st.map(x=>x.spares)),comeback:Math.max(0,...g.comeback),team:0,lv:g.lv,dc:g.mode,bl:res}});
+  s2.lastAct=esc(s2.winnerName)+(c.tie?' tied.':' won at the bowling lane.');s2._ts=Date.now();
+  try{onSrv(s2);}catch(e){}
+  try{dbWrite(G.roomId,s2);}catch(e){}
+}
+function blHost(){return !!(G.isOnline&&G.srv&&G.srv.host===G.myPid);}
+function blSend(g,m,rep){
+  if(!g||!g.net||!G.isOnline)return;m.id=g.net.id;m.seat=g.net.seat;m.s=++g.net.sq;
+  const go=()=>{try{if(_ch)_ch.send({type:'broadcast',event:'bl',payload:m});}catch(e){}};go();
+  if(rep)[250,700].forEach(d=>setTimeout(()=>{if(G.bl===g)go();},d));
+}
+function blNum(v,lo,hi,d){v=+v;return isFinite(v)?Math.max(lo,Math.min(hi,v)):d;}
+function blOnBroadcast(m){
+  const g=G.bl;if(!g||!g.live||!g.net||!G.isOnline||!m||m.id!==g.net.id||m.seat===g.net.seat)return;
+  const sp=ahPlayers(),sender=sp[m.seat];if(!sender)return;
+  if(m.k!=='aim'&&m.k!=='hello'){const key=m.seat+':'+m.s;if(g.net.seen[key])return;g.net.seen[key]=1;}
+  if(m.k==='go'){
+    if(g.phase==='setup'&&sender.id===G.srv.host){const cfg={mode:m.mode==='quick'?'quick':'classic',style:m.style==='table'?'table':'classic',lv:BL_LV[m.lv]?m.lv:'standard'};g.net.cfg=cfg;blBegin(g,cfg);}
+  }else if(m.k==='hello'){
+    if(blHost()&&g.phase!=='setup'&&g.net.cfg)blSend(g,Object.assign({k:'go'},g.net.cfg));
+  }else if(m.k==='aim'){
+    if(g.phase!=='aim'||m.seat!==g.cur)return;
+    g.bx=blNum(m.bx,-.52,.52,0);g.spinV=blNum(m.sp,-1,1,0);g.pull=blNum(m.pu,0,1,0);g.aimA=blNum(m.aa,-.06,.06,0);
+  }else if(m.k==='shot'){
+    if(m.seat!==g.cur||m.n<g.ballNo)return;
+    g.net.pend.push(m);
+  }
+}
+// a shot that arrived: play it as soon as this device is at the same place (the lane is free)
+function blNetPending(g){
+  const q=g.net&&g.net.pend;if(!q||!q.length||g.phase!=='aim'||!blWatching(g))return;
+  const k=q.findIndex(m=>m.seat===g.cur&&m.n===g.ballNo);if(k<0){g.net.pend=q.filter(m=>m.n>=g.ballNo);return;}
+  const m=q.splice(k,1)[0],sh={x0:blNum(m.sh&&m.sh.x0,-.52,.52,0),ang:blNum(m.sh&&m.sh.ang,-.06,.06,0),v:blNum(m.sh&&m.sh.v,4.8,10,7.5),spin:blNum(m.sh&&m.sh.spin,-1,1,0)};
+  const bl=m.ball&&BL_BALLS.some(b=>b.id===m.ball.id)?{id:m.ball.id,fx:g.style==='table'&&BL_FX.some(f=>f.id===m.ball.fx)?m.ball.fx:'none'}:{id:'classic',fx:'none'};
+  g.balls[g.cur]=bl;g.bx=sh.x0;g.spinV=sh.spin;g.aimA=sh.ang;g.pull=blNum(m.pw,0,1,.5);
+  blRelease(g,sh,g.pull,true);
+}
 
 /* ═══════ BOWLING: the picture ═══════ */
 function blSize(g){
@@ -34016,7 +34110,7 @@ function blDrawIntro(g,x){
 
 /* ═══════ BOWLING: the screen, the touch, the score sheet ═══════ */
 // make the first ball smooth: the pictures and sounds are built now, not in the middle of the first roll
-function blWarm(g){try{blPinSprite();(g.balls||[]).forEach(b=>{const o=BL_BALLS.find(q=>q.id===b.id)||BL_BALLS[0];[256,160,96].forEach(S=>blBallBase(o,S));blPatCanvas(o);});[256,160,96].forEach(blBallShade);const ac=bwAc();if(ac){hfBus(ac);bwNoise(ac,'brown');bwNoise(ac,'white');}}catch(e){}}
+function blWarm(g){try{blPinSprite();{const ac=bwAc();if(ac)blBufs(ac);}(g.balls||[]).forEach(b=>{const o=BL_BALLS.find(q=>q.id===b.id)||BL_BALLS[0];[256,160,96].forEach(S=>blBallBase(o,S));blPatCanvas(o);});[256,160,96].forEach(blBallShade);const ac=bwAc();if(ac){hfBus(ac);bwNoise(ac,'brown');bwNoise(ac,'white');}}catch(e){}}
 function lDealBowling(){
   if(G.lp.length>4)G.lp=G.lp.slice(0,4);
   G.lp.forEach(p=>{p.totalScore=0;p.c4Result=null;p.psLine='';});
@@ -34047,7 +34141,7 @@ function blStep(g,dt){
   g.flash=Math.max(0,g.flash-dt*1.8);g.shake=Math.max(0,g.shake-dt*2.6);
   // the animation setting of the app (Full / Light / Off) is respected: no shaking and no slow motion when it is Off
   const am=animMode();if(am==='off'){g.shake=0;g.flash=0;}else if(am==='light')g.shake*=.5;
-  if(g.phase==='setup'){blCamStep(g,dt,'pre');blStepParts(g,dt);return;}
+  if(g.phase==='setup'){if(g.net&&G.isOnline&&!blHost()&&g.t-g.net.helloAt>1.2){g.net.helloAt=g.t;blSend(g,{k:'hello'});}blCamStep(g,dt,'pre');blStepParts(g,dt);return;}
   if(g.phase==='intro'){if(!g.introLen)g.introLen=blSeen()?1.1:2.4;if(g.t-g.phaseT>=g.introLen){try{localStorage.setItem('ct_bl_seen','1');}catch(e){}g.phase='aim';g.phaseT=g.t;g.turnCard.t0=g.t;g.setT0=g.t;blSnd.set();if(g.players[g.cur].bot){g.bot={st:0,t0:g.t,plan:null};}blHudFull(g);}blCamStep(g,dt,'pre');return;}
   // the camera
   let cm=g.camMode;
@@ -34056,6 +34150,10 @@ function blStep(g,dt){
   if(g.phase==='aim'){
     if(g.bot)blBotAct(g,dt);
     g.aimA=g.aimA||0;
+    if(g.net&&G.isOnline){
+      if(blWatching(g))blNetPending(g);
+      else if(blIsHuman(g)&&g.t-g.net.aimAt>.1){const key=[g.bx.toFixed(3),g.spinV.toFixed(2),g.pull.toFixed(2),(g.aimA||0).toFixed(4)].join();if(key!==g.net.aimKey){g.net.aimKey=key;g.net.aimAt=g.t;blSend(g,{k:'aim',bx:g.bx,sp:g.spinV,pu:g.pull,aa:g.aimA||0});}}
+    }
   }else if(g.phase==='roll'){
     // slow motion: only in the heart of a hit, and when one pin is still teetering
     const S=g.sim;let target=1;
@@ -34095,7 +34193,7 @@ function blEvents(g,S){
     else if(e.k==='pit'){if(g.t-(g.pitAt||-9)>.12){g.pitAt=g.t;blSnd.pit();}blBurst(g,e.x,.2,e.z,2,'#9a9482',.6,.7,.03,'d',0);}
     else if(e.k==='gut'){blSnd.gutter();try{haptic(12);}catch(er){}}
     else if(e.k==='gutpin'){blSnd.gutter();}
-    else if(e.k==='fall'&&e.late){blSnd.clack(.5,e.x,e.z);g.shake=Math.max(g.shake,.2);}
+    else if(e.k==='fall'){const px=e.x,pz=e.z,pv=Math.min(1,(e.v||1)/6);setTimeout(()=>{if(G.bl===g)blSnd.knock(pv,px,pz);},e.late?30:260);if(e.late)g.shake=Math.max(g.shake,.2);}
     else if(e.k==='ballpit'){blSnd.pit();}
   }
   ev.length=0;
@@ -34155,7 +34253,7 @@ function blThumbDraw(cv,id,roll,side){
 }
 // ── the table markup ──
 function rBowlingTable(){
-  if(!G.bl||!G.bl.live){blStop();G.blResult=null;G.bl=blNew();}
+  if(!G.bl||!G.bl.live||(G.isOnline&&(!G.bl.net||!G.srv||!G.srv.ah||G.bl.net.id!==G.srv.ah.id))||(!G.isOnline&&G.bl.net)){blStop();G.blResult=null;G.bl=blNew();}
   const g=G.bl;setTimeout(blAttach,0);
   return`<div id="s-table" class="scr on game-airhockey game-bowling">
     <div class="game-bar"><div class="gb-game">🎳 <span>Bowling</span></div><div class="gb-turn" id="bl-status">OUR TABLE · Bowling</div><div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div></div>
@@ -34186,17 +34284,23 @@ function blPaintBalls(ov){ov.querySelectorAll('canvas[data-ball]').forEach(c=>{i
 function blPaintOv(g){
   const ov=document.getElementById('bl-ov');if(!ov||!g)return;let h='';const pr=blPrefs();
   const seg=(items,cur,key)=>`<div class="ps-seg">${items.map(([k,l])=>`<button class="${cur===k?'on':''}" data-blact="${key}" data-v="${k}">${l}</button>`).join('')}</div>`;
-  if(g.phase==='setup'){
+  if(g.phase==='setup'&&g.net&&G.isOnline&&!blHost()){
+    h=`<div class="ps-card"><div class="ps-kick">OUR TABLE</div><div class="ps-h1">BOWLING</div><div class="ps-sub">FIND THE LINE · FEEL THE SPIN · KNOCK THEM DOWN</div>
+      <div class="ps-note" style="text-align:center">The host chooses the game and the aim help. Choose your ball while you wait.</div>
+      <div class="ps-grp">YOUR BALL</div>${blBallCards(g,pr,true,{id:pr.ball,fx:pr.fx})}
+      <div class="ps-ppl">${g.players.map(p=>`<span>${p.avatar?'<span class="ah-av">'+avHTML(p.avatar)+'</span>':''}${esc(p.name)}</span>`).join('')}</div>
+      <div class="ps-note" style="text-align:center;margin-top:.8rem;">Waiting for the host to start the game…</div></div>`;
+  }else if(g.phase==='setup'){
     const MD={classic:['🎳','CLASSIC','Ten frames. The real thing.'],quick:['⚡','QUICK GAME','Five frames. A fast family game.'],practice:['🎯','PRACTICE','Unlimited balls. Find your line.']};
     h=`<div class="ps-card"><div class="ps-kick">OUR TABLE</div><div class="ps-h1">BOWLING</div><div class="ps-sub">FIND THE LINE · FEEL THE SPIN · KNOCK THEM DOWN</div>
-      <div class="ps-grp">CHOOSE A GAME</div>${ovCards(['classic','quick','practice'].map(k=>[k,MD[k][0],MD[k][1],MD[k][2]]),pr.mode,'data-blact="mode"')}
+      <div class="ps-grp">CHOOSE A GAME</div>${ovCards((g.net&&G.isOnline?['classic','quick']:['classic','quick','practice']).map(k=>[k,MD[k][0],MD[k][1],MD[k][2]]),g.net&&G.isOnline&&pr.mode==='practice'?'classic':pr.mode,'data-blact="mode"')}
       <div class="ps-grp">STYLE</div>${seg([['classic','CLASSIC · PURE BOWLING'],['table','OUR TABLE · FUN BALLS']],pr.style,'style')}
       <div class="ps-note">${pr.style==='table'?'The rules stay exactly the same. Your ball leaves a trail and a glow when it hits the pins: only for the show.':'No effects at all. Just the lane, the ball and the pins.'}</div>
       <div class="ps-grp">AIM HELP</div>${seg(Object.keys(BL_LV).map(k=>[k,BL_LV[k].n.toUpperCase()]),pr.lv,'lv')}
       <div class="ps-note">${BL_LV[pr.lv].about} The ball is never aimed for you.</div>
       <div class="ps-grp">YOUR BALL</div>${blBallCards(g,pr,pr.style==='table',{id:pr.ball,fx:pr.fx})}
       <div class="ps-ppl">${g.players.map(p=>`<span>${p.avatar?'<span class="ah-av">'+avHTML(p.avatar)+'</span>':''}${esc(p.name)}${p.bot?' · '+BL_BOT[p.bot].n.toLowerCase()+' robot':''}</span>`).join('')}</div>
-      <button class="btn btn-gold ps-go" data-blact="start">${G.blResult?'BOWL AGAIN':'TO THE LANE'}</button>
+      <button class="btn btn-gold ps-go" data-blact="start">${g.net&&G.isOnline?'START FOR EVERYONE':G.blResult?'BOWL AGAIN':'TO THE LANE'}</button>
       <div class="ps-fine"><b>Slide</b> the ball sideways to choose where you start. <b>Pull it back</b> like a sling: the further, the harder. The direction of the pull sets your line. The <b>spin control</b> under the lane makes the ball curve. <b>Let go</b> and it rolls.</div></div>`;
   }else if(g.phase==='aim'&&g.pickOpen){
     const cur=g.balls[g.cur]||{id:'classic',fx:'none'};
@@ -34260,7 +34364,7 @@ document.addEventListener('click',e=>{
   else if(a==='lv'){pr.lv=v;blSavePrefs(pr);}
   else if(a==='ball'){if(g.pickOpen){const c=g.balls[g.cur];c.id=v;pr.balls[g.players[g.cur].name]={id:c.id,fx:c.fx};blSavePrefs(pr);}else{pr.ball=v;blSavePrefs(pr);}blSnd.tick();}
   else if(a==='fx'){if(g.pickOpen){const c=g.balls[g.cur];c.fx=v;pr.balls[g.players[g.cur].name]={id:c.id,fx:c.fx};blSavePrefs(pr);}else{pr.fx=v;blSavePrefs(pr);}blSnd.tick();}
-  else if(a==='start'){const keep=G.blResult;g.pr=pr;blBegin(g);paint=false;const ov=document.getElementById('bl-ov');if(ov){ov.dataset.h='';ov.innerHTML='';ov.classList.remove('on');}blHudFull(g);blSnd.set();}
+  else if(a==='start'){if(g.net&&G.isOnline&&!blHost())return;g.pr=pr;let cfg=null;if(g.net&&G.isOnline){cfg={mode:pr.mode==='quick'?'quick':'classic',style:pr.style==='table'?'table':'classic',lv:BL_LV[pr.lv]?pr.lv:'standard'};g.net.cfg=cfg;blSend(g,Object.assign({k:'go'},cfg),true);}blBegin(g,cfg);paint=false;blHudFull(g);blSnd.set();}
   else if(a==='pick'){g.pickOpen=1;g.ctl=null;blSnd.pick();}
   else if(a==='pickok'){g.pickOpen=0;blSnd.tick();}
   if(paint)blPaintOv(g);
@@ -35223,7 +35327,7 @@ function oStartGame(rs){
         return;
       }
       if(ahIs(rs.gameId)){
-        const players=rs.players.slice(0,(fgIs(rs.gameId)||rs.gameId==='pinball'||rs.gameId==='precision'||rs.gameId==='clay'||rs.gameId==='archery')?((GAMES.find(x=>x.id===rs.gameId)||{}).maxP||2):2).map(p=>({...p,totalScore:0,c4Result:null}));
+        const players=rs.players.slice(0,(fgIs(rs.gameId)||rs.gameId==='pinball'||rs.gameId==='precision'||rs.gameId==='clay'||rs.gameId==='archery'||rs.gameId==='bowling')?((GAMES.find(x=>x.id===rs.gameId)||{}).maxP||2):2).map(p=>({...p,totalScore:0,c4Result:null}));
         const gs={phase:'game',gameId:rs.gameId,host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
           arSeries:rs.arSeries||null,ah:{id:'ah'+Date.now().toString(36)+Math.floor(Math.random()*1e4),score:[0,0]},pl:rs.gameId==='pool'?plNew(plRulesPref(),plAssistPref(),plNextStarter()):undefined,winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
         G.srv=gs;G.ah=null;G.pl=null;G.fg=null;G.fgResult=null;G.fgHighlight=null;dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
