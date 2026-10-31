@@ -6420,6 +6420,12 @@ async function runPresentation(A,W,frame){
       // a copy from the old format is not trusted
       LS.setItem('ct_fcache:BIGFAM0001',JSON.stringify({code:'BIGFAM0001',since:'2026-02-01T00:00:00+00:00',rows:[{game:'pig',winner:'X',players:['X'],date:'2026-01-01'}]}));
       W.eval("FAM.rows=[];FAM.keys=new Set();FAM.since=null;FAM.ready=false;famBump();");bigRes.oldFormat=F('famLoadCache')();
+      // two devices with the same shared record agree; a game only one device has (a guest game, an old unsent game) is not a family result
+      {const rr=[{cid:'k1',game:'pig',winner:'Papa',players:['Papa'],date:'2026-03-01T10:00:00Z',remote:1}];
+       const loc=[{game:'uno',winner:'Papa',players:['Papa'],date:'2026-03-02T10:00:00Z'},{cid:'g1',guest:1,game:'uno',winner:'Papa',players:['Papa'],date:'2026-03-03T10:00:00Z'},{cid:'p1',game:'uno',winner:'Mama',players:['Papa','Mama'],date:'2026-03-04T10:00:00Z'},{game:'pig',winner:'Papa',players:['Papa'],date:'2026-03-05T10:00:00Z',photo:'x'}];
+       const m=F('famMerge')(loc,rr);bigRes.merge2=m.map(h=>h.cid||h.game).join();
+       W.eval("FAM.rows=[{cid:'a',game:'pig',winner:'W',sa:'1'},{cid:'b',game:'uno',winner:'V',sa:'2'}]");const f1=F('famFingerprint')();W.eval("FAM.rows=[{cid:'b',game:'uno',winner:'V',sa:'2'},{cid:'a',game:'pig',winner:'W',sa:'1'}]");bigRes.fp=f1===F('famFingerprint')()&&/^[0-9a-f]{8}$/.test(f1);
+       W.eval("FAM.rows=[{cid:'a',game:'pig',winner:'W',sa:'1'}]");bigRes.fp2=f1!==F('famFingerprint')();}
       bigRes.before=F('famBefore')('2026-10-31T09:26:11.242682+00:00');
     }catch(e){bigRes.err=String(e&&e.stack||e);}
     finally{
@@ -6433,6 +6439,8 @@ async function runPresentation(A,W,frame){
     check("Papa's games are counted over the whole record (3650 wins by Papa + Mama's games with him = every game)",bigRes.first===7300);
     check('after a restart the saved copy brings back every game, not only the first 6000',bigRes.afterLoad===7300&&bigRes.second===7300);
     check('a saved copy in the old format is not trusted',bigRes.oldFormat===false);
+    check('a game only one device has stays out of the family record (guest game, old unsent game); one waiting to be sent, and a photo, stay',bigRes.merge2==='pig,p1,k1');
+    check('the fingerprint is the same for the same record in any order, and changes when a game differs',bigRes.fp===true&&bigRes.fp2===true);
     check('the "sync up to here" mark is one microsecond earlier, so rows with the same time come again',bigRes.before==='2026-10-31T09:26:11.242681+00:00');
   });
   suite('Tables (groups): each with its own people, games and trophies',()=>{

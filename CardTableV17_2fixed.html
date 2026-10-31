@@ -5835,11 +5835,14 @@ function famFind(h,ix,used){let r=h.cid&&ix.byCid.get(h.cid);if(r&&!used.has(r))
 // local first (it has the photo and the details), the family's record fills the gaps; newest first
 function famMerge(local,remote){
   const ix=famIndex(remote),used=new Set(),out=[];
-  local.forEach(h=>{const r=famFind(h,ix,used);if(r){used.add(r);out.push(Object.assign({},r,h,{scores:h.scores||r.scores,winnerAvatar:h.winnerAvatar||r.winnerAvatar,moment:h.moment||r.moment}));}else out.push(h);});
+  local.forEach(h=>{const r=famFind(h,ix,used);if(r){used.add(r);out.push(Object.assign({},r,h,{scores:h.scores||r.scores,winnerAvatar:h.winnerAvatar||r.winnerAvatar,moment:h.moment||r.moment}));}else if((h.cid&&!h.guest)||h.photo)out.push(h);});
   remote.forEach(r=>{if(!used.has(r))out.push(r);});
   out.sort((a,b)=>new Date(b.date)-new Date(a.date));
   return out;
 }
+// to compare two devices: the same shared record gives the same fingerprint
+function famFingerprint(){let h=2166136261;const ks=FAM.rows.map(r=>r.cid||('o'+r.sa+'|'+r.winner+'|'+r.game)).sort();for(const k of ks){for(let i=0;i<k.length;i++){h^=k.charCodeAt(i);h=Math.imul(h,16777619);}}return(h>>>0).toString(16).padStart(8,'0');}
+function famPendingCount(){const ix=famIndex(FAM.rows),used=new Set();return getLocalHistory().filter(h=>!famFind(h,ix,used)).length;}
 function famSmall(x){try{const j=JSON.stringify(x||null);return j&&j.length<2500?x:null;}catch(e){return null;}}
 function famScoresNow(){try{const src=G.isOnline?((G.srv&&G.srv.players)||[]):G.lp;const o=src.slice(0,8).map(p=>({n:String(p.name||'').slice(0,24),s:Math.round(+p.totalScore||0),r:p.c4Result||undefined,b:p.bot||undefined})).filter(x=>x.n);return o.length?o:undefined;}catch(e){return undefined;}}
 function famRowOut(e){return{device_id:DEVICE_ID,client_id:e.cid,game_id:e.game,mode:e.mode||'local',winner_name:e.winner,winner_avatar:e.winnerAvatar||null,players:e.players,rules:e.rules||null,played_at:e.date||null,moment:e.moment?String(e.moment).slice(0,200):null,scores:e.scores||null,stats:famSmall(e.stats)};}
@@ -5953,7 +5956,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=231;
+const APP_BUILD=232;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -6138,7 +6141,7 @@ function famStatusHTML(){
   else if(FAM.err)line='⚠️ Could not reach your table just now ('+esc(FAM.err)+')';
   else if(FAM.ready)line='✅ In sync · '+g+' game'+(g!==1?'s':'')+' · '+m+' member'+(m!==1?'s':'')+(FAM.at?' · '+new Date(FAM.at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'');
   else line='Not synced yet.';
-  return`<div class="panel" style="text-align:left;"><div class="panel-lbl">Family sync</div><div id="fam-status" style="font-size:.8rem;color:var(--paper2);line-height:1.55;margin-bottom:.55rem;">${line}</div><div style="font-size:.7rem;color:var(--paper3);margin-bottom:.55rem;">${FAM.rows.length} games in the shared record on this device${FAM.since?' · up to '+esc(String(FAM.since).slice(0,16).replace('T',' ')):''}</div><div style="display:flex;gap:.5rem;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" data-a="fam-sync">↻ Sync now</button><button class="btn btn-ghost btn-sm" data-a="fam-reload">⟲ Reload everything from the table</button></div></div>`;
+  return`<div class="panel" style="text-align:left;"><div class="panel-lbl">Family sync</div><div id="fam-status" style="font-size:.8rem;color:var(--paper2);line-height:1.55;margin-bottom:.55rem;">${line}</div><div style="font-size:.7rem;color:var(--paper3);margin-bottom:.55rem;">${FAM.rows.length} games in the shared record on this device${FAM.since?' · up to '+esc(String(FAM.since).slice(0,16).replace('T',' ')):''}<br>fingerprint ${famFingerprint()} · ${famPendingCount()} waiting to be sent from here</div><div style="display:flex;gap:.5rem;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" data-a="fam-sync">↻ Sync now</button><button class="btn btn-ghost btn-sm" data-a="fam-reload">⟲ Reload everything from the table</button></div></div>`;
 }
 function syncHistory(e){
   if(isDevHost())return;
