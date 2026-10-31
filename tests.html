@@ -6689,6 +6689,14 @@ async function runPresentation(A,W,frame){
       check('the other player\'s ball is drawn as the ball that player chose',(()=>{const bb=b.balls[0];return bb&&bb.id==='obsidian'&&bb.fx==='ice';})());
       const outS=W.eval('window._blOut').filter(m=>m.k==='shot');
       check('a message from somebody who is not at the lane is ignored',(()=>{const g2=G().bl;g2.net.pend=[];F('blOnBroadcast')({k:'shot',id:'b1',seat:1,s:900,n:0,sh:rec[0].sh,pw:.5});F('blOnBroadcast')({k:'shot',id:'zzz',seat:0,s:901,n:0,sh:rec[0].sh,pw:.5});return g2.net.pend.length===0||g2.over;})());
+      // a shot that never arrived: the next message carries the last shots and the device plays both, in order
+      {F('blStop')();W.eval("window._blOut=[]");gg.myPid='B';gg.srv=mk();F('render')();F('blAttach')();const m2=G().bl;
+       F('blOnBroadcast')({k:'go',id:'b1',seat:0,s:301,mode:'quick',style:'classic',lv:'standard',seed:7});
+       const s0={x0:.3,ang:0,v:7.5,spin:0},s1={x0:-.2,ang:.002,v:7.4,spin:.3};
+       // the first shot (n 0, seat 0) is lost; only the second one (n 1) arrives, with the log
+       F('blOnBroadcast')({k:'shot',id:'b1',seat:0,s:303,n:1,sh:s1,pw:.5,ball:{id:'classic',fx:'none'},log:[{n:0,seat:0,sh:s0,pw:.5,ball:{id:'classic',fx:'none'}},{n:1,seat:0,sh:s1,pw:.5,ball:{id:'classic',fx:'none'}}]});
+       let q=0;while(q++<60000&&m2.rolls[0].length<2)F('blStep')(m2,1/30);
+       check('a lost shot is caught up: the next message brings the missing shot, both are played in order',m2.rolls[0].length===2&&m2.ballNo>=2);}
       // 3. the host: the result goes into the room for everybody
       F('blStop')();W.eval("window._blOut=[]");gg.myPid='A';gg.srv=mk();F('render')();F('blAttach')();const h=G().bl;
       W.eval('document.querySelector("[data-blact=start]").click()');

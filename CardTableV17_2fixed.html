@@ -6075,7 +6075,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=260;
+const APP_BUILD=261;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -33742,7 +33742,8 @@ function blPushFrom(samples,H){
 }
 function blRelease(g,sh,pw,remote,relZ){
   const i=g.cur;g.lastX[i]=g.bx;g.lastS[i]=g.spinV;
-  if(g.net&&G.isOnline&&!remote){blSend(g,{k:'shot',n:g.ballNo,sh:{x0:sh.x0,ang:sh.ang,v:sh.v,spin:sh.spin},pw:pw,ball:g.balls[i]},true);}
+  if(g.net&&G.isOnline){g.shotLog=g.shotLog||[];if(!g.shotLog.some(e=>e.n===g.ballNo))g.shotLog.push({n:g.ballNo,seat:i,sh:{x0:sh.x0,ang:sh.ang,v:sh.v,spin:sh.spin},pw:pw,ball:g.balls[i]});if(g.shotLog.length>12)g.shotLog.shift();}
+  if(g.net&&G.isOnline&&!remote){blSend(g,{k:'shot',n:g.ballNo,sh:{x0:sh.x0,ang:sh.ang,v:sh.v,spin:sh.spin},pw:pw,ball:g.balls[i],log:g.shotLog.slice(-6)},true);}
   sh.mod=sh.mod||blModNow(g);const S=blSimNew(blCopy(g.pins),sh);g.rollMod=sh.mod||null;g.relZ=relZ!=null?relZ:-.9-.9*pw;g.pins=S.pins;
   g.sim=S;g.phase='roll';g.phaseT=g.t;g.camMode='roll';g.rollT=0;g.ts=1;g.hitT=-9;g.pitSeen=0;g.sndCool=0;g.nfall=0;g.fxT=0;g.lastClack=-9;
   g.ctl=null;g.stats.balls=(g.stats.balls||0)+1;
@@ -33956,8 +33957,14 @@ function blOnBroadcast(m){
     if(g.phase!=='aim'||m.seat!==g.cur)return;
     g.bx=blNum(m.bx,-.52,.52,0);g.spinV=blNum(m.sp,-1,1,0);g.pull=blNum(m.pu,0,1,0);g.aimA=blNum(m.aa,-.06,.06,0);
   }else if(m.k==='shot'){
-    if(m.seat!==g.cur||m.n<g.ballNo)return;
-    g.net.pend.push(m);
+    if(m.n<g.ballNo)return;
+    // the shot of the person on turn; or a shot from the future: this device missed one (the message carries the last few shots, play them in order)
+    if(m.seat===g.cur||m.n>g.ballNo){
+      const have=e=>g.net.pend.some(p=>p.n===e.n);
+      if(Array.isArray(m.log))m.log.slice(-6).forEach(e=>{if(e&&e.n>=g.ballNo&&e.n<m.n&&!have(e)&&e.sh&&e.seat>=0&&e.seat<g.n)g.net.pend.push({k:'shot',n:e.n,seat:e.seat,sh:e.sh,pw:e.pw,ball:e.ball});});
+      if(!have(m))g.net.pend.push(m);
+      g.net.pend.sort((p,q)=>p.n-q.n);
+    }
   }
 }
 // a shot that arrived: play it as soon as this device is at the same place (the lane is free)
