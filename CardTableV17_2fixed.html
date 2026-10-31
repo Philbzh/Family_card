@@ -382,6 +382,13 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .tp-go{display:inline-block;padding:.38rem .8rem;border-radius:999px;background:linear-gradient(180deg,#f0cc60,#c99b4e);color:#241a08;font:700 .68rem 'Jost',sans-serif;letter-spacing:.1em;text-transform:uppercase;}
 .tp-skip{position:absolute;top:.5rem;right:.6rem;width:2rem;height:2rem;border-radius:50%;border:1px solid rgba(230,195,106,.3);background:rgba(0,0,0,.35);color:#e8c46a;font-size:1rem;cursor:pointer;}
 .tp-skip:active{transform:rotate(180deg);}
+.tb-row{display:flex;align-items:center;gap:.5rem;margin-bottom:.45rem;}
+.tb-main{flex:1;min-width:0;padding:.65rem .8rem;border-radius:12px;border:1px solid rgba(230,195,106,.22);background:rgba(255,255,255,.04);cursor:pointer;text-align:left;}
+.tb-row.on .tb-main{border-color:#f0d27a;background:linear-gradient(180deg,rgba(240,210,122,.2),rgba(201,162,74,.08));}
+.tb-main b{display:block;font:700 .9rem 'Cinzel',serif;color:#f6e7b8;}.tb-main small{font-size:.7rem;color:var(--paper3);}
+.tb-mem{display:flex;align-items:center;justify-content:space-between;padding:.35rem 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:.84rem;}
+.tb-x{width:1.8rem;height:1.8rem;border-radius:50%;border:1px solid rgba(255,255,255,.15);background:none;color:#e8a0a0;cursor:pointer;}
+.tb-chip{display:block;margin:0 0 .8rem;padding:.5rem .8rem;border-radius:999px;border:1px solid rgba(230,195,106,.35);background:rgba(240,210,122,.1);color:#e8dcc0;font-size:.74rem;cursor:pointer;}
 .qs-row{display:flex;gap:.5rem;margin:.1rem 0 .7rem;padding:0 1.2rem;}
 .qs-chip{flex:1;min-width:0;padding:.7rem 0;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(230,195,106,.22);color:#e8dcc0;font:700 1.05rem 'Cinzel',serif;cursor:pointer;transition:transform .15s,background .15s,border-color .15s;}
 .qs-chip:active{transform:scale(.94);}
@@ -5544,13 +5551,15 @@ const DEVICE_ID=(()=>{try{let id=localStorage.getItem('ct_device_id');if(!id){id
 // list, so tonightStats() and every achievement check threw and took the Home screen with them.
 // Guard the shape, not just the syntax, and drop any entry that isn't a usable record.
 // the family code's shared record (filled by FAMILY SYNC below)
-const FAM={gen:0,rows:[],keys:new Set(),members:[],settings:null,since:null,ready:false,loading:false,announce:false,v2:null,err:'',ver:0,at:0,progress:0,_m:null,_mv:-1};
-function getLocalHistory(){
+const FAM={info:null,gen:0,rows:[],keys:new Set(),members:[],settings:null,since:null,ready:false,loading:false,announce:false,v2:null,err:'',ver:0,at:0,progress:0,_m:null,_mv:-1};
+function getAllLocalHistory(){
   try{
     const raw=JSON.parse(localStorage.getItem('ct_history')||'[]');
     return Array.isArray(raw)?raw.filter(h=>h&&typeof h==='object'):[];
   }catch{return[];}
 }
+// only the games of the table that is open (a game without a table mark belongs to the first, original table)
+function getLocalHistory(){const all=getAllLocalHistory(),code=tableCode(),prim=tbPrimaryCode();return all.filter(h=>h.tc?h.tc===code:code===prim);}
 // What the app reads: this device's games plus every game the family code has ever collected (see FAMILY SYNC).
 function getHistory(){
   if(!FAM.ready||!FAM.rows.length)return getLocalHistory();
@@ -5577,7 +5586,8 @@ function saveHistorySafely(h){
 }
 function addHistory(e){
   e.cid=e.cid||famCid();if(!e.scores)e.scores=famScoresNow();if(G.guestGame)e.guest=1;
-  const h=getLocalHistory();h.unshift(e);if(h.length>50)h.pop();saveHistorySafely(h);famBump();syncHistory(e);checkAchievements();setTimeout(loadFamilyHistory,1200);
+  e.tc=tableCode();
+  const h=getAllLocalHistory();h.unshift(e);if(h.length>150)h.pop();saveHistorySafely(h);famBump();syncHistory(e);checkAchievements();setTimeout(loadFamilyHistory,1200);
 }
 // Family-wide leaderboard data — every device that plays writes into the shared Supabase
 // game_history table via syncHistory() above, so this reflects every family member's games across
@@ -5830,9 +5840,9 @@ function famMerge(local,remote){
 function famSmall(x){try{const j=JSON.stringify(x||null);return j&&j.length<2500?x:null;}catch(e){return null;}}
 function famScoresNow(){try{const src=G.isOnline?((G.srv&&G.srv.players)||[]):G.lp;const o=src.slice(0,8).map(p=>({n:String(p.name||'').slice(0,24),s:Math.round(+p.totalScore||0),r:p.c4Result||undefined,b:p.bot||undefined})).filter(x=>x.n);return o.length?o:undefined;}catch(e){return undefined;}}
 function famRowOut(e){return{device_id:DEVICE_ID,client_id:e.cid,game_id:e.game,mode:e.mode||'local',winner_name:e.winner,winner_avatar:e.winnerAvatar||null,players:e.players,rules:e.rules||null,played_at:e.date||null,moment:e.moment?String(e.moment).slice(0,200):null,scores:e.scores||null,stats:famSmall(e.stats)};}
-function famSave(){try{let c={code:tableCode(),since:FAM.since,rows:FAM.rows.slice(0,6000),members:FAM.members,settings:FAM.settings};let j=JSON.stringify(c);if(j.length>3.6e6){c.rows=c.rows.map(r=>Object.assign({},r,{stats:undefined,scores:undefined}));j=JSON.stringify(c);}localStorage.setItem('ct_fcache',j);}catch(e){}}
-function famLoadCache(){try{const c=JSON.parse(localStorage.getItem('ct_fcache')||'null');if(c&&c.code===tableCode()&&Array.isArray(c.rows)){FAM.rows=c.rows;FAM.keys=new Set(c.rows.map(r=>r.cid||('o'+r.sa+'|'+r.winner+'|'+r.game)));FAM.since=c.since||null;FAM.members=c.members||[];FAM.settings=c.settings||null;FAM.ready=true;famBump();return true;}}catch(e){}return false;}
-function famReset(){FAM.gen++;FAM.rows=[];FAM.keys=new Set();FAM.members=[];FAM.settings=null;FAM.since=null;FAM.ready=false;FAM.v2=null;FAM.err='';FAM.progress=0;famBump();try{localStorage.removeItem('ct_fcache');}catch(e){}}
+function famSave(){try{let c={code:tableCode(),since:FAM.since,rows:FAM.rows.slice(0,6000),members:FAM.members,settings:FAM.settings};let j=JSON.stringify(c);if(j.length>3.6e6){c.rows=c.rows.map(r=>Object.assign({},r,{stats:undefined,scores:undefined}));j=JSON.stringify(c);}localStorage.setItem('ct_fcache:'+tableCode(),j);}catch(e){}}
+function famLoadCache(){try{const c=JSON.parse(localStorage.getItem('ct_fcache:'+tableCode())||localStorage.getItem('ct_fcache')||'null');if(c&&c.code===tableCode()&&Array.isArray(c.rows)){FAM.rows=c.rows;FAM.keys=new Set(c.rows.map(r=>r.cid||('o'+r.sa+'|'+r.winner+'|'+r.game)));FAM.since=c.since||null;FAM.members=c.members||[];FAM.settings=c.settings||null;FAM.ready=true;famBump();return true;}}catch(e){}return false;}
+function famReset(){FAM.gen++;FAM.rows=[];FAM.keys=new Set();FAM.members=[];FAM.settings=null;FAM.since=null;FAM.ready=false;FAM.v2=null;FAM.err='';FAM.progress=0;FAM.info=null;famBump();try{localStorage.removeItem('ct_fcache');localStorage.removeItem('ct_fcache:'+tableCode());}catch(e){}}
 async function famPullHistory(sb,gen){
   let guard=0;
   while(guard++<30){
@@ -5847,6 +5857,7 @@ async function famPullHistory(sb,gen){
   FAM.v2=true;FAM.err='';return true;
 }
 async function famPullMembers(sb,gen){const r=await sb.rpc('members_for',{p_code:tableCode()});if(gen!==FAM.gen)return;if(r.error){if(histFnMissing(r.error))FAM.v2=false;return;}FAM.members=(r.data||[]).filter(m=>m&&m.name).map(m=>({name:m.name,avatar:m.avatar||undefined,deleted:!!m.deleted}));}
+async function famPullInfo(sb,gen){try{const r=await sb.rpc('table_info',{p_code:tableCode()});if(gen!==FAM.gen||r.error)return;const x=(r.data||[])[0];FAM.info=x?{has_admin:!!x.has_admin,name:x.name||''}:{has_admin:false,name:''};}catch(e){}}
 async function famPullSettings(sb,gen){const r=await sb.rpc('settings_for',{p_code:tableCode()});if(gen!==FAM.gen||r.error)return;const x=(r.data||[])[0];FAM.settings=x?{name:x.table_name||'',year:x.table_year||'',at:x.updated_at}:null;}
 // what this device knows and the table does not (offline games, members added before the first sync)
 async function famPushLocal(sb){
@@ -5875,7 +5886,7 @@ async function famSyncAll(opt){
     famSubscribe();
     const ok=await famPullHistory(sb,gen);
     if(gen!==FAM.gen){FAM.loading=false;_famBusy=false;famSoon(0);return;}
-    if(ok){await famPullMembers(sb,gen);await famPullSettings(sb,gen);if(gen!==FAM.gen){FAM.loading=false;_famBusy=false;famSoon(0);return;}await famPushLocal(sb);}
+    if(ok){await famPullMembers(sb,gen);await famPullSettings(sb,gen);await famPullInfo(sb,gen);if(gen!==FAM.gen){FAM.loading=false;_famBusy=false;famSoon(0);return;}await famPushLocal(sb);}
     else if(FAM.v2===false){const old=await fetchFamilyHistory();if(old){FAM.rows=old.map(r=>Object.assign({remote:1},r));FAM.keys=new Set();}}
     FAM.ready=FAM.rows.length>0||ok;FAM.at=Date.now();famBump();famAdopt(!!opt.announce);famSave();
   }catch(e){FAM.err=String(e&&e.message||e);}
@@ -5888,29 +5899,148 @@ async function famSyncAll(opt){
 // after a sync: the numbers, the table name and the trophies follow the shared record
 function famAdopt(first){
   const hs=getHistory(),me=(G.myName||'').trim().toLowerCase();
-  if(FAM.ready&&FAM.rows.length){G.gp=hs.length;if(me)G.tw=hs.filter(h=>h.winner&&String(h.winner).toLowerCase()===me).length;try{localStorage.setItem('ct_gp',G.gp);localStorage.setItem('ct_tw',G.tw);}catch(e){}}
+  if(FAM.ready&&FAM.rows.length&&me){const mine=hs.filter(h=>(h.players||[]).some(x=>String(x).toLowerCase()===me));G.gp=mine.length;G.tw=mine.filter(h=>h.winner&&String(h.winner).toLowerCase()===me).length;try{localStorage.setItem('ct_gp',G.gp);localStorage.setItem('ct_tw',G.tw);}catch(e){}}
   const st=FAM.settings,loc=(localStorage.getItem('ct_tablename')||''),locAt=localStorage.getItem('ct_tablename_at')||'';
   if(st&&st.name&&(!loc||new Date(st.at||0)>new Date(locAt||0))){G.tableName=st.name;try{localStorage.setItem('ct_tablename',st.name);if(st.year)localStorage.setItem('ct_tablename_year',st.year);localStorage.setItem('ct_tablename_at',st.at||new Date().toISOString());}catch(e){}}
   else if(loc&&(!st||!st.name))famPushSettings();
   try{checkAchievements(!!first);}catch(e){}
+  tbMirrorName();
+  try{famAskWho();}catch(e){}
 }
-function famPushSettings(){const sb=famSb();if(!sb)return;try{sb.rpc('set_settings',{p_code:tableCode(),p_name:G.tableName||'',p_year:localStorage.getItem('ct_tablename_year')||''}).then(()=>famPing(),()=>{});}catch(e){}}
+// a device that does not know who holds it: pick yourself from the people of the table (instead of 'Player')
+function famNameIsReal(n){n=String(n||'').trim();if(!n)return false;if(typeof pbIsBotName==='function'&&pbIsBotName(n))return false;return!/^(Player|Spieler)( \d+)?$/i.test(n);}
+function famAskWho(){
+  if(G.myName||G.whoOpen||G.joinInv||G.tablesOpen||!['home','family','moments','trophies','player','games'].includes(G.scr))return;
+  let skip=false;try{skip=!!localStorage.getItem('ct_who_skip:'+tableCode());}catch(e){}
+  if(skip||FAM.members.filter(m=>!m.deleted).length<1)return;
+  G.whoOpen=true;
+}
+function rWhoOv(){
+  const mem=getFamily().filter(m=>famNameIsReal(m.name));
+  return`<div class="ov"><div class="ov-box" role="dialog" aria-modal="true" aria-label="Who are you?" style="max-width:24rem;">
+    <div class="ov-title">Who are you?</div>
+    <p class="ov-sub" style="margin-top:-.3rem;">Pick yourself at <b>${esc(tbName(tbEntry()))}</b>. Your games, wins and trophies are counted under your name.</p>
+    <div style="display:flex;flex-direction:column;gap:.5rem;">${mem.map(m=>`<button class="btn btn-ghost btn-full who-btn" data-a="who-pick" data-name="${esc(m.name)}"><span class="ah-av">${avHTML(m.avatar)}</span> ${esc(m.name)}</button>`).join('')}</div>
+    <button class="btn btn-ghost btn-full" data-a="who-other" style="margin-top:.7rem;opacity:.8;">Someone else…</button>
+    <button class="btn btn-ghost btn-sm" data-a="who-skip" style="opacity:.6;">Not now</button>
+  </div></div>`;
+}
+function famPushSettings(){const sb=famSb();if(!sb)return;try{sb.rpc('set_settings',{p_code:tableCode(),p_name:G.tableName||'',p_year:localStorage.getItem('ct_tablename_year')||'',p_key:tbKey()}).then(()=>famPing(),()=>{});}catch(e){}}
 function famPushMembers(before,after){
   const sb=famSb();const b=new Map(before.map(m=>[m.name.toLowerCase(),m])),a=new Map(after.map(m=>[m.name.toLowerCase(),m]));
   a.forEach((m,k)=>{const o=b.get(k);if(!o||o.avatar!==m.avatar){const i=FAM.members.findIndex(x=>x.name.toLowerCase()===k);if(i>=0)FAM.members[i]={name:m.name,avatar:m.avatar,deleted:false};else FAM.members.push({name:m.name,avatar:m.avatar,deleted:false});if(sb)try{sb.rpc('upsert_member',{p_code:tableCode(),p_name:m.name,p_avatar:m.avatar||null}).then(()=>famPing(),()=>{});}catch(e){}}});
-  b.forEach((m,k)=>{if(!a.has(k)){const i=FAM.members.findIndex(x=>x.name.toLowerCase()===k);if(i>=0)FAM.members[i].deleted=true;else FAM.members.push({name:m.name,avatar:m.avatar,deleted:true});if(sb)try{sb.rpc('remove_member',{p_code:tableCode(),p_name:m.name}).then(()=>famPing(),()=>{});}catch(e){}}});
+  b.forEach((m,k)=>{if(!a.has(k)){const i=FAM.members.findIndex(x=>x.name.toLowerCase()===k);if(i>=0)FAM.members[i].deleted=true;else FAM.members.push({name:m.name,avatar:m.avatar,deleted:true});if(sb)try{sb.rpc('remove_member',{p_code:tableCode(),p_name:m.name,p_key:tbKey()}).then(()=>famPing(),()=>{});}catch(e){}}});
   famBump();famSave();
 }
 let _famCh=null,_famChCode='';
 function famSubscribe(){const sb=famSb();if(!sb||!sb.channel)return;const c=tableCode();if(_famCh&&_famChCode===c)return;try{if(_famCh&&sb.removeChannel)sb.removeChannel(_famCh);_famChCode=c;_famCh=sb.channel('fam:'+c).on('broadcast',{event:'upd'},()=>famSoon(400)).subscribe();}catch(e){}}
 function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',payload:{d:DEVICE_ID}});}catch(e){}}
 function famBoot(){
-  famLoadCache();famSoon(1500);
+  tbEnsure();famLoadCache();famSoon(1500);tbBootInvite();
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)famSoon(300);});
   window.addEventListener('online',()=>famSoon(500));
   setInterval(()=>{if(!document.hidden)famSoon(0);},90000);
 }
 window.addEventListener('load',()=>{try{famBoot();}catch(e){}});
+/* ═══════ TABLES: several groups on one device, each with its own members, games, trophies and (optionally) an admin ═══════ */
+function tbList(){let l=[];try{l=JSON.parse(localStorage.getItem('ct_tables')||'[]');}catch(e){}if(!Array.isArray(l))l=[];return l.filter(t=>t&&typeof t.code==='string'&&t.code.length>=6);}
+function tbSave(l){try{localStorage.setItem('ct_tables',JSON.stringify(l));}catch(e){}}
+function tbEnsure(){const c=tableCode(),l=tbList();if(!l.some(t=>t.code===c)){l.push({code:c,name:localStorage.getItem('ct_tablename')||''});tbSave(l);}return l;}
+function tbEntry(code){const c=code||tableCode();return tbEnsure().find(t=>t.code===c);}
+function tbPrimaryCode(){const l=tbList();return l.length?l[0].code:tableCode();}
+function tbName(t){return(t&&t.name)||'Our Table';}
+function tbIsAdmin(code){const t=tbEntry(code);return!!(t&&t.key);}
+function tbKey(){const t=tbEntry();return(t&&t.key)||null;}
+function tbHasAdmin(){return!!(FAM.info&&FAM.info.has_admin);}
+function tbCanManage(){return!tbHasAdmin()||tbIsAdmin();}
+function tbMirrorName(){const l=tbEnsure(),t=l.find(x=>x.code===tableCode());if(t){t.name=localStorage.getItem('ct_tablename')||t.name||'';t.year=localStorage.getItem('ct_tablename_year')||t.year||'';t.at=localStorage.getItem('ct_tablename_at')||t.at||'';tbSave(l);}}
+const TB_KEYS=['ct_family','ct_achievements','ct_gp','ct_tw'];
+// what belongs to the table that is open lives in the usual places; when another table opens, it is parked under its code
+function tbSwapOut(code){TB_KEYS.forEach(k=>{try{const v=localStorage.getItem(k);if(v===null)localStorage.removeItem(k+':'+code);else localStorage.setItem(k+':'+code,v);}catch(e){}});tbMirrorName();}
+function tbSwapIn(code){TB_KEYS.forEach(k=>{try{const v=localStorage.getItem(k+':'+code);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v);}catch(e){}});G.gp=+localStorage.getItem('ct_gp')||0;G.tw=+localStorage.getItem('ct_tw')||0;const t=tbList().find(x=>x.code===code)||{};const set=(k,v)=>{try{if(v)localStorage.setItem(k,v);else localStorage.removeItem(k);}catch(e){}};set('ct_tablename',t.name);set('ct_tablename_year',t.year);set('ct_tablename_at',t.at);G.tableName=t.name||'';}
+function tbSwitch(code,opt){
+  code=tcClean(code);if(code.length<6||code===tableCode())return false;
+  tbSwapOut(tableCode());
+  const l=tbEnsure();if(!l.some(t=>t.code===code)){l.push({code,name:(opt&&opt.name)||''});tbSave(l);}
+  try{localStorage.setItem('ct_table_code',code);}catch(e){}
+  tbSwapIn(code);famReset();famLoadCache();_familyHistoryCache=null;G.tablesOpen=false;G.momAll=false;G.qsN=0;famBump();
+  render();famSyncAll({announce:true});return true;
+}
+function tbInviteLink(code){const t=tbEntry(code)||{};return location.origin+location.pathname+'?join='+code+'&t='+encodeURIComponent(t.name||'');}
+async function tbCreate(name){
+  const sb=famSb();name=String(name||'').trim().slice(0,30);
+  if(!name){toast('Give the table a name');return false;}
+  if(!sb){toast('Not connected to the database right now');return false;}
+  const code=tcNew(),key=famCid().replace(/-/g,'').slice(0,24);
+  const r=await sb.rpc('create_table',{p_code:code,p_name:name,p_key:key});
+  if(r.error){toast(histFnMissing(r.error)?'Run supabase-tables-admin.sql in Supabase first':'Could not create the table');return false;}
+  tbSwapOut(tableCode());
+  const l=tbEnsure();l.push({code,name,key});tbSave(l);
+  try{localStorage.setItem('ct_table_code',code);}catch(e){}
+  tbSwapIn(code);famReset();famLoadCache();G.tablesOpen=false;G.tableName=name;
+  try{localStorage.setItem('ct_tablename',name);localStorage.setItem('ct_tablename_year',''+new Date().getFullYear());localStorage.setItem('ct_tablename_at',new Date().toISOString());}catch(e){}
+  tbMirrorName();famPushSettings();
+  if(G.myName){try{famPushMembers([],[{name:G.myName,avatar:G.myAvatar}]);}catch(e){}}
+  render();famSyncAll({announce:true});toast('👑 '+name+' created — you are its admin');return true;
+}
+async function tbClaim(){
+  const sb=famSb();if(!sb){toast('Not connected right now');return;}
+  const key=famCid().replace(/-/g,'').slice(0,24),t=tbEntry();
+  const r=await sb.rpc('claim_table',{p_code:tableCode(),p_name:G.tableName||(t&&t.name)||'',p_key:key});
+  if(r.error){toast(histFnMissing(r.error)?'Run supabase-tables-admin.sql in Supabase first':'Could not claim the table');return;}
+  if(!r.data){toast('This table already has an admin');FAM.info={has_admin:true,name:''};render();return;}
+  const l=tbEnsure(),e=l.find(x=>x.code===tableCode());if(e){e.key=key;tbSave(l);}
+  FAM.info={has_admin:true,name:G.tableName||''};render();toast('👑 You are now the admin of this table');
+}
+async function tbJoin(code,name){
+  code=tcClean(code);if(code.length<6)return false;
+  if(code===tableCode()){toast('You are already at this table');return true;}
+  if(G.myName){const sb=famSb();if(sb){try{await sb.rpc('upsert_member',{p_code:code,p_name:G.myName,p_avatar:G.myAvatar||null});}catch(e){}}}
+  return tbSwitch(code,{name});
+}
+async function tbRotate(){
+  const sb=famSb(),key=tbKey();if(!sb||!key){toast('Only the admin can do this');return;}
+  const old=tableCode(),n=tcNew(),r=await sb.rpc('rotate_code',{p_code:old,p_key:key,p_new:n});
+  if(r.error){toast('Could not change the code');return;}
+  TB_KEYS.forEach(k=>{try{const v=localStorage.getItem(k+':'+old);if(v!==null){localStorage.setItem(k+':'+n,v);localStorage.removeItem(k+':'+old);}}catch(e){}});
+  try{const c=localStorage.getItem('ct_fcache:'+old);if(c)localStorage.removeItem('ct_fcache:'+old);}catch(e){}
+  const l=tbEnsure(),e=l.find(x=>x.code===old);if(e)e.code=n;tbSave(l);
+  const all=getAllLocalHistory();all.forEach(h=>{if(h.tc===old)h.tc=n;});saveHistorySafely(all);
+  try{localStorage.setItem('ct_table_code',n);}catch(e2){}
+  famReset();famLoadCache();render();famSyncAll({announce:true});toast('🔑 New code. Send the new invite link to the people who should stay.');
+}
+function tbShare(code){
+  const url=tbInviteLink(code),t=tbEntry(code),msg='Join '+tbName(t)+' on Our Table: '+url;
+  if(navigator.share){navigator.share({title:'Our Table',text:'Join '+tbName(t)+' on Our Table',url}).catch(()=>{});}
+  else{try{navigator.clipboard.writeText(url).then(()=>toast('🔗 Invite link copied')).catch(()=>toast(msg));}catch(e){toast(msg);}}
+}
+function tbBootInvite(){try{const q=new URLSearchParams(location.search),c=tcClean(q.get('join')||'');if(c.length>=6){G.joinInv={code:c,name:(q.get('t')||'').slice(0,30)};try{history.replaceState(null,'',location.pathname);}catch(e){}render();}}catch(e){}}
+function rJoinOv(){
+  const j=G.joinInv||{},already=j.code===tableCode();
+  return`<div class="ov"><div class="ov-box" role="dialog" aria-modal="true" aria-label="Join a table" style="max-width:24rem;">
+    <div class="ov-title">🔐 Join ${esc(j.name||'a table')}</div>
+    <p class="ov-sub" style="margin-top:-.3rem;">You have been invited to this table. You will only see the people, games and trophies of this table.</p>
+    ${already?'<div class="panel" style="text-align:center;font-size:.85rem;">You are already at this table.</div>':`<div class="panel"><div class="panel-lbl">Your name at this table</div><div style="display:flex;gap:.65rem;align-items:center;"><button class="av-btn" data-a="tb-join-av" aria-label="Change avatar">${avHTML(G.myAvatar||AVATARS[0])}</button><input class="nm-inp" id="tb-join-name" maxlength="20" placeholder="Your name" value="${esc(G.myName||'')}" autocomplete="off"></div></div>`}
+    <div style="display:flex;flex-direction:column;gap:.6rem;">${already?'':'<button class="btn btn-gold btn-full" data-a="tb-join-ok">Join the table</button>'}<button class="btn btn-ghost btn-full" data-a="tb-join-no">${already?'Close':'Not now'}</button></div>
+  </div></div>`;
+}
+function rTablesOv(){
+  const l=tbEnsure(),act=tableCode(),me=tbEntry(),admin=!!(me&&me.key),members=getFamily();
+  const rows=l.map(t=>{const on=t.code===act;return`<div class="tb-row${on?' on':''}"><div class="tb-main" data-a="tb-switch" data-code="${t.code}" role="button" tabindex="0"><b>${esc(tbName(t))}</b><small>${t.key?'👑 You are the admin':'Member'}${on?' · open now':''}</small></div>${t.key?`<button class="btn btn-ghost btn-sm" data-a="tb-invite" data-code="${t.code}">🔗 Invite</button>`:''}</div>`;}).join('');
+  const manage=`<div class="panel" style="text-align:left;"><div class="panel-lbl">${esc(tbName(me))} — people</div>
+      ${members.length?members.map(m=>`<div class="tb-mem"><span>${avChar(m.avatar)} ${esc(m.name)}</span>${admin?`<button class="tb-x" data-a="tb-rm" data-name="${esc(m.name)}" aria-label="Remove ${esc(m.name)}">✕</button>`:''}</div>`).join(''):'<div style="font-size:.78rem;color:var(--paper3);">Nobody yet. Add people on the Family page, or send an invite.</div>'}
+      ${admin?`<div style="display:flex;gap:.5rem;margin-top:.7rem;"><input class="plaque-input" id="tb-rename" maxlength="30" placeholder="Rename this table" value="${esc(G.tableName||'')}" style="text-transform:none;"><button class="btn btn-gold btn-sm" data-a="tb-rename-ok">Rename</button></div><button class="btn btn-ghost btn-sm" data-a="tb-rotate" style="margin-top:.6rem;">🔑 Make a new code (people with the old link are out)</button>`
+        :(tbHasAdmin()?'<div style="font-size:.74rem;color:var(--paper3);margin-top:.5rem;">Only the admin of this table can remove people or rename it.</div>':'<button class="btn btn-ghost btn-sm" data-a="tb-claim" style="margin-top:.6rem;">👑 Become the admin of this table</button><div style="font-size:.7rem;color:var(--paper3);margin-top:.35rem;">The first to claim it becomes its admin; from then on only the admin can remove people, rename it or change its code.</div>')}
+    </div>`;
+  return`<div class="ov" data-a="tables-close"><div class="ov-box" role="dialog" aria-modal="true" aria-label="Your tables" style="max-width:27rem;max-height:90vh;overflow-y:auto;" data-a="tc-noop">
+    <div class="ov-title">👥 Your tables</div>
+    <p class="ov-sub" style="margin-top:-.3rem;">Each table has its own people, results and trophies. Invite someone to one table and they never see the others.</p>
+    <div class="tb-list">${rows}</div>
+    ${manage}
+    <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">New table</div><div style="display:flex;gap:.5rem;"><input class="plaque-input" id="tb-new-name" maxlength="30" placeholder="For example: Brother and sister" style="text-transform:none;" data-a="tc-noop"><button class="btn btn-gold btn-sm" data-a="tb-new">Create</button></div><div style="font-size:.7rem;color:var(--paper3);margin-top:.35rem;">You become its admin. Then tap 🔗 Invite and send the link.</div></div>
+    <button class="btn btn-ghost btn-full" data-a="tables-close">Close</button>
+  </div></div>`;
+}
 function famStatusHTML(){
   const g=getHistory().length,m=getFamily().length;let line;
   if(FAM.loading)line='⏳ Loading your family… '+FAM.progress+' games found';
@@ -6249,13 +6379,14 @@ function playerProfile(name){
   const h2h={};
   history.forEach(h=>{
     (h.players||[]).forEach(p=>{
-      if(!p||p===name)return;
+      if(!p||p===name||!famNameIsReal(p))return;
       const r=h2h[p]||(h2h[p]={name:p,together:0,youWon:0,theyWon:0});
       r.together++;
       if(h.winner===name)r.youWon++;else if(h.winner===p)r.theyWon++;
     });
   });
-  const rivals=Object.values(h2h).sort((a,b)=>b.together-a.together).slice(0,6);
+  const memSet=getFamily().length>=2?new Set(getFamily().map(m=>m.name)):null;
+  const rivals=Object.values(h2h).filter(r=>!memSet||memSet.has(r.name)).sort((a,b)=>b.together-a.together).slice(0,6);
   const firstDate=chrono[0]?new Date(chrono[0].date):null;
   return{name,games,wins,winRate:games?Math.round(wins/games*100):0,
     gameRows,favourite,best,longest,current:run,rivals,
@@ -6264,7 +6395,7 @@ function playerProfile(name){
 function familySuggestions(){
   const known=new Set(getFamily().map(m=>m.name));
   const seen=new Set();
-  familyHistory().forEach(h=>(h.players||[]).forEach(p=>{if(p&&!known.has(p))seen.add(p);}));
+  familyHistory().forEach(h=>(h.players||[]).forEach(p=>{if(p&&!known.has(p)&&famNameIsReal(p))seen.add(p);}));
   return Array.from(seen).slice(0,6);
 }
 // House Legends — a small hall-of-fame, computed only from what's actually recorded (games played,
@@ -30916,7 +31047,7 @@ function rFamily(){
       </div>
       <span class="family-chev" aria-hidden="true">›</span>
     </div>
-    <button class="family-remove" data-a="family-remove" data-name="${esc(m.name)}" aria-label="Remove ${esc(m.name)}">✕</button>
+    ${tbCanManage()?`<button class="family-remove" data-a="family-remove" data-name="${esc(m.name)}" aria-label="Remove ${esc(m.name)}">✕</button>`:''}
   </div>`).join('');
   const suggestions=familySuggestions();
   const emptyMsg=_familyHistoryCache===null
@@ -31146,6 +31277,7 @@ function rHome(){
   const feltPickerHTML=`<div class="felt-picker">
     <span class="felt-picker-lbl">Felt</span>
     ${Object.keys(FELT_PREVIEW).map(t=>`<button class="felt-swatch${(G.feltTheme||'emerald')===t?' active':''}" style="background-image:url(assets/ui/sw_${t}.png)" data-a="felt-theme" data-theme="${t}" aria-label="${FELT_NAMES[t]} felt" title="${FELT_NAMES[t]}"></button>`).join('')}
+    <button class="ambient-toggle" data-a="tables-open">👥 Tables${tbList().length>1?' ('+tbList().length+')':''}</button>
     <button class="ambient-toggle" data-a="anim-toggle">✨ Animations: ${({full:'Full',light:'Light',off:'Off'})[animMode()]}</button>
     <button class="ambient-toggle" data-a="open-data" style="margin-left:auto;">🔒 Your data</button>
   </div>`;
@@ -33622,6 +33754,7 @@ function rSetup(){
     <div class="topbar"><button class="back-btn" data-a="home">← Home</button><span class="top-title">${game.icon} ${game.name}</span><div class="top-right">${sndBtn()}</div></div>
     <div class="setup-body">
       <div class="pg-banner" style="--pg:url(assets/ui/pg_setup.jpg)"></div>
+      ${tbList().length>1?`<button class="tb-chip" data-a="tables-open">🔐 Playing at: <b>${esc(tbName(tbEntry()))}</b> · change ▾</button>`:''}
       <div class="panel"><div class="panel-lbl">Players</div>${pRows}</div>
       <button class="add-pl-btn" data-a="addpl" ${G.lp.length>=(game.maxP||(isPokerGame?8:6))?'disabled':''}>+ Add player (${G.lp.length}/${game.maxP||(isPokerGame?8:6)})</button>
       ${BOT_GAMES.has(game.id)?`<button class="add-pl-btn add-bot-btn" data-a="addbot" ${canAddBot(game)?'':'disabled'}>🤖 Add a bot — play without waiting for anyone</button>`:''}
@@ -35469,7 +35602,7 @@ function rDataOv(){
         <input id="tc-input" data-a="tc-noop" class="plaque-input" style="text-transform:uppercase;" maxlength="16" placeholder="Type your family's code" autocomplete="off" autocapitalize="characters" aria-label="Type a table code">
         <button class="btn btn-gold btn-sm" data-a="tc-save">Use it</button>
       </div>
-      <button class="btn btn-ghost btn-sm" data-a="tc-new" style="margin-top:.5rem;">🎲 Make a new private code</button>
+      <button class="btn btn-ghost btn-sm" data-a="tables-open" style="margin-top:.5rem;">👥 My tables, invites and admin</button>
     </div>
     ${famStatusHTML()}
     <div class="panel" style="text-align:left;">
@@ -35508,7 +35641,8 @@ function exportMyData(){
 }
 function clearMyLocalData(){
   try{famReset();}catch(e){}
-  ['ct_roster','ct_fcache','ct_tablename_at','ct_history','ct_achievements','ct_family','ct_myname','ct_myavatar','ct_tablename','ct_tablename_year','ct_gp','ct_tw','ct_resume','ct_device_id','ct_online_session','ct_dd_local'].forEach(k=>localStorage.removeItem(k));
+  try{Object.keys(localStorage).filter(k=>/^(ct_family|ct_achievements|ct_fcache):/.test(k)).forEach(k=>localStorage.removeItem(k));}catch(e){}
+  ['ct_tables','ct_roster','ct_fcache','ct_tablename_at','ct_history','ct_achievements','ct_family','ct_myname','ct_myavatar','ct_tablename','ct_tablename_year','ct_gp','ct_tw','ct_resume','ct_device_id','ct_online_session','ct_dd_local'].forEach(k=>localStorage.removeItem(k));
   G.myName='';G.myAvatar=AVATARS[0];G.tableName='';G.gp=0;G.tw=0;
   toast('Your local data has been cleared.');
 }
@@ -36415,6 +36549,9 @@ function render(){
   else if(G.psLb)ov=rPsLbOv();
   else if(G.rulesOpen)ov=rRulesOv();
   else if(G.quitOpen)ov=rQuitOv();
+  else if(G.whoOpen)ov=rWhoOv();
+  else if(G.joinInv)ov=rJoinOv();
+  else if(G.tablesOpen)ov=rTablesOv();
   else if(G.dataClearAsk)ov=rDataClearOv();
   else if(G.dataOpen)ov=rDataOv();
   else if(G.digestOpen)ov=rDigestOv();
@@ -36583,13 +36720,28 @@ document.addEventListener('click',e=>{
   else if(a==='close-quit'){G.quitOpen=false;render();}
   else if(a==='open-data'){G.dataOpen=true;render();}
   else if(a==='close-data'){G.dataOpen=false;render();}
+  else if(a==='who-pick'){const n=t.getAttribute('data-name'),m=getFamily().find(x=>x.name===n);if(m){G.myName=m.name;G.myAvatar=m.avatar||G.myAvatar||AVATARS[0];try{localStorage.setItem('ct_myname',G.myName);localStorage.setItem('ct_myavatar',G.myAvatar);}catch(e){}G.whoOpen=false;famAdopt(false);render();toast('Hello '+G.myName+'!');}}
+  else if(a==='who-other'){G.whoOpen=false;G.scr='home';G.profileEditing=true;render();}
+  else if(a==='who-skip'){G.whoOpen=false;try{localStorage.setItem('ct_who_skip:'+tableCode(),'1');}catch(e){}render();}
+  else if(a==='tables-open'){G.tablesOpen=true;G.dataOpen=false;render();}
+  else if(a==='tables-close'){G.tablesOpen=false;render();}
+  else if(a==='tb-switch'){tbSwitch(t.getAttribute('data-code'));}
+  else if(a==='tb-new'){tbCreate((document.getElementById('tb-new-name')||{}).value);}
+  else if(a==='tb-claim'){tbClaim();}
+  else if(a==='tb-invite'){tbShare(t.getAttribute('data-code'));}
+  else if(a==='tb-rotate'){if(confirm('Make a new code? Everybody who only has the old link is out until you send them the new link.'))tbRotate();}
+  else if(a==='tb-rename-ok'){const v=((document.getElementById('tb-rename')||{}).value||'').trim().slice(0,30);if(v&&tbIsAdmin()){G.tableName=v;try{localStorage.setItem('ct_tablename',v);localStorage.setItem('ct_tablename_at',new Date().toISOString());}catch(e){}tbMirrorName();famPushSettings();render();toast('✓ Renamed');}}
+  else if(a==='tb-rm'){const n=t.getAttribute('data-name');if(tbIsAdmin()&&n&&confirm('Remove '+n+' from this table?')){saveFamily(getFamily().filter(m=>m.name!==n));render();}}
+  else if(a==='tb-join-av'){G.myAvatar=AVATARS[(AVATARS.indexOf(G.myAvatar)+1)%AVATARS.length];render();setTimeout(()=>{const i=document.getElementById('tb-join-name');if(i&&G.myName)i.value=G.myName;},0);}
+  else if(a==='tb-join-ok'){const v=((document.getElementById('tb-join-name')||{}).value||'').trim().slice(0,20);if(!v){toast('Type your name first');return;}G.myName=v;try{localStorage.setItem('ct_myname',v);localStorage.setItem('ct_myavatar',G.myAvatar||AVATARS[0]);}catch(e){}const j=G.joinInv;G.joinInv=null;tbJoin(j.code,j.name);}
+  else if(a==='tb-join-no'){G.joinInv=null;render();}
   else if(a==='fam-sync'){famSyncAll({announce:true});}
   else if(a==='mom-all'){G.momAll=true;render();}
   else if(a==='tc-noop'){/* clicks inside the table-code box must not close the panel */}
   else if(a==='tc-save'){
     const v=(document.getElementById('tc-input')||{}).value||'';
-    if(!tcSet(v)){toast('A table code needs at least 6 letters or numbers');return;}
-    famReset();famLoadCache();_familyHistoryCache=null;toast('🔒 Loading your family…');famSyncAll({announce:true});
+    if(tcClean(v).length<6){toast('A table code needs at least 6 letters or numbers');return;}
+    const nc=tcClean(v);if(nc===tableCode()){famReset();famLoadCache();_familyHistoryCache=null;toast('🔒 Loading your family…');famSyncAll({announce:true});}else{G.dataOpen=false;toast('🔒 Opening that table…');tbSwitch(nc);}
   }
   else if(a==='tc-new'){
     tcSet(tcNew());famReset();_familyHistoryCache=null;render();toast('🔒 New private code — only this device has it for now');famSyncAll({announce:false});
@@ -36922,7 +37074,7 @@ document.addEventListener('click',e=>{
     _deferredInstallPrompt.userChoice.then(()=>{_deferredInstallPrompt=null;render();});
   }
   else if(a==='toggle-notify'){toggleNotify();}
-  else if(a==='plaque-edit'){G.plaqueEditing=true;render();setTimeout(()=>document.getElementById('plaque-input')?.focus(),30);}
+  else if(a==='plaque-edit'){if(!tbCanManage()){toast('Only the admin renames this table');return;}G.plaqueEditing=true;render();setTimeout(()=>document.getElementById('plaque-input')?.focus(),30);}
   else if(a==='plaque-save'){
     const inp=document.getElementById('plaque-input');
     const val=(inp?.value||'').trim().slice(0,30);
@@ -37118,9 +37270,9 @@ document.addEventListener('change',e=>{
   const reader=new FileReader();
   reader.onload=()=>{
     composePhotoFrame(reader.result).then(photo=>{
-      const hist=getLocalHistory();
-      if(hist[0]){
-        hist[0].photo=photo;
+      const hist=getAllLocalHistory(),pi=hist.findIndex(x=>x.tc?x.tc===tableCode():tableCode()===tbPrimaryCode());
+      if(pi>=0){
+        hist[pi].photo=photo;
         // A photo is the one thing here big enough to blow the storage quota on its own. If it
         // won't fit even after shedding older ones, say so plainly rather than reporting success
         // and leaving a gap on the wall.

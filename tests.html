@@ -6293,7 +6293,7 @@ async function runPresentation(A,W,frame){
   const famRes={};
   {
     const F=n=>W.eval(n),gg=W.eval('G'),LS=W.localStorage;
-    const keep={};['ct_table_code','ct_history','ct_family','ct_tablename','ct_tablename_year','ct_tablename_at','ct_fcache','ct_gp','ct_tw','ct_myname'].forEach(k=>keep[k]=LS.getItem(k));
+    const keep={};['ct_table_code','ct_tables','ct_history','ct_family','ct_tablename','ct_tablename_year','ct_tablename_at','ct_fcache','ct_fcache:TESTFAMCODE1','ct_gp','ct_tw','ct_myname'].forEach(k=>keep[k]=LS.getItem(k));
     const keepG={name:gg.tableName,gp:gg.gp,tw:gg.tw,myName:gg.myName,scr:gg.scr};
     const mkStub=()=>{const T={rows:[],members:{},settings:null,seq:0,calls:[]};
       const call=(fn,a)=>{T.calls.push(fn);
@@ -6307,7 +6307,7 @@ async function runPresentation(A,W,frame){
         return{error:{message:'unknown'}};};
       return{T,sb:{rpc:(fn,a)=>Promise.resolve(call(fn,a)),channel:()=>({on(){return this;},subscribe(){return this;},send(){}}),removeChannel(){}}};};
     try{
-      LS.setItem('ct_table_code','TESTFAMCODE1');
+      LS.setItem('ct_table_code','TESTFAMCODE1');LS.setItem('ct_tables',JSON.stringify([{code:'TESTFAMCODE1',name:''}]));
       const now=Date.now(),iso=ms=>new Date(now-ms).toISOString(),AV=F('AVATARS');
       const {T,sb}=mkStub();
       T.rows.push({game_id:'farkle',mode:'local',winner_name:'Ann',players:['Ann','Bob'],played_at:iso(3600e3),synced_at:iso(3600e3)});
@@ -6347,11 +6347,59 @@ async function runPresentation(A,W,frame){
       famRes.merge=mm.length+'|'+(mm[0].moment||'')+'|'+(!!mm.find(h=>h.game==='a').scores);
     } catch(e){famRes.err=String(e&&e.stack||e);}
     finally{
-      delete W._famSb;try{F('famReset')();}catch(e){}
+      delete W._famSb;try{F('famReset')();W.eval('clearTimeout(_famTimer);_famAgain=null;_famBusy=false;');}catch(e){}
       Object.keys(keep).forEach(k=>{if(keep[k]===null)LS.removeItem(k);else LS.setItem(k,keep[k]);});
       gg.tableName=keepG.name;gg.gp=keepG.gp;gg.tw=keepG.tw;gg.myName=keepG.myName;gg.scr=keepG.scr;
     }
   }
+  // ── TABLES: several groups on one device, each with its own people, games and trophies ──
+  const tbRes={};
+  {
+    const F=n=>W.eval(n),gg=W.eval('G'),LS=W.localStorage,AV=F('AVATARS');
+    const keys=['ct_gp','ct_tw','ct_gp:TBLONE1234','ct_gp:TBLTWO5678','ct_tw:TBLONE1234','ct_tw:TBLTWO5678','ct_table_code','ct_tables','ct_history','ct_family','ct_achievements','ct_tablename','ct_tablename_year','ct_tablename_at','ct_myname','ct_family:TBLONE1234','ct_family:TBLTWO5678','ct_achievements:TBLONE1234','ct_achievements:TBLTWO5678'];
+    const keep={};keys.forEach(k=>keep[k]=LS.getItem(k));
+    const keepG={name:gg.tableName,scr:gg.scr,info:F('FAM').info,gp:gg.gp,tw:gg.tw};
+    const stub={rpc:()=>Promise.resolve({data:[],error:null}),channel:()=>({on(){return this;},subscribe(){return this;},send(){}}),removeChannel(){}};
+    try{
+      W._famSb=stub;
+      LS.setItem('ct_table_code','TBLONE1234');LS.setItem('ct_tables',JSON.stringify([{code:'TBLONE1234',name:'One'}]));
+      LS.setItem('ct_family',JSON.stringify([{name:'A1',avatar:AV[0]}]));LS.setItem('ct_achievements',JSON.stringify({'first-deal':'2026-01-01'}));
+      LS.setItem('ct_tablename','One');LS.setItem('ct_myname','');gg.tableName='One';LS.setItem('ct_gp','0');LS.setItem('ct_tw','0');gg.gp=0;gg.tw=0;
+      LS.setItem('ct_history',JSON.stringify([{game:'pig',winner:'A1',players:['A1','X'],date:new Date().toISOString(),tc:'TBLONE1234'},{game:'uno',winner:'B2',players:['B2','Y'],date:new Date().toISOString(),tc:'TBLTWO5678'},{game:'farkle',winner:'A1',players:['A1','X'],date:new Date().toISOString()}]));
+      F('famReset')();
+      tbRes.oneHist=F('getLocalHistory')().map(h=>h.game).sort().join();
+      F('tbSwitch')('TBLTWO5678',{name:'Two'});await new Promise(r=>setTimeout(r,150));
+      tbRes.code2=F('tableCode')();tbRes.fam2=F('getFamily')().length;tbRes.ach2=Object.keys(F('getAchievements')()).length;tbRes.hist2=F('getLocalHistory')().map(h=>h.game).join();tbRes.name2=gg.tableName;
+      F('saveFamily')([{name:'B2',avatar:AV[1]}]);
+      F('tbSwitch')('TBLONE1234');await new Promise(r=>setTimeout(r,150));
+      tbRes.fam1=F('getFamily')().map(m=>m.name).join();tbRes.ach1=Object.keys(F('getAchievements')()).join();tbRes.name1=gg.tableName;
+      F('tbSwitch')('TBLTWO5678');await new Promise(r=>setTimeout(r,150));
+      tbRes.fam2b=F('getFamily')().map(m=>m.name).join();
+      F('addHistory')({game:'pig',winner:'B2',players:['B2','Z'],date:new Date().toISOString(),mode:'local'});
+      tbRes.tagged=F('getAllLocalHistory')().some(h=>h.winner==='B2'&&h.game==='pig'&&h.tc==='TBLTWO5678');
+      tbRes.link=F('tbInviteLink')('TBLTWO5678');
+      F('FAM').info={has_admin:true,name:''};tbRes.memberCan=F('tbCanManage')();
+      const l=F('tbList')();l.find(x=>x.code==='TBLTWO5678').key='secret-admin-key-1';F('tbSave')(l);tbRes.adminCan=F('tbCanManage')();
+      F('FAM').info=null;
+      tbRes.real=[F('famNameIsReal')('Player'),F('famNameIsReal')('Player 3'),F('famNameIsReal')('Robo'),F('famNameIsReal')('Papa')].join();
+    }catch(e){tbRes.err=String(e&&e.stack||e);}
+    finally{
+      delete W._famSb;try{F('famReset')();W.eval('clearTimeout(_famTimer);_famAgain=null;_famBusy=false;');}catch(e){}
+      keys.forEach(k=>{if(keep[k]===null)LS.removeItem(k);else LS.setItem(k,keep[k]);});
+      gg.tableName=keepG.name;gg.scr=keepG.scr;gg.tablesOpen=false;gg.gp=keepG.gp;gg.tw=keepG.tw;
+    }
+  }
+  suite('Tables (groups): each with its own people, games and trophies',()=>{
+    check('the tables sync ran without an error',!tbRes.err);
+    check("a table's list shows only its own games (and the old games that carry no mark belong to the first table)",tbRes.oneHist==='farkle,pig');
+    check('opening another table shows an empty family, no trophies, only its own games, its own name',tbRes.code2==='TBLTWO5678'&&tbRes.fam2===0&&tbRes.ach2===0&&tbRes.hist2==='uno'&&tbRes.name2==='Two');
+    check('going back finds the first table exactly as it was',tbRes.fam1==='A1'&&tbRes.ach1==='first-deal'&&tbRes.name1==='One');
+    check('what was added to the second table is still there when it is opened again',tbRes.fam2b==='B2');
+    check('a finished game is marked with the table it was played at',tbRes.tagged===true);
+    check('the invite link carries the code and the name of that one table only',/\?join=TBLTWO5678&t=Two/.test(tbRes.link)&&!/TBLONE1234/.test(tbRes.link));
+    check('when a table has an admin, only the admin can remove people or rename it',tbRes.memberCan===false&&tbRes.adminCan===true);
+    check('robots and empty seats are not people (head to head, suggestions)',tbRes.real==='false,false,false,true');
+  });
   suite('Family sync (one family code, the same family on every device)',()=>{
     check('the sync ran without an error',!famRes.err);
     check('every game of the table is fetched (4 rows)',famRes.rows===4);
@@ -11064,7 +11112,7 @@ async function runPresentation(A,W,frame){
       check('reading goes through history_for with the same code and returns the rows in the app\'s own shape',!!seen.readCall&&seen.readCall[2].p_code==='K7M2Q9XRTA'&&seen.rows.length===1&&seen.rows[0].winner==='Ben'&&seen.rows[0].game==='pig');
       check('before the database functions exist the app falls back to the old way, once',seen.legacyFlag===true&&seen.fallbackRows&&seen.fallbackRows[0].winner==='Old'&&seen.legacyWrite&&seen.noRpcAfter);
       check('any OTHER error returns nothing and does not fall back to reading the shared table',seen.errRows===null&&seen.errLegacy===false&&!seen.errSelect);
-      check('🔒 Your data shows the code, a box to type the family\'s code, and a way to make a new one',/Your table code/.test(seen.panel)&&/id="tc-input"/.test(seen.panel)&&/data-a="tc-save"/.test(seen.panel)&&/data-a="tc-new"/.test(seen.panel)&&/K7M2Q-9XRTA/.test(seen.panel));
+      check('🔒 Your data shows the code, a box to type the family\'s code, and a way to manage the tables',/Your table code/.test(seen.panel)&&/id="tc-input"/.test(seen.panel)&&/data-a="tc-save"/.test(seen.panel)&&/data-a="tables-open"/.test(seen.panel)&&/K7M2Q-9XRTA/.test(seen.panel));
       check('a code shorter than 6 characters is refused and the old one is kept',seen.shortKept==='K7M2Q9XRTA');
       check('a typed code is cleaned (capitals, no spaces or dashes or odd letters) and saved',seen.saved==='MLLER2026');
       check('"make a new private code" gives a fresh 10-character code',/^[A-Z2-9]{10}$/.test(seen.fresh)&&seen.fresh!=='MLLER2026');
