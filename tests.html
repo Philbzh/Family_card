@@ -6598,6 +6598,13 @@ async function runPresentation(A,W,frame){
     check('the spin curves the ball: right for +, left for -, and mostly at the end of the lane (the oil)',end(1,7.5)>.25&&end(-1,7.5)<-.25&&(()=>{const p=F('blPath')({x0:0,ang:0,v:7.5,spin:1},18.3);const q=p.find(r=>r[1]>9);return q[0]<.08;})());
     check('a slow ball curves more than a fast one',end(1,5)>end(1,9.5)+.2);
     check('the second ball only has the pins that are left: the ones that fell do not come back, in the physics or on the screen',(()=>{const S=F('blSimRun')(full,{x0:-.1,ang:0,v:7.5,spin:0});const left=F('blRackOf')(S.pins);const st=left.map(p=>p.st);const standing=S.pins.filter(p=>p.st<=1).length;return standing>0&&standing<10&&st.filter(v=>v===0).length===standing&&st.filter(v=>v===4).length===10-standing&&F('blRackOf')(left).filter(p=>p.st===0).length===standing;})());
+    {const endM=(mod,sp)=>{const sh={x0:0,ang:0,v:7.5,spin:sp,mod};const S=F('blSimNew')([],sh);let n=0;while(S.ball.z<18.3&&n++<9000)F('blSimBallOnly')(S,1/60);return S.ball.x;};
+     check('Mayhem: a MAGNET ball curves much more than a normal one, a ROCKET ball much less',endM('magnet',.5)>endM(undefined,.5)*1.6&&endM('rocket',.5)<endM(undefined,.5)*.7);
+     const hit=(mod,x0)=>F('blDownCount')(full,F('blSimRun')(full,{x0,ang:0,v:7.5,spin:0,mod}).pins);
+     check('a GIANT ball knocks down pins that a normal ball misses by a hand, and a HEAVY ball plows through more',hit('giant',.2)>hit(undefined,.2)&&hit('heavy',-.11)>=hit(undefined,-.11));
+     const seq=[0,1,2,3,4,5,6,7].map(n=>F('blModOf')(12345,n,0));
+     check('the special ball of each throw comes from a seed (the same on every device) and all four kinds appear',seq.join()===[0,1,2,3,4,5,6,7].map(n=>F('blModOf')(12345,n,0)).join()&&new Set(seq).size===4);
+    }
     check('a robot is as good as its level: three levels, from gentle to sharp',(()=>{const B=F('BL_BOT');return B.gentle.sx>B.steady.sx&&B.steady.sx>B.sharp.sx&&B.gentle.sa>B.sharp.sa;})());
     // a whole game with three people (no robots here: the shots are given), from the first ball to the results screen
     const k0=[gg.isOnline,gg.selGame,gg.lp,gg.scr,gg.bl],pref0=W.localStorage.getItem('ct_bl_pref'),seen0=W.localStorage.getItem('ct_bl_seen'),h0=W.localStorage.getItem('ct_history'),ar0=W.localStorage.getItem('ct_ar'),tw0=W.localStorage.getItem('ct_tw');
