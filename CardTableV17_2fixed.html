@@ -6071,7 +6071,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=254;
+const APP_BUILD=255;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -33679,7 +33679,7 @@ function blBegin(g,cfg){
 }
 function blStanding(pins){return pins.map(p=>p.st<=1);}
 function blStartTurn(g,first){
-  g.sheetOpen=false;const i=g.cur;g.sim=null;g.simDone=false;g.res=null;g.pull=0;g.aimA=0;g._gk=null;g.ctl=null;g.camMode='pre';g.sw=0;g.spinV=g.lastS[i]||0;
+  g.sheetOpen=false;const i=g.cur;g.sim=null;g.simDone=false;g.res=null;g.pull=0;g.pushU=0;g.aimA=0;g._gk=null;g.ctl=null;g.camMode='pre';g.sw=0;g.spinV=g.lastS[i]||0;
   let full;
   if(g.mode==='splits'){if(g.pk===0||first){g.pins=blSplitRack(g.si);g.rackFull=true;g.setT0=g.t;g.pins.forEach((p,k)=>p.dt=k*.045);}else{g.pins=blRackOf(g.pins);g.rackFull=false;}}
   else{
@@ -33702,10 +33702,23 @@ function blShotOf(g){
   const ang=g.aimA||0,v=4.8+5.2*Math.max(0,Math.min(1,g.pull));
   return{x0:g.bx,ang:ang,v:v,spin:g.spinV,z0:0,mod:blModNow(g)};
 }
-function blRelease(g,sh,pw,remote){
+// the flick: the speed and the direction of the last moments of the finger decide the shot, like hitting the puck in air hockey
+// samples: [{t ms, x, y}] in screen pixels; H: the height of the lane picture in pixels. Returns null when the finger was too slow or not going up.
+function blPushFrom(samples,H){
+  if(!samples||samples.length<2)return null;
+  const last=samples[samples.length-1];let a=samples[0];
+  for(let i=samples.length-1;i>=0;i--){if(last.t-samples[i].t>=90){a=samples[i];break;}a=samples[i];}
+  const dt=Math.max(16,last.t-a.t)/1000,vx=(last.x-a.x)/dt,vy=(last.y-a.y)/dt;
+  if(vy>=0)return null;
+  const speed=Math.sqrt(vx*vx+vy*vy),pw=Math.max(0,Math.min(1,speed/(H*1.6)));
+  if(pw<.14)return null;
+  const tilt=Math.max(-.5,Math.min(.5,vx/-vy*.8));
+  return{pw:pw,ang:tilt/.5*.05};
+}
+function blRelease(g,sh,pw,remote,relZ){
   const i=g.cur;g.lastX[i]=g.bx;g.lastS[i]=g.spinV;
   if(g.net&&G.isOnline&&!remote){blSend(g,{k:'shot',n:g.ballNo,sh:{x0:sh.x0,ang:sh.ang,v:sh.v,spin:sh.spin},pw:pw,ball:g.balls[i]},true);}
-  sh.mod=sh.mod||blModNow(g);const S=blSimNew(blCopy(g.pins),sh);g.rollMod=sh.mod||null;g.relZ=-.9-.9*pw;g.pins=S.pins;
+  sh.mod=sh.mod||blModNow(g);const S=blSimNew(blCopy(g.pins),sh);g.rollMod=sh.mod||null;g.relZ=relZ!=null?relZ:-.9-.9*pw;g.pins=S.pins;
   g.sim=S;g.phase='roll';g.phaseT=g.t;g.camMode='roll';g.rollT=0;g.ts=1;g.hitT=-9;g.pitSeen=0;g.sndCool=0;g.nfall=0;g.fxT=0;g.lastClack=-9;
   g.ctl=null;g.stats.balls=(g.stats.balls||0)+1;
   blSnd.release(pw);try{haptic(18);}catch(e){}
@@ -34186,7 +34199,7 @@ function blDraw(g,now){
   // the ball
   const ball=g.balls[g.cur]||{id:'classic',fx:'none'};
   if(g.phase==='aim'||g.phase==='result'&&false){
-    const pw=g.pull,zv=-.9-.9*pw;g.sq=1-.05*pw;
+    const pw=g.pull,zv=g.pushU?-.9+.8*g.pushU:-.9-.9*pw;g.sq=1-.05*pw;
     const lift=g.ctl&&g.ctl.mode?(.012):0;
     blAimGuide(g,x);
     const sd=g.spinV*.75;
@@ -34346,7 +34359,7 @@ function blHud(g,force){
   if(!((g._hf=(g._hf||0)+1)%30)){const sh=document.getElementById('bl-sheet'),hh=(sh&&(sh._cp||g.n<2)?hud.offsetHeight:sh?hud.offsetHeight*(1/Math.max(1,g.n))*1.15:hud.offsetHeight)+8;if(Math.abs(hh-(g.hudCss||0))>6){g.hudCss=hh;g.lay=null;}}
   // the line of text under the sheet and the status in the bar
   const hint=document.getElementById('bl-hint');
-  if(hint){let t='';if(g.phase==='aim'){if(g.bot)t='';else if(g.ctl&&g.ctl.mode==='pull')t='LET GO TO ROLL';else if(g.ctl&&g.ctl.mode==='move')t='SLIDE THE BALL';else t=g.pk<0?'':(g.seenHow>=2?'':'SLIDE THE BALL SIDEWAYS · PULL BACK AND LET GO');if(g.weak&&g.t-g.weak<1.4)t='PULL FURTHER';}
+  if(hint){let t='';if(g.phase==='aim'){if(g.bot)t='';else if(g.ctl&&g.ctl.mode==='pull')t='LET GO TO ROLL';else if(g.ctl&&g.ctl.mode==='push')t='FLICK!';else if(g.ctl&&g.ctl.mode==='move')t='SLIDE THE BALL';else t=g.pk<0?'':(g.seenHow>=2?'':'SLIDE THE BALL SIDEWAYS · FLICK IT FORWARD, OR PULL BACK AND LET GO');if(g.weak&&g.t-g.weak<1.4)t='A QUICKER FLICK, OR PULL FURTHER';}
     if(hint._t!==t){hint._t=t;hint.textContent=t;hint.classList.toggle('on',!!t);}}
   const st=document.getElementById('bl-status');
   if(st){const pl=g.players[g.cur];let t='';if(g.phase==='setup')t='OUR TABLE · Bowling';else if(g.mode==='practice')t='PRACTICE · ball '+(g.pk+1);else if(g.mode==='splits')t=(pl.name)+' · '+BL_SPLITS[Math.min(g.si,BL_SPLITS.length-1)].n.toLowerCase()+' · ball '+(g.pk+1);else if(pl&&g.phase!=='over')t=(pl.bot?pl.name+' (robot)':pl.name)+' · frame '+Math.min(g.N,blFrameNo(g))+' · ball '+blBallNo(g);if(st._t!==t){st._t=t;st.textContent=t;}}
@@ -34420,6 +34433,15 @@ function blPaintOv(g){
   ov.classList.toggle('on',!!h);
 }
 // ── touch and mouse ──
+// the finger lets go of the ball (or has pushed it all the way): throw it with the speed and the direction of the flick
+function blPushThrow(g,c){
+  if(g.phase!=='aim'){g.pushU=0;return;}
+  const rel=blPushFrom(c.samples,c.r.height),u=g.pushU||0;
+  g.pushU=0;c.mode='done';
+  if(!rel){g.weak=g.t;g.pull=0;return;}
+  g.seenHow=(g.seenHow||0)+1;g.aimA=rel.ang;g.pull=rel.pw;
+  blRelease(g,blShotOf(g),rel.pw,false,-.9+.8*u);
+}
 function blBindInput(){
   const g=G.bl,cv=g.cv;if(!cv||cv._bl)return;cv._bl=1;
   const rect=()=>cv.getBoundingClientRect();
@@ -34431,13 +34453,19 @@ function blBindInput(){
   };
   const move=e=>{
     const c=g.ctl;if(!c||c.id!==e.pointerId||g.phase!=='aim')return;
+    if(c.mode==='done')return;
     const dx=e.clientX-c.x0,dy=e.clientY-c.y0,r=c.r;
     if(!c.mode){
       if(Math.abs(dx)<7&&dy<7)return;
-      c.mode=(dy>7&&dy>Math.abs(dx)*.55)?'pull':(Math.abs(dx)>=7?'move':null);if(!c.mode)return;
-      if(c.mode==='pull'){blSnd.pick();c.px=e.clientX;}else blSnd.slide(.6);
+      c.mode=(dy>7&&dy>Math.abs(dx)*.55)?'pull':(dy<-7&&-dy>Math.abs(dx)*.55)?'push':(Math.abs(dx)>=7?'move':null);if(!c.mode)return;
+      if(c.mode==='pull'){blSnd.pick();c.px=e.clientX;}else if(c.mode==='push'){blSnd.pick();c.samples=[{t:performance.now(),x:c.x0,y:c.y0}];}else blSnd.slide(.6);
     }
-    if(c.mode==='move'){
+    if(c.mode==='push'){
+      const sm=c.samples;sm.push({t:performance.now(),x:e.clientX,y:e.clientY});if(sm.length>8)sm.shift();
+      g.pushU=Math.max(0,Math.min(1,-dy/(r.height*.3)));g.pull=0;
+      // a long push is thrown at once, at the speed it has now
+      if(g.pushU>=1){blPushThrow(g,c);}
+    }else if(c.mode==='move'){
       const p=blP(g,0,0,-.9),s=p?p[2]:300,k=(g.cv.width/r.width);
       g.bx=Math.max(-.5,Math.min(.5,c.bx0+dx*k/s));g.pull=0;
     }else{
@@ -34449,7 +34477,8 @@ function blBindInput(){
   };
   const up=e=>{
     const c=g.ctl;if(!c||c.id!==e.pointerId)return;
-    if(c.mode==='pull'&&g.phase==='aim'){
+    if(c.mode==='push'&&g.phase==='aim'){blPushThrow(g,c);}
+    else if(c.mode==='pull'&&g.phase==='aim'){
       const pw=g.pull;
       if(pw<.12){g.pull=0;g.weak=g.t;g.seenHow=(g.seenHow||0);}
       else{g.seenHow=(g.seenHow||0)+1;blRelease(g,blShotOf(g),pw);}
