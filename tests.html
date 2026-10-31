@@ -6567,6 +6567,18 @@ async function runPresentation(A,W,frame){
       if(keep.roster===null)W.localStorage.removeItem('ct_roster');else W.localStorage.setItem('ct_roster',keep.roster);
     }
   });
+  suite('Set-up page: you are already in the first seat',()=>{
+    const F=n=>W.eval(n),gg=F('G');const lp0=gg.lp,my0=gg.myName,av0=gg.myAvatar,ro0=W.localStorage.getItem('ct_roster');
+    try{
+      const mk=()=>[0,1].map(i=>({id:i+1,name:'',avatar:F('AVATARS')[i],hand:[],totalScore:0}));
+      gg.myName='Papa';gg.myAvatar=F('AVATARS')[3];W.localStorage.removeItem('ct_roster');gg.lp=mk();F('setupPrefill')();
+      check('with your name in the app, the first seat is you (and the second stays empty)',gg.lp[0].name==='Papa'&&gg.lp[0].avatar===F('AVATARS')[3]&&gg.lp[1].name==='');
+      W.localStorage.setItem('ct_roster',JSON.stringify([{name:'Mama',avatar:F('AVATARS')[2],bot:null},{name:'Robo',avatar:F('AVATARS')[1],bot:'steady'}]));gg.lp=mk();F('setupPrefill')();
+      check('the people of the table follow you, a robot of the roster is not put in a seat',gg.lp[0].name==='Papa'&&gg.lp[1].name==='Mama');
+      gg.lp=mk();gg.lp[0].name='Someone';F('setupPrefill')();check('names that were already typed are never overwritten',gg.lp[0].name==='Someone'&&gg.lp[1].name==='');
+      gg.myName='';gg.lp=mk();W.localStorage.removeItem('ct_roster');F('setupPrefill')();check('without a name nothing is invented',gg.lp[0].name===''&&gg.lp[1].name==='');
+    }finally{gg.lp=lp0;gg.myName=my0;gg.myAvatar=av0;if(ro0===null)W.localStorage.removeItem('ct_roster');else W.localStorage.setItem('ct_roster',ro0);}
+  });
   suite('Bowling: the rules, the physics and a whole game',()=>{
     const F=n=>W.eval(n),G=()=>F('G'),gg=G();
     const sc=(r,N)=>F('blScore')(r,N||10);

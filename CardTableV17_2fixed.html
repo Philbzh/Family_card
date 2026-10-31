@@ -5390,6 +5390,15 @@ function seatTable(n){
   seats.forEach((p,i)=>{if(!p.name.trim())p.name='Player '+(i+1);});
   return seats;
 }
+// the set-up page opens with the people already in the app: you in the first seat (and the others of the table after you), not empty "Player 1" and "Player 2"
+function setupPrefill(){
+  try{
+    if(G.lp.some(p=>(p.name||'').trim()||p.bot))return;
+    const list=[];if(G.myName&&G.myName!=='Player')list.push({name:G.myName,avatar:G.myAvatar||AVATARS[0]});
+    getRoster().filter(p=>!p.bot).forEach(h=>{if(!list.some(x=>x.name.toLowerCase()===h.name.toLowerCase()))list.push(h);});
+    G.lp.forEach((p,i)=>{if(list[i]){p.name=list[i].name;if(list[i].avatar&&AVATARS.includes(list[i].avatar))p.avatar=list[i].avatar;}});
+  }catch(e){}
+}
 // start a local game at once: no game list, no set-up page
 function startNow(gid,n){
   const g=GAMES.find(x=>x.id===gid);if(!g||g.locked)return;
@@ -6062,7 +6071,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=246;
+const APP_BUILD=248;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -31593,10 +31602,9 @@ function rHome(){
         </div>
         ${feltPickerHTML}
         ${continueCard}
-        ${tonightPickHTML()}
+        ${homeFamilyHTML(history)}
         ${homeFavsHTML(history)}
         ${tonightHomeHTML()}
-        ${homeFamilyHTML(history)}
         ${homeRoomsHTML()}
         ${homeJumpHTML(history)}
         ${homeRecordsHTML(history)}
@@ -38157,7 +38165,7 @@ document.addEventListener('click',e=>{
   else if(a==='local'){
     const cg=currentGame();
     if(cg&&cg.onlineOnly){toast('This adventure is played online — everyone joins on their own device.');if(!ONLINE_GAMES.includes(G.selGame))return;G.scr='online';render();return;}
-    G.isOnline=false;G.scr='setup';render();
+    G.isOnline=false;setupPrefill();G.scr='setup';render();
   }
   else if(a==='resume-match'){if(!resumeLocalMatch())toast('That game is no longer available to resume.');}
   else if(a==='online'){
