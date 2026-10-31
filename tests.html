@@ -6330,6 +6330,19 @@ async function runPresentation(A,W,frame){
       F('saveFamily')(F('getFamily')().filter(m=>m.name!=='Zed'));famRes.removed=!!(T.members.zed&&T.members.zed.deleted);
       LS.setItem('ct_family','[]');F('famReset')();await F('famSyncAll')({announce:false});famRes.c_members=F('getFamily')().map(m=>m.name).sort().join();
       T.missing=true;F('famReset')();await F('famSyncAll')({announce:false});famRes.v2=F('FAM').v2;
+      // the code is changed while a sync for the old code is still running: the new code must win
+      {const slow={T:null};const mk2=code=>({rpc:(fn,args)=>new Promise(res=>setTimeout(()=>{
+          if(fn==='history_since')return res({data:[{client_id:'c-'+code,game_id:'uno',mode:'local',winner_name:'W'+code,players:['A','B'],played_at:iso(1000),synced_at:iso(1000)}],error:null});
+          if(fn==='members_for')return res({data:[{name:'M'+code,avatar:AV[0],deleted:false}],error:null});
+          if(fn==='settings_for')return res({data:[{table_name:'T'+code,table_year:'',updated_at:iso(10)}],error:null});
+          res({error:null});},fn==='history_since'&&args.p_code==='SLOWCODE1'?250:5)),channel:()=>({on(){return this;},subscribe(){return this;},send(){}}),removeChannel(){}});
+        LS.setItem('ct_table_code','SLOWCODE1');LS.setItem('ct_history','[]');LS.setItem('ct_family','[]');LS.removeItem('ct_tablename');gg.tableName='';
+        W._famSb={rpc:(fn,args)=>mk2(args.p_code).rpc(fn,args),channel:()=>({on(){return this;},subscribe(){return this;},send(){}}),removeChannel(){}};
+        F('famReset')();const first=F('famSyncAll')({announce:false});
+        await new Promise(r=>setTimeout(r,40));
+        LS.setItem('ct_table_code','FASTCODE2');F('famReset')();F('famSyncAll')({announce:true});
+        await first;await new Promise(r=>setTimeout(r,700));
+        famRes.race=F('getHistory')().map(h=>h.winner).join()+'|'+F('getFamily')().map(m=>m.name).join()+'|'+gg.tableName;}
       const mm=F('famMerge')([{cid:'x',game:'g',winner:'W',date:iso(0)},{game:'a',winner:'B',date:iso(100000)}],[{cid:'x',game:'g',winner:'W',date:iso(0),moment:'m'},{game:'a',winner:'B',date:iso(100000+20000),scores:[{n:'B',s:1}]},{game:'z',winner:'Q',date:iso(5e6)}]);
       famRes.merge=mm.length+'|'+(mm[0].moment||'')+'|'+(!!mm.find(h=>h.game==='a').scores);
     } catch(e){famRes.err=String(e&&e.stack||e);}
@@ -6353,6 +6366,7 @@ async function runPresentation(A,W,frame){
     check('a second device with the same code sees all games and all members with the same avatar',famRes.b_hist===5&&famRes.b_members==='Ann,Bob,Zed'&&famRes.b_name==='The Test Table'&&famRes.b_avatar===true);
     check('removing a member removes him on every device',famRes.removed===true&&famRes.c_members==='Ann,Bob');
     check('without the database functions the app says so and keeps working',famRes.v2===false);
+    check('changing the code in the middle of a sync loads the new code, not the old one',famRes.race==='WFASTCODE2|MFASTCODE2|TFASTCODE2');
     check('the merge keeps three games, fills the moment, and matches an old row by game, winner and time',famRes.merge==='3|m|true');
   });
   suite('Quick start and play again (the table remembers who sat down)',()=>{
