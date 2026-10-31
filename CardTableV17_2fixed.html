@@ -6071,7 +6071,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=255;
+const APP_BUILD=256;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -33706,13 +33706,22 @@ function blShotOf(g){
 // samples: [{t ms, x, y}] in screen pixels; H: the height of the lane picture in pixels. Returns null when the finger was too slow or not going up.
 function blPushFrom(samples,H){
   if(!samples||samples.length<2)return null;
-  const last=samples[samples.length-1];let a=samples[0];
-  for(let i=samples.length-1;i>=0;i--){if(last.t-samples[i].t>=90){a=samples[i];break;}a=samples[i];}
-  const dt=Math.max(16,last.t-a.t)/1000,vx=(last.x-a.x)/dt,vy=(last.y-a.y)/dt;
-  if(vy>=0)return null;
-  const speed=Math.sqrt(vx*vx+vy*vy),pw=Math.max(0,Math.min(1,speed/(H*1.6)));
-  if(pw<.14)return null;
-  const tilt=Math.max(-.5,Math.min(.5,vx/-vy*.8));
+  const last=samples[samples.length-1];
+  // the fastest stretch of the last 220 ms (a finger slows down at the end of a flick: the end alone says too little)
+  let best=null;
+  for(let i=0;i<samples.length-1;i++){
+    if(last.t-samples[i].t>220)continue;
+    for(let k=i+1;k<samples.length;k++){
+      const dt=samples[k].t-samples[i].t;if(dt<24||dt>130)continue;
+      const vx=(samples[k].x-samples[i].x)/(dt/1000),vy=(samples[k].y-samples[i].y)/(dt/1000);
+      if(vy>=0)continue;const sp=Math.sqrt(vx*vx+vy*vy);
+      if(!best||sp>best.sp)best={sp:sp,vx:vx,vy:vy};
+    }
+  }
+  if(!best)return null;
+  const pw=Math.max(0,Math.min(1,best.sp/(H*1.5)));
+  if(pw<.1)return null;
+  const tilt=Math.max(-.5,Math.min(.5,best.vx/-best.vy*.8));
   return{pw:pw,ang:tilt/.5*.05};
 }
 function blRelease(g,sh,pw,remote,relZ){
@@ -34456,12 +34465,13 @@ function blBindInput(){
     if(c.mode==='done')return;
     const dx=e.clientX-c.x0,dy=e.clientY-c.y0,r=c.r;
     if(!c.mode){
-      if(Math.abs(dx)<7&&dy<7)return;
-      c.mode=(dy>7&&dy>Math.abs(dx)*.55)?'pull':(dy<-7&&-dy>Math.abs(dx)*.55)?'push':(Math.abs(dx)>=7?'move':null);if(!c.mode)return;
+      if(Math.abs(dx)<7&&Math.abs(dy)<7)return;
+      c.mode=(dy>7&&dy>Math.abs(dx)*.55)?'pull':(dy<-7&&-dy>Math.abs(dx)*.55)?'push':(Math.abs(dx)>=7&&Math.abs(dx)>-dy*1.8&&dy>-6?'move':null);if(!c.mode)return;
       if(c.mode==='pull'){blSnd.pick();c.px=e.clientX;}else if(c.mode==='push'){blSnd.pick();c.samples=[{t:performance.now(),x:c.x0,y:c.y0}];}else blSnd.slide(.6);
     }
+    if(c.mode==='move'&&dy<-14&&-dy>Math.abs(dx)*.6){c.mode='push';c.x0=e.clientX;c.y0=e.clientY;c.samples=[{t:performance.now(),x:e.clientX,y:e.clientY}];blSnd.pick();return;}
     if(c.mode==='push'){
-      const sm=c.samples;sm.push({t:performance.now(),x:e.clientX,y:e.clientY});if(sm.length>8)sm.shift();
+      const sm=c.samples;sm.push({t:performance.now(),x:e.clientX,y:e.clientY});if(sm.length>14)sm.shift();
       g.pushU=Math.max(0,Math.min(1,-dy/(r.height*.3)));g.pull=0;
       // a long push is thrown at once, at the speed it has now
       if(g.pushU>=1){blPushThrow(g,c);}
