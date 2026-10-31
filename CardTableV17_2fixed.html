@@ -4544,7 +4544,9 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
 #bl-mid .bl-bigw canvas,#bl-mid .bl-bt canvas,#bl-mid .bl-ball canvas{position:static !important;inset:auto !important;display:block;}
 .bl-hud{position:absolute;left:8px;right:8px;top:8px;z-index:2;pointer-events:none;}
 .bl-sheet{display:flex;flex-direction:column;gap:3px;padding:5px 6px;border-radius:12px;background:linear-gradient(180deg,rgba(8,14,11,.84),rgba(6,10,8,.72));border:1px solid rgba(230,195,106,.3);box-shadow:0 6px 24px rgba(0,0,0,.45);}
-.bl-row{display:flex;align-items:stretch;gap:5px;opacity:.7;transition:opacity .25s;}
+.bl-sheet{pointer-events:auto;cursor:pointer;}
+.bl-row{display:flex;align-items:stretch;gap:5px;opacity:.7;max-height:3.4rem;transition:opacity .25s,max-height .3s,margin .3s;}
+.bl-sheet.compact .bl-row:not(.on){max-height:0;opacity:0;overflow:hidden;margin-top:-3px;}
 .bl-row.on{opacity:1;}
 .bl-nm{width:5.8rem;flex:none;display:flex;align-items:center;gap:5px;font:700 .62rem 'Cinzel',serif;letter-spacing:.05em;color:#e9e1c9;overflow:hidden;white-space:nowrap;}
 .bl-row.on .bl-nm{color:#ffe9a3;}
@@ -6060,7 +6062,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=245;
+const APP_BUILD=246;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -33472,9 +33474,16 @@ function blBallBase(b,S){
 function blBallShade(S){
   const k='shade'+S;if(BL_IMG[k])return BL_IMG[k];
   const cv=document.createElement('canvas');cv.width=cv.height=S;const x=cv.getContext('2d'),r=S/2;
-  let g=x.createRadialGradient(r,r,r*.55,r,r,r);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,.5)');x.fillStyle=g;x.beginPath();x.arc(r,r,r,0,7);x.fill();
-  g=x.createRadialGradient(r*.62,r*.5,0,r*.62,r*.5,r*.55);g.addColorStop(0,'rgba(255,255,255,.95)');g.addColorStop(.18,'rgba(255,255,255,.45)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.beginPath();x.arc(r,r,r,0,7);x.fill();
-  g=x.createLinearGradient(r*.2,r*1.7,r*1.5,r*1.95);g.addColorStop(0,'rgba(255,255,255,0)');g.addColorStop(.5,'rgba(255,255,255,.22)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.beginPath();x.arc(r,r,r,0,7);x.fill();
+  x.save();x.beginPath();x.arc(r,r,r,0,7);x.clip();
+  // the dark edge of the sphere, deepest at the lower right (away from the light)
+  let g=x.createRadialGradient(r*.78,r*.7,r*.35,r,r,r*1.02);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(.7,'rgba(0,0,0,.25)');g.addColorStop(1,'rgba(0,0,0,.62)');x.fillStyle=g;x.fillRect(0,0,S,S);
+  // a cool bounce of light from the floor, along the lower rim
+  g=x.createLinearGradient(0,r*1.55,0,S);g.addColorStop(0,'rgba(180,215,255,0)');g.addColorStop(1,'rgba(180,215,255,.2)');x.fillStyle=g;x.fillRect(0,0,S,S);
+  // the long window reflection (the big lamp) and the small hot spot of the lamp itself
+  g=x.createRadialGradient(r*.62,r*.5,0,r*.62,r*.5,r*.62);g.addColorStop(0,'rgba(255,255,255,.55)');g.addColorStop(.35,'rgba(255,255,255,.18)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,S,S);
+  x.fillStyle='rgba(255,252,240,.95)';x.beginPath();x.ellipse(r*.58,r*.44,r*.1,r*.065,-.5,0,7);x.fill();
+  x.fillStyle='rgba(255,255,255,.18)';x.beginPath();x.ellipse(r*1.2,r*1.55,r*.5,r*.07,.5,0,7);x.fill();
+  x.restore();
   return BL_IMG[k]=cv;
 }
 // draw a ball at screen (cx,cy) with radius r; roll = turning forward, side = turning sideways (the spin you chose)
@@ -33519,7 +33528,10 @@ function blPinSprite(){
   x.fillStyle=g;x.fill();
   x.save();x.clip();
   [[9.1,9.6],[10.15,10.65]].forEach(a=>{const gg=x.createLinearGradient(0,0,W,0);gg.addColorStop(0,'#7a1018');gg.addColorStop(.3,'#e0323f');gg.addColorStop(.6,'#bf1f2c');gg.addColorStop(1,'#560a10');x.fillStyle=gg;x.fillRect(0,py(a[1]),W,(a[1]-a[0])*sy);});
-  const sh=x.createLinearGradient(0,0,W,0);sh.addColorStop(0,'rgba(0,0,0,.18)');sh.addColorStop(.3,'rgba(255,255,255,0)');sh.addColorStop(.7,'rgba(0,0,0,0)');sh.addColorStop(1,'rgba(0,0,0,.42)');x.fillStyle=sh;x.fillRect(0,0,W,H);
+  const sh=x.createLinearGradient(0,0,W,0);sh.addColorStop(0,'rgba(0,0,0,.2)');sh.addColorStop(.26,'rgba(255,255,255,0)');sh.addColorStop(.62,'rgba(0,0,0,0)');sh.addColorStop(.92,'rgba(40,24,10,.46)');sh.addColorStop(1,'rgba(255,240,210,.18)');x.fillStyle=sh;x.fillRect(0,0,W,H);
+  // light from above: the head is bright, the foot sits in shade; a thin bright rim on the right edge, a warm bounce from the lacquer
+  const tg=x.createLinearGradient(0,0,0,H);tg.addColorStop(0,'rgba(255,255,255,.16)');tg.addColorStop(.45,'rgba(255,255,255,0)');tg.addColorStop(.85,'rgba(60,34,12,.2)');tg.addColorStop(1,'rgba(60,34,12,.42)');x.fillStyle=tg;x.fillRect(0,0,W,H);
+  x.fillStyle='rgba(255,255,255,.35)';x.fillRect(W*.2,py(13.4),W*.05,(13.4-11.6)*sy);x.fillRect(W*.22,py(6.2),W*.045,(6.2-2.4)*sy);
   x.fillStyle='rgba(255,255,255,.55)';x.fillRect(W*.3,py(8.2),W*.06,(8.2-4)*sy);
   x.restore();
   x.strokeStyle='rgba(60,45,25,.5)';x.lineWidth=1.2;x.stroke();
@@ -33655,7 +33667,7 @@ function blBegin(g,cfg){
 }
 function blStanding(pins){return pins.map(p=>p.st<=1);}
 function blStartTurn(g,first){
-  const i=g.cur;g.sim=null;g.simDone=false;g.res=null;g.pull=0;g.aimA=0;g._gk=null;g.ctl=null;g.camMode='pre';g.sw=0;g.spinV=g.lastS[i]||0;
+  g.sheetOpen=false;const i=g.cur;g.sim=null;g.simDone=false;g.res=null;g.pull=0;g.aimA=0;g._gk=null;g.ctl=null;g.camMode='pre';g.sw=0;g.spinV=g.lastS[i]||0;
   let full;
   if(g.mode==='practice')full=g.pk===0||!blStanding(g.pins).some(Boolean);else full=blNeedsFullRack(g.rolls[i],g.N);
   if(full||first){g.pins=blFull();g.rackFull=true;g.setT0=g.t;g.pins.forEach((p,k)=>p.dt=k*.045);}else{g.pins=blRackOf(g.pins);g.rackFull=false;}
@@ -34283,7 +34295,7 @@ function blHud(g,force){
   if(!hud.dataset.k||force&&hud.dataset.k!==String(g.players.length)+g.N+g.mode){
     const prac=g.mode==='practice';
     hud.dataset.k=String(g.players.length)+g.N+g.mode;
-    hud.innerHTML=prac?`<div class="bl-prac" id="bl-prac"></div>`:`<div class="bl-sheet">${g.players.map((p,i)=>`<div class="bl-row" id="bl-r${i}"><div class="bl-nm"><span class="ah-av">${p.avatar?avHTML(p.avatar):''}</span><b>${esc((p.name||'').slice(0,9))}${p.bot?' 🤖':''}</b></div><div class="bl-frs">${Array.from({length:g.N},(_,f)=>`<div class="bl-c${f===g.N-1?' last':''}" id="bl-c${i}-${f}"><div class="bl-m"></div><div class="bl-t"></div></div>`).join('')}</div><div class="bl-tt" id="bl-t${i}">0</div></div>`).join('')}</div>`;
+    hud.innerHTML=prac?`<div class="bl-prac" id="bl-prac"></div>`:`<div class="bl-sheet" id="bl-sheet" data-blact="sheet">${g.players.map((p,i)=>`<div class="bl-row" id="bl-r${i}"><div class="bl-nm"><span class="ah-av">${p.avatar?avHTML(p.avatar):''}</span><b>${esc((p.name||'').slice(0,9))}${p.bot?' 🤖':''}</b></div><div class="bl-frs">${Array.from({length:g.N},(_,f)=>`<div class="bl-c${f===g.N-1?' last':''}" id="bl-c${i}-${f}"><div class="bl-m"></div><div class="bl-t"></div></div>`).join('')}</div><div class="bl-tt" id="bl-t${i}">0</div></div>`).join('')}</div>`;
   }
   if(g.mode==='practice'){const e=document.getElementById('bl-prac');if(e){const p=g.prac,h=`<span><b>${p.shots}</b>balls</span><span><b>${p.shots?(p.pins/p.shots).toFixed(1):'–'}</b>pins a ball</span><span><b>${p.strikes}</b>strikes</span><span><b>${p.spares}</b>spares</span><span><b>${p.best}</b>best streak</span>`;if(e._h!==h){e._h=h;e.innerHTML=h;}}}
   else{
@@ -34296,7 +34308,9 @@ function blHud(g,force){
       const te=document.getElementById('bl-t'+i);if(te&&te._v!==sc.total){te._v=sc.total;te.textContent=sc.total;te.classList.remove('pop');void te.offsetWidth;te.classList.add('pop');}
     });
   }
-  if(!((g._hf=(g._hf||0)+1)%30)){const hh=hud.offsetHeight+8;if(hh!==g.hudCss){g.hudCss=hh;g.lay=null;}}
+  {const sh=document.getElementById('bl-sheet');if(sh){const cp=g.n>1&&(g.phase==='aim'||g.phase==='roll'||g.phase==='result')&&!g.sheetOpen;if(sh._cp!==cp){sh._cp=cp;sh.classList.toggle('compact',cp);}}}
+  // the picture is laid out for the folded sheet (it does not move when the sheet opens: it opens over the wall)
+  if(!((g._hf=(g._hf||0)+1)%30)){const sh=document.getElementById('bl-sheet'),hh=(sh&&(sh._cp||g.n<2)?hud.offsetHeight:sh?hud.offsetHeight*(1/Math.max(1,g.n))*1.15:hud.offsetHeight)+8;if(Math.abs(hh-(g.hudCss||0))>6){g.hudCss=hh;g.lay=null;}}
   // the line of text under the sheet and the status in the bar
   const hint=document.getElementById('bl-hint');
   if(hint){let t='';if(g.phase==='aim'){if(g.bot)t='';else if(g.ctl&&g.ctl.mode==='pull')t='LET GO TO ROLL';else if(g.ctl&&g.ctl.mode==='move')t='SLIDE THE BALL';else t=g.pk<0?'':(g.seenHow>=2?'':'SLIDE THE BALL SIDEWAYS · PULL BACK AND LET GO');if(g.weak&&g.t-g.weak<1.4)t='PULL FURTHER';}
@@ -34428,6 +34442,7 @@ document.addEventListener('click',e=>{
   else if(a==='ball'){if(g.pickOpen){const c=g.balls[g.cur];c.id=v;pr.balls[g.players[g.cur].name]={id:c.id,fx:c.fx};blSavePrefs(pr);}else{pr.ball=v;blSavePrefs(pr);}blSnd.tick();}
   else if(a==='fx'){if(g.pickOpen){const c=g.balls[g.cur];c.fx=v;pr.balls[g.players[g.cur].name]={id:c.id,fx:c.fx};blSavePrefs(pr);}else{pr.fx=v;blSavePrefs(pr);}blSnd.tick();}
   else if(a==='start'){if(g.net&&G.isOnline&&!blHost())return;g.pr=pr;let cfg=null;if(g.net&&G.isOnline){cfg={mode:pr.mode==='quick'?'quick':'classic',style:pr.style==='table'?'table':'classic',lv:BL_LV[pr.lv]?pr.lv:'standard'};g.net.cfg=cfg;blSend(g,Object.assign({k:'go'},cfg),true);}blBegin(g,cfg);paint=false;blHudFull(g);blSnd.set();}
+  else if(a==='sheet'){g.sheetOpen=!g.sheetOpen;paint=false;}
   else if(a==='pick'){g.pickOpen=1;g.ctl=null;blSnd.pick();}
   else if(a==='pickok'){g.pickOpen=0;blSnd.tick();}
   if(paint)blPaintOv(g);
