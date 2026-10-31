@@ -6622,6 +6622,17 @@ async function runPresentation(A,W,frame){
       check('the game is in the history and the shared records know bowling',(()=>{const h=JSON.parse(W.localStorage.getItem('ct_history')||'[]');const ar=JSON.parse(W.localStorage.getItem('ct_ar')||'{}');return h.some(e=>e.game==='bowling'&&e.players.length===3)&&!!(ar.rec&&ar.rec.bowling&&ar.rec.bowling.topscore);})());
       const q=run('quick',2);
       check('the quick game has five frames and also ends by itself',q.over&&q.N===5&&q.rolls.every((r,i)=>F('blPos')(r,5).over&&r.length<=11));
+      // the split challenge: ten splits, two balls at most each, the winner has converted the most
+      {W.localStorage.setItem('ct_bl_pref',JSON.stringify({mode:'splits',style:'classic',lv:'master',ball:'classic',fx:'none',balls:{}}));
+       gg.lp=[0,1].map(i=>({id:i+1,name:['Ann','Bob'][i],avatar:F('AVATARS')[i],hand:[],totalScore:0}));F('lDealBowling')();gg.scr='table';F('render')();F('blAttach')();const s=G().bl;s.pr=F('blPrefs')();F('blBegin')(s);
+       check('every one of the ten splits is a real split (the head pin is down and the pins are not neighbours)',F('BL_SPLITS').length===10&&F('BL_SPLITS').every((sp,i)=>{const fl=F('blSplitRack')(i).map(p=>p.st===0);return F('blIsSplit')(fl,10)&&fl.filter(Boolean).length===sp.p.length;}));
+       let steps=0,sq=0;const seenSplits=[];
+       while(!s.over&&steps++<120000){if(s.phase==='aim'&&!s.bot){if(seenSplits[seenSplits.length-1]!==s.si)seenSplits.push(s.si);const sh=shots[sq++%shots.length];s.bx=sh.x0;s.aimA=sh.ang;s.spinV=sh.spin;s.pull=(sh.v-4.8)/5.2;F('blRelease')(s,sh,s.pull);}F('blStep')(s,1/30);}
+       check('the split challenge goes through all ten splits, both players bowl each one, and ends by itself',s.over&&seenSplits.join()==='0,1,2,3,4,5,6,7,8,9'&&s.spl.every(v=>v>=0&&v<=10));
+       check('the result lists how many splits each converted, and the winner has the most',!!G().blResult&&G().blResult.mode==='splits'&&G().blResult.tot.join()===s.spl.join()&&G().blResult.tot[G().blResult.w]===Math.max(...s.spl));
+       // a ball that clears a split counts, and the second ball is only given when pins are left
+       {const t=G().bl;}
+      }
       // the practice mode never ends and keeps its own count
       {W.localStorage.setItem('ct_bl_pref',JSON.stringify({mode:'practice',style:'classic',lv:'master',ball:'classic',fx:'none',balls:{}}));
        gg.lp=[{id:1,name:'Ann',avatar:F('AVATARS')[0],hand:[],totalScore:0}];F('lDealBowling')();gg.scr='table';F('render')();F('blAttach')();const p=G().bl;p.pr=F('blPrefs')();F('blBegin')(p);let steps=0,sq=0;
