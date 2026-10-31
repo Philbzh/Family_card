@@ -4543,7 +4543,7 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
 #bl-mid{width:100%;min-height:0;}
 #bl-mid .bl-bigw canvas,#bl-mid .bl-bt canvas,#bl-mid .bl-ball canvas{position:static !important;inset:auto !important;display:block;}
 .bl-hud{position:absolute;left:8px;right:8px;top:8px;z-index:2;pointer-events:none;}
-.bl-sheet{display:flex;flex-direction:column;gap:3px;padding:3px 3px;border-radius:6px;background:linear-gradient(180deg,rgba(8,14,11,.86),rgba(6,10,8,.76));border:13px solid transparent;border-image:url(assets/games/bl_ui_frame.png) 30 stretch;background-clip:padding-box;box-shadow:0 6px 24px rgba(0,0,0,.45);}
+.bl-sheet{display:flex;flex-direction:column;gap:3px;padding:3px 3px;border-radius:6px;background:linear-gradient(180deg,rgba(8,14,11,.86),rgba(6,10,8,.76));border:10px solid transparent;border-image:url(assets/games/bl_ui_frame.png) 30 stretch;background-clip:padding-box;box-shadow:0 6px 24px rgba(0,0,0,.45);}
 .bl-sheet{pointer-events:auto;cursor:pointer;}
 .bl-row{display:flex;align-items:stretch;gap:5px;opacity:.7;max-height:3.4rem;transition:opacity .25s,max-height .3s,margin .3s;}
 .bl-sheet.compact .bl-row:not(.on){max-height:0;opacity:0;overflow:hidden;margin-top:-3px;}
@@ -4566,7 +4566,7 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
 @keyframes blpop{0%{transform:scale(1.4);color:#fff;}100%{transform:scale(1);}}
 .bl-prac{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;padding:5px 8px;border-radius:12px;background:rgba(8,14,11,.8);border:1px solid rgba(230,195,106,.3);}
 .bl-prac span{font:400 .62rem 'Jost',sans-serif;color:#b9b29c;padding:2px 6px;}.bl-prac span.on{background:rgba(240,210,122,.14);border-radius:8px;}.bl-prac b{display:block;font:800 1rem 'Cinzel',serif;color:#ffe9a3;text-align:center;}
-.bl-hint{position:absolute;left:0;right:0;top:55%;text-align:center;font:700 .62rem 'Cinzel',serif;letter-spacing:.2em;color:#f4e7b8;text-shadow:0 1px 8px #000,0 0 14px #000;opacity:0;transition:opacity .3s;pointer-events:none;z-index:2;padding:0 10px;}
+.bl-hint{position:absolute;left:0;right:0;top:calc(100% - 7.2rem);text-align:center;font:700 .62rem 'Cinzel',serif;letter-spacing:.2em;color:#f4e7b8;text-shadow:0 1px 8px #000,0 0 14px #000;opacity:0;transition:opacity .3s;pointer-events:none;z-index:2;padding:0 10px;}
 .bl-hint.on{opacity:.95;}
 .bl-ctl{position:absolute;left:10px;right:10px;bottom:10px;display:flex;align-items:center;gap:10px;z-index:2;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;transform:translateY(8px);}
 .bl-ctl.on{opacity:1;pointer-events:auto;transform:none;}
@@ -6075,7 +6075,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=259;
+const APP_BUILD=260;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -33561,16 +33561,17 @@ function blPinSprite(){
 }
 // ── the camera: a long lens far behind the lane; z/h/x move, the picture follows ──
 function blLayout(g){
-  const H=g.cv.height,W=g.cv.width,c0=12,y0=.78*H,hb=(g.hudCss||0)*(g.dpr||1),y1=Math.max(.30*H,hb+.09*H);
+  // a longer lens, further back: the lane fills about half of the width (it used to be a third) and the pins are bigger
+  const H=g.cv.height,W=g.cv.width,c0=16,y0=.8*H,hb=(g.hudCss||0)*(g.dpr||1),y1=Math.max(.335*H,hb+.095*H);
   let K=(y0-y1)/(1/c0-1/(c0+BL.HEAD)),f=K/2.2;
-  if(f>5.2*W){f=5.2*W;K=f*2.2;}
-  return{f:f,K:K,hz:y0-K/c0,H:H,W:W};
+  if(f>8.2*W){f=8.2*W;K=f*2.2;}
+  return{f:f,K:K,hz:y0-K/c0,H:H,W:W,c0:c0,fr:f/(4.34*H)};
 }
 function blCamTarget(g,mode){
   const L=g.lay&&g.lay.H===g.cv.height&&g.lay.W===g.cv.width?g.lay:(g.lay=blLayout(g)),H=L.H,f=L.f,c={f};
-  if(mode==='roll'){const b=g.sim&&g.sim.ball;const bz=b?Math.min(b.z,11.5):-1;c.z=Math.max(-12,bz-7.5);c.h=1.45;c.x=b?b.x*.3:0;const dz=(b?Math.min(b.z,11.5):-1)-c.z;c.hz=.78*H-f*c.h/Math.max(2,dz);}
-  else if(mode==='impact'){c.z=11.4;c.h=1.6;c.x=0;c.hz=.64*H-f*c.h/(BL.HEAD-c.z);}
-  else{c.z=-12;c.h=2.2;c.x=0;c.hz=L.hz;}
+  if(mode==='roll'){const b=g.sim&&g.sim.ball;const bz=b?Math.min(b.z,11.5):-1;c.z=Math.max(-L.c0,bz-7.5*L.fr);c.h=1.45;c.x=b?b.x*.3:0;const dz=(b?Math.min(b.z,11.5):-1)-c.z;c.hz=.8*H-f*c.h/Math.max(2,dz);}
+  else if(mode==='impact'){c.z=BL.HEAD-6.9*L.fr;c.h=1.6;c.x=0;c.hz=.64*H-f*c.h/(BL.HEAD-c.z);}
+  else{c.z=-L.c0;c.h=2.2;c.x=0;c.hz=L.hz;}
   c.E=.42*Math.max(0,Math.min(1,(BL.HEAD-c.z-10)/9));
   return c;
 }
@@ -33993,8 +33994,8 @@ function blWoodTex(){
   if(BL_IMG.wood)return BL_IMG.wood;
   const W=312,H=1100,cv=document.createElement('canvas');cv.width=W;cv.height=H;const x=cv.getContext('2d'),R=blRnd(31337),bw=W/39;
   for(let i=0;i<39;i++){
-    const t=(R()-.5)*.1,l=Math.round(66+t*60),sat=Math.round(52+R()*8);
-    const gr=x.createLinearGradient(i*bw,0,(i+1)*bw,0);gr.addColorStop(0,'hsl(32,'+sat+'%,'+(l-3)+'%)');gr.addColorStop(.5,'hsl(34,'+sat+'%,'+(l+2)+'%)');gr.addColorStop(1,'hsl(32,'+sat+'%,'+(l-4)+'%)');
+    const t=(R()-.5)*.2,l=Math.round(57+t*60),sat=Math.round(62+R()*10);
+    const gr=x.createLinearGradient(i*bw,0,(i+1)*bw,0);gr.addColorStop(0,'hsl(30,'+sat+'%,'+(l-4)+'%)');gr.addColorStop(.5,'hsl(34,'+sat+'%,'+(l+3)+'%)');gr.addColorStop(1,'hsl(29,'+sat+'%,'+(l-5)+'%)');
     x.fillStyle=gr;x.fillRect(i*bw,0,bw+.5,H);
     // grain: long thin lines that wander a little
     for(let k=0;k<7;k++){x.strokeStyle='rgba('+(R()<.5?'110,66,24':'255,230,170')+','+(.05+R()*.1)+')';x.lineWidth=.5+R()*.8;x.beginPath();let gx=i*bw+R()*bw;x.moveTo(gx,0);for(let y=0;y<H;y+=90){gx+=(R()-.5)*1.2;gx=Math.max(i*bw+.5,Math.min((i+1)*bw-.5,gx));x.lineTo(gx,y);}x.stroke();}
@@ -34002,7 +34003,7 @@ function blWoodTex(){
     const ys=[R()*H,R()*H];ys.forEach(y=>{x.fillStyle='rgba(60,32,10,.22)';x.fillRect(i*bw,y,bw,1.4);});
     if(R()<.12){const ky=R()*H;x.fillStyle='rgba(120,70,28,.22)';x.beginPath();x.ellipse(i*bw+bw/2,ky,bw*.22,6+R()*5,0,0,7);x.fill();}
   }
-  x.strokeStyle='rgba(54,28,8,.42)';x.lineWidth=1;x.beginPath();for(let i=1;i<39;i++){x.moveTo(i*bw,0);x.lineTo(i*bw,H);}x.stroke();
+  x.strokeStyle='rgba(54,28,8,.55)';x.lineWidth=1.2;x.beginPath();for(let i=1;i<39;i++){x.moveTo(i*bw,0);x.lineTo(i*bw,H);}x.stroke();
   return BL_IMG.wood=cv;
 }
 function blLaneSlices(g,x,zA,zB,hw){
@@ -34047,7 +34048,7 @@ function blStrip(g,x,xa,xb,name,period,zA,zB,alpha,deck){
   // while the camera moves the strip is one smooth colour (fast, and no blocks); the picture comes back when the camera is still
   if(g.moving){blQuad(x,g,[[xa,0,Math.max(zA,g.cam.z+1)],[xb,0,Math.max(zA,g.cam.z+1)],[xb,0,Math.min(zB,BL.HEAD-.35)],[xa,0,Math.min(zB,BL.HEAD-.35)]],deck||'#222');return;}
   const c=g.cam,dpr=g.dpr||1,zF=Math.min(zB,BL.HEAD-.35),pf=blP(g,0,0,zF),pn=blP(g,0,0,Math.max(zA,c.z+1));if(!pf||!pn)return;
-  const rowH=Math.max(3,Math.round(5*dpr))*(g.moving?3:1),k=c.f*c.h;x.save();x.globalAlpha=alpha==null?1:alpha;
+  const rowH=Math.max(2,Math.round(2*dpr))*(g.moving?3:1),k=c.f*c.h;x.save();x.globalAlpha=alpha==null?1:alpha;
   for(let y=Math.max(Math.floor(pf[1]),-rowH*2),yEnd=Math.min(pn[1],g.cv.height+rowH);y<yEnd;y+=rowH){
     const yy=y+rowH/2-(g.shy||0),den=yy-c.hz;if(den<=1)continue;const dz=k/den,z=dz+c.z;if(z>zF||z<zA)continue;
     const s=c.f/dz,cx0=g.cv.width/2+(xa-c.x)*s+(g.shx||0),w=(xb-xa)*s;
@@ -34063,7 +34064,7 @@ function blCarpet(g,x,zA){
   let pat=BL_IMG.carpetPat;if(!pat||pat._x!==x){try{pat=BL_IMG.carpetPat=x.createPattern(tex,'repeat');pat._x=x;}catch(e){return;}}
   if(!pat||!pat.setTransform)return;
   const c=g.cam,dpr=g.dpr||1,pf=blP(g,0,0,22),pn=blP(g,0,0,Math.max(zA,c.z+1));if(!pf||!pn)return;
-  const rowH=Math.max(3,Math.round(4*dpr))*(g.moving?3:1),k=c.f*c.h,W=g.cv.width;
+  const rowH=Math.max(2,Math.round(2*dpr))*(g.moving?3:1),k=c.f*c.h,W=g.cv.width;
   x.save();x.fillStyle=pat;
   for(let y=Math.max(Math.floor(pf[1]),-rowH*2),yEnd=Math.min(pn[1],g.cv.height+rowH);y<yEnd;y+=rowH){
     const den=y+rowH/2-c.hz-(g.shy||0);if(den<=1)continue;const dz=k/den,z=dz+c.z;if(z>22||z<zA)continue;
@@ -34075,8 +34076,8 @@ function blCarpet(g,x,zA){
 }
 // the pools of lamplight under the lanterns
 function blPools(g,x){
-  const im=blPhoto('pool','.jpg');if(!im)return;x.save();x.globalCompositeOperation='lighter';x.globalAlpha=.42;
-  for(let k=0;k<5;k++)for(const sd of[-1,1]){const z=k*3.8+5.5,n=blP(g,sd*1.22,0,z-.9),f=blP(g,sd*1.22,0,z+.9);if(!n||!f)continue;const w=1.5*(n[2]+f[2])/2,h=n[1]-f[1];if(h>1)x.drawImage(im,n[0]-w/2,f[1],w,h);}
+  const im=blPhoto('pool','.jpg');if(!im)return;x.save();x.globalCompositeOperation='lighter';x.globalAlpha=.26;
+  for(let k=0;k<5;k++)for(const sd of[-1,1]){const z=k*3.8+5.5,n=blP(g,sd*1.22,0,z-.9),f=blP(g,sd*1.22,0,z+.9);if(!n||!f)continue;const w=1.25*(n[2]+f[2])/2,h=n[1]-f[1];if(h>1)x.drawImage(im,n[0]-w/2,f[1],w,h);}
   x.restore();
 }
 function blDrawLane(g,x){
@@ -34092,7 +34093,7 @@ function blDrawLane(g,x){
     blQuad(x,g,[[a,-.01,zA],[sd*(hw+gw*.5),-.05,zA],[sd*(hw+gw*.5),-.05,zB],[a,-.01,zB]],'rgba(120,140,150,.2)');
     blQuad(x,g,[[b,0,zA],[r,0,zA],[r,0,zB],[b,0,zB]],'#14211a');
     blQuad(x,g,[[b,0,zA],[b+sd*.02,0,zA],[b+sd*.02,0,zB],[b,0,zB]],'rgba(214,176,92,.55)');
-    blStrip(g,x,Math.min(a,b),Math.max(a,b),'tx_gutter',2.2,zA,BL.HEAD+.9,.85,'#3a4048');blStrip(g,x,Math.min(b,r),Math.max(b,r),'tx_rail',2.6,zA,BL.HEAD+.9,.6,'#2a1a10');}
+    blStrip(g,x,Math.min(a,b),Math.max(a,b),'tx_gutter',2.2,zA,BL.HEAD+.9,.85,'#3a4048');blStrip(g,x,Math.min(b,b+sd*.3),Math.max(b,b+sd*.3),'tx_rail',2.6,zA,BL.HEAD+.9,.7,'#2a1a10');}
   if(!g.moving)blPools(g,x);
   // the lane: warm maple, brighter toward the pins; the approach is a little darker
   const pA=blP(g,0,0,zA),pB=blP(g,0,0,zB);if(!pA||!pB)return;
@@ -34208,7 +34209,7 @@ function blStepParts(g,dt){
 }
 function blDrawReturn(g,x){
   const im=blPhoto('return');if(!im)return;
-  for(const sd of[-1,1]){const p=blP(g,sd*1.0,0,-.4);if(!p)continue;const w=.6*p[2],h=w*im.height/im.width;if(w<8)continue;
+  for(const sd of[-1,1]){const p=blP(g,sd*.86,0,-.4);if(!p)continue;const w=.5*p[2],h=w*im.height/im.width;if(w<8)continue;
     x.save();x.translate(p[0],p[1]);if(sd<0)x.scale(-1,1);x.drawImage(im,-w/2,-h*.92,w,h);x.restore();}
 }
 // the confetti and the streamers fall from above the pins: pieces of the real picture, a few hundred pixels in all
