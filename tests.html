@@ -6459,6 +6459,36 @@ async function runPresentation(A,W,frame){
     check('a device that was never used keeps only the table it joined',tbRes.fresh==='TBLONE1234|TBLONE1234');
     check('robots and empty seats are not people (head to head, suggestions)',tbRes.real==='false,false,false,true');
   });
+  // ── FAVOURITES: starred games, the same on every device of a table ──
+  const favRes={};
+  {
+    const F=n=>W.eval(n),gg=W.eval('G'),LS=W.localStorage;
+    const keep={};['ct_favs','ct_favs_at','ct_table_code','ct_tables'].forEach(k=>keep[k]=LS.getItem(k));
+    try{
+      const pushed=[];const sb={rpc:(fn,a)=>{if(fn==='set_favourites')pushed.push(a.p_list);if(fn==='settings_for')return Promise.resolve({data:[{table_name:'',table_year:'',updated_at:new Date().toISOString(),favourites:['pig','uno'],favs_at:'2099-01-01T00:00:00Z'}],error:null});return Promise.resolve({data:[],error:null});},channel:()=>({on(){return this;},subscribe(){return this;},send(){}}),removeChannel(){}};
+      LS.setItem('ct_table_code','FAVTABLE01');LS.setItem('ct_tables',JSON.stringify([{code:'FAVTABLE01',name:''}]));LS.removeItem('ct_favs');LS.removeItem('ct_favs_at');
+      W._famSb=sb;F('favToggle')('farkle');favRes.one=F('favList')().join();F('favToggle')('pig');favRes.two=F('favList')().join();F('favToggle')('farkle');favRes.three=F('favList')().join();favRes.pushed=pushed.length;
+      favRes.star=/data-a="fav-toggle"/.test(F('favStarHTML')('pig'))&&/★/.test(F('favStarHTML')('pig'))&&/☆/.test(F('favStarHTML')('uno'));
+      favRes.home=/Favourites/.test(F('homeFavsHTML')([]))&&/fav-card/.test(F('homeFavsHTML')([]));
+      F('favSet')(['not-a-game','pig']);favRes.invalid=F('favList')().join();
+      F('famReset')();await F('famSyncAll')({announce:false});favRes.adopted=F('favList')().join();
+      LS.removeItem('ct_favs');LS.removeItem('ct_favs_at');F('favSet')([]);favRes.empty=F('homeFavsHTML')([{game:'pig',winner:'Papa',players:['Papa'],date:'2026-01-01'}]).includes('most played');
+    }catch(e){favRes.err=String(e&&e.stack||e);}
+    finally{
+      delete W._famSb;try{F('famReset')();W.eval('clearTimeout(_famTimer);_famAgain=null;_famBusy=false;');}catch(e){}
+      Object.keys(keep).forEach(k=>{if(keep[k]===null)LS.removeItem(k);else LS.setItem(k,keep[k]);});
+    }
+  }
+  suite('Favourites (starred games, shared by the table)',()=>{
+    check('the favourites ran without an error',!favRes.err);
+    check('a star adds a game, another star removes it, in order',favRes.one==='farkle'&&favRes.two==='farkle,pig'&&favRes.three==='pig');
+    check('every change is sent to the table',favRes.pushed===3);
+    check('the star shows filled for a favourite and empty for the others',favRes.star===true);
+    check('Home shows a favourites row',favRes.home===true);
+    check('an unknown game is never kept as a favourite',favRes.invalid==='pig');
+    check("a newer list from the table replaces this device's list",favRes.adopted==='pig,uno');
+    check('with no favourites the row shows the most played games',favRes.empty===true);
+  });
   suite('Family sync (one family code, the same family on every device)',()=>{
     check('the sync ran without an error',!famRes.err);
     check('every game of the table is fetched (4 rows)',famRes.rows===4);
@@ -6484,8 +6514,7 @@ async function runPresentation(A,W,frame){
       check('the remembered table is read back with its people and its robot',F('getRoster')().length===4&&F('getRoster')()[3].bot==='sharp');
       W.localStorage.setItem('ct_roster','not json');check('a broken memory is ignored, not a crash',F('getRoster')().length===0);
       W.localStorage.setItem('ct_roster',JSON.stringify([{name:'AnnQ',avatar:F('AVATARS')[0],bot:null},{name:'BobQ',avatar:F('AVATARS')[1],bot:null},{name:'CyQ',avatar:F('AVATARS')[2],bot:null}]));
-      for(const n of [1,2,3,4,5,6]){const ps=F('quickPicks')(n);check('quick start for '+n+' shows up to four games that fit',ps.length>=1&&ps.length<=4&&ps.every(g=>!g.locked&&!g.onlineOnly&&(g.maxP||6)>=n));}
-      check('the suggestions come from different rooms where possible',new Set(F('quickPicks')(3).map(g=>g.cat)).size>=3);
+      for(const n of [1,2,3,4,5,6]){const ps=F('fitGames')(n);check('games that fit '+n+' players exist, none locked or online-only',ps.length>=1&&ps.every(g=>!g.locked&&!g.onlineOnly&&(g.maxP||6)>=n));}
       gg.isOnline=false;gg.selGame='farkle';
       let seats=F('seatTable')(3);check('three seats are the three remembered people',seats.map(p=>p.name).join()==='AnnQ,BobQ,CyQ'&&seats.every(p=>!p.bot));
       seats=F('seatTable')(1);check('one player against a robot in a game that has robots',seats.length===2&&seats[0].name==='AnnQ'&&!!seats[1].bot);
