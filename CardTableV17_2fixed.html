@@ -6071,7 +6071,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=250;
+const APP_BUILD=251;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -34039,9 +34039,13 @@ function blDrawLane(g,x){
     const a=blP(g,0,1.6,zc);if(a){const rg=x.createRadialGradient(a[0],a[1],0,a[0],a[1],a[2]*1.7);rg.addColorStop(0,'rgba(255,200,110,.28)');rg.addColorStop(1,'rgba(255,200,110,0)');x.fillStyle=rg;x.fillRect(a[0]-a[2]*2,a[1]-a[2]*1.2,a[2]*4,a[2]*2.4);}}
   // lamps hanging over the lane: warm, with a halo (they slide past when the camera moves)
   x.save();x.globalCompositeOperation='lighter';
-  for(let k=0;k<5;k++)for(const sd of[-1,1]){const p=blP(g,sd*1.35,2.9,k*5.2+1.2);if(!p)continue;const r=Math.max(10,p[2]*.5);const rg=x.createRadialGradient(p[0],p[1],0,p[0],p[1],r);rg.addColorStop(0,'rgba(255,214,140,.55)');rg.addColorStop(.25,'rgba(255,190,100,.2)');rg.addColorStop(1,'rgba(255,190,100,0)');x.fillStyle=rg;x.beginPath();x.arc(p[0],p[1],r,0,7);x.fill();}
+  for(let k=0;k<5;k++)for(const sd of[-1,1]){const p=blP(g,sd*1.22,1.35,k*3.8+5.5);if(!p)continue;const r=Math.max(10,p[2]*.62);const rg=x.createRadialGradient(p[0],p[1],0,p[0],p[1],r);rg.addColorStop(0,'rgba(255,214,140,.55)');rg.addColorStop(.25,'rgba(255,190,100,.2)');rg.addColorStop(1,'rgba(255,190,100,0)');x.fillStyle=rg;x.beginPath();x.arc(p[0],p[1],r,0,7);x.fill();}
   x.restore();
+  // the lanterns themselves (cut from the lamp picture): hung over the rails, small in the distance
+  {const nm=['lampTall','lampCyl'];for(let k=0;k<5;k++)for(const sd of[-1,1]){const im=blLampImg(nm[(k+(sd>0?1:0))%2]);if(!im)continue;const p=blP(g,sd*1.22,1.35,k*3.8+5.5);if(!p)continue;
+    const hh=.46*p[2],ww=hh*im.width/im.height;if(hh<4)continue;x.drawImage(im,p[0]-ww/2,p[1]-hh/2,ww,hh);}}
 }
+function blLampImg(n){let i=BL_IMG[n];if(!i){i=BL_IMG[n]=new Image();i.onload=()=>{i._ok=1;};i.src='assets/games/bl_'+(n==='lampTall'?'lamp_tall':'lamp_cyl')+'.png';return null;}return i._ok?i:null;}
 // one pin (standing, rocking, flying or lying) on the lane
 function blDrawPin(g,x,p,i,spr,sink,refl){
   const pb=blP(g,p.x,0,p.z);if(!pb)return;const s=pb[2],h=.381,lift=(sink||0)*s*.7;
