@@ -3886,6 +3886,8 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
 .legend-title{font-size:.56rem;text-transform:uppercase;letter-spacing:.1em;color:var(--gold2);opacity:.9;}
 .legend-name{font-family:var(--serif);font-size:1rem;color:var(--paper);margin-top:.25rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .legend-sub{font-size:.66rem;color:var(--paper3);margin-top:.2rem;}
+.pp-h2h-row[data-a]{cursor:pointer;}.pp-h2h-games{margin-top:.5rem;padding-top:.45rem;border-top:1px solid rgba(255,255,255,.08);}.pp-h2h-g{display:flex;justify-content:space-between;font-size:.74rem;color:var(--paper2);padding:.18rem 0;}.pp-h2h-gs{font-variant-numeric:tabular-nums;color:var(--paper3);}.pp-h2h-gs.me{color:var(--gold2);}.pp-h2h-gs.them{color:var(--paper);}
+.champ-list{display:flex;flex-direction:column;gap:.1rem;margin-top:.5rem;}.champ-row{display:grid;grid-template-columns:1.3fr 1fr auto;gap:.6rem;align-items:center;font-size:.8rem;padding:.4rem 0;border-top:1px solid rgba(255,255,255,.06);}.champ-row:first-child{border-top:0;}.champ-g{color:var(--paper);}.champ-w{display:flex;align-items:center;gap:.4rem;color:var(--gold2);}.champ-av{width:1.5rem;height:1.5rem;display:inline-grid;place-items:center;font-size:1rem;}.champ-n{color:var(--paper3);font-size:.7rem;text-align:right;}
 .rivalry-card{padding:.9rem 1.1rem 1rem;margin-bottom:1.6rem;border-radius:16px;border:1px solid rgba(234,208,138,.22);
   background:radial-gradient(120% 160% at 50% -10%,rgba(212,168,67,.14),transparent 65%),linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.015));
   box-shadow:0 10px 22px rgba(0,0,0,.32),inset 0 1px 0 rgba(255,255,255,.06);}
@@ -5991,7 +5993,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=240;
+const APP_BUILD=241;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -6583,6 +6585,27 @@ function houseLegends(){
 // The head-to-head record between the two family members who've played together the most —
 // computed purely from existing history entries, same "only show it once it means something" rule
 // as House Legends (needs at least 3 shared games before a rivalry is worth calling out).
+// game by game between two people: only games both sat in
+function h2hByGame(a,b,hist){
+  const by={};
+  (hist||familyHistory()).forEach(h=>{const ps=h.players||[];if(!ps.includes(a)||!ps.includes(b))return;
+    const r=by[h.game]||(by[h.game]={game:h.game,together:0,aWins:0,bWins:0});r.together++;
+    if(h.winner===a)r.aWins++;else if(h.winner===b)r.bWins++;});
+  return Object.values(by).sort((x,y)=>y.together-x.together||x.game.localeCompare(y.game));
+}
+// who rules each game: most wins among the table's members, shown once a game was played 3+ times
+function gameChampions(hist){
+  const mem=getFamily();const set=mem.length>=2?new Set(mem.map(m=>m.name)):null;
+  const by={};
+  (hist||familyHistory()).forEach(h=>{if(!h.game)return;const g=by[h.game]||(by[h.game]={game:h.game,games:0,wins:{}});g.games++;
+    const w=h.winner;if(w&&famNameIsReal(w)&&(!set||set.has(w)))g.wins[w]=(g.wins[w]||0)+1;});
+  return Object.values(by).filter(g=>g.games>=3).map(g=>{
+    const e=Object.entries(g.wins).sort((x,y)=>y[1]-x[1]||x[0].localeCompare(y[0]));
+    if(!e.length)return null;
+    const tie=e.length>1&&e[1][1]===e[0][1];
+    return{game:g.game,games:g.games,name:e[0][0],wins:e[0][1],tie,second:e[1]?e[1][0]:null};
+  }).filter(Boolean).sort((x,y)=>y.games-x.games).slice(0,8);
+}
 function rivalries(){
   const history=familyHistory();
   const family=getFamily();
@@ -31057,10 +31080,13 @@ function rPlayer(){
       // loss for both, which is a quietly wrong story to tell about someone's record.
       const pctYou=decided?Math.round(r.youWon/decided*100):50;
       const lead=r.youWon>r.theyWon?`${esc(name)} leads`:r.theyWon>r.youWon?`${esc(r.name)} leads`:'Dead even';
-      return`<div class="pp-h2h-row">
+      const open=G.h2hOpen===r.name;
+      const detail=open?`<div class="pp-h2h-games">${h2hByGame(name,r.name).map(x=>`<div class="pp-h2h-g"><span>${gicon(x.game)} ${esc(gname(x.game))}</span><span class="pp-h2h-gs${x.aWins>x.bWins?' me':x.bWins>x.aWins?' them':''}">${x.aWins} – ${x.bWins}</span></div>`).join('')}</div>`:'';
+      return`<div class="pp-h2h-row" data-a="h2h-toggle" data-name="${esc(r.name)}" role="button" tabindex="0" aria-expanded="${open}">
         <div class="pp-h2h-head"><span class="pp-h2h-name">${esc(r.name)}</span><span class="pp-h2h-score">${r.youWon} – ${r.theyWon}</span></div>
         <div class="pp-h2h-bar"><div class="pp-h2h-fill" style="width:${pctYou}%;"></div></div>
-        <div class="pp-h2h-sub">${r.together} game${r.together!==1?'s':''} together · ${lead}</div>
+        <div class="pp-h2h-sub">${r.together} game${r.together!==1?'s':''} together · ${lead} · ${open?'▴ hide games':'▾ game by game'}</div>
+        ${detail}
       </div>`;
     }).join('')}</div>`:'';
   const breakdown=`<div class="pp-section-title">By game</div>
@@ -31205,6 +31231,10 @@ function rFamily(){
       </div>
       <div class="rivalry-sub">${rivalrySub}</div>
     </div>`:'';
+  const champs=gameChampions();
+  const champAv={};family.forEach(m=>champAv[m.name]=m.avatar);
+  const gnm=id=>GAMES.find(g=>g.id===id)?.name||id,gic=id=>GAMES.find(g=>g.id===id)?.icon||'🃏';
+  const champPanel=champs.length?`<div class="rivalry-card champ-card"><div class="rivalry-label">👑 Game champions</div><div class="champ-list">${champs.map(c=>`<div class="champ-row"><span class="champ-g">${gic(c.game)} ${esc(gnm(c.game))}</span><span class="champ-w">${c.tie?'Level at the top':`<span class="champ-av">${avHTML(champAv[c.name]||AVATARS[0])}</span>${esc(c.name)}`}</span><span class="champ-n">${c.tie?esc(c.name)+' & '+esc(c.second):c.wins+' of '+c.games}</span></div>`).join('')}</div></div>`:'';
   return`<div id="s-family" class="scr on" style="padding:1.8rem 2.2rem;overflow-y:auto;">
     <div class="ui-hero" style="--img:url(assets/ui/family.jpg)"><div class="ui-hero-txt">
         <div style="font-family:var(--serif);font-size:1.9rem;color:var(--paper);margin-bottom:.2rem;">Family</div>
@@ -31215,6 +31245,7 @@ function rFamily(){
     ${codeLine}
     ${legendsPanel}
     ${rivalryPanel}
+    ${champPanel}
     ${family.length?`<div class="family-list">${rows}</div>`:emptyState}
     ${suggestRow}
     <div class="family-add-row">
@@ -36777,7 +36808,8 @@ document.addEventListener('click',e=>{
   }
   else if(a==='nav-moments'){G.scr='moments';render();}
   else if(a==='nav-trophies'){G.scr='trophies';render();}
-  else if(a==='open-player'){G.playerView=t.getAttribute('data-name')||'';G.scr='player';render();}
+  else if(a==='open-player'){G.playerView=t.getAttribute('data-name')||'';G.h2hOpen='';G.scr='player';render();}
+  else if(a==='h2h-toggle'){const n=t.getAttribute('data-name')||'';G.h2hOpen=G.h2hOpen===n?'':n;render();}
   else if(a==='nav-family'){G.scr='family';render();}
   else if(a==='family-avatar-cycle'){G.familyNewAvatar=AVATARS[(AVATARS.indexOf(G.familyNewAvatar)+1)%AVATARS.length];render();}
   else if(a==='family-add'){

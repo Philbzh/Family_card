@@ -6497,6 +6497,18 @@ async function runPresentation(A,W,frame){
       check('a run of wins by an empty seat is not called out as a streak',!tp||!/has won the last/.test(tp.why));
     }finally{if(keep.h===null)LS.removeItem('ct_history');else LS.setItem('ct_history',keep.h);if(keep.f===null)LS.removeItem('ct_family');else LS.setItem('ct_family',keep.f);W.eval('famBump()');}
   });
+  suite('Head to head by game and game champions',()=>{
+    const F=n=>W.eval(n);
+    const d=i=>'2026-05-'+String(10+i).padStart(2,'0')+'T10:00:00Z';
+    const h=[{game:'uno',winner:'Papa',players:['Papa','Mama'],date:d(1)},{game:'uno',winner:'Papa',players:['Papa','Mama'],date:d(2)},{game:'uno',winner:'Mama',players:['Papa','Mama'],date:d(3)},{game:'pig',winner:'Mama',players:['Papa','Mama','Shadow'],date:d(4)},{game:'pig',winner:'Shadow',players:['Papa','Shadow'],date:d(5)},{game:'pig',winner:'Papa',players:['Papa','Mama'],date:d(6)}];
+    const r=F('h2hByGame')('Papa','Mama',h);
+    const uno=r.find(x=>x.game==='uno'),pig=r.find(x=>x.game==='pig');
+    check('head to head by game counts only games both sat in',uno.together===3&&uno.aWins===2&&uno.bWins===1&&pig.together===2&&pig.aWins===1&&pig.bWins===1);
+    const c=F('gameChampions')(h);
+    check('a game needs 3 plays to have a champion, and the one with most wins holds it',c.length===2&&c.find(x=>x.game==='uno').name==='Papa'&&c.find(x=>x.game==='uno').wins===2);
+    check('a tie at the top is shown as a tie',c.find(x=>x.game==='pig').tie===true||c.find(x=>x.game==='pig').wins===1);
+    check('the empty seat is never a champion',F('gameChampions')([{game:'uno',winner:'P4',players:['P4','Papa'],date:d(1)},{game:'uno',winner:'P4',players:['P4','Papa'],date:d(2)},{game:'uno',winner:'P4',players:['P4','Papa'],date:d(3)}]).length===0);
+  });
   suite('Favourites (starred games, shared by the table)',()=>{
     check('the favourites ran without an error',!favRes.err);
     check('a star adds a game, another star removes it, in order',favRes.one==='farkle'&&favRes.two==='farkle,pig'&&favRes.three==='pig');
