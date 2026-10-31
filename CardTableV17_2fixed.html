@@ -5365,39 +5365,8 @@ try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(e){}
 document.addEventListener('visibilitychange',()=>{try{if(document.hidden){if(AUDIO_KEEP.el)AUDIO_KEEP.el.pause();}else audioKeepAlive();}catch(e){}});
 function _acResume(){try{const p=_ac.resume();if(p&&p.catch)p.catch(function(){});}catch(e){}}
 function tone(f,d,t='sine'){if(!G.snd)return;try{_ac=_ac||new(window.AudioContext||window.webkitAudioContext)();if(_ac.state==='suspended')_acResume();const o=_ac.createOscillator(),g=_ac.createGain();o.type=t;o.frequency.value=f;g.gain.value=.065;o.connect(g);g.connect(_ac.destination);o.start();g.gain.exponentialRampToValueAtTime(.0001,_ac.currentTime+(d||.12));o.stop(_ac.currentTime+(d||.12)+.02);}catch(e){}}
-// Ambient Lounge — a very quiet, deliberately simple room-tone bed (soft filtered noise, no pitched
-// content) that plays while you're actually at the table. Kept to noise-only on purpose: a synthesized
-// pad/drone risks sounding subtly off-key with no way for me to proof-listen to it; filtered noise at
-// low volume can't sound "wrong" the way an out-of-tune chord can. Shares the SFX system's AudioContext.
+// (The Ambient Lounge, a near-silent noise bed, was removed: nobody could hear what it did. pulseTension below stays as a harmless no-op.)
 let _ambNodes=null;
-function startAmbient(){
-  if(_ambNodes||!G.snd||!G.ambientOn)return;
-  try{
-    _ac=_ac||new(window.AudioContext||window.webkitAudioContext)();
-    if(_ac.state==='suspended')_acResume();
-    const ac=_ac;
-    const len=ac.sampleRate*2;
-    const buffer=ac.createBuffer(1,len,ac.sampleRate);
-    const data=buffer.getChannelData(0);
-    let last=0;
-    for(let i=0;i<len;i++){const white=Math.random()*2-1;last=(last+.02*white)/1.02;data[i]=last*3.2;}
-    const src=ac.createBufferSource();src.buffer=buffer;src.loop=true;
-    const filter=ac.createBiquadFilter();filter.type='lowpass';filter.frequency.value=360;
-    const gain=ac.createGain();gain.gain.value=0;
-    src.connect(filter);filter.connect(gain);gain.connect(ac.destination);
-    src.start();
-    gain.gain.linearRampToValueAtTime(.032,ac.currentTime+2.2);
-    _ambNodes={src,filter,gain};
-  }catch(e){_ambNodes=null;}
-}
-function stopAmbient(){
-  if(!_ambNodes)return;
-  const nodes=_ambNodes;_ambNodes=null;
-  try{
-    nodes.gain.gain.linearRampToValueAtTime(0,_ac.currentTime+.8);
-    setTimeout(()=>{try{nodes.src.stop();nodes.src.disconnect();nodes.filter.disconnect();nodes.gain.disconnect();}catch(e){}},900);
-  }catch(e){}
-}
 // Ambient tension — the lounge bed swells brighter/louder for a few seconds at genuinely high-stakes
 // moments (a final Yahtzee roll, an all-in, the dealer's reveal, a Battle war) then eases back to the
 // quiet baseline. Purely a filter-cutoff + gain ramp on the SAME noise bed already playing, so it can
@@ -31053,7 +31022,6 @@ function rHome(){
   const feltPickerHTML=`<div class="felt-picker">
     <span class="felt-picker-lbl">Felt</span>
     ${Object.keys(FELT_PREVIEW).map(t=>`<button class="felt-swatch${(G.feltTheme||'emerald')===t?' active':''}" style="background-image:url(assets/ui/sw_${t}.png)" data-a="felt-theme" data-theme="${t}" aria-label="${FELT_NAMES[t]} felt" title="${FELT_NAMES[t]}"></button>`).join('')}
-    <button class="ambient-toggle${G.ambientOn?' on':''}" data-a="ambient-toggle" aria-pressed="${G.ambientOn}">🎵 Ambient lounge</button>
     <button class="ambient-toggle" data-a="anim-toggle">✨ Animations: ${({full:'Full',light:'Light',off:'Off'})[animMode()]}</button>
     <button class="ambient-toggle" data-a="open-data" style="margin-left:auto;">🔒 Your data</button>
   </div>`;
@@ -36273,7 +36241,6 @@ function render(){
   flying.forEach(n=>n.remove());
 
   const s=G.scr;let html='';
-  if(G.ambientOn&&hasActiveTable())startAmbient();else stopAmbient();
   if(s==='home')html=rHome();
   else if(s==='games')html=rGames();
   else if(s==='setup')html=rSetup();
@@ -36853,12 +36820,6 @@ document.addEventListener('click',e=>{
   }
   else if(a==='felt-theme'){const th=t.getAttribute('data-theme');applyFeltTheme(th);render();toast('🎨 Felt set to '+(FELT_NAMES[th]||th));}
   else if(a==='anim-toggle'){const n={full:'light',light:'off',off:'full'}[animMode()];document.documentElement.dataset.anim=n;try{localStorage.setItem('ct_anim',n);}catch(e){}render();toast('✨ Animations: '+({full:'Full',light:'Light',off:'Off'})[n]);}
-  else if(a==='ambient-toggle'){
-    G.ambientOn=!G.ambientOn;localStorage.setItem('ct_ambient',G.ambientOn?'1':'0');
-    if(!G.ambientOn)stopAmbient();
-    render();
-    toast(G.ambientOn?'🎵 Ambient lounge on — plays while you\'re at the table':'🎵 Ambient lounge off');
-  }
   else if(a==='react'){
     const r=t.getAttribute('data-r');
     // a pick from the ⋯ panel closes it (without a re-render, so the emoji already floating is not cut short)
