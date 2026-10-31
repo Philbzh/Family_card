@@ -5909,6 +5909,8 @@ function famAdopt(first){
 }
 // a device that does not know who holds it: pick yourself from the people of the table (instead of 'Player')
 function famNameIsReal(n){n=String(n||'').trim();if(!n)return false;if(typeof pbIsBotName==='function'&&pbIsBotName(n))return false;return!/^(Player|Spieler)( \d+)?$/i.test(n);}
+// the walls only show people of the table: no robots, no empty seats ("Player 1"), and, once the table has people, nobody who is not one of them
+function famWallOK(h){const w=String((h&&h.winner)||'');if(w==='The whole crew')return true;if(!famNameIsReal(w))return false;const m=getFamily();return m.length<2||m.some(x=>x.name.toLowerCase()===w.toLowerCase());}
 function famAskWho(){
   if(G.myName||G.whoOpen||G.joinInv||G.tablesOpen||!['home','family','moments','trophies','player','games'].includes(G.scr))return;
   let skip=false;try{skip=!!localStorage.getItem('ct_who_skip:'+tableCode());}catch(e){}
@@ -30873,7 +30875,7 @@ function hasActiveTable(){
 // frame and plaque tie back to whichever game it was won at.
 const MOMENT_ACCENT={maumau:'#5fd68a',texas:'#eac976',fivecard:'#eac976',blackjack:'#ef7688',battle:'#7ec2f2',romme:'#a8e0a0',hearts:'#f2a0b4',bridge:'#a8c8e0',uno:'#e0a8d8',yahtzee:'#f2c94c',roulette:'#e0637a',dicedual:'#e8843e',farkle:'#4fd6c9',bingo:'#b98af0',lepouilleux:'#6b6b7a',slots:'#f0cc60',pig:'#f2a0b4',drawit:'#f2954c',liarsdice:'#e0594a',summit:'#7ec2f2',hotbomb:'#ff7a45',vault:'#e0b040',bust:'#ff5a4e',escape:'#45c4b0',shutbox:'#d9a35c',fourrow:'#f2c230',skull:'#c9a0f0',tension:'#e8a24a',mayhem:'#ff9a3c',chainreaction:'#ff7a3c',gauntlet:'#e6c36a',abyss:'#8f9bff',blackwater:'#5fc7b8'};
 function rMoments(){
-  const history=getHistory(),shown=G.momAll?history:history.slice(0,60);
+  const history=getHistory().filter(famWallOK),shown=G.momAll?history:history.slice(0,60);
   const frames=shown.map(h=>{
     const g=GAMES.find(x=>x.id===h.game);
     const days=Math.max(0,Math.round((Date.now()-new Date(h.date).getTime())/864e5));
@@ -31242,7 +31244,7 @@ function homeJumpHTML(history){
 // The family's records, from the results and best times already on this device.
 function familyRecords(history){
   const out=[];
-  const winners={};history.forEach(h=>{if(h.winner&&h.winner!=='The whole crew')winners[h.winner]=(winners[h.winner]||0)+1;});
+  const winners={};history.forEach(h=>{if(h.winner&&h.winner!=='The whole crew'&&famWallOK(h))winners[h.winner]=(winners[h.winner]||0)+1;});
   const champ=Object.entries(winners).sort((a,b)=>b[1]-a[1])[0];
   if(champ)out.push({ic:'👑',label:'Table champion',value:champ[0],sub:champ[1]+' win'+(champ[1]!==1?'s':'')});
   const st=winStreak();if(st>=2)out.push({ic:'🔥',label:'Win streak',value:st+' in a row',sub:history[0]?history[0].winner:''});
@@ -31324,7 +31326,7 @@ function rHome(){
     </div>
     <button class="btn btn-ghost btn-full" data-a="digest" style="margin-top:.7rem;">📋 Share Tonight's Digest</button>
   </div>`;
-  const momentItems=history.slice(0,4); // side column is desktop-only; four rows balance the column
+  const momentItems=history.filter(famWallOK).slice(0,4); // side column is desktop-only; four rows balance the column
   const momentsPanel=`<div class="v10-side-card">
     <div class="v10-side-card-title">Recent Moments</div>
     ${momentItems.length?momentItems.map(h=>{

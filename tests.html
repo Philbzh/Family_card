@@ -6385,6 +6385,10 @@ async function runPresentation(A,W,frame){
       LS.setItem('ct_tables',JSON.stringify([{code:'TBLTWO5678',name:''}]));LS.setItem('ct_table_code','TBLTWO5678');LS.setItem('ct_history','[]');LS.setItem('ct_family','[]');gg.myName='';F('famReset')();
       await F('tbJoin')('TBLONE1234','Joined');await new Promise(r=>setTimeout(r,150));
       tbRes.fresh=F('tbList')().map(x=>x.code).join()+'|'+F('tableCode')();
+      // the walls: robots, empty seats and strangers stay off once the table has people
+      LS.setItem('ct_family',JSON.stringify([{name:'Papa',avatar:AV[0]},{name:'Mama',avatar:AV[1]}]));
+      tbRes.wall=['Papa','mama','Player','Player 2','Robo','Adrien','The whole crew'].map(n=>F('famWallOK')({winner:n})?1:0).join('');
+      LS.setItem('ct_family','[]');tbRes.wallNoMembers=['Anna','Player 1','Robo'].map(n=>F('famWallOK')({winner:n})?1:0).join('');
       tbRes.real=[F('famNameIsReal')('Player'),F('famNameIsReal')('Player 3'),F('famNameIsReal')('Robo'),F('famNameIsReal')('Papa')].join();
     }catch(e){tbRes.err=String(e&&e.stack||e);}
     finally{
@@ -6402,6 +6406,8 @@ async function runPresentation(A,W,frame){
     check('a finished game is marked with the table it was played at',tbRes.tagged===true);
     check('the invite link carries the code and the name of that one table only',/\?join=TBLTWO5678&t=Two/.test(tbRes.link)&&!/TBLONE1234/.test(tbRes.link));
     check('when a table has an admin, only the admin can remove people or rename it',tbRes.memberCan===false&&tbRes.adminCan===true);
+    check('the walls show only people of the table (not Player, Player 2, Robo or strangers); co-op wins stay',tbRes.wall==='1100001');
+    check('a table with no people yet shows real names but never Player or robots',tbRes.wallNoMembers==='100');
     check('a device that was never used keeps only the table it joined',tbRes.fresh==='TBLONE1234|TBLONE1234');
     check('robots and empty seats are not people (head to head, suggestions)',tbRes.real==='false,false,false,true');
   });
