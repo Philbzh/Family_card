@@ -3886,7 +3886,7 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
 .legend-title{font-size:.56rem;text-transform:uppercase;letter-spacing:.1em;color:var(--gold2);opacity:.9;}
 .legend-name{font-family:var(--serif);font-size:1rem;color:var(--paper);margin-top:.25rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .legend-sub{font-size:.66rem;color:var(--paper3);margin-top:.2rem;}
-.pp-h2h-row[data-a]{cursor:pointer;}.pp-h2h-games{margin-top:.5rem;padding-top:.45rem;border-top:1px solid rgba(255,255,255,.08);}.pp-h2h-g{display:flex;justify-content:space-between;font-size:.74rem;color:var(--paper2);padding:.18rem 0;}.pp-h2h-gs{font-variant-numeric:tabular-nums;color:var(--paper3);}.pp-h2h-gs.me{color:var(--gold2);}.pp-h2h-gs.them{color:var(--paper);}
+.tp-rec{font-size:.7rem;color:var(--gold2);opacity:.85;margin-top:.15rem;}.pp-h2h-row[data-a]{cursor:pointer;}.pp-h2h-games{margin-top:.5rem;padding-top:.45rem;border-top:1px solid rgba(255,255,255,.08);}.pp-h2h-g{display:flex;justify-content:space-between;font-size:.74rem;color:var(--paper2);padding:.18rem 0;}.pp-h2h-gs{font-variant-numeric:tabular-nums;color:var(--paper3);}.pp-h2h-gs.me{color:var(--gold2);}.pp-h2h-gs.them{color:var(--paper);}
 .champ-list{display:flex;flex-direction:column;gap:.1rem;margin-top:.5rem;}.champ-row{display:grid;grid-template-columns:1.3fr 1fr auto;gap:.6rem;align-items:center;font-size:.8rem;padding:.4rem 0;border-top:1px solid rgba(255,255,255,.06);}.champ-row:first-child{border-top:0;}.champ-g{color:var(--paper);}.champ-w{display:flex;align-items:center;gap:.4rem;color:var(--gold2);}.champ-av{width:1.5rem;height:1.5rem;display:inline-grid;place-items:center;font-size:1rem;}.champ-n{color:var(--paper3);font-size:.7rem;text-align:right;}
 .rivalry-card{padding:.9rem 1.1rem 1rem;margin-bottom:1.6rem;border-radius:16px;border:1px solid rgba(234,208,138,.22);
   background:radial-gradient(120% 160% at 50% -10%,rgba(212,168,67,.14),transparent 65%),linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.015));
@@ -5333,17 +5333,19 @@ function lastPlayedDays(){const d={},now=Date.now();getHistory().forEach(h=>{if(
 // up to four suggestions for n players: what has not been on the table for the longest, from different rooms
 function fitGames(n){return GAMES.filter(g=>!g.locked&&!g.hidden&&!g.onlineOnly&&(g.maxP||6)>=n&&((g.minP||2)<=n||(n===1&&BOT_GAMES.has(g.id)&&(g.minP||2)<=2)));}
 // Tonight's pick: one game, with a reason a family can feel: a winning streak to break, something never tried, something that has been waiting
+function recLine(c){return c&&!c.tie?c.name+' leads this one — '+c.wins+' of '+c.games+' wins.':'';}
 function tonightPicks(){
   const hist=getHistory(),n=Math.max(1,Math.min(6,getRoster().length||2)),now=Date.now(),day=Math.floor(now/864e5),st={};
   hist.forEach(h=>{const x=st[h.game]||(st[h.game]={n:0,days:null,wins:[]});x.n++;if(x.days===null)x.days=Math.max(0,Math.round((now-new Date(h.date).getTime())/864e5));x.wins.push(famWallOK(h)?h.winner:'');});
+  const champ={};gameChampions(hist).forEach(c=>{champ[c.game]=c;});
   const lastG=hist[0]&&hist[0].game,most=Object.keys(st).sort((a,b)=>st[b].n-st[a].n)[0];
   const out=fitGames(n).filter(g=>g.id!==lastG).map(g=>{
     const x=st[g.id],jit=((g.id.length*7+day*13)%9);
     if(!x)return{g,score:58+jit,why:'Your table has not tried this one yet.'};
     let k=1;while(k<x.wins.length&&x.wins[k]&&x.wins[k]===x.wins[0])k++;
-    if(k>=2&&x.wins[0]&&x.wins[0]!=='The whole crew')return{g,score:75+k*3+jit,why:x.wins[0]+' has won the last '+k+' — can anyone stop them?'};
-    if(g.id===most&&x.days>=2)return{g,score:40+Math.min(x.days,20)+jit,why:'Your favourite — '+x.n+' games so far.'};
-    return{g,score:Math.min(x.days,45)+jit,why:x.days>=2?'Not on your table for '+x.days+' days.':'Played '+(x.days===0?'today':'yesterday')+' — one more?'};
+    if(k>=2&&x.wins[0]&&x.wins[0]!=='The whole crew')return{g,score:75+k*3+jit,rec:recLine(champ[g.id]),why:x.wins[0]+' has won the last '+k+' — can anyone stop them?'};
+    if(g.id===most&&x.days>=2)return{g,score:40+Math.min(x.days,20)+jit,rec:recLine(champ[g.id]),why:'Your favourite — '+x.n+' games so far.'};
+    return{g,score:Math.min(x.days,45)+jit,rec:recLine(champ[g.id]),why:x.days>=2?'Not on your table for '+x.days+' days.':'Played '+(x.days===0?'today':'yesterday')+' — one more?'};
   }).sort((a,b)=>b.score-a.score);
   return out;
 }
@@ -5353,7 +5355,7 @@ function tonightPickHTML(){
   return`<div class="v10-section"><div class="v10-section-title">Tonight's pick</div></div>
     <div class="tp-card" data-a="tp-play" data-gid="${g.id}" role="button" tabindex="0" aria-label="Tonight's pick: ${esc(g.name)}. ${esc(pk.why)}">
       <div class="tp-art" style="background-image:url('${g.cover||''}')"></div>
-      <div class="tp-body"><div class="tp-name">${esc(g.name)}</div><div class="tp-why">${esc(pk.why)}</div><div class="tp-go">▶ Play${names?' · '+esc(names)+(R.length>3?' +'+(R.length-3):''):''}</div></div>
+      <div class="tp-body"><div class="tp-name">${esc(g.name)}</div><div class="tp-why">${esc(pk.why)}</div>${pk.rec?`<div class="tp-rec">${esc(pk.rec)}</div>`:''}<div class="tp-go">▶ Play${names?' · '+esc(names)+(R.length>3?' +'+(R.length-3):''):''}</div></div>
       ${top.length>1?'<button class="tp-skip" data-a="tp-skip" aria-label="Show another idea">↻</button>':''}
     </div>`;
 }
@@ -5993,7 +5995,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=241;
+const APP_BUILD=242;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
