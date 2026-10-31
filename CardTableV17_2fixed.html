@@ -5996,7 +5996,11 @@ async function tbJoin(code,name){
   code=tcClean(code);if(code.length<6)return false;
   if(code===tableCode()){toast('You are already at this table');return true;}
   if(G.myName){const sb=famSb();if(sb){try{await sb.rpc('upsert_member',{p_code:code,p_name:G.myName,p_avatar:G.myAvatar||null});}catch(e){}}}
-  return tbSwitch(code,{name});
+  // a device that has never been used has an empty table of its own: it is not kept next to the one that was joined
+  const cur=tbList(),old=cur.length===1?cur[0]:null,fresh=!!(old&&!old.key&&!old.name&&!getAllLocalHistory().length&&!getLocalFamily().length&&!FAM.members.length);
+  const ok=tbSwitch(code,{name});
+  if(ok&&fresh){const l=tbList().filter(t=>t.code!==old.code);tbSave(l);try{TB_KEYS.forEach(k=>localStorage.removeItem(k+':'+old.code));localStorage.removeItem('ct_fcache:'+old.code);}catch(e){}}
+  return ok;
 }
 async function tbRotate(){
   const sb=famSb(),key=tbKey();if(!sb||!key){toast('Only the admin can do this');return;}
