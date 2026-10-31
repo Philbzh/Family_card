@@ -5543,11 +5543,19 @@ const DEVICE_ID=(()=>{try{let id=localStorage.getItem('ct_device_id');if(!id){id
 // bare string, even a stored "null" — sailed through and was handed to callers as if it were a
 // list, so tonightStats() and every achievement check threw and took the Home screen with them.
 // Guard the shape, not just the syntax, and drop any entry that isn't a usable record.
-function getHistory(){
+// the family code's shared record (filled by FAMILY SYNC below)
+const FAM={rows:[],keys:new Set(),members:[],settings:null,since:null,ready:false,loading:false,announce:false,v2:null,err:'',ver:0,at:0,progress:0,_m:null,_mv:-1};
+function getLocalHistory(){
   try{
     const raw=JSON.parse(localStorage.getItem('ct_history')||'[]');
     return Array.isArray(raw)?raw.filter(h=>h&&typeof h==='object'):[];
   }catch{return[];}
+}
+// What the app reads: this device's games plus every game the family code has ever collected (see FAMILY SYNC).
+function getHistory(){
+  if(!FAM.ready||!FAM.rows.length)return getLocalHistory();
+  if(FAM._mv===FAM.ver&&FAM._m)return FAM._m;
+  FAM._m=famMerge(getLocalHistory(),FAM.rows);FAM._mv=FAM.ver;return FAM._m;
 }
 // Captured photos are stored inline as base64 JPEG data URLs, so a well-photographed season can
 // genuinely push ct_history past localStorage's ~5MB quota. This write used to be bare: once the
@@ -5567,13 +5575,16 @@ function saveHistorySafely(h){
     try{localStorage.setItem('ct_history',JSON.stringify(trimmed));return true;}catch(e3){return false;}
   }
 }
-function addHistory(e){const h=getHistory();h.unshift(e);if(h.length>50)h.pop();saveHistorySafely(h);syncHistory(e);checkAchievements();setTimeout(loadFamilyHistory,1200);}
+function addHistory(e){
+  e.cid=e.cid||famCid();if(!e.scores)e.scores=famScoresNow();if(G.guestGame)e.guest=1;
+  const h=getLocalHistory();h.unshift(e);if(h.length>50)h.pop();saveHistorySafely(h);famBump();syncHistory(e);checkAchievements();setTimeout(loadFamilyHistory,1200);
+}
 // Family-wide leaderboard data — every device that plays writes into the shared Supabase
 // game_history table via syncHistory() above, so this reflects every family member's games across
 // every phone/tablet, not just whichever device is being looked at. Falls back to this device's own
 // localStorage history (getHistory()) until the remote fetch lands, or forever if offline/unreachable,
 // so the Family screen is never empty — it just narrows to "what this device has seen" until synced.
-let _familyHistoryCache=null,_familyHistoryLoading=false;
+let _familyHistoryCache=null;
 async function fetchFamilyHistory(){
   const sb=SB();if(!sb)return null;
   try{
@@ -5591,15 +5602,8 @@ async function fetchFamilyHistory(){
     return data.map(r=>({game:r.game_id,mode:r.mode,winner:r.winner_name,players:r.players||[],date:r.played_at}));
   }catch(e){return null;}
 }
-function loadFamilyHistory(){
-  if(_familyHistoryLoading)return;
-  _familyHistoryLoading=true;
-  (typeof supabase==='undefined'?new Promise(res=>loadSupabase(res)):Promise.resolve()).then(fetchFamilyHistory).then(data=>{
-    _familyHistoryLoading=false;
-    if(data){_familyHistoryCache=data;render();}
-  });
-}
-function familyHistory(){return _familyHistoryCache||getHistory();}
+function loadFamilyHistory(){famSoon(0);}
+function familyHistory(){return FAM.ready?getHistory():(_familyHistoryCache||getHistory());}
 // Achievement Unlocks — a shared trophy case for the table (device-level, like the existing
 // G.gp/G.tw stats already shown on Home), not tied to a specific player's account. Checked once
 // after every recorded game; each id can only fire once, ever, persisted in localStorage.
@@ -5739,7 +5743,7 @@ function getAchievements(){
   if(Array.isArray(raw)){const o={};raw.forEach(id=>{if(typeof id==='string')o[id]=null;});return o;}
   return raw&&typeof raw==='object'?raw:{};
 }
-function checkAchievements(){
+function checkAchievements(silent){
   const unlocked=getAchievements();
   const newly=[];
   ACHIEVEMENTS.forEach(a=>{
@@ -5750,7 +5754,7 @@ function checkAchievements(){
   });
   if(newly.length){
     localStorage.setItem('ct_achievements',JSON.stringify(unlocked));
-    newly.forEach((a,i)=>setTimeout(()=>showAchievementToast(a),i*2200));
+    if(silent||newly.length>3)toast('🏆 '+newly.length+' trophy'+(newly.length!==1?' earned':'')+' found in your family\'s record');else newly.forEach((a,i)=>setTimeout(()=>showAchievementToast(a),i*2200));
   }
 }
 function showAchievementToast(a){
@@ -5804,6 +5808,115 @@ function guestToggleHTML(){
   const on=!!G.guestGame;
   return`<div class="panel"><div class="hr-grid"><div class="hr-tog${on?' on':''}" data-a="guest-toggle" role="switch" aria-checked="${on}" tabindex="0"><div class="hr-row"><span class="hr-nm">🧳 Guest game</span><span class="hr-chk">${on?'✓':''}</span></div><span class="hr-desc">${on?'On — this game is <b>not</b> added to your family’s results.':'Playing with people outside your family? Turn this on and the result stays out of your family results.'}</span></div></div></div>`;
 }
+/* ═══════ FAMILY SYNC: the family code brings the whole table ═══════
+   Results (with scores and moments), members (with avatars) and the table name live in the database under the
+   family code. Every device keeps a copy, fetches only what is new, and merges it with its own games. */
+function famBump(){FAM.ver++;}
+function famSb(){return window._famSb||(isDevHost()?null:SB());}
+function famCid(){return(window.crypto&&crypto.randomUUID)?crypto.randomUUID():'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);}
+function famKeys(h){const b=Math.round((new Date(h.date).getTime()||0)/180000),k=h.game+'|'+String(h.winner||'').toLowerCase()+'|';return[k+b,k+(b-1),k+(b+1)];}
+function famRowKey(x){return x.client_id||('o'+x.synced_at+'|'+x.winner_name+'|'+x.game_id);}
+function famFromRow(r){return{cid:r.client_id||undefined,game:r.game_id,mode:r.mode||'local',winner:r.winner_name,winnerAvatar:r.winner_avatar||undefined,players:Array.isArray(r.players)?r.players:[],date:r.played_at||r.synced_at,moment:r.moment||undefined,scores:r.scores||undefined,stats:r.stats||undefined,rules:r.rules||undefined,sa:r.synced_at,remote:1};}
+function famIndex(remote){const byCid=new Map(),byKey=new Map();remote.forEach(r=>{if(r.cid)byCid.set(r.cid,r);const k=famKeys(r)[0];if(!byKey.has(k))byKey.set(k,[]);byKey.get(k).push(r);});return{byCid,byKey};}
+function famFind(h,ix,used){let r=h.cid&&ix.byCid.get(h.cid);if(r&&!used.has(r))return r;for(const k of famKeys(h)){const arr=ix.byKey.get(k);if(arr){r=arr.find(x=>!used.has(x));if(r)return r;}}return null;}
+// local first (it has the photo and the details), the family's record fills the gaps; newest first
+function famMerge(local,remote){
+  const ix=famIndex(remote),used=new Set(),out=[];
+  local.forEach(h=>{const r=famFind(h,ix,used);if(r){used.add(r);out.push(Object.assign({},r,h,{scores:h.scores||r.scores,winnerAvatar:h.winnerAvatar||r.winnerAvatar,moment:h.moment||r.moment}));}else out.push(h);});
+  remote.forEach(r=>{if(!used.has(r))out.push(r);});
+  out.sort((a,b)=>new Date(b.date)-new Date(a.date));
+  return out.length>6000?out.slice(0,6000):out;
+}
+function famSmall(x){try{const j=JSON.stringify(x||null);return j&&j.length<2500?x:null;}catch(e){return null;}}
+function famScoresNow(){try{const src=G.isOnline?((G.srv&&G.srv.players)||[]):G.lp;const o=src.slice(0,8).map(p=>({n:String(p.name||'').slice(0,24),s:Math.round(+p.totalScore||0),r:p.c4Result||undefined,b:p.bot||undefined})).filter(x=>x.n);return o.length?o:undefined;}catch(e){return undefined;}}
+function famRowOut(e){return{device_id:DEVICE_ID,client_id:e.cid,game_id:e.game,mode:e.mode||'local',winner_name:e.winner,winner_avatar:e.winnerAvatar||null,players:e.players,rules:e.rules||null,played_at:e.date||null,moment:e.moment?String(e.moment).slice(0,200):null,scores:e.scores||null,stats:famSmall(e.stats)};}
+function famSave(){try{let c={code:tableCode(),since:FAM.since,rows:FAM.rows.slice(0,6000),members:FAM.members,settings:FAM.settings};let j=JSON.stringify(c);if(j.length>3.6e6){c.rows=c.rows.map(r=>Object.assign({},r,{stats:undefined,scores:undefined}));j=JSON.stringify(c);}localStorage.setItem('ct_fcache',j);}catch(e){}}
+function famLoadCache(){try{const c=JSON.parse(localStorage.getItem('ct_fcache')||'null');if(c&&c.code===tableCode()&&Array.isArray(c.rows)){FAM.rows=c.rows;FAM.keys=new Set(c.rows.map(r=>r.cid||('o'+r.sa+'|'+r.winner+'|'+r.game)));FAM.since=c.since||null;FAM.members=c.members||[];FAM.settings=c.settings||null;FAM.ready=true;famBump();return true;}}catch(e){}return false;}
+function famReset(){FAM.rows=[];FAM.keys=new Set();FAM.members=[];FAM.settings=null;FAM.since=null;FAM.ready=false;FAM.v2=null;FAM.err='';FAM.progress=0;famBump();try{localStorage.removeItem('ct_fcache');}catch(e){}}
+async function famPullHistory(sb){
+  let guard=0;
+  while(guard++<30){
+    const r=await sb.rpc('history_since',{p_code:tableCode(),p_since:FAM.since,p_limit:1000});
+    if(r.error){if(histFnMissing(r.error)){FAM.v2=false;return false;}FAM.err=r.error.message||'error';return false;}
+    const rows=r.data||[];
+    for(const x of rows){const k=famRowKey(x);if(FAM.keys.has(k))continue;FAM.keys.add(k);FAM.rows.push(famFromRow(x));}
+    if(rows.length){FAM.since=rows[rows.length-1].synced_at||FAM.since;FAM.progress=FAM.rows.length;famProgress();}
+    if(rows.length<1000)break;
+  }
+  FAM.v2=true;FAM.err='';return true;
+}
+async function famPullMembers(sb){const r=await sb.rpc('members_for',{p_code:tableCode()});if(r.error){if(histFnMissing(r.error))FAM.v2=false;return;}FAM.members=(r.data||[]).filter(m=>m&&m.name).map(m=>({name:m.name,avatar:m.avatar||undefined,deleted:!!m.deleted}));}
+async function famPullSettings(sb){const r=await sb.rpc('settings_for',{p_code:tableCode()});if(r.error)return;const x=(r.data||[])[0];FAM.settings=x?{name:x.table_name||'',year:x.table_year||'',at:x.updated_at}:null;}
+// what this device knows and the table does not (offline games, members added before the first sync)
+async function famPushLocal(sb){
+  const known=new Set(FAM.members.map(m=>m.name.toLowerCase()));
+  for(const m of getLocalFamily()){if(known.has(m.name.toLowerCase()))continue;const r=await sb.rpc('upsert_member',{p_code:tableCode(),p_name:m.name,p_avatar:m.avatar||null});if(!r.error){FAM.members.push({name:m.name,avatar:m.avatar,deleted:false});known.add(m.name.toLowerCase());}}
+  const ix=famIndex(FAM.rows),used=new Set();let sent=0;
+  for(const h of getLocalHistory()){
+    if(!h.cid||h.guest||h.remote)continue;
+    if(famFind(h,ix,used))continue;
+    const r=await sb.rpc('add_history',{p_code:tableCode(),p_row:famRowOut(h)});
+    if(r.error)break;sent++;FAM.keys.add(h.cid);
+  }
+  if(sent)famPing();
+}
+function famProgress(){if(!FAM.announce)return;const el=document.getElementById('fam-status');if(el)el.textContent='⏳ Loading your family… '+FAM.progress+' games found';}
+let _famBusy=false,_famTimer=null;
+function famSoon(ms){clearTimeout(_famTimer);_famTimer=setTimeout(()=>{famSyncAll();},ms==null?800:ms);}
+async function famSyncAll(opt){
+  opt=opt||{};if(_famBusy)return;
+  if(!famSb()&&typeof supabase==='undefined'&&!window._sbFailed&&!isDevHost())await new Promise(r=>loadSupabase(r));
+  const sb=famSb();if(!sb)return;
+  _famBusy=true;FAM.loading=true;FAM.announce=!!opt.announce;
+  const before=FAM.rows.length+'|'+JSON.stringify(FAM.members)+'|'+JSON.stringify(FAM.settings);
+  if(opt.announce)render();
+  try{
+    famSubscribe();
+    const ok=await famPullHistory(sb);
+    if(ok){await famPullMembers(sb);await famPullSettings(sb);await famPushLocal(sb);}
+    else if(FAM.v2===false){const old=await fetchFamilyHistory();if(old){FAM.rows=old.map(r=>Object.assign({remote:1},r));FAM.keys=new Set();}}
+    FAM.ready=FAM.rows.length>0||ok;FAM.at=Date.now();famBump();famAdopt(!!opt.announce);famSave();
+  }catch(e){FAM.err=String(e&&e.message||e);}
+  FAM.loading=false;FAM.announce=false;_famBusy=false;_familyHistoryCache=getHistory();
+  const changed=before!==FAM.rows.length+'|'+JSON.stringify(FAM.members)+'|'+JSON.stringify(FAM.settings);
+  if(opt.announce||(changed&&['home','family','moments','trophies','player','games'].includes(G.scr)))render();
+  if(opt.announce){const g=getHistory().length,m=getFamily().length;toast(FAM.v2===false?'Loaded the old shared list ('+g+' games). The new sync needs supabase-family-sync.sql.':FAM.err?'Could not reach your table: '+FAM.err:'🔒 Family loaded: '+g+' game'+(g!==1?'s':'')+' · '+m+' member'+(m!==1?'s':''));}
+}
+// after a sync: the numbers, the table name and the trophies follow the shared record
+function famAdopt(first){
+  const hs=getHistory(),me=(G.myName||'').trim().toLowerCase();
+  if(FAM.ready&&FAM.rows.length){G.gp=hs.length;if(me)G.tw=hs.filter(h=>h.winner&&String(h.winner).toLowerCase()===me).length;try{localStorage.setItem('ct_gp',G.gp);localStorage.setItem('ct_tw',G.tw);}catch(e){}}
+  const st=FAM.settings,loc=(localStorage.getItem('ct_tablename')||''),locAt=localStorage.getItem('ct_tablename_at')||'';
+  if(st&&st.name&&(!loc||new Date(st.at||0)>new Date(locAt||0))){G.tableName=st.name;try{localStorage.setItem('ct_tablename',st.name);if(st.year)localStorage.setItem('ct_tablename_year',st.year);localStorage.setItem('ct_tablename_at',st.at||new Date().toISOString());}catch(e){}}
+  else if(loc&&(!st||!st.name))famPushSettings();
+  try{checkAchievements(!!first);}catch(e){}
+}
+function famPushSettings(){const sb=famSb();if(!sb)return;try{sb.rpc('set_settings',{p_code:tableCode(),p_name:G.tableName||'',p_year:localStorage.getItem('ct_tablename_year')||''}).then(()=>famPing(),()=>{});}catch(e){}}
+function famPushMembers(before,after){
+  const sb=famSb();const b=new Map(before.map(m=>[m.name.toLowerCase(),m])),a=new Map(after.map(m=>[m.name.toLowerCase(),m]));
+  a.forEach((m,k)=>{const o=b.get(k);if(!o||o.avatar!==m.avatar){const i=FAM.members.findIndex(x=>x.name.toLowerCase()===k);if(i>=0)FAM.members[i]={name:m.name,avatar:m.avatar,deleted:false};else FAM.members.push({name:m.name,avatar:m.avatar,deleted:false});if(sb)try{sb.rpc('upsert_member',{p_code:tableCode(),p_name:m.name,p_avatar:m.avatar||null}).then(()=>famPing(),()=>{});}catch(e){}}});
+  b.forEach((m,k)=>{if(!a.has(k)){const i=FAM.members.findIndex(x=>x.name.toLowerCase()===k);if(i>=0)FAM.members[i].deleted=true;else FAM.members.push({name:m.name,avatar:m.avatar,deleted:true});if(sb)try{sb.rpc('remove_member',{p_code:tableCode(),p_name:m.name}).then(()=>famPing(),()=>{});}catch(e){}}});
+  famBump();famSave();
+}
+let _famCh=null,_famChCode='';
+function famSubscribe(){const sb=famSb();if(!sb||!sb.channel)return;const c=tableCode();if(_famCh&&_famChCode===c)return;try{if(_famCh&&sb.removeChannel)sb.removeChannel(_famCh);_famChCode=c;_famCh=sb.channel('fam:'+c).on('broadcast',{event:'upd'},()=>famSoon(400)).subscribe();}catch(e){}}
+function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',payload:{d:DEVICE_ID}});}catch(e){}}
+function famBoot(){
+  famLoadCache();famSoon(1500);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)famSoon(300);});
+  window.addEventListener('online',()=>famSoon(500));
+  setInterval(()=>{if(!document.hidden)famSoon(0);},90000);
+}
+window.addEventListener('load',()=>{try{famBoot();}catch(e){}});
+function famStatusHTML(){
+  const g=getHistory().length,m=getFamily().length;let line;
+  if(FAM.loading)line='⏳ Loading your family… '+FAM.progress+' games found';
+  else if(FAM.v2===false)line='⚠️ The database does not have the family sync yet. Run supabase-family-sync.sql once (the file is next to the app); until then only a short list of games is shared.';
+  else if(FAM.err)line='⚠️ Could not reach your table just now ('+esc(FAM.err)+')';
+  else if(FAM.ready)line='✅ In sync · '+g+' game'+(g!==1?'s':'')+' · '+m+' member'+(m!==1?'s':'')+(FAM.at?' · '+new Date(FAM.at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'');
+  else line='Not synced yet.';
+  return`<div class="panel" style="text-align:left;"><div class="panel-lbl">Family sync</div><div id="fam-status" style="font-size:.8rem;color:var(--paper2);line-height:1.55;margin-bottom:.55rem;">${line}</div><button class="btn btn-ghost btn-sm" data-a="fam-sync">↻ Sync now</button></div>`;
+}
 function syncHistory(e){
   if(isDevHost())return;
   if(G.guestGame)return;
@@ -5817,10 +5930,10 @@ function syncHistory(e){
   // If the host has dropped, the row is simply not written. That loses one row; the alternative
   // loses the integrity of every statistic in the app.
   if((e.mode||'local')==='online'&&!G.isHost)return;
-  const row={device_id:DEVICE_ID,game_id:e.game,mode:e.mode||'local',winner_name:e.winner,players:e.players,rules:e.rules||null};
-  const legacy=()=>{try{sb.from('game_history').insert(row).then(()=>{},()=>{});}catch(err){}};
+  const row=famRowOut(e);
+  const legacy=()=>{try{sb.from('game_history').insert({device_id:row.device_id,game_id:row.game_id,mode:row.mode,winner_name:row.winner_name,players:row.players,rules:row.rules}).then(()=>{},()=>{});}catch(err){}};
   if(_histLegacy){legacy();return;}
-  try{sb.rpc('add_history',{p_code:tableCode(),p_row:row}).then(r=>{if(r&&r.error&&histFnMissing(r.error)){_histLegacy=true;legacy();}},()=>{});}
+  try{sb.rpc('add_history',{p_code:tableCode(),p_row:row}).then(r=>{if(r&&r.error&&histFnMissing(r.error)){_histLegacy=true;legacy();}else if(r&&!r.error)famPing();},()=>{});}
   catch(err){}
 }
 
@@ -5997,13 +6110,21 @@ function almanacData(){
 /* ═══ FAMILY ROSTER (local device, name-matched against history) ═══ */
 // Same shape guard as getHistory: a roster entry without a name is not a person and would render
 // as a nameless row that can never be matched to any game.
-function getFamily(){
+function getLocalFamily(){
   try{
     const raw=JSON.parse(localStorage.getItem('ct_family')||'[]');
     return Array.isArray(raw)?raw.filter(m=>m&&typeof m==='object'&&m.name):[];
   }catch{return[];}
 }
-function saveFamily(list){localStorage.setItem('ct_family',JSON.stringify(list));}
+// the people of the table: the family code's members first (same avatar everywhere), then this device's own
+function getFamily(){
+  const loc=getLocalFamily();if(!FAM.members.length)return loc;
+  const del=new Set(FAM.members.filter(m=>m.deleted).map(m=>m.name.toLowerCase())),seen=new Set(),out=[];
+  FAM.members.filter(m=>!m.deleted).forEach(m=>{const k=m.name.toLowerCase();if(seen.has(k))return;seen.add(k);out.push({name:m.name,avatar:m.avatar||AVATARS[out.length%AVATARS.length]});});
+  loc.forEach(m=>{const k=m.name.toLowerCase();if(seen.has(k)||del.has(k))return;seen.add(k);out.push(m);});
+  return out;
+}
+function saveFamily(list){const before=getFamily();localStorage.setItem('ct_family',JSON.stringify(list));famPushMembers(before,list);}
 // Keeps your own Family roster entry (matched by name) in sync with whatever avatar your personal
 // profile currently uses -- adds it if you're not there yet. Called both right after saving the
 // profile editor and once on every boot, so a stale avatar from before this existed (or from
@@ -30614,8 +30735,8 @@ function hasActiveTable(){
 // frame and plaque tie back to whichever game it was won at.
 const MOMENT_ACCENT={maumau:'#5fd68a',texas:'#eac976',fivecard:'#eac976',blackjack:'#ef7688',battle:'#7ec2f2',romme:'#a8e0a0',hearts:'#f2a0b4',bridge:'#a8c8e0',uno:'#e0a8d8',yahtzee:'#f2c94c',roulette:'#e0637a',dicedual:'#e8843e',farkle:'#4fd6c9',bingo:'#b98af0',lepouilleux:'#6b6b7a',slots:'#f0cc60',pig:'#f2a0b4',drawit:'#f2954c',liarsdice:'#e0594a',summit:'#7ec2f2',hotbomb:'#ff7a45',vault:'#e0b040',bust:'#ff5a4e',escape:'#45c4b0',shutbox:'#d9a35c',fourrow:'#f2c230',skull:'#c9a0f0',tension:'#e8a24a',mayhem:'#ff9a3c',chainreaction:'#ff7a3c',gauntlet:'#e6c36a',abyss:'#8f9bff',blackwater:'#5fc7b8'};
 function rMoments(){
-  const history=getHistory();
-  const frames=history.map(h=>{
+  const history=getHistory(),shown=G.momAll?history:history.slice(0,60);
+  const frames=shown.map(h=>{
     const g=GAMES.find(x=>x.id===h.game);
     const days=Math.max(0,Math.round((Date.now()-new Date(h.date).getTime())/864e5));
     const when=days===0?'Today':days===1?'Yesterday':days+' days ago';
@@ -30639,7 +30760,7 @@ function rMoments(){
     <div class="ui-hero" style="--img:url(assets/ui/moments.jpg)"><div class="ui-hero-txt">
       <div style="font-family:var(--serif);font-size:1.9rem;color:var(--paper);margin-bottom:.2rem;">The Wall of Fame</div>
       <div style="font-size:.82rem;color:var(--paper3);margin-bottom:1.5rem;">Every win, framed. Your table's history, one portrait at a time.</div></div></div>
-    ${history.length?`<div class="wall-grid">${frames}</div>`:empty}
+    ${history.length?`<div class="wall-grid">${frames}</div>${history.length>shown.length?`<button class="btn btn-ghost btn-full" data-a="mom-all" style="margin:1rem 0 1.5rem;">Show all ${history.length} moments</button>`:''}`:empty}
   </div>`;
 }
 function rPlayer(){
@@ -35331,7 +35452,7 @@ function rDataOv(){
     <div class="panel" style="text-align:left;">
       <div class="panel-lbl">On this device</div>
       <div style="font-size:.82rem;color:var(--paper2);line-height:1.7;">
-        🃏 ${hist.length} game result${hist.length!==1?'s':''}<br>
+        🃏 ${getLocalHistory().length} game result${getLocalHistory().length!==1?'s':''} saved here<br>
         🏆 ${achCount} achievement${achCount!==1?'s':''} unlocked<br>
         ♥ ${family.length} family member${family.length!==1?'s':''} tracked<br>
         👤 Your name, avatar, table name, and felt choice
@@ -35347,10 +35468,11 @@ function rDataOv(){
       </div>
       <button class="btn btn-ghost btn-sm" data-a="tc-new" style="margin-top:.5rem;">🎲 Make a new private code</button>
     </div>
+    ${famStatusHTML()}
     <div class="panel" style="text-align:left;">
       <div class="panel-lbl">Synced online</div>
       <div style="font-size:.76rem;color:var(--paper3);line-height:1.6;">
-        Finished games sync under your table code — just the game, the winner, and the players' names — so House Legends and Rivalries work across your table's devices. Playing with guests? Switch on 🧳 Guest game before you start and that game stays out. No accounts, emails, or passwords. Synced results are a shared, append-only ledger and can't be individually deleted from within the app, but nothing beyond a name and a result is ever stored there.
+        Every finished game (winner, players, scores and the moment), your family members with their avatars and your table name sync under your table code, so every device with the same code shows the same family, the same results and the same trophies. House Legends and Rivalries work across your table's devices. Playing with guests? Switch on 🧳 Guest game before you start and that game stays out. No accounts, emails, or passwords. Synced results are a shared, append-only ledger and can't be individually deleted from within the app, but nothing beyond a name and a result is ever stored there.
       </div>
     </div>
     <div style="display:flex;flex-direction:column;gap:.6rem;">
@@ -35382,7 +35504,8 @@ function exportMyData(){
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function clearMyLocalData(){
-  ['ct_history','ct_achievements','ct_family','ct_myname','ct_myavatar','ct_tablename','ct_tablename_year','ct_gp','ct_tw','ct_resume','ct_device_id','ct_online_session','ct_dd_local'].forEach(k=>localStorage.removeItem(k));
+  try{famReset();}catch(e){}
+  ['ct_roster','ct_fcache','ct_tablename_at','ct_history','ct_achievements','ct_family','ct_myname','ct_myavatar','ct_tablename','ct_tablename_year','ct_gp','ct_tw','ct_resume','ct_device_id','ct_online_session','ct_dd_local'].forEach(k=>localStorage.removeItem(k));
   G.myName='';G.myAvatar=AVATARS[0];G.tableName='';G.gp=0;G.tw=0;
   toast('Your local data has been cleared.');
 }
@@ -36457,14 +36580,16 @@ document.addEventListener('click',e=>{
   else if(a==='close-quit'){G.quitOpen=false;render();}
   else if(a==='open-data'){G.dataOpen=true;render();}
   else if(a==='close-data'){G.dataOpen=false;render();}
+  else if(a==='fam-sync'){famSyncAll({announce:true});}
+  else if(a==='mom-all'){G.momAll=true;render();}
   else if(a==='tc-noop'){/* clicks inside the table-code box must not close the panel */}
   else if(a==='tc-save'){
     const v=(document.getElementById('tc-input')||{}).value||'';
     if(!tcSet(v)){toast('A table code needs at least 6 letters or numbers');return;}
-    _familyHistoryCache=null;loadFamilyHistory();render();toast('🔒 Table code saved');
+    famReset();famLoadCache();_familyHistoryCache=null;toast('🔒 Loading your family…');famSyncAll({announce:true});
   }
   else if(a==='tc-new'){
-    tcSet(tcNew());_familyHistoryCache=null;loadFamilyHistory();render();toast('🔒 New private code — only this device has it for now');
+    tcSet(tcNew());famReset();_familyHistoryCache=null;render();toast('🔒 New private code — only this device has it for now');famSyncAll({announce:false});
   }
   else if(a==='data-export'){exportMyData();}
   else if(a==='data-clear-ask'){G.dataClearAsk=true;render();}
@@ -36801,6 +36926,7 @@ document.addEventListener('click',e=>{
     G.tableName=val;
     if(val){localStorage.setItem('ct_tablename',val);if(!localStorage.getItem('ct_tablename_year'))localStorage.setItem('ct_tablename_year',''+new Date().getFullYear());}
     else localStorage.removeItem('ct_tablename');
+    try{localStorage.setItem('ct_tablename_at',new Date().toISOString());}catch(e){}famPushSettings();
     G.plaqueEditing=false;render();
   }
   else if(a==='profile-edit'){G.scr='home';G.profileEditing=true;render();setTimeout(()=>document.getElementById('profile-name-input')?.focus(),30);}
@@ -36989,17 +37115,17 @@ document.addEventListener('change',e=>{
   const reader=new FileReader();
   reader.onload=()=>{
     composePhotoFrame(reader.result).then(photo=>{
-      const hist=getHistory();
+      const hist=getLocalHistory();
       if(hist[0]){
         hist[0].photo=photo;
         // A photo is the one thing here big enough to blow the storage quota on its own. If it
         // won't fit even after shedding older ones, say so plainly rather than reporting success
         // and leaving a gap on the wall.
-        if(!saveHistorySafely(hist)||!getHistory()[0]?.photo){
+        if(!saveHistorySafely(hist)||!getLocalHistory()[0]?.photo){
           toast('No room left to save that photo');render();return;
         }
       }
-      toast('📸 Captured — find it on the Wall of Fame');
+      famBump();toast('📸 Captured — find it on the Wall of Fame');
       render();
     }).catch(()=>toast('Could not save that photo'));
   };

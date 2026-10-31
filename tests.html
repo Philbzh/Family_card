@@ -6289,6 +6289,72 @@ async function runPresentation(A,W,frame){
        }finally{W.eval('window._clOut=null');W.eval('_ch=null');gg.isOnline=false;G().myPid=pid0;gg.srv=srv0;F('clStop')();}}
     }finally{const g=G();try{F('clStop')();}catch(e){}g.isOnline=k0[0];g.selGame=k0[1];g.lp=k0[2];g.scr=k0[3];g.cl=null;g.clResult=k0[5];ls.forEach(([k,v])=>{if(v===null)W.localStorage.removeItem(k);else W.localStorage.setItem(k,v);});}
   });
+  // ── FAMILY SYNC: two devices with the same code see the same family ──
+  const famRes={};
+  {
+    const F=n=>W.eval(n),gg=W.eval('G'),LS=W.localStorage;
+    const keep={};['ct_table_code','ct_history','ct_family','ct_tablename','ct_tablename_year','ct_tablename_at','ct_fcache','ct_gp','ct_tw','ct_myname'].forEach(k=>keep[k]=LS.getItem(k));
+    const keepG={name:gg.tableName,gp:gg.gp,tw:gg.tw,myName:gg.myName,scr:gg.scr};
+    const mkStub=()=>{const T={rows:[],members:{},settings:null,seq:0,calls:[]};
+      const call=(fn,a)=>{T.calls.push(fn);
+        if(fn==='history_since'){if(T.missing)return{error:{code:'42883',message:'function does not exist'}};const out=T.rows.filter(r=>!a.p_since||r.synced_at>a.p_since).sort((x,y)=>x.synced_at<y.synced_at?-1:1).slice(0,a.p_limit||1000);return{data:out,error:null};}
+        if(fn==='add_history'){const r=Object.assign({},a.p_row);if(r.client_id&&T.rows.some(x=>x.client_id===r.client_id))return{error:null};r.synced_at=new Date(Date.now()+(++T.seq)).toISOString();r.played_at=r.played_at||r.synced_at;T.rows.push(r);return{error:null};}
+        if(fn==='members_for')return{data:Object.values(T.members),error:null};
+        if(fn==='upsert_member'){T.members[a.p_name.toLowerCase()]={name:a.p_name,avatar:a.p_avatar,deleted:false};return{error:null};}
+        if(fn==='remove_member'){T.members[a.p_name.toLowerCase()]=Object.assign(T.members[a.p_name.toLowerCase()]||{name:a.p_name},{deleted:true});return{error:null};}
+        if(fn==='settings_for')return{data:T.settings?[T.settings]:[],error:null};
+        if(fn==='set_settings'){T.settings={table_name:a.p_name,table_year:a.p_year,updated_at:new Date().toISOString()};return{error:null};}
+        return{error:{message:'unknown'}};};
+      return{T,sb:{rpc:(fn,a)=>Promise.resolve(call(fn,a)),channel:()=>({on(){return this;},subscribe(){return this;},send(){}}),removeChannel(){}}};};
+    try{
+      LS.setItem('ct_table_code','TESTFAMCODE1');
+      const now=Date.now(),iso=ms=>new Date(now-ms).toISOString(),AV=F('AVATARS');
+      const {T,sb}=mkStub();
+      T.rows.push({game_id:'farkle',mode:'local',winner_name:'Ann',players:['Ann','Bob'],played_at:iso(3600e3),synced_at:iso(3600e3)});
+      T.rows.push({game_id:'uno',mode:'local',winner_name:'Bob',players:['Ann','Bob'],played_at:iso(7200e3),synced_at:iso(7200e3)});
+      T.rows.push({game_id:'pig',mode:'local',winner_name:'Cy',players:['Ann','Cy'],played_at:iso(9000e3),synced_at:iso(9000e3)});
+      T.rows.push({client_id:'r-new-1',game_id:'archery',mode:'local',winner_name:'Cy',players:['Ann','Cy'],played_at:iso(1800e3),synced_at:iso(1800e3),moment:'Cy hit the very centre',scores:[{n:'Cy',s:88},{n:'Ann',s:71}],winner_avatar:AV[2]});
+      T.members.ann={name:'Ann',avatar:AV[0],deleted:false};T.members.bob={name:'Bob',avatar:AV[1],deleted:false};
+      T.settings={table_name:'The Test Table',table_year:'2024',updated_at:iso(1000)};
+      LS.setItem('ct_history',JSON.stringify([{cid:'L-own-1',game:'yahtzee',winner:'Zed',players:['Zed','Ann'],date:iso(600e3),moment:'Zed rolled it'},{game:'farkle',winner:'Ann',players:['Ann','Bob'],date:new Date(now-3600e3+30000).toISOString(),moment:'Ann banked 2000'}]));
+      LS.setItem('ct_family',JSON.stringify([{name:'Zed',avatar:AV[3]}]));LS.removeItem('ct_tablename');LS.removeItem('ct_tablename_at');LS.removeItem('ct_fcache');gg.tableName='';gg.myName='Ann';
+      W._famSb=sb;F('famReset')();await F('famSyncAll')({announce:false});
+      const hist=F('getHistory')(),fam=F('getFamily')();
+      famRes.rows=F('FAM').rows.length;famRes.hist=hist.length;famRes.dup=hist.filter(h=>h.game==='farkle').length;
+      famRes.moment=(hist.find(h=>h.game==='archery')||{}).moment;famRes.localMoment=(hist.find(h=>h.game==='farkle')||{}).moment;
+      famRes.members=fam.map(m=>m.name).sort().join();famRes.name=gg.tableName;famRes.gp=gg.gp;famRes.tw=gg.tw;
+      famRes.pushedGame=T.rows.some(r=>r.client_id==='L-own-1');famRes.pushedMember=!!T.members.zed;famRes.rowsAfter=T.rows.length;
+      await F('famSyncAll')({announce:false});famRes.rowsAgain=T.rows.length;famRes.histAgain=F('getHistory')().length;
+      LS.setItem('ct_history','[]');LS.setItem('ct_family','[]');LS.removeItem('ct_tablename');gg.tableName='';F('famReset')();await F('famSyncAll')({announce:false});
+      famRes.b_hist=F('getHistory')().length;famRes.b_members=F('getFamily')().map(m=>m.name).sort().join();famRes.b_name=gg.tableName;famRes.b_avatar=(F('getFamily')().find(m=>m.name==='Ann')||{}).avatar===AV[0];
+      F('saveFamily')(F('getFamily')().filter(m=>m.name!=='Zed'));famRes.removed=!!(T.members.zed&&T.members.zed.deleted);
+      LS.setItem('ct_family','[]');F('famReset')();await F('famSyncAll')({announce:false});famRes.c_members=F('getFamily')().map(m=>m.name).sort().join();
+      T.missing=true;F('famReset')();await F('famSyncAll')({announce:false});famRes.v2=F('FAM').v2;
+      const mm=F('famMerge')([{cid:'x',game:'g',winner:'W',date:iso(0)},{game:'a',winner:'B',date:iso(100000)}],[{cid:'x',game:'g',winner:'W',date:iso(0),moment:'m'},{game:'a',winner:'B',date:iso(100000+20000),scores:[{n:'B',s:1}]},{game:'z',winner:'Q',date:iso(5e6)}]);
+      famRes.merge=mm.length+'|'+(mm[0].moment||'')+'|'+(!!mm.find(h=>h.game==='a').scores);
+    } catch(e){famRes.err=String(e&&e.stack||e);}
+    finally{
+      delete W._famSb;try{F('famReset')();}catch(e){}
+      Object.keys(keep).forEach(k=>{if(keep[k]===null)LS.removeItem(k);else LS.setItem(k,keep[k]);});
+      gg.tableName=keepG.name;gg.gp=keepG.gp;gg.tw=keepG.tw;gg.myName=keepG.myName;gg.scr=keepG.scr;
+    }
+  }
+  suite('Family sync (one family code, the same family on every device)',()=>{
+    check('the sync ran without an error',!famRes.err);
+    check('every game of the table is fetched (4 rows)',famRes.rows===4);
+    check("the shared record and this device's games are merged without a double (a legacy game matches its own row)",famRes.hist===5&&famRes.dup===1);
+    check('the moment text and the scores of a shared game arrive',famRes.moment==='Cy hit the very centre');
+    check("this device's own details win over the bare shared row",famRes.localMoment==='Ann banked 2000');
+    check("the members of the table appear, with this device's own member added",famRes.members==='Ann,Bob,Zed');
+    check('the table name is adopted from the family record',famRes.name==='The Test Table');
+    check('the counters follow the shared record',famRes.gp===5&&famRes.tw===1);
+    check('a game only this device had is sent up, and a member the table did not know',famRes.pushedGame&&famRes.pushedMember&&famRes.rowsAfter===5);
+    check('syncing again changes nothing (no double rows)',famRes.rowsAgain===5&&famRes.histAgain===5);
+    check('a second device with the same code sees all games and all members with the same avatar',famRes.b_hist===5&&famRes.b_members==='Ann,Bob,Zed'&&famRes.b_name==='The Test Table'&&famRes.b_avatar===true);
+    check('removing a member removes him on every device',famRes.removed===true&&famRes.c_members==='Ann,Bob');
+    check('without the database functions the app says so and keeps working',famRes.v2===false);
+    check('the merge keeps three games, fills the moment, and matches an old row by game, winner and time',famRes.merge==='3|m|true');
+  });
   suite('Quick start and play again (the table remembers who sat down)',()=>{
     const F=n=>W.eval(n),G=()=>F('G');const gg=G();
     const keep={on:gg.isOnline,sel:gg.selGame,lp:gg.lp,scr:gg.scr,roster:W.localStorage.getItem('ct_roster'),qs:gg.qsN};
