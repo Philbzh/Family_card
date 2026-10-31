@@ -6075,7 +6075,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=258;
+const APP_BUILD=259;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -33460,8 +33460,8 @@ const BL_BALLS=[
 const BL_FX=[{id:'none',n:'None',d:'a pure ball'},{id:'fire',n:'Fire',col:'#ff8a3a',d:'a warm trail'},{id:'ice',n:'Ice',col:'#8fe3ff',d:'crystals'},{id:'electric',n:'Electric',col:'#ffe95a',d:'sparks at the pins'},{id:'vortex',n:'Vortex',col:'#c58bff',d:'a spiral'},{id:'gold',n:'Gold',col:'#ffd96a',d:'golden glitter'},{id:'comet',n:'Comet',col:'#9fd0ff',d:'a long tail'},{id:'shock',n:'Shockwave',col:'#ffffff',d:'a big ring'},{id:'rainbow',n:'Rainbow',col:'#ff7ad9',d:'party colours'}];
 const BL_LV={beginner:{n:'Beginner',guide:18.4,dots:1,about:'The whole path is drawn.'},standard:{n:'Standard',guide:9,dots:1,about:'The first half of the path.'},expert:{n:'Expert',guide:4.5,dots:.6,about:'Only the start of the path.'},master:{n:'Master',guide:0,dots:0,about:'No guide at all.'}};
 const BL_BOT={gentle:{n:'Gentle',sx:.1,sa:.016,sv:.12,sp:.35,k:1},steady:{n:'Steady',sx:.045,sa:.0075,sv:.06,sp:.18,k:1.4},sharp:{n:'Sharp',sx:.022,sa:.004,sv:.04,sp:.1,k:2}};
-const BL_IMG={};
-function blPhoto(name,ext){const k='ph_'+name;let i=BL_IMG[k];if(!i){i=BL_IMG[k]=new Image();i.onload=()=>{i._ok=1;};i.src='assets/games/bl_'+name+(ext||'.png');return null;}return i._ok?i:null;}
+const BL_IMG={};let BL_LOADED=0;
+function blPhoto(name,ext){const k='ph_'+name;let i=BL_IMG[k];if(!i){i=BL_IMG[k]=new Image();i.onload=()=>{i._ok=1;BL_LOADED++;if(i.decode)i.decode().catch(()=>{});};i.src='assets/games/bl_'+name+(ext||'.png');return null;}return i._ok?i:null;}
 function blRnd(seed){let s=seed|0||1;return()=>{s=(s*1664525+1013904223)|0;return((s>>>0)%100000)/100000;};}
 // the pattern that turns with the ball: transparent, drawn in the colour of the "shimmer"
 function blPatCanvas(b){
@@ -33570,7 +33570,7 @@ function blCamTarget(g,mode){
   const L=g.lay&&g.lay.H===g.cv.height&&g.lay.W===g.cv.width?g.lay:(g.lay=blLayout(g)),H=L.H,f=L.f,c={f};
   if(mode==='roll'){const b=g.sim&&g.sim.ball;const bz=b?Math.min(b.z,11.5):-1;c.z=Math.max(-12,bz-7.5);c.h=1.45;c.x=b?b.x*.3:0;const dz=(b?Math.min(b.z,11.5):-1)-c.z;c.hz=.78*H-f*c.h/Math.max(2,dz);}
   else if(mode==='impact'){c.z=11.4;c.h=1.6;c.x=0;c.hz=.64*H-f*c.h/(BL.HEAD-c.z);}
-  else{c.z=-12;c.h=2.2;c.x=g.bx*.3;c.hz=L.hz;}
+  else{c.z=-12;c.h=2.2;c.x=0;c.hz=L.hz;}
   c.E=.42*Math.max(0,Math.min(1,(BL.HEAD-c.z-10)/9));
   return c;
 }
@@ -34009,9 +34009,9 @@ function blLaneSlices(g,x,zA,zB,hw){
   // one thin row of the wood picture for every 2 pixels of the screen, from the far end to the near end: the grain follows the perspective exactly
   const tex=blWoodTex(),span=BL.PITZ+7.2,c=g.cam,H=g.cv.height,dpr=g.dpr||1,zF=Math.min(zB,BL.HEAD-.35);
   const pf=blP(g,0,0,zF),pn=blP(g,0,0,zA);if(!pf||!pn)return;
-  const rowH=Math.max(2,Math.round(2*dpr)),k=c.f*c.h;
+  const rowH=Math.max(2,Math.round(2*dpr))*(g.moving?3:1),k=c.f*c.h;
   x.save();x.imageSmoothingEnabled=true;
-  for(let y=Math.floor(pf[1]);y<pn[1];y+=rowH){
+  for(let y=Math.max(Math.floor(pf[1]),-rowH*2),yEnd=Math.min(pn[1],g.cv.height+rowH);y<yEnd;y+=rowH){
     const yy=y+rowH/2-(g.shy||0),den=yy-c.hz;if(den<=1)continue;
     const dz=k/den,z=dz+c.z;if(z>zF||z<zA)continue;
     const w=hw*2*c.f/dz,cx=g.cv.width/2+(0-c.x)*c.f/dz+(g.shx||0);
@@ -34030,15 +34030,60 @@ function blDrawWall(g,x){
   if(!im._ok)return false;
   const zc=BL.PITZ+1.4,p=blP(g,0,0,zc);if(!p)return true;
   const w=Math.max(g.cv.width*1.05,7.4*p[2]),h=w*im.naturalHeight/im.naturalWidth;
-  x.save();x.drawImage(im,p[0]-w/2,p[1]-h+h*.02,w,h);
+  x.save();
+  // only the part that is on the screen is drawn (when the camera is close the picture is many times wider than the screen)
+  const dx=p[0]-w/2,dy=p[1]-h+h*.02,CW=g.cv.width,CH=g.cv.height,vx0=Math.max(0,dx),vx1=Math.min(CW,dx+w),vy0=Math.max(0,dy),vy1=Math.min(CH,dy+h);
+  if(vx1>vx0&&vy1>vy0){const sw=im.naturalWidth/w,sh=im.naturalHeight/h;x.drawImage(im,(vx0-dx)*sw,(vy0-dy)*sh,(vx1-vx0)*sw,(vy1-vy0)*sh,vx0,vy0,vx1-vx0,vy1-vy0);}
   // it sits in the dark: a little dimmer, and darker at the bottom where the lane begins
-  const gr=x.createLinearGradient(0,p[1]-h,0,p[1]);gr.addColorStop(0,'rgba(0,0,0,.25)');gr.addColorStop(.7,'rgba(0,0,0,.2)');gr.addColorStop(1,'rgba(0,0,0,.55)');x.fillStyle=gr;x.fillRect(p[0]-w/2,p[1]-h,w,h);
+  const gr=x.createLinearGradient(0,p[1]-h,0,p[1]);gr.addColorStop(0,'rgba(0,0,0,.25)');gr.addColorStop(.7,'rgba(0,0,0,.2)');gr.addColorStop(1,'rgba(0,0,0,.55)');x.fillStyle=gr;
+  if(vx1>vx0)x.fillRect(vx0,Math.max(0,p[1]-h),vx1-vx0,Math.min(CH,p[1])-Math.max(0,p[1]-h));
   x.restore();return true;
+}
+// a material along the lane (the gutter, the rail): one thin row of the picture for each 4 pixels of the screen, turned so that its length runs down the lane
+function blStrip(g,x,xa,xb,name,period,zA,zB,alpha,deck){
+  const tex=blPhoto(name,'.jpg');if(!tex)return;
+  // the last part (the pin deck) is lifted in the picture: a plain colour there, so there is no hole
+  blQuad(x,g,[[xa,0,Math.min(zB,BL.HEAD-.35)],[xb,0,Math.min(zB,BL.HEAD-.35)],[xb,0,zB],[xa,0,zB]],deck||'#222');
+  // while the camera moves the strip is one smooth colour (fast, and no blocks); the picture comes back when the camera is still
+  if(g.moving){blQuad(x,g,[[xa,0,Math.max(zA,g.cam.z+1)],[xb,0,Math.max(zA,g.cam.z+1)],[xb,0,Math.min(zB,BL.HEAD-.35)],[xa,0,Math.min(zB,BL.HEAD-.35)]],deck||'#222');return;}
+  const c=g.cam,dpr=g.dpr||1,zF=Math.min(zB,BL.HEAD-.35),pf=blP(g,0,0,zF),pn=blP(g,0,0,Math.max(zA,c.z+1));if(!pf||!pn)return;
+  const rowH=Math.max(3,Math.round(5*dpr))*(g.moving?3:1),k=c.f*c.h;x.save();x.globalAlpha=alpha==null?1:alpha;
+  for(let y=Math.max(Math.floor(pf[1]),-rowH*2),yEnd=Math.min(pn[1],g.cv.height+rowH);y<yEnd;y+=rowH){
+    const yy=y+rowH/2-(g.shy||0),den=yy-c.hz;if(den<=1)continue;const dz=k/den,z=dz+c.z;if(z>zF||z<zA)continue;
+    const s=c.f/dz,cx0=g.cv.width/2+(xa-c.x)*s+(g.shx||0),w=(xb-xa)*s;
+    const per=dz*dz*rowH/k,sw=Math.max(1,per/period*tex.width),sx=(((z/period)%1)+1)%1*tex.width;
+    x.save();x.translate(cx0+w/2,y+rowH/2);x.rotate(Math.PI/2);
+    x.drawImage(tex,Math.min(sx,tex.width-sw),0,Math.min(sw,tex.width),tex.height,-rowH/2-.4,-w/2,rowH+.8,w);x.restore();
+  }
+  x.restore();
+}
+// the club carpet on the floor around the lanes: a repeating picture, one row at a time
+function blCarpet(g,x,zA){
+  const tex=blPhoto('tx_carpet','.jpg');if(!tex||typeof DOMMatrix==='undefined')return;
+  let pat=BL_IMG.carpetPat;if(!pat||pat._x!==x){try{pat=BL_IMG.carpetPat=x.createPattern(tex,'repeat');pat._x=x;}catch(e){return;}}
+  if(!pat||!pat.setTransform)return;
+  const c=g.cam,dpr=g.dpr||1,pf=blP(g,0,0,22),pn=blP(g,0,0,Math.max(zA,c.z+1));if(!pf||!pn)return;
+  const rowH=Math.max(3,Math.round(4*dpr))*(g.moving?3:1),k=c.f*c.h,W=g.cv.width;
+  x.save();x.fillStyle=pat;
+  for(let y=Math.max(Math.floor(pf[1]),-rowH*2),yEnd=Math.min(pn[1],g.cv.height+rowH);y<yEnd;y+=rowH){
+    const den=y+rowH/2-c.hz-(g.shy||0);if(den<=1)continue;const dz=k/den,z=dz+c.z;if(z>22||z<zA)continue;
+    const s=c.f/dz,sx=s*1.1/tex.width,v0=(((z/1.1)%1)+1)%1*tex.height;
+    pat.setTransform(new DOMMatrix([sx,0,0,sx,W/2-c.x*s+(g.shx||0),y-v0*sx]));x.fillRect(0,y,W,rowH+.6);
+  }
+  x.fillStyle='rgba(2,8,5,.5)';x.fillRect(0,Math.max(0,Math.floor(pf[1])),W,Math.min(g.cv.height,pn[1])-Math.max(0,pf[1]));   // the carpet is calm and dark
+  x.restore();
+}
+// the pools of lamplight under the lanterns
+function blPools(g,x){
+  const im=blPhoto('pool','.jpg');if(!im)return;x.save();x.globalCompositeOperation='lighter';x.globalAlpha=.42;
+  for(let k=0;k<5;k++)for(const sd of[-1,1]){const z=k*3.8+5.5,n=blP(g,sd*1.22,0,z-.9),f=blP(g,sd*1.22,0,z+.9);if(!n||!f)continue;const w=1.5*(n[2]+f[2])/2,h=n[1]-f[1];if(h>1)x.drawImage(im,n[0]-w/2,f[1],w,h);}
+  x.restore();
 }
 function blDrawLane(g,x){
   const W=g.cv.width,H=g.cv.height,hw=BL.W/2,gw=.117,c=g.cam,zA=Math.max(-7.2,c.z+.9),zB=BL.PITZ,dpr=g.dpr||1;
   // the floor and the lanes on both sides (dim)
   blQuad(x,g,[[-5,0,zA],[5,0,zA],[5,0,22],[-5,0,22]],'#0a110d');
+  if(!g.moving)blCarpet(g,x,zA);
   for(const sd of[-1,1]){const x0=sd*(hw+gw+.52),x1=sd*(hw+gw+.52+BL.W);blQuad(x,g,[[x0,0,zA],[x1,0,zA],[x1,0,zB],[x0,0,zB]],'rgba(120,86,48,.34)');
     blQuad(x,g,[[x0,0,zA],[x1,0,zA],[x1,0,zB],[x0,0,zB]],'rgba(0,0,0,.45)');}
   // the gutters, and the dark rail beside them
@@ -34046,7 +34091,9 @@ function blDrawLane(g,x){
     blQuad(x,g,[[a,-.03,zA],[b,-.03,zA],[b,-.03,zB],[a,-.03,zB]],'#0b0e10');
     blQuad(x,g,[[a,-.01,zA],[sd*(hw+gw*.5),-.05,zA],[sd*(hw+gw*.5),-.05,zB],[a,-.01,zB]],'rgba(120,140,150,.2)');
     blQuad(x,g,[[b,0,zA],[r,0,zA],[r,0,zB],[b,0,zB]],'#14211a');
-    blQuad(x,g,[[b,0,zA],[b+sd*.02,0,zA],[b+sd*.02,0,zB],[b,0,zB]],'rgba(214,176,92,.55)');}
+    blQuad(x,g,[[b,0,zA],[b+sd*.02,0,zA],[b+sd*.02,0,zB],[b,0,zB]],'rgba(214,176,92,.55)');
+    blStrip(g,x,Math.min(a,b),Math.max(a,b),'tx_gutter',2.2,zA,BL.HEAD+.9,.85,'#3a4048');blStrip(g,x,Math.min(b,r),Math.max(b,r),'tx_rail',2.6,zA,BL.HEAD+.9,.6,'#2a1a10');}
+  if(!g.moving)blPools(g,x);
   // the lane: warm maple, brighter toward the pins; the approach is a little darker
   const pA=blP(g,0,0,zA),pB=blP(g,0,0,zB);if(!pA||!pB)return;
   const lg=x.createLinearGradient(0,pA[1],0,pB[1]);lg.addColorStop(0,'#a8733c');lg.addColorStop(.4,'#c9965a');lg.addColorStop(.85,'#e0b273');lg.addColorStop(1,'#caa066');
@@ -34060,13 +34107,16 @@ function blDrawLane(g,x){
   const mid=blP(g,0,0,9);if(mid){const rg=x.createRadialGradient(mid[0],mid[1],0,mid[0],mid[1],H*.55);rg.addColorStop(0,'rgba(255,236,190,.2)');rg.addColorStop(1,'rgba(255,236,190,0)');
     x.save();x.beginPath();const a=blP(g,-hw,0,zA),b=blP(g,hw,0,zA),cc=blP(g,hw,0,zB),d=blP(g,-hw,0,zB);x.moveTo(a[0],a[1]);x.lineTo(b[0],b[1]);x.lineTo(cc[0],cc[1]);x.lineTo(d[0],d[1]);x.closePath();x.clip();x.fillStyle=rg;x.fillRect(0,0,W,H);
     const dk=blP(g,0,0,BL.HEAD+.4);if(dk){const r2=x.createRadialGradient(dk[0],dk[1],0,dk[0],dk[1],dk[2]*1.5);r2.addColorStop(0,'rgba(255,225,160,.5)');r2.addColorStop(1,'rgba(255,225,160,0)');x.fillStyle=r2;x.fillRect(0,0,W,H);}x.restore();}
-  // the markings
-  x.fillStyle='rgba(60,30,8,.55)';
+  // the markings: the inlaid arrows and dots (pictures), or drawn shapes while the pictures arrive
+  const aim=blPhoto('inlay_arrow'),dim=blPhoto('inlay_dot');
+  if(aim&&dim){for(let k=-3;k<=3;k++){const bx=k*BL.W/39*5,za=4.57+Math.abs(k)*.55,n=blP(g,bx,0,za),f=blP(g,bx,0,za+.5);if(n&&f){const w=.17*(n[2]+f[2])/2;x.drawImage(aim,n[0]-w/2,f[1],w,n[1]-f[1]);}}
+    for(const zz of[-1.2,-2.4,-3.6,3.6,6.1]){for(let k=-3;k<=3;k++){const bx=k*BL.W/39*5,n=blP(g,bx,0,zz-.024),f=blP(g,bx,0,zz+.024);if(n&&f){const w=.05*(n[2]+f[2])/2;x.drawImage(dim,n[0]-w/2,f[1],w,Math.max(2,n[1]-f[1]));}}}}
+  else{x.fillStyle='rgba(60,30,8,.55)';
   for(let k=-3;k<=3;k++){const bx=k*BL.W/39*5,len=.62-Math.abs(k)*.11,za=4.57+Math.abs(k)*.55;const a=blP(g,bx,0,za),l=blP(g,bx-.03,0,za+.5),r=blP(g,bx+.03,0,za+.5);if(a&&l&&r){x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(l[0],l[1]);x.lineTo(r[0],r[1]);x.closePath();x.fill();}}
   x.fillStyle='rgba(60,30,8,.5)';
-  for(const zz of[-1.2,-2.4,-3.6,3.6,6.1]){for(let k=-3;k<=3;k++){const p=blP(g,k*BL.W/39*5,0,zz);if(p){x.beginPath();x.arc(p[0],p[1],Math.max(1,p[2]*.014),0,7);x.fill();}}}
+  for(const zz of[-1.2,-2.4,-3.6,3.6,6.1]){for(let k=-3;k<=3;k++){const p=blP(g,k*BL.W/39*5,0,zz);if(p){x.beginPath();x.arc(p[0],p[1],Math.max(1,p[2]*.014),0,7);x.fill();}}}}
   // the foul line
-  {const a=blP(g,-hw,0,0),b=blP(g,hw,0,0),a2=blP(g,-hw,0,.05),b2=blP(g,hw,0,.05);if(a&&b&&a2&&b2){x.fillStyle='rgba(18,8,3,.8)';x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(b[0],b[1]);x.lineTo(b2[0],b2[1]);x.lineTo(a2[0],a2[1]);x.closePath();x.fill();
+  {const a=blP(g,-hw,0,0),b=blP(g,hw,0,0),a2=blP(g,-hw,0,.05),b2=blP(g,hw,0,.05);const fim=blPhoto('tx_foul','.jpg');if(a&&b&&a2&&b2&&fim){const th=Math.max(3,(a[1]-a2[1])*1.6),w=b[0]-a[0];x.fillStyle='rgba(18,8,3,.6)';x.fillRect(a[0],a[1]-th*1.1,w,th*1.1);x.drawImage(fim,0,fim.height*.46,fim.width,fim.height*.1,a[0],a[1]-th,w,th);}else if(a&&b&&a2&&b2){x.fillStyle='rgba(18,8,3,.8)';x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(b[0],b[1]);x.lineTo(b2[0],b2[1]);x.lineTo(a2[0],a2[1]);x.closePath();x.fill();
     x.strokeStyle='rgba(235,200,120,.8)';x.lineWidth=Math.max(1,dpr*1.2);x.beginPath();x.moveTo(a[0],a[1]-1);x.lineTo(b[0],b[1]-1);x.stroke();}}
   // the pin deck and the pit
   blQuad(x,g,[[-hw,0,BL.HEAD-.5],[hw,0,BL.HEAD-.5],[hw,0,zB],[-hw,0,zB]],'rgba(255,238,200,.07)');
@@ -34192,12 +34242,33 @@ function blDrawBursts(g,x){
   }
   x.restore();
 }
+// the light sprites are black pictures laid on with a glowing blend; tinted copies (multiply) give them any colour
+function blSpr(n){return blPhoto('sp_'+n,'.jpg');}
+function blTint(n,col){
+  const im=blSpr(n);if(!im)return null;
+  let c=col;if(c.charAt(0)==='h'){const m=c.match(/hsl\((\d+)/);c='hsl('+(m?Math.round(m[1]/20)*20:0)+',90%,60%)';}
+  const k='tint_'+n+c;let t=BL_IMG[k];if(t)return t;
+  t=document.createElement('canvas');t.width=im.width;t.height=im.height;const q=t.getContext('2d');q.drawImage(im,0,0);q.globalCompositeOperation='multiply';q.fillStyle=c;q.fillRect(0,0,t.width,t.height);q.globalCompositeOperation='lighter';q.globalAlpha=.35;q.drawImage(im,0,0);return BL_IMG[k]=t;
+}
+function blSprFor(c){
+  if(c==='#ff7a2a'||c==='#ffc24a'||c==='#ff8a2a'||c==='#ffd36b')return['ember',null];
+  if(c==='#ffd96a'||c==='#fff3c0')return['glint',null];
+  if(c==='#fff6a0'||c==='#ffe95a')return['spark',null];
+  if(c==='#ffffff'||c==='#f4ead0'||c==='#fff')return['orb',null];
+  if(c==='#bff0ff'||c==='#8fe3ff')return['ice',null];
+  return['orb',c];
+}
 function blDrawParts(g,x){
   const P=g.pp;if(!P)return;const dpr=g.dpr||1;
   for(let pass=0;pass<2;pass++){
     x.save();if(pass===1)x.globalCompositeOperation='lighter';
-    for(let i=0;i<P.length;i++){const a=P[i];if(!a.on)continue;const add=a.k==='s'||a.k==='t'||a.k==='f';if(add!==(pass===1))continue;
+    for(let i=0;i<P.length;i++){const a=P[i];if(!a.on)continue;const add=a.k==='s'||a.k==='t'||a.k==='f'||a.k==='c'||a.k==='d';if(add!==(pass===1))continue;
       const p=blP(g,a.x,a.y,a.z);if(!p)continue;const u=a.l/a.m,r=Math.max(.8,a.s*p[2]);
+      // the pictures: sparks, embers, glints, ice, dust, splinters
+      if(a.k==='s'||a.k==='t'||a.k==='f'||a.k==='c'){const sf=blSprFor(a.c),im=sf[1]?blTint(sf[0],sf[1]):blSpr(sf[0]);
+        if(im){const w=r*(sf[0]==='glint'||sf[0]==='spark'?7:sf[0]==='ice'?6:sf[0]==='ember'?5.5:4.5)*(a.k==='t'?(u+.3):1);x.globalAlpha=Math.min(1,u*2.2);x.save();x.translate(p[0],p[1]);if(sf[0]==='spark'||sf[0]==='ice'||sf[0]==='glint')x.rotate(a.r);x.drawImage(im,-w/2,-w/2,w,w);x.restore();continue;}}
+      if(a.k==='d'){const dm=blSpr('dust');if(dm){const w=r*(4.8-u*2);x.globalAlpha=u*.38;x.drawImage(dm,p[0]-w/2,p[1]-w/2,w,w);continue;}}
+      if(a.k==='w'){const sp=blPhoto('splint_'+(i%5));if(sp){const h=Math.max(6,r*5),w=h*sp.width/sp.height;x.globalAlpha=Math.min(1,u*3);x.save();x.translate(p[0],p[1]);x.rotate(a.r);x.drawImage(sp,-w/2,-h/2,w,h);x.restore();continue;}}
       if(a.k==='c'){x.globalAlpha=Math.min(1,u*3);x.save();x.translate(p[0],p[1]);x.rotate(a.r);x.fillStyle=a.c;x.fillRect(-r,-r*.5,r*2,r);x.restore();}
       else if(a.k==='w'){x.globalAlpha=Math.min(1,u*3);x.save();x.translate(p[0],p[1]);x.rotate(a.r);x.fillStyle=a.c;x.fillRect(-r,-r*.35,r*2,r*.7);x.restore();}
       else if(a.k==='d'){const rr=r*(2.4-u*1.2);x.globalAlpha=u*.3;x.fillStyle=a.c;x.beginPath();x.arc(p[0],p[1],rr,0,7);x.fill();}
@@ -34227,7 +34298,7 @@ function blDrawBanner(g,x){
     const cyw=H*.5,ww=Math.min(W*.84,H*.66)*(.55+.45*e)*(b.sz>1?1.1:1),hw=ww*wim.height/wim.width;
     x.save();x.translate(W/2,cyw);
     const bg2=x.createLinearGradient(-W/2,0,W/2,0);bg2.addColorStop(0,'rgba(0,0,0,0)');bg2.addColorStop(.2,'rgba(0,0,0,.34)');bg2.addColorStop(.8,'rgba(0,0,0,.34)');bg2.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=bg2;x.fillRect(-W/2,-hw*.7,W,hw*1.4+(big.s?H*.05:0));
-    x.shadowColor='rgba(255,200,90,.55)';x.shadowBlur=(g.q||0)<2?26*dpr:0;x.drawImage(wim,-ww/2,-hw/2,ww,hw);x.shadowBlur=0;
+    x.drawImage(wim,-ww/2,-hw/2,ww,hw);
     const sh2=(u*b.dur-.1)/.6;if(sh2>0&&sh2<1){x.save();x.globalCompositeOperation='lighter';x.globalAlpha=.5*Math.max(0,al);const gx=(-.6+sh2*1.2)*ww*.5;const gg=x.createLinearGradient(gx-ww*.1,0,gx+ww*.1,0);gg.addColorStop(0,'rgba(255,255,255,0)');gg.addColorStop(.5,'rgba(255,255,255,.8)');gg.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=gg;x.fillRect(-ww/2,-hw/2,ww,hw);x.restore();}
     if(big.s){x.font='700 '+Math.round(Math.min(H*.026,W*.05))+'px Cinzel,serif';x.fillStyle='rgba(245,236,205,.97)';x.textAlign='center';x.fillText(big.s,0,hw*.62);}
     x.restore();x.restore();return;
@@ -34257,6 +34328,13 @@ function blDrawTurnCard(g,x){
   {const md=blModNow(g);if(md){x.font='800 '+Math.round(Math.min(H*.02,W*.04))+'px Cinzel,serif';x.fillStyle='rgb('+BL_MODCOL[md]+')';const tx='THIS BALL: '+BL_MODS[md].n+' · '+BL_MODS[md].d;x.fillText(tx,W/2,H*.52);const em=blPhoto('emb_'+md);if(em){const es=H*.05,tw=x.measureText(tx).width;x.drawImage(em,W/2-tw/2-es-6,H*.52-es/2,es,es);}}}
   x.restore();
 }
+function blDrawMotes(g,x){
+  if((g.q||0)>1||animMode()==='off')return;const im=blSpr('motes');if(!im)return;
+  const W=g.cv.width,H=g.cv.height,w=W*.55,h=w*im.height/im.width,off=(g.t*5)%h;
+  x.save();x.globalCompositeOperation='lighter';x.globalAlpha=.13;
+  for(let yy=-off;yy<H;yy+=h)for(let xx=-W*.05+Math.sin(g.t*.2)*W*.02;xx<W;xx+=w)x.drawImage(im,xx,yy,w,h);
+  x.restore();
+}
 function blDrawFlashVig(g,x){
   const W=g.cv.width,H=g.cv.height;
   if(g.flash>.01){x.save();x.globalCompositeOperation='lighter';const rg=x.createRadialGradient(W/2,H*.35,0,W/2,H*.35,H*.8);rg.addColorStop(0,'rgba(255,225,150,'+(g.flash*.38).toFixed(3)+')');rg.addColorStop(1,'rgba(255,225,150,0)');x.fillStyle=rg;x.fillRect(0,0,W,H);x.restore();}
@@ -34267,7 +34345,13 @@ function blDraw(g,now){
   g.shx=g.shake>.01?(Math.random()-.5)*g.shake*10*dpr:0;g.shy=g.shake>.01?(Math.random()-.5)*g.shake*8*dpr:0;
   if(!g.bgc)blBg(g);x.drawImage(g.bgc,0,0);
   if(g.phase==='intro'){blDrawIntro(g,x);return;}
-  blDrawLane(g,x);
+  {const cm=g.cam,key=[cm.z,cm.h,cm.x,cm.hz,cm.f,cm.E].map(v=>v.toFixed(3)).join()+'|'+W+'x'+H+'|'+BL_LOADED;
+   if(key===g.prevKey)g.settle=(g.settle||0)+1;else g.settle=0;g.prevKey=key;g.moving=g.settle<3||g.phase==='roll';
+   if(g.layK===key&&g.layer){x.drawImage(g.layer,g.shx||0,g.shy||0);}
+   else if(!g.moving){
+     if(!g.layer||g.layer.width!==W||g.layer.height!==H){g.layer=document.createElement('canvas');g.layer.width=W;g.layer.height=H;}
+     const lx=g.layer.getContext('2d'),sx0=g.shx,sy0=g.shy;g.shx=0;g.shy=0;lx.clearRect(0,0,W,H);blDrawLane(g,lx);g.shx=sx0;g.shy=sy0;g.layK=key;x.drawImage(g.layer,g.shx||0,g.shy||0);
+   }else blDrawLane(g,x);}
   blDrawPins(g,x);
   // the ball
   const ball=g.balls[g.cur]||{id:'classic',fx:'none'};
@@ -34288,7 +34372,7 @@ function blDraw(g,now){
   }else if(g.phase==='result'&&g.sim){}
   blDrawParts(g,x);blDrawBursts(g,x);blDrawConf(g,x);
   blDrawBanner(g,x);blDrawTurnCard(g,x);
-  blDrawFlashVig(g,x);
+  blDrawMotes(g,x);blDrawFlashVig(g,x);
 }
 function blDrawIntro(g,x){
   const W=g.cv.width,H=g.cv.height,t=g.t-g.phaseT,dpr=g.dpr||1;
@@ -34303,7 +34387,7 @@ function blDrawIntro(g,x){
 
 /* ═══════ BOWLING: the screen, the touch, the score sheet ═══════ */
 // make the first ball smooth: the pictures and sounds are built now, not in the middle of the first roll
-function blWarm(g){try{['ui_plaque','logo','return','confetti','stream_0','stream_1','stream_2','stream_3','emb_rocket','emb_magnet','emb_giant','emb_heavy'].forEach(n=>blPhoto(n));['strike','spare','split','turkey','gutter','comeback'].forEach(n=>blPhoto('word_'+n));['fire','ice','electric','vortex','gold','shock'].forEach(n=>blPhoto('fx_'+n,'.jpg'));BL_BALLS.forEach(b=>blPhoto('ball_'+b.id));blPhoto('pin_stand');blPinSprite();{const ac=bwAc();if(ac)blBufs(ac);}(g.balls||[]).forEach(b=>{const o=BL_BALLS.find(q=>q.id===b.id)||BL_BALLS[0];[256,160,96].forEach(S=>blBallBase(o,S));blPatCanvas(o);});[256,160,96].forEach(blBallShade);const ac=bwAc();if(ac){hfBus(ac);bwNoise(ac,'brown');bwNoise(ac,'white');}}catch(e){}}
+function blWarm(g){try{['sp_ember','sp_flame','sp_smoke','sp_dust','sp_spark','sp_glint','sp_ice','sp_orb','sp_motes','tx_gutter','tx_rail','tx_foul','tx_carpet','pool'].forEach(n=>blPhoto(n,'.jpg'));['inlay_arrow','inlay_dot','splint_0','splint_1','splint_2','splint_3','splint_4'].forEach(n=>blPhoto(n));['ui_plaque','logo','return','confetti','stream_0','stream_1','stream_2','stream_3','emb_rocket','emb_magnet','emb_giant','emb_heavy'].forEach(n=>blPhoto(n));['strike','spare','split','turkey','gutter','comeback'].forEach(n=>blPhoto('word_'+n));['fire','ice','electric','vortex','gold','shock'].forEach(n=>blPhoto('fx_'+n,'.jpg'));BL_BALLS.forEach(b=>blPhoto('ball_'+b.id));blPhoto('pin_stand');blPinSprite();{const ac=bwAc();if(ac)blBufs(ac);}(g.balls||[]).forEach(b=>{const o=BL_BALLS.find(q=>q.id===b.id)||BL_BALLS[0];[256,160,96].forEach(S=>blBallBase(o,S));blPatCanvas(o);});[256,160,96].forEach(blBallShade);const ac=bwAc();if(ac){hfBus(ac);bwNoise(ac,'brown');bwNoise(ac,'white');}}catch(e){}}
 function lDealBowling(){
   if(G.lp.length>4)G.lp=G.lp.slice(0,4);
   G.lp.forEach(p=>{p.totalScore=0;p.c4Result=null;p.psLine='';});
