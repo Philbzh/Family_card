@@ -390,6 +390,8 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .tb-mem{display:flex;align-items:center;justify-content:space-between;padding:.35rem 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:.84rem;}
 .tb-x{width:1.8rem;height:1.8rem;border-radius:50%;border:1px solid rgba(255,255,255,.15);background:none;color:#e8a0a0;cursor:pointer;}
 .tb-chip{display:block;margin:0 0 .8rem;padding:.5rem .8rem;border-radius:999px;border:1px solid rgba(230,195,106,.35);background:rgba(240,210,122,.1);color:#e8dcc0;font-size:.74rem;cursor:pointer;}
+#upd-bar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:9400;padding:.7rem 1.2rem;border-radius:999px;border:1px solid #f0d27a;background:linear-gradient(180deg,#f0cc60,#c99b4e);color:#241a08;font:700 .8rem 'Jost',sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.6),0 0 24px rgba(240,200,100,.5);cursor:pointer;animation:updPulse 2.4s ease-in-out infinite;}
+@keyframes updPulse{0%,100%{transform:translateX(-50%) scale(1);}50%{transform:translateX(-50%) scale(1.04);}}
 .qs-row{display:flex;gap:.5rem;margin:.1rem 0 .7rem;padding:0 1.2rem;}
 .qs-chip{flex:1;min-width:0;padding:.7rem 0;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(230,195,106,.22);color:#e8dcc0;font:700 1.05rem 'Cinzel',serif;cursor:pointer;transition:transform .15s,background .15s,border-color .15s;}
 .qs-chip:active{transform:scale(.94);}
@@ -5938,8 +5940,33 @@ function famPushMembers(before,after){
 let _famCh=null,_famChCode='';
 function famSubscribe(){const sb=famSb();if(!sb||!sb.channel)return;const c=tableCode();if(_famCh&&_famChCode===c)return;try{if(_famCh&&sb.removeChannel)sb.removeChannel(_famCh);_famChCode=c;_famCh=sb.channel('fam:'+c).on('broadcast',{event:'upd'},()=>famSoon(400)).subscribe();}catch(e){}}
 function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',payload:{d:DEVICE_ID}});}catch(e){}}
+/* ═══════ A NEW VERSION IS READY ═══════
+   An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
+   The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
+const APP_BUILD=230;
+let _updAsked=0;
+async function appCheckUpdate(force){
+  try{
+    if(Date.now()-_updAsked<(force?0:60000))return;_updAsked=Date.now();
+    const r=await fetch('sw.js?v='+Date.now(),{cache:'no-store'});if(!r.ok)return;
+    const m=(await r.text()).match(/our-table-v(\d+)/);if(!m)return;
+    if(+m[1]>APP_BUILD){G.updateReady=+m[1];appShowUpdate();}
+  }catch(e){}
+}
+function appShowUpdate(){
+  if(document.getElementById('upd-bar'))return;
+  const d=document.createElement('button');d.id='upd-bar';d.type='button';d.textContent='✨ A new version is ready — tap to update';
+  d.addEventListener('click',()=>appApplyUpdate());document.body.appendChild(d);
+}
+async function appApplyUpdate(){
+  const bar=document.getElementById('upd-bar');if(bar)bar.textContent='Updating…';
+  try{const reg=await navigator.serviceWorker.getRegistration();if(reg)await reg.update();}catch(e){}
+  location.reload();
+}
 function famBoot(){
   tbEnsure();famLoadCache();famSoon(1500);tbBootInvite();
+  setTimeout(()=>appCheckUpdate(true),4000);setInterval(()=>appCheckUpdate(),10*60000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)appCheckUpdate();});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)famSoon(300);});
   window.addEventListener('online',()=>famSoon(500));
   setInterval(()=>{if(!document.hidden)famSoon(0);},90000);
@@ -35658,6 +35685,7 @@ function rDataOv(){
       <button class="btn btn-ghost btn-sm" data-a="tables-open" style="margin-top:.5rem;">👥 My tables, invites and admin</button>
     </div>
     ${famStatusHTML()}
+    <div style="font-size:.68rem;color:var(--paper3);text-align:center;margin:-.2rem 0 .2rem;letter-spacing:.06em;">Our Table · version ${APP_BUILD}${G.updateReady?' · a newer version is available':''}</div>
     <div class="panel" style="text-align:left;">
       <div class="panel-lbl">Synced online</div>
       <div style="font-size:.76rem;color:var(--paper3);line-height:1.6;">
@@ -37450,7 +37478,7 @@ window.addEventListener('load',()=>{
   // means "install" won't be offered there.
   // Skipped when embedded (the test runner loads this file in an iframe): a service worker there
   // would serve the suite a cached build, so tests could pass against code that isn't on disk.
-  if('serviceWorker' in navigator&&window.top===window.self){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+  if('serviceWorker' in navigator&&window.top===window.self){navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).catch(()=>{});}
 });
 let _deferredInstallPrompt=null;
 window.addEventListener('beforeinstallprompt',e=>{
