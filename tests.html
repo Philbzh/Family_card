@@ -6306,6 +6306,15 @@ async function runPresentation(A,W,frame){
       F('startNow')('farkle',3);
       check('start now opens the game with the remembered table',gg.selGame==='farkle'&&gg.lp.length===3&&gg.lp[0].name==='AnnQ'&&['table','pass'].includes(gg.scr));
       check('starting a game remembers the table again',F('getRoster')().map(p=>p.name).join()==='AnnQ,BobQ,CyQ');
+      {const d=i=>new Date(Date.now()-i*864e5).toISOString(),h0=W.localStorage.getItem('ct_history');
+       W.localStorage.setItem('ct_history',JSON.stringify([{game:'farkle',winner:'AnnQ',date:d(0),players:['AnnQ','BobQ','CyQ']},{game:'uno',winner:'BobQ',date:d(3),players:['AnnQ','BobQ','CyQ']},{game:'uno',winner:'BobQ',date:d(4),players:['AnnQ','BobQ','CyQ']},{game:'uno',winner:'BobQ',date:d(5),players:['AnnQ','BobQ','CyQ']}]));
+       const tp=F('tonightPicks')();
+       check("tonight's pick never repeats the game just played",tp.length>0&&tp.every(x=>x.g.id!=='farkle'));
+       check("a winning streak is called out with the winner's name",tp[0].g.id==='uno'&&/BobQ has won the last 3/.test(tp[0].why));
+       check("every idea has a reason a family can read",tp.every(x=>typeof x.why==='string'&&x.why.length>10));
+       check("games that fit three players only",tp.every(x=>(x.g.maxP||6)>=3&&(x.g.minP||2)<=3&&!x.g.onlineOnly));
+       gg.tpSkip=0;check("tonight's card shows the game and a skip button",/Uno/.test(F('tonightPickHTML')())&&/tp-skip/.test(F('tonightPickHTML')()));
+       if(h0===null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',h0);}
       F('startNow')('maumau',2);check('two players from the remembered three',gg.selGame==='maumau'&&gg.lp.length===2);
     } finally {
       gg.isOnline=keep.on;gg.selGame=keep.sel;gg.lp=keep.lp;gg.scr=keep.scr;gg.qsN=keep.qs;

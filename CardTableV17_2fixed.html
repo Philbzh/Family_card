@@ -373,6 +373,15 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .v10-continue.resume .v10-eyebrow{color:#f0cc60;}
 .v10-continue-top{display:flex;align-items:center;gap:.7rem;position:relative;z-index:1;}
 .v10-game-mark{width:2.9rem;height:2.9rem;border-radius:13px;background:rgba(0,0,0,.25);display:grid;place-items:center;font-size:1.5rem;border:1px solid rgba(234,208,138,.3);box-shadow:0 4px 14px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.1);}
+.tp-card{position:relative;display:flex;gap:.9rem;align-items:center;margin:0 1.2rem 1rem;padding:.7rem;border-radius:18px;border:1px solid rgba(230,195,106,.4);background:linear-gradient(135deg,rgba(32,70,50,.55),rgba(8,17,14,.85));box-shadow:0 14px 30px -16px #000,0 0 26px -14px rgba(240,200,110,.6);cursor:pointer;transition:transform .15s,box-shadow .2s;}
+.tp-card:active{transform:scale(.985);}
+.tp-art{flex:0 0 5.2rem;aspect-ratio:3/4;border-radius:12px;background-size:cover;background-position:center;border:1px solid rgba(230,195,106,.5);box-shadow:0 8px 16px -8px #000;}
+.tp-body{min-width:0;flex:1;}
+.tp-name{font:700 1.15rem 'Cinzel',serif;color:#f6e7b8;letter-spacing:.04em;}
+.tp-why{font-size:.8rem;color:var(--paper2,#cfc8b2);margin:.25rem 0 .55rem;line-height:1.35;}
+.tp-go{display:inline-block;padding:.38rem .8rem;border-radius:999px;background:linear-gradient(180deg,#f0cc60,#c99b4e);color:#241a08;font:700 .68rem 'Jost',sans-serif;letter-spacing:.1em;text-transform:uppercase;}
+.tp-skip{position:absolute;top:.5rem;right:.6rem;width:2rem;height:2rem;border-radius:50%;border:1px solid rgba(230,195,106,.3);background:rgba(0,0,0,.35);color:#e8c46a;font-size:1rem;cursor:pointer;}
+.tp-skip:active{transform:rotate(180deg);}
 .qs-row{display:flex;gap:.5rem;margin:.1rem 0 .7rem;padding:0 1.2rem;}
 .qs-chip{flex:1;min-width:0;padding:.7rem 0;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(230,195,106,.22);color:#e8dcc0;font:700 1.05rem 'Cinzel',serif;cursor:pointer;transition:transform .15s,background .15s,border-color .15s;}
 .qs-chip:active{transform:scale(.94);}
@@ -736,7 +745,7 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .v10-cta::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);transform:skewX(-20deg);animation:v10-shimmer 4.5s ease-in-out infinite;}
 @keyframes v10-shimmer{0%{left:-60%;}35%{left:130%;}100%{left:130%;}}
 @media(prefers-reduced-motion:reduce){.v10-cta::after{animation:none;display:none;}.home-v10::before{animation:none;}}
-@media(min-width:650px){#app{max-width:900px}.v10-games{grid-template-columns:repeat(3,1fr)}.v10-hero{padding-left:2rem;padding-right:2rem;padding-bottom:0}.v10-continue,.v10-actions,.v10-bottom-grid{margin-left:2rem;margin-right:2rem}.v10-games,.v10-section{margin-left:2rem;margin-right:2rem;padding-left:0;padding-right:0}.v10-section{margin-top:1.5rem}}
+@media(min-width:650px){#app{max-width:900px}.v10-games{grid-template-columns:repeat(3,1fr)}.v10-hero{padding-left:2rem;padding-right:2rem;padding-bottom:0}.v10-continue,.v10-actions,.v10-bottom-grid,.tp-card{margin-left:2rem;margin-right:2rem}.qs-row,.qs-picks{padding-left:2rem;padding-right:2rem}.v10-games,.v10-section{margin-left:2rem;margin-right:2rem;padding-left:0;padding-right:0}.v10-section{margin-top:1.5rem}}
 /* ═══ DESKTOP HOME DASHBOARD (wide screens only — mobile v10 flow above is untouched) ═══ */
 /* Materials pass: layered radial grounds instead of flat fills, sphere avatars, ambient glow
    blobs behind icons, gold gradient-text headlines, drop-shadow + inset-highlight pairs,
@@ -5282,9 +5291,35 @@ function startNow(gid,n){
 }
 function lastPlayedDays(){const d={},now=Date.now();getHistory().forEach(h=>{if(!(h.game in d))d[h.game]=Math.max(0,(now-new Date(h.date).getTime())/864e5);});return d;}
 // up to four suggestions for n players: what has not been on the table for the longest, from different rooms
+function fitGames(n){return GAMES.filter(g=>!g.locked&&!g.hidden&&!g.onlineOnly&&(g.maxP||6)>=n&&((g.minP||2)<=n||(n===1&&BOT_GAMES.has(g.id)&&(g.minP||2)<=2)));}
+// Tonight's pick: one game, with a reason a family can feel: a winning streak to break, something never tried, something that has been waiting
+function tonightPicks(){
+  const hist=getHistory(),n=Math.max(1,Math.min(6,getRoster().length||2)),now=Date.now(),day=Math.floor(now/864e5),st={};
+  hist.forEach(h=>{const x=st[h.game]||(st[h.game]={n:0,days:null,wins:[]});x.n++;if(x.days===null)x.days=Math.max(0,Math.round((now-new Date(h.date).getTime())/864e5));x.wins.push(h.winner);});
+  const lastG=hist[0]&&hist[0].game,most=Object.keys(st).sort((a,b)=>st[b].n-st[a].n)[0];
+  const out=fitGames(n).filter(g=>g.id!==lastG).map(g=>{
+    const x=st[g.id],jit=((g.id.length*7+day*13)%9);
+    if(!x)return{g,score:58+jit,why:'Your table has not tried this one yet.'};
+    let k=1;while(k<x.wins.length&&x.wins[k]&&x.wins[k]===x.wins[0])k++;
+    if(k>=2&&x.wins[0]&&x.wins[0]!=='The whole crew')return{g,score:75+k*3+jit,why:x.wins[0]+' has won the last '+k+' — can anyone stop them?'};
+    if(g.id===most&&x.days>=2)return{g,score:40+Math.min(x.days,20)+jit,why:'Your favourite — '+x.n+' games so far.'};
+    return{g,score:Math.min(x.days,45)+jit,why:x.days>=2?'Not on your table for '+x.days+' days.':'Played '+(x.days===0?'today':'yesterday')+' — one more?'};
+  }).sort((a,b)=>b.score-a.score);
+  return out;
+}
+function tonightPickHTML(){
+  const all=tonightPicks();if(!all.length)return'';
+  const top=all.slice(0,4),pk=top[(G.tpSkip||0)%top.length],g=pk.g,R=getRoster(),names=R.slice(0,3).map(p=>p.name).join(', ');
+  return`<div class="v10-section"><div class="v10-section-title">Tonight's pick</div></div>
+    <div class="tp-card" data-a="tp-play" data-gid="${g.id}" role="button" tabindex="0" aria-label="Tonight's pick: ${esc(g.name)}. ${esc(pk.why)}">
+      <div class="tp-art" style="background-image:url('${g.cover||''}')"></div>
+      <div class="tp-body"><div class="tp-name">${esc(g.name)}</div><div class="tp-why">${esc(pk.why)}</div><div class="tp-go">▶ Play${names?' · '+esc(names)+(R.length>3?' +'+(R.length-3):''):''}</div></div>
+      ${top.length>1?'<button class="tp-skip" data-a="tp-skip" aria-label="Show another idea">↻</button>':''}
+    </div>`;
+}
 function quickPicks(n){
   const lp=lastPlayedDays(),day=Math.floor(Date.now()/864e5);
-  const fits=GAMES.filter(g=>!g.locked&&!g.hidden&&!g.onlineOnly&&(g.maxP||6)>=n&&((g.minP||2)<=n||(n===1&&BOT_GAMES.has(g.id)&&(g.minP||2)<=2)));
+  const fits=fitGames(n);
   const score=g=>Math.min(lp[g.id]===undefined?60:lp[g.id],60)+((g.id.length*7+day*13)%11);
   const sorted=fits.sort((a,b)=>score(b)-score(a)),out=[],cats=new Set();
   for(const g of sorted){if(out.length>=4)break;if(cats.has(g.cat))continue;cats.add(g.cat);out.push(g);}
@@ -31101,6 +31136,7 @@ function rHome(){
         ${plaqueHTML}
         ${feltPickerHTML}
         ${continueCard}
+        ${tonightPickHTML()}
         ${quickStartHTML()}
         ${tonightHomeHTML()}
         ${homeFamilyHTML(history)}
@@ -36409,6 +36445,8 @@ document.addEventListener('click',e=>{
     saveFamily(getFamily().filter(m=>m.name!==name));
     render();
   }
+  else if(a==='tp-skip'){G.tpSkip=(G.tpSkip||0)+1;render();}
+  else if(a==='tp-play'){startNow(t.getAttribute('data-gid'),getRoster().length||2);}
   else if(a==='qs-n'){const k=+t.getAttribute('data-n');G.qsN=G.qsN===k?0:k;render();}
   else if(a==='qs-go'){startNow(t.getAttribute('data-gid'),+t.getAttribute('data-n'));}
   else if(a==='play-again'){startNow(t.getAttribute('data-gid'),getRoster().length);}
