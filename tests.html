@@ -5991,7 +5991,7 @@ async function runPresentation(A,W,frame){
        p.fl.L.on=false;p.fl.R.on=false;const nbm=stt.magN;for(let i=0;i<12;i++)F('pbEvent')(p,'bumper',{bm:F('PB_T').bumpers[0],b:{x:0,y:0}});check('twelve bumper hits charge the magnet',stt.magOn===true&&stt.magN===nbm+12);
        stt.boss=null;p.phase='play';p.tilt=6.3;p.balls=[nb];}
       check('a few nudges are allowed, only many in a row tilt the table',!p.tilted);
-      for(let i=0;i<60&&!p.tilted;i++){p.nudgeCool=0;F('pbNudge')(p,-1);}
+      for(let i=0;i<60&&!p.tilted;i++){p.nudgeCool=0;p.phase='play';if(!p.balls.some(b=>b.st==='play'))p.balls=[nb];nb.st='play';F('pbNudge')(p,-1);}
       check('too many nudges in a row tilt it',p.tilted===true);
     }finally{const g=G();try{F('pbStop')();}catch(e){}g.isOnline=k0[0];g.selGame=k0[1];g.lp=k0[2];g.scr=k0[3];g.pb=null;}
   });
@@ -6288,6 +6288,29 @@ async function runPresentation(A,W,frame){
         check('online finals: the watcher goes through 3 → 2 and ends with a champion and a full ranking',g.over&&seen.join()==='3,2'&&g.fin.champ!=null&&g.fin.rank.length===3&&g.fin.rank[0]===g.fin.champ);
        }finally{W.eval('window._clOut=null');W.eval('_ch=null');gg.isOnline=false;G().myPid=pid0;gg.srv=srv0;F('clStop')();}}
     }finally{const g=G();try{F('clStop')();}catch(e){}g.isOnline=k0[0];g.selGame=k0[1];g.lp=k0[2];g.scr=k0[3];g.cl=null;g.clResult=k0[5];ls.forEach(([k,v])=>{if(v===null)W.localStorage.removeItem(k);else W.localStorage.setItem(k,v);});}
+  });
+  suite('Quick start and play again (the table remembers who sat down)',()=>{
+    const F=n=>W.eval(n),G=()=>F('G');const gg=G();
+    const keep={on:gg.isOnline,sel:gg.selGame,lp:gg.lp,scr:gg.scr,roster:W.localStorage.getItem('ct_roster'),qs:gg.qsN};
+    try{
+      W.localStorage.setItem('ct_roster',JSON.stringify([{name:'AnnQ',avatar:F('AVATARS')[0],bot:null},{name:'BobQ',avatar:F('AVATARS')[1],bot:null},{name:'CyQ',avatar:F('AVATARS')[2],bot:null},{name:'Robo',avatar:F('AVATARS')[3],bot:'sharp'}]));
+      check('the remembered table is read back with its people and its robot',F('getRoster')().length===4&&F('getRoster')()[3].bot==='sharp');
+      W.localStorage.setItem('ct_roster','not json');check('a broken memory is ignored, not a crash',F('getRoster')().length===0);
+      W.localStorage.setItem('ct_roster',JSON.stringify([{name:'AnnQ',avatar:F('AVATARS')[0],bot:null},{name:'BobQ',avatar:F('AVATARS')[1],bot:null},{name:'CyQ',avatar:F('AVATARS')[2],bot:null}]));
+      for(const n of [1,2,3,4,5,6]){const ps=F('quickPicks')(n);check('quick start for '+n+' shows up to four games that fit',ps.length>=1&&ps.length<=4&&ps.every(g=>!g.locked&&!g.onlineOnly&&(g.maxP||6)>=n));}
+      check('the suggestions come from different rooms where possible',new Set(F('quickPicks')(3).map(g=>g.cat)).size>=3);
+      gg.isOnline=false;gg.selGame='farkle';
+      let seats=F('seatTable')(3);check('three seats are the three remembered people',seats.map(p=>p.name).join()==='AnnQ,BobQ,CyQ'&&seats.every(p=>!p.bot));
+      seats=F('seatTable')(1);check('one player against a robot in a game that has robots',seats.length===2&&seats[0].name==='AnnQ'&&!!seats[1].bot);
+      seats=F('seatTable')(5);check('more seats than people: robots fill in, never a nameless seat',seats.length===5&&seats.every(p=>p.name.trim())&&seats.slice(3).every(p=>p.bot));
+      F('startNow')('farkle',3);
+      check('start now opens the game with the remembered table',gg.selGame==='farkle'&&gg.lp.length===3&&gg.lp[0].name==='AnnQ'&&['table','pass'].includes(gg.scr));
+      check('starting a game remembers the table again',F('getRoster')().map(p=>p.name).join()==='AnnQ,BobQ,CyQ');
+      F('startNow')('maumau',2);check('two players from the remembered three',gg.selGame==='maumau'&&gg.lp.length===2);
+    } finally {
+      gg.isOnline=keep.on;gg.selGame=keep.sel;gg.lp=keep.lp;gg.scr=keep.scr;gg.qsN=keep.qs;
+      if(keep.roster===null)W.localStorage.removeItem('ct_roster');else W.localStorage.setItem('ct_roster',keep.roster);
+    }
   });
   suite('Olympic Games: Archery (field trail, flight, scoring, matches)',()=>{
     const F=n=>W.eval(n),G=()=>F('G');const gg=G();

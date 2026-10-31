@@ -373,6 +373,17 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .v10-continue.resume .v10-eyebrow{color:#f0cc60;}
 .v10-continue-top{display:flex;align-items:center;gap:.7rem;position:relative;z-index:1;}
 .v10-game-mark{width:2.9rem;height:2.9rem;border-radius:13px;background:rgba(0,0,0,.25);display:grid;place-items:center;font-size:1.5rem;border:1px solid rgba(234,208,138,.3);box-shadow:0 4px 14px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.1);}
+.qs-row{display:flex;gap:.5rem;margin:.1rem 0 .7rem;padding:0 1.2rem;}
+.qs-chip{flex:1;min-width:0;padding:.7rem 0;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(230,195,106,.22);color:#e8dcc0;font:700 1.05rem 'Cinzel',serif;cursor:pointer;transition:transform .15s,background .15s,border-color .15s;}
+.qs-chip:active{transform:scale(.94);}
+.qs-chip.on{background:linear-gradient(180deg,rgba(240,210,122,.3),rgba(201,162,74,.12));border-color:#f0d27a;color:#fff3b0;box-shadow:0 0 16px -4px rgba(240,210,122,.6);}
+.qs-picks{padding:0 1.2rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(8.2rem,1fr));gap:.6rem;margin-bottom:1rem;}
+.qs-pick{position:relative;aspect-ratio:3/2;border-radius:14px;border:1px solid rgba(230,195,106,.35);background-size:cover;background-position:center;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-start;padding:.55rem .65rem;text-align:left;cursor:pointer;color:#fff;box-shadow:0 8px 18px -10px #000;transition:transform .15s;}
+.qs-pick:active{transform:scale(.96);}
+.qs-pick-name{font:700 .78rem 'Cinzel',serif;letter-spacing:.06em;color:#f6e7b8;text-shadow:0 1px 4px #000;}
+.qs-pick-go{font:600 .62rem 'Jost',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#e8c46a;}
+.qs-none{font-size:.78rem;color:var(--paper3);padding:.4rem;}
+.v10-again{margin:.7rem 1rem .2rem;width:calc(100% - 2rem);}
 .v10-continue-copy{flex:1;min-width:0;}
 .v10-eyebrow{font-size:.58rem;text-transform:uppercase;letter-spacing:.16em;color:var(--paper2);font-weight:600;opacity:.8;}
 .v10-game-name{font-family:var(--serif);font-size:1.08rem;color:var(--paper);margin-top:.15rem;}
@@ -5244,6 +5255,49 @@ function achTier(a,earned){if(!earned)return a.secret?'secret':'locked';let m=0;
 // every game that used to have only a flat dark screen behind its board plays in its own room
 const ROOM_BG={drawit:'drawit',liarsdice:'liarsdice',shutbox:'shutbox',skull:'skull',tension:'tension',hotbomb:'hotbomb',fourrow:'fourrow',mayhem:'fourrow',chainreaction:'chainreaction',gauntlet:'gauntlet',abyss:'abyss',summit:'summit',bingo:'bingo'};
 function applyRoomBg(){const el=document.getElementById('room-bg');if(!el)return;const id=G.scr==='table'?(G.isOnline?(G.srv&&G.srv.gameId):G.selGame):null,r=id&&ROOM_BG[id];if(r){const u='url(assets/rooms/g_'+r+'.jpg)';if(el._u!==u){el._u=u;el.style.setProperty('--room',u);}el.classList.add('on');}else el.classList.remove('on');document.body.classList.toggle('room-on',!!r);}
+// ── The table remembers who sat down last time, so a new game is one tap away ──
+function saveRoster(){try{const r=G.lp.slice(0,8).map(p=>({name:(p.name||'').trim(),avatar:p.avatar,bot:p.bot||null})).filter(p=>p.name);if(r.length)localStorage.setItem('ct_roster',JSON.stringify(r));}catch(e){}}
+function getRoster(){try{const r=JSON.parse(localStorage.getItem('ct_roster')||'[]');return Array.isArray(r)?r.filter(p=>p&&typeof p.name==='string'&&p.name.trim()&&AVATARS.includes(p.avatar)):[];}catch(e){return[];}}
+function newSeat(name,avatar,bot){const p={id:G.nid++,name:name||'',avatar:avatar||AVATARS[0],hand:[],totalScore:0,roundsWon:0,chips:DEFAULT_CHIPS,bet:0,folded:false,allIn:false};if(bot)p.bot=bot;return p;}
+// n seats for the game now selected: the remembered people first, then robots (where the game has them) or empty seats
+function seatTable(n){
+  const g=currentGame(),cap=g.maxP||(isPoker()?8:6);n=Math.max(1,Math.min(n,cap));
+  const R=getRoster(),seats=[];
+  R.filter(p=>!p.bot).forEach(h=>{if(seats.length<n)seats.push(newSeat(h.name,h.avatar));});
+  if(!seats.length&&G.myName&&G.myName!=='Player')seats.push(newSeat(G.myName,G.myAvatar||AVATARS[0]));
+  const bots=R.filter(p=>p.bot);
+  while(seats.length<n){
+    if(BOT_GAMES.has(g.id)){const b=bots.shift(),taken=new Set(seats.map(x=>x.name));const nm=b&&!taken.has(b.name)?b.name:(BOT_NAMES.find(x=>!taken.has(x))||('Bot '+G.nid));seats.push(newSeat(nm,AVATARS[seats.length%AVATARS.length],b&&b.bot||'gentle'));}
+    else seats.push(newSeat('',AVATARS[seats.length%AVATARS.length]));
+  }
+  if(n===1&&BOT_GAMES.has(g.id)&&(g.minP||2)>1){const taken=new Set(seats.map(x=>x.name));seats.push(newSeat(BOT_NAMES.find(x=>!taken.has(x))||'Robo',AVATARS[1],'gentle'));}
+  seats.forEach((p,i)=>{if(!p.name.trim())p.name='Player '+(i+1);});
+  return seats;
+}
+// start a local game at once: no game list, no set-up page
+function startNow(gid,n){
+  const g=GAMES.find(x=>x.id===gid);if(!g||g.locked)return;
+  if(g.onlineOnly){pickGame(gid);G.pickedId=gid;toast('This adventure is played online — everyone joins on their own device.');if(ONLINE_GAMES.includes(gid)){G.scr='online';render();}return;}
+  G.isOnline=false;pickGame(gid);G.pickedId=gid;G.lp=seatTable(n||getRoster().length||2);lStartMatch();render();
+}
+function lastPlayedDays(){const d={},now=Date.now();getHistory().forEach(h=>{if(!(h.game in d))d[h.game]=Math.max(0,(now-new Date(h.date).getTime())/864e5);});return d;}
+// up to four suggestions for n players: what has not been on the table for the longest, from different rooms
+function quickPicks(n){
+  const lp=lastPlayedDays(),day=Math.floor(Date.now()/864e5);
+  const fits=GAMES.filter(g=>!g.locked&&!g.hidden&&!g.onlineOnly&&(g.maxP||6)>=n&&((g.minP||2)<=n||(n===1&&BOT_GAMES.has(g.id)&&(g.minP||2)<=2)));
+  const score=g=>Math.min(lp[g.id]===undefined?60:lp[g.id],60)+((g.id.length*7+day*13)%11);
+  const sorted=fits.sort((a,b)=>score(b)-score(a)),out=[],cats=new Set();
+  for(const g of sorted){if(out.length>=4)break;if(cats.has(g.cat))continue;cats.add(g.cat);out.push(g);}
+  for(const g of sorted){if(out.length>=4)break;if(!out.includes(g))out.push(g);}
+  return out;
+}
+function quickStartHTML(){
+  const n=G.qsN||0,chips=[1,2,3,4,5,6].map(k=>`<button class="qs-chip${n===k?' on':''}" data-a="qs-n" data-n="${k}" aria-pressed="${n===k}">${k===6?'6+':k}</button>`).join('');
+  const picks=n?quickPicks(n):[];
+  return`<div class="v10-section"><div class="v10-section-title">Quick start</div><div class="v10-section-note">How many are playing?</div></div>
+    <div class="qs-row">${chips}</div>
+    ${n?`<div class="qs-picks">${picks.length?picks.map(g=>`<button class="qs-pick" data-a="qs-go" data-gid="${g.id}" data-n="${n}" style="background-image:linear-gradient(180deg,rgba(6,12,10,.1) 35%,rgba(6,12,10,.9)),url('${g.cover||''}')" aria-label="Play ${esc(g.name)} with ${n}"><span class="qs-pick-name">${esc(g.name)}</span><span class="qs-pick-go">▶ Play</span></button>`).join(''):'<div class="qs-none">No game fits that number yet.</div>'}</div>`:''}`;
+}
 function isRed(s){return s==='hearts'||s==='diamonds';}
 function mod(n,m){return((n%m)+m)%m;}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -6661,6 +6715,7 @@ function lDeal(){
 }
 
 function lStartMatch(){
+  saveRoster();
   G.lp.forEach(p=>{p.totalScore=0;p.roundsWon=0;p.chips=DEFAULT_CHIPS;});
   G.lround=1;
   // The Cut: who deals first is picked at random, not always seat 1, and the reveal is the point —
@@ -30981,6 +31036,7 @@ function rHome(){
       <div class="v10-continue-top"><div class="v10-game-mark">${resumeGame.icon}</div><div class="v10-continue-copy"><div class="v10-eyebrow">⏸ Game in progress</div><div class="v10-game-name">${resumeGame.name}</div><div class="v10-game-meta">Pick up right where you left off</div></div><div class="v10-arrow">›</div></div>
     </div>`:last&&lastGame?`<div class="v10-continue" data-a="local" data-gid="${last.game}" role="button" tabindex="0" aria-label="Start a new local game — last time you played ${esc(lastGame.name)}">
       <div class="v10-continue-top"><div class="v10-game-mark">${lastGame.icon}</div><div class="v10-continue-copy"><div class="v10-eyebrow">Last time at the table</div><div class="v10-game-name">${lastGame.name}</div><div class="v10-game-meta">${esc(last.winner)} won · ${days===0?'Today':days===1?'Yesterday':days+' days ago'}</div></div><div class="v10-arrow">›</div></div>
+      ${getRoster().length&&!lastGame.onlineOnly?`<button class="btn btn-gold btn-sm v10-again" data-a="play-again" data-gid="${last.game}">▶ Play again · ${esc(getRoster().slice(0,3).map(p=>p.name).join(', '))}${getRoster().length>3?' +'+(getRoster().length-3):''}</button>`:''}
     </div>`:`<div class="v10-continue" data-a="local" role="button" tabindex="0" aria-label="Start your first game"><div class="v10-continue-top"><div class="v10-game-mark">🃏</div><div class="v10-continue-copy"><div class="v10-eyebrow">Your family table</div><div class="v10-game-name">Start your first game</div><div class="v10-game-meta">Choose a game, invite everyone and deal.</div></div><div class="v10-arrow">›</div></div></div>`;
   // Purely ornamental table photo for the wide hero. display:none below 1100px, so the
   // mobile flow never sees it. No data is implied by it — it is a card motif, not a live table.
@@ -31045,6 +31101,7 @@ function rHome(){
         ${plaqueHTML}
         ${feltPickerHTML}
         ${continueCard}
+        ${quickStartHTML()}
         ${tonightHomeHTML()}
         ${homeFamilyHTML(history)}
         ${homeRoomsHTML()}
@@ -33485,7 +33542,7 @@ function resButtonsHTML(){
   return ser+resButtonsCore();
 }
 function resButtonsCore(){
-  if(!G.isOnline)return'<div class="res-btns"><button class="btn btn-gold btn-full" data-a="rematch">🔥 Rematch</button><button class="btn btn-ghost btn-full" data-a="newgame">New Game</button></div>';
+  if(!G.isOnline)return'<div class="res-btns"><button class="btn btn-gold btn-full" data-a="rematch">▶ Play ${esc(currentGame().name)} again</button><button class="btn btn-ghost btn-full" data-a="newgame">New Game</button></div>';
   if(!G.isHost&&G.srv&&ahIs(G.srv.gameId))return'<div class="res-btns"><button class="btn btn-gold btn-full" data-a="o-rematch">🔥 Rematch</button><button class="btn btn-ghost btn-full" data-a="newgame">Leave the table</button></div>';
   if(!G.isHost){
     const host=((G.srv&&G.srv.players||[]).find(p=>p.id===(G.srv&&G.srv.host))||{}).name||'the host';
@@ -36352,6 +36409,9 @@ document.addEventListener('click',e=>{
     saveFamily(getFamily().filter(m=>m.name!==name));
     render();
   }
+  else if(a==='qs-n'){const k=+t.getAttribute('data-n');G.qsN=G.qsN===k?0:k;render();}
+  else if(a==='qs-go'){startNow(t.getAttribute('data-gid'),+t.getAttribute('data-n'));}
+  else if(a==='play-again'){startNow(t.getAttribute('data-gid'),getRoster().length);}
   else if(a==='local'){
     const cg=currentGame();
     if(cg&&cg.onlineOnly){toast('This adventure is played online — everyone joins on their own device.');if(!ONLINE_GAMES.includes(G.selGame))return;G.scr='online';render();return;}
