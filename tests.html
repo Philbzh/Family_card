@@ -6487,6 +6487,16 @@ async function runPresentation(A,W,frame){
     check('dice, arcade, olympic and fairground games do not say Deal the Cards',all.filter(g=>['dice','arcade','olympic','fairground','coop','party'].includes(g.cat)).every(g=>!/Deal/.test(F('startLabel')(g))));
     check('a game that has no label of its own falls back to a label of its room',F('startLabel')({id:'zzz',cat:'arcade'})==='🕹️ Start the Game'&&F('startLabel')({id:'zzz',cat:'nothing'})==='▶ Start the Game');
   });
+  suite('Empty seats are not people (P4, Player 2) and a streak belongs to a person',()=>{
+    const F=n=>W.eval(n),LS=W.localStorage,keep={h:LS.getItem('ct_history'),f:LS.getItem('ct_family')};
+    try{
+      check('P1, P4, Player 3 and Spieler 2 are not people; Papa and Pia are',['P1','P4','Player 3','Spieler 2'].every(n=>!F('famNameIsReal')(n))&&F('famNameIsReal')('Papa')&&F('famNameIsReal')('Pia'));
+      const d=i=>new Date(Date.now()-i*864e5).toISOString();LS.setItem('ct_family','[]');
+      LS.setItem('ct_history',JSON.stringify([{game:'farkle',winner:'Papa',players:['Papa','P4'],date:d(0)},{game:'hotbomb',winner:'P4',players:['P4','Papa'],date:d(1)},{game:'hotbomb',winner:'P4',players:['P4','Papa'],date:d(2)},{game:'hotbomb',winner:'P4',players:['P4','Papa'],date:d(3)}]));
+      W.eval('famBump()');const tp=F('tonightPicks')().find(x=>x.g.id==='hotbomb');
+      check('a run of wins by an empty seat is not called out as a streak',!tp||!/has won the last/.test(tp.why));
+    }finally{if(keep.h===null)LS.removeItem('ct_history');else LS.setItem('ct_history',keep.h);if(keep.f===null)LS.removeItem('ct_family');else LS.setItem('ct_family',keep.f);W.eval('famBump()');}
+  });
   suite('Favourites (starred games, shared by the table)',()=>{
     check('the favourites ran without an error',!favRes.err);
     check('a star adds a game, another star removes it, in order',favRes.one==='farkle'&&favRes.two==='farkle,pig'&&favRes.three==='pig');

@@ -388,12 +388,13 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .v10-trophy-strip{gap:.55rem !important;}
 .v10-trophy-bar{height:5px;border-radius:99px;background:rgba(255,255,255,.08);margin:.1rem .4rem .8rem;overflow:hidden;}
 .v10-trophy-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#c99b4e,#f6e2b0);box-shadow:0 0 10px rgba(240,200,110,.6);}
-.fav-row{display:flex;gap:.7rem;overflow-x:auto;padding:0 1.2rem .5rem;scrollbar-width:none;}
+.fav-row{display:flex;gap:.8rem;overflow-x:auto;padding:0 1.2rem .5rem;scrollbar-width:none;}
 .fav-row::-webkit-scrollbar{display:none;}
-.fav-card{position:relative;flex:0 0 8.6rem;aspect-ratio:3/4;border-radius:16px;border:1px solid rgba(230,195,106,.4);background-size:cover;background-position:center;display:flex;flex-direction:column;justify-content:flex-end;padding:.7rem;cursor:pointer;box-shadow:0 10px 22px -12px #000;transition:transform .15s;}
-.fav-card:active{transform:scale(.96);}
-.fav-name{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);}
-.fav-play{margin-top:.25rem;font:700 .62rem 'Jost',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#e8c46a;}
+.fav-card{flex:0 0 5.6rem;display:flex;flex-direction:column;gap:.4rem;cursor:pointer;text-align:center;transition:transform .15s;}
+.fav-card:active{transform:scale(.95);}
+.fav-art{position:relative;aspect-ratio:3/4;border-radius:12px;border:1px solid rgba(230,195,106,.5);background-size:cover;background-position:center;box-shadow:0 8px 16px -8px #000;}
+.fav-name{font:700 .66rem/1.2 'Cinzel',serif;letter-spacing:.05em;color:#f0dca4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.fav-card .fav-star{width:1.55rem;height:1.55rem;font-size:.8rem;top:.25rem;right:.25rem;}
 .fav-hint{font-size:.72rem;color:var(--paper3);margin:.2rem 1.2rem .9rem;line-height:1.4;}
 .fav-star{position:absolute;top:.45rem;right:.45rem;z-index:3;width:2.1rem;height:2.1rem;border-radius:50%;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.45);color:#e8dcc0;font-size:1.05rem;line-height:1;cursor:pointer;display:grid;place-items:center;backdrop-filter:blur(3px);}
 .fav-star.on{color:#ffd86a;border-color:#f0d27a;background:rgba(60,45,10,.6);text-shadow:0 0 8px rgba(255,210,100,.8);}
@@ -4511,6 +4512,24 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
 }
 
 </style>
+<style id="home-compact">
+/* Home, compact: the core of the app is visible without scrolling */
+.v10-title{position:absolute !important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+.v10-sub{display:none !important;}
+.hero-plaque{position:relative;z-index:2;}
+.hero-plaque .table-plaque{margin:.2rem 0 .5rem !important;text-align:left;}
+.hero-plaque .table-plaque:not(.editing):not(.empty){max-width:16rem;padding:1.05rem 1.9rem 1.5rem;margin-left:0 !important;margin-right:0 !important;}
+.hero-plaque .table-plaque.empty{display:inline-block;margin:.3rem 0 .5rem !important;}
+.hero-plaque .plaque-name{font-size:.82rem;}
+.v10-kicker{margin-bottom:.15rem !important;}
+.v10-profile{margin-top:.35rem !important;}
+.felt-picker{margin-top:.55rem !important;margin-bottom:.15rem !important;}
+.v10-continue{margin-top:.8rem !important;margin-bottom:.4rem !important;}
+.v10-section{margin-top:.9rem !important;margin-bottom:.45rem !important;}
+@media(max-width:1099px){.v10-hero{padding-top:clamp(170px,44vw,300px) !important;}}
+@media(min-width:1100px){.v10-main .v10-hero{min-height:236px !important;padding:18px 32px !important;padding-right:380px !important;}}
+@media(max-width:560px){.felt-picker{flex-wrap:wrap;}}
+</style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute;overflow:hidden;" aria-hidden="true">
@@ -5311,7 +5330,7 @@ function fitGames(n){return GAMES.filter(g=>!g.locked&&!g.hidden&&!g.onlineOnly&
 // Tonight's pick: one game, with a reason a family can feel: a winning streak to break, something never tried, something that has been waiting
 function tonightPicks(){
   const hist=getHistory(),n=Math.max(1,Math.min(6,getRoster().length||2)),now=Date.now(),day=Math.floor(now/864e5),st={};
-  hist.forEach(h=>{const x=st[h.game]||(st[h.game]={n:0,days:null,wins:[]});x.n++;if(x.days===null)x.days=Math.max(0,Math.round((now-new Date(h.date).getTime())/864e5));x.wins.push(h.winner);});
+  hist.forEach(h=>{const x=st[h.game]||(st[h.game]={n:0,days:null,wins:[]});x.n++;if(x.days===null)x.days=Math.max(0,Math.round((now-new Date(h.date).getTime())/864e5));x.wins.push(famWallOK(h)?h.winner:'');});
   const lastG=hist[0]&&hist[0].game,most=Object.keys(st).sort((a,b)=>st[b].n-st[a].n)[0];
   const out=fitGames(n).filter(g=>g.id!==lastG).map(g=>{
     const x=st[g.id],jit=((g.id.length*7+day*13)%9);
@@ -5915,7 +5934,7 @@ function famAdopt(first){
   try{famAskWho();}catch(e){}
 }
 // a device that does not know who holds it: pick yourself from the people of the table (instead of 'Player')
-function famNameIsReal(n){n=String(n||'').trim();if(!n)return false;if(typeof pbIsBotName==='function'&&pbIsBotName(n))return false;return!/^(Player|Spieler)( \d+)?$/i.test(n);}
+function famNameIsReal(n){n=String(n||'').trim();if(!n)return false;if(typeof pbIsBotName==='function'&&pbIsBotName(n))return false;return!/^(Player|Spieler|P)( ?\d+)?$/i.test(n);}
 // the walls only show people of the table: no robots, no empty seats ("Player 1"), and, once the table has people, nobody who is not one of them
 function famWallOK(h){const w=String((h&&h.winner)||'');if(w==='The whole crew')return true;if(!famNameIsReal(w))return false;const m=getFamily();return m.length<2||m.some(x=>x.name.toLowerCase()===w.toLowerCase());}
 // ── Favourites: the games a table likes best, the same on every device of the table ──
@@ -5927,7 +5946,7 @@ function favStarHTML(id){const on=favList().includes(id);return`<button class="f
 function homeFavsHTML(history){
   const favs=favList();let ids=favs,hint='';
   if(!ids.length){const cnt={};(history||[]).forEach(h=>{if(famWallOK(h))cnt[h.game]=(cnt[h.game]||0)+1;});ids=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]).filter(id=>GAMES.some(g=>g.id===id&&!g.locked&&!g.hidden&&!g.onlineOnly)).slice(0,5);hint='These are your most played games. Tap ☆ on any game to keep your own favourites here.';}
-  const cards=ids.map(id=>GAMES.find(g=>g.id===id)).filter(Boolean).map(g=>`<div class="fav-card" data-a="fav-go" data-gid="${g.id}" role="button" tabindex="0" aria-label="Play ${esc(g.name)}" style="background-image:linear-gradient(180deg,rgba(6,12,10,0) 72%,rgba(6,12,10,.85)),url('${g.cover||''}')">${favStarHTML(g.id)}<span class="fav-name">${esc(g.name)}</span><span class="fav-play">▶ Play</span></div>`).join('');
+  const cards=ids.map(id=>GAMES.find(g=>g.id===id)).filter(Boolean).map(g=>`<div class="fav-card" data-a="fav-go" data-gid="${g.id}" role="button" tabindex="0" aria-label="Play ${esc(g.name)}"><div class="fav-art" style="background-image:url('${g.cover||''}')">${favStarHTML(g.id)}</div><span class="fav-name">${esc(g.name)}</span></div>`).join('');
   if(!cards)return'';
   return`<div class="v10-section"><div class="v10-section-title">Favourites</div><div class="v10-section-note">${favs.length?'Tap to play':'Most played'}</div></div><div class="fav-row">${cards}</div>${hint?`<div class="fav-hint">${hint}</div>`:''}`;
 }
@@ -5969,7 +5988,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=234;
+const APP_BUILD=236;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -31457,7 +31476,7 @@ function rHome(){
         <div class="v10-hero"><i class="hero-dust" aria-hidden="true"></i>
           <div class="v10-kicker">${homeGreeting()}${playerName!=='Player'?', '+esc(playerName):''}</div>
           <h1 class="v10-title">Our <em>Table</em></h1>
-          <p class="v10-sub">${homeTagline(history)}</p>
+          <div class="hero-plaque">${plaqueHTML}</div>
           ${G.profileEditing?`<div class="v10-profile editing">
               <button class="family-add-av" data-a="profile-av-cycle" aria-label="Change your avatar">${avHTML(G.myAvatar||AVATARS[0])}</button>
               <input id="profile-name-input" class="plaque-input" style="text-transform:none;" maxlength="20" placeholder="Your name" value="${esc(G.myName)}" autocomplete="off" aria-label="Your name">
@@ -31465,7 +31484,6 @@ function rHome(){
             </div>`:`<div class="v10-profile" data-a="profile-edit" role="button" tabindex="0" aria-label="Edit your name and avatar"><div class="v10-avatar">${avHTML(G.myAvatar||AVATARS[0])}</div><div><div class="v10-profile-name">${esc(playerName)}</div><div class="v10-profile-note">${G.gp} games · ${G.tw} wins · ${history.length} saved results</div></div></div>`}
           ${tableMotif}
         </div>
-        ${plaqueHTML}
         ${feltPickerHTML}
         ${continueCard}
         ${tonightPickHTML()}
