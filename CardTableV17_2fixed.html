@@ -386,6 +386,7 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
 .tb-main{flex:1;min-width:0;padding:.65rem .8rem;border-radius:12px;border:1px solid rgba(230,195,106,.22);background:rgba(255,255,255,.04);cursor:pointer;text-align:left;}
 .tb-row.on .tb-main{border-color:#f0d27a;background:linear-gradient(180deg,rgba(240,210,122,.2),rgba(201,162,74,.08));}
 .tb-main b{display:block;font:700 .9rem 'Cinzel',serif;color:#f6e7b8;}.tb-main small{font-size:.7rem;color:var(--paper3);}
+.tb-stats{font-size:.7rem;color:var(--paper2,#cfc8b2);margin-top:.18rem;line-height:1.35;}
 .tb-mem{display:flex;align-items:center;justify-content:space-between;padding:.35rem 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:.84rem;}
 .tb-x{width:1.8rem;height:1.8rem;border-radius:50%;border:1px solid rgba(255,255,255,.15);background:none;color:#e8a0a0;cursor:pointer;}
 .tb-chip{display:block;margin:0 0 .8rem;padding:.5rem .8rem;border-radius:999px;border:1px solid rgba(230,195,106,.35);background:rgba(240,210,122,.1);color:#e8dcc0;font-size:.74rem;cursor:pointer;}
@@ -6021,6 +6022,46 @@ function tbShare(code){
   else{try{navigator.clipboard.writeText(url).then(()=>toast('🔗 Invite link copied')).catch(()=>toast(msg));}catch(e){toast(msg);}}
 }
 function tbBootInvite(){try{const q=new URLSearchParams(location.search),c=tcClean(q.get('join')||'');if(c.length>=6){G.joinInv={code:c,name:(q.get('t')||'').slice(0,30)};try{history.replaceState(null,'',location.pathname);}catch(e){}render();}}catch(e){}}
+/* ── Your tables: how each of your tables is doing, for you only ── */
+function tbStatsFrom(rows,members,me){
+  const mem=(members||[]).filter(m=>m&&m.name&&!m.deleted).map(m=>m.name.toLowerCase());
+  const ok=h=>{const w=String((h&&h.winner)||'');if(w==='The whole crew')return true;if(!famNameIsReal(w))return false;return mem.length<2||mem.includes(w.toLowerCase());};
+  const g=(rows||[]).filter(ok),wins={};
+  g.forEach(h=>{if(h.winner&&h.winner!=='The whole crew')wins[h.winner]=(wins[h.winner]||0)+1;});
+  const top=Object.entries(wins).sort((a,b)=>b[1]-a[1])[0],m=String(me||'').toLowerCase();
+  const mine=m?g.filter(h=>(h.players||[]).some(x=>String(x).toLowerCase()===m)):[];
+  const last=g.reduce((a,h)=>Math.max(a,new Date(h.date).getTime()||0),0);
+  return{games:g.length,members:mem.length,champ:top?top[0]:'',champWins:top?top[1]:0,last,myGames:mine.length,myWins:mine.filter(h=>String(h.winner).toLowerCase()===m).length};
+}
+function tbAgo(ts){if(!ts)return'';const d=Math.max(0,Math.round((Date.now()-ts)/864e5));return d===0?'today':d===1?'yesterday':d+' days ago';}
+async function tbFetch(sb,code){
+  let since=null,rows=[],guard=0;const keys=new Set();
+  while(guard++<12){
+    const r=await sb.rpc('history_since',{p_code:code,p_since:since,p_limit:1000});
+    if(r.error)return null;
+    const d=r.data||[];d.forEach(x=>{const k=famRowKey(x);if(!keys.has(k)){keys.add(k);rows.push(famFromRow(x));}});
+    if(d.length)since=d[d.length-1].synced_at||since;
+    if(d.length<1000)break;
+  }
+  let members=[];try{const m=await sb.rpc('members_for',{p_code:code});if(!m.error)members=(m.data||[]).filter(x=>x&&x.name).map(x=>({name:x.name,avatar:x.avatar||undefined,deleted:!!x.deleted}));}catch(e){}
+  return{rows,since,members};
+}
+async function tbOverviewLoad(){
+  if(G.tbLoading)return;G.tbLoading=true;const sb=famSb(),me=G.myName,out={};
+  try{
+    for(const t of tbEnsure()){
+      if(t.code===tableCode()){out[t.code]=tbStatsFrom(getHistory(),getFamily(),me);continue;}
+      let c=null;try{c=JSON.parse(localStorage.getItem('ct_fcache:'+t.code)||'null');}catch(e){}
+      let rows=(c&&c.rows)||[],members=(c&&c.members)||[];
+      if(sb&&(!c||Date.now()-(c.fetched||0)>120000)){
+        const f=await tbFetch(sb,t.code);
+        if(f){rows=f.rows;members=f.members;try{localStorage.setItem('ct_fcache:'+t.code,JSON.stringify({code:t.code,since:f.since,rows:f.rows.slice(0,6000),members:f.members,settings:(c&&c.settings)||null,fetched:Date.now()}));}catch(e){}}
+      }
+      out[t.code]=tbStatsFrom(famMerge(getAllLocalHistory().filter(h=>h.tc===t.code),rows),members,me);
+    }
+  }catch(e){}
+  G.tbStats=out;G.tbLoading=false;if(G.tablesOpen)render();
+}
 function rJoinOv(){
   const j=G.joinInv||{},already=j.code===tableCode();
   return`<div class="ov"><div class="ov-box" role="dialog" aria-modal="true" aria-label="Join a table" style="max-width:24rem;">
@@ -6030,9 +6071,15 @@ function rJoinOv(){
     <div style="display:flex;flex-direction:column;gap:.6rem;">${already?'':'<button class="btn btn-gold btn-full" data-a="tb-join-ok">Join the table</button>'}<button class="btn btn-ghost btn-full" data-a="tb-join-no">${already?'Close':'Not now'}</button></div>
   </div></div>`;
 }
+function tbStatsHTML(code){
+  const x=(G.tbStats||{})[code];
+  if(!x)return G.tbLoading?'<div class="tb-stats">Counting…</div>':'';
+  if(!x.games)return'<div class="tb-stats">No games yet'+(x.members?' · '+x.members+' '+(x.members===1?'person':'people'):'')+'</div>';
+  return'<div class="tb-stats">'+x.games+' game'+(x.games!==1?'s':'')+' · '+x.members+' '+(x.members===1?'person':'people')+(x.last?' · last '+tbAgo(x.last):'')+'</div>'+(x.champ?'<div class="tb-stats">👑 '+esc(x.champ)+' leads with '+x.champWins+' win'+(x.champWins!==1?'s':'')+'</div>':'')+(G.myName&&x.myGames?'<div class="tb-stats">You: '+x.myWins+' win'+(x.myWins!==1?'s':'')+' from '+x.myGames+' game'+(x.myGames!==1?'s':'')+'</div>':'');
+}
 function rTablesOv(){
   const l=tbEnsure(),act=tableCode(),me=tbEntry(),admin=!!(me&&me.key),members=getFamily();
-  const rows=l.map(t=>{const on=t.code===act;return`<div class="tb-row${on?' on':''}"><div class="tb-main" data-a="tb-switch" data-code="${t.code}" role="button" tabindex="0"><b>${esc(tbName(t))}</b><small>${t.key?'👑 You are the admin':'Member'}${on?' · open now':''}</small></div>${t.key?`<button class="btn btn-ghost btn-sm" data-a="tb-invite" data-code="${t.code}">🔗 Invite</button>`:''}</div>`;}).join('');
+  const rows=l.map(t=>{const on=t.code===act;return`<div class="tb-row${on?' on':''}"><div class="tb-main" data-a="tb-switch" data-code="${t.code}" role="button" tabindex="0"><b>${esc(tbName(t))}</b><small>${t.key?'👑 You are the admin':'Member'}${on?' · open now':''}</small>${tbStatsHTML(t.code)}</div>${t.key?`<button class="btn btn-ghost btn-sm" data-a="tb-invite" data-code="${t.code}">🔗 Invite</button>`:''}</div>`;}).join('');
   const manage=`<div class="panel" style="text-align:left;"><div class="panel-lbl">${esc(tbName(me))} — people</div>
       ${members.length?members.map(m=>`<div class="tb-mem"><span>${avChar(m.avatar)} ${esc(m.name)}</span>${admin?`<button class="tb-x" data-a="tb-rm" data-name="${esc(m.name)}" aria-label="Remove ${esc(m.name)}">✕</button>`:''}</div>`).join(''):'<div style="font-size:.78rem;color:var(--paper3);">Nobody yet. Add people on the Family page, or send an invite.</div>'}
       ${admin?`<div style="display:flex;gap:.5rem;margin-top:.7rem;"><input class="plaque-input" id="tb-rename" maxlength="30" placeholder="Rename this table" value="${esc(G.tableName||'')}" style="text-transform:none;"><button class="btn btn-gold btn-sm" data-a="tb-rename-ok">Rename</button></div><button class="btn btn-ghost btn-sm" data-a="tb-rotate" style="margin-top:.6rem;">🔑 Make a new code (people with the old link are out)</button>`
@@ -36729,7 +36776,7 @@ document.addEventListener('click',e=>{
   else if(a==='who-pick'){const n=t.getAttribute('data-name'),m=getFamily().find(x=>x.name===n);if(m){G.myName=m.name;G.myAvatar=m.avatar||G.myAvatar||AVATARS[0];try{localStorage.setItem('ct_myname',G.myName);localStorage.setItem('ct_myavatar',G.myAvatar);}catch(e){}G.whoOpen=false;famAdopt(false);render();toast('Hello '+G.myName+'!');}}
   else if(a==='who-other'){G.whoOpen=false;G.scr='home';G.profileEditing=true;render();}
   else if(a==='who-skip'){G.whoOpen=false;try{localStorage.setItem('ct_who_skip:'+tableCode(),'1');}catch(e){}render();}
-  else if(a==='tables-open'){G.tablesOpen=true;G.dataOpen=false;render();}
+  else if(a==='tables-open'){G.tablesOpen=true;G.dataOpen=false;render();tbOverviewLoad();}
   else if(a==='tables-close'){G.tablesOpen=false;render();}
   else if(a==='tb-switch'){tbSwitch(t.getAttribute('data-code'));}
   else if(a==='tb-new'){tbCreate((document.getElementById('tb-new-name')||{}).value);}

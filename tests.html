@@ -6389,6 +6389,9 @@ async function runPresentation(A,W,frame){
       LS.setItem('ct_family',JSON.stringify([{name:'Papa',avatar:AV[0]},{name:'Mama',avatar:AV[1]}]));
       tbRes.wall=['Papa','mama','Player','Player 2','Robo','Adrien','The whole crew'].map(n=>F('famWallOK')({winner:n})?1:0).join('');
       LS.setItem('ct_family','[]');tbRes.wallNoMembers=['Anna','Player 1','Robo'].map(n=>F('famWallOK')({winner:n})?1:0).join('');
+      {const now2=Date.now(),d2=n=>new Date(now2-n*864e5).toISOString();
+       tbRes.stats=JSON.stringify(F('tbStatsFrom')([{game:'pig',winner:'Papa',players:['Papa','Mama'],date:d2(2)},{game:'uno',winner:'Papa',players:['Papa','Mama'],date:d2(1)},{game:'uno',winner:'Mama',players:['Papa','Mama'],date:d2(3)},{game:'pig',winner:'Player',players:['Player','Papa'],date:d2(0)},{game:'pig',winner:'Robo',players:['Robo','Papa'],date:d2(0)},{game:'pig',winner:'Adrien',players:['Adrien','Papa'],date:d2(0)}],[{name:'Papa'},{name:'Mama'}],'papa'));
+       tbRes.ago=[F('tbAgo')(Date.now()),F('tbAgo')(Date.now()-864e5),F('tbAgo')(Date.now()-3*864e5)].join('|');}
       tbRes.real=[F('famNameIsReal')('Player'),F('famNameIsReal')('Player 3'),F('famNameIsReal')('Robo'),F('famNameIsReal')('Papa')].join();
     }catch(e){tbRes.err=String(e&&e.stack||e);}
     finally{
@@ -6408,6 +6411,8 @@ async function runPresentation(A,W,frame){
     check('when a table has an admin, only the admin can remove people or rename it',tbRes.memberCan===false&&tbRes.adminCan===true);
     check('the walls show only people of the table (not Player, Player 2, Robo or strangers); co-op wins stay',tbRes.wall==='1100001');
     check('a table with no people yet shows real names but never Player or robots',tbRes.wallNoMembers==='100');
+    check('the overview counts only real people of the table: games, people, champion, your own record',(()=>{try{const x=JSON.parse(tbRes.stats);return x.games===3&&x.members===2&&x.champ==='Papa'&&x.champWins===2&&x.myGames===3&&x.myWins===2;}catch(e){return false;}})());
+    check('"last played" reads like a person would say it',tbRes.ago==='today|yesterday|3 days ago');
     check('a device that was never used keeps only the table it joined',tbRes.fresh==='TBLONE1234|TBLONE1234');
     check('robots and empty seats are not people (head to head, suggestions)',tbRes.real==='false,false,false,true');
   });
