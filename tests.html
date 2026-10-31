@@ -6567,6 +6567,56 @@ async function runPresentation(A,W,frame){
       if(keep.roster===null)W.localStorage.removeItem('ct_roster');else W.localStorage.setItem('ct_roster',keep.roster);
     }
   });
+  suite('Bowling: the rules, the physics and a whole game',()=>{
+    const F=n=>W.eval(n),G=()=>F('G'),gg=G();
+    const sc=(r,N)=>F('blScore')(r,N||10);
+    check('a perfect game is 300, a gutter game 0, all spares with 5s 150, a mixed game 167',sc(Array(12).fill(10)).total===300&&sc(Array(20).fill(0)).total===0&&sc(Array(21).fill(5)).total===150&&sc([10,7,3,9,0,10,0,8,8,2,0,6,10,10,10,8,1]).total===167);
+    check('the quick game has five frames: seven strikes in a row is its perfect 150',sc(Array(7).fill(10),5).total===150&&sc(Array(7).fill(10),5).over===true);
+    check('a strike waits for its two bonus balls, and an unfinished frame does not use the next ball',(()=>{const s=sc([10]);const t=sc([8]);return s.frames[0].t===null&&s.frames[1].r.length===0&&t.frames[0].r.join()==='8'&&t.frames[1].r.length===0&&sc([10,3,4]).frames[0].t===17;})());
+    check('the tenth frame: a strike gives two more balls, a spare one, an open frame none',(()=>{const base=Array(18).fill(0);return sc([...base,10,10,10]).over&&sc([...base,5,5,7]).total===17&&!sc([...base,5,5]).over&&sc([...base,3,4]).over&&!sc([...base,10,10]).over;})());
+    check('the marks on the score sheet: X, / and - the way a paper score sheet writes them',(()=>{const m=(r,f,N)=>F('blMark')(sc(r,N||10).frames[f],N||10,f).join('');return m([10],0)==='X'&&m([7,3],0)==='7/'&&m([0,9],0)==='-9'&&m([...Array(18).fill(0),10,5,5],9)==='X5/'&&m([...Array(18).fill(0),10,10,10],9)==='XXX';})());
+    check('where the game stands, and when all ten pins come back',(()=>{const P=F('blPos'),R=F('blNeedsFullRack');return P([10,10],10).f===2&&P([3],10).k===1&&P(Array(12).fill(10),10).over&&R([],10)&&!R([3],10)&&R([10],10)&&R([3,7],10)&&R([...Array(18).fill(0),10],10)&&!R([...Array(18).fill(0),3],10)&&R([...Array(18).fill(0),3,7],10);})());
+    const full=F('blFull')(),shot=(x0,ang,v,spin)=>{const S=F('blSimRun')(full,{x0,ang,v,spin});return{n:F('blDownCount')(full,S.pins),S};};
+    const p1=JSON.stringify(shot(.1,.004,7.1,.4).S.pins),p2=JSON.stringify(shot(.1,.004,7.1,.4).S.pins);
+    check('the physics has no luck in it: the same shot always gives the same pins',p1===p2);
+    check('a ball in the gutter knocks nothing down, and the gutter holds it',shot(.62,0,7.5,0).n===0&&shot(.62,0,7.5,0).S.ball.gut!==0);
+    check('a straight ball in the pocket (a little off the middle) is a strike; one down the middle is not',shot(.06,0,7.5,0).n===10&&shot(-.06,0,7.5,0).n===10&&shot(0,0,7.5,0).n<10&&shot(0,0,7.5,0).n>=4);
+    check('a strike is a chain: pins hit pins, the ball is hit by nothing else',shot(.06,0,7.5,0).S.ev.filter(e=>e.k==='pp').length>=5);
+    const end=(sp,v)=>{const p=F('blPath')({x0:0,ang:0,v,spin:sp},18.3);return p[p.length-1][0];};
+    check('the spin curves the ball: right for +, left for -, and mostly at the end of the lane (the oil)',end(1,7.5)>.25&&end(-1,7.5)<-.25&&(()=>{const p=F('blPath')({x0:0,ang:0,v:7.5,spin:1},18.3);const q=p.find(r=>r[1]>9);return q[0]<.08;})());
+    check('a slow ball curves more than a fast one',end(1,5)>end(1,9.5)+.2);
+    check('a robot is as good as its level: three levels, from gentle to sharp',(()=>{const B=F('BL_BOT');return B.gentle.sx>B.steady.sx&&B.steady.sx>B.sharp.sx&&B.gentle.sa>B.sharp.sa;})());
+    // a whole game with three people (no robots here: the shots are given), from the first ball to the results screen
+    const k0=[gg.isOnline,gg.selGame,gg.lp,gg.scr,gg.bl],pref0=W.localStorage.getItem('ct_bl_pref'),seen0=W.localStorage.getItem('ct_bl_seen'),h0=W.localStorage.getItem('ct_history'),ar0=W.localStorage.getItem('ct_ar'),tw0=W.localStorage.getItem('ct_tw');
+    try{
+      W.localStorage.setItem('ct_bl_seen','1');
+      const shots=[{x0:-.5,ang:0,v:7.5,spin:1},{x0:.06,ang:0,v:7.5,spin:0},{x0:0,ang:0,v:7.5,spin:0},{x0:.2,ang:.002,v:7.2,spin:-.5},{x0:-.3,ang:.004,v:7.5,spin:.6},{x0:.62,ang:0,v:7.5,spin:0}];
+      const run=(mode,n)=>{
+        W.localStorage.setItem('ct_bl_pref',JSON.stringify({mode,style:'table',lv:'standard',ball:'ruby',fx:'fire',balls:{}}));
+        gg.isOnline=false;gg.lp=[1,2,3].slice(0,n).map((k,i)=>({id:k,name:['Ann','Bob','Cy'][i],avatar:F('AVATARS')[i],hand:[],totalScore:0}));gg.selGame='bowling';F('lDealBowling')();gg.scr='table';F('render')();F('blAttach')();
+        const g=G().bl;g.pr=F('blPrefs')();F('blBegin')(g);let k=0,steps=0,seq=0;
+        while(!g.over&&steps++<120000){
+          if(g.phase==='aim'&&!g.bot){const sh=shots[(seq++*7+g.cur)%shots.length];g.bx=sh.x0;g.aimA=sh.ang;g.spinV=sh.spin;g.pull=(sh.v-4.8)/5.2;F('blRelease')(g,sh,g.pull);}
+          F('blStep')(g,1/30);
+        }
+        return g;};
+      const g=run('classic',3);
+      const tot=g.players.map((p,i)=>F('blScore')(g.rolls[i],10).total),pos=g.players.map((p,i)=>F('blPos')(g.rolls[i],10).over);
+      check('a three-person game of ten frames ends by itself, every player has bowled all of their frames',g.over&&pos.every(Boolean)&&g.rolls.every(r=>r.length>=12&&r.length<=21));
+      check('every ball knocked down only what was standing: each frame adds up to at most ten (before the tenth)',(()=>{for(const r of g.rolls){let i=0;for(let f=0;f<9;f++){if(r[i]===10)i++;else{if(r[i]+r[i+1]>10)return false;i+=2;}}}return true;})());
+      const R=G().blResult;
+      check('the result is saved: scores, winner, a moment line, and each player gets win or loss',!!R&&R.tot.join()===tot.join()&&R.tot[R.w]===Math.max(...tot)&&R.mom.length>10&&gg.lp.filter(p=>p.c4Result==='win').length+gg.lp.filter(p=>p.c4Result==='draw').length>=1&&gg.lp.every(p=>p.psLine));
+      check('the game is in the history and the shared records know bowling',(()=>{const h=JSON.parse(W.localStorage.getItem('ct_history')||'[]');const ar=JSON.parse(W.localStorage.getItem('ct_ar')||'{}');return h.some(e=>e.game==='bowling'&&e.players.length===3)&&!!(ar.rec&&ar.rec.bowling&&ar.rec.bowling.topscore);})());
+      const q=run('quick',2);
+      check('the quick game has five frames and also ends by itself',q.over&&q.N===5&&q.rolls.every((r,i)=>F('blPos')(r,5).over&&r.length<=11));
+      // the practice mode never ends and keeps its own count
+      {W.localStorage.setItem('ct_bl_pref',JSON.stringify({mode:'practice',style:'classic',lv:'master',ball:'classic',fx:'none',balls:{}}));
+       gg.lp=[{id:1,name:'Ann',avatar:F('AVATARS')[0],hand:[],totalScore:0}];F('lDealBowling')();gg.scr='table';F('render')();F('blAttach')();const p=G().bl;p.pr=F('blPrefs')();F('blBegin')(p);let steps=0,sq=0;
+       while(p.prac.shots<6&&steps++<30000){if(p.phase==='aim'){const sh=shots[sq++%shots.length];p.bx=sh.x0;p.aimA=sh.ang;p.spinV=sh.spin;p.pull=.5;F('blRelease')(p,sh,.5);}F('blStep')(p,1/30);}
+       check('practice has no end: balls are counted, the pins come back, nothing is scored',!p.over&&p.prac.shots>=6&&p.mode==='practice'&&p.rolls[0].length===0);}
+    }finally{F('blStop')();gg.isOnline=k0[0];gg.selGame=k0[1];gg.lp=k0[2];gg.scr=k0[3];gg.bl=null;
+      const back=(k,v)=>{if(v===null)W.localStorage.removeItem(k);else W.localStorage.setItem(k,v);};back('ct_bl_pref',pref0);back('ct_bl_seen',seen0);back('ct_history',h0);back('ct_ar',ar0);back('ct_tw',tw0);}
+  });
   suite('Olympic Games: Archery (field trail, flight, scoring, matches)',()=>{
     const F=n=>W.eval(n),G=()=>F('G');const gg=G();
     const k0=[gg.isOnline,gg.selGame,gg.lp,gg.scr,gg.ac],pref0=W.localStorage.getItem('ct_ac_pref'),prog0=W.localStorage.getItem('ct_ac_prog');
