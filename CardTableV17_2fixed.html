@@ -6077,7 +6077,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=268;
+const APP_BUILD=269;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -34019,6 +34019,13 @@ function blWoodTex(){
 }
 // the classic lane follows the clock like the hero picture of the home screen: darker wood in the evening (18:00 to 06:00)
 function blNight(){try{if(window.__blNight!=null)return !!window.__blNight;const h=new Date().getHours();return h>=18||h<6;}catch(e){return false;}}
+// shrunk copies of a texture, each half the size of the one before: far away the lane is drawn from a small copy (smooth), near from the big one (sharp)
+function blMips(tex){
+  if(tex._mips)return tex._mips;
+  const L=[{c:tex,w:tex.width,h:tex.height}];let prev=tex,w=tex.width,h=tex.height;
+  for(let i=0;i<3;i++){w=Math.max(8,w>>1);h=Math.max(8,h>>1);const cv=document.createElement('canvas');cv.width=w;cv.height=h;const q=cv.getContext('2d');q.imageSmoothingEnabled=true;try{q.imageSmoothingQuality='high';}catch(e){}q.drawImage(prev,0,0,prev.width||prev.w,prev.height||prev.h,0,0,w,h);L.push({c:cv,w:w,h:h});prev=cv;}
+  return tex._mips=L;
+}
 function blLaneSlices(g,x,zA,zB,hw){
   // the real lane wood (a photograph made into 39 boards with plank joints) when it is loaded, else the wood drawn by the program
   const nm=g.style==='table'?'lane_table':g.style==='mayhem'?'lane_light':blNight()?'lane_evening':'lane_classic',ph=blPhoto(nm,'.jpg');if(ph&&!ph.per)ph.per=ph.height*(BL.W/ph.width);
@@ -34027,15 +34034,17 @@ function blLaneSlices(g,x,zA,zB,hw){
     blQuad(x,g,[[-hw,0,zA],[hw,0,zA],[hw,0,zB],[-hw,0,zB]],ac);}
   const tex=ph||blWoodTex(),span=ph?ph.per:BL.PITZ+7.2,c=g.cam,H=g.cv.height,dpr=g.dpr||1,zF=Math.min(zB,BL.HEAD-.35),vz=z=>ph?(((z+7.2)/span)%1+1)%1:1-(z+7.2)/span;
   const pf=blP(g,0,0,zF),pn=blP(g,0,0,zA);if(!pf||!pn)return;
-  const rowH=Math.max(2,Math.round(2*dpr))*(g.moving?3:1),k=c.f*c.h;
-  x.save();x.imageSmoothingEnabled=true;
+  const rowH=Math.max(2,Math.round(2*dpr))*(1+(g.q||0)),k=c.f*c.h,mips=ph?blMips(tex):null;
+  x.save();x.imageSmoothingEnabled=true;try{x.imageSmoothingQuality='high';}catch(e){}
   for(let y=Math.max(Math.floor(pf[1]),-rowH*2),yEnd=Math.min(pn[1],g.cv.height+rowH);y<yEnd;y+=rowH){
     const yy=y+rowH/2-(g.shy||0),den=yy-c.hz;if(den<=1)continue;
     const dz=k/den,z=dz+c.z;if(z>zF||z<zA)continue;
     const w=hw*2*c.f/dz,cx=g.cv.width/2+(0-c.x)*c.f/dz+(g.shx||0);
-    const sy=vz(z)*tex.height,sh=Math.max(1,rowH/(c.f/dz)/span*tex.height);
-    const s0=Math.max(0,Math.min(tex.height-1,sy-sh/2));
-    x.drawImage(tex,0,s0,tex.width,Math.max(1,Math.min(sh,tex.height-s0)),cx-w/2,y,w,rowH+.6);
+    let T=tex,tw=tex.width,th=tex.height;
+    if(mips){const lv=Math.max(0,Math.min(3,Math.floor(Math.log2(Math.max(1,tex.width/Math.max(1,w))))));const m=mips[lv];T=m.c;tw=m.w;th=m.h;}
+    const sy=vz(z)*th,sh=Math.max(2,rowH/(c.f/dz)/span*th);
+    const s0=Math.max(0,Math.min(th-2,sy-sh/2));
+    x.drawImage(T,0,s0,tw,Math.max(1,Math.min(sh,th-s0)),cx-w/2,y,w,rowH+.7);
   }
   // the pin deck (the picture is lifted a little there so that the triangle of pins can be seen): thin slices of the same wood
   for(let z=zF;z<zB-.001;z+=.08){const z1=Math.min(zB,z+.08),p=blP(g,0,0,z),q=blP(g,0,0,z1);if(!p||!q||p[1]-q[1]<=0)continue;
@@ -34065,9 +34074,9 @@ function blStrip(g,x,xa,xb,name,period,zA,zB,alpha,deck){
   // the last part (the pin deck) is lifted in the picture: a plain colour there, so there is no hole
   if(deck)blQuad(x,g,[[xa,0,Math.min(zB,BL.HEAD-.35)],[xb,0,Math.min(zB,BL.HEAD-.35)],[xb,0,zB],[xa,0,zB]],deck);
   // while the camera moves the strip is one smooth colour (fast, and no blocks); the picture comes back when the camera is still
-  if(g.moving){blQuad(x,g,[[xa,0,Math.max(zA,g.cam.z+1)],[xb,0,Math.max(zA,g.cam.z+1)],[xb,0,Math.min(zB,BL.HEAD-.35)],[xa,0,Math.min(zB,BL.HEAD-.35)]],name==='tx_rail'?'#3a2412':'#2b3036');return;}
+  if((g.q||0)>=2){blQuad(x,g,[[xa,0,Math.max(zA,g.cam.z+1)],[xb,0,Math.max(zA,g.cam.z+1)],[xb,0,Math.min(zB,BL.HEAD-.35)],[xa,0,Math.min(zB,BL.HEAD-.35)]],name==='tx_rail'?'#3a2412':'#2b3036');return;}
   const c=g.cam,dpr=g.dpr||1,zF=Math.min(zB,BL.HEAD-.35),pf=blP(g,0,0,zF),pn=blP(g,0,0,Math.max(zA,c.z+1));if(!pf||!pn)return;
-  const rowH=Math.max(2,Math.round(2*dpr))*(g.moving?3:1),k=c.f*c.h;x.save();x.globalAlpha=alpha==null?1:alpha;
+  const rowH=Math.max(2,Math.round(2*dpr))*(1+(g.q||0)),k=c.f*c.h;x.save();x.globalAlpha=alpha==null?1:alpha;x.imageSmoothingEnabled=true;try{x.imageSmoothingQuality='high';}catch(e){}
   for(let y=Math.max(Math.floor(pf[1]),-rowH*2),yEnd=Math.min(pn[1],g.cv.height+rowH);y<yEnd;y+=rowH){
     const yy=y+rowH/2-(g.shy||0),den=yy-c.hz;if(den<=1)continue;const dz=k/den,z=dz+c.z;if(z>zF||z<zA)continue;
     const s=c.f/dz,cx0=g.cv.width/2+(xa-c.x)*s+(g.shx||0),w=(xb-xa)*s;
@@ -34103,7 +34112,7 @@ function blDrawLane(g,x){
   const W=g.cv.width,H=g.cv.height,hw=BL.W/2,gw=.117,c=g.cam,zA=Math.max(-7.2,c.z+.9),zB=BL.PITZ,dpr=g.dpr||1;
   // the floor and the lanes on both sides (dim)
   blQuad(x,g,[[-5,0,zA],[5,0,zA],[5,0,22],[-5,0,22]],'#0a110d');
-  if(!g.moving)blCarpet(g,x,zA);
+  if(!g.moving)blCarpet(g,x,zA);else blQuad(x,g,[[-5,0,zA],[5,0,zA],[5,0,22],[-5,0,22]],'#0c1a12');
   // the gutters, and the dark rail beside them
   for(const sd of[-1,1]){const a=sd*hw,b=sd*(hw+gw),r=sd*(hw+gw+.5);
     blQuad(x,g,[[a,-.03,zA],[b,-.03,zA],[b,-.03,zB],[a,-.03,zB]],'#0b0e10');
