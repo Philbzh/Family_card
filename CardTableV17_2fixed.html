@@ -4701,8 +4701,25 @@ function sanitiseState(s){
   if(typeof s.curIdx!=='number'||!isFinite(s.curIdx))s.curIdx=0;
   return s;
 }
+// Rooms go through three protected database functions (room_get / room_put / room_cas: supabase-rooms-rpc.sql) when they exist.
+// Before that script has been run (or in a test with a plain table) the app quietly uses the table directly, as it always did.
+let _roomRpc=null;   // null = not tried yet, true = the functions work, false = they are not there
+function roomRpcMissing(error){const t=String((error&&(error.code||''))+' '+(error&&(error.message||''))).toLowerCase();return /pgrst202|42883|could not find the function|function .* does not exist|not found/.test(t);}
+// true when the functions are known to be unavailable: then the old table path runs at once, without an extra asynchronous step
+function roomRpcOff(sb){return _roomRpc===false||typeof sb.rpc!=='function';}
+async function roomCall(sb,fn,args){
+  if(roomRpcOff(sb))return{missing:true};
+  try{const r=await sb.rpc(fn,args);
+    if(r&&r.error){if(roomRpcMissing(r.error)){_roomRpc=false;return{missing:true};}return{error:r.error};}
+    _roomRpc=true;return{data:r?r.data:null};}
+  catch(e){return{error:e};}
+}
+// tell the others that the room has changed (the table's own change signal does not reach them once the table is closed)
+function roomPing(id){try{if(_ch)_ch.send({type:'broadcast',event:'st',payload:{id}});}catch(e){}}
 const dbRead=async id=>{
   const sb=SB();if(!sb)return null;
+  if(!roomRpcOff(sb)){const r=await roomCall(sb,'room_get',{p_id:id});
+    if(!r.missing)return r.error?null:sanitiseState((r.data&&typeof r.data==='object')?r.data:null);}
   try{const{data,error}=await sb.from('card_rooms').select('state').eq('id',id).single();return error?null:sanitiseState(data?.state||null);}
   catch(e){return null;}
 };
@@ -4716,7 +4733,9 @@ const dbWrite=async(id,s)=>{
   s._ts=s._ts||Date.now();
   if(_rematchStamp&&s.phase==='game'&&s.gameId){s.rematchId=_rematchStamp;_rematchStamp=0;}
   for(let attempt=0;attempt<3;attempt++){
-    try{const{error}=await sb.from('card_rooms').upsert({id,state:s,updated_at:new Date().toISOString()});if(!error)return true;}
+    try{let viaTable=roomRpcOff(sb);
+      if(!viaTable){const r=await roomCall(sb,'room_put',{p_id:id,p_state:s});if(r.missing)viaTable=true;else if(!r.error&&r.data!==false){roomPing(id);return true;}}
+      if(viaTable){const{error}=await sb.from('card_rooms').upsert({id,state:s,updated_at:new Date().toISOString()});if(!error){roomPing(id);return true;}}}
     catch(e){}
     if(attempt<2)await new Promise(r=>setTimeout(r,attempt?900:350));
   }
@@ -4746,8 +4765,11 @@ const dbWriteIfUnchanged=async(id,expectedTs,s)=>{
   const sb=SB();if(!sb){toast('⚠️ Online mode unavailable');return false;}
   s._ts=Date.now();
   try{
+    if(!roomRpcOff(sb)){const r=await roomCall(sb,'room_cas',{p_id:id,p_expected:String(expectedTs),p_state:s});
+      if(!r.missing){if(r.error){toast('⚠️ Sync error');return false;}const ok=r.data===true;if(ok)roomPing(id);return ok;}}
     const{data,error}=await sb.from('card_rooms').update({state:s,updated_at:new Date().toISOString()}).eq('id',id).eq('state->>_ts',String(expectedTs)).select('id');
     if(error){toast('⚠️ Sync error');return false;}
+    if(data&&data.length)roomPing(id);
     return!!(data&&data.length);
   }catch(e){return false;}
 };
@@ -4823,6 +4845,7 @@ function dbSub(id,cb){
     if(_ch)sb.removeChannel(_ch);
     _ch=sb.channel('r:'+id)
       .on('postgres_changes',{event:'*',schema:'public',table:'card_rooms',filter:`id=eq.${id}`},()=>dbRead(id).then(onState))
+      .on('broadcast',{event:'st'},()=>dbRead(id).then(onState))
       .on('presence',{event:'sync'},_onPresenceSync)
       .on('broadcast',{event:'pk'},msg=>peerOnBroadcast(msg&&msg.payload))
       .on('broadcast',{event:'dw'},msg=>dwOnBroadcast(msg&&msg.payload))
@@ -6077,7 +6100,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=269;
+const APP_BUILD=270;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{

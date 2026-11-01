@@ -6653,6 +6653,50 @@ async function runPresentation(A,W,frame){
     }finally{F('blStop')();gg.isOnline=k0[0];gg.selGame=k0[1];gg.lp=k0[2];gg.scr=k0[3];gg.bl=null;
       const back=(k,v)=>{if(v===null)W.localStorage.removeItem(k);else W.localStorage.setItem(k,v);};back('ct_bl_pref',pref0);back('ct_bl_seen',seen0);back('ct_history',h0);back('ct_ar',ar0);back('ct_tw',tw0);}
   });
+  /* —— Rooms through the protected functions (room_get / room_put / room_cas) and the fallback to the table —————— */
+  {
+    const F=n=>W.eval(n),res={};
+    const keepSb=W.eval('_sb'),keepRpc=W.eval('_roomRpc'),keepCh=W.eval('_ch');
+    try{
+      const DB={},log=[];
+      const clone=o=>JSON.parse(JSON.stringify(o));
+      // 1. the functions exist: everything goes through them, the table is never touched
+      W.__rooms={rpc:(fn,a)=>{log.push(fn);
+          if(fn==='room_get')return Promise.resolve({data:DB[a.p_id]?clone(DB[a.p_id]):null,error:null});
+          if(fn==='room_put'){DB[a.p_id]=clone(a.p_state);return Promise.resolve({data:true,error:null});}
+          if(fn==='room_cas'){const ok=DB[a.p_id]&&String(DB[a.p_id]._ts)===a.p_expected;if(ok)DB[a.p_id]=clone(a.p_state);return Promise.resolve({data:!!ok,error:null});}
+          return Promise.resolve({data:null,error:{code:'PGRST202',message:'Could not find the function'}});},
+        from:()=>{log.push('TABLE');throw new Error('the table must not be touched');}};
+      W.eval('_sb=window.__rooms;_roomRpc=null;_ch={send:m=>{(window.__pings=window.__pings||[]).push(m.payload&&m.event)}};window.__pings=[]');
+      res.put=await F('dbWrite')('ROOM12',{_ts:5,phase:'lobby',players:[{id:'a',name:'Ann'}]});
+      res.get=await F('dbRead')('ROOM12');
+      res.cas1=await F('dbWriteIfUnchanged')('ROOM12',5,{phase:'game',players:[{id:'a',name:'Ann'}]});
+      res.cas2=await F('dbWriteIfUnchanged')('ROOM12',5,{phase:'game2',players:[]});
+      res.log=log.slice();res.tableTouched=log.includes('TABLE');res.pings=W.eval('window.__pings').join();res.noRoom=await F('dbRead')('NOROOM');
+      res.listWorks=W.eval('_roomRpc');
+      // 2. the functions do not exist yet: the app falls back to the table, once, and remembers
+      const T={},tlog=[];
+      W.__rooms2={rpc:()=>Promise.resolve({data:null,error:{code:'PGRST202',message:'Could not find the function public.room_get'}}),
+        from:()=>({select:()=>({eq:(c,id)=>({single:()=>{tlog.push('select');return Promise.resolve(T[id]?{data:{state:clone(T[id])},error:null}:{data:null,error:{message:'none'}});}})}),
+          upsert:row=>{tlog.push('upsert');T[row.id]=clone(row.state);return Promise.resolve({error:null});},
+          update:row=>({eq:(c,id)=>({eq:(c2,ts)=>({select:()=>{tlog.push('update');const ok=T[id]&&String(T[id]._ts)===ts.replace(/^/,'');if(ok)T[id]=clone(row.state);return Promise.resolve({data:ok?[{id}]:[],error:null});}})})})})};
+      W.eval('_sb=window.__rooms2;_roomRpc=null');
+      res.fbPut=await F('dbWrite')('ROOM34',{_ts:9,phase:'lobby',players:[]});
+      res.fbGet=await F('dbRead')('ROOM34');
+      res.fbFlag=W.eval('_roomRpc');res.fbLog=tlog.join();
+    }catch(e){res.err=String(e&&e.stack||e);}
+    finally{W.eval('_sb=window.__keepSbRooms');}
+    W.__keepSbRooms=keepSb;W.eval('_sb=window.__keepSbRooms;_roomRpc=null;');
+    try{W.eval('_ch=null');}catch(e){}
+    suite('Rooms go through protected functions, with a fallback to the table',()=>{
+      check('no error while testing',!res.err);
+      check('with the functions present: a room is saved, read back and never touched through the table',res.put===true&&res.get&&res.get.phase==='lobby'&&res.get.players[0].name==='Ann'&&!res.tableTouched&&res.log.includes('room_put')&&res.log.includes('room_get'));
+      check('the compare-and-swap saves only when nobody saved in between (second try with the old stamp is refused)',res.cas1===true&&res.cas2===false);
+      check('a room that does not exist reads as nothing',res.noRoom===null);
+      check('every saved change tells the other players with a small message (the table\'s own signal cannot reach them once it is closed)',/st/.test(res.pings||'')&&(res.pings||'').split(',').length>=2);
+      check('without the functions (the SQL was not run yet) the app uses the table as before, and remembers that',res.fbPut===true&&res.fbGet&&res.fbGet.phase==='lobby'&&res.fbFlag===false&&/upsert/.test(res.fbLog)&&/select/.test(res.fbLog));
+    });
+  }
   suite('Bowling online: the same game on two devices',()=>{
     const F=n=>W.eval(n),G=()=>F('G'),gg=G();
     const k0=[gg.isOnline,gg.selGame,gg.lp,gg.scr,gg.bl,gg.myPid,gg.srv],pref0=W.localStorage.getItem('ct_bl_pref'),seen0=W.localStorage.getItem('ct_bl_seen'),h0=W.localStorage.getItem('ct_history'),ar0=W.localStorage.getItem('ct_ar'),tw0=W.localStorage.getItem('ct_tw');
