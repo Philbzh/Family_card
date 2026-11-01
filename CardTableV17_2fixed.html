@@ -6100,7 +6100,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=270;
+const APP_BUILD=271;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -33608,7 +33608,8 @@ function blCamStep(g,dt,mode){
   for(const p of ['z','h','x','hz','f','E'])c[p]+=(T[p]-c[p])*k;
 }
 function blP(g,X,Y,Z){
-  const c=g.cam,dz=Z-c.z;if(dz<.25)return null;const s=c.f/dz;
+  const c=g.cam;if(!c)return null;   // right after the screen was resized (the iPad's toolbar slides in and out) the camera is not there for a moment
+  const dz=Z-c.z;if(dz<.25)return null;const s=c.f/dz;
   let y=c.hz+(c.h-Y)*s+(g.shy||0);if(c.E>.001&&Z>BL.HEAD-.35)y-=(Z-BL.HEAD+.35)*s*c.E;
   return[g.cv.width/2+(X-c.x)*s+(g.shx||0),y,s];
 }
@@ -34008,7 +34009,7 @@ function blNetPending(g){
 function blSize(g){
   const m=document.getElementById('bl-mid');if(!m||!g.cv)return;const r=m.getBoundingClientRect(),dpr=Math.min([1.6,1.2,.9][g.q||0],window.devicePixelRatio||1);
   if(!(r.width>10&&r.height>10))return;
-  g.cv.width=Math.round(r.width*dpr);g.cv.height=Math.round(r.height*dpr);g.dpr=dpr;g.cam=null;g.bgc=null;g.lay=null;
+  g.cv.width=Math.round(r.width*dpr);g.cv.height=Math.round(r.height*dpr);g.dpr=dpr;g.bgc=null;g.lay=null;g.layer=null;g.layK=null;try{g.cam=blCamTarget(g,g.camMode||'pre');}catch(e){g.cam=null;}
 }
 // the room behind the lane (drawn once per size): dark, warm lamps far away, soft light from above
 function blBg(g){
