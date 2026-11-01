@@ -6110,7 +6110,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=278;
+const APP_BUILD=279;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -33995,6 +33995,15 @@ function blOnBroadcast(m){
     if(g.phase==='setup'&&sender.id===G.srv.host){const cfg={mode:m.mode==='quick'?'quick':'classic',style:m.style==='table'||m.style==='mayhem'?m.style:'classic',seed:m.seed|0,lv:BL_LV[m.lv]?m.lv:'standard'};g.net.cfg=cfg;blBegin(g,cfg);}
   }else if(m.k==='hello'){
     if(blHost()&&g.phase!=='setup'&&g.net.cfg)blSend(g,Object.assign({k:'go'},g.net.cfg));
+  }else if(m.k==='sync'){
+    // the other device is behind (it missed a shot while its connection hiccuped): hand it the last shots
+    if(m.n<g.ballNo&&(g.shotLog||[]).length)blSend(g,{k:'catch',n:g.ballNo,log:g.shotLog.slice(-6)});
+  }else if(m.k==='catch'){
+    if(m.n>g.ballNo&&Array.isArray(m.log)){
+      const have=e=>g.net.pend.some(p=>p.n===e.n);
+      m.log.slice(-6).forEach(e=>{if(e&&e.n>=g.ballNo&&e.n<m.n&&!have(e)&&e.sh&&e.seat>=0&&e.seat<g.n)g.net.pend.push({k:'shot',n:e.n,seat:e.seat,sh:e.sh,pw:e.pw,ball:e.ball});});
+      g.net.pend.sort((p,q)=>p.n-q.n);
+    }
   }else if(m.k==='aim'){
     if(g.phase!=='aim'||m.seat!==g.cur)return;
     g.bx=blNum(m.bx,-.52,.52,0);g.spinV=blNum(m.sp,-1,1,0);g.pull=blNum(m.pu,0,1,0);g.aimA=blNum(m.aa,-.06,.06,0);
@@ -34495,7 +34504,12 @@ function blStep(g,dt){
     if(g.bot)blBotAct(g,dt);
     g.aimA=g.aimA||0;
     if(g.net&&G.isOnline){
-      if(blWatching(g))blNetPending(g);
+      if(blWatching(g)){
+        blNetPending(g);
+        // waiting for someone else's throw for a long time: ask whether we missed it (a dropped connection loses messages)
+        const wk=g.cur+':'+g.ballNo;if(g.net.waitKey!==wk){g.net.waitKey=wk;g.net.waitT=g.t;g.net.syncAt=g.t;}
+        else if(g.t-g.net.waitT>4&&g.t-g.net.syncAt>3){g.net.syncAt=g.t;blSend(g,{k:'sync',n:g.ballNo});}
+      }
       else if(blIsHuman(g)&&g.t-g.net.aimAt>.1){const key=[g.bx.toFixed(3),g.spinV.toFixed(2),g.pull.toFixed(2),(g.aimA||0).toFixed(4)].join();if(key!==g.net.aimKey){g.net.aimKey=key;g.net.aimAt=g.t;blSend(g,{k:'aim',bx:g.bx,sp:g.spinV,pu:g.pull,aa:g.aimA||0});}}
     }
   }else if(g.phase==='roll'){

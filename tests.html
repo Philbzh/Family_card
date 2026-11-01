@@ -6751,6 +6751,17 @@ async function runPresentation(A,W,frame){
        F('blOnBroadcast')({k:'shot',id:'b1',seat:0,s:303,n:1,sh:s1,pw:.5,ball:{id:'classic',fx:'none'},log:[{n:0,seat:0,sh:s0,pw:.5,ball:{id:'classic',fx:'none'}},{n:1,seat:0,sh:s1,pw:.5,ball:{id:'classic',fx:'none'}}]});
        let q=0;while(q++<60000&&m2.rolls[0].length<2)F('blStep')(m2,1/30);
        check('a lost shot is caught up: the next message brings the missing shot, both are played in order',m2.rolls[0].length===2&&m2.ballNo>=2);}
+      // a device that waits too long asks (sync); the one that is ahead answers (catch) and the asker plays what it missed
+      {F('blStop')();W.eval("window._blOut=[]");gg.myPid='B';gg.srv=mk();F('render')();F('blAttach')();const m3=G().bl;
+       F('blOnBroadcast')({k:'go',id:'b1',seat:0,s:401,mode:'quick',style:'classic',lv:'standard',seed:7});
+       const s0={x0:.3,ang:0,v:7.5,spin:0},s1={x0:-.2,ang:.002,v:7.4,spin:.3};
+       F('blOnBroadcast')({k:'catch',id:'b1',seat:0,s:402,n:2,log:[{n:0,seat:0,sh:s0,pw:.5,ball:{id:'classic',fx:'none'}},{n:1,seat:0,sh:s1,pw:.5,ball:{id:'classic',fx:'none'}}]});
+       let q2=0;while(q2++<60000&&m3.rolls[0].length<2)F('blStep')(m3,1/30);
+       check('a device that missed shots and is sent a catch-up plays them in order',m3.rolls[0].length===2&&m3.ballNo>=2);
+       W.eval("window._blOut=[]");F('blOnBroadcast')({k:'sync',id:'b1',seat:0,s:403,n:0});
+       check('a device that is ahead answers a sync with its last shots',W.eval('window._blOut').some(m=>m.k==='catch'&&m.n===m3.ballNo&&Array.isArray(m.log)&&m.log.length>=2));
+       W.eval("window._blOut=[]");F('blOnBroadcast')({k:'sync',id:'b1',seat:0,s:404,n:m3.ballNo});
+       check('a device that is not ahead stays quiet on a sync',!W.eval('window._blOut').some(m=>m.k==='catch'));}
       // 3. the host: the result goes into the room for everybody
       F('blStop')();W.eval("window._blOut=[]");gg.myPid='A';gg.srv=mk();F('render')();F('blAttach')();const h=G().bl;
       W.eval('document.querySelector("[data-blact=start]").click()');
