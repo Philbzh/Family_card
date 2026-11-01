@@ -6077,7 +6077,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=262;
+const APP_BUILD=263;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -34016,8 +34016,10 @@ function blWoodTex(){
   return BL_IMG.wood=cv;
 }
 function blLaneSlices(g,x,zA,zB,hw){
+  // the real lane wood (a photograph made into 39 boards with plank joints) when it is loaded, else the wood drawn by the program
+  const nm=g.style==='table'?'lane_table':g.style==='mayhem'?'lane_light':'lane_classic',ph=blPhoto(nm,'.jpg');if(ph&&!ph.per)ph.per=ph.height*(BL.W/ph.width);
   // one thin row of the wood picture for every 2 pixels of the screen, from the far end to the near end: the grain follows the perspective exactly
-  const tex=blWoodTex(),span=BL.PITZ+7.2,c=g.cam,H=g.cv.height,dpr=g.dpr||1,zF=Math.min(zB,BL.HEAD-.35);
+  const tex=ph||blWoodTex(),span=ph?ph.per:BL.PITZ+7.2,c=g.cam,H=g.cv.height,dpr=g.dpr||1,zF=Math.min(zB,BL.HEAD-.35),vz=z=>ph?(((z+7.2)/span)%1+1)%1:1-(z+7.2)/span;
   const pf=blP(g,0,0,zF),pn=blP(g,0,0,zA);if(!pf||!pn)return;
   const rowH=Math.max(2,Math.round(2*dpr))*(g.moving?3:1),k=c.f*c.h;
   x.save();x.imageSmoothingEnabled=true;
@@ -34025,18 +34027,20 @@ function blLaneSlices(g,x,zA,zB,hw){
     const yy=y+rowH/2-(g.shy||0),den=yy-c.hz;if(den<=1)continue;
     const dz=k/den,z=dz+c.z;if(z>zF||z<zA)continue;
     const w=hw*2*c.f/dz,cx=g.cv.width/2+(0-c.x)*c.f/dz+(g.shx||0);
-    const sy=(1-(z+7.2)/span)*tex.height,sh=Math.max(1,rowH/(c.f/dz)/span*tex.height);
+    const sy=vz(z)*tex.height,sh=Math.max(1,rowH/(c.f/dz)/span*tex.height);
     const s0=Math.max(0,Math.min(tex.height-1,sy-sh/2));
     x.drawImage(tex,0,s0,tex.width,Math.max(1,Math.min(sh,tex.height-s0)),cx-w/2,y,w,rowH+.6);
   }
   // the pin deck (the picture is lifted a little there so that the triangle of pins can be seen): thin slices of the same wood
   for(let z=zF;z<zB-.001;z+=.08){const z1=Math.min(zB,z+.08),p=blP(g,0,0,z),q=blP(g,0,0,z1);if(!p||!q||p[1]-q[1]<=0)continue;
-    const w=hw*2*(p[2]+q[2])/2,sy=(1-(z+7.2)/span)*tex.height,sh=Math.max(1,.08/span*tex.height);
+    const w=hw*2*(p[2]+q[2])/2,sy=vz(z)*tex.height,sh=Math.max(1,.08/span*tex.height);
     x.drawImage(tex,0,Math.max(0,Math.min(tex.height-2,sy-sh)),tex.width,Math.min(sh+1,tex.height-sy),(p[0]+q[0])/2-w/2,q[1]-.5,w,p[1]-q[1]+1);}
   x.restore();
 }
 function blDrawWall(g,x){
-  const im=BL_IMG.wallimg;if(!im){const i=BL_IMG.wallimg=new Image();i.onload=()=>{i._ok=1;};i.src='assets/games/bl_wall.jpg';return false;}
+  // a wide screen has room for the whole wall with its gold arch; a tall one only shows its lower part (the darker, older wall suits that better)
+  const wide=false,key='wallimg',file='bl_wall.jpg';
+  const im=BL_IMG[key];if(!im){const i=BL_IMG[key]=new Image();i.onload=()=>{i._ok=1;BL_LOADED++;};i.src='assets/games/'+file;return false;}
   if(!im._ok)return false;
   const zc=BL.PITZ+1.4,p=blP(g,0,0,zc);if(!p)return true;
   const w=Math.max(g.cv.width*1.05,7.4*p[2]),h=w*im.naturalHeight/im.naturalWidth;   // the picture's lower edge is the wainscot above the pin machine
@@ -34397,7 +34401,7 @@ function blDrawIntro(g,x){
 
 /* ═══════ BOWLING: the screen, the touch, the score sheet ═══════ */
 // make the first ball smooth: the pictures and sounds are built now, not in the middle of the first roll
-function blWarm(g){try{['sp_ember','sp_flame','sp_smoke','sp_dust','sp_spark','sp_glint','sp_ice','sp_orb','sp_motes','tx_gutter','tx_rail','tx_foul','tx_carpet','pool'].forEach(n=>blPhoto(n,'.jpg'));['inlay_arrow','inlay_dot','splint_0','splint_1','splint_2','splint_3','splint_4'].forEach(n=>blPhoto(n));['ui_plaque','logo','return','confetti','stream_0','stream_1','stream_2','stream_3','emb_rocket','emb_magnet','emb_giant','emb_heavy'].forEach(n=>blPhoto(n));['strike','spare','split','turkey','gutter','comeback'].forEach(n=>blPhoto('word_'+n));['fire','ice','electric','vortex','gold','shock'].forEach(n=>blPhoto('fx_'+n,'.jpg'));BL_BALLS.forEach(b=>blPhoto('ball_'+b.id));blPhoto('pin_stand');blPinSprite();{const ac=bwAc();if(ac)blBufs(ac);}(g.balls||[]).forEach(b=>{const o=BL_BALLS.find(q=>q.id===b.id)||BL_BALLS[0];[256,160,96].forEach(S=>blBallBase(o,S));blPatCanvas(o);});[256,160,96].forEach(blBallShade);const ac=bwAc();if(ac){hfBus(ac);bwNoise(ac,'brown');bwNoise(ac,'white');}}catch(e){}}
+function blWarm(g){try{['lane_classic','lane_table','lane_light'].forEach(n=>blPhoto(n,'.jpg'));['sp_ember','sp_flame','sp_smoke','sp_dust','sp_spark','sp_glint','sp_ice','sp_orb','sp_motes','tx_gutter','tx_rail','tx_foul','tx_carpet','pool'].forEach(n=>blPhoto(n,'.jpg'));['inlay_arrow','inlay_dot','splint_0','splint_1','splint_2','splint_3','splint_4'].forEach(n=>blPhoto(n));['ui_plaque','logo','return','confetti','stream_0','stream_1','stream_2','stream_3','emb_rocket','emb_magnet','emb_giant','emb_heavy'].forEach(n=>blPhoto(n));['strike','spare','split','turkey','gutter','comeback'].forEach(n=>blPhoto('word_'+n));['fire','ice','electric','vortex','gold','shock'].forEach(n=>blPhoto('fx_'+n,'.jpg'));BL_BALLS.forEach(b=>blPhoto('ball_'+b.id));blPhoto('pin_stand');blPinSprite();{const ac=bwAc();if(ac)blBufs(ac);}(g.balls||[]).forEach(b=>{const o=BL_BALLS.find(q=>q.id===b.id)||BL_BALLS[0];[256,160,96].forEach(S=>blBallBase(o,S));blPatCanvas(o);});[256,160,96].forEach(blBallShade);const ac=bwAc();if(ac){hfBus(ac);bwNoise(ac,'brown');bwNoise(ac,'white');}}catch(e){}}
 function lDealBowling(){
   if(G.lp.length>4)G.lp=G.lp.slice(0,4);
   G.lp.forEach(p=>{p.totalScore=0;p.c4Result=null;p.psLine='';});
