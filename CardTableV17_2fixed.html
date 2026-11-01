@@ -6077,7 +6077,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=263;
+const APP_BUILD=264;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -34015,10 +34015,14 @@ function blWoodTex(){
   x.strokeStyle='rgba(54,28,8,.55)';x.lineWidth=1.2;x.beginPath();for(let i=1;i<39;i++){x.moveTo(i*bw,0);x.lineTo(i*bw,H);}x.stroke();
   return BL_IMG.wood=cv;
 }
+// the classic lane follows the clock like the hero picture of the home screen: darker wood in the evening (18:00 to 06:00)
+function blNight(){try{if(window.__blNight!=null)return !!window.__blNight;const h=new Date().getHours();return h>=18||h<6;}catch(e){return false;}}
 function blLaneSlices(g,x,zA,zB,hw){
   // the real lane wood (a photograph made into 39 boards with plank joints) when it is loaded, else the wood drawn by the program
-  const nm=g.style==='table'?'lane_table':g.style==='mayhem'?'lane_light':'lane_classic',ph=blPhoto(nm,'.jpg');if(ph&&!ph.per)ph.per=ph.height*(BL.W/ph.width);
+  const nm=g.style==='table'?'lane_table':g.style==='mayhem'?'lane_light':blNight()?'lane_evening':'lane_classic',ph=blPhoto(nm,'.jpg');if(ph&&!ph.per)ph.per=ph.height*(BL.W/ph.width);
   // one thin row of the wood picture for every 2 pixels of the screen, from the far end to the near end: the grain follows the perspective exactly
+  if(ph){let ac=ph._avg;if(!ac){try{const t=document.createElement('canvas');t.width=t.height=1;const q=t.getContext('2d');q.drawImage(ph,0,0,ph.width,ph.height,0,0,1,1);const d=q.getImageData(0,0,1,1).data;ac=ph._avg='rgb('+d[0]+','+d[1]+','+d[2]+')';}catch(e){ac='#8a5a2a';}}
+    blQuad(x,g,[[-hw,0,zA],[hw,0,zA],[hw,0,zB],[-hw,0,zB]],ac);}
   const tex=ph||blWoodTex(),span=ph?ph.per:BL.PITZ+7.2,c=g.cam,H=g.cv.height,dpr=g.dpr||1,zF=Math.min(zB,BL.HEAD-.35),vz=z=>ph?(((z+7.2)/span)%1+1)%1:1-(z+7.2)/span;
   const pf=blP(g,0,0,zF),pn=blP(g,0,0,zA);if(!pf||!pn)return;
   const rowH=Math.max(2,Math.round(2*dpr))*(g.moving?3:1),k=c.f*c.h;
@@ -34401,7 +34405,7 @@ function blDrawIntro(g,x){
 
 /* ═══════ BOWLING: the screen, the touch, the score sheet ═══════ */
 // make the first ball smooth: the pictures and sounds are built now, not in the middle of the first roll
-function blWarm(g){try{['lane_classic','lane_table','lane_light'].forEach(n=>blPhoto(n,'.jpg'));['sp_ember','sp_flame','sp_smoke','sp_dust','sp_spark','sp_glint','sp_ice','sp_orb','sp_motes','tx_gutter','tx_rail','tx_foul','tx_carpet','pool'].forEach(n=>blPhoto(n,'.jpg'));['inlay_arrow','inlay_dot','splint_0','splint_1','splint_2','splint_3','splint_4'].forEach(n=>blPhoto(n));['ui_plaque','logo','return','confetti','stream_0','stream_1','stream_2','stream_3','emb_rocket','emb_magnet','emb_giant','emb_heavy'].forEach(n=>blPhoto(n));['strike','spare','split','turkey','gutter','comeback'].forEach(n=>blPhoto('word_'+n));['fire','ice','electric','vortex','gold','shock'].forEach(n=>blPhoto('fx_'+n,'.jpg'));BL_BALLS.forEach(b=>blPhoto('ball_'+b.id));blPhoto('pin_stand');blPinSprite();{const ac=bwAc();if(ac)blBufs(ac);}(g.balls||[]).forEach(b=>{const o=BL_BALLS.find(q=>q.id===b.id)||BL_BALLS[0];[256,160,96].forEach(S=>blBallBase(o,S));blPatCanvas(o);});[256,160,96].forEach(blBallShade);const ac=bwAc();if(ac){hfBus(ac);bwNoise(ac,'brown');bwNoise(ac,'white');}}catch(e){}}
+function blWarm(g){try{['lane_classic','lane_table','lane_light','lane_evening'].forEach(n=>blPhoto(n,'.jpg'));['sp_ember','sp_flame','sp_smoke','sp_dust','sp_spark','sp_glint','sp_ice','sp_orb','sp_motes','tx_gutter','tx_rail','tx_foul','tx_carpet','pool'].forEach(n=>blPhoto(n,'.jpg'));['inlay_arrow','inlay_dot','splint_0','splint_1','splint_2','splint_3','splint_4'].forEach(n=>blPhoto(n));['ui_plaque','logo','return','confetti','stream_0','stream_1','stream_2','stream_3','emb_rocket','emb_magnet','emb_giant','emb_heavy'].forEach(n=>blPhoto(n));['strike','spare','split','turkey','gutter','comeback'].forEach(n=>blPhoto('word_'+n));['fire','ice','electric','vortex','gold','shock'].forEach(n=>blPhoto('fx_'+n,'.jpg'));BL_BALLS.forEach(b=>blPhoto('ball_'+b.id));blPhoto('pin_stand');blPinSprite();{const ac=bwAc();if(ac)blBufs(ac);}(g.balls||[]).forEach(b=>{const o=BL_BALLS.find(q=>q.id===b.id)||BL_BALLS[0];[256,160,96].forEach(S=>blBallBase(o,S));blPatCanvas(o);});[256,160,96].forEach(blBallShade);const ac=bwAc();if(ac){hfBus(ac);bwNoise(ac,'brown');bwNoise(ac,'white');}}catch(e){}}
 function lDealBowling(){
   if(G.lp.length>4)G.lp=G.lp.slice(0,4);
   G.lp.forEach(p=>{p.totalScore=0;p.c4Result=null;p.psLine='';});
