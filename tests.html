@@ -5473,6 +5473,16 @@ async function runPresentation(A,W,frame){
     check('a goal stops play (GOAL phase), scores and asks to persist the score to the room',h.ph==='goal'&&h.score[0]===1&&h.persist===true&&h.out.some(e=>e.t==='GOAL'));
     for(let i=0;i<30;i++){h.out=[];F('ahHostTick')(h,.1,[{x:300,y:870},{x:300,y:130}]);}
     check('then the puck is served on the side of the player who conceded, and play resumes',h.ph==='play'&&h.sim.p.y<AH.H/2);
+    // after a goal the puck is served and WAITS: a striker that comes to it must push it, never slide over it
+    {const hs=host();hs.ready[0]=true;hs.ph='serve';hs.pt=.9;hs.sim.p.x=300;hs.sim.p.y=680;hs.sim.p.vx=0;hs.sim.p.vy=0;hs.sim.pad[0].x=300;hs.sim.pad[0].y=900;
+     for(let i=0;i<8;i++){hs.out=[];F('ahHostTick')(hs,.04,[{x:300,y:690},{x:300,y:130}]);}
+     check('while the puck waits after a goal a striker pushes it away (it does not fly over it)',hs.ph==='serve'&&hs.sim.p.y<640&&Math.hypot(hs.sim.p.vx,hs.sim.p.vy)>20);
+     check('and nothing can score while it waits',hs.score[0]===0&&hs.score[1]===0);
+     const hc=host();hc.ready[0]=true;hc.ph='count';hc.pt=3;hc.sim.p.x=300;hc.sim.p.y=500;
+     for(let i=0;i<5;i++){F('ahHostTick')(hc,.1,[{x:300,y:520},{x:300,y:130}]);}
+     check('in the countdown the puck is solid too, and the game still starts from the middle',hc.sim.p.y!==500||hc.sim.p.x!==300);
+     let guard=0;while(hc.ph!=='play'&&guard++<80)F('ahHostTick')(hc,.05,[{x:300,y:870},{x:300,y:130}]);
+     check('after the countdown it begins in the middle with the opening nudge',hc.ph==='play'&&Math.abs(hc.sim.p.x-300)<2&&Math.abs(hc.sim.p.y-500)<2&&Math.hypot(hc.sim.p.vx,hc.sim.p.vy)>250);}
     // the bot plays whole matches
     const fAdv=F('ahAdvance'),fBot=F('ahBotTarget'),fServe=F('ahServe'),fNew=F('ahNewSim');
     const botMinute=(level)=>{const a={sim:fNew(),bot:{level,hist:[],mode:''}};let tt=0,hits=0,bad=false,goals=[0,0],maxY=0;a.sim.p.vy=340;

@@ -4515,6 +4515,12 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
 }
 
 </style>
+<style id="game-noselect">
+/* while playing, a long press must never open Safari's "select / copy / look up" menu, and nothing may be selected or dragged by accident (typing in a chat field still works) */
+#s-table,#s-table *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
+#s-table input,#s-table textarea,#s-table [contenteditable="true"]{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;}
+#s-table img,#s-table canvas{-webkit-user-drag:none;}
+</style>
 <style id="home-compact">
 /* Home, compact: the core of the app is visible without scrolling */
 .v10-title{position:absolute !important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
@@ -6100,7 +6106,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=271;
+const APP_BUILD=273;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -7669,18 +7675,22 @@ function ahSetPhase(ah,ph,t){ah.ph=ph;ah.pt=t||0;ah.phAt=ah.sim.t;}
 function ahHostTick(ah,dt,tg){
   if(ah.kind==='invaders')return ivHostTick(ah,dt,tg);
   const sim=ah.sim,ev=[];
+  // the puck stays SOLID while it waits (before the game, in the countdown, and in the pause after a goal): a striker that touches it pushes it,
+  // it does not slide over it. Only the goal celebration itself keeps it frozen (it is in the net, out of reach). Nothing can score in these phases.
+  const waitOpt=sim.kind==='airhockey'?{noGoal:true}:{freezePuck:true};
   if(ah.ph==='ready'){
-    ahAdvance(sim,dt,tg,ev,{freezePuck:true});
+    ahAdvance(sim,dt,tg,ev,waitOpt);
     if(ah.mode!=='guest'&&ah.ready[0]&&(ah.ready[1]||ah.mode==='bot'||ah.mode==='duo')){ahSetPhase(ah,'count',3.2);ah.cdLast=4;}
   }else if(ah.ph==='count'){
-    ahAdvance(sim,dt,tg,ev,{freezePuck:true});ah.pt-=dt;
+    ahAdvance(sim,dt,tg,ev,waitOpt);ah.pt-=dt;
     const n=Math.ceil(ah.pt);if(n!==ah.cdLast&&n>=1&&n<=3){ah.cdLast=n;ah.out.push({t:'COUNT',n});}
     if(ah.pt<=0){ahSetPhase(ah,'play',0);ah.out.push({t:'COUNT',n:0});ah.stats.start=Date.now();if(sim.kind!=='pong')AHS.hum.on();
       if(sim.kind==='pong'){ahLaunch(sim,Math.random()<.5?0:1);}else{
       // the opening: the puck drifts a little towards one side (a fair coin), and the race is on
+      sim.p.x=AH.W/2;sim.p.y=AH.H/2;   // if somebody pushed it while it waited, it starts from the middle again
       sim.p.vx=ahRnd(-70,70);sim.p.vy=(Math.random()<.5?-1:1)*ahRnd(300,380);}}
   }else if(ah.ph==='serve'){
-    ahAdvance(sim,dt,tg,ev,{freezePuck:true});ah.pt-=dt;
+    ahAdvance(sim,dt,tg,ev,waitOpt);ah.pt-=dt;
     if(ah.pt<=0){ahSetPhase(ah,'play',0);if(sim.kind==='pong'){ahLaunch(sim,ah.lastGoal?1-ah.lastGoal.seat:0);if(ahPongThreat(ah))ah.out.push({t:'FINAL_POINT'});}}
   }else if(ah.ph==='play'){
     ahAdvance(sim,dt,tg,ev);
@@ -7942,7 +7952,7 @@ function ahGuestTick(ah,dt){
       }
       else if(e.t==='wall'){ah.net.localWallAt=performance.now();ah.out.push({t:'WALL',s:e.s,x:e.x,y:e.y});}
     }
-  }else{ahAdvance(sim,dt,[null,tg[1]],ev,{freezePuck:true,noGoal:true});}
+  }else{ahAdvance(sim,dt,[null,tg[1]],ev,(sim.kind==='airhockey'&&(ah.ph==='ready'||ah.ph==='count'||ah.ph==='serve'))?{noGoal:true}:{freezePuck:true,noGoal:true});}
 }
 // ahPersist: the simulating device writes the score to the room after each goal (so a reload resumes the match)
 function ahPersist(ah){
@@ -34463,6 +34473,9 @@ function blAttach(){
   if(!g.raf){g.last=performance.now();g.raf=requestAnimationFrame(blFrame);}
 }
 window.addEventListener('resize',()=>{try{if(G.bl&&G.bl.live)blSize(G.bl);}catch(e){}});
+// the same for the long-press menu and for starting a selection on a game screen (Safari ignores the style in some cases)
+document.addEventListener('contextmenu',e=>{try{const t=e.target;if(t&&t.closest&&t.closest('#s-table')&&!t.closest('input,textarea,[contenteditable="true"]'))e.preventDefault();}catch(er){}});
+document.addEventListener('selectstart',e=>{try{const t=e.target&&(e.target.nodeType===1?e.target:e.target.parentElement);if(t&&t.closest&&t.closest('#s-table')&&!t.closest('input,textarea,[contenteditable="true"]'))e.preventDefault();}catch(er){}});
 function blStep(g,dt){
   g.t+=dt;if(!g.cam)blCamStep(g,1,g.camMode);
   g.flash=Math.max(0,g.flash-dt*1.8);g.shake=Math.max(0,g.shake-dt*2.6);
