@@ -15,12 +15,7 @@
 
 begin;
 
--- the rooms table: make sure the columns the functions use exist (they do already; this changes nothing)
-create table if not exists public.card_rooms (
-  id         text primary key,
-  state      jsonb not null,
-  updated_at timestamptz not null default now()
-);
+-- (the rooms table already exists, with its protection switched on: this file does not create or change it)
 
 -- A room code is 4 to 16 letters, digits or dashes: anything else is refused before it reaches the table.
 create or replace function public.room_get(p_id text)
