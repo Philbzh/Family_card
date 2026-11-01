@@ -6110,7 +6110,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=281;
+const APP_BUILD=282;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -32583,7 +32583,8 @@ function clHost(){return !!(G.isOnline&&G.srv&&G.srv.host===G.myPid);}
 function clSend(g,m,rep){
   if(!g||!g.net||!G.isOnline)return;m.id=g.net.id;m.seat=g.net.seat;m.s=++g.net.sq;
   const go=()=>{try{if(_ch)_ch.send({type:'broadcast',event:'cl',payload:m});}catch(e){}};go();
-  if(rep)[300,900].forEach(d=>setTimeout(()=>{if(G.cl===g)go();},d));
+  // a launch must not arrive late (the clay would start late); the results (a hit, the end of an event, the final scores) may, so they are repeated for longer
+  if(rep)(m.k==='launch'?[300,900]:[300,900,2500,6000]).forEach(d=>setTimeout(()=>{if(G.cl===g)go();},d));
 }
 const clR=v=>Math.round(v*1000)/1000;
 function clApplyLaunch(g,m){
