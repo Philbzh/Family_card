@@ -6106,7 +6106,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=273;
+const APP_BUILD=274;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -38724,7 +38724,7 @@ document.addEventListener('click',e=>{
     const code=(document.getElementById('ol-code')?.value||'').trim().toUpperCase();
     if(!code||code.length<4){toast('Enter the room code');return;}
     G.myName=name;G.myPid='p'+Math.random().toString(36).slice(2,8);G.roomId=code;G.isHost=false;G.isOnline=true;
-    dbRead(code).then(rs=>{if(!rs){toast('Room not found');return;}
+    dbRead(code).then(rs=>{if(!rs){toast(navigator.onLine===false?'No connection — try again when you are online':'Room not found — check the code (rooms close after 12 hours)');return;}
       if(rs.phase==='game'){
         // Rejoin instead of a flat refusal — but only into a seat this device can prove is its own.
         // Identity comes from the saved session, never from the typed name: matching on name would
@@ -39060,6 +39060,20 @@ document.addEventListener('input',e=>{
 
 let _tt;
 function toast(msg){const el=document.getElementById('toast');if(!el)return;el.textContent=msg;el.classList.add('show');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),3200);}
+// A slim, calm notice while the device has no connection: online games pause, offline games go on.
+(function(){
+  let el=null;
+  function show(on){
+    if(on){
+      if(!el){el=document.createElement('div');el.id='net-pill';el.setAttribute('role','status');
+        el.style.cssText='position:fixed;left:50%;top:max(8px,env(safe-area-inset-top));transform:translateX(-50%);z-index:99999;padding:6px 14px;border-radius:999px;background:rgba(20,16,10,.92);color:#f3e3b0;border:1px solid rgba(214,177,90,.6);font:600 12px/1.2 system-ui,sans-serif;pointer-events:none';
+        el.textContent='No connection — online games wait, offline games keep going';document.body.appendChild(el);}
+    }else if(el){el.remove();el=null;}
+  }
+  window.addEventListener('offline',()=>show(true));
+  window.addEventListener('online',()=>show(false));
+  if(typeof navigator!=='undefined'&&navigator.onLine===false)window.addEventListener('DOMContentLoaded',()=>show(true));
+})();
 
 /* ═══════ TABLE TALK — emoji reactions + short messages, visible to everyone at the table ═══════ */
 // Reaction Storms: when reactions land close together in time — everyone reacting to the same wild
