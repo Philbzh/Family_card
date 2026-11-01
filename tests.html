@@ -6843,6 +6843,11 @@ async function runPresentation(A,W,frame){
         const shot=W.eval('window._acOut').find(m=>m.k==='shot');check('the shot of the shooter carries the flight, the target and the score',!!shot&&shot.path.length>3&&!!shot.hit&&shot.sc.v>=0&&shot.pi===0);
         let n=0;while(g.phase==='flight'&&n++<900)F('acStep')(g,1/30);const totA=g.tot[0],vA=g.arrows[0][0].v;
         check('the host sees the arrow arrive and counts it',g.phase==='result'&&totA>=0&&g.arrows[0].length===1);
+        check('every shot is numbered, and the shooter remembers it',shot.n===0&&g.net.nShots===1&&g.net.shotLog.length===1);
+        W.eval("window._acOut=[]");F('acOnBroadcast')({k:'sync',id:'a1',seat:1,s:70,n:0});
+        check('a device that is ahead answers a sync with the shots the other one missed',W.eval('window._acOut').some(m=>m.k==='catch'&&Array.isArray(m.log)&&m.log.length===1&&m.log[0].n===0));
+        W.eval("window._acOut=[]");F('acOnBroadcast')({k:'sync',id:'a1',seat:1,s:71,n:1});
+        check('and stays quiet when the other one is not behind',!W.eval('window._acOut').some(m=>m.k==='catch'));
         // the second device
         W.eval("window._acOut=[]");G().myPid='B';F('acStop')();gg.srv=mk();F('render')();F('acAttach')();const b=G().ac;F('acSize')(b);
         check('the second device is seat 1 and waits in the set-up',b.net.seat===1&&b.phase==='setup'&&!F('acWatch')(b));
@@ -6852,6 +6857,13 @@ async function runPresentation(A,W,frame){
         n=0;while(b.phase==='flight'&&n++<900)F('acStep')(b,1/30);
         check('the watcher gets exactly the same score for the arrow',b.phase==='result'&&b.tot[0]===totA&&b.arrows[0][0].v===vA);
         F('acOnBroadcast')(shot);check('the same message twice is counted once',b.arrows[0].length===1);
+        // a watcher that missed the shot is sent it again and plays it, with the same score
+        W.eval("window._acOut=[]");F('acStop')();gg.srv=mk();F('render')();F('acAttach')();const c=G().ac;F('acSize')(c);F('acOnBroadcast')(go);
+        F('acOnBroadcast')({k:'catch',id:'a1',seat:0,s:80,log:[shot]});
+        n=0;while(c.phase!=='flight'&&n++<30)F('acStep')(c,1/30);
+        check('the catch-up shot is played here',c.phase==='flight'&&!!c.fl&&c.fl.sc.v===shot.sc.v);
+        n=0;while(c.phase==='flight'&&n++<900)F('acStep')(c,1/30);
+        check('and gives the same score, and the shot count moves on',c.phase==='result'&&c.tot[0]===totA&&c.net.nShots===1);
         F('acStop')();
        }finally{W.eval('window._acOut=null');W.eval('_ch=null');gg.isOnline=false;G().myPid=pid0;gg.srv=srv0;F('acStop')();}}
     }finally{if(pref0===null)W.localStorage.removeItem('ct_ac_pref');else W.localStorage.setItem('ct_ac_pref',pref0);if(prog0===null)W.localStorage.removeItem('ct_ac_prog');else W.localStorage.setItem('ct_ac_prog',prog0);if(intro0===null)W.localStorage.removeItem('ct_ac_intro');else W.localStorage.setItem('ct_ac_intro',intro0);try{F('acStop')();}catch(e){}gg.isOnline=k0[0];gg.selGame=k0[1];gg.lp=k0[2];gg.scr=k0[3];gg.ac=null;}

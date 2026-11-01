@@ -6110,7 +6110,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=279;
+const APP_BUILD=280;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -33242,12 +33242,14 @@ function acRnd(seed){let s=seed>>>0||1;return()=>{s=(s*1664525+1013904223)>>>0;r
 // ── a game ──
 function acNew(){
   const pr=acPrefs(),src=G.isOnline?ahPlayers().slice(0,4):G.lp.slice(0,4),players=src.map(p=>({name:p.name||'Player',avatar:p.avatar,bot:G.isOnline?null:p.bot?(p.bot==='sharp'?'sharp':p.bot==='steady'?'steady':'gentle'):null}));
-  return{live:true,players,n:players.length,pr,net:G.isOnline?{id:G.srv&&G.srv.ah&&G.srv.ah.id,seat:Math.max(0,src.findIndex(q=>q.id===G.myPid)),sq:0,seen:{},helloAt:-9,goAt:-9,goUntil:0,cfg:null,sightAt:-9}:null,lv:pr.lv,mode:pr.mode,venue:pr.venue,phase:'setup',t:0,last:performance.now(),raf:0,cv:null,q:0,dpr:1,f:400,
+  return{live:true,players,n:players.length,pr,net:G.isOnline?{id:G.srv&&G.srv.ah&&G.srv.ah.id,seat:Math.max(0,src.findIndex(q=>q.id===G.myPid)),sq:0,seen:{},helloAt:-9,goAt:-9,goUntil:0,cfg:null,sightAt:-9,nShots:0,shotLog:[],pend:[],waitKey:'',waitT:0,syncAt:0}:null,lv:pr.lv,mode:pr.mode,venue:pr.venue,phase:'setup',t:0,last:performance.now(),raf:0,cv:null,q:0,dpr:1,f:400,
     eye:[0,1.6,0],yaw:0,pitch:.05,zm:1,arrows:[],tot:[],ends:[],setPts:[],cur:null,curI:0,queue:[],qi:0,endNo:0,draw:0,wind:0,holdT:0,boff:0,sw1:0,sw2:0,sw3:0,fl:null,
     tg:[],stuck:[],puffs:[],pops:[],streak:[],bestStreak:[],stats:{start:Date.now()},hand:null,over:false,bot:null,lastShooter:-1,resT:0,hushT:0,callAt:-9,tt:0};
 }
 function acHost(){return !!(G.isOnline&&G.srv&&G.srv.host===G.myPid);}
 function acWatch(g){return !!(g&&g.net&&G.isOnline&&g.cur&&g.curI!==g.net.seat);}
+// a shot is numbered and remembered, so a device that missed it (a dropped connection) can be sent it again
+function acSendShot(g,m){acSend(g,m,true);g.net.shotLog.push(m);g.net.nShots++;if(g.net.shotLog.length>8)g.net.shotLog.shift();}
 function acSend(g,m,rep){
   if(!g||!g.net||!G.isOnline)return;m.id=g.net.id;m.seat=g.net.seat;m.s=++g.net.sq;
   const go=()=>{try{if(_ch)_ch.send({type:'broadcast',event:'ac',payload:m});}catch(e){}};go();
@@ -34974,7 +34976,7 @@ function acRelease(g,sp){
   g.phase='flight';g.shotAt=g.t;g.relDraw=g.draw;g.vib=g.t;g.kick=1;acSnd.release(g.draw);acSnd.whoosh(fl.path.length?fl.path[fl.path.length-1][0]*1.35:1);if(perfect)g.hushT=g.t+2.6;try{haptic(16);}catch(e){}
   g.draw=0;g.clockEnd=0;g.holding=false;
   if(g.net&&G.isOnline&&!acWatch(g)){const pth=g.fl.path,n=pth.length,step=Math.max(1,Math.floor(n/36)),pp=[];for(let i=0;i<n;i+=step)pp.push([clR(pth[i][0]),clR(pth[i][1][0]),clR(pth[i][1][1]),clR(pth[i][1][2])]);if(n&&(n-1)%step)pp.push([clR(pth[n-1][0]),clR(pth[n-1][1][0]),clR(pth[n-1][1][1]),clR(pth[n-1][1][2])]);
-    const hh=g.fl.hit;acSend(g,{k:'shot',pi:g.curI,tt0:clR(g.fl.tt0),dr:clR(g.relDraw),yw:clR(yaw),pt:clR(pitch),w:clR(g.wind||0),T:clR(g.fl.T),path:pp,perfect:g.fl.perfect?1:0,near:g.fl.near?1:0,sc:{v:g.fl.sc.v|0,X:g.fl.sc.X?1:0,miss:g.fl.sc.miss?1:0,bal:g.fl.sc.bal?1:0,disc:g.fl.sc.disc?1:0,bonus:g.fl.sc.bonus?1:0,rr:clR(g.fl.sc.rr||0)},
+    const hh=g.fl.hit;acSendShot(g,{k:'shot',n:g.net.nShots,pi:g.curI,tt0:clR(g.fl.tt0),dr:clR(g.relDraw),yw:clR(yaw),pt:clR(pitch),w:clR(g.wind||0),T:clR(g.fl.T),path:pp,perfect:g.fl.perfect?1:0,near:g.fl.near?1:0,sc:{v:g.fl.sc.v|0,X:g.fl.sc.X?1:0,miss:g.fl.sc.miss?1:0,bal:g.fl.sc.bal?1:0,disc:g.fl.sc.disc?1:0,bonus:g.fl.sc.bonus?1:0,rr:clR(g.fl.sc.rr||0)},
       hit:hh?{id:hh.tg?hh.tg.id:-1,ground:hh.ground?1:0,t:clR(hh.t),P:hh.P.map(clR),C:hh.C?hh.C.map(clR):null,off:hh.off?hh.off.map(clR):null,u:hh.u?hh.u.map(clR):null,ro:clR(hh.ro||0)}:null},true);}
 }
 function acImpact(g){
@@ -35031,18 +35033,35 @@ function acOnBroadcast(m){
   if(m.k!=='sight'&&m.k!=='hello'){const key=m.seat+':'+m.s;if(g.net.seen[key])return;g.net.seen[key]=1;}
   if(m.k==='go'){if(g.phase==='intro')acIntroEnd(g);if(g.phase==='setup'&&sender.id===G.srv.host){const cfg={mode:AC_MODES[m.mode]&&m.mode!=='train'?m.mode:'quick',lv:AC_LV[m.lv]?m.lv:'beginner',venue:AC_VENUES[m.venue]?m.venue:'golden',seed:m.seed|0,tl:[30,60,90].includes(m.tl|0)?m.tl|0:60};g.net.cfg=cfg;acBegin(g,cfg);acPaintOv(g);}}
   else if(m.k==='hello'){if(acHost()&&g.phase!=='setup'&&g.net.cfg)g.net.goUntil=Math.max(g.net.goUntil,g.t+3);}
+  else if(m.k==='sync'){
+    // the other device waited a long time and asks whether it missed a shot: hand it the last shots
+    if(typeof m.n==='number'&&m.n<g.net.nShots&&g.net.shotLog.length)acSend(g,{k:'catch',log:g.net.shotLog.filter(e=>e.n>=m.n).slice(-6)},false);
+  }
+  else if(m.k==='catch'){
+    if(Array.isArray(m.log))m.log.slice(-6).forEach(e=>{if(e&&e.k==='shot'&&typeof e.n==='number'&&e.n>=g.net.nShots&&e.seat>=0&&e.seat<g.n&&Array.isArray(e.path)&&!g.net.pend.some(q=>q.n===e.n))g.net.pend.push(e);});
+    g.net.pend.sort((a,b)=>a.n-b.n);
+  }
   else if(m.seat!==g.curI)return;
   else if(m.k==='tend'){if(g.mode==='time'&&acWatch(g)){if(g.phase==='ready'||g.phase==='draw'||g.phase==='set')acTimeRunEnd(g);else g.runDone=true;}}
   else if(m.k==='sight'){if(!acWatch(g)||(g.phase!=='ready'&&g.phase!=='draw'&&g.phase!=='set'))return;const f=v=>Math.max(-7,Math.min(7,+v||0));g.yaw=f(m.y);g.pitch=Math.max(-.3,Math.min(1.4,+m.p||0));g.draw=Math.max(0,Math.min(1,+m.d||0));g.holdT=Math.max(0,Math.min(30,+m.hl||0));g.tt=Math.max(0,Math.min(600,+m.tt||0));g.lock=m.lk===null||m.lk===undefined?null:m.lk|0;
     g.phase=m.ph==='draw'?'draw':m.ph==='set'?'set':'ready';}
-  else if(m.k==='shot'){if(!acWatch(g)||g.phase==='flight'||g.phase==='result')return;
+  else if(m.k==='shot'){acShotIn(g,m);}
+}
+// a shot of the shooter: played here in order (one that arrives early is kept until the missing ones are played)
+function acShotIn(g,m){
+    if(typeof m.n==='number'){
+      if(m.n>g.net.nShots){if(!g.net.pend.some(q=>q.n===m.n))g.net.pend.push(m);return;}
+      if(m.n<g.net.nShots)return;
+    }
+    if(!acWatch(g)||g.phase==='flight'||g.phase==='result')return;
     const num=v=>+v||0,P3=a=>Array.isArray(a)&&a.length===3?[num(a[0]),num(a[1]),num(a[2])]:null;
     const path=(m.path||[]).slice(0,80).map(a=>[num(a[0]),[num(a[1]),num(a[2]),num(a[3])]]);if(!path.length)return;
     let hit=null;if(m.hit){const hh=m.hit,tg=hh.id>=0?g.tg.find(t=>t.id===hh.id):null;hit={t:num(hh.t),P:P3(hh.P)||path[path.length-1][1]};if(hh.ground)hit.ground=true;if(tg){hit.tg=tg;hit.C=P3(hh.C)||[tg.x,tg.y,tg.z];hit.off=P3(hh.off)||[0,0,0];hit.u=P3(hh.u)||[0,0,1];hit.ro=num(hh.ro);}}
     const sc={v:Math.max(0,Math.min(30,m.sc&&m.sc.v|0)),X:!!(m.sc&&m.sc.X),miss:!!(m.sc&&m.sc.miss),bal:!!(m.sc&&m.sc.bal),disc:!!(m.sc&&m.sc.disc),bonus:!!(m.sc&&m.sc.bonus),rr:num(m.sc&&m.sc.rr)};
     g.tt=Math.max(0,Math.min(600,num(m.tt0)));g.wind=Math.max(-12,Math.min(12,num(m.w)));
     g.fl={tt0:g.tt,t:0,u:0,path,hit,sc,T:Math.max(.2,Math.min(6,num(m.T))),perfect:!!m.perfect,near:!!m.near,pi:g.curI,yaw:num(m.yw),pitch:num(m.pt),shown:0,tr:[]};
-    g.fl.zh=acZoomFor(g,hit&&!hit.ground?hit:null);g.relDraw=Math.max(0,Math.min(1,num(m.dr)));g.phase='flight';g.shotAt=g.t;g.vib=g.t;g.kick=1;g.draw=0;acSnd.release(g.relDraw);acSnd.whoosh(g.fl.T*1.35);if(g.fl.perfect)g.hushT=g.t+2.6;}
+    g.fl.zh=acZoomFor(g,hit&&!hit.ground?hit:null);g.relDraw=Math.max(0,Math.min(1,num(m.dr)));g.phase='flight';g.shotAt=g.t;g.vib=g.t;g.kick=1;g.draw=0;acSnd.release(g.relDraw);acSnd.whoosh(g.fl.T*1.35);if(g.fl.perfect)g.hushT=g.t+2.6;
+    if(typeof m.n==='number'){g.net.nShots=m.n+1;g.net.shotLog.push(m);if(g.net.shotLog.length>8)g.net.shotLog.shift();}
 }
 function acAfter(g){
   if(g.mode==='time'){g.fl=null;g.sweep=0;g.runN++;if(g.tlLeft<=0||g.runDone){acTimeRunEnd(g);return;}acTimeTurn(g,false);return;}
@@ -35345,6 +35364,17 @@ function acStep(g,dt){
   if(g.net&&G.isOnline&&g.cur&&!acWatch(g)&&(g.phase==='ready'||g.phase==='draw'||g.phase==='set')&&g.t-g.net.sightAt>.1){g.net.sightAt=g.t;acSend(g,{k:'sight',y:clR(g.yaw),p:clR(g.pitch),d:clR(g.draw),ph:g.phase,tt:clR(g.tt),hl:clR(g.holdT),lk:g.lock===undefined?null:g.lock},false);}
   if(g.net&&G.isOnline){if(g.phase==='setup'&&!acHost()&&g.t-g.net.helloAt>1.2){g.net.helloAt=g.t;acSend(g,{k:'hello'},false);}
     if(acHost()&&g.net.cfg&&g.t<g.net.goUntil&&g.t-g.net.goAt>1){g.net.goAt=g.t;acSend(g,{k:'go',mode:g.net.cfg.mode,lv:g.net.cfg.lv,venue:g.net.cfg.venue,seed:g.net.cfg.seed,tl:g.net.cfg.tl},false);}}
+  if(g.net&&G.isOnline&&acWatch(g)&&(g.phase==='ready'||g.phase==='draw'||g.phase==='set')){
+    const q=g.net.pend,k=q.findIndex(e=>e.n===g.net.nShots&&e.seat===g.curI);
+    if(k>=0)acShotIn(g,q.splice(k,1)[0]);
+    else{
+      if(q.length)g.net.pend=q.filter(e=>e.n>=g.net.nShots);
+      // waiting more than 4 s for the next shot: ask whether one was missed (a dropped connection loses messages)
+      const wk=g.curI+':'+g.net.nShots;
+      if(g.net.waitKey!==wk){g.net.waitKey=wk;g.net.waitT=g.t;g.net.syncAt=g.t;}
+      else if(g.t-g.net.waitT>4&&g.t-g.net.syncAt>3){g.net.syncAt=g.t;acSend(g,{k:'sync',n:g.net.nShots},false);}
+    }
+  }
   if(g.phase==='ready'){
     if(g.cur&&g.cur.bot&&g.bot&&g.t>=g.bot.t0){g.phase='draw';g.holdT=0;g.bot.ds=g.t;g.bot.fy=g.yaw;g.bot.fp=g.pitch;acSnd.nock();}
   }else if(g.phase==='draw'){
