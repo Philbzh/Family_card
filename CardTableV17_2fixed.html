@@ -6128,7 +6128,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=298;
+const APP_BUILD=299;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -33264,7 +33264,7 @@ function clPanoDraw(g,x,pano,f,cx,cy,hy,W,H,V){
   const skyI=clImg(V==='golden'?'sky':V+'_sky'),sn=(skyI&&skyI._sn)||[47,109,176],dy=Math.round(hy-g.panoSky);
   if(dy>-20){const gr=x.createLinearGradient(0,Math.min(-20,dy-1.2*f),0,dy+2);gr.addColorStop(0,'rgb('+Math.round(sn[0]*.7)+','+Math.round(sn[1]*.78)+','+Math.round(sn[2]*.88)+')');gr.addColorStop(1,'rgb('+sn[0]+','+sn[1]+','+sn[2]+')');x.fillStyle=gr;x.fillRect(-20,-20,W+40,dy+24);}
   const per=g.panoW;for(let m=Math.floor((g.yaw-cx/f)/4.4);;m++){const x0=Math.round(cx+(m*4.4-g.yaw)*f);if(x0>W)break;if(x0+per<0)continue;x.drawImage(pano,x0-1,dy,per+3,pano.height);}
-  const sunA=.7,sunE={golden:.62,winter:.1,coast:.035}[V]||.62,sx=cx+f*Math.tan(sunA-g.yaw),sy=cy+f*Math.tan(g.pitch-sunE);
+  const sunA=.7,sunE={golden:.62,winter:.1,coast:.035,canyon:.05,lavender:.05}[V]||.62,sx=cx+f*Math.tan(sunA-g.yaw),sy=cy+f*Math.tan(g.pitch-sunE);
   if(!((g.q||0)>=1)&&V!=='night'&&sx>-f*.5&&sx<W+f*.5&&sy>-f*.5&&sy<H+f*.5){const gr=x.createRadialGradient(sx,sy,0,sx,sy,f*.5);gr.addColorStop(0,'rgba(255,248,220,.8)');gr.addColorStop(.12,'rgba(255,240,190,.4)');gr.addColorStop(1,'rgba(255,230,160,0)');x.save();x.globalCompositeOperation='lighter';x.fillStyle=gr;x.fillRect(sx-f*.5,sy-f*.5,f,f);x.restore();}
 }
 function clDraw(g,now){clDraw0(g,now);const cv=g.cv;if(cv&&g.ret&&g.ret!=='off'){const x=cv.getContext('2d');x.setTransform(1,0,0,1,0,0);clReticle(g,x,cv.width/2,cv.height*.58,g.dpr||1);}}
@@ -33285,7 +33285,7 @@ function clDraw0(g,now){
     clTile(x,skyI,g,f,cx,topY,bh2,3.4,0,skyI.height,V==='golden'?Math.round(skyI.width*.3):0,V==='golden'?Math.round(skyI.width*.7):skyI.width);
     gr=x.createLinearGradient(0,topY,0,topY+bh2*.4);gr.addColorStop(0,col(1));gr.addColorStop(1,col(0));x.fillStyle=gr;x.fillRect(-20,topY,W+40,bh2*.4);}
   // the sun and the clouds are fixed in the world: they turn with the gun
-  const sunA=.7,sunE={golden:.62,winter:.1,coast:.035}[V]||.62,sx=cx+f*Math.tan(sunA-g.yaw),sy=cy+f*Math.tan(g.pitch-sunE);
+  const sunA=.7,sunE={golden:.62,winter:.1,coast:.035,canyon:.05,lavender:.05}[V]||.62,sx=cx+f*Math.tan(sunA-g.yaw),sy=cy+f*Math.tan(g.pitch-sunE);
   if(!lite&&V!=='night'&&sx>-f*.5&&sx<W+f*.5&&sy>-f*.5&&sy<H+f*.5){gr=x.createRadialGradient(sx,sy,0,sx,sy,f*.5);gr.addColorStop(0,'rgba(255,248,220,.95)');gr.addColorStop(.12,'rgba(255,240,190,.55)');gr.addColorStop(1,'rgba(255,230,160,0)');x.fillStyle=gr;x.fillRect(sx-f*.5,sy-f*.5,f,f);}
   if(!g.clouds){g.clouds=Array.from({length:14},(_,i)=>({a:(i/14)*6.283+clHash(i)*.5,e:.25+clHash(i+9)*.55,s:.7+clHash(i+3)*1.1,sp:.004+clHash(i+5)*.006}));}
   if(!skyI)for(const c of g.clouds){let da=((c.a+c.sp*g.t-g.yaw)%6.283+9.425)%6.283-3.1416;if(Math.abs(da)>.9)continue;const ccx=cx+f*Math.tan(da),ccy=cy+f*Math.tan(g.pitch-c.e),r=f*.07*c.s;
@@ -33559,7 +33559,7 @@ const AC_LV={
   olympic:{n:'Olympic',sway:.008,sig:.003,wind:4.5,hint:0,pop:1.7,about:'The strictest hold, a strong wind, no help.'}
 };
 const AC_BOT={gentle:{n:'Gentle',sig:2.2,comp:.15},steady:{n:'Steady',sig:1.5,comp:.55},sharp:{n:'Sharp',sig:1.0,comp:.9}};
-const AC_VENUES={golden:'GOLDEN HOUR',night:'NIGHT',winter:'WINTER',coast:'COAST',mountain:'MOUNTAIN PASS',autumn:'AUTUMN FOREST',lake:'LAKE AT DAWN'};
+const AC_VENUES={golden:'GOLDEN HOUR',night:'NIGHT',winter:'WINTER',coast:'COAST',mountain:'MOUNTAIN PASS',autumn:'AUTUMN FOREST',lake:'LAKE AT DAWN',canyon:'RED CANYON',spring:'CHERRY SPRING',lavender:'LAVENDER FIELD'};
 const AC_COL=['#f0c44c','#e5534b','#4aa3e0','#6fcf7f'];
 const AC_ST=[
   {id:'warm',n:'Warm-up',tip:'three faces, get your eye in',clock:0},
@@ -33573,7 +33573,7 @@ const AC_ST=[
 ];
 // the goals of the stations: the points of the three arrows that give one, two and three stars
 const AC_GOAL={warm:[14,21,26],trees:[12,19,24],bulls:[12,19,24],swing:[11,18,23],slide:[11,18,23],balloons:[10,17,24],popup:[10,17,24],long:[10,17,25]};
-const AC_UNLOCK={lv:{beginner:0,sport:3,elite:8,olympic:15},venue:{golden:0,night:2,mountain:4,winter:6,autumn:8,coast:10,lake:12}};
+const AC_UNLOCK={lv:{beginner:0,sport:3,elite:8,olympic:15},venue:{golden:0,night:2,mountain:4,winter:6,autumn:8,coast:10,lake:12,canyon:14,spring:16,lavender:18}};
 function acProg(){let p={};try{p=JSON.parse(localStorage.getItem('ct_ac_prog')||'{}')||{};}catch(e){}p.stars=p.stars||{};p.best=p.best||{};return p;}
 function acSaveProg(p){try{localStorage.setItem('ct_ac_prog',JSON.stringify(p));}catch(e){}}
 function acStarsTotal(){const p=acProg();return Object.values(p.stars).reduce((a,v)=>a+(v|0),0);}
@@ -35143,7 +35143,7 @@ function acDecor(g){
   const side=()=>R()<.5?-1:1;
   for(const t of g.tg){if((t.k==='face'||t.k==='popup'||t.k==='disc')&&!t.mov&&R()<.6)out.push({im:R()<.5?'hay_r':'hay_s',x:t.x+side()*(t.r*1.9+.7),z:t.z+.3,w:1.5});}
   // trees at the edge of the path: a different mix in every place
-  const mix={golden:['pine','oak','birch','fir','pine'],night:['pine','fir','fir','pine','oak'],winter:['fir','fir2','fir','pine','fir'],coast:['pine','birch','oak','pine','birch'],mountain:['fir','pine','fir','fir2','pine'],autumn:['oak','birch','oak','birch','pine'],lake:['birch','pine','birch','oak','pine']}[V]||['pine','oak'];
+  const mix={golden:['pine','oak','birch','fir','pine'],night:['pine','fir','fir','pine','oak'],winter:['fir','fir2','fir','pine','fir'],coast:['pine','birch','oak','pine','birch'],mountain:['fir','pine','fir','fir2','pine'],autumn:['oak','birch','oak','birch','pine'],lake:['birch','pine','birch','oak','pine'],canyon:['pine','oak','pine','oak','pine'],spring:['birch','oak','birch','oak','birch'],lavender:['oak','pine','oak','birch','pine']}[V]||['pine','oak'];
   const th={pine:11,fir:9,fir2:5.5,oak:9,birch:10};
   for(let i=0;i<9;i++){const sd=i%2?1:-1,im=mix[Math.floor(R()*mix.length)];out.push({im,x:sd*(5+R()*9),z:34+R()*42,h:th[im]*(.8+R()*.4)});}
   const bush=V==='winter'?'snow':V==='coast'?'dune':null;
@@ -35160,7 +35160,7 @@ function acDecor(g){
   const keep=['sign','board1','quiver','stand','bottle','gate','arch','lantern','fence','fence2'];
   return out.filter(d=>{if(d.z<12||keep.includes(d.im))return true;const ad=Math.atan2(d.x,d.z);return !g.tg.some(t=>{const w=Math.max(.08,.9*t.r/Math.hypot(t.x,t.z)+.05+((d.w||d.h*.5||2)/2)/d.z+(t.mov?Math.abs(t.mov.amp||0)/Math.hypot(t.x,t.z):0));return d.z<t.z+.5&&Math.abs(Math.atan2(t.x,t.z)-ad)<w;});});
 }
-const AC_TINT={night:'rgba(6,14,38,.6)',winter:'rgba(225,238,255,.22)',coast:'rgba(255,170,90,.14)'};
+const AC_TINT={night:'rgba(6,14,38,.6)',winter:'rgba(225,238,255,.22)',coast:'rgba(255,170,90,.14)',canyon:'rgba(255,140,60,.10)',lavender:'rgba(190,120,225,.08)'};
 const AC_TC={};
 function acTinted(n,V){const im=acImg(n);if(!im)return null;const t=AC_TINT[V];if(!t||n==='lantern')return im;const k=n+'|'+V;if(AC_TC[k])return AC_TC[k];const c=document.createElement('canvas');c.width=im.width;c.height=im.height;const q=c.getContext('2d');q.drawImage(im,0,0);q.globalCompositeOperation='source-atop';q.fillStyle=t;q.fillRect(0,0,c.width,c.height);AC_TC[k]=c;return c;}
 function acStationFor(g){
@@ -35622,7 +35622,10 @@ function acDraw(g,now){
     else if(V==='mountain'){sl('flare',.4,-W*.04,-H*.02,W*.6,null,'lighter');sl('ray',.3,-W*.1,-H*.05,W*.8,null,'lighter');sl('wind',.3,((tt*40*dpr)%(W*1.6))-W*.5,H*.3,W*.7,null,'lighter');}
     else if(V==='autumn'){sl('flare',.5,W*.5,H*.04,W*.6,null,'lighter');}
     else if(V==='lake'){sl('flare',.4,W*.45,H*.14,W*.6,null,'lighter');sl('wind',.25,((tt*25*dpr)%(W*1.6))-W*.5,H*.32,W*.7,null,'lighter');}
-    else if(V==='coast'){sl('wind',.5,((tt*60*dpr)%(W*1.6))-W*.5,H*.28,W*.7,null,'lighter');}}
+    else if(V==='coast'){sl('wind',.5,((tt*60*dpr)%(W*1.6))-W*.5,H*.28,W*.7,null,'lighter');}
+    else if(V==='canyon'){sl('flare',.4,W*.3,H*.1,W*.6,null,'lighter');sl('wind',.3,((tt*35*dpr)%(W*1.6))-W*.5,H*.3,W*.7,null,'lighter');}
+    else if(V==='spring'){sl('flare',.35,W*.5,H*.05,W*.6,null,'lighter');}
+    else if(V==='lavender'){sl('flare',.45,W*.55,H*.12,W*.6,null,'lighter');sl('wind',.2,((tt*20*dpr)%(W*1.6))-W*.5,H*.33,W*.7,null,'lighter');}}
   if(g.mode==='time'&&g.phase!=='setup'&&g.phase!=='intro'&&g.phase!=='hand'&&g.cur){const tl=Math.max(0,g.tlLeft),s=Math.ceil(tl),low=tl<=10,pulse=low?.5+.5*Math.sin(tt*9):0,fs=Math.round(Math.min(W,H)*.1);x.save();x.textAlign='center';x.textBaseline='middle';
     x.font='800 '+fs+'px Cinzel,Georgia,serif';x.lineWidth=fs*.1;x.strokeStyle='rgba(0,0,0,.65)';x.fillStyle=low?'rgb(255,'+Math.round(90+pulse*70)+','+Math.round(70+pulse*40)+')':'#ffe08a';const txt=Math.floor(s/60)+':'+String(s%60).padStart(2,'0');x.strokeText(txt,W/2,H*.16);x.fillText(txt,W/2,H*.16);
     const bw=W*.46,bh=Math.max(4,H*.008);x.fillStyle='rgba(0,0,0,.5)';x.fillRect(W/2-bw/2,H*.16+fs*.62,bw,bh);x.fillStyle=low?'#ff6a4a':'#f0c44c';x.fillRect(W/2-bw/2,H*.16+fs*.62,bw*(tl/g.tl),bh);x.restore();}
