@@ -4,6 +4,8 @@
 begin;
 
 drop function if exists public.master_tables(text);
+drop function if exists public.master_revoke_others(text);
+drop function if exists public.master_change_code(text, text);
 drop function if exists public.master_status(text);
 drop function if exists public.master_claim(text, text, text);
 drop function if exists public.site_has_master();

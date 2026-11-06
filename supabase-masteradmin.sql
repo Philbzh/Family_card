@@ -7,14 +7,15 @@
 --    * An overview of ALL tables (name, owner, people, administrators, games, last used) for the MasterAdmin only.
 --    * Below it nothing changes: every table keeps its own owner, and the owner can appoint administrators.
 --
---  HOW THE MASTERADMIN IS CREATED (nobody can take it by surprise)
---    1. Before you run this file, REPLACE  PUT-YOUR-OWN-SETUP-CODE-HERE  below by a setup code that only you know
---       (about 16 letters and digits). Do not leave the placeholder, and do not save your real code in a file
---       that is uploaded to GitHub.
+--  HOW THE MASTERADMIN WORKS (it can never be lost, and nobody can take it by surprise)
+--    1. Before you run this file, REPLACE  PUT-YOUR-OWN-SETUP-CODE-HERE  below by a RECOVERY CODE that only you
+--       know (about 16 letters and digits). Do not leave the placeholder, and do not save your real code in a file
+--       that is uploaded to GitHub. Keep it in a password manager.
 --    2. Run this whole file once in Supabase -> SQL Editor.
---    3. In the app (in the browser you want to be MasterAdmin in): Settings -> Account & sync -> "Set up MasterAdmin",
---       type the setup code. The key stays in that browser; the database keeps only a fingerprint. After the
---       first success the setup code stops working.
+--    3. In any browser: Settings -> Account & sync -> "MasterAdmin sign-in", type the recovery code. That browser
+--       is MasterAdmin from then on (the database keeps only a fingerprint of its key). You can do this on as many
+--       browsers as you like, and again after clearing a browser or getting a new device: the rights cannot disappear.
+--    4. The MasterAdmin can change the recovery code, and can sign out all its other browsers.
 --
 --  UNDO: supabase-masteradmin-undo.sql
 -- ============================================================================
@@ -59,18 +60,38 @@ language sql stable security definer set search_path = public as $$
   select exists (select 1 from public.site_admins);
 $$;
 
--- the one-time creation: setup code + the key of this browser. Returns false for a wrong code or when it was used.
+-- sign in with the recovery code: this browser's key becomes a MasterAdmin key. Works at any time, in any browser.
 create or replace function public.master_claim(p_setup text, p_key text, p_name text)
 returns boolean language plpgsql security definer set search_path = public as $$
 declare s public.site_setup;
 begin
   if length(coalesce(p_key, '')) < 12 then return false; end if;
   select * into s from public.site_setup where id = 1;
-  if not found or s.used or s.code_hash <> public.tc_hash(p_setup) or p_setup = 'PUT-YOUR-OWN-SETUP-CODE-HERE' then return false; end if;
-  if exists (select 1 from public.site_admins) then return false; end if;
-  insert into public.site_admins (key_hash, name) values (public.tc_hash(p_key), left(btrim(coalesce(p_name, '')), 40));
-  update public.site_setup set used = true where id = 1;
+  if not found or s.code_hash <> public.tc_hash(p_setup) or p_setup = 'PUT-YOUR-OWN-SETUP-CODE-HERE' then return false; end if;
+  insert into public.site_admins (key_hash, name) values (public.tc_hash(p_key), left(btrim(coalesce(p_name, '')), 40))
+  on conflict (key_hash) do update set name = excluded.name;
   return true;
+end $$;
+
+-- the MasterAdmin changes the recovery code
+create or replace function public.master_change_code(p_key text, p_new text)
+returns boolean language plpgsql security definer set search_path = public as $$
+begin
+  if not public.tc_is_master(p_key) then raise exception 'master only'; end if;
+  if length(coalesce(p_new, '')) < 12 or p_new = 'PUT-YOUR-OWN-SETUP-CODE-HERE' then return false; end if;
+  update public.site_setup set code_hash = public.tc_hash(p_new) where id = 1;
+  return true;
+end $$;
+
+-- the MasterAdmin signs out every other browser (their keys stop working); returns how many were removed
+create or replace function public.master_revoke_others(p_key text)
+returns int language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  if not public.tc_is_master(p_key) then raise exception 'master only'; end if;
+  delete from public.site_admins where key_hash <> public.tc_hash(p_key);
+  get diagnostics n = row_count;
+  return n;
 end $$;
 
 -- does this key belong to the MasterAdmin?
@@ -112,10 +133,14 @@ revoke all on function public.tc_is_owner(text, text)                from public
 revoke all on function public.site_has_master()                      from public;
 revoke all on function public.master_claim(text, text, text)         from public;
 revoke all on function public.master_status(text)                    from public;
+revoke all on function public.master_change_code(text, text)         from public;
+revoke all on function public.master_revoke_others(text)             from public;
 revoke all on function public.master_tables(text)                    from public;
 grant execute on function public.site_has_master()                   to anon, authenticated;
 grant execute on function public.master_claim(text, text, text)      to anon, authenticated;
 grant execute on function public.master_status(text)                to anon, authenticated;
+grant execute on function public.master_change_code(text, text)     to anon, authenticated;
+grant execute on function public.master_revoke_others(text)         to anon, authenticated;
 grant execute on function public.master_tables(text)                 to anon, authenticated;
 
 commit;

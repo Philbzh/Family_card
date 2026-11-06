@@ -6145,7 +6145,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=304;
+const APP_BUILD=305;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -6490,7 +6490,7 @@ function admAccountHTML(){
     <div style="display:flex;align-items:center;gap:.6rem;"><span style="font-size:1.5rem;">${G.myAvatar?avChar(G.myAvatar):'👤'}</span><div><b>${who}</b><div style="font-size:.78rem;color:var(--paper2);">${role}</div></div></div>
     <div style="font-size:.78rem;color:var(--paper3);line-height:1.6;margin-top:.55rem;">${owner?'Owner of this table: <b style="color:var(--paper2);">'+esc(owner)+'</b>':(tbHasAdmin()?'Owner of this table: not named yet':'This table has no owner yet.')}${adms.length?'<br>Administrators: <b style="color:var(--paper2);">'+adms.join(', ')+'</b>':''}</div>
     ${R&&R.missing?'<div style="font-size:.72rem;color:#e8a090;margin-top:.4rem;">Run supabase-admins.sql in Supabase to show owners and appoint administrators.</div>':''}
-    ${masterKey()?'<div style="font-size:.74rem;color:var(--paper3);margin-top:.5rem;">You can open and manage every table in the tab <b>All tables</b>.</div>':(G.siteHasMaster===false?'<button type="button" class="btn btn-ghost btn-sm" data-a="master-setup" style="margin-top:.6rem;">⭐ Set up MasterAdmin</button><div style="font-size:.7rem;color:var(--paper3);margin-top:.3rem;">Needs the setup code from supabase-masteradmin.sql. The first person who succeeds becomes MasterAdmin.</div>':'')}
+    ${masterKey()?'<div style="font-size:.74rem;color:var(--paper3);margin-top:.5rem;">You can open and manage every table in the tab <b>All tables</b>. The rights cannot get lost: the recovery code makes any browser MasterAdmin again.</div><div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem;"><button type="button" class="btn btn-ghost btn-sm" data-a="master-code">Change the recovery code</button><button type="button" class="btn btn-ghost btn-sm" data-a="master-revoke">Sign out my other browsers</button></div>':(G.siteHasMaster===undefined&&false?'':'<button type="button" class="btn btn-ghost btn-sm" data-a="master-setup" style="margin-top:.6rem;">⭐ MasterAdmin sign-in</button><div style="font-size:.7rem;color:var(--paper3);margin-top:.3rem;">Type the recovery code from supabase-masteradmin.sql to make this browser MasterAdmin.</div>')}
   </div>`;
 }
 async function admMake(name){
@@ -6567,13 +6567,25 @@ function rMasterBody(){
 }
 async function masterSetup(){
   const sb=famSb();if(!sb){toast('Not connected right now');return;}
-  const code=(prompt('Setup code (the one you put into supabase-masteradmin.sql):')||'').trim();if(!code)return;
+  const code=(prompt('Recovery code (the one you put into supabase-masteradmin.sql):')||'').trim();if(!code)return;
   const key=famCid().replace(/-/g,'').slice(0,24);
   const r=await sb.rpc('master_claim',{p_setup:code,p_key:key,p_name:G.myName||''});
   if(r.error){toast(histFnMissing(r.error)?'Run supabase-masteradmin.sql in Supabase first':'Could not set up the MasterAdmin');return;}
-  if(!r.data){toast('Wrong setup code, or a MasterAdmin exists already');return;}
+  if(!r.data){toast('Wrong recovery code');return;}
   try{localStorage.setItem('ct_master_key',key);}catch(e){}
-  tbEnsure();G.siteHasMaster=true;toast('⭐ You are now the MasterAdmin');rolesLoad();
+  tbEnsure();G.siteHasMaster=true;toast('⭐ This browser is now MasterAdmin');rolesLoad();
+}
+async function masterCode(){
+  const sb=famSb(),key=masterKey();if(!sb||!key)return;
+  const n=(prompt('New recovery code (at least 12 letters and digits; keep it in a password manager):')||'').trim();if(!n)return;
+  const r=await sb.rpc('master_change_code',{p_key:key,p_new:n});
+  toast(r.error?'Could not change the code':(r.data?'The recovery code is changed':'The code is too short (12 or more)'));
+}
+async function masterRevoke(){
+  const sb=famSb(),key=masterKey();if(!sb||!key)return;
+  if(!confirm('Sign out every other browser that is MasterAdmin? This one stays. They can sign in again with the recovery code.'))return;
+  const r=await sb.rpc('master_revoke_others',{p_key:key});
+  toast(r.error?'Could not do that':(r.data>0?r.data+' other browser'+(r.data===1?'':'s')+' signed out':'No other browser was signed in'));
 }
 function masterOpen(code,name){
   const l=tbEnsure();let e=l.find(x=>x.code===code);if(!e){e={code,name:name||''};l.push(e);}if(!e.key)e.key=masterKey();tbSave(l);
@@ -38987,6 +38999,8 @@ document.addEventListener('click',e=>{
   else if(a==='pp-link-copy'){ppLinkAct('copy');}
   else if(a==='pp-link-x'){ppLinkAct('x');}
   else if(a==='master-setup'){masterSetup();}
+  else if(a==='master-code'){masterCode();}
+  else if(a==='master-revoke'){masterRevoke();}
   else if(a==='mt-row'){const c=t.getAttribute('data-code');G.mtSel=G.mtSel===c?'':c;renderSet();}
   else if(a==='mt-open'){masterOpen(t.getAttribute('data-code'),t.getAttribute('data-name')||'');}
   else if(a==='mt-more'){G.mtMax=(G.mtMax||MT_PAGE)+MT_PAGE;renderSet();}

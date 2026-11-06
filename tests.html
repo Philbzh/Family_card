@@ -11498,6 +11498,7 @@ async function runPresentation(A,W,frame){
       {const W2=W.localStorage,had=W2.getItem('ct_master_key');
        W2.removeItem('ct_master_key');
        check('without a MasterAdmin key there is no "All tables" tab',!/data-tab="master"/.test(F('rSettingsOv')())&&F('masterKey')()===''&&F('admMine')()!=='master');
+       check('without the key the Account card offers "MasterAdmin sign-in" (the recovery code), never anything else about the MasterAdmin',/data-a="master-setup"/.test(F('admAccountHTML')())&&!/master-revoke/.test(F('admAccountHTML')()));
        W2.setItem('ct_master_key','m'.repeat(24));
        const mh=F('rSettingsOv')();
        check('with the MasterAdmin key the "All tables" tab appears and every table of this browser gets that key',/data-tab="master"/.test(mh)&&F('tbIsAdmin')()===true&&F('admMine')()==='master'&&F('tbKey')()!==null&&F('tbList')().every(x=>x.key));
@@ -11507,6 +11508,7 @@ async function runPresentation(A,W,frame){
        G.mtQ=old[0];
        const R0=G.roles;G.roles={code:F('tableCode')(),list:[{name:'Papa',role:'owner',me:false}],mine:'master',ownerName:'Papa'};
        check('the MasterAdmin gets the "Make administrator" buttons on every table',/adm-make/.test(F('admBtn')('Shadow')));G.roles=R0;
+       check('with the key the Account card offers to change the recovery code and to sign out the other browsers, and the rights cannot get lost',/master-code/.test(F('admAccountHTML')())&&/master-revoke/.test(F('admAccountHTML')())&&!/data-a="master-setup"/.test(F('admAccountHTML')()));
        if(had===null)W2.removeItem('ct_master_key');else W2.setItem('ct_master_key',had);
        F('tbEnsure')();}
       {const oldL=G.ppLink;G.ppLink=null;
