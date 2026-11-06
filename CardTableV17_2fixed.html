@@ -6125,7 +6125,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=294;
+const APP_BUILD=295;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -6179,6 +6179,16 @@ function tbSwitch(code,opt){
   render();famSyncAll({announce:true});return true;
 }
 function tbInviteLink(code,inv){const t=tbEntry(code)||{};return location.origin+location.pathname+'?join='+code+'&t='+encodeURIComponent(t.name||'')+(inv?'&i='+encodeURIComponent(inv):'');}
+// a new table is invitations-only from the start: this device is enrolled first, so its owner is never locked out
+async function tbLockNew(sb,code,key){
+  try{
+    const en=await sb.rpc('enroll_admin',{p_code:code,p_key:key,p_label:G.myName||'Admin'});
+    if(en.error||!en.data)return false;
+    dtSet(code,en.data);
+    const r=await sb.rpc('set_invite_only',{p_code:code,p_key:key,p_on:true});
+    return !r.error;
+  }catch(e){return false;}
+}
 async function tbCreate(name){
   const sb=famSb();name=String(name||'').trim().slice(0,30);
   if(!name){toast('Give the table a name');return false;}
@@ -6186,6 +6196,7 @@ async function tbCreate(name){
   const code=tcNew(),key=famCid().replace(/-/g,'').slice(0,24);
   const r=await sb.rpc('create_table',{p_code:code,p_name:name,p_key:key});
   if(r.error){toast(histFnMissing(r.error)?'Run supabase-tables-admin.sql in Supabase first':'Could not create the table');return false;}
+  const locked=await tbLockNew(sb,code,key);
   tbSwapOut(tableCode());
   const l=tbEnsure();l.push({code,name,key});tbSave(l);
   try{localStorage.setItem('ct_table_code',code);}catch(e){}
@@ -6193,7 +6204,7 @@ async function tbCreate(name){
   try{localStorage.setItem('ct_tablename',name);localStorage.setItem('ct_tablename_year',''+new Date().getFullYear());localStorage.setItem('ct_tablename_at',new Date().toISOString());}catch(e){}
   tbMirrorName();famPushSettings();
   if(G.myName){try{famPushMembers([],[{name:G.myName,avatar:G.myAvatar}]);}catch(e){}}
-  render();famSyncAll({announce:true});toast('👑 '+name+' created — you are its admin');return true;
+  render();famSyncAll({announce:true});toast('👑 '+name+' created — you are its admin'+(locked?'. Only people you invite can join.':''));return true;
 }
 async function tbClaim(){
   const sb=famSb();if(!sb){toast('Not connected right now');return;}
@@ -6333,8 +6344,34 @@ async function ppSet(code,name,want,avatar){
     }else return;
     const l=(P.m[code]||[]).filter(m=>m.name.toLowerCase()!==name.toLowerCase());if(want)l.push({name,avatar:av});P.m[code]=l;
     toast(want?name+' added to '+tbName(t):name+' removed from '+tbName(t));
+    if(want)ppInvite(code,name,t);else if(G.ppLink&&G.ppLink.name.toLowerCase()===name.toLowerCase())G.ppLink=null;
   }catch(e){toast('That did not work. Check the connection and try again.');}
   if(G.peopleOpen)renderSet();
+}
+// the table is invitations-only: a person who is added gets a one-time personal link (shown in People, to share or copy)
+async function ppInvite(code,name,t){
+  const sb=famSb();if(!sb||!t||!t.key||String(name).toLowerCase()===String(G.myName||'').toLowerCase())return;
+  try{
+    const i=await sb.rpc('table_info',{p_code:code}),x=i&&!i.error&&(i.data||[])[0];
+    if(!x||!x.invite_only)return;
+    const r=await sb.rpc('invite_create',{p_code:code,p_key:t.key,p_uses:1,p_valid_days:7,p_access_days:null,p_label:name});
+    if(r.error||!r.data)return;
+    G.ppLink={name,table:tbName(t),url:tbInviteLink(code,r.data)};
+    if(G.peopleOpen)renderSet();
+  }catch(e){}
+}
+function ppLinkHTML(){
+  const L=G.ppLink;if(!L)return'';
+  return`<div class="panel" style="text-align:left;"><div class="panel-lbl">Invitation for ${esc(L.name)}</div>
+    <div style="font-size:.78rem;color:var(--paper2);line-height:1.5;">${esc(L.table)} is invitations-only. ${esc(L.name)} needs this personal link once (single use, valid 7 days) to get in.</div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem;"><button class="btn btn-gold btn-sm" data-a="pp-link-share">🔗 Share the link</button><button class="btn btn-ghost btn-sm" data-a="pp-link-copy">Copy</button><button class="btn btn-ghost btn-sm" data-a="pp-link-x">Done</button></div></div>`;
+}
+function ppLinkAct(kind){
+  const L=G.ppLink;if(!L)return;
+  if(kind==='x'){G.ppLink=null;renderSet();return;}
+  const msg='Join '+L.table+' on Our Table: '+L.url;
+  if(kind==='share'&&navigator.share){navigator.share({title:'Our Table',text:'Join '+L.table+' on Our Table',url:L.url}).catch(()=>{});return;}
+  try{navigator.clipboard.writeText(L.url).then(()=>toast('🔗 Link for '+L.name+' copied')).catch(()=>toast(msg));}catch(e){toast(msg);}
 }
 function ppAddNew(){
   const el=document.getElementById('pp-new'),name=((el&&el.value)||'').trim().slice(0,40);if(!name)return;
@@ -6466,7 +6503,8 @@ function rPeopleBody(){
   const chip=(t,x)=>{const loaded=P.m[t.code]!==null&&P.m[t.code]!==undefined,on=x.codes.has(t.code);
     return`<button type="button" class="btn btn-sm ${on?'btn-gold':'btn-ghost'}" ${loaded?'':'disabled'} data-a="pp-toggle" data-code="${t.code}" data-name="${esc(x.name)}" data-av="${esc(x.avatar||'')}" style="margin:.15rem .25rem .15rem 0;">${on?'✓ ':''}${esc(tbName(t))}</button>`;};
   const rows=people.map(x=>`<div style="padding:.6rem 0;border-bottom:1px solid rgba(255,255,255,.08);"><div style="display:flex;align-items:center;gap:.5rem;"><b style="flex:1;">${x.avatar?avChar(x.avatar)+' ':''}${esc(x.name)}</b>${admBadge(x.name)}</div>${admBtn(x.name)?'<div style="margin-top:.3rem;">'+admBtn(x.name)+'</div>':''}<div style="margin-top:.3rem;">${ts.map(t=>chip(t,x)).join('')}</div></div>`).join('');
-  return`<p class="set-sub">Everyone registered. A gold ✓ means the person is in that group: tap to add or remove them. Use several groups to let someone take part in more than one table.</p>
+  return`${ppLinkHTML()}
+    <p class="set-sub">Everyone registered. A gold ✓ means the person is in that group: tap to add or remove them. Use several groups to let someone take part in more than one table.</p>
     ${P.loading?'<div style="padding:1rem 0;">Loading…</div>':(P.err?`<div style="color:#e8a090;font-size:.8rem;">${esc(P.err)}</div>`:'')}
     ${!P.loading&&!people.length&&!P.err?'<div style="padding:.8rem 0;color:var(--paper3);">Nobody registered yet.</div>':''}
     ${rows}
@@ -38834,6 +38872,9 @@ document.addEventListener('click',e=>{
   else if(a==='who-pick'){const n=t.getAttribute('data-name'),m=getFamily().find(x=>x.name===n);if(m){G.myName=m.name;G.myAvatar=m.avatar||G.myAvatar||AVATARS[0];try{localStorage.setItem('ct_myname',G.myName);localStorage.setItem('ct_myavatar',G.myAvatar);}catch(e){}G.whoOpen=false;famAdopt(false);render();toast('Hello '+G.myName+'!');}}
   else if(a==='who-other'){G.whoOpen=false;G.scr='home';G.profileEditing=true;render();}
   else if(a==='who-skip'){G.whoOpen=false;try{localStorage.setItem('ct_who_skip:'+tableCode(),'1');}catch(e){}render();}
+  else if(a==='pp-link-share'){ppLinkAct('share');}
+  else if(a==='pp-link-copy'){ppLinkAct('copy');}
+  else if(a==='pp-link-x'){ppLinkAct('x');}
   else if(a==='adm-make'){admMake(t.getAttribute('data-name'));}
   else if(a==='adm-remove'){admRemove(t.getAttribute('data-name'));}
   else if(a==='adm-ok'){admAccept();}

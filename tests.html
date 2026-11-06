@@ -11475,6 +11475,14 @@ async function runPresentation(A,W,frame){
        G.admInv={code:'ABCDEF',token:'t',name:'La table'};const ao=F('rAdmOv')();G.admInv=null;
        check('the appointment link opens a screen with Accept and Not now, and says it is for this table only',/data-a="adm-ok"/.test(ao)&&/data-a="adm-no"/.test(ao)&&/this table only/.test(ao));
        G.roles=oldR;}
+      {const oldL=G.ppLink;G.ppLink=null;
+       check('no invitation panel is shown until somebody is added to an invitations-only table',F('ppLinkHTML')()==='');
+       G.ppLink={name:'Shadow',table:'La table',url:'https://x/?join=ABCDEF&i=INV'};const lh=F('ppLinkHTML')();
+       check('a person added to an invitations-only table gets a personal link panel: share, copy, done',/Invitation for Shadow/.test(lh)&&/pp-link-share/.test(lh)&&/pp-link-copy/.test(lh)&&/pp-link-x/.test(lh)&&/single use/.test(lh));
+       G.ppLink=oldL;}
+      {const src=String(F('tbLockNew')),cs=String(F('tbCreate'));
+       check('a new table is made invitations-only: the owner device is enrolled first, then the switch is turned on',src.indexOf('enroll_admin')>0&&src.indexOf('enroll_admin')<src.indexOf('set_invite_only')&&/tbLockNew\(/.test(cs));
+       check('if the invitations feature is not installed the table is still created (the lock never throws or blocks it)',/catch\(e\)\{return false;\}/.test(src));}
        G.peopleOpen=G.accessOpen=G.tablesOpen=G.dataOpen=false;[G.peopleOpen,G.accessOpen,G.tablesOpen,G.dataOpen]=old;}
       check('a code shorter than 6 characters is refused and the old one is kept',seen.shortKept==='K7M2Q9XRTA');
       check('a typed code is cleaned (capitals, no spaces or dashes or odd letters) and saved',seen.saved==='MLLER2026');
@@ -12112,7 +12120,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'DW_HARD_EN','DW_HARD_DE','DW_PAPER','dwPool','dwCustomList','dwPickChoices','dwSpeedBonus','dwIsClose','dwLevenshtein','dwPick','dwLevel','dwCustomText','dwMatchOver','dwProgressText','DW_MATCHES','DW_SCORE_TARGET','dwMatchMode',
   'ldRollDice','ldTotalDice','ldCount','ldValidBid','ldMinN','ldCanRaise','ldResolve','ldActiveCount','ldNextActive','ldOpener','ldFaceProb','ldAtLeastProb','ldBotMove','LD_START_DICE','ldBuildReveal','ldCountLine','ldFaceName','ldFaceGlyph','oLdNewRound','SM_LEN','SM_SUMS','SM_MAX_ACTIVE','SM_WIN_TOPS','SM_SUMMIT_TARGET','SM_SUMMIT_TRIES','smSpaceAt','smRoll4','smSplits','smNewPlayer','smNewGame','smFreshTurn','smCur','smActive','smOptions','smStep','smRollTurn','smPick','smNextTurn','smBust','smCamp','smSummitOk','smSummitRoll','smBustProb','smStake','smBotPick','smBotDecide','VT_ADV','VT_ADV_IDS','vtStory','vtFill','vtChapterSkin','vtSceneLines','vtSpeaker','oVtNewGame','vtStartChapter','vtApplyAdvance','vtSceneSig','VT_INTRO_MS','vtApplyBoard','vtApplySubmit','vtApplyHint','vtApplyClear','vtApplyTick','vtApplyRestart','VT_SURGE_MS','VT_SIGNAL_MS','vtPlanEvent','vtNote','vtRng','vtInt','vtPick','vtShuffle','VT_DIFFS','vtAll','vtHolds','vtCountClues','vtPool','vtClueText','VT_SKIN_PLAIN','vtGenCsp','vtSize','vtGenOrder','vtGenDial','vtGenSeq','vtGenCode','VT_GEN','vtCount','vtCheck','vtMakePuzzle','vtHints','vtClock','vtResume','vtPause','vtRemaining','vtPenalty','VT_LEVELS','vtScore','vtFmtTime','oHbNewGame','hbFinishState','HB_STRIKES','HB_BOOM_MS','HB_LOCK_MS','HB_FREEZE_MS','HB_CARDS','HB_CARD_INFO','hbNewPlayer','hbNewGame','hbAlive','hbBomb','hbFuseMs','hbMakeBomb','hbStartRound','hbCanPass','hbPass','hbUseCard','hbExplode','hbTick','hbShownSeconds','hbRanking','hbBotPick','oSmNewGame','smApplyRoll','smApplyPick','smApplyCamp','smApplySummit','smApplyAdvance','smAutoTurn','SM_BUST_MS','SM_WIN_MS','SM_ZONES','SM_COLORS','smZone','smRank','ldApplyBid','ldApplyChallenge','ldAdvanceState','ldAutoMove','LD_REVEAL_MS',
   'computeSidePots','settleSidePots','roulPayoutMultiplier','roulBetWins','yScoreForCategory','yFreshScorecard',
-  'getHistory','getFamily','getAchievements','getResumableMatch','tonightStats','familyStats','rDataBody','rSettingsOv','setTabNow','admBadge','admBtn','admAccountHTML','rAdmOv',
+  'getHistory','getFamily','getAchievements','getResumableMatch','tonightStats','familyStats','rDataBody','rSettingsOv','setTabNow','admBadge','admBtn','admAccountHTML','rAdmOv','ppLinkHTML','tbLockNew',
   'SLOT_SYMBOLS','SLOT_PAYLINES','SLOT_SCATTER_PAY','SLOT_JACKPOT_MIN','SLOT_FREE_SPINS_AWARD','SLOT_FREE_SPINS_RETRIGGER',
   'SLOT_FREE_SPIN_MULTIPLIER','SLOT_JACKPOT_SEED','SLOT_JACKPOT_FEED_PCT','slotPick','slotRandomGrid','slotResolveGrid',
   'slotFreeSpinsAwarded','slotPayout','slotTier','getSlotJackpot','setSlotJackpot','lDealSlots','slotStartSpin',
