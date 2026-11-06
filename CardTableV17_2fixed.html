@@ -4684,7 +4684,7 @@ function dbResetTs(){_seenTs=[];_lts=0;}
 const _seenTalk=new Set(); // ids of table-talk entries (reactions/messages) already animated, so onSrv diffing never replays one twice
 const SB=()=>{
   if(typeof supabase==='undefined')return null;
-  try{return _sb||(_sb=supabase.createClient(SB_URL,SB_KEY,{realtime:{params:{eventsPerSecond:45}}}));}catch(e){return null;}
+  try{return _sb||(_sb=supabase.createClient(SB_URL,SB_KEY,{realtime:{params:{eventsPerSecond:45}},global:{fetch:dtFetch}}));}catch(e){return null;}
 };
 // Every byte the online renderer walks enters through dbRead, and it enters as whatever JSON happens
 // to be sitting in that row — which is not necessarily a game. The room id is a short code anyone
@@ -6009,7 +6009,7 @@ async function famPullHistory(sb,gen){
   FAM.v2=true;FAM.err='';return true;
 }
 async function famPullMembers(sb,gen){const r=await sb.rpc('members_for',{p_code:tableCode()});if(gen!==FAM.gen)return;if(r.error){if(histFnMissing(r.error))FAM.v2=false;return;}FAM.members=(r.data||[]).filter(m=>m&&m.name).map(m=>({name:m.name,avatar:m.avatar||undefined,deleted:!!m.deleted}));}
-async function famPullInfo(sb,gen){try{const r=await sb.rpc('table_info',{p_code:tableCode()});if(gen!==FAM.gen||r.error)return;const x=(r.data||[])[0];FAM.info=x?{has_admin:!!x.has_admin,name:x.name||''}:{has_admin:false,name:''};}catch(e){}}
+async function famPullInfo(sb,gen){try{const r=await sb.rpc('table_info',{p_code:tableCode()});if(gen!==FAM.gen||r.error)return;const x=(r.data||[])[0];FAM.info=x?{has_admin:!!x.has_admin,name:x.name||'',invite_only:!!x.invite_only}:{has_admin:false,name:'',invite_only:false};}catch(e){}}
 async function famPullSettings(sb,gen){const r=await sb.rpc('settings_for',{p_code:tableCode()});if(gen!==FAM.gen||r.error)return;const x=(r.data||[])[0];FAM.settings=x?{name:x.table_name||'',year:x.table_year||'',at:x.updated_at,favs:Array.isArray(x.favourites)?x.favourites:undefined,favsAt:x.favs_at||undefined}:null;}
 // what this device knows and the table does not (offline games, members added before the first sync)
 async function famPushLocal(sb){
@@ -6038,6 +6038,7 @@ async function famSyncAll(opt){
     famSubscribe();
     const ok=await famPullHistory(sb,gen);
     if(gen!==FAM.gen){FAM.loading=false;_famBusy=false;famSoon(0);return;}
+    if(ok&&dtGet()){try{sb.rpc('device_ping',{p_code:tableCode()}).then(()=>{},()=>{});}catch(e){}}
     if(ok){await famPullMembers(sb,gen);await famPullSettings(sb,gen);await famPullInfo(sb,gen);if(gen!==FAM.gen){FAM.loading=false;_famBusy=false;famSoon(0);return;}await famPushLocal(sb);}
     else if(FAM.v2===false){const old=await fetchFamilyHistory();if(old){FAM.rows=old.map(r=>Object.assign({remote:1},r));FAM.keys=new Set();}}
     FAM.ready=FAM.rows.length>0||ok;FAM.at=Date.now();famBump();famAdopt(!!opt.announce);famSave();
@@ -6165,10 +6166,10 @@ function tbSwitch(code,opt){
   tbSwapOut(tableCode());
   const l=tbEnsure();if(!l.some(t=>t.code===code)){l.push({code,name:(opt&&opt.name)||''});tbSave(l);}
   try{localStorage.setItem('ct_table_code',code);}catch(e){}
-  tbSwapIn(code);famReset();famLoadCache();_familyHistoryCache=null;G.tablesOpen=false;G.momAll=false;G.qsN=0;famBump();
+  tbSwapIn(code);famReset();famLoadCache();_familyHistoryCache=null;G.tablesOpen=false;G.accessOpen=false;G.momAll=false;G.qsN=0;famBump();
   render();famSyncAll({announce:true});return true;
 }
-function tbInviteLink(code){const t=tbEntry(code)||{};return location.origin+location.pathname+'?join='+code+'&t='+encodeURIComponent(t.name||'');}
+function tbInviteLink(code,inv){const t=tbEntry(code)||{};return location.origin+location.pathname+'?join='+code+'&t='+encodeURIComponent(t.name||'')+(inv?'&i='+encodeURIComponent(inv):'');}
 async function tbCreate(name){
   const sb=famSb();name=String(name||'').trim().slice(0,30);
   if(!name){toast('Give the table a name');return false;}
@@ -6194,9 +6195,19 @@ async function tbClaim(){
   const l=tbEnsure(),e=l.find(x=>x.code===tableCode());if(e){e.key=key;tbSave(l);}
   FAM.info={has_admin:true,name:G.tableName||''};render();toast('👑 You are now the admin of this table');
 }
-async function tbJoin(code,name){
+async function tbJoin(code,name,inv){
   code=tcClean(code);if(code.length<6)return false;
   if(code===tableCode()){toast('You are already at this table');return true;}
+  {const sb0=famSb();
+    if(inv){
+      if(!sb0){toast('Not connected to the database right now');return false;}
+      let tok=null;
+      try{const r=await sb0.rpc('claim_invite',{p_code:code,p_invite:inv,p_label:G.myName||''});if(r&&r.error&&histFnMissing(r.error)){toast('Run supabase-invites.sql in Supabase first');return false;}tok=r&&!r.error?r.data:null;}catch(e){}
+      if(!tok){toast('This invitation is not valid any more (used up, expired or revoked). Ask for a new one.');return false;}
+      dtSet(code,tok);
+    }else if(sb0){
+      try{const r=await sb0.rpc('table_info',{p_code:code}),x=r&&!r.error&&(r.data||[])[0];if(x&&x.invite_only){toast('This table needs a personal invitation link. Ask the admin.');return false;}}catch(e){}
+    }}
   if(G.myName){const sb=famSb();if(sb){try{await sb.rpc('upsert_member',{p_code:code,p_name:G.myName,p_avatar:G.myAvatar||null});}catch(e){}}}
   // a device that has never been used has an empty table of its own: it is not kept next to the one that was joined
   const cur=tbList(),old=cur.length===1?cur[0]:null,fresh=!!(old&&!old.key&&!old.name&&!getAllLocalHistory().length&&!getLocalFamily().length&&!FAM.members.length);
@@ -6210,17 +6221,131 @@ async function tbRotate(){
   if(r.error){toast('Could not change the code');return;}
   TB_KEYS.forEach(k=>{try{const v=localStorage.getItem(k+':'+old);if(v!==null){localStorage.setItem(k+':'+n,v);localStorage.removeItem(k+':'+old);}}catch(e){}});
   try{const c=localStorage.getItem('ct_fcache:'+old);if(c)localStorage.removeItem('ct_fcache:'+old);}catch(e){}
+  {const tk=dtGet(old);if(tk){dtSet(n,tk);dtDrop(old);}}
   const l=tbEnsure(),e=l.find(x=>x.code===old);if(e)e.code=n;tbSave(l);
   const all=getAllLocalHistory();all.forEach(h=>{if(h.tc===old)h.tc=n;});saveHistorySafely(all);
   try{localStorage.setItem('ct_table_code',n);}catch(e2){}
   famReset();famLoadCache();render();famSyncAll({announce:true});toast('🔑 New code. Send the new invite link to the people who should stay.');
 }
-function tbShare(code){
-  const url=tbInviteLink(code),t=tbEntry(code),msg='Join '+tbName(t)+' on Our Table: '+url;
+
+/* ── Personal invitations, device keys and the access screen (needs supabase-invites.sql) ── */
+function dtTokens(){try{return JSON.parse(localStorage.getItem('ct_dev_tokens')||'{}')||{};}catch(e){return{};}}
+function dtGet(code){return dtTokens()[tcClean(code||tableCode())]||'';}
+function dtSet(code,tok){try{const m=dtTokens();m[tcClean(code)]=tok;localStorage.setItem('ct_dev_tokens',JSON.stringify(m));}catch(e){}}
+function dtDrop(code){try{const m=dtTokens();delete m[tcClean(code)];localStorage.setItem('ct_dev_tokens',JSON.stringify(m));}catch(e){}}
+// every database request about a table carries that table's device key (inside x-client-info, a header every browser may send)
+function dtFetch(input,init){
+  try{
+    if(init&&typeof init.body==='string'&&init.body.charAt(0)==='{'){
+      const c=tcClean(JSON.parse(init.body).p_code||''),tk=c&&dtGet(c);
+      if(tk){const h=new Headers(init.headers||{});h.set('x-client-info',(h.get('x-client-info')||'ct')+' ct-dev/'+tk);init=Object.assign({},init,{headers:h});}
+    }
+  }catch(e){}
+  return fetch(input,init);
+}
+const ACC_EVENTS={joined:'Joined with an invitation',claim_refused:'Invitation refused',invite_created:'Invitation made',invite_revoked:'Invitation revoked',invite_deleted:'Invitation deleted',suspended:'Suspended',reactivated:'Let back in',end_date_set:'End date changed',removed:'Removed',invitations_only_on:'Invitations only: ON',invitations_only_off:'Invitations only: OFF',admin_device:'Admin device set up'};
+function accWhen(x){return x?new Date(x).toLocaleString([], {day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'–';}
+function accDay(x){return x?new Date(x).toLocaleDateString([], {day:'numeric',month:'short',year:'numeric'}):'–';}
+function accInvStatus(i,now){now=now||Date.now();if(i.revoked_at)return'revoked';if(i.use_count>=i.max_uses)return'used up';if(new Date(i.expires_at).getTime()<=now)return'expired';return'open';}
+function accDevStatus(d,now){now=now||Date.now();if(d.status==='suspended')return'suspended';if(d.access_until&&new Date(d.access_until).getTime()<=now)return'ended';return'active';}
+async function accLoad(){
+  const sb=famSb(),key=tbKey(),code=tableCode();G.acc=G.acc||{};
+  if(!sb||!key){G.acc.err='Only the admin of this table can open this screen.';if(G.accessOpen)render();return;}
+  G.acc.loading=true;G.acc.err='';
+  try{
+    const a={p_code:code,p_key:key};
+    const [i,d,l,t]=await Promise.all([sb.rpc('invite_list',a),sb.rpc('device_list',a),sb.rpc('access_log_list',Object.assign({p_limit:100},a)),sb.rpc('table_info',{p_code:code})]);
+    if([i,d,l].some(r=>r.error&&histFnMissing(r.error)))G.acc.err='Run supabase-invites.sql once in Supabase (the file is next to the app).';
+    else if([i,d,l].some(r=>r.error))G.acc.err='Could not load the access list just now.';
+    else{G.acc.invites=i.data||[];G.acc.devices=d.data||[];G.acc.log=l.data||[];}
+    const x=(t.data||[])[0];G.acc.on=!!(x&&x.invite_only);
+  }catch(e){G.acc.err='Could not reach the database.';}
+  G.acc.loading=false;if(G.accessOpen)render();
+}
+async function accCall(fn,args,okMsg){
+  const sb=famSb(),key=tbKey();if(!sb||!key){toast('Only the admin can do this');return false;}
+  const r=await sb.rpc(fn,Object.assign({p_code:tableCode(),p_key:key},args||{}));
+  if(r.error){toast('Could not do that: '+(r.error.message||'error'));return false;}
+  if(okMsg)toast(okMsg);accLoad();return r.data===undefined?true:r.data;
+}
+async function accToggle(on){
+  const sb=famSb(),key=tbKey(),code=tableCode();if(!sb||!key)return;
+  if(on){
+    if(!confirm('Switch "Invitations only" on?\n\nFrom now on the table code alone opens nothing. Every person must use a personal invitation link once. Devices that only know the code are locked out until then. This device stays in.'))return;
+    if(!dtGet(code)){
+      const r=await sb.rpc('enroll_admin',{p_code:code,p_key:key,p_label:G.myName||'Admin'});
+      if(r.error||!r.data){toast(histFnMissing(r.error||{})?'Run supabase-invites.sql in Supabase first':'Could not set up this device');return;}
+      dtSet(code,r.data);
+    }
+  }
+  const r=await sb.rpc('set_invite_only',{p_code:code,p_key:key,p_on:on});
+  if(r.error){toast('Could not change that');return;}
+  FAM.info=Object.assign({},FAM.info,{invite_only:on});
+  toast(on?'🔐 Invitations only is ON':'The table code opens the table again');accLoad();
+}
+async function accNew(){
+  const v=id=>((document.getElementById(id)||{}).value||'').trim(),n=(id,d)=>Math.max(1,parseInt(v(id),10)||d);
+  const uses=n('acc-uses',1),days=n('acc-days',7),acc=v('acc-access')?n('acc-access',30):null,label=v('acc-label').slice(0,40);
+  const inv=await accCall('invite_create',{p_uses:uses,p_valid_days:days,p_access_days:acc,p_label:label||null});
+  if(inv&&typeof inv==='string'){G.acc.fresh=inv;if(G.accessOpen)render();}
+}
+function accCopy(inv){
+  const url=tbInviteLink(tableCode(),inv);
+  if(navigator.share){navigator.share({title:'Our Table',text:'Join '+tbName(tbEntry())+' on Our Table',url}).catch(()=>{});}
+  else{try{navigator.clipboard.writeText(url).then(()=>toast('🔗 Invitation link copied')).catch(()=>toast(url));}catch(e){toast(url);}}
+}
+function rAccessOv(){
+  const A=G.acc||{},me=tbEntry(),on=!!A.on;
+  const badge=st=>`<span style="font-size:.66rem;padding:.1rem .45rem;border-radius:99px;background:${st==='active'||st==='open'?'rgba(80,170,110,.2)':st==='suspended'||st==='revoked'?'rgba(200,80,70,.22)':'rgba(150,150,150,.2)'};">${st}</span>`;
+  const dev=(A.devices||[]).map(d=>{const st=accDevStatus(d);return`<div class="tb-mem" style="display:block;padding:.55rem 0;border-bottom:1px solid rgba(255,255,255,.07);">
+    <div style="display:flex;gap:.4rem;align-items:center;"><b style="flex:1;">${esc(d.label||'(no name)')}${d.is_admin?' 👑':''}</b>${badge(st)}</div>
+    <div style="font-size:.7rem;color:var(--paper3);line-height:1.5;">Joined ${accDay(d.joined_at)} · last active ${accWhen(d.last_seen_at)}${d.access_until?' · access until '+accDay(d.access_until):''}${d.invite_code?' · invitation …'+esc(String(d.invite_code).slice(-4)):''}</div>
+    ${d.is_admin?'':`<div style="display:flex;gap:.8rem;flex-wrap:wrap;margin-top:.3rem;font-size:.72rem;">
+      <button class="btn btn-ghost btn-sm" data-a="acc-dev-st" data-id="${esc(d.device_id)}" data-st="${d.status==='suspended'?'active':'suspended'}">${d.status==='suspended'?'Let back in':'Suspend'}</button>
+      <button class="btn btn-ghost btn-sm" data-a="acc-dev-until" data-id="${esc(d.device_id)}">End date</button>
+      <button class="btn btn-ghost btn-sm" data-a="acc-dev-rm" data-id="${esc(d.device_id)}" data-name="${esc(d.label||'this device')}">Remove</button></div>`}</div>`;}).join('')||'<div style="font-size:.78rem;color:var(--paper3);">Nobody has joined with a personal invitation yet.</div>';
+  const inv=(A.invites||[]).map(i=>{const st=accInvStatus(i);return`<div class="tb-mem" style="display:block;padding:.55rem 0;border-bottom:1px solid rgba(255,255,255,.07);">
+    <div style="display:flex;gap:.4rem;align-items:center;"><code style="flex:1;">${esc(i.code)}</code>${badge(st)}</div>
+    <div style="font-size:.7rem;color:var(--paper3);line-height:1.5;">${esc(i.label||'')} made ${accDay(i.created_at)} · valid until ${accDay(i.expires_at)} · used ${i.use_count}/${i.max_uses}${i.access_days?' · access lasts '+i.access_days+' days':''}</div>
+    <div style="display:flex;gap:.8rem;margin-top:.3rem;">${st==='open'?`<button class="btn btn-ghost btn-sm" data-a="acc-copy" data-inv="${esc(i.code)}">🔗 Link</button><button class="btn btn-ghost btn-sm" data-a="acc-inv-rv" data-inv="${esc(i.code)}">Revoke</button>`:''}<button class="btn btn-ghost btn-sm" data-a="acc-inv-del" data-inv="${esc(i.code)}">Delete</button></div></div>`;}).join('')||'<div style="font-size:.78rem;color:var(--paper3);">No invitations yet.</div>';
+  const log=(A.log||[]).map(l=>`<div style="padding:.35rem 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:.74rem;"><b>${esc(ACC_EVENTS[l.event]||l.event)}</b>${l.label?' · '+esc(l.label):''}${l.invite?' · …'+esc(String(l.invite).slice(-4)):''}<div style="color:var(--paper3);">${accWhen(l.at)}${l.detail?' · '+esc(l.detail):''}</div></div>`).join('')||'<div style="font-size:.78rem;color:var(--paper3);">Nothing logged yet.</div>';
+  const fld=(id,lbl,val,ph)=>`<label style="font-size:.7rem;color:var(--paper3);flex:1;min-width:6rem;">${lbl}<input class="plaque-input" id="${id}" inputmode="numeric" value="${val}" placeholder="${ph||''}" style="text-transform:none;width:100%;"></label>`;
+  return`<div class="ov" data-a="acc-close"><div class="ov-box" role="dialog" aria-modal="true" aria-label="Access and invitations" style="max-width:29rem;max-height:92vh;overflow-y:auto;" data-a="tc-noop">
+    <div class="ov-title">🔐 Access · ${esc(tbName(me))}</div>
+    ${A.err?`<div class="panel" style="font-size:.8rem;">⚠️ ${esc(A.err)}</div>`:''}
+    <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">Invitations only: ${on?'ON':'OFF'}</div>
+      <div style="font-size:.76rem;color:var(--paper2);line-height:1.5;">${on?'The table code alone opens nothing. Everybody here came in with a personal invitation, and you can cut any of them off at once.':'Anybody who knows the table code can still get in. Switch this on to make every person use a personal invitation (single use or limited) that you can revoke.'}</div>
+      <button class="btn ${on?'btn-ghost':'btn-gold'} btn-sm" style="margin-top:.5rem;" data-a="acc-toggle" data-on="${on?'0':'1'}">${on?'Switch off':'Switch on'}</button></div>
+    <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">New invitation</div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;">${fld('acc-uses','People who can use it','1')}${fld('acc-days','Valid for (days)','7')}${fld('acc-access','Access lasts (days, optional)','','forever')}</div>
+      <input class="plaque-input" id="acc-label" maxlength="40" placeholder="Note, for example: Cousin Bea" style="text-transform:none;margin-top:.5rem;" data-a="tc-noop">
+      <button class="btn btn-gold btn-sm" style="margin-top:.5rem;" data-a="acc-new">Make the invitation</button>
+      ${A.fresh?`<div style="margin-top:.6rem;font-size:.76rem;">New: <code>${esc(A.fresh)}</code> <button class="btn btn-ghost btn-sm" data-a="acc-copy" data-inv="${esc(A.fresh)}">🔗 Share link</button></div>`:''}</div>
+    <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">People with a personal key</div>${dev}</div>
+    <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">Invitations</div>${inv}</div>
+    <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">Access log</div>${log}</div>
+    ${A.loading?'<div style="font-size:.74rem;color:var(--paper3);text-align:center;">Loading…</div>':''}
+    <button class="btn btn-ghost btn-full" data-a="acc-close">Back</button>
+  </div></div>`;
+}
+async function tbShare(code){
+  let inv='';
+  try{
+    const sb=famSb(),k=(tbEntry(code)||{}).key;
+    if(sb&&k){
+      const i=await sb.rpc('table_info',{p_code:code}),x=i&&!i.error&&(i.data||[])[0];
+      if(x&&x.invite_only){
+        const r=await sb.rpc('invite_create',{p_code:code,p_key:k,p_uses:1,p_valid_days:7,p_access_days:null,p_label:'Invite link'});
+        if(r.error||!r.data){toast('Could not make an invitation');return;}
+        inv=r.data;toast('🔗 One-time invitation, valid for 7 days');
+      }
+    }
+  }catch(e){}
+  const url=tbInviteLink(code,inv),t=tbEntry(code),msg='Join '+tbName(t)+' on Our Table: '+url;
   if(navigator.share){navigator.share({title:'Our Table',text:'Join '+tbName(t)+' on Our Table',url}).catch(()=>{});}
   else{try{navigator.clipboard.writeText(url).then(()=>toast('🔗 Invite link copied')).catch(()=>toast(msg));}catch(e){toast(msg);}}
 }
-function tbBootInvite(){try{const q=new URLSearchParams(location.search),c=tcClean(q.get('join')||'');if(c.length>=6){G.joinInv={code:c,name:(q.get('t')||'').slice(0,30)};try{history.replaceState(null,'',location.pathname);}catch(e){}render();}}catch(e){}}
+function tbBootInvite(){try{const q=new URLSearchParams(location.search),c=tcClean(q.get('join')||'');if(c.length>=6){G.joinInv={code:c,name:(q.get('t')||'').slice(0,30),inv:tcClean(q.get('i')||'').slice(0,20)};try{history.replaceState(null,'',location.pathname);}catch(e){}render();}}catch(e){}}
 /* ── Your tables: how each of your tables is doing, for you only ── */
 function tbStatsFrom(rows,members,me){
   const mem=(members||[]).filter(m=>m&&m.name&&!m.deleted).map(m=>m.name.toLowerCase());
@@ -6281,7 +6406,7 @@ function rTablesOv(){
   const rows=l.map(t=>{const on=t.code===act;return`<div class="tb-row${on?' on':''}"><div class="tb-main" data-a="tb-switch" data-code="${t.code}" role="button" tabindex="0"><b>${esc(tbName(t))}</b><small>${t.key?'👑 You are the admin':'Member'}${on?' · open now':''}</small>${tbStatsHTML(t.code)}</div>${t.key?`<button class="btn btn-ghost btn-sm" data-a="tb-invite" data-code="${t.code}">🔗 Invite</button>`:''}</div>`;}).join('');
   const manage=`<div class="panel" style="text-align:left;"><div class="panel-lbl">${esc(tbName(me))} — people</div>
       ${members.length?members.map(m=>`<div class="tb-mem"><span>${avChar(m.avatar)} ${esc(m.name)}</span>${admin?`<button class="tb-x" data-a="tb-rm" data-name="${esc(m.name)}" aria-label="Remove ${esc(m.name)}">✕</button>`:''}</div>`).join(''):'<div style="font-size:.78rem;color:var(--paper3);">Nobody yet. Add people on the Family page, or send an invite.</div>'}
-      ${admin?`<div style="display:flex;gap:.5rem;margin-top:.7rem;"><input class="plaque-input" id="tb-rename" maxlength="30" placeholder="Rename this table" value="${esc(G.tableName||'')}" style="text-transform:none;"><button class="btn btn-gold btn-sm" data-a="tb-rename-ok">Rename</button></div><button class="btn btn-ghost btn-sm" data-a="tb-rotate" style="margin-top:.6rem;">🔑 Make a new code (people with the old link are out)</button>`
+      ${admin?`<div style="display:flex;gap:.5rem;margin-top:.7rem;"><input class="plaque-input" id="tb-rename" maxlength="30" placeholder="Rename this table" value="${esc(G.tableName||'')}" style="text-transform:none;"><button class="btn btn-gold btn-sm" data-a="tb-rename-ok">Rename</button></div><button class="btn btn-gold btn-sm" data-a="acc-open" style="margin-top:.6rem;">🔐 Access, invitations &amp; log</button> <button class="btn btn-ghost btn-sm" data-a="tb-rotate" style="margin-top:.6rem;">🔑 Make a new code (people with the old link are out)</button>`
         :(tbHasAdmin()?'<div style="font-size:.74rem;color:var(--paper3);margin-top:.5rem;">Only the admin of this table can remove people or rename it.</div>':'<button class="btn btn-ghost btn-sm" data-a="tb-claim" style="margin-top:.6rem;">👑 Become the admin of this table</button><div style="font-size:.7rem;color:var(--paper3);margin-top:.35rem;">The first to claim it becomes its admin; from then on only the admin can remove people, rename it or change its code.</div>')}
     </div>`;
   return`<div class="ov" data-a="tables-close"><div class="ov-box" role="dialog" aria-modal="true" aria-label="Your tables" style="max-width:27rem;max-height:90vh;overflow-y:auto;" data-a="tc-noop">
@@ -6297,6 +6422,7 @@ function famStatusHTML(){
   const g=getHistory().length,m=getFamily().length;let line;
   if(FAM.loading)line='⏳ Loading your family… '+FAM.progress+' games found';
   else if(FAM.v2===false)line='⚠️ The database does not have the family sync yet. Run supabase-family-sync.sql once (the file is next to the app); until then only a short list of games is shared.';
+  else if(/access denied/i.test(FAM.err||''))line='🔒 This table is open by invitation only. Your access on this device has ended or was never set up. Ask the admin for a personal invitation link.';
   else if(FAM.err)line='⚠️ Could not reach your table just now ('+esc(FAM.err)+')';
   else if(FAM.ready)line='✅ In sync · '+g+' game'+(g!==1?'s':'')+' · '+m+' member'+(m!==1?'s':'')+(FAM.at?' · '+new Date(FAM.at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'');
   else line='Not synced yet.';
@@ -38364,6 +38490,7 @@ function render(){
   else if(G.quitOpen)ov=rQuitOv();
   else if(G.whoOpen)ov=rWhoOv();
   else if(G.joinInv)ov=rJoinOv();
+  else if(G.accessOpen)ov=rAccessOv();
   else if(G.tablesOpen)ov=rTablesOv();
   else if(G.dataClearAsk)ov=rDataClearOv();
   else if(G.dataOpen)ov=rDataOv();
@@ -38537,6 +38664,16 @@ document.addEventListener('click',e=>{
   else if(a==='who-pick'){const n=t.getAttribute('data-name'),m=getFamily().find(x=>x.name===n);if(m){G.myName=m.name;G.myAvatar=m.avatar||G.myAvatar||AVATARS[0];try{localStorage.setItem('ct_myname',G.myName);localStorage.setItem('ct_myavatar',G.myAvatar);}catch(e){}G.whoOpen=false;famAdopt(false);render();toast('Hello '+G.myName+'!');}}
   else if(a==='who-other'){G.whoOpen=false;G.scr='home';G.profileEditing=true;render();}
   else if(a==='who-skip'){G.whoOpen=false;try{localStorage.setItem('ct_who_skip:'+tableCode(),'1');}catch(e){}render();}
+  else if(a==='acc-open'){G.accessOpen=true;G.acc={loading:true};render();accLoad();}
+  else if(a==='acc-close'){G.accessOpen=false;render();}
+  else if(a==='acc-toggle'){accToggle(t.getAttribute('data-on')==='1');}
+  else if(a==='acc-new'){accNew();}
+  else if(a==='acc-copy'){accCopy(t.getAttribute('data-inv'));}
+  else if(a==='acc-inv-rv'){if(confirm('Revoke this invitation? Nobody can use it any more.'))accCall('invite_revoke',{p_invite:t.getAttribute('data-inv')},'Invitation revoked');}
+  else if(a==='acc-inv-del'){if(confirm('Delete this invitation from the list? The log keeps the history.'))accCall('invite_delete',{p_invite:t.getAttribute('data-inv')},'Invitation deleted');}
+  else if(a==='acc-dev-st'){const st=t.getAttribute('data-st');accCall('device_set_status',{p_device:t.getAttribute('data-id'),p_status:st},st==='suspended'?'Suspended: locked out at once':'Let back in');}
+  else if(a==='acc-dev-rm'){if(confirm('Remove '+t.getAttribute('data-name')+'? Their device loses access at once.'))accCall('device_remove',{p_device:t.getAttribute('data-id')},'Removed');}
+  else if(a==='acc-dev-until'){const v=prompt('Access until (YYYY-MM-DD). Leave empty for no end date.','');if(v===null)return;const d=v.trim()?new Date(v.trim()+'T23:59:59'):null;if(d&&isNaN(d.getTime())){toast('Use the form 2026-12-31');return;}accCall('device_set_until',{p_device:t.getAttribute('data-id'),p_until:d?d.toISOString():null},'End date saved');}
   else if(a==='tables-open'){G.tablesOpen=true;G.dataOpen=false;render();tbOverviewLoad();}
   else if(a==='tables-close'){G.tablesOpen=false;render();}
   else if(a==='tb-switch'){tbSwitch(t.getAttribute('data-code'));}
@@ -38547,7 +38684,7 @@ document.addEventListener('click',e=>{
   else if(a==='tb-rename-ok'){const v=((document.getElementById('tb-rename')||{}).value||'').trim().slice(0,30);if(v&&tbIsAdmin()){G.tableName=v;try{localStorage.setItem('ct_tablename',v);localStorage.setItem('ct_tablename_at',new Date().toISOString());}catch(e){}tbMirrorName();famPushSettings();render();toast('✓ Renamed');}}
   else if(a==='tb-rm'){const n=t.getAttribute('data-name');if(tbIsAdmin()&&n&&confirm('Remove '+n+' from this table?')){saveFamily(getFamily().filter(m=>m.name!==n));render();}}
   else if(a==='tb-join-av'){G.myAvatar=AVATARS[(AVATARS.indexOf(G.myAvatar)+1)%AVATARS.length];render();setTimeout(()=>{const i=document.getElementById('tb-join-name');if(i&&G.myName)i.value=G.myName;},0);}
-  else if(a==='tb-join-ok'){const v=((document.getElementById('tb-join-name')||{}).value||'').trim().slice(0,20);if(!v){toast('Type your name first');return;}G.myName=v;try{localStorage.setItem('ct_myname',v);localStorage.setItem('ct_myavatar',G.myAvatar||AVATARS[0]);}catch(e){}const j=G.joinInv;G.joinInv=null;tbJoin(j.code,j.name);}
+  else if(a==='tb-join-ok'){const v=((document.getElementById('tb-join-name')||{}).value||'').trim().slice(0,20);if(!v){toast('Type your name first');return;}G.myName=v;try{localStorage.setItem('ct_myname',v);localStorage.setItem('ct_myavatar',G.myAvatar||AVATARS[0]);}catch(e){}const j=G.joinInv;G.joinInv=null;tbJoin(j.code,j.name,j.inv);}
   else if(a==='tb-join-no'){G.joinInv=null;render();}
   else if(a==='fam-sync'){famSyncAll({announce:true});}
   else if(a==='fam-reload'){famReset();toast('⟲ Loading every game again…');famSyncAll({announce:true});}
