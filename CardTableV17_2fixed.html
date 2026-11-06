@@ -6145,7 +6145,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=301;
+const APP_BUILD=302;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -6198,7 +6198,11 @@ function tbSwitch(code,opt){
   tbSwapIn(code);famReset();famLoadCache();_familyHistoryCache=null;G.tablesOpen=false;G.accessOpen=false;G.momAll=false;G.qsN=0;famBump();
   render();famSyncAll({announce:true});return true;
 }
-function tbInviteLink(code,inv){const t=tbEntry(code)||{};return location.origin+location.pathname+'?join='+code+'&t='+encodeURIComponent(t.name||'')+(inv?'&i='+encodeURIComponent(inv):'');}
+// links that go to other people must point at the published app, never at a file on this computer (a file:// address is useless to them, and the share sheet of the browser crashes on it)
+const APP_PUBLIC_URL='https://philbzh.github.io/Family_card/';
+function appBaseUrl(){return /^https?:$/.test(location.protocol)?location.origin+location.pathname:APP_PUBLIC_URL;}
+function shareOk(u){return typeof navigator.share==='function'&&/^https?:\/\//.test(u||'');}
+function tbInviteLink(code,inv){const t=tbEntry(code)||{};return appBaseUrl()+'?join='+code+'&t='+encodeURIComponent(t.name||'')+(inv?'&i='+encodeURIComponent(inv):'');}
 // a new table is invitations-only from the start: this device is enrolled first, so its owner is never locked out
 async function tbLockNew(sb,code,key){
   try{
@@ -6331,7 +6335,7 @@ async function accNew(){
 }
 function accCopy(inv){
   const url=tbInviteLink(tableCode(),inv);
-  if(navigator.share){navigator.share({title:'Our Table',text:'Join '+tbName(tbEntry())+' on Our Table',url}).catch(()=>{});}
+  if(shareOk(url)){navigator.share({title:'Our Table',text:'Join '+tbName(tbEntry())+' on Our Table',url}).catch(()=>{});}
   else{try{navigator.clipboard.writeText(url).then(()=>toast('🔗 Invitation link copied')).catch(()=>toast(url));}catch(e){toast(url);}}
 }
 /* ═══════ PEOPLE OVERVIEW (admin): who is registered, in which group; tap a group to add or remove ═══════ */
@@ -6382,16 +6386,19 @@ async function ppInvite(code,name,t){
 }
 function ppLinkHTML(){
   const L=G.ppLink;if(!L)return'';
-  return`<div class="panel" style="text-align:left;"><div class="panel-lbl">Invitation for ${esc(L.name)}</div>
-    <div style="font-size:.78rem;color:var(--paper2);line-height:1.5;">${esc(L.table)} is invitations-only. ${esc(L.name)} needs this personal link once (single use, valid 7 days) to get in.</div>
+  const adm=L.kind==='admin';
+  return`<div class="panel" style="text-align:left;"><div class="panel-lbl">${adm?'Administrator link for ':'Invitation for '}${esc(L.name)}</div>
+    <div style="font-size:.78rem;color:var(--paper2);line-height:1.5;">${adm?esc(L.name)+' opens this link on their own device and taps Accept to become an administrator of '+esc(L.table)+' (this table only). It works once, for 7 days.':esc(L.table)+' is invitations-only. '+esc(L.name)+' needs this personal link once (single use, valid 7 days) to get in.'}</div>
+    <input class="plaque-input" id="pp-link-url" readonly value="${esc(L.url)}" onclick="this.select()" style="text-transform:none;font-size:.7rem;margin-top:.5rem;">
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem;"><button class="btn btn-gold btn-sm" data-a="pp-link-share">🔗 Share the link</button><button class="btn btn-ghost btn-sm" data-a="pp-link-copy">Copy</button><button class="btn btn-ghost btn-sm" data-a="pp-link-x">Done</button></div></div>`;
 }
 function ppLinkAct(kind){
   const L=G.ppLink;if(!L)return;
   if(kind==='x'){G.ppLink=null;renderSet();return;}
-  const msg='Join '+L.table+' on Our Table: '+L.url;
-  if(kind==='share'&&navigator.share){navigator.share({title:'Our Table',text:'Join '+L.table+' on Our Table',url:L.url}).catch(()=>{});return;}
-  try{navigator.clipboard.writeText(L.url).then(()=>toast('🔗 Link for '+L.name+' copied')).catch(()=>toast(msg));}catch(e){toast(msg);}
+  const adm=L.kind==='admin',txt=adm?'Administrator of '+L.table+' on Our Table':'Join '+L.table+' on Our Table';
+  if(kind==='share'&&shareOk(L.url)){try{navigator.share({title:'Our Table',text:txt,url:L.url}).catch(()=>{});}catch(e){}return;}
+  const el=document.getElementById('pp-link-url');
+  try{navigator.clipboard.writeText(L.url).then(()=>toast('🔗 Link for '+L.name+' copied')).catch(()=>{if(el){el.focus();el.select();}toast('Select the link and copy it');});}catch(e){if(el){el.focus();el.select();}toast('Select the link and copy it');}
 }
 function ppAddNew(){
   const el=document.getElementById('pp-new'),name=((el&&el.value)||'').trim().slice(0,40);if(!name)return;
@@ -6484,10 +6491,10 @@ async function admMake(name){
   const sb=famSb(),key=tbKey(),code=tableCode();if(!sb||!key||!name)return;
   const r=await sb.rpc('admin_grant_create',{p_code:code,p_key:key,p_name:name});
   if(r.error||!r.data){toast(histFnMissing(r.error||{})?'Run supabase-admins.sql in Supabase first':'Could not make the link (only the owner can)');return;}
-  const url=location.origin+location.pathname+'?adm='+encodeURIComponent(r.data)+'&c='+code+'&t='+encodeURIComponent(G.tableName||'');
-  const msg='You are invited to be an administrator of '+tbName(tbEntry())+' on Our Table: '+url;
-  if(navigator.share){navigator.share({title:'Our Table',text:'Administrator of '+tbName(tbEntry()),url}).catch(()=>{});}
-  else{try{navigator.clipboard.writeText(url).then(()=>toast('🔗 Link for '+name+' copied. It works once, for 7 days.')).catch(()=>toast(msg));}catch(e){toast(msg);}}
+  const url=appBaseUrl()+'?adm='+encodeURIComponent(r.data)+'&c='+code+'&t='+encodeURIComponent(G.tableName||'');
+  // shown in a panel (not shared at once): the buttons there are a fresh tap, which the browser needs for sharing and copying
+  G.ppLink={kind:'admin',name,table:tbName(tbEntry()),url};
+  renderSet();
 }
 async function admRemove(name){
   const sb=famSb(),key=tbKey();if(!sb||!key||!name)return;
@@ -6603,7 +6610,7 @@ async function tbShare(code){
     }
   }catch(e){}
   const url=tbInviteLink(code,inv),t=tbEntry(code),msg='Join '+tbName(t)+' on Our Table: '+url;
-  if(navigator.share){navigator.share({title:'Our Table',text:'Join '+tbName(t)+' on Our Table',url}).catch(()=>{});}
+  if(shareOk(url)){navigator.share({title:'Our Table',text:'Join '+tbName(t)+' on Our Table',url}).catch(()=>{});}
   else{try{navigator.clipboard.writeText(url).then(()=>toast('🔗 Invite link copied')).catch(()=>toast(msg));}catch(e){toast(msg);}}
 }
 function tbBootInvite(){try{const q=new URLSearchParams(location.search),c=tcClean(q.get('join')||'');{const at=q.get('adm'),ac=tcClean(q.get('c')||'');if(at&&ac.length>=6){G.admInv={code:ac,token:at.slice(0,64),name:(q.get('t')||'').slice(0,30)};try{history.replaceState(null,'',location.pathname);}catch(e){}render();return;}}if(c.length>=6){G.joinInv={code:c,name:(q.get('t')||'').slice(0,30),inv:tcClean(q.get('i')||'').slice(0,20)};try{history.replaceState(null,'',location.pathname);}catch(e){}render();}}catch(e){}}
