@@ -3756,6 +3756,22 @@ html[data-anim="full"] .achievement-toast{animation:ach-in .55s var(--ease-sprin
 #overlay-root .ov{position:fixed;inset:0;background:rgba(4,6,10,.9);display:flex;align-items:flex-start;justify-content:center;padding:1.4rem;z-index:200;backdrop-filter:blur(14px);animation:ov-in .2s ease both;overflow-y:auto;}
 #overlay-root .set-box .adm-b{font-size:.68rem;padding:.1rem .5rem;border-radius:99px;background:rgba(212,168,67,.16);color:var(--gold2);white-space:nowrap;}
 #overlay-root .set-box .adm-o{background:rgba(212,168,67,.3);}
+#overlay-root .set-box .set-active{border:1px solid rgba(212,168,67,.35);border-radius:14px;padding:.8rem .9rem;background:rgba(212,168,67,.07);}
+#overlay-root .set-box .set-active small{display:block;letter-spacing:.14em;font-size:.62rem;color:var(--paper3);}
+#overlay-root .set-box .set-active b{display:block;font-size:1.05rem;margin:.1rem 0;}
+#overlay-root .set-box .set-active div{font-size:.8rem;color:var(--paper2);}
+#overlay-root .set-box .set-rows{display:flex;flex-direction:column;gap:.5rem;}
+#overlay-root .set-box .set-row{display:flex;align-items:center;gap:.6rem;width:100%;text-align:left;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:.8rem .9rem;color:inherit;cursor:pointer;font:inherit;}
+#overlay-root .set-box .set-row span{flex:1;display:flex;flex-direction:column;gap:.1rem;min-width:0;}
+#overlay-root .set-box .set-row b{font-size:.95rem;}
+#overlay-root .set-box .set-row small{font-size:.72rem;color:var(--paper3);}
+#overlay-root .set-box .set-row i{font-style:normal;font-size:1.3rem;color:var(--gold2);}
+#overlay-root .set-box .set-back{align-self:flex-start;background:none;border:0;color:var(--gold2);font:600 .85rem 'Jost',sans-serif;cursor:pointer;padding:0;}
+#overlay-root .set-box .set-ctx{font-size:.74rem;color:var(--paper3);margin-top:-.5rem;}
+#overlay-root .set-box .set-state{font-weight:700;font-size:.92rem;}
+#overlay-root .set-box .set-state.on{color:#8fd7a4;}
+#overlay-root .set-box .set-state.off{color:#e8c07a;}
+#overlay-root .set-box .set-facts{font-size:.74rem;color:var(--paper3);margin-top:.15rem;}
 #overlay-root .set-box .pp-sum{font-size:.78rem;color:var(--paper2);}
 #overlay-root .set-box .pp-filters{display:flex;gap:.35rem;flex-wrap:wrap;}
 #overlay-root .set-box .pp-f{font:600 .72rem 'Jost',sans-serif;padding:.28rem .65rem;border-radius:99px;border:1px solid rgba(255,255,255,.16);background:transparent;color:var(--paper2);cursor:pointer;}
@@ -6053,7 +6069,7 @@ async function famPushLocal(sb){
   }
   if(sent)famPing();
 }
-function famProgress(){if(!FAM.announce)return;const el=document.getElementById('fam-status');if(el)el.textContent='⏳ Loading your family… '+FAM.progress+' games found';}
+function famProgress(){if(!FAM.announce)return;const el=document.getElementById('fam-status');if(el)el.textContent='⏳ Connecting to your table… '+FAM.progress+' results so far';}
 let _famBusy=false,_famTimer=null,_famAgain=null;
 function famSoon(ms){clearTimeout(_famTimer);_famTimer=setTimeout(()=>{famSyncAll();},ms==null?800:ms);}
 async function famSyncAll(opt){
@@ -6145,7 +6161,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=305;
+const APP_BUILD=307;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -6198,7 +6214,7 @@ function tbSwitch(code,opt){
   tbSwapOut(tableCode());
   const l=tbEnsure();if(!l.some(t=>t.code===code)){l.push({code,name:(opt&&opt.name)||''});tbSave(l);}
   try{localStorage.setItem('ct_table_code',code);}catch(e){}
-  tbSwapIn(code);famReset();famLoadCache();_familyHistoryCache=null;G.tablesOpen=false;G.accessOpen=false;G.masterOpen=false;G.momAll=false;G.qsN=0;famBump();
+  tbSwapIn(code);famReset();famLoadCache();_familyHistoryCache=null;G.tablesOpen=false;G.accessOpen=false;G.masterOpen=false;G.setHome=false;G.momAll=false;G.qsN=0;famBump();
   render();famSyncAll({announce:true});return true;
 }
 // links that go to other people must point at the published app, never at a file on this computer (a file:// address is useless to them, and the share sheet of the browser crashes on it)
@@ -6318,7 +6334,8 @@ async function accCall(fn,args,okMsg){
 async function accToggle(on){
   const sb=famSb(),key=tbKey(),code=tableCode();if(!sb||!key)return;
   if(on){
-    if(!confirm('Switch "Invitations only" on?\n\nFrom now on the table code alone opens nothing. Every person must use a personal invitation link once. Devices that only know the code are locked out until then. This device stays in.'))return;
+    const A0=G.acc||{},act0=(A0.devices||[]).filter(d=>accDevStatus(d)==='active').length,inv0=(A0.invites||[]).filter(i=>accInvStatus(i)==='open').length,miss0=accPreflight().missing.map(x=>x.name);
+    if(!confirm('Turn on "Invitations only"?\n\n• Right now '+act0+' device'+(act0===1?' is':'s are')+' registered and '+inv0+' invitation'+(inv0===1?' is':'s are')+' open.\n• '+(miss0.length?'No registered device was found for: '+miss0.join(', ')+'. They are locked out until you send them a personal invitation.':'Everybody in your family list has a registered device.')+'\n• Your own device stays in.\n\nTip: create the invitations first and turn this on when everybody has joined. Continue?'))return;
     if(!dtGet(code)){
       const r=await sb.rpc('enroll_admin',{p_code:code,p_key:key,p_label:G.myName||'Admin'});
       if(r.error||!r.data){toast(histFnMissing(r.error||{})?'Run supabase-invites.sql in Supabase first':'Could not set up this device');return;}
@@ -6410,10 +6427,12 @@ function ppAddNew(){
   ppSet(code,name,true).then(()=>{if(el)el.value='';});
 }
 /* ── Settings: ONE panel for tables, people, invitations and your data (each tab is the old panel's body) ── */
-function setTabNow(){return G.peopleOpen?'people':G.accessOpen?'access':G.tablesOpen?'tables':G.dataOpen?'data':G.masterOpen?'master':null;}
+function setTabNow(){return G.peopleOpen?'people':G.accessOpen?'access':G.tablesOpen?'tables':G.dataOpen?'data':G.masterOpen?'master':G.setHome?'home':null;}
 function setGo(tab){
-  G.peopleOpen=G.accessOpen=G.tablesOpen=G.dataOpen=G.masterOpen=false;
-  if(tab==='master'){G.masterOpen=true;G.mt={loading:true,rows:[]};G.mtSel='';G.mtMax=MT_PAGE;renderSet();masterLoad();}
+  G.peopleOpen=G.accessOpen=G.tablesOpen=G.dataOpen=G.masterOpen=G.setHome=false;
+  if(tab==='home'){G.setHome=true;renderSet();rolesLoad();}
+  else if(tab==='tables'){G.tablesOpen=true;renderSet();tbOverviewLoad();}
+  else if(tab==='master'){G.masterOpen=true;G.mt={loading:true,rows:[]};G.mtSel='';G.mtMax=MT_PAGE;renderSet();masterLoad();}
   else if(tab==='people'){G.peopleOpen=true;G.pp={loading:true,m:{}};renderSet();ppLoad();rolesLoad();}
   else if(tab==='access'){G.accessOpen=true;G.acc={loading:true};renderSet();accLoad();}
   else if(tab==='data'){G.dataOpen=true;renderSet();rolesLoad();}
@@ -6433,14 +6452,28 @@ function renderSet(){
   const n=r.querySelector('.ov');if(n&&top)n.scrollTop=top;
   if(id){const e=document.getElementById(id);if(e&&'value' in e){e.value=v;e.focus();}}
 }
+// Settings is a small hub with four areas (and a fifth for the MasterAdmin); each area is its own screen with a back button.
+const SET_AREAS={tables:['My Tables','Switch tables, invite, create or join'],people:['People','Who belongs to this table'],access:['Access & Security','Invitations, connected devices and protection'],data:['My Device','Profile, sync, privacy and your data'],master:['MasterAdmin Console','Every table in the app']};
+// who may see what (the server enforces the real rules; this only decides what is shown)
+function setCan(){const m=admMine(),admin=!!(tbEntry()&&tbEntry().key)||!!masterKey();return{people:admin,access:admin,master:!!masterKey(),appoint:m==='owner'||m==='master',rotate:m==='owner'||m==='master'};}
+function setRoleLine(){const m=admMine();return m==='master'?'⭐ MasterAdmin':m==='owner'?'👑 Owner':m==='admin'?'🛡 Administrator':'Member';}
 function rSettingsOv(){
-  const tab=setTabNow(),admin=!!(tbEntry()&&tbEntry().key);
-  const tabs=[['tables','Tables'],['people','People',1],['access','Invitations',1],['master','All tables',2],['data','Account & sync']].filter(t=>!t[2]||(t[2]===2?!!masterKey():admin));
-  const body=tab==='master'?rMasterBody():tab==='people'?rPeopleBody():tab==='access'?rAccessBody():tab==='data'?rDataBody():rTablesBody();
+  const tab=setTabNow()||'home',c=setCan(),t=tbEntry(),n=getFamily().length;
+  let inner;
+  if(tab==='home'){
+    const rows=['tables','people','access','data','master'].filter(k=>k==='tables'||k==='data'||c[k]).map(k=>`<button type="button" class="set-row" data-a="set-tab" data-tab="${k}"><span><b>${SET_AREAS[k][0]}</b><small>${SET_AREAS[k][1]}</small></span><i>›</i></button>`).join('');
+    inner=`<div class="ov-title">⚙ Settings</div>
+    <div class="set-active"><small>ACTIVE TABLE</small><b>${esc(tbName(t))}</b><div>${setRoleLine()} · ${n} ${n===1?'person':'people'}</div></div>
+    <div class="set-rows">${rows}</div>`;
+  }else{
+    const body=tab==='master'?rMasterBody():tab==='people'?rPeopleBody():tab==='access'?rAccessBody():tab==='data'?rDataBody():rTablesBody();
+    inner=`<button type="button" class="set-back" data-a="set-tab" data-tab="home">‹ Settings</button>
+    <div class="ov-title" style="margin-top:-.3rem;">${SET_AREAS[tab][0]}</div>
+    <div class="set-ctx">${esc(tbName(t))} · ${setRoleLine()}</div>
+    ${body}`;
+  }
   return`<div class="ov" data-a="set-close"><div class="ov-box set-box" role="dialog" aria-modal="true" aria-label="Settings" style="max-width:29rem;max-height:92vh;overflow-y:auto;text-align:left;" data-a="tc-noop">
-    <div class="ov-title">⚙ Settings</div>
-    <div class="set-tabs" role="tablist" style="display:flex;gap:.35rem;flex-wrap:wrap;margin:.2rem 0 .7rem;">${tabs.map(t=>`<button type="button" role="tab" aria-selected="${t[0]===tab}" class="btn btn-sm ${t[0]===tab?'btn-gold':'btn-ghost'}" data-a="set-tab" data-tab="${t[0]}">${t[1]}</button>`).join('')}</div>
-    ${body}
+    ${inner}
     <button class="btn btn-ghost btn-full" data-a="set-close" style="margin-top:.6rem;">Close</button>
   </div></div>`;
 }
@@ -6483,18 +6516,19 @@ function admBtn(name){
 }
 function admAccountHTML(){
   const R=G.roles,t=tbEntry(),mine=admMine(),on=R&&R.code===tableCode(),owner=admOwnerName();
-  const role=mine==='master'?'⭐ MasterAdmin · owner of every table':mine==='owner'?'👑 Owner and administrator':mine==='admin'?'🛡 Administrator':(tbHasAdmin()?'Member':'Member (this table has no administrator yet)');
-  const who=G.myName?esc(G.myName):'You';
+  const role=mine==='master'?'⭐ MasterAdmin':mine==='owner'?'👑 Owner':mine==='admin'?'🛡 Administrator':(tbHasAdmin()?'Member':'Member (this table has no owner yet)');
+  const what=mine==='master'?'Owner of every table in the app.':mine==='owner'?'Full control of this table.':mine==='admin'?'Helps manage this table.':'Can play and see this table\'s results.';
   const adms=on&&R.list?R.list.filter(x=>x.role==='admin').map(x=>esc(x.name)):[];
-  return`<div class="panel" style="text-align:left;"><div class="panel-lbl">Account · ${esc(tbName(t))}</div>
-    <div style="display:flex;align-items:center;gap:.6rem;"><span style="font-size:1.5rem;">${G.myAvatar?avChar(G.myAvatar):'👤'}</span><div><b>${who}</b><div style="font-size:.78rem;color:var(--paper2);">${role}</div></div></div>
-    <div style="font-size:.78rem;color:var(--paper3);line-height:1.6;margin-top:.55rem;">${owner?'Owner of this table: <b style="color:var(--paper2);">'+esc(owner)+'</b>':(tbHasAdmin()?'Owner of this table: not named yet':'This table has no owner yet.')}${adms.length?'<br>Administrators: <b style="color:var(--paper2);">'+adms.join(', ')+'</b>':''}</div>
+  return`<div class="panel" style="text-align:left;"><div class="panel-lbl">Current table</div>
+    <b>${esc(tbName(t))}</b>
+    <div style="font-size:.8rem;color:var(--paper2);margin-top:.2rem;">${role} — ${what}</div>
+    <div style="font-size:.76rem;color:var(--paper3);line-height:1.6;margin-top:.5rem;">${owner?'Owner: <b style="color:var(--paper2);">'+esc(owner)+'</b>':(tbHasAdmin()?'Owner: not named yet':'This table has no owner yet.')}${adms.length?'<br>Administrators: <b style="color:var(--paper2);">'+adms.join(', ')+'</b>':''}</div>
     ${R&&R.missing?'<div style="font-size:.72rem;color:#e8a090;margin-top:.4rem;">Run supabase-admins.sql in Supabase to show owners and appoint administrators.</div>':''}
-    ${masterKey()?'<div style="font-size:.74rem;color:var(--paper3);margin-top:.5rem;">You can open and manage every table in the tab <b>All tables</b>. The rights cannot get lost: the recovery code makes any browser MasterAdmin again.</div><div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem;"><button type="button" class="btn btn-ghost btn-sm" data-a="master-code">Change the recovery code</button><button type="button" class="btn btn-ghost btn-sm" data-a="master-revoke">Sign out my other browsers</button></div>':(G.siteHasMaster===undefined&&false?'':'<button type="button" class="btn btn-ghost btn-sm" data-a="master-setup" style="margin-top:.6rem;">⭐ MasterAdmin sign-in</button><div style="font-size:.7rem;color:var(--paper3);margin-top:.3rem;">Type the recovery code from supabase-masteradmin.sql to make this browser MasterAdmin.</div>')}
   </div>`;
 }
 async function admMake(name){
   const sb=famSb(),key=tbKey(),code=tableCode();if(!sb||!key||!name)return;
+  if(!confirm('Make '+name+' an administrator of '+tbName(tbEntry())+'?\n\n'+name+' will be able to: add and remove people, create and cancel invitations, manage connected devices and see the access history.\n\n'+name+' will NOT be able to: change the table code, appoint other administrators or remove the owner.\n\n'+name+' must accept on their own device. Continue?'))return;
   const r=await sb.rpc('admin_grant_create',{p_code:code,p_key:key,p_name:name});
   if(r.error||!r.data){toast(histFnMissing(r.error||{})?'Run supabase-admins.sql in Supabase first':'Could not make the link (only the owner can)');return;}
   const url=appBaseUrl()+'?adm='+encodeURIComponent(r.data)+'&c='+code+'&t='+encodeURIComponent(G.tableName||'');
@@ -6504,7 +6538,7 @@ async function admMake(name){
 }
 async function admRemove(name){
   const sb=famSb(),key=tbKey();if(!sb||!key||!name)return;
-  if(!confirm('Take the administrator role away from '+name+'? They stay a member of the table.'))return;
+  if(!confirm('Remove administrator rights from '+name+'?\n\n• '+name+' can no longer manage people, invitations or devices.\n• '+name+' stays in the family list and can still play.'))return;
   const r=await sb.rpc('admin_remove',{p_code:tableCode(),p_key:key,p_name:name});
   if(r.error){toast('Could not do that');return;}
   toast(name+' is no longer an administrator');rolesLoad();
@@ -6554,7 +6588,8 @@ function rMasterBody(){
   const people=all.reduce((n,x)=>n+(x.people||0),0);
   const rows=shown.map(x=>{const open=x.code===sel,nm=x.name||'(no name)';
     return`<div class="pp-row${open?' open':''}"><button type="button" class="pp-head" data-a="mt-row" data-code="${esc(x.code)}" aria-expanded="${open}"><span class="pp-n">${esc(nm)}${x.code===cur?' · open now':''}</span><small>${x.people} people</small><i>${open?'▴':'▾'}</i></button>${open?`<div class="pp-det"><div style="font-size:.78rem;color:var(--paper2);line-height:1.7;">Code <b>${esc(x.code)}</b><br>Owner: ${x.has_owner?esc(x.owner_name||'not named yet'):'none yet'}${x.admins?' · '+x.admins+' administrator'+(x.admins===1?'':'s'):''}<br>${x.games} games · ${mtAgo(x.last_played)}<br>${x.invite_only?'🔒 Invitations only':'🔓 Open with the code'}</div><div style="margin-top:.45rem;">${x.code===cur?'':`<button type="button" class="btn btn-gold btn-sm" data-a="mt-open" data-code="${esc(x.code)}" data-name="${esc(x.name||'')}">Open this table as MasterAdmin</button>`}</div></div>`:''}</div>`;}).join('');
-  return`<p class="set-sub">⭐ You are the MasterAdmin: the owner of every table. Open any table to manage its people, administrators and invitations.</p>
+  return`<div class="panel" style="text-align:left;"><div class="panel-lbl">Your MasterAdmin access</div><div style="font-size:.76rem;color:var(--paper2);line-height:1.5;">⭐ You are the owner of every table. The rights cannot get lost: the recovery code makes any browser MasterAdmin again.</div><div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem;"><button type="button" class="btn btn-ghost btn-sm" data-a="master-code">Change the recovery code</button><button type="button" class="btn btn-ghost btn-sm" data-a="master-revoke">Sign out my other browsers</button></div></div>
+    <p class="set-sub">Open any table to manage its people, administrators and invitations.</p>
     ${M.loading?'<div style="padding:1rem 0;">Loading…</div>':''}
     ${M.missing?'<div style="color:#e8a090;font-size:.8rem;">Run supabase-masteradmin.sql in Supabase first.</div>':''}
     ${M.err?`<div style="color:#e8a090;font-size:.8rem;">${esc(M.err)}</div>`:''}
@@ -6595,10 +6630,11 @@ function masterOpen(code,name){
 // People: a compact list that still works with 50 people (search, filters, one line per person, tap a person to open just that one)
 const PP_PAGE=25;
 function ppView(people,ts){
-  const q=String(G.ppQ||'').trim().toLowerCase(),f=G.ppF||'all',me=String(G.myName||'').toLowerCase();
+  const q=String(G.ppQ||'').trim().toLowerCase(),f=arguments[2]||G.ppF||'all',me=String(G.myName||'').toLowerCase();
   let list=people.filter(x=>{
     if(q&&!x.name.toLowerCase().includes(q))return false;
     if(f==='admins'){const r=admRole(x.name);return r==='owner'||r==='admin';}
+    if(f==='cur')return x.codes.has(tableCode());
     if(f==='multi')return x.codes.size>1;
     if(f.indexOf('t:')===0)return x.codes.has(f.slice(2));
     return true;
@@ -6611,15 +6647,15 @@ function rPeopleBody(){
   const P=G.pp||{loading:true,m:{}},ts=ppTables(),people=ppPeople();
   const chip=(t,x)=>{const loaded=P.m[t.code]!==null&&P.m[t.code]!==undefined,on=x.codes.has(t.code);
     return`<button type="button" class="btn btn-sm ${on?'btn-gold':'btn-ghost'}" ${loaded?'':'disabled'} data-a="pp-toggle" data-code="${t.code}" data-name="${esc(x.name)}" data-av="${esc(x.avatar||'')}" style="margin:.15rem .25rem .15rem 0;">${on?'✓ ':''}${esc(tbName(t))}</button>`;};
-  const list=ppView(people,ts),max=G.ppMax||PP_PAGE,shown=list.slice(0,max),sel=G.ppSel||'';
-  const grp=x=>x.codes.size===0?'no group':x.codes.size===1?esc(tbName(ts.find(t=>x.codes.has(t.code))||{})):x.codes.size+' groups';
+  const f0=G.ppF||(ts.length>1?'cur':'all'),list=ppView(people,ts,f0),max=G.ppMax||PP_PAGE,shown=list.slice(0,max),sel=G.ppSel||'';
+  const grp=x=>x.codes.size===0?'no table':x.codes.size===1?esc(tbName(ts.find(t=>x.codes.has(t.code))||{})):x.codes.size+' tables';
   const rows=shown.map(x=>{const k=x.name.toLowerCase(),open=k===sel;
     return`<div class="pp-row${open?' open':''}"><button type="button" class="pp-head" data-a="pp-row" data-name="${esc(x.name)}" aria-expanded="${open}"><span class="pp-n">${x.avatar?avChar(x.avatar)+' ':''}${esc(x.name)}</span>${admBadge(x.name)}<small>${grp(x)}</small><i>${open?'▴':'▾'}</i></button>${open?`<div class="pp-det">${admBtn(x.name)?'<div style="margin-bottom:.3rem;">'+admBtn(x.name)+'</div>':''}<div>${ts.map(t=>chip(t,x)).join('')}</div></div>`:''}</div>`;}).join('');
   const nAdm=people.filter(x=>{const r=admRole(x.name);return r==='owner'||r==='admin';}).length;
-  const fbtn=(f,label,n)=>`<button type="button" class="pp-f${(G.ppF||'all')===f?' on':''}" data-a="pp-filter" data-f="${f}">${label}${n!=null?' <b>'+n+'</b>':''}</button>`;
-  const filters=people.length>3||G.ppQ||(G.ppF&&G.ppF!=='all')?`<div class="pp-filters">${fbtn('all','All',people.length)}${fbtn('admins','Administrators',nAdm)}${ts.length>1?fbtn('multi','In several groups',people.filter(x=>x.codes.size>1).length)+ts.map(t=>fbtn('t:'+t.code,esc(tbName(t)),people.filter(x=>x.codes.has(t.code)).length)).join(''):''}</div>`:'';
+  const fbtn=(f,label,n)=>`<button type="button" class="pp-f${f0===f?' on':''}" data-a="pp-filter" data-f="${f}">${label}${n!=null?' <b>'+n+'</b>':''}</button>`;
+  const filters=people.length>3||G.ppQ||G.ppF?`<div class="pp-filters">${ts.length>1?fbtn('cur','This table',people.filter(x=>x.codes.has(tableCode())).length)+fbtn('all','All my tables',people.length):fbtn('all','Everyone',people.length)}${fbtn('admins','Administrators',nAdm)}</div>`:'';
   return`${ppLinkHTML()}
-    ${people.length?`<div class="pp-sum">${people.length} ${people.length===1?'person':'people'} · ${ts.length} ${ts.length===1?'group':'groups'}${nAdm?' · '+nAdm+' administrator'+(nAdm===1?'':'s'):''}</div>`:''}
+    ${people.length?`<div class="pp-sum">${list.length} ${list.length===1?'person':'people'}${f0==='cur'?' in this table':''}${nAdm?' · '+nAdm+' administrator'+(nAdm===1?'':'s'):''}</div>`:''}
     <input class="plaque-input" id="pp-q" type="search" maxlength="40" placeholder="Search by name" autocomplete="off" value="${esc(G.ppQ||'')}" style="text-transform:none;">
     ${filters}
     ${P.loading?'<div style="padding:1rem 0;">Loading…</div>':(P.err?`<div style="color:#e8a090;font-size:.8rem;">${esc(P.err)}</div>`:'')}
@@ -6627,41 +6663,69 @@ function rPeopleBody(){
     ${people.length&&!list.length?'<div style="padding:.8rem 0;color:var(--paper3);">Nobody matches. Clear the search or the filter.</div>':''}
     <div class="pp-list">${rows}</div>
     ${list.length>shown.length?`<button type="button" class="btn btn-ghost btn-sm" data-a="pp-more" style="align-self:center;">Show ${Math.min(PP_PAGE,list.length-shown.length)} more (${list.length-shown.length} left)</button>`:''}
-    <p class="set-sub">Tap a person to open them: a gold ✓ means they are in that group (tap to add or remove). Use several groups to let someone take part in more than one table.</p>
-    ${ts.length?`<div style="display:flex;gap:.5rem;margin-top:.2rem;"><input class="plaque-input" id="pp-new" maxlength="40" placeholder="Add a new person" style="text-transform:none;"><button class="btn btn-gold btn-sm" data-a="pp-add">Add</button></div><div style="font-size:.7rem;color:var(--paper3);margin-top:.25rem;">A new person starts in the open table (${esc(tbName(tbEntry()))}); then tap more groups.</div>`:''}
+    <p class="set-sub">Tap a person to open them. A gold ✓ means the person belongs to that table (tap to add or remove); a person can belong to several tables. Belonging to a table is not the same as a device being allowed in: that is set under Access &amp; Security.</p>
+    ${ts.length?`<div style="display:flex;gap:.5rem;margin-top:.2rem;"><input class="plaque-input" id="pp-new" maxlength="40" placeholder="Add a new person" style="text-transform:none;"><button class="btn btn-gold btn-sm" data-a="pp-add">Add</button></div><div style="font-size:.7rem;color:var(--paper3);margin-top:.25rem;">A new person starts in the open table (${esc(tbName(tbEntry()))}); then tick more tables.</div>`:''}
 `;
 }
+// Before "Invitations only" is switched on: who has a registered device? The app can only match a device to a person by name
+// (a device that joined with the table code only is invisible to it until it is invited).
+function accPreflight(fam){
+  const A=G.acc||{},labels=(A.devices||[]).map(d=>String(d.label||'').toLowerCase()),me=String(G.myName||'').toLowerCase();
+  const people=(fam||getFamily()).map(m=>{const n=String(m.name||'').toLowerCase();return{name:m.name,me:n===me,reg:!!n&&labels.some(l=>l&&(l===n||l.includes(n)||n.includes(l)))};});
+  return{people,missing:people.filter(p=>!p.reg&&!p.me)};
+}
+function accPreflightHTML(){
+  const pf=accPreflight();if(pf.people.length<2)return'';
+  const ok=pf.people.filter(p=>p.reg||p.me).length;
+  return`<div style="margin-top:.6rem;border-top:1px solid rgba(255,255,255,.08);padding-top:.5rem;"><div style="font-size:.74rem;font-weight:600;">Before you turn it on: ${ok} of ${pf.people.length} people have a registered device</div>
+    ${pf.people.map(p=>`<div style="display:flex;align-items:center;gap:.5rem;padding:.2rem 0;font-size:.78rem;"><span style="flex:1;">${p.reg||p.me?'✓':'✗'} ${esc(p.name)}</span>${p.me?'<small style="color:var(--paper3);">this device stays in</small>':p.reg?'<small style="color:#8fd7a4;">registered</small>':`<button type="button" class="btn btn-ghost btn-sm" data-a="acc-prefill" data-name="${esc(p.name)}">Invite</button>`}</div>`).join('')}
+    <div style="font-size:.68rem;color:var(--paper3);line-height:1.5;margin-top:.3rem;">The app can only match a device to a person by name. A device that joined with the table code only is not visible to it until it is invited.</div></div>`;
+}
 function rAccessBody(){
-  const A=G.acc||{},me=tbEntry(),on=!!A.on;
+  const A=G.acc||{},on=!!A.on,m=admMine(),canCode=m==='owner'||m==='master';
   const badge=st=>`<span style="font-size:.66rem;padding:.1rem .45rem;border-radius:99px;background:${st==='active'||st==='open'?'rgba(80,170,110,.2)':st==='suspended'||st==='revoked'?'rgba(200,80,70,.22)':'rgba(150,150,150,.2)'};">${st}</span>`;
-  const dev=(A.devices||[]).map(d=>{const st=accDevStatus(d);return`<div class="tb-mem" style="display:block;padding:.55rem 0;border-bottom:1px solid rgba(255,255,255,.07);">
+  const devs=A.devices||[],act=devs.filter(d=>accDevStatus(d)==='active').length,sus=devs.filter(d=>accDevStatus(d)==='suspended').length,openInv=(A.invites||[]).filter(i=>accInvStatus(i)==='open').length;
+  const dev=devs.map(d=>{const st=accDevStatus(d);return`<div class="tb-mem" style="display:block;padding:.55rem 0;border-bottom:1px solid rgba(255,255,255,.07);">
     <div style="display:flex;gap:.4rem;align-items:center;"><b style="flex:1;">${esc(d.label||'(no name)')}${d.is_admin?' 👑':''}</b>${badge(st)}</div>
     <div style="font-size:.7rem;color:var(--paper3);line-height:1.5;">Joined ${accDay(d.joined_at)} · last active ${accWhen(d.last_seen_at)}${d.access_until?' · access until '+accDay(d.access_until):''}${d.invite_code?' · invitation …'+esc(String(d.invite_code).slice(-4)):''}</div>
     ${d.is_admin?'':`<div style="display:flex;gap:.8rem;flex-wrap:wrap;margin-top:.3rem;font-size:.72rem;">
       <button class="btn btn-ghost btn-sm" data-a="acc-dev-st" data-id="${esc(d.device_id)}" data-st="${d.status==='suspended'?'active':'suspended'}">${d.status==='suspended'?'Let back in':'Suspend'}</button>
       <button class="btn btn-ghost btn-sm" data-a="acc-dev-until" data-id="${esc(d.device_id)}">End date</button>
-      <button class="btn btn-ghost btn-sm" data-a="acc-dev-rm" data-id="${esc(d.device_id)}" data-name="${esc(d.label||'this device')}">Remove</button></div>`}</div>`;}).join('')||'<div style="font-size:.78rem;color:var(--paper3);">Nobody has joined with a personal invitation yet.</div>';
+      <button class="btn btn-ghost btn-sm" data-a="acc-dev-rm" data-id="${esc(d.device_id)}" data-name="${esc(d.label||'this device')}">Remove device</button></div>`}</div>`;}).join('')||'<div style="font-size:.78rem;color:var(--paper3);">No device has joined with an invitation yet.</div>';
   const inv=(A.invites||[]).map(i=>{const st=accInvStatus(i);return`<div class="tb-mem" style="display:block;padding:.55rem 0;border-bottom:1px solid rgba(255,255,255,.07);">
-    <div style="display:flex;gap:.4rem;align-items:center;"><code style="flex:1;">${esc(i.code)}</code>${badge(st)}</div>
-    <div style="font-size:.7rem;color:var(--paper3);line-height:1.5;">${esc(i.label||'')} made ${accDay(i.created_at)} · valid until ${accDay(i.expires_at)} · used ${i.use_count}/${i.max_uses}${i.access_days?' · access lasts '+i.access_days+' days':''}</div>
+    <div style="display:flex;gap:.4rem;align-items:center;"><b style="flex:1;">${esc(i.label||'Invitation')}</b>${badge(st)}</div>
+    <div style="font-size:.7rem;color:var(--paper3);line-height:1.5;"><code>${esc(i.code)}</code> · made ${accDay(i.created_at)} · valid until ${accDay(i.expires_at)} · used ${i.use_count}/${i.max_uses}${i.access_days?' · device access lasts '+i.access_days+' days':''}</div>
     <div style="display:flex;gap:.8rem;margin-top:.3rem;">${st==='open'?`<button class="btn btn-ghost btn-sm" data-a="acc-copy" data-inv="${esc(i.code)}">🔗 Link</button><button class="btn btn-ghost btn-sm" data-a="acc-inv-rv" data-inv="${esc(i.code)}">Revoke</button>`:''}<button class="btn btn-ghost btn-sm" data-a="acc-inv-del" data-inv="${esc(i.code)}">Delete</button></div></div>`;}).join('')||'<div style="font-size:.78rem;color:var(--paper3);">No invitations yet.</div>';
   const log=(A.log||[]).map(l=>`<div style="padding:.35rem 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:.74rem;"><b>${esc(ACC_EVENTS[l.event]||l.event)}</b>${l.label?' · '+esc(l.label):''}${l.invite?' · …'+esc(String(l.invite).slice(-4)):''}<div style="color:var(--paper3);">${accWhen(l.at)}${l.detail?' · '+esc(l.detail):''}</div></div>`).join('')||'<div style="font-size:.78rem;color:var(--paper3);">Nothing logged yet.</div>';
   const fld=(id,lbl,val,ph)=>`<label style="font-size:.7rem;color:var(--paper3);flex:1;min-width:6rem;">${lbl}<input class="plaque-input" id="${id}" inputmode="numeric" value="${val}" placeholder="${ph||''}" style="text-transform:none;width:100%;"></label>`;
   return`${A.err?`<div class="panel" style="font-size:.8rem;">⚠️ ${esc(A.err)}</div>`:''}
-    <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">Invitations only: ${on?'ON':'OFF'}</div>
-      <div style="font-size:.76rem;color:var(--paper2);line-height:1.5;">${on?'The table code alone opens nothing. Everybody here came in with a personal invitation, and you can cut any of them off at once.':'Anybody who knows the table code can still get in. Switch this on to make every person use a personal invitation (single use or limited) that you can revoke.'}</div>
-      <button class="btn ${on?'btn-ghost':'btn-gold'} btn-sm" style="margin-top:.5rem;" data-a="acc-toggle" data-on="${on?'0':'1'}">${on?'Switch off':'Switch on'}</button></div>
-    <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">New invitation</div>
-      <div style="display:flex;gap:.5rem;flex-wrap:wrap;">${fld('acc-uses','People who can use it','1')}${fld('acc-days','Valid for (days)','7')}${fld('acc-access','Access lasts (days, optional)','','forever')}</div>
-      <input class="plaque-input" id="acc-label" maxlength="40" placeholder="Note, for example: Cousin Bea" style="text-transform:none;margin-top:.5rem;" data-a="tc-noop">
-      <button class="btn btn-gold btn-sm" style="margin-top:.5rem;" data-a="acc-new">Make the invitation</button>
-      ${A.fresh?`<div style="margin-top:.6rem;font-size:.76rem;">New: <code>${esc(A.fresh)}</code> <button class="btn btn-ghost btn-sm" data-a="acc-copy" data-inv="${esc(A.fresh)}">🔗 Share link</button></div>`:''}</div>
-    <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">People with a personal key</div>${dev}</div>
+    <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">Table protection</div>
+      <div class="set-state ${on?'on':'off'}">${on?'🔐 Invitations only: ON':'🔓 Open: the table code is enough'}</div>
+      <div class="set-facts">${act} connected device${act===1?'':'s'} · ${openInv} open invitation${openInv===1?'':'s'}${sus?' · '+sus+' suspended':''}</div>
+      <div style="font-size:.76rem;color:var(--paper2);line-height:1.5;margin-top:.4rem;">${on?'A new device needs a personal invitation. The table code alone opens nothing.':'Anybody who knows the table code can join. Turn on "Invitations only" so that every new device needs a personal invitation that you can cancel.'}</div>
+      ${on?'':accPreflightHTML()}
+      <button class="btn ${on?'btn-ghost':'btn-gold'} btn-sm" style="margin-top:.5rem;" data-a="acc-toggle" data-on="${on?'0':'1'}">${on?'Turn off':'Turn on Invitations only'}</button></div>
+    <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">Create an invitation</div>
+      <input class="plaque-input" id="acc-label" maxlength="40" placeholder="Who is it for? For example: Cousin Bea" style="text-transform:none;" data-a="tc-noop">
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem;">${fld('acc-uses','Devices that can use it','1')}${fld('acc-days','Link valid for (days)','7')}${fld('acc-access','Device access lasts (days)','','no end')}</div>
+      <div style="font-size:.7rem;color:var(--paper3);line-height:1.5;margin-top:.4rem;"><b>Link valid</b> = how long the link can still be opened. <b>Device access lasts</b> = how long a device may enter after it joined (empty = no end).</div>
+      <button class="btn btn-gold btn-sm" style="margin-top:.5rem;" data-a="acc-new">Create invitation</button>
+      ${A.fresh?`<div style="margin-top:.6rem;font-size:.76rem;">New invitation ready <button class="btn btn-ghost btn-sm" data-a="acc-copy" data-inv="${esc(A.fresh)}">🔗 Share the link</button></div>`:''}</div>
     <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">Invitations</div>${inv}</div>
-    <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">Access log</div>${log}</div>
-    <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">If a link got out</div><div style="font-size:.76rem;color:var(--paper2);line-height:1.5;">A new table code locks out everybody who only has the old code or link. People you keep must be invited again.</div><button class="btn btn-ghost btn-sm" data-a="tb-rotate" style="margin-top:.5rem;">🔑 Make a new table code</button></div>
+    <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">Connected devices</div>
+      <div style="font-size:.72rem;color:var(--paper3);line-height:1.5;margin-bottom:.3rem;">A device is a phone, tablet or computer that joined with an invitation. Removing a device does not remove the person from the family list.</div>${dev}</div>
+    <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">Access history</div>${log}</div>
+    <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">Secure my table</div><div style="font-size:.76rem;color:var(--paper2);line-height:1.5;">If a link or the code got out, you can act in two steps. Your people, games, results and trophies are never changed.</div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem;">${openInv?`<button class="btn btn-ghost btn-sm" data-a="acc-inv-rv-all">Cancel all open invitations</button>`:''}${canCode?`<button class="btn btn-ghost btn-sm" data-a="tb-rotate">🔑 New table code</button>`:''}</div>
+      ${canCode?'':'<div style="font-size:.7rem;color:var(--paper3);margin-top:.4rem;">Only the owner can make a new table code.</div>'}</div>
     ${A.loading?'<div style="font-size:.74rem;color:var(--paper3);text-align:center;">Loading…</div>':''}
 `;
+}
+async function accRevokeAll(){
+  const A=G.acc||{},open=(A.invites||[]).filter(i=>accInvStatus(i)==='open');if(!open.length)return;
+  if(!confirm('Cancel all '+open.length+' open invitation'+(open.length===1?'':'s')+'?\n\n• Nobody can use these links any more.\n• Devices that already joined stay connected.\n• Your people, games and trophies are not changed.'))return;
+  for(const i of open)await accCall('invite_revoke',{p_invite:i.code});
+  toast('All open invitations are cancelled');
 }
 async function tbShare(code){
   let inv='';
@@ -6749,18 +6813,19 @@ function rTablesBody(){
   return`<p class="set-sub">Each table has its own people, results and trophies. Tap a table to open it.</p>
     <div class="tb-list">${rows}</div>
     ${mine}
-    <details class="panel" style="text-align:left;" data-a="tc-noop"><summary>＋ New table</summary><div style="display:flex;gap:.5rem;"><input class="plaque-input" id="tb-new-name" maxlength="30" placeholder="For example: Brother and sister" style="text-transform:none;" data-a="tc-noop"><button class="btn btn-gold btn-sm" data-a="tb-new">Create</button></div><div style="font-size:.7rem;color:var(--paper3);margin-top:.35rem;">You become its admin. Then tap 🔗 Invite and send the link.</div></details>
+    <details class="panel" style="text-align:left;" data-a="tc-noop"><summary>＋ New table</summary><div style="display:flex;gap:.5rem;"><input class="plaque-input" id="tb-new-name" maxlength="30" placeholder="For example: Brother and sister" style="text-transform:none;" data-a="tc-noop"><button class="btn btn-gold btn-sm" data-a="tb-new">Create</button></div><div style="font-size:.7rem;color:var(--paper3);margin-top:.35rem;">You become its owner. Then tap 🔗 Invite and send the link.</div></details>
+    <details class="panel" style="text-align:left;" data-a="tc-noop"><summary>Join a table</summary><div style="display:flex;gap:.5rem;"><input class="plaque-input" id="tb-join-code" maxlength="16" placeholder="Table code" style="text-transform:uppercase;" autocapitalize="characters" autocomplete="off" data-a="tc-noop"><button class="btn btn-gold btn-sm" data-a="tb-join-go">Join</button></div><div style="font-size:.7rem;color:var(--paper3);margin-top:.35rem;">Type the code you were given. A protected table needs a personal invitation link instead.</div></details>
 `;
 }
 function famStatusHTML(){
   const g=getHistory().length,m=getFamily().length;let line;
-  if(FAM.loading)line='⏳ Loading your family… '+FAM.progress+' games found';
-  else if(FAM.v2===false)line='⚠️ The database does not have the family sync yet. Run supabase-family-sync.sql once (the file is next to the app); until then only a short list of games is shared.';
-  else if(/access denied/i.test(FAM.err||''))line='🔒 This table is open by invitation only. Your access on this device has ended or was never set up. Ask the admin for a personal invitation link.';
-  else if(FAM.err)line='⚠️ Could not reach your table just now ('+esc(FAM.err)+')';
-  else if(FAM.ready)line='✅ In sync · '+g+' game'+(g!==1?'s':'')+' · '+m+' member'+(m!==1?'s':'')+(FAM.at?' · '+new Date(FAM.at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'');
-  else line='Not synced yet.';
-  return`<div class="panel" style="text-align:left;"><div class="panel-lbl">Family sync</div><div id="fam-status" style="font-size:.8rem;color:var(--paper2);line-height:1.55;margin-bottom:.55rem;">${line}</div><div style="font-size:.7rem;color:var(--paper3);margin-bottom:.55rem;">${FAM.rows.length} games in the shared record on this device${FAM.since?' · up to '+esc(String(FAM.since).slice(0,16).replace('T',' ')):''}<br>fingerprint ${famFingerprint()} · ${famPendingCount()} waiting to be sent from here</div><div style="display:flex;gap:.5rem;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" data-a="fam-sync">↻ Sync now</button><button class="btn btn-ghost btn-sm" data-a="fam-reload">⟲ Reload everything from the table</button></div></div>`;
+  if(FAM.loading)line='⏳ Connecting to your table… '+FAM.progress+' results so far';
+  else if(FAM.v2===false)line='⚠️ This table needs a database update before it can sync fully. Ask the owner (the file supabase-family-sync.sql).';
+  else if(/access denied/i.test(FAM.err||''))line='🔒 This table is protected. This device is not connected to it, or its access has ended. Ask the owner or an administrator for a personal invitation.';
+  else if(FAM.err)line='⚠️ We could not synchronise your data. Your saved local data is still here.<details style="margin-top:.3rem;"><summary style="font-size:.7rem;">Details</summary><span style="font-size:.7rem;color:var(--paper3);">'+esc(FAM.err)+'</span></details>';
+  else if(FAM.ready)line='✅ Everything is up to date · '+g+' result'+(g!==1?'s':'')+' · '+m+' '+(m===1?'person':'people')+(FAM.at?' · '+new Date(FAM.at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'');
+  else line='Not synchronised yet.';
+  return`<div class="panel" style="text-align:left;"><div class="panel-lbl">Sync</div><div id="fam-status" style="font-size:.8rem;color:var(--paper2);line-height:1.55;margin-bottom:.55rem;">${line}</div><div style="display:flex;gap:.5rem;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" data-a="fam-sync">↻ Sync now</button></div><details style="margin-top:.5rem;"><summary style="font-size:.72rem;color:var(--paper3);">Technical details</summary><div style="font-size:.7rem;color:var(--paper3);line-height:1.6;margin-top:.3rem;">${FAM.rows.length} results in the shared record on this device${FAM.since?' · up to '+esc(String(FAM.since).slice(0,16).replace('T',' ')):''}<br>fingerprint ${famFingerprint()} · ${famPendingCount()} waiting to be sent from here<br><button class="btn btn-ghost btn-sm" data-a="fam-reload" style="margin-top:.4rem;">⟲ Reload everything from the table</button></div></details></div>`;
 }
 function syncHistory(e){
   if(isDevHost())return;
@@ -32033,7 +32098,7 @@ function rHome(){
     <span class="felt-picker-lbl">Felt</span>
     ${Object.keys(FELT_PREVIEW).map(t=>`<button class="felt-swatch${(G.feltTheme||'emerald')===t?' active':''}" style="background-image:url(assets/ui/sw_${t}.png)" data-a="felt-theme" data-theme="${t}" aria-label="${FELT_NAMES[t]} felt" title="${FELT_NAMES[t]}"></button>`).join('')}
         <button class="ambient-toggle" data-a="anim-toggle">✨ Animations: ${({full:'Full',light:'Light',off:'Off'})[animMode()]}</button>
-    <button class="ambient-toggle" data-a="set-open" data-tab="tables" style="margin-left:auto;">⚙ Settings</button>
+    <button class="ambient-toggle" data-a="set-open" data-tab="home" style="margin-left:auto;">⚙ Settings</button>
   </div>`;
   const resumable=getResumableMatch();
   const resumeGame=resumable?GAMES.find(g=>g.id===resumable.snap.selGame):null;
@@ -37851,43 +37916,35 @@ function rQuitOv(){return`<div class="ov" data-a="close-quit"><div class="ov-box
 // security fix), so offering a delete button that silently fails would be worse than not offering
 // one; the honest answer is in the copy instead.
 function rDataBody(){
-  const hist=getHistory();
-  // Read through getAchievements() rather than re-parsing the key here. This panel used to parse it
-  // as a bare array and print ach.length; when unlocks moved to {id: date} for the Trophy Room, an
-  // object has no .length and this quietly rendered "undefined achievements unlocked".
-  const achCount=Object.keys(getAchievements()).length;
-  const family=getFamily();
-  return`${admAccountHTML()}
-    <p class="set-sub">What Our Table keeps on this device, and where.</p>
-    <div class="panel" style="text-align:left;">
-      <div class="panel-lbl">On this device</div>
-      <div style="font-size:.82rem;color:var(--paper2);line-height:1.7;">
-        🃏 ${getLocalHistory().length} game result${getLocalHistory().length!==1?'s':''} saved here<br>
-        🏆 ${achCount} achievement${achCount!==1?'s':''} unlocked<br>
-        ♥ ${family.length} family member${family.length!==1?'s':''} tracked<br>
-        👤 Your name, avatar, table name, and felt choice
-      </div>
-    </div>
+  const achCount=Object.keys(getAchievements()).length,family=getFamily(),nres=getLocalHistory().length;
+  return`<div class="panel" style="text-align:left;"><div class="panel-lbl">My profile</div>
+      <div style="display:flex;align-items:center;gap:.6rem;"><span style="font-size:1.6rem;">${G.myAvatar?avChar(G.myAvatar):'👤'}</span><b style="flex:1;">${G.myName?esc(G.myName):'No name yet'}</b><button class="btn btn-ghost btn-sm" data-a="set-profile">Edit</button></div></div>
+    ${admAccountHTML()}
     <div class="panel" style="text-align:left;" data-a="tc-noop">
-      <div class="panel-lbl">Your table code</div>
-      <div style="font-size:.76rem;color:var(--paper3);line-height:1.6;margin-bottom:.5rem;">Results from online play are kept under this code. <b>Everyone at your table types the same code</b> on their own device; anyone with a different code never sees your games, and you never see theirs.</div>
+      <div class="panel-lbl">Table code</div>
+      <div style="font-size:.76rem;color:var(--paper3);line-height:1.6;margin-bottom:.5rem;">Everyone at your table uses the same code on their own device. Anyone with a different code never sees your games, and you never see theirs.</div>
       <div class="tc-code" data-a="tc-noop" aria-label="Your table code">${tcShow(tableCode())}</div>
       <div style="display:flex;gap:.5rem;margin-top:.55rem;">
-        <input id="tc-input" data-a="tc-noop" class="plaque-input" style="text-transform:uppercase;" maxlength="16" placeholder="Type your family's code" autocomplete="off" autocapitalize="characters" aria-label="Type a table code">
+        <input id="tc-input" data-a="tc-noop" class="plaque-input" style="text-transform:uppercase;" maxlength="16" placeholder="Type another table code" autocomplete="off" autocapitalize="characters" aria-label="Type a table code">
         <button class="btn btn-gold btn-sm" data-a="tc-save">Use it</button>
       </div>
     </div>
     ${famStatusHTML()}
-    <div style="font-size:.68rem;color:var(--paper3);text-align:center;margin:-.2rem 0 .2rem;letter-spacing:.06em;">Our Table · version ${APP_BUILD}${G.updateReady?' · a newer version is available':''}</div>
-    <details class="panel" style="text-align:left;"><summary>How syncing and privacy work</summary>
+    <div class="panel" style="text-align:left;">
+      <div class="panel-lbl">My data on this device</div>
+      <div style="font-size:.82rem;color:var(--paper2);line-height:1.7;">🃏 ${nres} game result${nres!==1?'s':''}<br>🏆 ${achCount} achievement${achCount!==1?'s':''}<br>♥ ${family.length} family member${family.length!==1?'s':''}</div>
+      <button class="btn btn-gold btn-sm" data-a="data-export" style="margin-top:.6rem;">💾 Download my data</button>
+    </div>
+    <details class="panel" style="text-align:left;"><summary>Privacy and how syncing works</summary>
       <div style="font-size:.76rem;color:var(--paper3);line-height:1.6;">
-        Every finished game (winner, players, scores and the moment), your family members with their avatars and your table name sync under your table code, so every device with the same code shows the same family, the same results and the same trophies. House Legends and Rivalries work across your table's devices. Playing with guests? Switch on 🧳 Guest game before you start and that game stays out. No accounts, emails, or passwords. Synced results are a shared, append-only ledger and can't be individually deleted from within the app, but nothing beyond a name and a result is ever stored there.
+        Every finished game (winner, players, scores and the moment), your family members with their avatars and your table name are saved online under your table code, so every device with the same code shows the same family, the same results and the same trophies. Playing with guests? Switch on 🧳 Guest game before you start and that game stays out. There are no accounts, emails or passwords. Synced results are a shared record that can't be deleted one by one from inside the app, but nothing beyond a name and a result is ever stored there.
       </div>
     </details>
-    <div style="display:flex;flex-direction:column;gap:.6rem;">
-      <button class="btn btn-gold btn-full" data-a="data-export">💾 Download my data</button>
-      <button class="btn btn-ghost btn-full" data-a="data-clear-ask">🗑 Clear my local data</button>
-    </div>
+    <div class="panel" style="text-align:left;"><div class="panel-lbl">Danger zone</div>
+      <div style="font-size:.74rem;color:var(--paper3);line-height:1.5;">This erases your profile, your saved results and, if you are an owner or administrator, your administrator key from this device. It does not delete the table or its shared results.</div>
+      <button class="btn btn-ghost btn-sm" data-a="data-clear-ask" style="margin-top:.5rem;">🗑 Clear my local data</button></div>
+    <div style="font-size:.68rem;color:var(--paper3);text-align:center;letter-spacing:.06em;">Our Table · version ${APP_BUILD}${G.updateReady?' · a newer version is available':''}</div>
+    ${masterKey()?'':'<div style="text-align:center;"><button type="button" class="btn btn-ghost btn-sm" data-a="master-setup" style="opacity:.6;font-size:.68rem;">MasterAdmin sign-in</button></div>'}
 `;
 }
 function rDataClearOv(){return`<div class="ov" data-a="close-data-clear"><div class="ov-box" role="dialog" aria-modal="true" aria-label="Clear your local data?"><div class="ov-title">Clear your local data?</div><p class="ov-sub">Your history, achievements, family list, and profile on this device will be erased. If you are the owner or an administrator of a table, this also erases your administrator key on this device: nobody can get it back except by resetting the table's administrator in the database. This can't be undone — download a copy first if you want to keep your results.</p><div class="quit-btns"><button class="btn btn-danger" data-a="data-clear-confirm">Yes, clear it</button><button class="btn btn-ghost" data-a="close-data-clear">Cancel</button></div></div></div>`;}
@@ -39004,6 +39061,10 @@ document.addEventListener('click',e=>{
   else if(a==='mt-row'){const c=t.getAttribute('data-code');G.mtSel=G.mtSel===c?'':c;renderSet();}
   else if(a==='mt-open'){masterOpen(t.getAttribute('data-code'),t.getAttribute('data-name')||'');}
   else if(a==='mt-more'){G.mtMax=(G.mtMax||MT_PAGE)+MT_PAGE;renderSet();}
+  else if(a==='tb-join-go'){const c=tcClean((document.getElementById('tb-join-code')||{}).value||'');if(c.length<6){toast('Type the table code');return;}tbJoin(c,'');}
+  else if(a==='set-profile'){G.peopleOpen=G.accessOpen=G.tablesOpen=G.dataOpen=G.masterOpen=G.setHome=false;G.scr='home';G.profileEditing=true;render();setTimeout(()=>document.getElementById('profile-name-input')?.focus(),30);}
+  else if(a==='acc-inv-rv-all'){accRevokeAll();}
+  else if(a==='acc-prefill'){const el=document.getElementById('acc-label');if(el){el.value=t.getAttribute('data-name')||'';el.focus();try{el.scrollIntoView({block:'center'});}catch(e){}}}
   else if(a==='pp-row'){const k=String(t.getAttribute('data-name')||'').toLowerCase();G.ppSel=G.ppSel===k?'':k;renderSet();}
   else if(a==='pp-filter'){G.ppF=t.getAttribute('data-f')||'all';G.ppMax=PP_PAGE;renderSet();}
   else if(a==='pp-more'){G.ppMax=(G.ppMax||PP_PAGE)+PP_PAGE;renderSet();}
@@ -39011,9 +39072,9 @@ document.addEventListener('click',e=>{
   else if(a==='adm-remove'){admRemove(t.getAttribute('data-name'));}
   else if(a==='adm-ok'){admAccept();}
   else if(a==='adm-no'){G.admInv=null;render();}
-  else if(a==='set-open'){setGo(t.getAttribute('data-tab')||'tables');}
+  else if(a==='set-open'){setGo(t.getAttribute('data-tab')||'home');}
   else if(a==='set-tab'){setGo(t.getAttribute('data-tab'));}
-  else if(a==='set-close'){G.peopleOpen=G.accessOpen=G.tablesOpen=G.dataOpen=G.masterOpen=false;if(G.digestOpen||G.almanacOpen||G.lspick||G.lmau||G.isOnline)render();else document.getElementById('overlay-root').innerHTML='';}
+  else if(a==='set-close'){G.peopleOpen=G.accessOpen=G.tablesOpen=G.dataOpen=G.masterOpen=G.setHome=false;if(G.digestOpen||G.almanacOpen||G.lspick||G.lmau||G.isOnline)render();else document.getElementById('overlay-root').innerHTML='';}
   else if(a==='pp-open'){G.peopleOpen=true;G.tablesOpen=false;G.pp={loading:true,m:{}};render();ppLoad();}
   else if(a==='pp-close'){G.peopleOpen=false;render();}
   else if(a==='pp-add'){ppAddNew();}
@@ -39035,7 +39096,7 @@ document.addEventListener('click',e=>{
   else if(a==='tb-new'){tbCreate((document.getElementById('tb-new-name')||{}).value);}
   else if(a==='tb-claim'){tbClaim();}
   else if(a==='tb-invite'){tbShare(t.getAttribute('data-code'));}
-  else if(a==='tb-rotate'){if(confirm('Make a new code? Everybody who only has the old link is out until you send them the new link.'))tbRotate();}
+  else if(a==='tb-rotate'){if(confirm('Make a new table code?\n\n• The old code and old links stop working.\n• Every other device, including your family\'s, must get the new code or a new invitation: until then it cannot reach this table.\n• Your people, games, results and trophies stay as they are.\n\nContinue?'))tbRotate();}
   else if(a==='tb-rename-ok'){const v=((document.getElementById('tb-rename')||{}).value||'').trim().slice(0,30);if(v&&tbIsAdmin()){G.tableName=v;try{localStorage.setItem('ct_tablename',v);localStorage.setItem('ct_tablename_at',new Date().toISOString());}catch(e){}tbMirrorName();famPushSettings();render();toast('✓ Renamed');}}
   else if(a==='tb-rm'){const n=t.getAttribute('data-name');if(tbIsAdmin()&&n&&confirm('Remove '+n+' from this table?')){saveFamily(getFamily().filter(m=>m.name!==n));render();}}
   else if(a==='tb-join-av'){G.myAvatar=AVATARS[(AVATARS.indexOf(G.myAvatar)+1)%AVATARS.length];render();setTimeout(()=>{const i=document.getElementById('tb-join-name');if(i&&G.myName)i.value=G.myName;},0);}
