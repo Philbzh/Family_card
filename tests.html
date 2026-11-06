@@ -11495,6 +11495,20 @@ async function runPresentation(A,W,frame){
        check('the administrator link is shown in a panel with the address, Share and Copy, and says it is for this table only',/Administrator link for Shadow/.test(ah)&&/id="pp-link-url"/.test(ah)&&/pp-link-share/.test(ah)&&/this table only/.test(ah));G.ppLink=oldL;}
       {check('links for other people point at the published app: an http(s) address, never a file on this computer',/^https?:\/\//.test(F('appBaseUrl')())&&/^https:\/\/[a-z0-9.-]+\//.test(F('APP_PUBLIC_URL')));
        check('the share sheet is only used for a real web address (a file:// or "null/..." link crashed the browser page)',F('shareOk')('null/C:/Users/x.html')===false&&F('shareOk')('file:///C:/x.html')===false&&F('shareOk')('')===false);}
+      {const W2=W.localStorage,had=W2.getItem('ct_master_key');
+       W2.removeItem('ct_master_key');
+       check('without a MasterAdmin key there is no "All tables" tab',!/data-tab="master"/.test(F('rSettingsOv')())&&F('masterKey')()===''&&F('admMine')()!=='master');
+       W2.setItem('ct_master_key','m'.repeat(24));
+       const mh=F('rSettingsOv')();
+       check('with the MasterAdmin key the "All tables" tab appears and every table of this browser gets that key',/data-tab="master"/.test(mh)&&F('tbIsAdmin')()===true&&F('admMine')()==='master'&&F('tbKey')()!==null&&F('tbList')().every(x=>x.key));
+       const old=[G.mtQ];G.mtQ='';
+       const rows=[{code:'AAA111',name:'La table des Müller',owner_name:'Papa',people:3},{code:'BBB222',name:'Cousins',owner_name:'Bea',people:2}];
+       check('the All tables list can be searched by table, code or owner',F('mtView')(rows).length===2&&(G.mtQ='bea',F('mtView')(rows).length)===1&&(G.mtQ='aaa1',F('mtView')(rows)[0].name)==='La table des Müller');
+       G.mtQ=old[0];
+       const R0=G.roles;G.roles={code:F('tableCode')(),list:[{name:'Papa',role:'owner',me:false}],mine:'master',ownerName:'Papa'};
+       check('the MasterAdmin gets the "Make administrator" buttons on every table',/adm-make/.test(F('admBtn')('Shadow')));G.roles=R0;
+       if(had===null)W2.removeItem('ct_master_key');else W2.setItem('ct_master_key',had);
+       F('tbEnsure')();}
       {const oldL=G.ppLink;G.ppLink=null;
        check('no invitation panel is shown until somebody is added to an invitations-only table',F('ppLinkHTML')()==='');
        G.ppLink={name:'Shadow',table:'La table',url:'https://x/?join=ABCDEF&i=INV'};const lh=F('ppLinkHTML')();
@@ -12140,7 +12154,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'DW_HARD_EN','DW_HARD_DE','DW_PAPER','dwPool','dwCustomList','dwPickChoices','dwSpeedBonus','dwIsClose','dwLevenshtein','dwPick','dwLevel','dwCustomText','dwMatchOver','dwProgressText','DW_MATCHES','DW_SCORE_TARGET','dwMatchMode',
   'ldRollDice','ldTotalDice','ldCount','ldValidBid','ldMinN','ldCanRaise','ldResolve','ldActiveCount','ldNextActive','ldOpener','ldFaceProb','ldAtLeastProb','ldBotMove','LD_START_DICE','ldBuildReveal','ldCountLine','ldFaceName','ldFaceGlyph','oLdNewRound','SM_LEN','SM_SUMS','SM_MAX_ACTIVE','SM_WIN_TOPS','SM_SUMMIT_TARGET','SM_SUMMIT_TRIES','smSpaceAt','smRoll4','smSplits','smNewPlayer','smNewGame','smFreshTurn','smCur','smActive','smOptions','smStep','smRollTurn','smPick','smNextTurn','smBust','smCamp','smSummitOk','smSummitRoll','smBustProb','smStake','smBotPick','smBotDecide','VT_ADV','VT_ADV_IDS','vtStory','vtFill','vtChapterSkin','vtSceneLines','vtSpeaker','oVtNewGame','vtStartChapter','vtApplyAdvance','vtSceneSig','VT_INTRO_MS','vtApplyBoard','vtApplySubmit','vtApplyHint','vtApplyClear','vtApplyTick','vtApplyRestart','VT_SURGE_MS','VT_SIGNAL_MS','vtPlanEvent','vtNote','vtRng','vtInt','vtPick','vtShuffle','VT_DIFFS','vtAll','vtHolds','vtCountClues','vtPool','vtClueText','VT_SKIN_PLAIN','vtGenCsp','vtSize','vtGenOrder','vtGenDial','vtGenSeq','vtGenCode','VT_GEN','vtCount','vtCheck','vtMakePuzzle','vtHints','vtClock','vtResume','vtPause','vtRemaining','vtPenalty','VT_LEVELS','vtScore','vtFmtTime','oHbNewGame','hbFinishState','HB_STRIKES','HB_BOOM_MS','HB_LOCK_MS','HB_FREEZE_MS','HB_CARDS','HB_CARD_INFO','hbNewPlayer','hbNewGame','hbAlive','hbBomb','hbFuseMs','hbMakeBomb','hbStartRound','hbCanPass','hbPass','hbUseCard','hbExplode','hbTick','hbShownSeconds','hbRanking','hbBotPick','oSmNewGame','smApplyRoll','smApplyPick','smApplyCamp','smApplySummit','smApplyAdvance','smAutoTurn','SM_BUST_MS','SM_WIN_MS','SM_ZONES','SM_COLORS','smZone','smRank','ldApplyBid','ldApplyChallenge','ldAdvanceState','ldAutoMove','LD_REVEAL_MS',
   'computeSidePots','settleSidePots','roulPayoutMultiplier','roulBetWins','yScoreForCategory','yFreshScorecard',
-  'getHistory','getFamily','getAchievements','getResumableMatch','tonightStats','familyStats','rDataBody','rSettingsOv','setTabNow','admBadge','admBtn','admAccountHTML','rAdmOv','ppLinkHTML','tbLockNew','heroFile','AC_VENUES','AC_UNLOCK','AC_ST','ppView','rPeopleBody','appBaseUrl','APP_PUBLIC_URL','shareOk',
+  'getHistory','getFamily','getAchievements','getResumableMatch','tonightStats','familyStats','rDataBody','rSettingsOv','setTabNow','admBadge','admBtn','admAccountHTML','rAdmOv','ppLinkHTML','tbLockNew','heroFile','AC_VENUES','AC_UNLOCK','AC_ST','ppView','rPeopleBody','appBaseUrl','APP_PUBLIC_URL','shareOk','masterKey','mtView','admMine','tbIsAdmin','tbKey','tbList',
   'SLOT_SYMBOLS','SLOT_PAYLINES','SLOT_SCATTER_PAY','SLOT_JACKPOT_MIN','SLOT_FREE_SPINS_AWARD','SLOT_FREE_SPINS_RETRIGGER',
   'SLOT_FREE_SPIN_MULTIPLIER','SLOT_JACKPOT_SEED','SLOT_JACKPOT_FEED_PCT','slotPick','slotRandomGrid','slotResolveGrid',
   'slotFreeSpinsAwarded','slotPayout','slotTier','getSlotJackpot','setSlotJackpot','lDealSlots','slotStartSpin',

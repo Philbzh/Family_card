@@ -6145,7 +6145,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=302;
+const APP_BUILD=303;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -6177,12 +6177,15 @@ window.addEventListener('load',()=>{try{famBoot();}catch(e){}});
 /* ═══════ TABLES: several groups on one device, each with its own members, games, trophies and (optionally) an admin ═══════ */
 function tbList(){let l=[];try{l=JSON.parse(localStorage.getItem('ct_tables')||'[]');}catch(e){}if(!Array.isArray(l))l=[];return l.filter(t=>t&&typeof t.code==='string'&&t.code.length>=6);}
 function tbSave(l){try{localStorage.setItem('ct_tables',JSON.stringify(l));}catch(e){}}
-function tbEnsure(){const c=tableCode(),l=tbList();if(!l.some(t=>t.code===c)){l.push({code:c,name:localStorage.getItem('ct_tablename')||''});tbSave(l);}return l;}
+function masterKey(){try{return localStorage.getItem('ct_master_key')||'';}catch(e){return'';}}
+function tbEnsure(){const c=tableCode(),l=tbList();let ch=false;if(!l.some(t=>t.code===c)){l.push({code:c,name:localStorage.getItem('ct_tablename')||''});ch=true;}
+  const mk=masterKey();if(mk)l.forEach(t=>{if(!t.key){t.key=mk;ch=true;}});   // the MasterAdmin key opens every table of this browser
+  if(ch)tbSave(l);return l;}
 function tbEntry(code){const c=code||tableCode();return tbEnsure().find(t=>t.code===c);}
 function tbPrimaryCode(){const l=tbList();return l.length?l[0].code:tableCode();}
 function tbName(t){return(t&&t.name)||'Our Table';}
-function tbIsAdmin(code){const t=tbEntry(code);return!!(t&&t.key);}
-function tbKey(){const t=tbEntry();return(t&&t.key)||null;}
+function tbIsAdmin(code){const t=tbEntry(code);return!!((t&&t.key)||masterKey());}
+function tbKey(){const t=tbEntry();return(t&&t.key)||masterKey()||null;}
 function tbHasAdmin(){return!!(FAM.info&&FAM.info.has_admin);}
 function tbCanManage(){return!tbHasAdmin()||tbIsAdmin();}
 function tbMirrorName(){const l=tbEnsure(),t=l.find(x=>x.code===tableCode());if(t){t.name=localStorage.getItem('ct_tablename')||t.name||'';t.year=localStorage.getItem('ct_tablename_year')||t.year||'';t.at=localStorage.getItem('ct_tablename_at')||t.at||'';tbSave(l);}}
@@ -6195,7 +6198,7 @@ function tbSwitch(code,opt){
   tbSwapOut(tableCode());
   const l=tbEnsure();if(!l.some(t=>t.code===code)){l.push({code,name:(opt&&opt.name)||''});tbSave(l);}
   try{localStorage.setItem('ct_table_code',code);}catch(e){}
-  tbSwapIn(code);famReset();famLoadCache();_familyHistoryCache=null;G.tablesOpen=false;G.accessOpen=false;G.momAll=false;G.qsN=0;famBump();
+  tbSwapIn(code);famReset();famLoadCache();_familyHistoryCache=null;G.tablesOpen=false;G.accessOpen=false;G.masterOpen=false;G.momAll=false;G.qsN=0;famBump();
   render();famSyncAll({announce:true});return true;
 }
 // links that go to other people must point at the published app, never at a file on this computer (a file:// address is useless to them, and the share sheet of the browser crashes on it)
@@ -6407,10 +6410,11 @@ function ppAddNew(){
   ppSet(code,name,true).then(()=>{if(el)el.value='';});
 }
 /* ── Settings: ONE panel for tables, people, invitations and your data (each tab is the old panel's body) ── */
-function setTabNow(){return G.peopleOpen?'people':G.accessOpen?'access':G.tablesOpen?'tables':G.dataOpen?'data':null;}
+function setTabNow(){return G.peopleOpen?'people':G.accessOpen?'access':G.tablesOpen?'tables':G.dataOpen?'data':G.masterOpen?'master':null;}
 function setGo(tab){
-  G.peopleOpen=G.accessOpen=G.tablesOpen=G.dataOpen=false;
-  if(tab==='people'){G.peopleOpen=true;G.pp={loading:true,m:{}};renderSet();ppLoad();rolesLoad();}
+  G.peopleOpen=G.accessOpen=G.tablesOpen=G.dataOpen=G.masterOpen=false;
+  if(tab==='master'){G.masterOpen=true;G.mt={loading:true,rows:[]};G.mtSel='';G.mtMax=MT_PAGE;renderSet();masterLoad();}
+  else if(tab==='people'){G.peopleOpen=true;G.pp={loading:true,m:{}};renderSet();ppLoad();rolesLoad();}
   else if(tab==='access'){G.accessOpen=true;G.acc={loading:true};renderSet();accLoad();}
   else if(tab==='data'){G.dataOpen=true;renderSet();rolesLoad();}
   else{G.tablesOpen=true;renderSet();tbOverviewLoad();}
@@ -6431,8 +6435,8 @@ function renderSet(){
 }
 function rSettingsOv(){
   const tab=setTabNow(),admin=!!(tbEntry()&&tbEntry().key);
-  const tabs=[['tables','Tables'],['people','People',1],['access','Invitations',1],['data','Account & sync']].filter(t=>!t[2]||admin);
-  const body=tab==='people'?rPeopleBody():tab==='access'?rAccessBody():tab==='data'?rDataBody():rTablesBody();
+  const tabs=[['tables','Tables'],['people','People',1],['access','Invitations',1],['master','All tables',2],['data','Account & sync']].filter(t=>!t[2]||(t[2]===2?!!masterKey():admin));
+  const body=tab==='master'?rMasterBody():tab==='people'?rPeopleBody():tab==='access'?rAccessBody():tab==='data'?rDataBody():rTablesBody();
   return`<div class="ov" data-a="set-close"><div class="ov-box set-box" role="dialog" aria-modal="true" aria-label="Settings" style="max-width:29rem;max-height:92vh;overflow-y:auto;text-align:left;" data-a="tc-noop">
     <div class="ov-title">⚙ Settings</div>
     <div class="set-tabs" role="tablist" style="display:flex;gap:.35rem;flex-wrap:wrap;margin:.2rem 0 .7rem;">${tabs.map(t=>`<button type="button" role="tab" aria-selected="${t[0]===tab}" class="btn btn-sm ${t[0]===tab?'btn-gold':'btn-ghost'}" data-a="set-tab" data-tab="${t[0]}">${t[1]}</button>`).join('')}</div>
@@ -6443,13 +6447,14 @@ function rSettingsOv(){
 /* ── Owner and administrators of a table (supabase-admins.sql). The owner holds the table's first admin key and can appoint
       administrators with a one-time link; an administrator is an administrator of THAT table only. ── */
 function admRole(name){const R=G.roles;if(!R||R.code!==tableCode()||!R.list)return'';const n=String(name||'').toLowerCase();const x=R.list.find(r=>r.name&&r.name.toLowerCase()===n);return x?x.role:'';}
-function admMine(){const R=G.roles;if(R&&R.code===tableCode()&&R.mine)return R.mine;return tbIsAdmin()?'admin':(tbHasAdmin()?'member':'');}
+function admMine(){if(masterKey())return'master';const R=G.roles;if(R&&R.code===tableCode()&&R.mine)return R.mine;return tbIsAdmin()?'admin':(tbHasAdmin()?'member':'');}
 function admOwnerName(){const R=G.roles;return(R&&R.code===tableCode()&&R.ownerName)||'';}
 async function rolesLoad(){
   const sb=famSb(),key=tbKey(),code=tableCode();
   if(!sb){G.roles={code,list:[],mine:'',ownerName:'',offline:true};if(setTabNow())renderSet();return;}
   const R={code,list:[],mine:'',ownerName:'',missing:false};
   try{
+    try{const h=await sb.rpc('site_has_master');G.siteHasMaster=h&&!h.error?!!h.data:undefined;}catch(e){}
     const o=await sb.rpc('table_owner',{p_code:code});
     if(o&&o.error&&histFnMissing(o.error))R.missing=true;
     else R.ownerName=o&&!o.error&&typeof o.data==='string'?o.data:'';
@@ -6458,9 +6463,9 @@ async function rolesLoad(){
       if(r&&r.error){if(histFnMissing(r.error))R.missing=true;}
       else{
         const rows=(r&&r.data)||[];R.list=rows.map(x=>({name:x.name||'',role:x.role,me:!!x.me}));
-        R.mine=R.list.some(x=>x.role==='owner'&&x.me)?'owner':(R.list.some(x=>x.role==='admin'&&x.me)?'admin':'member');
+        R.mine=masterKey()?'master':R.list.some(x=>x.role==='owner'&&x.me)?'owner':(R.list.some(x=>x.role==='admin'&&x.me)?'admin':'member');
         // the owner's name is stored the first time the owner opens this screen
-        if(R.mine==='owner'&&!R.ownerName&&G.myName){
+        if(R.mine==='owner'&&!masterKey()&&!R.ownerName&&G.myName){
           try{const w=await sb.rpc('set_owner_name',{p_code:code,p_key:key,p_name:G.myName});if(!w.error){R.ownerName=G.myName;const ow=R.list.find(x=>x.role==='owner');if(ow)ow.name=G.myName;}}catch(e){}
         }
         if(R.mine==='owner'&&R.ownerName){const ow=R.list.find(x=>x.role==='owner');if(ow&&!ow.name)ow.name=R.ownerName;}
@@ -6471,20 +6476,21 @@ async function rolesLoad(){
 }
 function admBadge(name){const r=admRole(name);return r==='owner'?'<span class="adm-b adm-o">👑 Owner</span>':r==='admin'?'<span class="adm-b">🛡 Administrator</span>':'';}
 function admBtn(name){
-  const R=G.roles;if(!R||R.code!==tableCode()||R.mine!=='owner')return'';
+  const R=G.roles;if(!R||R.code!==tableCode()||(R.mine!=='owner'&&R.mine!=='master'))return'';
   const r=admRole(name);if(r==='owner')return'';
   return r==='admin'?`<button type="button" class="btn btn-ghost btn-sm" data-a="adm-remove" data-name="${esc(name)}">Remove administrator</button>`
     :`<button type="button" class="btn btn-ghost btn-sm" data-a="adm-make" data-name="${esc(name)}">Make administrator</button>`;
 }
 function admAccountHTML(){
   const R=G.roles,t=tbEntry(),mine=admMine(),on=R&&R.code===tableCode(),owner=admOwnerName();
-  const role=mine==='owner'?'👑 Owner and administrator':mine==='admin'?'🛡 Administrator':(tbHasAdmin()?'Member':'Member (this table has no administrator yet)');
+  const role=mine==='master'?'⭐ MasterAdmin · owner of every table':mine==='owner'?'👑 Owner and administrator':mine==='admin'?'🛡 Administrator':(tbHasAdmin()?'Member':'Member (this table has no administrator yet)');
   const who=G.myName?esc(G.myName):'You';
   const adms=on&&R.list?R.list.filter(x=>x.role==='admin').map(x=>esc(x.name)):[];
   return`<div class="panel" style="text-align:left;"><div class="panel-lbl">Account · ${esc(tbName(t))}</div>
     <div style="display:flex;align-items:center;gap:.6rem;"><span style="font-size:1.5rem;">${G.myAvatar?avChar(G.myAvatar):'👤'}</span><div><b>${who}</b><div style="font-size:.78rem;color:var(--paper2);">${role}</div></div></div>
     <div style="font-size:.78rem;color:var(--paper3);line-height:1.6;margin-top:.55rem;">${owner?'Owner of this table: <b style="color:var(--paper2);">'+esc(owner)+'</b>':(tbHasAdmin()?'Owner of this table: not named yet':'This table has no owner yet.')}${adms.length?'<br>Administrators: <b style="color:var(--paper2);">'+adms.join(', ')+'</b>':''}</div>
     ${R&&R.missing?'<div style="font-size:.72rem;color:#e8a090;margin-top:.4rem;">Run supabase-admins.sql in Supabase to show owners and appoint administrators.</div>':''}
+    ${masterKey()?'<div style="font-size:.74rem;color:var(--paper3);margin-top:.5rem;">You can open and manage every table in the tab <b>All tables</b>.</div>':(G.siteHasMaster===false?'<button type="button" class="btn btn-ghost btn-sm" data-a="master-setup" style="margin-top:.6rem;">⭐ Set up MasterAdmin</button><div style="font-size:.7rem;color:var(--paper3);margin-top:.3rem;">Needs the setup code from supabase-masteradmin.sql. The first person who succeeds becomes MasterAdmin.</div>':'')}
   </div>`;
 }
 async function admMake(name){
@@ -6524,6 +6530,55 @@ function rAdmOv(){
     <p class="ov-sub" style="margin-top:-.3rem;">The owner has invited you to help run this table: remove people, make invitations and see the access log. This applies to this table only. The owner can take it away again.</p>
     <div style="display:flex;flex-direction:column;gap:.6rem;"><button class="btn btn-gold btn-full" data-a="adm-ok">Accept</button><button class="btn btn-ghost btn-full" data-a="adm-no">Not now</button></div>
   </div></div>`;
+}
+/* ── The MasterAdmin (supabase-masteradmin.sql): one key above every table. It is the owner of every table and sees all of them. ── */
+const MT_PAGE=25;
+function mtView(rows){
+  const q=String(G.mtQ||'').trim().toLowerCase();
+  return(rows||[]).filter(x=>!q||String(x.name||'').toLowerCase().includes(q)||String(x.code||'').toLowerCase().includes(q)||String(x.owner_name||'').toLowerCase().includes(q));
+}
+async function masterLoad(){
+  const sb=famSb(),key=masterKey();
+  if(!sb||!key){G.mt={rows:[],err:'Not connected to the database right now.'};if(G.masterOpen)renderSet();return;}
+  const M={rows:[],loading:false,err:'',missing:false};
+  try{
+    const r=await sb.rpc('master_tables',{p_key:key});
+    if(r.error){if(histFnMissing(r.error))M.missing=true;else M.err='This browser is not recognised as MasterAdmin any more.';}
+    else M.rows=r.data||[];
+  }catch(e){M.err='Could not load the tables.';}
+  G.mt=M;if(G.masterOpen)renderSet();
+}
+function mtAgo(x){if(!x)return'never used';const d=Math.max(0,Math.round((Date.now()-new Date(x).getTime())/864e5));return d===0?'used today':d===1?'used yesterday':'used '+d+' days ago';}
+function rMasterBody(){
+  const M=G.mt||{loading:true,rows:[]},all=M.rows||[],list=mtView(all),max=G.mtMax||MT_PAGE,shown=list.slice(0,max),sel=G.mtSel||'',cur=tableCode();
+  const people=all.reduce((n,x)=>n+(x.people||0),0);
+  const rows=shown.map(x=>{const open=x.code===sel,nm=x.name||'(no name)';
+    return`<div class="pp-row${open?' open':''}"><button type="button" class="pp-head" data-a="mt-row" data-code="${esc(x.code)}" aria-expanded="${open}"><span class="pp-n">${esc(nm)}${x.code===cur?' · open now':''}</span><small>${x.people} people</small><i>${open?'▴':'▾'}</i></button>${open?`<div class="pp-det"><div style="font-size:.78rem;color:var(--paper2);line-height:1.7;">Code <b>${esc(x.code)}</b><br>Owner: ${x.has_owner?esc(x.owner_name||'not named yet'):'none yet'}${x.admins?' · '+x.admins+' administrator'+(x.admins===1?'':'s'):''}<br>${x.games} games · ${mtAgo(x.last_played)}<br>${x.invite_only?'🔒 Invitations only':'🔓 Open with the code'}</div><div style="margin-top:.45rem;">${x.code===cur?'':`<button type="button" class="btn btn-gold btn-sm" data-a="mt-open" data-code="${esc(x.code)}" data-name="${esc(x.name||'')}">Open this table as MasterAdmin</button>`}</div></div>`:''}</div>`;}).join('');
+  return`<p class="set-sub">⭐ You are the MasterAdmin: the owner of every table. Open any table to manage its people, administrators and invitations.</p>
+    ${M.loading?'<div style="padding:1rem 0;">Loading…</div>':''}
+    ${M.missing?'<div style="color:#e8a090;font-size:.8rem;">Run supabase-masteradmin.sql in Supabase first.</div>':''}
+    ${M.err?`<div style="color:#e8a090;font-size:.8rem;">${esc(M.err)}</div>`:''}
+    ${all.length?`<div class="pp-sum">${all.length} ${all.length===1?'table':'tables'} · ${people} people in total</div>`:''}
+    <input class="plaque-input" id="mt-q" type="search" maxlength="40" placeholder="Search by table, code or owner" autocomplete="off" value="${esc(G.mtQ||'')}" style="text-transform:none;">
+    ${all.length&&!list.length?'<div style="padding:.8rem 0;color:var(--paper3);">No table matches.</div>':''}
+    <div class="pp-list">${rows}</div>
+    ${list.length>shown.length?`<button type="button" class="btn btn-ghost btn-sm" data-a="mt-more" style="align-self:center;">Show ${Math.min(MT_PAGE,list.length-shown.length)} more (${list.length-shown.length} left)</button>`:''}
+`;
+}
+async function masterSetup(){
+  const sb=famSb();if(!sb){toast('Not connected right now');return;}
+  const code=(prompt('Setup code (the one you put into supabase-masteradmin.sql):')||'').trim();if(!code)return;
+  const key=famCid().replace(/-/g,'').slice(0,24);
+  const r=await sb.rpc('master_claim',{p_setup:code,p_key:key,p_name:G.myName||''});
+  if(r.error){toast(histFnMissing(r.error)?'Run supabase-masteradmin.sql in Supabase first':'Could not set up the MasterAdmin');return;}
+  if(!r.data){toast('Wrong setup code, or a MasterAdmin exists already');return;}
+  try{localStorage.setItem('ct_master_key',key);}catch(e){}
+  tbEnsure();G.siteHasMaster=true;toast('⭐ You are now the MasterAdmin');rolesLoad();
+}
+function masterOpen(code,name){
+  const l=tbEnsure();let e=l.find(x=>x.code===code);if(!e){e={code,name:name||''};l.push(e);}if(!e.key)e.key=masterKey();tbSave(l);
+  G.masterOpen=false;
+  if(code===tableCode()){render();}else tbSwitch(code,{name});
 }
 // People: a compact list that still works with 50 people (search, filters, one line per person, tap a person to open just that one)
 const PP_PAGE=25;
@@ -37823,7 +37878,7 @@ function rDataBody(){
     </div>
 `;
 }
-function rDataClearOv(){return`<div class="ov" data-a="close-data-clear"><div class="ov-box" role="dialog" aria-modal="true" aria-label="Clear your local data?"><div class="ov-title">Clear your local data?</div><p class="ov-sub">Your history, achievements, family list, and profile on this device will be erased. This can't be undone — download a copy first if you want to keep it.</p><div class="quit-btns"><button class="btn btn-danger" data-a="data-clear-confirm">Yes, clear it</button><button class="btn btn-ghost" data-a="close-data-clear">Cancel</button></div></div></div>`;}
+function rDataClearOv(){return`<div class="ov" data-a="close-data-clear"><div class="ov-box" role="dialog" aria-modal="true" aria-label="Clear your local data?"><div class="ov-title">Clear your local data?</div><p class="ov-sub">Your history, achievements, family list, and profile on this device will be erased. If you are the owner or an administrator of a table, this also erases your administrator key on this device: nobody can get it back except by resetting the table's administrator in the database. This can't be undone — download a copy first if you want to keep your results.</p><div class="quit-btns"><button class="btn btn-danger" data-a="data-clear-confirm">Yes, clear it</button><button class="btn btn-ghost" data-a="close-data-clear">Cancel</button></div></div></div>`;}
 function exportMyData(){
   const data={
     exportedAt:new Date().toISOString(),
@@ -38931,6 +38986,10 @@ document.addEventListener('click',e=>{
   else if(a==='pp-link-share'){ppLinkAct('share');}
   else if(a==='pp-link-copy'){ppLinkAct('copy');}
   else if(a==='pp-link-x'){ppLinkAct('x');}
+  else if(a==='master-setup'){masterSetup();}
+  else if(a==='mt-row'){const c=t.getAttribute('data-code');G.mtSel=G.mtSel===c?'':c;renderSet();}
+  else if(a==='mt-open'){masterOpen(t.getAttribute('data-code'),t.getAttribute('data-name')||'');}
+  else if(a==='mt-more'){G.mtMax=(G.mtMax||MT_PAGE)+MT_PAGE;renderSet();}
   else if(a==='pp-row'){const k=String(t.getAttribute('data-name')||'').toLowerCase();G.ppSel=G.ppSel===k?'':k;renderSet();}
   else if(a==='pp-filter'){G.ppF=t.getAttribute('data-f')||'all';G.ppMax=PP_PAGE;renderSet();}
   else if(a==='pp-more'){G.ppMax=(G.ppMax||PP_PAGE)+PP_PAGE;renderSet();}
@@ -38940,7 +38999,7 @@ document.addEventListener('click',e=>{
   else if(a==='adm-no'){G.admInv=null;render();}
   else if(a==='set-open'){setGo(t.getAttribute('data-tab')||'tables');}
   else if(a==='set-tab'){setGo(t.getAttribute('data-tab'));}
-  else if(a==='set-close'){G.peopleOpen=G.accessOpen=G.tablesOpen=G.dataOpen=false;if(G.digestOpen||G.almanacOpen||G.lspick||G.lmau||G.isOnline)render();else document.getElementById('overlay-root').innerHTML='';}
+  else if(a==='set-close'){G.peopleOpen=G.accessOpen=G.tablesOpen=G.dataOpen=G.masterOpen=false;if(G.digestOpen||G.almanacOpen||G.lspick||G.lmau||G.isOnline)render();else document.getElementById('overlay-root').innerHTML='';}
   else if(a==='pp-open'){G.peopleOpen=true;G.tablesOpen=false;G.pp={loading:true,m:{}};render();ppLoad();}
   else if(a==='pp-close'){G.peopleOpen=false;render();}
   else if(a==='pp-add'){ppAddNew();}
@@ -39528,6 +39587,7 @@ document.addEventListener('input',e=>{
   else if(el.getAttribute?.('data-role')==='bb'){G.bigBlind=Math.max(10,+el.value||20);}
   else if(el.getAttribute?.('data-role')==='bjbet'){G.bjBet=Math.max(1,+el.value||50);}
   else if(el.id==='bet-inp'){G.betInput=el.value;}
+  else if(el.id==='mt-q'){G.mtQ=el.value;G.mtMax=MT_PAGE;renderSet();}
   else if(el.id==='pp-q'){G.ppQ=el.value;G.ppMax=PP_PAGE;renderSet();}
 });
 
