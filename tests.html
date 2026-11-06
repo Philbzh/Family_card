@@ -11463,6 +11463,18 @@ async function runPresentation(A,W,frame){
        check('one Settings panel: tabs for Tables and My data, Tables is the active one',/data-tab="tables"/.test(h1)&&/data-tab="data"/.test(h1)&&/aria-selected="true"[^>]*data-tab="tables"/.test(h1)&&/Each table has its own people/.test(h1));
        G.tablesOpen=false;G.dataOpen=true;const h2=F('rSettingsOv')();
        check('the My data tab shows the data panel inside the same Settings panel',F('setTabNow')()==='data'&&/Your table code/.test(h2)&&/data-a="set-close"/.test(h2));
+
+      {const oldR=G.roles,code=F('tableCode')();
+       G.roles={code,list:[{name:'Papa',role:'owner',me:true},{name:'Mama',role:'admin',me:false}],mine:'owner',ownerName:'Papa',missing:false};
+       check('owner and administrators are named: badges show who is who, and nobody else gets a badge',/Owner/.test(F('admBadge')('papa'))&&/Administrator/.test(F('admBadge')('Mama'))&&F('admBadge')('Shadow')==='');
+       check('only the owner gets the buttons: make an administrator, or take that role away (never for the owner)',/adm-make/.test(F('admBtn')('Shadow'))&&/adm-remove/.test(F('admBtn')('Mama'))&&F('admBtn')('Papa')==='');
+       const acc=F('admAccountHTML')();
+       check('the Account card says who the owner is and who the administrators are',/Owner of this table: <b[^>]*>Papa/.test(acc)&&/Administrators: <b[^>]*>Mama/.test(acc));
+       G.roles={code,list:[{name:'Papa',role:'owner',me:false},{name:'Mama',role:'admin',me:true}],mine:'admin',ownerName:'Papa',missing:false};
+       check('an administrator who is not the owner cannot appoint or remove administrators',F('admBtn')('Shadow')===''&&F('admBtn')('Mama')==='');
+       G.admInv={code:'ABCDEF',token:'t',name:'La table'};const ao=F('rAdmOv')();G.admInv=null;
+       check('the appointment link opens a screen with Accept and Not now, and says it is for this table only',/data-a="adm-ok"/.test(ao)&&/data-a="adm-no"/.test(ao)&&/this table only/.test(ao));
+       G.roles=oldR;}
        G.peopleOpen=G.accessOpen=G.tablesOpen=G.dataOpen=false;[G.peopleOpen,G.accessOpen,G.tablesOpen,G.dataOpen]=old;}
       check('a code shorter than 6 characters is refused and the old one is kept',seen.shortKept==='K7M2Q9XRTA');
       check('a typed code is cleaned (capitals, no spaces or dashes or odd letters) and saved',seen.saved==='MLLER2026');
@@ -12100,7 +12112,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'DW_HARD_EN','DW_HARD_DE','DW_PAPER','dwPool','dwCustomList','dwPickChoices','dwSpeedBonus','dwIsClose','dwLevenshtein','dwPick','dwLevel','dwCustomText','dwMatchOver','dwProgressText','DW_MATCHES','DW_SCORE_TARGET','dwMatchMode',
   'ldRollDice','ldTotalDice','ldCount','ldValidBid','ldMinN','ldCanRaise','ldResolve','ldActiveCount','ldNextActive','ldOpener','ldFaceProb','ldAtLeastProb','ldBotMove','LD_START_DICE','ldBuildReveal','ldCountLine','ldFaceName','ldFaceGlyph','oLdNewRound','SM_LEN','SM_SUMS','SM_MAX_ACTIVE','SM_WIN_TOPS','SM_SUMMIT_TARGET','SM_SUMMIT_TRIES','smSpaceAt','smRoll4','smSplits','smNewPlayer','smNewGame','smFreshTurn','smCur','smActive','smOptions','smStep','smRollTurn','smPick','smNextTurn','smBust','smCamp','smSummitOk','smSummitRoll','smBustProb','smStake','smBotPick','smBotDecide','VT_ADV','VT_ADV_IDS','vtStory','vtFill','vtChapterSkin','vtSceneLines','vtSpeaker','oVtNewGame','vtStartChapter','vtApplyAdvance','vtSceneSig','VT_INTRO_MS','vtApplyBoard','vtApplySubmit','vtApplyHint','vtApplyClear','vtApplyTick','vtApplyRestart','VT_SURGE_MS','VT_SIGNAL_MS','vtPlanEvent','vtNote','vtRng','vtInt','vtPick','vtShuffle','VT_DIFFS','vtAll','vtHolds','vtCountClues','vtPool','vtClueText','VT_SKIN_PLAIN','vtGenCsp','vtSize','vtGenOrder','vtGenDial','vtGenSeq','vtGenCode','VT_GEN','vtCount','vtCheck','vtMakePuzzle','vtHints','vtClock','vtResume','vtPause','vtRemaining','vtPenalty','VT_LEVELS','vtScore','vtFmtTime','oHbNewGame','hbFinishState','HB_STRIKES','HB_BOOM_MS','HB_LOCK_MS','HB_FREEZE_MS','HB_CARDS','HB_CARD_INFO','hbNewPlayer','hbNewGame','hbAlive','hbBomb','hbFuseMs','hbMakeBomb','hbStartRound','hbCanPass','hbPass','hbUseCard','hbExplode','hbTick','hbShownSeconds','hbRanking','hbBotPick','oSmNewGame','smApplyRoll','smApplyPick','smApplyCamp','smApplySummit','smApplyAdvance','smAutoTurn','SM_BUST_MS','SM_WIN_MS','SM_ZONES','SM_COLORS','smZone','smRank','ldApplyBid','ldApplyChallenge','ldAdvanceState','ldAutoMove','LD_REVEAL_MS',
   'computeSidePots','settleSidePots','roulPayoutMultiplier','roulBetWins','yScoreForCategory','yFreshScorecard',
-  'getHistory','getFamily','getAchievements','getResumableMatch','tonightStats','familyStats','rDataBody','rSettingsOv','setTabNow',
+  'getHistory','getFamily','getAchievements','getResumableMatch','tonightStats','familyStats','rDataBody','rSettingsOv','setTabNow','admBadge','admBtn','admAccountHTML','rAdmOv',
   'SLOT_SYMBOLS','SLOT_PAYLINES','SLOT_SCATTER_PAY','SLOT_JACKPOT_MIN','SLOT_FREE_SPINS_AWARD','SLOT_FREE_SPINS_RETRIGGER',
   'SLOT_FREE_SPIN_MULTIPLIER','SLOT_JACKPOT_SEED','SLOT_JACKPOT_FEED_PCT','slotPick','slotRandomGrid','slotResolveGrid',
   'slotFreeSpinsAwarded','slotPayout','slotTier','getSlotJackpot','setSlotJackpot','lDealSlots','slotStartSpin',

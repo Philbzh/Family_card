@@ -3750,6 +3750,8 @@ html[data-anim="full"] .achievement-toast{animation:ach-in .55s var(--ease-sprin
    and now can run longer still with a diagram in it -- see slotPaylineDiagramHTML), so it needed the
    same fix, just never got it because nothing had pushed a box tall enough to expose it yet. */
 #overlay-root .ov{position:fixed;inset:0;background:rgba(4,6,10,.9);display:flex;align-items:flex-start;justify-content:center;padding:1.4rem;z-index:200;backdrop-filter:blur(14px);animation:ov-in .2s ease both;overflow-y:auto;}
+#overlay-root .set-box .adm-b{font-size:.68rem;padding:.1rem .5rem;border-radius:99px;background:rgba(212,168,67,.16);color:var(--gold2);white-space:nowrap;}
+#overlay-root .set-box .adm-o{background:rgba(212,168,67,.3);}
 #overlay-root .set-box>*{flex-shrink:0;}
 #overlay-root .set-box .panel{overflow:visible;}
 #overlay-root .set-box .set-sub{font-size:.8rem;color:var(--paper3);line-height:1.5;margin:-.2rem 0 0;}
@@ -6123,7 +6125,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=293;
+const APP_BUILD=294;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -6344,9 +6346,9 @@ function ppAddNew(){
 function setTabNow(){return G.peopleOpen?'people':G.accessOpen?'access':G.tablesOpen?'tables':G.dataOpen?'data':null;}
 function setGo(tab){
   G.peopleOpen=G.accessOpen=G.tablesOpen=G.dataOpen=false;
-  if(tab==='people'){G.peopleOpen=true;G.pp={loading:true,m:{}};renderSet();ppLoad();}
+  if(tab==='people'){G.peopleOpen=true;G.pp={loading:true,m:{}};renderSet();ppLoad();rolesLoad();}
   else if(tab==='access'){G.accessOpen=true;G.acc={loading:true};renderSet();accLoad();}
-  else if(tab==='data'){G.dataOpen=true;renderSet();}
+  else if(tab==='data'){G.dataOpen=true;renderSet();rolesLoad();}
   else{G.tablesOpen=true;renderSet();tbOverviewLoad();}
 }
 // Only the Settings overlay is redrawn (opening, switching tabs, data arriving): the page behind it is not rebuilt, so nothing behind it reloads or flickers.
@@ -6365,7 +6367,7 @@ function renderSet(){
 }
 function rSettingsOv(){
   const tab=setTabNow(),admin=!!(tbEntry()&&tbEntry().key);
-  const tabs=[['tables','Tables'],['people','People',1],['access','Invitations',1],['data','My data']].filter(t=>!t[2]||admin);
+  const tabs=[['tables','Tables'],['people','People',1],['access','Invitations',1],['data','Account & sync']].filter(t=>!t[2]||admin);
   const body=tab==='people'?rPeopleBody():tab==='access'?rAccessBody():tab==='data'?rDataBody():rTablesBody();
   return`<div class="ov" data-a="set-close"><div class="ov-box set-box" role="dialog" aria-modal="true" aria-label="Settings" style="max-width:29rem;max-height:92vh;overflow-y:auto;text-align:left;" data-a="tc-noop">
     <div class="ov-title">⚙ Settings</div>
@@ -6374,11 +6376,96 @@ function rSettingsOv(){
     <button class="btn btn-ghost btn-full" data-a="set-close" style="margin-top:.6rem;">Close</button>
   </div></div>`;
 }
+/* ── Owner and administrators of a table (supabase-admins.sql). The owner holds the table's first admin key and can appoint
+      administrators with a one-time link; an administrator is an administrator of THAT table only. ── */
+function admRole(name){const R=G.roles;if(!R||R.code!==tableCode()||!R.list)return'';const n=String(name||'').toLowerCase();const x=R.list.find(r=>r.name&&r.name.toLowerCase()===n);return x?x.role:'';}
+function admMine(){const R=G.roles;if(R&&R.code===tableCode()&&R.mine)return R.mine;return tbIsAdmin()?'admin':(tbHasAdmin()?'member':'');}
+function admOwnerName(){const R=G.roles;return(R&&R.code===tableCode()&&R.ownerName)||'';}
+async function rolesLoad(){
+  const sb=famSb(),key=tbKey(),code=tableCode();
+  if(!sb){G.roles={code,list:[],mine:'',ownerName:'',offline:true};if(setTabNow())renderSet();return;}
+  const R={code,list:[],mine:'',ownerName:'',missing:false};
+  try{
+    const o=await sb.rpc('table_owner',{p_code:code});
+    if(o&&o.error&&histFnMissing(o.error))R.missing=true;
+    else R.ownerName=o&&!o.error&&typeof o.data==='string'?o.data:'';
+    if(key&&!R.missing){
+      const r=await sb.rpc('table_roles',{p_code:code,p_key:key});
+      if(r&&r.error){if(histFnMissing(r.error))R.missing=true;}
+      else{
+        const rows=(r&&r.data)||[];R.list=rows.map(x=>({name:x.name||'',role:x.role,me:!!x.me}));
+        R.mine=R.list.some(x=>x.role==='owner'&&x.me)?'owner':(R.list.some(x=>x.role==='admin'&&x.me)?'admin':'member');
+        // the owner's name is stored the first time the owner opens this screen
+        if(R.mine==='owner'&&!R.ownerName&&G.myName){
+          try{const w=await sb.rpc('set_owner_name',{p_code:code,p_key:key,p_name:G.myName});if(!w.error){R.ownerName=G.myName;const ow=R.list.find(x=>x.role==='owner');if(ow)ow.name=G.myName;}}catch(e){}
+        }
+        if(R.mine==='owner'&&R.ownerName){const ow=R.list.find(x=>x.role==='owner');if(ow&&!ow.name)ow.name=R.ownerName;}
+      }
+    }
+  }catch(e){}
+  G.roles=R;if(setTabNow())renderSet();
+}
+function admBadge(name){const r=admRole(name);return r==='owner'?'<span class="adm-b adm-o">👑 Owner</span>':r==='admin'?'<span class="adm-b">🛡 Administrator</span>':'';}
+function admBtn(name){
+  const R=G.roles;if(!R||R.code!==tableCode()||R.mine!=='owner')return'';
+  const r=admRole(name);if(r==='owner')return'';
+  return r==='admin'?`<button type="button" class="btn btn-ghost btn-sm" data-a="adm-remove" data-name="${esc(name)}">Remove administrator</button>`
+    :`<button type="button" class="btn btn-ghost btn-sm" data-a="adm-make" data-name="${esc(name)}">Make administrator</button>`;
+}
+function admAccountHTML(){
+  const R=G.roles,t=tbEntry(),mine=admMine(),on=R&&R.code===tableCode(),owner=admOwnerName();
+  const role=mine==='owner'?'👑 Owner and administrator':mine==='admin'?'🛡 Administrator':(tbHasAdmin()?'Member':'Member (this table has no administrator yet)');
+  const who=G.myName?esc(G.myName):'You';
+  const adms=on&&R.list?R.list.filter(x=>x.role==='admin').map(x=>esc(x.name)):[];
+  return`<div class="panel" style="text-align:left;"><div class="panel-lbl">Account · ${esc(tbName(t))}</div>
+    <div style="display:flex;align-items:center;gap:.6rem;"><span style="font-size:1.5rem;">${G.myAvatar?avChar(G.myAvatar):'👤'}</span><div><b>${who}</b><div style="font-size:.78rem;color:var(--paper2);">${role}</div></div></div>
+    <div style="font-size:.78rem;color:var(--paper3);line-height:1.6;margin-top:.55rem;">${owner?'Owner of this table: <b style="color:var(--paper2);">'+esc(owner)+'</b>':(tbHasAdmin()?'Owner of this table: not named yet':'This table has no owner yet.')}${adms.length?'<br>Administrators: <b style="color:var(--paper2);">'+adms.join(', ')+'</b>':''}</div>
+    ${R&&R.missing?'<div style="font-size:.72rem;color:#e8a090;margin-top:.4rem;">Run supabase-admins.sql in Supabase to show owners and appoint administrators.</div>':''}
+  </div>`;
+}
+async function admMake(name){
+  const sb=famSb(),key=tbKey(),code=tableCode();if(!sb||!key||!name)return;
+  const r=await sb.rpc('admin_grant_create',{p_code:code,p_key:key,p_name:name});
+  if(r.error||!r.data){toast(histFnMissing(r.error||{})?'Run supabase-admins.sql in Supabase first':'Could not make the link (only the owner can)');return;}
+  const url=location.origin+location.pathname+'?adm='+encodeURIComponent(r.data)+'&c='+code+'&t='+encodeURIComponent(G.tableName||'');
+  const msg='You are invited to be an administrator of '+tbName(tbEntry())+' on Our Table: '+url;
+  if(navigator.share){navigator.share({title:'Our Table',text:'Administrator of '+tbName(tbEntry()),url}).catch(()=>{});}
+  else{try{navigator.clipboard.writeText(url).then(()=>toast('🔗 Link for '+name+' copied. It works once, for 7 days.')).catch(()=>toast(msg));}catch(e){toast(msg);}}
+}
+async function admRemove(name){
+  const sb=famSb(),key=tbKey();if(!sb||!key||!name)return;
+  if(!confirm('Take the administrator role away from '+name+'? They stay a member of the table.'))return;
+  const r=await sb.rpc('admin_remove',{p_code:tableCode(),p_key:key,p_name:name});
+  if(r.error){toast('Could not do that');return;}
+  toast(name+' is no longer an administrator');rolesLoad();
+}
+async function admAccept(){
+  const A=G.admInv;if(!A)return;
+  const sb=famSb();if(!sb){toast('Not connected right now');return;}
+  const key=famCid().replace(/-/g,'').slice(0,24);
+  const r=await sb.rpc('admin_grant_accept',{p_code:A.code,p_token:A.token,p_key:key});
+  if(r.error||!r.data){toast(histFnMissing(r.error||{})?'Ask the owner: supabase-admins.sql is not installed yet':'This link is not valid any more (used or expired). Ask the owner for a new one.');return;}
+  const l=tbEnsure();let e=l.find(x=>x.code===A.code);if(!e){e={code:A.code,name:A.name||''};l.push(e);}e.key=key;tbSave(l);
+  // a table that is invitations-only also needs this device to be enrolled
+  try{const info=await sb.rpc('table_info',{p_code:A.code}),x=info&&!info.error&&(info.data||[])[0];
+    if(x&&x.invite_only&&!dtGet(A.code)){const en=await sb.rpc('enroll_admin',{p_code:A.code,p_key:key,p_label:r.data||G.myName||'Admin'});if(en&&!en.error&&en.data)dtSet(A.code,en.data);}}catch(e2){}
+  G.admInv=null;
+  if(A.code!==tableCode())tbSwitch(A.code,{name:A.name});else render();
+  toast('🛡 You are now an administrator of '+(A.name||'this table'));
+}
+function rAdmOv(){
+  const A=G.admInv||{};
+  return`<div class="ov"><div class="ov-box" role="dialog" aria-modal="true" aria-label="Become an administrator" style="max-width:24rem;">
+    <div class="ov-title">🛡 Administrator of ${esc(A.name||'a table')}</div>
+    <p class="ov-sub" style="margin-top:-.3rem;">The owner has invited you to help run this table: remove people, make invitations and see the access log. This applies to this table only. The owner can take it away again.</p>
+    <div style="display:flex;flex-direction:column;gap:.6rem;"><button class="btn btn-gold btn-full" data-a="adm-ok">Accept</button><button class="btn btn-ghost btn-full" data-a="adm-no">Not now</button></div>
+  </div></div>`;
+}
 function rPeopleBody(){
   const P=G.pp||{loading:true,m:{}},ts=ppTables(),people=ppPeople();
   const chip=(t,x)=>{const loaded=P.m[t.code]!==null&&P.m[t.code]!==undefined,on=x.codes.has(t.code);
     return`<button type="button" class="btn btn-sm ${on?'btn-gold':'btn-ghost'}" ${loaded?'':'disabled'} data-a="pp-toggle" data-code="${t.code}" data-name="${esc(x.name)}" data-av="${esc(x.avatar||'')}" style="margin:.15rem .25rem .15rem 0;">${on?'✓ ':''}${esc(tbName(t))}</button>`;};
-  const rows=people.map(x=>`<div style="padding:.6rem 0;border-bottom:1px solid rgba(255,255,255,.08);"><div style="display:flex;align-items:center;gap:.5rem;"><b style="flex:1;">${x.avatar?avChar(x.avatar)+' ':''}${esc(x.name)}</b></div><div style="margin-top:.3rem;">${ts.map(t=>chip(t,x)).join('')}</div></div>`).join('');
+  const rows=people.map(x=>`<div style="padding:.6rem 0;border-bottom:1px solid rgba(255,255,255,.08);"><div style="display:flex;align-items:center;gap:.5rem;"><b style="flex:1;">${x.avatar?avChar(x.avatar)+' ':''}${esc(x.name)}</b>${admBadge(x.name)}</div>${admBtn(x.name)?'<div style="margin-top:.3rem;">'+admBtn(x.name)+'</div>':''}<div style="margin-top:.3rem;">${ts.map(t=>chip(t,x)).join('')}</div></div>`).join('');
   return`<p class="set-sub">Everyone registered. A gold ✓ means the person is in that group: tap to add or remove them. Use several groups to let someone take part in more than one table.</p>
     ${P.loading?'<div style="padding:1rem 0;">Loading…</div>':(P.err?`<div style="color:#e8a090;font-size:.8rem;">${esc(P.err)}</div>`:'')}
     ${!P.loading&&!people.length&&!P.err?'<div style="padding:.8rem 0;color:var(--paper3);">Nobody registered yet.</div>':''}
@@ -6435,7 +6522,7 @@ async function tbShare(code){
   if(navigator.share){navigator.share({title:'Our Table',text:'Join '+tbName(t)+' on Our Table',url}).catch(()=>{});}
   else{try{navigator.clipboard.writeText(url).then(()=>toast('🔗 Invite link copied')).catch(()=>toast(msg));}catch(e){toast(msg);}}
 }
-function tbBootInvite(){try{const q=new URLSearchParams(location.search),c=tcClean(q.get('join')||'');if(c.length>=6){G.joinInv={code:c,name:(q.get('t')||'').slice(0,30),inv:tcClean(q.get('i')||'').slice(0,20)};try{history.replaceState(null,'',location.pathname);}catch(e){}render();}}catch(e){}}
+function tbBootInvite(){try{const q=new URLSearchParams(location.search),c=tcClean(q.get('join')||'');{const at=q.get('adm'),ac=tcClean(q.get('c')||'');if(at&&ac.length>=6){G.admInv={code:ac,token:at.slice(0,64),name:(q.get('t')||'').slice(0,30)};try{history.replaceState(null,'',location.pathname);}catch(e){}render();return;}}if(c.length>=6){G.joinInv={code:c,name:(q.get('t')||'').slice(0,30),inv:tcClean(q.get('i')||'').slice(0,20)};try{history.replaceState(null,'',location.pathname);}catch(e){}render();}}catch(e){}}
 /* ── Your tables: how each of your tables is doing, for you only ── */
 function tbStatsFrom(rows,members,me){
   const mem=(members||[]).filter(m=>m&&m.name&&!m.deleted).map(m=>m.name.toLowerCase());
@@ -37609,7 +37696,8 @@ function rDataBody(){
   // object has no .length and this quietly rendered "undefined achievements unlocked".
   const achCount=Object.keys(getAchievements()).length;
   const family=getFamily();
-  return`<p class="ov-sub" style="margin-top:-.3rem;">What Our Table keeps, and where.</p>
+  return`${admAccountHTML()}
+    <p class="set-sub">What Our Table keeps on this device, and where.</p>
     <div class="panel" style="text-align:left;">
       <div class="panel-lbl">On this device</div>
       <div style="font-size:.82rem;color:var(--paper2);line-height:1.7;">
@@ -38573,6 +38661,7 @@ function render(){
   else if(G.quitOpen)ov=rQuitOv();
   else if(G.whoOpen)ov=rWhoOv();
   else if(G.joinInv)ov=rJoinOv();
+  else if(G.admInv)ov=rAdmOv();
   else if(G.dataClearAsk)ov=rDataClearOv();
   else if(setTabNow())ov=rSettingsOv();
   else if(G.digestOpen)ov=rDigestOv();
@@ -38745,6 +38834,10 @@ document.addEventListener('click',e=>{
   else if(a==='who-pick'){const n=t.getAttribute('data-name'),m=getFamily().find(x=>x.name===n);if(m){G.myName=m.name;G.myAvatar=m.avatar||G.myAvatar||AVATARS[0];try{localStorage.setItem('ct_myname',G.myName);localStorage.setItem('ct_myavatar',G.myAvatar);}catch(e){}G.whoOpen=false;famAdopt(false);render();toast('Hello '+G.myName+'!');}}
   else if(a==='who-other'){G.whoOpen=false;G.scr='home';G.profileEditing=true;render();}
   else if(a==='who-skip'){G.whoOpen=false;try{localStorage.setItem('ct_who_skip:'+tableCode(),'1');}catch(e){}render();}
+  else if(a==='adm-make'){admMake(t.getAttribute('data-name'));}
+  else if(a==='adm-remove'){admRemove(t.getAttribute('data-name'));}
+  else if(a==='adm-ok'){admAccept();}
+  else if(a==='adm-no'){G.admInv=null;render();}
   else if(a==='set-open'){setGo(t.getAttribute('data-tab')||'tables');}
   else if(a==='set-tab'){setGo(t.getAttribute('data-tab'));}
   else if(a==='set-close'){G.peopleOpen=G.accessOpen=G.tablesOpen=G.dataOpen=false;if(G.digestOpen||G.almanacOpen||G.lspick||G.lmau||G.isOnline)render();else document.getElementById('overlay-root').innerHTML='';}
