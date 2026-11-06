@@ -2953,14 +2953,14 @@ function run(A,W){
     LS.setItem('ct_achievements',JSON.stringify({'first-deal':'2026-09-01T10:00:00.000Z','first-win':'2026-09-01T11:00:00.000Z'}));
     eq('getAchievements reads the current {id: date} format',Object.keys(A.getAchievements()).length,2);
     check('the Your Data panel reports a real number, not "undefined"',
-      !/undefined achievement/.test(A.rDataOv()),'panel still prints "undefined achievements unlocked"');
-    check('and reports the right count',/🏆 2 achievements unlocked/.test(A.rDataOv()));
+      !/undefined achievement/.test(A.rDataBody()),'panel still prints "undefined achievements unlocked"');
+    check('and reports the right count',/🏆 2 achievements unlocked/.test(A.rDataBody()));
     // A pre-Trophy-Room install stored a bare array; those trophies must not be lost on upgrade.
     LS.setItem('ct_achievements',JSON.stringify(['first-deal','first-win','streak3']));
     eq('a legacy array of ids is migrated, not discarded',Object.keys(A.getAchievements()).length,3);
     check('legacy entries are earned-but-undated rather than dropped',
       A.getAchievements()['streak3']===null);
-    check('the panel counts legacy unlocks too',/🏆 3 achievements unlocked/.test(A.rDataOv()));
+    check('the panel counts legacy unlocks too',/🏆 3 achievements unlocked/.test(A.rDataBody()));
     LS.setItem('ct_achievements','{"broken":');
     eq('unparseable achievement data degrades to none, not a crash',Object.keys(A.getAchievements()).length,0);
     if(keep===null)LS.removeItem('ct_achievements');else LS.setItem('ct_achievements',keep);
@@ -5812,7 +5812,7 @@ async function runPresentation(A,W,frame){
       check('an upward nudge lifts the ball',nb.vy<0);
       p.nudgeCool=0;p.tilt=0;for(let i=0;i<4;i++){p.nudgeCool=0;F('pbNudge')(p,1);}
       check('there is a visible left and right flipper button at the sides',W.document.querySelectorAll('[data-flip]').length===2);
-      {const FL=F('PB_FL').L;let thru=0;for(const px of [160,185,210]){p.fl.L.th=FL.rest;p.fl.L.on=false;const b={x:px,y:FL.py+Math.tan(FL.rest)*(px-FL.px)-17,vx:0,vy:0,st:'play',id:9e3,stuck:0,tr:[]};p.balls=[b];p.saveT=99;p.phase='play';for(let i=0;i<20;i++)F('pbStep')(p,1/60);p.fl.L.on=true;for(let i=0;i<20;i++)F('pbStep')(p,1/20);if(b.y>FL.py+20)thru++;p.fl.L.on=false;}
+      {const FL=F('PB_FL').L;let thru=0;for(const px of [160,185,210]){p.fl.L.th=FL.rest;p.fl.L.on=false;const b={x:px,y:FL.py+Math.tan(FL.rest)*(px-FL.px)-17,vx:0,vy:0,st:'play',id:9e3,stuck:0,tr:[]};p.balls=[b];p.saveT=99;p.phase='play';for(let i=0;i<3;i++)F("pbStep")(p,1/60);p.fl.L.on=true;for(let i=0;i<20;i++)F('pbStep')(p,1/20);if(b.y>FL.py+20)thru++;p.fl.L.on=false;}
        check('a flipper that swings up under a ball on it, even in a slow frame, never goes through the ball',thru===0);}
       {p.phase='play';p.tilted=false;p.fl.R.on=true;p.fl.U.th=F('PB_FL').U.rest;p.balls=[];for(let i=0;i<30;i++)F('pbStep')(p,1/60);const u1=p.fl.U.th;p.fl.R.on=false;for(let i=0;i<30;i++)F('pbStep')(p,1/60);
        check('the upper flipper swings up with the right flipper and falls back with it',Math.abs(u1-F('PB_FL').U.act)<.05&&Math.abs(p.fl.U.th-F('PB_FL').U.rest)<.05);p.balls=[nb];}
@@ -11431,7 +11431,7 @@ async function runPresentation(A,W,frame){
       seen.errRows=await F('fetchFamilyHistory')();seen.errLegacy=F('_histLegacy');seen.errSelect=calls.some(c=>c[0]==='select');
       // 6. the Your data panel: the code is shown, saved from the input, and a clean new one can be made
       W.eval('_histLegacy=false');rpcAnswer=()=>({data:[],error:null});
-      G.dataOpen=true;seen.panel=F('rDataOv')();
+      G.dataOpen=true;seen.panel=F('rDataBody')();
       const inp=W.document.createElement('input');inp.id='tc-input';inp.value='ab12';W.document.body.appendChild(inp);
       const btn=W.document.createElement('button');btn.setAttribute('data-a','tc-save');W.document.body.appendChild(btn);
       btn.click();seen.shortKept=W.localStorage.getItem('ct_table_code');
@@ -11455,7 +11455,15 @@ async function runPresentation(A,W,frame){
       check('reading goes through history_for with the same code and returns the rows in the app\'s own shape',!!seen.readCall&&seen.readCall[2].p_code==='K7M2Q9XRTA'&&seen.rows.length===1&&seen.rows[0].winner==='Ben'&&seen.rows[0].game==='pig');
       check('before the database functions exist the app falls back to the old way, once',seen.legacyFlag===true&&seen.fallbackRows&&seen.fallbackRows[0].winner==='Old'&&seen.legacyWrite&&seen.noRpcAfter);
       check('any OTHER error returns nothing and does not fall back to reading the shared table',seen.errRows===null&&seen.errLegacy===false&&!seen.errSelect);
-      check('🔒 Your data shows the code, a box to type the family\'s code, and a way to manage the tables',/Your table code/.test(seen.panel)&&/id="tc-input"/.test(seen.panel)&&/data-a="tc-save"/.test(seen.panel)&&/data-a="tables-open"/.test(seen.panel)&&/K7M2Q-9XRTA/.test(seen.panel));
+      check('🔒 Your data shows the code, a box to type the family\'s code, and a way to manage the tables',/Your table code/.test(seen.panel)&&/id="tc-input"/.test(seen.panel)&&/data-a="tc-save"/.test(seen.panel)&&/K7M2Q-9XRTA/.test(seen.panel));
+      {const old=[G.peopleOpen,G.accessOpen,G.tablesOpen,G.dataOpen];
+       G.peopleOpen=G.accessOpen=G.tablesOpen=G.dataOpen=false;
+       check('Settings is closed when no panel flag is on',F('setTabNow')()===null);
+       G.tablesOpen=true;const h1=F('rSettingsOv')();
+       check('one Settings panel: tabs for Tables and My data, Tables is the active one',/data-tab="tables"/.test(h1)&&/data-tab="data"/.test(h1)&&/aria-selected="true"[^>]*data-tab="tables"/.test(h1)&&/Your tables/.test(h1));
+       G.tablesOpen=false;G.dataOpen=true;const h2=F('rSettingsOv')();
+       check('the My data tab shows the data panel inside the same Settings panel',F('setTabNow')()==='data'&&/Your table code/.test(h2)&&/data-a="set-close"/.test(h2));
+       G.peopleOpen=G.accessOpen=G.tablesOpen=G.dataOpen=false;[G.peopleOpen,G.accessOpen,G.tablesOpen,G.dataOpen]=old;}
       check('a code shorter than 6 characters is refused and the old one is kept',seen.shortKept==='K7M2Q9XRTA');
       check('a typed code is cleaned (capitals, no spaces or dashes or odd letters) and saved',seen.saved==='MLLER2026');
       check('"make a new private code" gives a fresh 10-character code',/^[A-Z2-9]{10}$/.test(seen.fresh)&&seen.fresh!=='MLLER2026');
@@ -12092,7 +12100,7 @@ const UNDER_TEST=['rulesCanPlay','mauMauBotMove','mauMauBotSuit','cardVal','unoC
   'DW_HARD_EN','DW_HARD_DE','DW_PAPER','dwPool','dwCustomList','dwPickChoices','dwSpeedBonus','dwIsClose','dwLevenshtein','dwPick','dwLevel','dwCustomText','dwMatchOver','dwProgressText','DW_MATCHES','DW_SCORE_TARGET','dwMatchMode',
   'ldRollDice','ldTotalDice','ldCount','ldValidBid','ldMinN','ldCanRaise','ldResolve','ldActiveCount','ldNextActive','ldOpener','ldFaceProb','ldAtLeastProb','ldBotMove','LD_START_DICE','ldBuildReveal','ldCountLine','ldFaceName','ldFaceGlyph','oLdNewRound','SM_LEN','SM_SUMS','SM_MAX_ACTIVE','SM_WIN_TOPS','SM_SUMMIT_TARGET','SM_SUMMIT_TRIES','smSpaceAt','smRoll4','smSplits','smNewPlayer','smNewGame','smFreshTurn','smCur','smActive','smOptions','smStep','smRollTurn','smPick','smNextTurn','smBust','smCamp','smSummitOk','smSummitRoll','smBustProb','smStake','smBotPick','smBotDecide','VT_ADV','VT_ADV_IDS','vtStory','vtFill','vtChapterSkin','vtSceneLines','vtSpeaker','oVtNewGame','vtStartChapter','vtApplyAdvance','vtSceneSig','VT_INTRO_MS','vtApplyBoard','vtApplySubmit','vtApplyHint','vtApplyClear','vtApplyTick','vtApplyRestart','VT_SURGE_MS','VT_SIGNAL_MS','vtPlanEvent','vtNote','vtRng','vtInt','vtPick','vtShuffle','VT_DIFFS','vtAll','vtHolds','vtCountClues','vtPool','vtClueText','VT_SKIN_PLAIN','vtGenCsp','vtSize','vtGenOrder','vtGenDial','vtGenSeq','vtGenCode','VT_GEN','vtCount','vtCheck','vtMakePuzzle','vtHints','vtClock','vtResume','vtPause','vtRemaining','vtPenalty','VT_LEVELS','vtScore','vtFmtTime','oHbNewGame','hbFinishState','HB_STRIKES','HB_BOOM_MS','HB_LOCK_MS','HB_FREEZE_MS','HB_CARDS','HB_CARD_INFO','hbNewPlayer','hbNewGame','hbAlive','hbBomb','hbFuseMs','hbMakeBomb','hbStartRound','hbCanPass','hbPass','hbUseCard','hbExplode','hbTick','hbShownSeconds','hbRanking','hbBotPick','oSmNewGame','smApplyRoll','smApplyPick','smApplyCamp','smApplySummit','smApplyAdvance','smAutoTurn','SM_BUST_MS','SM_WIN_MS','SM_ZONES','SM_COLORS','smZone','smRank','ldApplyBid','ldApplyChallenge','ldAdvanceState','ldAutoMove','LD_REVEAL_MS',
   'computeSidePots','settleSidePots','roulPayoutMultiplier','roulBetWins','yScoreForCategory','yFreshScorecard',
-  'getHistory','getFamily','getAchievements','getResumableMatch','tonightStats','familyStats','rDataOv',
+  'getHistory','getFamily','getAchievements','getResumableMatch','tonightStats','familyStats','rDataBody','rSettingsOv','setTabNow',
   'SLOT_SYMBOLS','SLOT_PAYLINES','SLOT_SCATTER_PAY','SLOT_JACKPOT_MIN','SLOT_FREE_SPINS_AWARD','SLOT_FREE_SPINS_RETRIGGER',
   'SLOT_FREE_SPIN_MULTIPLIER','SLOT_JACKPOT_SEED','SLOT_JACKPOT_FEED_PCT','slotPick','slotRandomGrid','slotResolveGrid',
   'slotFreeSpinsAwarded','slotPayout','slotTier','getSlotJackpot','setSlotJackpot','lDealSlots','slotStartSpin',
