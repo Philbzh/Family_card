@@ -3750,6 +3750,7 @@ html[data-anim="full"] .achievement-toast{animation:ach-in .55s var(--ease-sprin
    and now can run longer still with a diagram in it -- see slotPaylineDiagramHTML), so it needed the
    same fix, just never got it because nothing had pushed a box tall enough to expose it yet. */
 #overlay-root .ov{position:fixed;inset:0;background:rgba(4,6,10,.9);display:flex;align-items:flex-start;justify-content:center;padding:1.4rem;z-index:200;backdrop-filter:blur(14px);animation:ov-in .2s ease both;overflow-y:auto;}
+#overlay-root .ov[data-a="set-close"]{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(4,6,10,.94);}
 @keyframes ov-in{from{opacity:0;}to{opacity:1;}}
 #overlay-root .ov-box{background:linear-gradient(160deg,var(--bg3),var(--bg2));border:1px solid rgba(255,255,255,.12);border-radius:26px;padding:1.9rem;max-width:28rem;width:100%;box-shadow:0 32px 80px rgba(0,0,0,.9),0 0 0 1px rgba(212,168,67,.08);display:flex;flex-direction:column;gap:1rem;animation:ov-box-in .28s var(--ease-spring) both;margin-block:auto;flex-shrink:0;}
 @keyframes ov-box-in{from{transform:scale(.88) translateY(14px);}to{transform:none;}}
@@ -6116,7 +6117,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=290;
+const APP_BUILD=291;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -6250,7 +6251,7 @@ function accInvStatus(i,now){now=now||Date.now();if(i.revoked_at)return'revoked'
 function accDevStatus(d,now){now=now||Date.now();if(d.status==='suspended')return'suspended';if(d.access_until&&new Date(d.access_until).getTime()<=now)return'ended';return'active';}
 async function accLoad(){
   const sb=famSb(),key=tbKey(),code=tableCode();G.acc=G.acc||{};
-  if(!sb||!key){G.acc.err='Only the admin of this table can open this screen.';if(G.accessOpen)render();return;}
+  if(!sb||!key){G.acc.err='Only the admin of this table can open this screen.';if(G.accessOpen)renderSet();return;}
   G.acc.loading=true;G.acc.err='';
   try{
     const a={p_code:code,p_key:key};
@@ -6260,7 +6261,7 @@ async function accLoad(){
     else{G.acc.invites=i.data||[];G.acc.devices=d.data||[];G.acc.log=l.data||[];}
     const x=(t.data||[])[0];G.acc.on=!!(x&&x.invite_only);
   }catch(e){G.acc.err='Could not reach the database.';}
-  G.acc.loading=false;if(G.accessOpen)render();
+  G.acc.loading=false;if(G.accessOpen)renderSet();
 }
 async function accCall(fn,args,okMsg){
   const sb=famSb(),key=tbKey();if(!sb||!key){toast('Only the admin can do this');return false;}
@@ -6287,7 +6288,7 @@ async function accNew(){
   const v=id=>((document.getElementById(id)||{}).value||'').trim(),n=(id,d)=>Math.max(1,parseInt(v(id),10)||d);
   const uses=n('acc-uses',1),days=n('acc-days',7),acc=v('acc-access')?n('acc-access',30):null,label=v('acc-label').slice(0,40);
   const inv=await accCall('invite_create',{p_uses:uses,p_valid_days:days,p_access_days:acc,p_label:label||null});
-  if(inv&&typeof inv==='string'){G.acc.fresh=inv;if(G.accessOpen)render();}
+  if(inv&&typeof inv==='string'){G.acc.fresh=inv;if(G.accessOpen)renderSet();}
 }
 function accCopy(inv){
   const url=tbInviteLink(tableCode(),inv);
@@ -6298,13 +6299,13 @@ function accCopy(inv){
 function ppTables(){return tbList().filter(t=>t&&t.key);}
 async function ppLoad(){
   const sb=famSb(),ts=ppTables(),P=G.pp={loading:true,m:{},err:''};
-  if(!sb||!ts.length){P.loading=false;P.err=!ts.length?'You are not the admin of any table on this device.':'No connection to the server.';render();return;}
+  if(!sb||!ts.length){P.loading=false;P.err=!ts.length?'You are not the admin of any table on this device.':'No connection to the server.';renderSet();return;}
   for(const t of ts){
     try{const r=await sb.rpc('members_for',{p_code:t.code});if(r.error)throw r.error;
       P.m[t.code]=(r.data||[]).filter(m=>m&&m.name&&!m.deleted).map(m=>({name:m.name,avatar:m.avatar||''}));}
     catch(e){P.m[t.code]=null;P.err='Could not load every group.';}
   }
-  P.loading=false;if(G.peopleOpen)render();
+  P.loading=false;if(G.peopleOpen)renderSet();
 }
 function ppPeople(){
   const P=G.pp||{m:{}},map=new Map();
@@ -6325,7 +6326,7 @@ async function ppSet(code,name,want,avatar){
     const l=(P.m[code]||[]).filter(m=>m.name.toLowerCase()!==name.toLowerCase());if(want)l.push({name,avatar:av});P.m[code]=l;
     toast(want?name+' added to '+tbName(t):name+' removed from '+tbName(t));
   }catch(e){toast('That did not work. Check the connection and try again.');}
-  if(G.peopleOpen)render();
+  if(G.peopleOpen)renderSet();
 }
 function ppAddNew(){
   const el=document.getElementById('pp-new'),name=((el&&el.value)||'').trim().slice(0,40);if(!name)return;
@@ -6337,10 +6338,19 @@ function ppAddNew(){
 function setTabNow(){return G.peopleOpen?'people':G.accessOpen?'access':G.tablesOpen?'tables':G.dataOpen?'data':null;}
 function setGo(tab){
   G.peopleOpen=G.accessOpen=G.tablesOpen=G.dataOpen=false;
-  if(tab==='people'){G.peopleOpen=true;G.pp={loading:true,m:{}};render();ppLoad();}
-  else if(tab==='access'){G.accessOpen=true;G.acc={loading:true};render();accLoad();}
-  else if(tab==='data'){G.dataOpen=true;render();}
-  else{G.tablesOpen=true;render();tbOverviewLoad();}
+  if(tab==='people'){G.peopleOpen=true;G.pp={loading:true,m:{}};renderSet();ppLoad();}
+  else if(tab==='access'){G.accessOpen=true;G.acc={loading:true};renderSet();accLoad();}
+  else if(tab==='data'){G.dataOpen=true;renderSet();}
+  else{G.tablesOpen=true;renderSet();tbOverviewLoad();}
+}
+// Only the Settings overlay is redrawn (opening, switching tabs, data arriving): the page behind it is not rebuilt, so nothing behind it reloads or flickers.
+function renderSet(){
+  const r=document.getElementById('overlay-root');
+  if(!r||!setTabNow()||G.tour||G.pbHof||G.psLb||G.rulesOpen||G.quitOpen||G.whoOpen||G.joinInv||G.dataClearAsk)return render();
+  const old=r.querySelector('.ov'),top=old?old.scrollTop:0,a=document.activeElement,id=a&&a.id&&r.contains(a)?a.id:null,v=id?a.value:null;
+  r.innerHTML=rSettingsOv();
+  const n=r.querySelector('.ov');if(n&&top)n.scrollTop=top;
+  if(id){const e=document.getElementById(id);if(e&&'value' in e){e.value=v;e.focus();}}
 }
 function rSettingsOv(){
   const tab=setTabNow(),admin=!!(tbEntry()&&tbEntry().key);
@@ -6454,7 +6464,7 @@ async function tbOverviewLoad(){
       out[t.code]=tbStatsFrom(famMerge(getAllLocalHistory().filter(h=>h.tc===t.code),rows),members,me);
     }
   }catch(e){}
-  G.tbStats=out;G.tbLoading=false;if(G.tablesOpen)render();
+  G.tbStats=out;G.tbLoading=false;if(G.tablesOpen)renderSet();
 }
 function rJoinOv(){
   const j=G.joinInv||{},already=j.code===tableCode();
@@ -38726,7 +38736,7 @@ document.addEventListener('click',e=>{
   else if(a==='who-skip'){G.whoOpen=false;try{localStorage.setItem('ct_who_skip:'+tableCode(),'1');}catch(e){}render();}
   else if(a==='set-open'){setGo(t.getAttribute('data-tab')||'tables');}
   else if(a==='set-tab'){setGo(t.getAttribute('data-tab'));}
-  else if(a==='set-close'){G.peopleOpen=G.accessOpen=G.tablesOpen=G.dataOpen=false;render();}
+  else if(a==='set-close'){G.peopleOpen=G.accessOpen=G.tablesOpen=G.dataOpen=false;if(G.digestOpen||G.almanacOpen||G.lspick||G.lmau||G.isOnline)render();else document.getElementById('overlay-root').innerHTML='';}
   else if(a==='pp-open'){G.peopleOpen=true;G.tablesOpen=false;G.pp={loading:true,m:{}};render();ppLoad();}
   else if(a==='pp-close'){G.peopleOpen=false;render();}
   else if(a==='pp-add'){ppAddNew();}
