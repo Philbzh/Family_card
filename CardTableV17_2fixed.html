@@ -3756,6 +3756,19 @@ html[data-anim="full"] .achievement-toast{animation:ach-in .55s var(--ease-sprin
 #overlay-root .ov{position:fixed;inset:0;background:rgba(4,6,10,.9);display:flex;align-items:flex-start;justify-content:center;padding:1.4rem;z-index:200;backdrop-filter:blur(14px);animation:ov-in .2s ease both;overflow-y:auto;}
 #overlay-root .set-box .adm-b{font-size:.68rem;padding:.1rem .5rem;border-radius:99px;background:rgba(212,168,67,.16);color:var(--gold2);white-space:nowrap;}
 #overlay-root .set-box .adm-o{background:rgba(212,168,67,.3);}
+#overlay-root .set-box .pp-sum{font-size:.78rem;color:var(--paper2);}
+#overlay-root .set-box .pp-filters{display:flex;gap:.35rem;flex-wrap:wrap;}
+#overlay-root .set-box .pp-f{font:600 .72rem 'Jost',sans-serif;padding:.28rem .65rem;border-radius:99px;border:1px solid rgba(255,255,255,.16);background:transparent;color:var(--paper2);cursor:pointer;}
+#overlay-root .set-box .pp-f.on{background:rgba(212,168,67,.22);border-color:rgba(212,168,67,.7);color:var(--gold2);}
+#overlay-root .set-box .pp-f b{opacity:.7;font-weight:600;}
+#overlay-root .set-box .pp-list{display:flex;flex-direction:column;}
+#overlay-root .set-box .pp-row{border-bottom:1px solid rgba(255,255,255,.08);}
+#overlay-root .set-box .pp-head{display:flex;align-items:center;gap:.5rem;width:100%;background:none;border:0;color:inherit;padding:.38rem 0;text-align:left;cursor:pointer;font:inherit;font-size:.92rem;}
+#overlay-root .set-box #pp-q{text-transform:none !important;}
+#overlay-root .set-box .pp-n{flex:1;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#overlay-root .set-box .pp-head small{color:var(--paper3);font-size:.7rem;white-space:nowrap;max-width:7.5rem;overflow:hidden;text-overflow:ellipsis;}
+#overlay-root .set-box .pp-head i{font-style:normal;color:var(--paper3);width:1rem;text-align:center;}
+#overlay-root .set-box .pp-det{padding:0 0 .6rem;}
 #overlay-root .set-box>*{flex-shrink:0;}
 #overlay-root .set-box .panel{overflow:visible;}
 #overlay-root .set-box .set-sub{font-size:.8rem;color:var(--paper3);line-height:1.5;margin:-.2rem 0 0;}
@@ -6132,7 +6145,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=300;
+const APP_BUILD=301;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -6505,17 +6518,43 @@ function rAdmOv(){
     <div style="display:flex;flex-direction:column;gap:.6rem;"><button class="btn btn-gold btn-full" data-a="adm-ok">Accept</button><button class="btn btn-ghost btn-full" data-a="adm-no">Not now</button></div>
   </div></div>`;
 }
+// People: a compact list that still works with 50 people (search, filters, one line per person, tap a person to open just that one)
+const PP_PAGE=25;
+function ppView(people,ts){
+  const q=String(G.ppQ||'').trim().toLowerCase(),f=G.ppF||'all',me=String(G.myName||'').toLowerCase();
+  let list=people.filter(x=>{
+    if(q&&!x.name.toLowerCase().includes(q))return false;
+    if(f==='admins'){const r=admRole(x.name);return r==='owner'||r==='admin';}
+    if(f==='multi')return x.codes.size>1;
+    if(f.indexOf('t:')===0)return x.codes.has(f.slice(2));
+    return true;
+  });
+  // you first, then everybody else A to Z
+  list=list.slice().sort((a,b)=>(b.name.toLowerCase()===me)-(a.name.toLowerCase()===me)||a.name.localeCompare(b.name));
+  return list;
+}
 function rPeopleBody(){
   const P=G.pp||{loading:true,m:{}},ts=ppTables(),people=ppPeople();
   const chip=(t,x)=>{const loaded=P.m[t.code]!==null&&P.m[t.code]!==undefined,on=x.codes.has(t.code);
     return`<button type="button" class="btn btn-sm ${on?'btn-gold':'btn-ghost'}" ${loaded?'':'disabled'} data-a="pp-toggle" data-code="${t.code}" data-name="${esc(x.name)}" data-av="${esc(x.avatar||'')}" style="margin:.15rem .25rem .15rem 0;">${on?'✓ ':''}${esc(tbName(t))}</button>`;};
-  const rows=people.map(x=>`<div style="padding:.6rem 0;border-bottom:1px solid rgba(255,255,255,.08);"><div style="display:flex;align-items:center;gap:.5rem;"><b style="flex:1;">${x.avatar?avChar(x.avatar)+' ':''}${esc(x.name)}</b>${admBadge(x.name)}</div>${admBtn(x.name)?'<div style="margin-top:.3rem;">'+admBtn(x.name)+'</div>':''}<div style="margin-top:.3rem;">${ts.map(t=>chip(t,x)).join('')}</div></div>`).join('');
+  const list=ppView(people,ts),max=G.ppMax||PP_PAGE,shown=list.slice(0,max),sel=G.ppSel||'';
+  const grp=x=>x.codes.size===0?'no group':x.codes.size===1?esc(tbName(ts.find(t=>x.codes.has(t.code))||{})):x.codes.size+' groups';
+  const rows=shown.map(x=>{const k=x.name.toLowerCase(),open=k===sel;
+    return`<div class="pp-row${open?' open':''}"><button type="button" class="pp-head" data-a="pp-row" data-name="${esc(x.name)}" aria-expanded="${open}"><span class="pp-n">${x.avatar?avChar(x.avatar)+' ':''}${esc(x.name)}</span>${admBadge(x.name)}<small>${grp(x)}</small><i>${open?'▴':'▾'}</i></button>${open?`<div class="pp-det">${admBtn(x.name)?'<div style="margin-bottom:.3rem;">'+admBtn(x.name)+'</div>':''}<div>${ts.map(t=>chip(t,x)).join('')}</div></div>`:''}</div>`;}).join('');
+  const nAdm=people.filter(x=>{const r=admRole(x.name);return r==='owner'||r==='admin';}).length;
+  const fbtn=(f,label,n)=>`<button type="button" class="pp-f${(G.ppF||'all')===f?' on':''}" data-a="pp-filter" data-f="${f}">${label}${n!=null?' <b>'+n+'</b>':''}</button>`;
+  const filters=people.length>3||G.ppQ||(G.ppF&&G.ppF!=='all')?`<div class="pp-filters">${fbtn('all','All',people.length)}${fbtn('admins','Administrators',nAdm)}${ts.length>1?fbtn('multi','In several groups',people.filter(x=>x.codes.size>1).length)+ts.map(t=>fbtn('t:'+t.code,esc(tbName(t)),people.filter(x=>x.codes.has(t.code)).length)).join(''):''}</div>`:'';
   return`${ppLinkHTML()}
-    <p class="set-sub">Everyone registered. A gold ✓ means the person is in that group: tap to add or remove them. Use several groups to let someone take part in more than one table.</p>
+    ${people.length?`<div class="pp-sum">${people.length} ${people.length===1?'person':'people'} · ${ts.length} ${ts.length===1?'group':'groups'}${nAdm?' · '+nAdm+' administrator'+(nAdm===1?'':'s'):''}</div>`:''}
+    <input class="plaque-input" id="pp-q" type="search" maxlength="40" placeholder="Search by name" autocomplete="off" value="${esc(G.ppQ||'')}" style="text-transform:none;">
+    ${filters}
     ${P.loading?'<div style="padding:1rem 0;">Loading…</div>':(P.err?`<div style="color:#e8a090;font-size:.8rem;">${esc(P.err)}</div>`:'')}
     ${!P.loading&&!people.length&&!P.err?'<div style="padding:.8rem 0;color:var(--paper3);">Nobody registered yet.</div>':''}
-    ${rows}
-    ${ts.length?`<div style="display:flex;gap:.5rem;margin-top:.8rem;"><input class="plaque-input" id="pp-new" maxlength="40" placeholder="Add a new person" style="text-transform:none;"><button class="btn btn-gold btn-sm" data-a="pp-add">Add</button></div><div style="font-size:.7rem;color:var(--paper3);margin-top:.25rem;">A new person starts in the open table (${esc(tbName(tbEntry()))}); then tap more groups.</div>`:''}
+    ${people.length&&!list.length?'<div style="padding:.8rem 0;color:var(--paper3);">Nobody matches. Clear the search or the filter.</div>':''}
+    <div class="pp-list">${rows}</div>
+    ${list.length>shown.length?`<button type="button" class="btn btn-ghost btn-sm" data-a="pp-more" style="align-self:center;">Show ${Math.min(PP_PAGE,list.length-shown.length)} more (${list.length-shown.length} left)</button>`:''}
+    <p class="set-sub">Tap a person to open them: a gold ✓ means they are in that group (tap to add or remove). Use several groups to let someone take part in more than one table.</p>
+    ${ts.length?`<div style="display:flex;gap:.5rem;margin-top:.2rem;"><input class="plaque-input" id="pp-new" maxlength="40" placeholder="Add a new person" style="text-transform:none;"><button class="btn btn-gold btn-sm" data-a="pp-add">Add</button></div><div style="font-size:.7rem;color:var(--paper3);margin-top:.25rem;">A new person starts in the open table (${esc(tbName(tbEntry()))}); then tap more groups.</div>`:''}
 `;
 }
 function rAccessBody(){
@@ -38885,6 +38924,9 @@ document.addEventListener('click',e=>{
   else if(a==='pp-link-share'){ppLinkAct('share');}
   else if(a==='pp-link-copy'){ppLinkAct('copy');}
   else if(a==='pp-link-x'){ppLinkAct('x');}
+  else if(a==='pp-row'){const k=String(t.getAttribute('data-name')||'').toLowerCase();G.ppSel=G.ppSel===k?'':k;renderSet();}
+  else if(a==='pp-filter'){G.ppF=t.getAttribute('data-f')||'all';G.ppMax=PP_PAGE;renderSet();}
+  else if(a==='pp-more'){G.ppMax=(G.ppMax||PP_PAGE)+PP_PAGE;renderSet();}
   else if(a==='adm-make'){admMake(t.getAttribute('data-name'));}
   else if(a==='adm-remove'){admRemove(t.getAttribute('data-name'));}
   else if(a==='adm-ok'){admAccept();}
@@ -39479,6 +39521,7 @@ document.addEventListener('input',e=>{
   else if(el.getAttribute?.('data-role')==='bb'){G.bigBlind=Math.max(10,+el.value||20);}
   else if(el.getAttribute?.('data-role')==='bjbet'){G.bjBet=Math.max(1,+el.value||50);}
   else if(el.id==='bet-inp'){G.betInput=el.value;}
+  else if(el.id==='pp-q'){G.ppQ=el.value;G.ppMax=PP_PAGE;renderSet();}
 });
 
 let _tt;
