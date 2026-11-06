@@ -6123,7 +6123,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=292;
+const APP_BUILD=293;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -6354,7 +6354,12 @@ function renderSet(){
   const r=document.getElementById('overlay-root');
   if(!r||!setTabNow()||G.tour||G.pbHof||G.psLb||G.rulesOpen||G.quitOpen||G.whoOpen||G.joinInv||G.dataClearAsk)return render();
   const old=r.querySelector('.ov'),top=old?old.scrollTop:0,a=document.activeElement,id=a&&a.id&&r.contains(a)?a.id:null,v=id?a.value:null;
-  r.innerHTML=rSettingsOv();
+  const box=old&&old.querySelector('.set-box');
+  if(box){   // Settings is already open: swap only what is inside the panel, so the panel and its backdrop do not fade in again
+    const t=document.createElement('template');t.innerHTML=rSettingsOv();
+    const nb=t.content.querySelector('.set-box');
+    if(nb)box.innerHTML=nb.innerHTML;else r.innerHTML=rSettingsOv();
+  }else r.innerHTML=rSettingsOv();
   const n=r.querySelector('.ov');if(n&&top)n.scrollTop=top;
   if(id){const e=document.getElementById(id);if(e&&'value' in e){e.value=v;e.focus();}}
 }
