@@ -3750,6 +3750,12 @@ html[data-anim="full"] .achievement-toast{animation:ach-in .55s var(--ease-sprin
    and now can run longer still with a diagram in it -- see slotPaylineDiagramHTML), so it needed the
    same fix, just never got it because nothing had pushed a box tall enough to expose it yet. */
 #overlay-root .ov{position:fixed;inset:0;background:rgba(4,6,10,.9);display:flex;align-items:flex-start;justify-content:center;padding:1.4rem;z-index:200;backdrop-filter:blur(14px);animation:ov-in .2s ease both;overflow-y:auto;}
+#overlay-root .set-box>*{flex-shrink:0;}
+#overlay-root .set-box .panel{overflow:visible;}
+#overlay-root .set-box .set-sub{font-size:.8rem;color:var(--paper3);line-height:1.5;margin:-.2rem 0 0;}
+#overlay-root .set-box details.panel>summary{cursor:pointer;font-weight:600;font-size:.86rem;list-style:none;}
+#overlay-root .set-box details.panel>summary::-webkit-details-marker{display:none;}
+#overlay-root .set-box details.panel[open]>summary{margin-bottom:.6rem;}
 #overlay-root .ov[data-a="set-close"]{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(4,6,10,.94);}
 @keyframes ov-in{from{opacity:0;}to{opacity:1;}}
 #overlay-root .ov-box{background:linear-gradient(160deg,var(--bg3),var(--bg2));border:1px solid rgba(255,255,255,.12);border-radius:26px;padding:1.9rem;max-width:28rem;width:100%;box-shadow:0 32px 80px rgba(0,0,0,.9),0 0 0 1px rgba(212,168,67,.08);display:flex;flex-direction:column;gap:1rem;animation:ov-box-in .28s var(--ease-spring) both;margin-block:auto;flex-shrink:0;}
@@ -6117,7 +6123,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=291;
+const APP_BUILD=292;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -6356,11 +6362,9 @@ function rSettingsOv(){
   const tab=setTabNow(),admin=!!(tbEntry()&&tbEntry().key);
   const tabs=[['tables','Tables'],['people','People',1],['access','Invitations',1],['data','My data']].filter(t=>!t[2]||admin);
   const body=tab==='people'?rPeopleBody():tab==='access'?rAccessBody():tab==='data'?rDataBody():rTablesBody();
-  const title={tables:'Your tables',people:'People &amp; groups',access:'Access &amp; invitations'+(tbEntry()?' · '+esc(tbName(tbEntry())):''),data:'Your data'}[tab];
-  return`<div class="ov" data-a="set-close"><div class="ov-box" role="dialog" aria-modal="true" aria-label="Settings" style="max-width:29rem;max-height:92vh;overflow-y:auto;text-align:left;" data-a="tc-noop">
+  return`<div class="ov" data-a="set-close"><div class="ov-box set-box" role="dialog" aria-modal="true" aria-label="Settings" style="max-width:29rem;max-height:92vh;overflow-y:auto;text-align:left;" data-a="tc-noop">
     <div class="ov-title">⚙ Settings</div>
     <div class="set-tabs" role="tablist" style="display:flex;gap:.35rem;flex-wrap:wrap;margin:.2rem 0 .7rem;">${tabs.map(t=>`<button type="button" role="tab" aria-selected="${t[0]===tab}" class="btn btn-sm ${t[0]===tab?'btn-gold':'btn-ghost'}" data-a="set-tab" data-tab="${t[0]}">${t[1]}</button>`).join('')}</div>
-    <div class="panel-lbl" style="margin-bottom:.4rem;">${title}</div>
     ${body}
     <button class="btn btn-ghost btn-full" data-a="set-close" style="margin-top:.6rem;">Close</button>
   </div></div>`;
@@ -6370,7 +6374,7 @@ function rPeopleBody(){
   const chip=(t,x)=>{const loaded=P.m[t.code]!==null&&P.m[t.code]!==undefined,on=x.codes.has(t.code);
     return`<button type="button" class="btn btn-sm ${on?'btn-gold':'btn-ghost'}" ${loaded?'':'disabled'} data-a="pp-toggle" data-code="${t.code}" data-name="${esc(x.name)}" data-av="${esc(x.avatar||'')}" style="margin:.15rem .25rem .15rem 0;">${on?'✓ ':''}${esc(tbName(t))}</button>`;};
   const rows=people.map(x=>`<div style="padding:.6rem 0;border-bottom:1px solid rgba(255,255,255,.08);"><div style="display:flex;align-items:center;gap:.5rem;"><b style="flex:1;">${x.avatar?avChar(x.avatar)+' ':''}${esc(x.name)}</b></div><div style="margin-top:.3rem;">${ts.map(t=>chip(t,x)).join('')}</div></div>`).join('');
-  return`<div style="font-size:.78rem;color:var(--paper3);margin-bottom:.4rem;">Everyone registered, and the groups they are in. Tap a group to add or remove that person. You stay the admin.</div>
+  return`<p class="set-sub">Everyone registered. A gold ✓ means the person is in that group: tap to add or remove them. Use several groups to let someone take part in more than one table.</p>
     ${P.loading?'<div style="padding:1rem 0;">Loading…</div>':(P.err?`<div style="color:#e8a090;font-size:.8rem;">${esc(P.err)}</div>`:'')}
     ${!P.loading&&!people.length&&!P.err?'<div style="padding:.8rem 0;color:var(--paper3);">Nobody registered yet.</div>':''}
     ${rows}
@@ -6405,6 +6409,7 @@ function rAccessBody(){
     <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">People with a personal key</div>${dev}</div>
     <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">Invitations</div>${inv}</div>
     <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">Access log</div>${log}</div>
+    <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">If a link got out</div><div style="font-size:.76rem;color:var(--paper2);line-height:1.5;">A new table code locks out everybody who only has the old code or link. People you keep must be invited again.</div><button class="btn btn-ghost btn-sm" data-a="tb-rotate" style="margin-top:.5rem;">🔑 Make a new table code</button></div>
     ${A.loading?'<div style="font-size:.74rem;color:var(--paper3);text-align:center;">Loading…</div>':''}
 `;
 }
@@ -6484,15 +6489,17 @@ function tbStatsHTML(code){
 function rTablesBody(){
   const l=tbEnsure(),act=tableCode(),me=tbEntry(),admin=!!(me&&me.key),members=getFamily();
   const rows=l.map(t=>{const on=t.code===act;return`<div class="tb-row${on?' on':''}"><div class="tb-main" data-a="tb-switch" data-code="${t.code}" role="button" tabindex="0"><b>${esc(tbName(t))}</b><small>${t.key?'👑 You are the admin':'Member'}${on?' · open now':''}</small>${tbStatsHTML(t.code)}</div>${t.key?`<button class="btn btn-ghost btn-sm" data-a="tb-invite" data-code="${t.code}">🔗 Invite</button>`:''}</div>`;}).join('');
-  const manage=`<div class="panel" style="text-align:left;"><div class="panel-lbl">${esc(tbName(me))} — people</div>
-      ${members.length?members.map(m=>`<div class="tb-mem"><span>${avChar(m.avatar)} ${esc(m.name)}</span>${admin?`<button class="tb-x" data-a="tb-rm" data-name="${esc(m.name)}" aria-label="Remove ${esc(m.name)}">✕</button>`:''}</div>`).join(''):'<div style="font-size:.78rem;color:var(--paper3);">Nobody yet. Add people on the Family page, or send an invite.</div>'}
-      ${admin?`<div style="display:flex;gap:.5rem;margin-top:.7rem;"><input class="plaque-input" id="tb-rename" maxlength="30" placeholder="Rename this table" value="${esc(G.tableName||'')}" style="text-transform:none;"><button class="btn btn-gold btn-sm" data-a="tb-rename-ok">Rename</button></div><button class="btn btn-gold btn-sm" data-a="acc-open" style="margin-top:.6rem;">🔐 Access, invitations &amp; log</button> <button class="btn btn-ghost btn-sm" data-a="tb-rotate" style="margin-top:.6rem;">🔑 Make a new code (people with the old link are out)</button>`
-        :(tbHasAdmin()?'<div style="font-size:.74rem;color:var(--paper3);margin-top:.5rem;">Only the admin of this table can remove people or rename it.</div>':'<button class="btn btn-ghost btn-sm" data-a="tb-claim" style="margin-top:.6rem;">👑 Become the admin of this table</button><div style="font-size:.7rem;color:var(--paper3);margin-top:.35rem;">The first to claim it becomes its admin; from then on only the admin can remove people, rename it or change its code.</div>')}
+  const mine=admin?`<div class="panel" style="text-align:left;"><div class="panel-lbl">Rename this table</div>
+      <div style="display:flex;gap:.5rem;"><input class="plaque-input" id="tb-rename" maxlength="30" placeholder="Table name" value="${esc(G.tableName||'')}" style="text-transform:none;"><button class="btn btn-gold btn-sm" data-a="tb-rename-ok">Rename</button></div>
+      <div style="font-size:.72rem;color:var(--paper3);margin-top:.5rem;">Add, remove or move people in <b>People</b>. Links, access and the log are in <b>Invitations</b>.</div></div>`
+    :`<div class="panel" style="text-align:left;"><div class="panel-lbl">${esc(tbName(me))} — members</div>
+      ${members.length?members.map(m=>`<div class="tb-mem"><span>${avChar(m.avatar)} ${esc(m.name)}</span></div>`).join(''):'<div style="font-size:.78rem;color:var(--paper3);">Nobody yet.</div>'}
+      ${tbHasAdmin()?'<div style="font-size:.74rem;color:var(--paper3);margin-top:.5rem;">Only the admin of this table can change it.</div>':'<button class="btn btn-ghost btn-sm" data-a="tb-claim" style="margin-top:.6rem;">👑 Become the admin of this table</button><div style="font-size:.7rem;color:var(--paper3);margin-top:.35rem;">The first to claim it becomes its admin.</div>'}
     </div>`;
-  return`<p class="ov-sub" style="margin-top:-.3rem;">Each table has its own people, results and trophies. Invite someone to one table and they never see the others.</p>
+  return`<p class="set-sub">Each table has its own people, results and trophies. Tap a table to open it.</p>
     <div class="tb-list">${rows}</div>
-    ${manage}
-    <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">New table</div><div style="display:flex;gap:.5rem;"><input class="plaque-input" id="tb-new-name" maxlength="30" placeholder="For example: Brother and sister" style="text-transform:none;" data-a="tc-noop"><button class="btn btn-gold btn-sm" data-a="tb-new">Create</button></div><div style="font-size:.7rem;color:var(--paper3);margin-top:.35rem;">You become its admin. Then tap 🔗 Invite and send the link.</div></div>
+    ${mine}
+    <details class="panel" style="text-align:left;" data-a="tc-noop"><summary>＋ New table</summary><div style="display:flex;gap:.5rem;"><input class="plaque-input" id="tb-new-name" maxlength="30" placeholder="For example: Brother and sister" style="text-transform:none;" data-a="tc-noop"><button class="btn btn-gold btn-sm" data-a="tb-new">Create</button></div><div style="font-size:.7rem;color:var(--paper3);margin-top:.35rem;">You become its admin. Then tap 🔗 Invite and send the link.</div></details>
 `;
 }
 function famStatusHTML(){
@@ -37618,12 +37625,11 @@ function rDataBody(){
     </div>
     ${famStatusHTML()}
     <div style="font-size:.68rem;color:var(--paper3);text-align:center;margin:-.2rem 0 .2rem;letter-spacing:.06em;">Our Table · version ${APP_BUILD}${G.updateReady?' · a newer version is available':''}</div>
-    <div class="panel" style="text-align:left;">
-      <div class="panel-lbl">Synced online</div>
+    <details class="panel" style="text-align:left;"><summary>How syncing and privacy work</summary>
       <div style="font-size:.76rem;color:var(--paper3);line-height:1.6;">
         Every finished game (winner, players, scores and the moment), your family members with their avatars and your table name sync under your table code, so every device with the same code shows the same family, the same results and the same trophies. House Legends and Rivalries work across your table's devices. Playing with guests? Switch on 🧳 Guest game before you start and that game stays out. No accounts, emails, or passwords. Synced results are a shared, append-only ledger and can't be individually deleted from within the app, but nothing beyond a name and a result is ever stored there.
       </div>
-    </div>
+    </details>
     <div style="display:flex;flex-direction:column;gap:.6rem;">
       <button class="btn btn-gold btn-full" data-a="data-export">💾 Download my data</button>
       <button class="btn btn-ghost btn-full" data-a="data-clear-ask">🗑 Clear my local data</button>
