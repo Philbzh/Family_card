@@ -824,6 +824,10 @@ body.has-mnav #s-trophies,body.has-mnav #s-family,body.has-mnav #s-player{paddin
     background-image:var(--heroimg,url('assets/ui/home.jpg'));background-size:cover;background-position:50% 64%;
     -webkit-mask-image:linear-gradient(to right,transparent,rgba(0,0,0,.55) 18%,#000 42%);
     mask-image:linear-gradient(to right,transparent,rgba(0,0,0,.55) 18%,#000 42%);}
+  /* the seasonal pictures (Christmas, summer) are whole rooms, not a table strip: the picture fills the whole card and is only veiled a little on the left where the title sits */
+  html[data-season="xmas"] .v10-hero>*:not(.v10-table-motif),html[data-season="summer"] .v10-hero>*:not(.v10-table-motif){position:relative;z-index:2;}
+  html[data-season="xmas"] .v10-table-motif,html[data-season="summer"] .v10-table-motif{width:100%;z-index:0;background-position:50% 60%;-webkit-mask-image:none;mask-image:none;
+    background-image:linear-gradient(90deg,rgba(7,16,12,.9) 0%,rgba(7,16,12,.78) 22%,rgba(7,16,12,.35) 44%,rgba(7,16,12,0) 64%),var(--heroimg,url('assets/ui/home.jpg'));background-size:100% 100%,cover;background-position:0 0,50% 60%;}
 
   /* ── resume / continue card → pill-badged CTA ── */
   .v10-main .v10-continue{margin:0;padding:16px 18px;border-left:2px solid rgba(232,201,135,.6);
@@ -5421,7 +5425,7 @@ function maybeCurtain(gid){
 // the home picture follows the season (Christmas 1 Dec - 6 Jan, summer 15 Jun - 31 Aug) and the clock (night from 18:00 to 06:00)
 function heroSeason(d){const m=d.getMonth(),n=d.getDate();return(m===11||(m===0&&n<=6))?'xmas':((m===5&&n>=15)||m===6||m===7)?'summer':'';}
 function heroFile(d){const night=d.getHours()>=18||d.getHours()<6,se=heroSeason(d);return'assets/ui/home'+(se?'_'+se:'')+(night?'_night':'')+'.jpg';}
-(function(){try{const d=new Date(),h=d.getHours();document.documentElement.style.setProperty('--heroimg','url('+heroFile(d)+')');document.documentElement.dataset.hero=(h>=18||h<6)?'night':'day';}catch(e){}})();
+(function(){try{const d=new Date(),h=d.getHours();document.documentElement.style.setProperty('--heroimg','url('+heroFile(d)+')');document.documentElement.dataset.hero=(h>=18||h<6)?'night':'day';document.documentElement.dataset.season=heroSeason(d);}catch(e){}})();
 function rankMark(i){return i<3?`<img class="sr-medal" src="assets/ui/rk_${i+1}.png" alt="${['🥇','🥈','🥉'][i]}">`:(['④','⑤','⑥','⑦','⑧'][i-3]||i+1);}
 function achTier(a,earned){if(!earned)return a.secret?'secret':'locked';let m=0;try{m=(a.progress&&a.progress().max)||0;}catch(e){}return a.secret?'gold':m>=100?'platinum':m>=25?'gold':m>=5?'silver':m>0?'bronze':'silver';}
 // every game that used to have only a flat dark screen behind its board plays in its own room
@@ -6128,7 +6132,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=299;
+const APP_BUILD=300;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
