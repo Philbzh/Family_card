@@ -11523,13 +11523,13 @@ function pbNewBall(g){
 }
 let pbBid=0;
 // ── the physics ──
-function pbSeg(b,ax,ay,bx,by,rad,e,om,px,py){
+function pbSeg(b,ax,ay,bx,by,rad,e,om,px,py,fr){
   const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;let s=l2?((b.x-ax)*dx+(b.y-ay)*dy)/l2:0;s=s<0?0:s>1?1:s;
   const cx=ax+dx*s,cy=ay+dy*s,rx=b.x-cx,ry=b.y-cy,R=PB.R+rad,d2=rx*rx+ry*ry;
   if(d2>=R*R||d2<1e-9)return null;const d=Math.sqrt(d2),nx=rx/d,ny=ry/d;
   b.x=cx+nx*R;b.y=cy+ny*R;
   const vsx=om?-om*(cy-py):0,vsy=om?om*(cx-px):0,rvx=b.vx-vsx,rvy=b.vy-vsy,vn=rvx*nx+rvy*ny;
-  if(vn<0){const j=-(1+e)*vn;b.vx+=j*nx;b.vy+=j*ny;const tx=-ny,ty=nx,vt=rvx*tx+rvy*ty;b.vx-=vt*tx*.015;b.vy-=vt*ty*.015;}
+  if(vn<0){const j=-(1+e)*vn;b.vx+=j*nx;b.vy+=j*ny;const tx=-ny,ty=nx,vt=rvx*tx+rvy*ty;const fk=fr==null?.015:fr;b.vx-=vt*tx*fk;b.vy-=vt*ty*fk;}
   return{nx,ny,cx,cy,vn,s};
 }
 function pbCirc(b,cx,cy,rad,e){return pbSeg(b,cx,cy,cx,cy,rad,e,0,0,0);}
@@ -11565,9 +11565,9 @@ function pbCollide(g,b,h){
     if(!(st.lockLit&&!g.multi))pbCirc(b,sa.x,sa.y,sa.r,.5);}
   // the flippers: a swinging flipper carries the ball with the speed of its surface
   for(const k of ['L','R','U']){const f=g.fl[k],F=PB_FL[k],tip=pbFlipTip(f,F),fon=k==='U'?g.fl.R.on:f.on;
-    const c=pbSeg(b,F.px,F.py,tip[0],tip[1],7.5,.34,f.w,F.px,F.py);
+    const c=pbSeg(b,F.px,F.py,tip[0],tip[1],7.5,.34,f.w,F.px,F.py,0);
     if(c&&g.t-(f.hitT||-9)>.12&&(Math.abs(f.w)>.5||c.vn<-250)){f.hitT=g.t;pbEvent(g,'flip',{k,b,swing:Math.abs(f.w)>.5});}
-    if(c&&fon&&Math.abs(f.w)<.3&&c.vn>-160){b.vx*=.998;b.vy*=.998;}}
+    }
   // rollovers, the spinner, the kickbacks and the mouths of the ramps are sensors, not walls
   for(const l of T.lanes){if(Math.hypot(b.x-l.x,b.y-l.y)<l.r&&g.t-(l.t||-9)>.5){l.t=g.t;pbEvent(g,'lane',{id:l.id,b});}}
   {const sp=T.spin;if(b.st==='play'&&b.py!==undefined&&(b.py-sp.y)*(b.y-sp.y)<=0&&b.py!==b.y&&Math.abs(b.x-sp.x)<sp.hw&&Math.hypot(b.vx,b.vy)>140)pbEvent(g,'spin',{b,sp});}
@@ -11969,7 +11969,7 @@ function pbClockCollide(g,b,h){
     pbCirc(b,pd.px+Math.sin(pd.ang)*pd.len,pd.py+Math.cos(pd.ang)*pd.len,19,.55);}
   for(const hr of C.hours){const c=pbCirc(b,hr.x,hr.y,14,.6);if(c){b.vx+=c.nx*260;b.vy+=c.ny*260;if(c.vn<-60&&g.t-(hr.ht||-9)>.35){hr.ht=g.t;pbClockHit(g,hr);}}}
   for(const bm of C.bumpers){const c=pbCirc(b,bm.x,bm.y,bm.r,.2);if(c){b.vx+=c.nx*520;b.vy+=c.ny*520;bm.hit=g.t;pbRoomPts(g,250);PBS.bumper();haptic(8);pbSpark(g,bm.x,bm.y,'#ffd27a',6);}}
-  for(const k of ['L','R']){const f=g.fl[k],F=PB_FL[k],tip=pbFlipTip(f,F),c=pbSeg(b,F.px,F.py,tip[0],tip[1],7.5,.34,f.w,F.px,F.py);if(c&&g.t-(f.hitT||-9)>.12&&(Math.abs(f.w)>.5||c.vn<-250)){f.hitT=g.t;if(Math.abs(f.w)>.5)PBS.flip();}if(c&&f.on&&Math.abs(f.w)<.3&&c.vn>-160){b.vx*=.998;b.vy*=.998;}}
+  for(const k of ['L','R']){const f=g.fl[k],F=PB_FL[k],tip=pbFlipTip(f,F),c=pbSeg(b,F.px,F.py,tip[0],tip[1],7.5,.34,f.w,F.px,F.py,0);if(c&&g.t-(f.hitT||-9)>.12&&(Math.abs(f.w)>.5||c.vn<-250)){f.hitT=g.t;if(Math.abs(f.w)>.5)PBS.flip();}if(c&&f.on&&Math.abs(f.w)<.3&&c.vn>-160&&b.vx*b.vx+b.vy*b.vy<2500){b.vx*=.97;b.vy*=.97;}}
   if(Math.hypot(b.vx,b.vy)<10&&b.y<860){b.stuck=(b.stuck||0)+h;if(b.stuck>.9){b.vx=(Math.random()<.5?-1:1)*220;b.vy=-260;b.stuck=0;}}else b.stuck=0;
   if(b.y>PB.H+14)b.st='gone';
 }
@@ -12004,7 +12004,7 @@ function pbRoomCollide(g,b,h){
   r.coins=r.coins.filter(q=>!q.gone);
   {const ch=R.chest,d=Math.hypot(b.x-ch.x,b.y-ch.y);if(r.gems>=5&&r.state==='play'){if(d<ch.r-3&&Math.hypot(b.vx,b.vy)<1300)pbRoomChest(g,b);}else pbCirc(b,ch.x,ch.y,ch.r,.5);}
   for(const bm of R.bumpers){const c=pbCirc(b,bm.x,bm.y,bm.r,.2);if(c){b.vx+=c.nx*520;b.vy+=c.ny*520;bm.hit=g.t;pbRoomPts(g,250);PBS.bumper();haptic(8);pbSpark(g,bm.x,bm.y,'#ffd27a',6);}}
-  for(const k of ['L','R']){const f=g.fl[k],F=PB_FL[k],tip=pbFlipTip(f,F),c=pbSeg(b,F.px,F.py,tip[0],tip[1],7.5,.34,f.w,F.px,F.py);if(c&&g.t-(f.hitT||-9)>.12&&(Math.abs(f.w)>.5||c.vn<-250)){f.hitT=g.t;if(Math.abs(f.w)>.5)PBS.flip();}if(c&&f.on&&Math.abs(f.w)<.3&&c.vn>-160){b.vx*=.998;b.vy*=.998;}}
+  for(const k of ['L','R']){const f=g.fl[k],F=PB_FL[k],tip=pbFlipTip(f,F),c=pbSeg(b,F.px,F.py,tip[0],tip[1],7.5,.34,f.w,F.px,F.py,0);if(c&&g.t-(f.hitT||-9)>.12&&(Math.abs(f.w)>.5||c.vn<-250)){f.hitT=g.t;if(Math.abs(f.w)>.5)PBS.flip();}if(c&&f.on&&Math.abs(f.w)<.3&&c.vn>-160&&b.vx*b.vx+b.vy*b.vy<2500){b.vx*=.97;b.vy*=.97;}}
   if(Math.hypot(b.vx,b.vy)<10&&b.y<860){b.stuck=(b.stuck||0)+h;if(b.stuck>.9){b.vx=(Math.random()<.5?-1:1)*220;b.vy=-260;b.stuck=0;}}else b.stuck=0;
   if(b.y>PB.H+14)b.st='gone';
 }
