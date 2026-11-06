@@ -6116,7 +6116,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=287;
+const APP_BUILD=289;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -6293,6 +6293,60 @@ function accCopy(inv){
   const url=tbInviteLink(tableCode(),inv);
   if(navigator.share){navigator.share({title:'Our Table',text:'Join '+tbName(tbEntry())+' on Our Table',url}).catch(()=>{});}
   else{try{navigator.clipboard.writeText(url).then(()=>toast('🔗 Invitation link copied')).catch(()=>toast(url));}catch(e){toast(url);}}
+}
+/* ═══════ PEOPLE OVERVIEW (admin): who is registered, in which group; tap a group to add or remove ═══════ */
+function ppTables(){return tbList().filter(t=>t&&t.key);}
+async function ppLoad(){
+  const sb=famSb(),ts=ppTables(),P=G.pp={loading:true,m:{},err:''};
+  if(!sb||!ts.length){P.loading=false;P.err=!ts.length?'You are not the admin of any table on this device.':'No connection to the server.';render();return;}
+  for(const t of ts){
+    try{const r=await sb.rpc('members_for',{p_code:t.code});if(r.error)throw r.error;
+      P.m[t.code]=(r.data||[]).filter(m=>m&&m.name&&!m.deleted).map(m=>({name:m.name,avatar:m.avatar||''}));}
+    catch(e){P.m[t.code]=null;P.err='Could not load every group.';}
+  }
+  P.loading=false;if(G.peopleOpen)render();
+}
+function ppPeople(){
+  const P=G.pp||{m:{}},map=new Map();
+  ppTables().forEach(t=>(P.m[t.code]||[]).forEach(m=>{const k=m.name.toLowerCase();let x=map.get(k);if(!x){x={name:m.name,avatar:m.avatar,codes:new Set()};map.set(k,x);}if(!x.avatar&&m.avatar)x.avatar=m.avatar;x.codes.add(t.code);}));
+  return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name));
+}
+async function ppSet(code,name,want,avatar){
+  const t=ppTables().find(x=>x.code===code),P=G.pp;if(!t||!P||P.m[code]===null)return;
+  const sb=famSb(),av=avatar||AVATARS[Math.floor(Math.random()*AVATARS.length)];
+  try{
+    if(code===tableCode()){
+      const cur=getFamily();
+      saveFamily(want?cur.filter(m=>m.name.toLowerCase()!==name.toLowerCase()).concat([{name,avatar:av}]):cur.filter(m=>m.name.toLowerCase()!==name.toLowerCase()));
+    }else if(sb){
+      const r=want?await sb.rpc('upsert_member',{p_code:code,p_name:name,p_avatar:av}):await sb.rpc('remove_member',{p_code:code,p_name:name,p_key:t.key});
+      if(r.error)throw r.error;
+    }else return;
+    const l=(P.m[code]||[]).filter(m=>m.name.toLowerCase()!==name.toLowerCase());if(want)l.push({name,avatar:av});P.m[code]=l;
+    toast(want?name+' added to '+tbName(t):name+' removed from '+tbName(t));
+  }catch(e){toast('That did not work. Check the connection and try again.');}
+  if(G.peopleOpen)render();
+}
+function ppAddNew(){
+  const el=document.getElementById('pp-new'),name=((el&&el.value)||'').trim().slice(0,40);if(!name)return;
+  const ts=ppTables();if(!ts.length)return;
+  const code=ts.some(t=>t.code===tableCode())?tableCode():ts[0].code;
+  ppSet(code,name,true).then(()=>{if(el)el.value='';});
+}
+function rPeopleOv(){
+  const P=G.pp||{loading:true,m:{}},ts=ppTables(),people=ppPeople();
+  const chip=(t,x)=>{const loaded=P.m[t.code]!==null&&P.m[t.code]!==undefined,on=x.codes.has(t.code);
+    return`<button type="button" class="btn btn-sm ${on?'btn-gold':'btn-ghost'}" ${loaded?'':'disabled'} data-a="pp-toggle" data-code="${t.code}" data-name="${esc(x.name)}" data-av="${esc(x.avatar||'')}" style="margin:.15rem .25rem .15rem 0;">${on?'✓ ':''}${esc(tbName(t))}</button>`;};
+  const rows=people.map(x=>`<div style="padding:.6rem 0;border-bottom:1px solid rgba(255,255,255,.08);"><div style="display:flex;align-items:center;gap:.5rem;"><b style="flex:1;">${x.avatar?avChar(x.avatar)+' ':''}${esc(x.name)}</b></div><div style="margin-top:.3rem;">${ts.map(t=>chip(t,x)).join('')}</div></div>`).join('');
+  return`<div class="ov" data-a="pp-close"><div class="ov-box" role="dialog" aria-modal="true" aria-label="People and groups" style="max-width:29rem;max-height:92vh;overflow-y:auto;text-align:left;" data-a="tc-noop">
+    <div class="ov-title">👥 People &amp; groups</div>
+    <div style="font-size:.78rem;color:var(--paper3);margin-bottom:.4rem;">Everyone registered, and the groups they are in. Tap a group to add or remove that person. You stay the admin.</div>
+    ${P.loading?'<div style="padding:1rem 0;">Loading…</div>':(P.err?`<div style="color:#e8a090;font-size:.8rem;">${esc(P.err)}</div>`:'')}
+    ${!P.loading&&!people.length&&!P.err?'<div style="padding:.8rem 0;color:var(--paper3);">Nobody registered yet.</div>':''}
+    ${rows}
+    ${ts.length?`<div style="display:flex;gap:.5rem;margin-top:.8rem;"><input class="plaque-input" id="pp-new" maxlength="40" placeholder="Add a new person" style="text-transform:none;"><button class="btn btn-gold btn-sm" data-a="pp-add">Add</button></div><div style="font-size:.7rem;color:var(--paper3);margin-top:.25rem;">A new person starts in the open table (${esc(tbName(tbEntry()))}); then tap more groups.</div>`:''}
+    <div style="display:flex;gap:.5rem;margin-top:1rem;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" data-a="pp-access">🔗 Invitation links &amp; log</button><button class="btn btn-ghost btn-full" data-a="pp-close">Back</button></div>
+  </div></div>`;
 }
 function rAccessOv(){
   const A=G.acc||{},me=tbEntry(),on=!!A.on;
@@ -31698,7 +31752,7 @@ function rHome(){
   const feltPickerHTML=`<div class="felt-picker">
     <span class="felt-picker-lbl">Felt</span>
     ${Object.keys(FELT_PREVIEW).map(t=>`<button class="felt-swatch${(G.feltTheme||'emerald')===t?' active':''}" style="background-image:url(assets/ui/sw_${t}.png)" data-a="felt-theme" data-theme="${t}" aria-label="${FELT_NAMES[t]} felt" title="${FELT_NAMES[t]}"></button>`).join('')}
-    <button class="ambient-toggle" data-a="tables-open">👥 Tables${tbList().length>1?' ('+tbList().length+')':''}</button>
+    <button class="ambient-toggle" data-a="tables-open">👥 Tables${tbList().length>1?' ('+tbList().length+')':''}</button>${(tbEntry()&&tbEntry().key)?'<button class="ambient-toggle" data-a="pp-open">🔐 Admin</button>':''}
     <button class="ambient-toggle" data-a="anim-toggle">✨ Animations: ${({full:'Full',light:'Light',off:'Off'})[animMode()]}</button>
     <button class="ambient-toggle" data-a="open-data" style="margin-left:auto;">🔒 Your data</button>
   </div>`;
@@ -38490,6 +38544,7 @@ function render(){
   else if(G.quitOpen)ov=rQuitOv();
   else if(G.whoOpen)ov=rWhoOv();
   else if(G.joinInv)ov=rJoinOv();
+  else if(G.peopleOpen)ov=rPeopleOv();
   else if(G.accessOpen)ov=rAccessOv();
   else if(G.tablesOpen)ov=rTablesOv();
   else if(G.dataClearAsk)ov=rDataClearOv();
@@ -38664,6 +38719,11 @@ document.addEventListener('click',e=>{
   else if(a==='who-pick'){const n=t.getAttribute('data-name'),m=getFamily().find(x=>x.name===n);if(m){G.myName=m.name;G.myAvatar=m.avatar||G.myAvatar||AVATARS[0];try{localStorage.setItem('ct_myname',G.myName);localStorage.setItem('ct_myavatar',G.myAvatar);}catch(e){}G.whoOpen=false;famAdopt(false);render();toast('Hello '+G.myName+'!');}}
   else if(a==='who-other'){G.whoOpen=false;G.scr='home';G.profileEditing=true;render();}
   else if(a==='who-skip'){G.whoOpen=false;try{localStorage.setItem('ct_who_skip:'+tableCode(),'1');}catch(e){}render();}
+  else if(a==='pp-open'){G.peopleOpen=true;G.tablesOpen=false;G.pp={loading:true,m:{}};render();ppLoad();}
+  else if(a==='pp-close'){G.peopleOpen=false;render();}
+  else if(a==='pp-add'){ppAddNew();}
+  else if(a==='pp-access'){G.peopleOpen=false;G.accessOpen=true;G.acc={loading:true};render();accLoad();}
+  else if(a==='pp-toggle'){const c=t.getAttribute('data-code'),n=t.getAttribute('data-name'),on=(G.pp.m[c]||[]).some(m=>m.name.toLowerCase()===n.toLowerCase());if(on&&!confirm('Remove '+n+' from this group?'))return;ppSet(c,n,!on,t.getAttribute('data-av')||'');}
   else if(a==='acc-open'){G.accessOpen=true;G.acc={loading:true};render();accLoad();}
   else if(a==='acc-close'){G.accessOpen=false;render();}
   else if(a==='acc-toggle'){accToggle(t.getAttribute('data-on')==='1');}
