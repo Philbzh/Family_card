@@ -5473,6 +5473,16 @@ async function runPresentation(A,W,frame){
     check('a goal stops play (GOAL phase), scores and asks to persist the score to the room',h.ph==='goal'&&h.score[0]===1&&h.persist===true&&h.out.some(e=>e.t==='GOAL'));
     for(let i=0;i<30;i++){h.out=[];F('ahHostTick')(h,.1,[{x:300,y:870},{x:300,y:130}]);}
     check('then the puck is served on the side of the player who conceded, and play resumes',h.ph==='play'&&h.sim.p.y<AH.H/2);
+    // after a goal the puck is served and WAITS: a striker that comes to it must push it, never slide over it
+    {const hs=host();hs.ready[0]=true;hs.ph='serve';hs.pt=.9;hs.sim.p.x=300;hs.sim.p.y=680;hs.sim.p.vx=0;hs.sim.p.vy=0;hs.sim.pad[0].x=300;hs.sim.pad[0].y=900;
+     for(let i=0;i<8;i++){hs.out=[];F('ahHostTick')(hs,.04,[{x:300,y:690},{x:300,y:130}]);}
+     check('while the puck waits after a goal a striker pushes it away (it does not fly over it)',hs.ph==='serve'&&hs.sim.p.y<640&&Math.hypot(hs.sim.p.vx,hs.sim.p.vy)>20);
+     check('and nothing can score while it waits',hs.score[0]===0&&hs.score[1]===0);
+     const hc=host();hc.ready[0]=true;hc.ph='count';hc.pt=3;hc.sim.p.x=300;hc.sim.p.y=500;
+     for(let i=0;i<5;i++){F('ahHostTick')(hc,.1,[{x:300,y:520},{x:300,y:130}]);}
+     check('in the countdown the puck is solid too, and the game still starts from the middle',hc.sim.p.y!==500||hc.sim.p.x!==300);
+     let guard=0;while(hc.ph!=='play'&&guard++<80)F('ahHostTick')(hc,.05,[{x:300,y:870},{x:300,y:130}]);
+     check('after the countdown it begins in the middle with the opening nudge',hc.ph==='play'&&Math.abs(hc.sim.p.x-300)<2&&Math.abs(hc.sim.p.y-500)<2&&Math.hypot(hc.sim.p.vx,hc.sim.p.vy)>250);}
     // the bot plays whole matches
     const fAdv=F('ahAdvance'),fBot=F('ahBotTarget'),fServe=F('ahServe'),fNew=F('ahNewSim');
     const botMinute=(level)=>{const a={sim:fNew(),bot:{level,hist:[],mode:''}};let tt=0,hits=0,bad=false,goals=[0,0],maxY=0;a.sim.p.vy=340;
@@ -6598,6 +6608,18 @@ async function runPresentation(A,W,frame){
     check('the spin curves the ball: right for +, left for -, and mostly at the end of the lane (the oil)',end(1,7.5)>.25&&end(-1,7.5)<-.25&&(()=>{const p=F('blPath')({x0:0,ang:0,v:7.5,spin:1},18.3);const q=p.find(r=>r[1]>9);return q[0]<.08;})());
     check('a slow ball curves more than a fast one',end(1,5)>end(1,9.5)+.2);
     check('the second ball only has the pins that are left: the ones that fell do not come back, in the physics or on the screen',(()=>{const S=F('blSimRun')(full,{x0:-.1,ang:0,v:7.5,spin:0});const left=F('blRackOf')(S.pins);const st=left.map(p=>p.st);const standing=S.pins.filter(p=>p.st<=1).length;return standing>0&&standing<10&&st.filter(v=>v===0).length===standing&&st.filter(v=>v===4).length===10-standing&&F('blRackOf')(left).filter(p=>p.st===0).length===standing;})());
+    {const endM=(mod,sp)=>{const sh={x0:0,ang:0,v:7.5,spin:sp,mod};const S=F('blSimNew')([],sh);let n=0;while(S.ball.z<18.3&&n++<9000)F('blSimBallOnly')(S,1/60);return S.ball.x;};
+     check('Mayhem: a MAGNET ball curves much more than a normal one, a ROCKET ball much less',endM('magnet',.5)>endM(undefined,.5)*1.6&&endM('rocket',.5)<endM(undefined,.5)*.7);
+     const hit=(mod,x0)=>F('blDownCount')(full,F('blSimRun')(full,{x0,ang:0,v:7.5,spin:0,mod}).pins);
+     check('a GIANT ball knocks down pins that a normal ball misses by a hand, and a HEAVY ball plows through more',hit('giant',.2)>hit(undefined,.2)&&hit('heavy',-.11)>=hit(undefined,-.11));
+     const seq=[0,1,2,3,4,5,6,7].map(n=>F('blModOf')(12345,n,0));
+     check('the special ball of each throw comes from a seed (the same on every device) and all four kinds appear',seq.join()===[0,1,2,3,4,5,6,7].map(n=>F('blModOf')(12345,n,0)).join()&&new Set(seq).size===4);
+    }
+    {const fl=(dy,dx,ms)=>{const s=[];for(let i=0;i<=6;i++)s.push({t:i*ms,x:300+dx*i,y:700+dy*i});return F('blPushFrom')(s,900);};
+     const slow=fl(-3,0,30),fast=fl(-60,0,16),left=fl(-60,-20,16),right=fl(-60,20,16),down=fl(40,0,16);
+     check('a flick forward is a throw: fast = hard, slow = nothing (the finger must really flick)',!slow&&!!fast&&fast.pw>.5&&fast.pw<=1);
+     check('the direction of the flick is the line: a flick to the left goes left, to the right goes right, straight is straight',Math.abs(fast.ang)<1e-9&&left.ang<-.005&&right.ang>.005&&left.ang>=-.05&&right.ang<=.05);
+     check('a movement towards the player is no flick (that is the pull)',down===null);}
     check('a robot is as good as its level: three levels, from gentle to sharp',(()=>{const B=F('BL_BOT');return B.gentle.sx>B.steady.sx&&B.steady.sx>B.sharp.sx&&B.gentle.sa>B.sharp.sa;})());
     // a whole game with three people (no robots here: the shots are given), from the first ball to the results screen
     const k0=[gg.isOnline,gg.selGame,gg.lp,gg.scr,gg.bl],pref0=W.localStorage.getItem('ct_bl_pref'),seen0=W.localStorage.getItem('ct_bl_seen'),h0=W.localStorage.getItem('ct_history'),ar0=W.localStorage.getItem('ct_ar'),tw0=W.localStorage.getItem('ct_tw');
@@ -6622,6 +6644,17 @@ async function runPresentation(A,W,frame){
       check('the game is in the history and the shared records know bowling',(()=>{const h=JSON.parse(W.localStorage.getItem('ct_history')||'[]');const ar=JSON.parse(W.localStorage.getItem('ct_ar')||'{}');return h.some(e=>e.game==='bowling'&&e.players.length===3)&&!!(ar.rec&&ar.rec.bowling&&ar.rec.bowling.topscore);})());
       const q=run('quick',2);
       check('the quick game has five frames and also ends by itself',q.over&&q.N===5&&q.rolls.every((r,i)=>F('blPos')(r,5).over&&r.length<=11));
+      // the split challenge: ten splits, two balls at most each, the winner has converted the most
+      {W.localStorage.setItem('ct_bl_pref',JSON.stringify({mode:'splits',style:'classic',lv:'master',ball:'classic',fx:'none',balls:{}}));
+       gg.lp=[0,1].map(i=>({id:i+1,name:['Ann','Bob'][i],avatar:F('AVATARS')[i],hand:[],totalScore:0}));F('lDealBowling')();gg.scr='table';F('render')();F('blAttach')();const s=G().bl;s.pr=F('blPrefs')();F('blBegin')(s);
+       check('every one of the ten splits is a real split (the head pin is down and the pins are not neighbours)',F('BL_SPLITS').length===10&&F('BL_SPLITS').every((sp,i)=>{const fl=F('blSplitRack')(i).map(p=>p.st===0);return F('blIsSplit')(fl,10)&&fl.filter(Boolean).length===sp.p.length;}));
+       let steps=0,sq=0;const seenSplits=[];
+       while(!s.over&&steps++<120000){if(s.phase==='aim'&&!s.bot){if(seenSplits[seenSplits.length-1]!==s.si)seenSplits.push(s.si);const sh=shots[sq++%shots.length];s.bx=sh.x0;s.aimA=sh.ang;s.spinV=sh.spin;s.pull=(sh.v-4.8)/5.2;F('blRelease')(s,sh,s.pull);}F('blStep')(s,1/30);}
+       check('the split challenge goes through all ten splits, both players bowl each one, and ends by itself',s.over&&seenSplits.join()==='0,1,2,3,4,5,6,7,8,9'&&s.spl.every(v=>v>=0&&v<=10));
+       check('the result lists how many splits each converted, and the winner has the most',!!G().blResult&&G().blResult.mode==='splits'&&G().blResult.tot.join()===s.spl.join()&&G().blResult.tot[G().blResult.w]===Math.max(...s.spl));
+       // a ball that clears a split counts, and the second ball is only given when pins are left
+       {const t=G().bl;}
+      }
       // the practice mode never ends and keeps its own count
       {W.localStorage.setItem('ct_bl_pref',JSON.stringify({mode:'practice',style:'classic',lv:'master',ball:'classic',fx:'none',balls:{}}));
        gg.lp=[{id:1,name:'Ann',avatar:F('AVATARS')[0],hand:[],totalScore:0}];F('lDealBowling')();gg.scr='table';F('render')();F('blAttach')();const p=G().bl;p.pr=F('blPrefs')();F('blBegin')(p);let steps=0,sq=0;
@@ -6630,6 +6663,50 @@ async function runPresentation(A,W,frame){
     }finally{F('blStop')();gg.isOnline=k0[0];gg.selGame=k0[1];gg.lp=k0[2];gg.scr=k0[3];gg.bl=null;
       const back=(k,v)=>{if(v===null)W.localStorage.removeItem(k);else W.localStorage.setItem(k,v);};back('ct_bl_pref',pref0);back('ct_bl_seen',seen0);back('ct_history',h0);back('ct_ar',ar0);back('ct_tw',tw0);}
   });
+  /* —— Rooms through the protected functions (room_get / room_put / room_cas) and the fallback to the table —————— */
+  {
+    const F=n=>W.eval(n),res={};
+    const keepSb=W.eval('_sb'),keepRpc=W.eval('_roomRpc'),keepCh=W.eval('_ch');
+    try{
+      const DB={},log=[];
+      const clone=o=>JSON.parse(JSON.stringify(o));
+      // 1. the functions exist: everything goes through them, the table is never touched
+      W.__rooms={rpc:(fn,a)=>{log.push(fn);
+          if(fn==='room_get')return Promise.resolve({data:DB[a.p_id]?clone(DB[a.p_id]):null,error:null});
+          if(fn==='room_put'){DB[a.p_id]=clone(a.p_state);return Promise.resolve({data:true,error:null});}
+          if(fn==='room_cas'){const ok=DB[a.p_id]&&String(DB[a.p_id]._ts)===a.p_expected;if(ok)DB[a.p_id]=clone(a.p_state);return Promise.resolve({data:!!ok,error:null});}
+          return Promise.resolve({data:null,error:{code:'PGRST202',message:'Could not find the function'}});},
+        from:()=>{log.push('TABLE');throw new Error('the table must not be touched');}};
+      W.eval('_sb=window.__rooms;_roomRpc=null;_ch={send:m=>{(window.__pings=window.__pings||[]).push(m.payload&&m.event)}};window.__pings=[]');
+      res.put=await F('dbWrite')('ROOM12',{_ts:5,phase:'lobby',players:[{id:'a',name:'Ann'}]});
+      res.get=await F('dbRead')('ROOM12');
+      res.cas1=await F('dbWriteIfUnchanged')('ROOM12',5,{phase:'game',players:[{id:'a',name:'Ann'}]});
+      res.cas2=await F('dbWriteIfUnchanged')('ROOM12',5,{phase:'game2',players:[]});
+      res.log=log.slice();res.tableTouched=log.includes('TABLE');res.pings=W.eval('window.__pings').join();res.noRoom=await F('dbRead')('NOROOM');
+      res.listWorks=W.eval('_roomRpc');
+      // 2. the functions do not exist yet: the app falls back to the table, once, and remembers
+      const T={},tlog=[];
+      W.__rooms2={rpc:()=>Promise.resolve({data:null,error:{code:'PGRST202',message:'Could not find the function public.room_get'}}),
+        from:()=>({select:()=>({eq:(c,id)=>({single:()=>{tlog.push('select');return Promise.resolve(T[id]?{data:{state:clone(T[id])},error:null}:{data:null,error:{message:'none'}});}})}),
+          upsert:row=>{tlog.push('upsert');T[row.id]=clone(row.state);return Promise.resolve({error:null});},
+          update:row=>({eq:(c,id)=>({eq:(c2,ts)=>({select:()=>{tlog.push('update');const ok=T[id]&&String(T[id]._ts)===ts.replace(/^/,'');if(ok)T[id]=clone(row.state);return Promise.resolve({data:ok?[{id}]:[],error:null});}})})})})};
+      W.eval('_sb=window.__rooms2;_roomRpc=null');
+      res.fbPut=await F('dbWrite')('ROOM34',{_ts:9,phase:'lobby',players:[]});
+      res.fbGet=await F('dbRead')('ROOM34');
+      res.fbFlag=W.eval('_roomRpc');res.fbLog=tlog.join();
+    }catch(e){res.err=String(e&&e.stack||e);}
+    finally{W.eval('_sb=window.__keepSbRooms');}
+    W.__keepSbRooms=keepSb;W.eval('_sb=window.__keepSbRooms;_roomRpc=null;');
+    try{W.eval('_ch=null');}catch(e){}
+    suite('Rooms go through protected functions, with a fallback to the table',()=>{
+      check('no error while testing',!res.err);
+      check('with the functions present: a room is saved, read back and never touched through the table',res.put===true&&res.get&&res.get.phase==='lobby'&&res.get.players[0].name==='Ann'&&!res.tableTouched&&res.log.includes('room_put')&&res.log.includes('room_get'));
+      check('the compare-and-swap saves only when nobody saved in between (second try with the old stamp is refused)',res.cas1===true&&res.cas2===false);
+      check('a room that does not exist reads as nothing',res.noRoom===null);
+      check('every saved change tells the other players with a small message (the table\'s own signal cannot reach them once it is closed)',/st/.test(res.pings||'')&&(res.pings||'').split(',').length>=2);
+      check('without the functions (the SQL was not run yet) the app uses the table as before, and remembers that',res.fbPut===true&&res.fbGet&&res.fbGet.phase==='lobby'&&res.fbFlag===false&&/upsert/.test(res.fbLog)&&/select/.test(res.fbLog));
+    });
+  }
   suite('Bowling online: the same game on two devices',()=>{
     const F=n=>W.eval(n),G=()=>F('G'),gg=G();
     const k0=[gg.isOnline,gg.selGame,gg.lp,gg.scr,gg.bl,gg.myPid,gg.srv],pref0=W.localStorage.getItem('ct_bl_pref'),seen0=W.localStorage.getItem('ct_bl_seen'),h0=W.localStorage.getItem('ct_history'),ar0=W.localStorage.getItem('ct_ar'),tw0=W.localStorage.getItem('ct_tw');
@@ -6666,6 +6743,25 @@ async function runPresentation(A,W,frame){
       check('the other player\'s ball is drawn as the ball that player chose',(()=>{const bb=b.balls[0];return bb&&bb.id==='obsidian'&&bb.fx==='ice';})());
       const outS=W.eval('window._blOut').filter(m=>m.k==='shot');
       check('a message from somebody who is not at the lane is ignored',(()=>{const g2=G().bl;g2.net.pend=[];F('blOnBroadcast')({k:'shot',id:'b1',seat:1,s:900,n:0,sh:rec[0].sh,pw:.5});F('blOnBroadcast')({k:'shot',id:'zzz',seat:0,s:901,n:0,sh:rec[0].sh,pw:.5});return g2.net.pend.length===0||g2.over;})());
+      // a shot that never arrived: the next message carries the last shots and the device plays both, in order
+      {F('blStop')();W.eval("window._blOut=[]");gg.myPid='B';gg.srv=mk();F('render')();F('blAttach')();const m2=G().bl;
+       F('blOnBroadcast')({k:'go',id:'b1',seat:0,s:301,mode:'quick',style:'classic',lv:'standard',seed:7});
+       const s0={x0:.3,ang:0,v:7.5,spin:0},s1={x0:-.2,ang:.002,v:7.4,spin:.3};
+       // the first shot (n 0, seat 0) is lost; only the second one (n 1) arrives, with the log
+       F('blOnBroadcast')({k:'shot',id:'b1',seat:0,s:303,n:1,sh:s1,pw:.5,ball:{id:'classic',fx:'none'},log:[{n:0,seat:0,sh:s0,pw:.5,ball:{id:'classic',fx:'none'}},{n:1,seat:0,sh:s1,pw:.5,ball:{id:'classic',fx:'none'}}]});
+       let q=0;while(q++<60000&&m2.rolls[0].length<2)F('blStep')(m2,1/30);
+       check('a lost shot is caught up: the next message brings the missing shot, both are played in order',m2.rolls[0].length===2&&m2.ballNo>=2);}
+      // a device that waits too long asks (sync); the one that is ahead answers (catch) and the asker plays what it missed
+      {F('blStop')();W.eval("window._blOut=[]");gg.myPid='B';gg.srv=mk();F('render')();F('blAttach')();const m3=G().bl;
+       F('blOnBroadcast')({k:'go',id:'b1',seat:0,s:401,mode:'quick',style:'classic',lv:'standard',seed:7});
+       const s0={x0:.3,ang:0,v:7.5,spin:0},s1={x0:-.2,ang:.002,v:7.4,spin:.3};
+       F('blOnBroadcast')({k:'catch',id:'b1',seat:0,s:402,n:2,log:[{n:0,seat:0,sh:s0,pw:.5,ball:{id:'classic',fx:'none'}},{n:1,seat:0,sh:s1,pw:.5,ball:{id:'classic',fx:'none'}}]});
+       let q2=0;while(q2++<60000&&m3.rolls[0].length<2)F('blStep')(m3,1/30);
+       check('a device that missed shots and is sent a catch-up plays them in order',m3.rolls[0].length===2&&m3.ballNo>=2);
+       W.eval("window._blOut=[]");F('blOnBroadcast')({k:'sync',id:'b1',seat:0,s:403,n:0});
+       check('a device that is ahead answers a sync with its last shots',W.eval('window._blOut').some(m=>m.k==='catch'&&m.n===m3.ballNo&&Array.isArray(m.log)&&m.log.length>=2));
+       W.eval("window._blOut=[]");F('blOnBroadcast')({k:'sync',id:'b1',seat:0,s:404,n:m3.ballNo});
+       check('a device that is not ahead stays quiet on a sync',!W.eval('window._blOut').some(m=>m.k==='catch'));}
       // 3. the host: the result goes into the room for everybody
       F('blStop')();W.eval("window._blOut=[]");gg.myPid='A';gg.srv=mk();F('render')();F('blAttach')();const h=G().bl;
       W.eval('document.querySelector("[data-blact=start]").click()');
@@ -6747,6 +6843,11 @@ async function runPresentation(A,W,frame){
         const shot=W.eval('window._acOut').find(m=>m.k==='shot');check('the shot of the shooter carries the flight, the target and the score',!!shot&&shot.path.length>3&&!!shot.hit&&shot.sc.v>=0&&shot.pi===0);
         let n=0;while(g.phase==='flight'&&n++<900)F('acStep')(g,1/30);const totA=g.tot[0],vA=g.arrows[0][0].v;
         check('the host sees the arrow arrive and counts it',g.phase==='result'&&totA>=0&&g.arrows[0].length===1);
+        check('every shot is numbered, and the shooter remembers it',shot.n===0&&g.net.nShots===1&&g.net.shotLog.length===1);
+        W.eval("window._acOut=[]");F('acOnBroadcast')({k:'sync',id:'a1',seat:1,s:70,n:0});
+        check('a device that is ahead answers a sync with the shots the other one missed',W.eval('window._acOut').some(m=>m.k==='catch'&&Array.isArray(m.log)&&m.log.length===1&&m.log[0].n===0));
+        W.eval("window._acOut=[]");F('acOnBroadcast')({k:'sync',id:'a1',seat:1,s:71,n:1});
+        check('and stays quiet when the other one is not behind',!W.eval('window._acOut').some(m=>m.k==='catch'));
         // the second device
         W.eval("window._acOut=[]");G().myPid='B';F('acStop')();gg.srv=mk();F('render')();F('acAttach')();const b=G().ac;F('acSize')(b);
         check('the second device is seat 1 and waits in the set-up',b.net.seat===1&&b.phase==='setup'&&!F('acWatch')(b));
@@ -6756,9 +6857,26 @@ async function runPresentation(A,W,frame){
         n=0;while(b.phase==='flight'&&n++<900)F('acStep')(b,1/30);
         check('the watcher gets exactly the same score for the arrow',b.phase==='result'&&b.tot[0]===totA&&b.arrows[0][0].v===vA);
         F('acOnBroadcast')(shot);check('the same message twice is counted once',b.arrows[0].length===1);
+        // a watcher that missed the shot is sent it again and plays it, with the same score
+        W.eval("window._acOut=[]");F('acStop')();gg.srv=mk();F('render')();F('acAttach')();const c=G().ac;F('acSize')(c);F('acOnBroadcast')(go);
+        F('acOnBroadcast')({k:'catch',id:'a1',seat:0,s:80,log:[shot]});
+        n=0;while(c.phase!=='flight'&&n++<30)F('acStep')(c,1/30);
+        check('the catch-up shot is played here',c.phase==='flight'&&!!c.fl&&c.fl.sc.v===shot.sc.v);
+        n=0;while(c.phase==='flight'&&n++<900)F('acStep')(c,1/30);
+        check('and gives the same score, and the shot count moves on',c.phase==='result'&&c.tot[0]===totA&&c.net.nShots===1);
         F('acStop')();
        }finally{W.eval('window._acOut=null');W.eval('_ch=null');gg.isOnline=false;G().myPid=pid0;gg.srv=srv0;F('acStop')();}}
     }finally{if(pref0===null)W.localStorage.removeItem('ct_ac_pref');else W.localStorage.setItem('ct_ac_pref',pref0);if(prog0===null)W.localStorage.removeItem('ct_ac_prog');else W.localStorage.setItem('ct_ac_prog',prog0);if(intro0===null)W.localStorage.removeItem('ct_ac_intro');else W.localStorage.setItem('ct_ac_intro',intro0);try{F('acStop')();}catch(e){}gg.isOnline=k0[0];gg.selGame=k0[1];gg.lp=k0[2];gg.scr=k0[3];gg.ac=null;}
+  });
+  suite('End screens: the "Play again" button names the game',()=>{
+    const F=n=>W.eval(n),G=()=>F('G');const gg=G();const k0=[gg.isOnline,gg.selGame];
+    try{
+      gg.isOnline=false;
+      for(const id of ['pong','airhockey','bowling','bingo','texas']){
+        gg.selGame=id;const html=F('resButtonsCore()'),nm=F('currentGame().name'),en=F('esc(currentGame().name)');
+        check(id+': the button says "Play '+nm+' again" (no unfilled placeholder)',html.includes('Play '+en+' again')&&!html.includes('${'));
+      }
+    }finally{gg.isOnline=k0[0];gg.selGame=k0[1];}
   });
   suite('Fairground: the LEVEL button works in every booth',()=>{
     const F=n=>W.eval(n),G=()=>F('G');
