@@ -6161,7 +6161,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=307;
+const APP_BUILD=308;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -6306,18 +6306,19 @@ function dtFetch(input,init){
   }catch(e){}
   return fetch(input,init);
 }
-const ACC_EVENTS={joined:'Joined with an invitation',claim_refused:'Invitation refused',invite_created:'Invitation made',invite_revoked:'Invitation revoked',invite_deleted:'Invitation deleted',suspended:'Suspended',reactivated:'Let back in',end_date_set:'End date changed',removed:'Removed',invitations_only_on:'Invitations only: ON',invitations_only_off:'Invitations only: OFF',admin_device:'Admin device set up'};
+const ACC_EVENTS={joined:'Joined with an invitation',claim_refused:'Invitation refused',invite_created:'Invitation made',invite_revoked:'Invitation revoked',invite_deleted:'Invitation deleted',suspended:'Suspended',reactivated:'Let back in',end_date_set:'End date changed',removed:'Removed',invitations_only_on:'Invitations only: ON',invitations_only_off:'Invitations only: OFF',admin_device:'Admin device set up',admin_appointed:'Administrator appointed',admin_removed:'Administrator removed',person_removed:'Person removed',code_changed:'Table code changed'};
 function accWhen(x){return x?new Date(x).toLocaleString([], {day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'–';}
 function accDay(x){return x?new Date(x).toLocaleDateString([], {day:'numeric',month:'short',year:'numeric'}):'–';}
 function accInvStatus(i,now){now=now||Date.now();if(i.revoked_at)return'revoked';if(i.use_count>=i.max_uses)return'used up';if(new Date(i.expires_at).getTime()<=now)return'expired';return'open';}
 function accDevStatus(d,now){now=now||Date.now();if(d.status==='suspended')return'suspended';if(d.access_until&&new Date(d.access_until).getTime()<=now)return'ended';return'active';}
 async function accLoad(){
-  const sb=famSb(),key=tbKey(),code=tableCode();G.acc=G.acc||{};
+  const sb=famSb(),key=tbKey(),code=tableCode(),tok=G._accTok=(G._accTok||0)+1;G.acc=G.acc||{};
   if(!sb||!key){G.acc.err='Only the admin of this table can open this screen.';if(G.accessOpen)renderSet();return;}
   G.acc.loading=true;G.acc.err='';
   try{
     const a={p_code:code,p_key:key};
     const [i,d,l,t]=await Promise.all([sb.rpc('invite_list',a),sb.rpc('device_list',a),sb.rpc('access_log_list',Object.assign({p_limit:100},a)),sb.rpc('table_info',{p_code:code})]);
+    if(tok!==G._accTok||tableCode()!==code)return;   // the table was switched meanwhile: this answer belongs to another table
     if([i,d,l].some(r=>r.error&&histFnMissing(r.error)))G.acc.err='Run supabase-invites.sql once in Supabase (the file is next to the app).';
     else if([i,d,l].some(r=>r.error))G.acc.err='Could not load the access list just now.';
     else{G.acc.invites=i.data||[];G.acc.devices=d.data||[];G.acc.log=l.data||[];}
@@ -6329,7 +6330,7 @@ async function accCall(fn,args,okMsg){
   const sb=famSb(),key=tbKey();if(!sb||!key){toast('Only the admin can do this');return false;}
   const r=await sb.rpc(fn,Object.assign({p_code:tableCode(),p_key:key},args||{}));
   if(r.error){toast('Could not do that: '+(r.error.message||'error'));return false;}
-  if(okMsg)toast(okMsg);accLoad();return r.data===undefined?true:r.data;
+  if(okMsg)toast(okMsg);accLoad();return r.data==null?true:r.data;
 }
 async function accToggle(on){
   const sb=famSb(),key=tbKey(),code=tableCode();if(!sb||!key)return;
@@ -6377,6 +6378,8 @@ function ppPeople(){
 }
 async function ppSet(code,name,want,avatar){
   const t=ppTables().find(x=>x.code===code),P=G.pp;if(!t||!P||P.m[code]===null)return;
+  if(!want&&ppOwnerGuard(code,name)){toast('The owner cannot be removed from the table.');return;}
+  const prev0=(P.m[code]||[]).find(m=>m.name.toLowerCase()===name.toLowerCase());if(!want&&prev0&&!avatar)avatar=prev0.avatar||'';
   const sb=famSb(),av=avatar||AVATARS[Math.floor(Math.random()*AVATARS.length)];
   try{
     if(code===tableCode()){
@@ -6387,7 +6390,7 @@ async function ppSet(code,name,want,avatar){
       if(r.error)throw r.error;
     }else return;
     const l=(P.m[code]||[]).filter(m=>m.name.toLowerCase()!==name.toLowerCase());if(want)l.push({name,avatar:av});P.m[code]=l;
-    toast(want?name+' added to '+tbName(t):name+' removed from '+tbName(t));
+    if(want)toast(name+' added to '+tbName(t));else{const av0=avatar;toastUndo(name+' removed from '+tbName(t),()=>ppSet(code,name,true,av0));}
     if(want)ppInvite(code,name,t);else if(G.ppLink&&G.ppLink.name.toLowerCase()===name.toLowerCase())G.ppLink=null;
   }catch(e){toast('That did not work. Check the connection and try again.');}
   if(G.peopleOpen)renderSet();
@@ -6629,6 +6632,8 @@ function masterOpen(code,name){
 }
 // People: a compact list that still works with 50 people (search, filters, one line per person, tap a person to open just that one)
 const PP_PAGE=25;
+// the owner of the open table cannot be removed from it (the server refuses too)
+function ppOwnerGuard(code,name){return code===tableCode()&&admRole(name)==='owner';}
 function ppView(people,ts){
   const q=String(G.ppQ||'').trim().toLowerCase(),f=arguments[2]||G.ppF||'all',me=String(G.myName||'').toLowerCase();
   let list=people.filter(x=>{
@@ -6714,7 +6719,7 @@ function rAccessBody(){
     <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">Invitations</div>${inv}</div>
     <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">Connected devices</div>
       <div style="font-size:.72rem;color:var(--paper3);line-height:1.5;margin-bottom:.3rem;">A device is a phone, tablet or computer that joined with an invitation. Removing a device does not remove the person from the family list.</div>${dev}</div>
-    <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">Access history</div>${log}</div>
+    <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">Access history</div><div style="font-size:.68rem;color:var(--paper3);line-height:1.5;margin-bottom:.3rem;">Written by the server. "by owner key" means the owner's key was used, not that a verified person was identified.</div>${log}</div>
     <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">Secure my table</div><div style="font-size:.76rem;color:var(--paper2);line-height:1.5;">If a link or the code got out, you can act in two steps. Your people, games, results and trophies are never changed.</div>
       <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem;">${openInv?`<button class="btn btn-ghost btn-sm" data-a="acc-inv-rv-all">Cancel all open invitations</button>`:''}${canCode?`<button class="btn btn-ghost btn-sm" data-a="tb-rotate">🔑 New table code</button>`:''}</div>
       ${canCode?'':'<div style="font-size:.7rem;color:var(--paper3);margin-top:.4rem;">Only the owner can make a new table code.</div>'}</div>
@@ -39079,7 +39084,7 @@ document.addEventListener('click',e=>{
   else if(a==='pp-close'){G.peopleOpen=false;render();}
   else if(a==='pp-add'){ppAddNew();}
   else if(a==='pp-access'){G.peopleOpen=false;G.accessOpen=true;G.acc={loading:true};render();accLoad();}
-  else if(a==='pp-toggle'){const c=t.getAttribute('data-code'),n=t.getAttribute('data-name'),on=(G.pp.m[c]||[]).some(m=>m.name.toLowerCase()===n.toLowerCase());if(on&&!confirm('Remove '+n+' from this group?'))return;ppSet(c,n,!on,t.getAttribute('data-av')||'');}
+  else if(a==='pp-toggle'){const c=t.getAttribute('data-code'),n=t.getAttribute('data-name'),on=(G.pp.m[c]||[]).some(m=>m.name.toLowerCase()===n.toLowerCase());ppSet(c,n,!on,t.getAttribute('data-av')||'');}
   else if(a==='acc-open'){G.accessOpen=true;G.acc={loading:true};render();accLoad();}
   else if(a==='acc-close'){G.accessOpen=false;render();}
   else if(a==='acc-toggle'){accToggle(t.getAttribute('data-on')==='1');}
@@ -39087,7 +39092,7 @@ document.addEventListener('click',e=>{
   else if(a==='acc-copy'){accCopy(t.getAttribute('data-inv'));}
   else if(a==='acc-inv-rv'){if(confirm('Revoke this invitation? Nobody can use it any more.'))accCall('invite_revoke',{p_invite:t.getAttribute('data-inv')},'Invitation revoked');}
   else if(a==='acc-inv-del'){if(confirm('Delete this invitation from the list? The log keeps the history.'))accCall('invite_delete',{p_invite:t.getAttribute('data-inv')},'Invitation deleted');}
-  else if(a==='acc-dev-st'){const st=t.getAttribute('data-st');accCall('device_set_status',{p_device:t.getAttribute('data-id'),p_status:st},st==='suspended'?'Suspended: locked out at once':'Let back in');}
+  else if(a==='acc-dev-st'){const st=t.getAttribute('data-st'),dv=t.getAttribute('data-id');accCall('device_set_status',{p_device:dv,p_status:st},st==='suspended'?'':'Let back in').then(ok=>{if(ok&&st==='suspended')toastUndo('Device suspended: locked out at once',()=>accCall('device_set_status',{p_device:dv,p_status:'active'},'Let back in'));});}
   else if(a==='acc-dev-rm'){if(confirm('Remove '+t.getAttribute('data-name')+'? Their device loses access at once.'))accCall('device_remove',{p_device:t.getAttribute('data-id')},'Removed');}
   else if(a==='acc-dev-until'){const v=prompt('Access until (YYYY-MM-DD). Leave empty for no end date.','');if(v===null)return;const d=v.trim()?new Date(v.trim()+'T23:59:59'):null;if(d&&isNaN(d.getTime())){toast('Use the form 2026-12-31');return;}accCall('device_set_until',{p_device:t.getAttribute('data-id'),p_until:d?d.toISOString():null},'End date saved');}
   else if(a==='tables-open'){G.tablesOpen=true;G.dataOpen=false;render();tbOverviewLoad();}
@@ -39667,6 +39672,15 @@ document.addEventListener('input',e=>{
 });
 
 let _tt;
+let _tu;
+function toastUndo(msg,undo){
+  let el=document.getElementById('toast-undo');
+  if(!el){el=document.createElement('div');el.id='toast-undo';el.setAttribute('role','status');el.style.cssText='position:fixed;left:50%;bottom:5.2rem;transform:translateX(-50%);z-index:600;max-width:92vw;display:none;gap:.9rem;align-items:center;padding:.6rem .9rem;border-radius:14px;background:rgba(18,28,22,.97);border:1px solid rgba(212,168,67,.5);color:#f3e7c9;font-size:.82rem;box-shadow:0 12px 30px rgba(0,0,0,.6);';document.body.appendChild(el);}
+  el.innerHTML='<span></span><button type="button" style="background:none;border:0;color:#e6c36a;font:700 .82rem inherit;cursor:pointer;padding:.2rem .3rem;">Undo</button>';
+  el.firstChild.textContent=msg;
+  el.lastChild.onclick=()=>{clearTimeout(_tu);el.style.display='none';try{undo();}catch(e){}};
+  el.style.display='flex';clearTimeout(_tu);_tu=setTimeout(()=>{el.style.display='none';},7000);
+}
 function toast(msg){const el=document.getElementById('toast');if(!el)return;el.textContent=msg;el.classList.add('show');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),3200);}
 // A slim, calm notice while the device has no connection: online games pause, offline games go on.
 (function(){
