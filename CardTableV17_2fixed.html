@@ -6116,7 +6116,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=289;
+const APP_BUILD=290;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -6333,22 +6333,41 @@ function ppAddNew(){
   const code=ts.some(t=>t.code===tableCode())?tableCode():ts[0].code;
   ppSet(code,name,true).then(()=>{if(el)el.value='';});
 }
-function rPeopleOv(){
+/* ── Settings: ONE panel for tables, people, invitations and your data (each tab is the old panel's body) ── */
+function setTabNow(){return G.peopleOpen?'people':G.accessOpen?'access':G.tablesOpen?'tables':G.dataOpen?'data':null;}
+function setGo(tab){
+  G.peopleOpen=G.accessOpen=G.tablesOpen=G.dataOpen=false;
+  if(tab==='people'){G.peopleOpen=true;G.pp={loading:true,m:{}};render();ppLoad();}
+  else if(tab==='access'){G.accessOpen=true;G.acc={loading:true};render();accLoad();}
+  else if(tab==='data'){G.dataOpen=true;render();}
+  else{G.tablesOpen=true;render();tbOverviewLoad();}
+}
+function rSettingsOv(){
+  const tab=setTabNow(),admin=!!(tbEntry()&&tbEntry().key);
+  const tabs=[['tables','Tables'],['people','People',1],['access','Invitations',1],['data','My data']].filter(t=>!t[2]||admin);
+  const body=tab==='people'?rPeopleBody():tab==='access'?rAccessBody():tab==='data'?rDataBody():rTablesBody();
+  const title={tables:'Your tables',people:'People &amp; groups',access:'Access &amp; invitations'+(tbEntry()?' · '+esc(tbName(tbEntry())):''),data:'Your data'}[tab];
+  return`<div class="ov" data-a="set-close"><div class="ov-box" role="dialog" aria-modal="true" aria-label="Settings" style="max-width:29rem;max-height:92vh;overflow-y:auto;text-align:left;" data-a="tc-noop">
+    <div class="ov-title">⚙ Settings</div>
+    <div class="set-tabs" role="tablist" style="display:flex;gap:.35rem;flex-wrap:wrap;margin:.2rem 0 .7rem;">${tabs.map(t=>`<button type="button" role="tab" aria-selected="${t[0]===tab}" class="btn btn-sm ${t[0]===tab?'btn-gold':'btn-ghost'}" data-a="set-tab" data-tab="${t[0]}">${t[1]}</button>`).join('')}</div>
+    <div class="panel-lbl" style="margin-bottom:.4rem;">${title}</div>
+    ${body}
+    <button class="btn btn-ghost btn-full" data-a="set-close" style="margin-top:.6rem;">Close</button>
+  </div></div>`;
+}
+function rPeopleBody(){
   const P=G.pp||{loading:true,m:{}},ts=ppTables(),people=ppPeople();
   const chip=(t,x)=>{const loaded=P.m[t.code]!==null&&P.m[t.code]!==undefined,on=x.codes.has(t.code);
     return`<button type="button" class="btn btn-sm ${on?'btn-gold':'btn-ghost'}" ${loaded?'':'disabled'} data-a="pp-toggle" data-code="${t.code}" data-name="${esc(x.name)}" data-av="${esc(x.avatar||'')}" style="margin:.15rem .25rem .15rem 0;">${on?'✓ ':''}${esc(tbName(t))}</button>`;};
   const rows=people.map(x=>`<div style="padding:.6rem 0;border-bottom:1px solid rgba(255,255,255,.08);"><div style="display:flex;align-items:center;gap:.5rem;"><b style="flex:1;">${x.avatar?avChar(x.avatar)+' ':''}${esc(x.name)}</b></div><div style="margin-top:.3rem;">${ts.map(t=>chip(t,x)).join('')}</div></div>`).join('');
-  return`<div class="ov" data-a="pp-close"><div class="ov-box" role="dialog" aria-modal="true" aria-label="People and groups" style="max-width:29rem;max-height:92vh;overflow-y:auto;text-align:left;" data-a="tc-noop">
-    <div class="ov-title">👥 People &amp; groups</div>
-    <div style="font-size:.78rem;color:var(--paper3);margin-bottom:.4rem;">Everyone registered, and the groups they are in. Tap a group to add or remove that person. You stay the admin.</div>
+  return`<div style="font-size:.78rem;color:var(--paper3);margin-bottom:.4rem;">Everyone registered, and the groups they are in. Tap a group to add or remove that person. You stay the admin.</div>
     ${P.loading?'<div style="padding:1rem 0;">Loading…</div>':(P.err?`<div style="color:#e8a090;font-size:.8rem;">${esc(P.err)}</div>`:'')}
     ${!P.loading&&!people.length&&!P.err?'<div style="padding:.8rem 0;color:var(--paper3);">Nobody registered yet.</div>':''}
     ${rows}
     ${ts.length?`<div style="display:flex;gap:.5rem;margin-top:.8rem;"><input class="plaque-input" id="pp-new" maxlength="40" placeholder="Add a new person" style="text-transform:none;"><button class="btn btn-gold btn-sm" data-a="pp-add">Add</button></div><div style="font-size:.7rem;color:var(--paper3);margin-top:.25rem;">A new person starts in the open table (${esc(tbName(tbEntry()))}); then tap more groups.</div>`:''}
-    <div style="display:flex;gap:.5rem;margin-top:1rem;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" data-a="pp-access">🔗 Invitation links &amp; log</button><button class="btn btn-ghost btn-full" data-a="pp-close">Back</button></div>
-  </div></div>`;
+`;
 }
-function rAccessOv(){
+function rAccessBody(){
   const A=G.acc||{},me=tbEntry(),on=!!A.on;
   const badge=st=>`<span style="font-size:.66rem;padding:.1rem .45rem;border-radius:99px;background:${st==='active'||st==='open'?'rgba(80,170,110,.2)':st==='suspended'||st==='revoked'?'rgba(200,80,70,.22)':'rgba(150,150,150,.2)'};">${st}</span>`;
   const dev=(A.devices||[]).map(d=>{const st=accDevStatus(d);return`<div class="tb-mem" style="display:block;padding:.55rem 0;border-bottom:1px solid rgba(255,255,255,.07);">
@@ -6364,9 +6383,7 @@ function rAccessOv(){
     <div style="display:flex;gap:.8rem;margin-top:.3rem;">${st==='open'?`<button class="btn btn-ghost btn-sm" data-a="acc-copy" data-inv="${esc(i.code)}">🔗 Link</button><button class="btn btn-ghost btn-sm" data-a="acc-inv-rv" data-inv="${esc(i.code)}">Revoke</button>`:''}<button class="btn btn-ghost btn-sm" data-a="acc-inv-del" data-inv="${esc(i.code)}">Delete</button></div></div>`;}).join('')||'<div style="font-size:.78rem;color:var(--paper3);">No invitations yet.</div>';
   const log=(A.log||[]).map(l=>`<div style="padding:.35rem 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:.74rem;"><b>${esc(ACC_EVENTS[l.event]||l.event)}</b>${l.label?' · '+esc(l.label):''}${l.invite?' · …'+esc(String(l.invite).slice(-4)):''}<div style="color:var(--paper3);">${accWhen(l.at)}${l.detail?' · '+esc(l.detail):''}</div></div>`).join('')||'<div style="font-size:.78rem;color:var(--paper3);">Nothing logged yet.</div>';
   const fld=(id,lbl,val,ph)=>`<label style="font-size:.7rem;color:var(--paper3);flex:1;min-width:6rem;">${lbl}<input class="plaque-input" id="${id}" inputmode="numeric" value="${val}" placeholder="${ph||''}" style="text-transform:none;width:100%;"></label>`;
-  return`<div class="ov" data-a="acc-close"><div class="ov-box" role="dialog" aria-modal="true" aria-label="Access and invitations" style="max-width:29rem;max-height:92vh;overflow-y:auto;" data-a="tc-noop">
-    <div class="ov-title">🔐 Access · ${esc(tbName(me))}</div>
-    ${A.err?`<div class="panel" style="font-size:.8rem;">⚠️ ${esc(A.err)}</div>`:''}
+  return`${A.err?`<div class="panel" style="font-size:.8rem;">⚠️ ${esc(A.err)}</div>`:''}
     <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">Invitations only: ${on?'ON':'OFF'}</div>
       <div style="font-size:.76rem;color:var(--paper2);line-height:1.5;">${on?'The table code alone opens nothing. Everybody here came in with a personal invitation, and you can cut any of them off at once.':'Anybody who knows the table code can still get in. Switch this on to make every person use a personal invitation (single use or limited) that you can revoke.'}</div>
       <button class="btn ${on?'btn-ghost':'btn-gold'} btn-sm" style="margin-top:.5rem;" data-a="acc-toggle" data-on="${on?'0':'1'}">${on?'Switch off':'Switch on'}</button></div>
@@ -6379,8 +6396,7 @@ function rAccessOv(){
     <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">Invitations</div>${inv}</div>
     <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">Access log</div>${log}</div>
     ${A.loading?'<div style="font-size:.74rem;color:var(--paper3);text-align:center;">Loading…</div>':''}
-    <button class="btn btn-ghost btn-full" data-a="acc-close">Back</button>
-  </div></div>`;
+`;
 }
 async function tbShare(code){
   let inv='';
@@ -6455,7 +6471,7 @@ function tbStatsHTML(code){
   if(!x.games)return'<div class="tb-stats">No games yet'+(x.members?' · '+x.members+' '+(x.members===1?'person':'people'):'')+'</div>';
   return'<div class="tb-stats">'+x.games+' game'+(x.games!==1?'s':'')+' · '+x.members+' '+(x.members===1?'person':'people')+(x.last?' · last '+tbAgo(x.last):'')+'</div>'+(x.champ?'<div class="tb-stats">👑 '+esc(x.champ)+' leads with '+x.champWins+' win'+(x.champWins!==1?'s':'')+'</div>':'')+(G.myName&&x.myGames?'<div class="tb-stats">You: '+x.myWins+' win'+(x.myWins!==1?'s':'')+' from '+x.myGames+' game'+(x.myGames!==1?'s':'')+'</div>':'');
 }
-function rTablesOv(){
+function rTablesBody(){
   const l=tbEnsure(),act=tableCode(),me=tbEntry(),admin=!!(me&&me.key),members=getFamily();
   const rows=l.map(t=>{const on=t.code===act;return`<div class="tb-row${on?' on':''}"><div class="tb-main" data-a="tb-switch" data-code="${t.code}" role="button" tabindex="0"><b>${esc(tbName(t))}</b><small>${t.key?'👑 You are the admin':'Member'}${on?' · open now':''}</small>${tbStatsHTML(t.code)}</div>${t.key?`<button class="btn btn-ghost btn-sm" data-a="tb-invite" data-code="${t.code}">🔗 Invite</button>`:''}</div>`;}).join('');
   const manage=`<div class="panel" style="text-align:left;"><div class="panel-lbl">${esc(tbName(me))} — people</div>
@@ -6463,14 +6479,11 @@ function rTablesOv(){
       ${admin?`<div style="display:flex;gap:.5rem;margin-top:.7rem;"><input class="plaque-input" id="tb-rename" maxlength="30" placeholder="Rename this table" value="${esc(G.tableName||'')}" style="text-transform:none;"><button class="btn btn-gold btn-sm" data-a="tb-rename-ok">Rename</button></div><button class="btn btn-gold btn-sm" data-a="acc-open" style="margin-top:.6rem;">🔐 Access, invitations &amp; log</button> <button class="btn btn-ghost btn-sm" data-a="tb-rotate" style="margin-top:.6rem;">🔑 Make a new code (people with the old link are out)</button>`
         :(tbHasAdmin()?'<div style="font-size:.74rem;color:var(--paper3);margin-top:.5rem;">Only the admin of this table can remove people or rename it.</div>':'<button class="btn btn-ghost btn-sm" data-a="tb-claim" style="margin-top:.6rem;">👑 Become the admin of this table</button><div style="font-size:.7rem;color:var(--paper3);margin-top:.35rem;">The first to claim it becomes its admin; from then on only the admin can remove people, rename it or change its code.</div>')}
     </div>`;
-  return`<div class="ov" data-a="tables-close"><div class="ov-box" role="dialog" aria-modal="true" aria-label="Your tables" style="max-width:27rem;max-height:90vh;overflow-y:auto;" data-a="tc-noop">
-    <div class="ov-title">👥 Your tables</div>
-    <p class="ov-sub" style="margin-top:-.3rem;">Each table has its own people, results and trophies. Invite someone to one table and they never see the others.</p>
+  return`<p class="ov-sub" style="margin-top:-.3rem;">Each table has its own people, results and trophies. Invite someone to one table and they never see the others.</p>
     <div class="tb-list">${rows}</div>
     ${manage}
     <div class="panel" style="text-align:left;" data-a="tc-noop"><div class="panel-lbl">New table</div><div style="display:flex;gap:.5rem;"><input class="plaque-input" id="tb-new-name" maxlength="30" placeholder="For example: Brother and sister" style="text-transform:none;" data-a="tc-noop"><button class="btn btn-gold btn-sm" data-a="tb-new">Create</button></div><div style="font-size:.7rem;color:var(--paper3);margin-top:.35rem;">You become its admin. Then tap 🔗 Invite and send the link.</div></div>
-    <button class="btn btn-ghost btn-full" data-a="tables-close">Close</button>
-  </div></div>`;
+`;
 }
 function famStatusHTML(){
   const g=getHistory().length,m=getFamily().length;let line;
@@ -31752,9 +31765,8 @@ function rHome(){
   const feltPickerHTML=`<div class="felt-picker">
     <span class="felt-picker-lbl">Felt</span>
     ${Object.keys(FELT_PREVIEW).map(t=>`<button class="felt-swatch${(G.feltTheme||'emerald')===t?' active':''}" style="background-image:url(assets/ui/sw_${t}.png)" data-a="felt-theme" data-theme="${t}" aria-label="${FELT_NAMES[t]} felt" title="${FELT_NAMES[t]}"></button>`).join('')}
-    <button class="ambient-toggle" data-a="tables-open">👥 Tables${tbList().length>1?' ('+tbList().length+')':''}</button>${(tbEntry()&&tbEntry().key)?'<button class="ambient-toggle" data-a="pp-open">🔐 Admin</button>':''}
-    <button class="ambient-toggle" data-a="anim-toggle">✨ Animations: ${({full:'Full',light:'Light',off:'Off'})[animMode()]}</button>
-    <button class="ambient-toggle" data-a="open-data" style="margin-left:auto;">🔒 Your data</button>
+        <button class="ambient-toggle" data-a="anim-toggle">✨ Animations: ${({full:'Full',light:'Light',off:'Off'})[animMode()]}</button>
+    <button class="ambient-toggle" data-a="set-open" data-tab="tables" style="margin-left:auto;">⚙ Settings</button>
   </div>`;
   const resumable=getResumableMatch();
   const resumeGame=resumable?GAMES.find(g=>g.id===resumable.snap.selGame):null;
@@ -37568,16 +37580,14 @@ function rQuitOv(){return`<div class="ov" data-a="close-quit"><div class="ov-box
 // "deleted" from here -- the RLS policy on game_history blocks anon DELETE entirely (a earlier
 // security fix), so offering a delete button that silently fails would be worse than not offering
 // one; the honest answer is in the copy instead.
-function rDataOv(){
+function rDataBody(){
   const hist=getHistory();
   // Read through getAchievements() rather than re-parsing the key here. This panel used to parse it
   // as a bare array and print ach.length; when unlocks moved to {id: date} for the Trophy Room, an
   // object has no .length and this quietly rendered "undefined achievements unlocked".
   const achCount=Object.keys(getAchievements()).length;
   const family=getFamily();
-  return`<div class="ov" data-a="close-data"><div class="ov-box" role="dialog" aria-modal="true" aria-label="Your data" style="max-width:26rem;">
-    <div class="ov-title">🔒 Your data</div>
-    <p class="ov-sub" style="margin-top:-.3rem;">What Our Table keeps, and where.</p>
+  return`<p class="ov-sub" style="margin-top:-.3rem;">What Our Table keeps, and where.</p>
     <div class="panel" style="text-align:left;">
       <div class="panel-lbl">On this device</div>
       <div style="font-size:.82rem;color:var(--paper2);line-height:1.7;">
@@ -37595,7 +37605,6 @@ function rDataOv(){
         <input id="tc-input" data-a="tc-noop" class="plaque-input" style="text-transform:uppercase;" maxlength="16" placeholder="Type your family's code" autocomplete="off" autocapitalize="characters" aria-label="Type a table code">
         <button class="btn btn-gold btn-sm" data-a="tc-save">Use it</button>
       </div>
-      <button class="btn btn-ghost btn-sm" data-a="tables-open" style="margin-top:.5rem;">👥 My tables, invites and admin</button>
     </div>
     ${famStatusHTML()}
     <div style="font-size:.68rem;color:var(--paper3);text-align:center;margin:-.2rem 0 .2rem;letter-spacing:.06em;">Our Table · version ${APP_BUILD}${G.updateReady?' · a newer version is available':''}</div>
@@ -37609,8 +37618,7 @@ function rDataOv(){
       <button class="btn btn-gold btn-full" data-a="data-export">💾 Download my data</button>
       <button class="btn btn-ghost btn-full" data-a="data-clear-ask">🗑 Clear my local data</button>
     </div>
-    <button class="btn btn-ghost btn-full" data-a="close-data">Close</button>
-  </div></div>`;
+`;
 }
 function rDataClearOv(){return`<div class="ov" data-a="close-data-clear"><div class="ov-box" role="dialog" aria-modal="true" aria-label="Clear your local data?"><div class="ov-title">Clear your local data?</div><p class="ov-sub">Your history, achievements, family list, and profile on this device will be erased. This can't be undone — download a copy first if you want to keep it.</p><div class="quit-btns"><button class="btn btn-danger" data-a="data-clear-confirm">Yes, clear it</button><button class="btn btn-ghost" data-a="close-data-clear">Cancel</button></div></div></div>`;}
 function exportMyData(){
@@ -38544,11 +38552,8 @@ function render(){
   else if(G.quitOpen)ov=rQuitOv();
   else if(G.whoOpen)ov=rWhoOv();
   else if(G.joinInv)ov=rJoinOv();
-  else if(G.peopleOpen)ov=rPeopleOv();
-  else if(G.accessOpen)ov=rAccessOv();
-  else if(G.tablesOpen)ov=rTablesOv();
   else if(G.dataClearAsk)ov=rDataClearOv();
-  else if(G.dataOpen)ov=rDataOv();
+  else if(setTabNow())ov=rSettingsOv();
   else if(G.digestOpen)ov=rDigestOv();
   else if(G.almanacOpen)ov=rAlmanacOv();
   else if(G.lspick)ov=G.selGame==='uno'?rColorOv():rSuitOv();
@@ -38719,6 +38724,9 @@ document.addEventListener('click',e=>{
   else if(a==='who-pick'){const n=t.getAttribute('data-name'),m=getFamily().find(x=>x.name===n);if(m){G.myName=m.name;G.myAvatar=m.avatar||G.myAvatar||AVATARS[0];try{localStorage.setItem('ct_myname',G.myName);localStorage.setItem('ct_myavatar',G.myAvatar);}catch(e){}G.whoOpen=false;famAdopt(false);render();toast('Hello '+G.myName+'!');}}
   else if(a==='who-other'){G.whoOpen=false;G.scr='home';G.profileEditing=true;render();}
   else if(a==='who-skip'){G.whoOpen=false;try{localStorage.setItem('ct_who_skip:'+tableCode(),'1');}catch(e){}render();}
+  else if(a==='set-open'){setGo(t.getAttribute('data-tab')||'tables');}
+  else if(a==='set-tab'){setGo(t.getAttribute('data-tab'));}
+  else if(a==='set-close'){G.peopleOpen=G.accessOpen=G.tablesOpen=G.dataOpen=false;render();}
   else if(a==='pp-open'){G.peopleOpen=true;G.tablesOpen=false;G.pp={loading:true,m:{}};render();ppLoad();}
   else if(a==='pp-close'){G.peopleOpen=false;render();}
   else if(a==='pp-add'){ppAddNew();}
