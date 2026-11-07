@@ -1,0 +1,71 @@
+/* WORDSPIN puzzle library -- DATA ONLY, no game logic.
+   Every entry is [category, difficulty, text]. Difficulty 1 = short and common, 2 = medium, 3 = long or tricky.
+   Rules for new puzzles: capital letters, letters / spaces / apostrophes / hyphens / commas only (no digits, no "&"),
+   at most 14 letters in any word and at most 4 board rows of 14 columns (the tests check this). */
+const WS_PUZZLES=[
+/* Food & Drink */
+['Food & Drink',1,'CHOCOLATE CAKE'],['Food & Drink',1,'FRESH BREAD'],['Food & Drink',1,'HOT COFFEE'],['Food & Drink',1,'APPLE PIE'],
+['Food & Drink',1,'ORANGE JUICE'],['Food & Drink',2,'SPAGHETTI AND MEATBALLS'],['Food & Drink',2,'STRAWBERRY ICE CREAM'],['Food & Drink',2,'FRESHLY SQUEEZED LEMONADE'],
+['Food & Drink',2,'WARM CINNAMON ROLLS'],['Food & Drink',2,'A BOWL OF TOMATO SOUP'],['Food & Drink',3,'BUTTERNUT SQUASH AND SAGE RISOTTO'],['Food & Drink',3,'SMOKED SALMON ON TOASTED RYE'],
+['Food & Drink',3,'CRISPY ROAST POTATOES WITH ROSEMARY'],['Food & Drink',2,'SUNDAY ROAST CHICKEN'],['Food & Drink',1,'POPCORN'],['Food & Drink',2,'HOMEMADE PIZZA NIGHT'],
+['Food & Drink',3,'A PINCH OF SALT AND A SPLASH OF OLIVE OIL'],['Food & Drink',1,'MINT TEA'],
+/* Places */
+['Places',1,'THE EIFFEL TOWER'],['Places',1,'A SANDY BEACH'],['Places',1,'MOUNTAIN CABIN'],['Places',1,'CITY PARK'],
+['Places',2,'A QUIET VILLAGE BY THE SEA'],['Places',2,'THE GREAT BARRIER REEF'],['Places',2,'AN OLD LIBRARY IN VIENNA'],['Places',2,'SNOWY ALPINE MEADOW'],
+['Places',2,'THE GRAND CANYON AT SUNSET'],['Places',3,'A LIGHTHOUSE ON A WINDSWEPT CLIFF'],['Places',3,'THE NORTHERN LIGHTS OVER ICELAND'],['Places',3,'A HIDDEN WATERFALL DEEP IN THE JUNGLE'],
+['Places',1,'SMALL HARBOUR'],['Places',2,'COBBLED MARKET SQUARE'],['Places',3,'A MEDIEVAL CASTLE ABOVE THE RIVER'],['Places',1,'DESERT OASIS'],
+['Places',2,'A CABIN IN THE WOODS'],['Places',3,'THE SLEEPY ISLAND AT THE EDGE OF THE MAP'],
+/* Phrases */
+['Phrases',1,'PIECE OF CAKE'],['Phrases',1,'BREAK A LEG'],['Phrases',1,'BETTER LATE THAN NEVER'],['Phrases',1,'ONCE IN A BLUE MOON'],
+['Phrases',2,'THE EARLY BIRD CATCHES THE WORM'],['Phrases',2,'A STITCH IN TIME SAVES NINE'],['Phrases',2,'ACTIONS SPEAK LOUDER THAN WORDS'],['Phrases',2,'LET SLEEPING DOGS LIE'],
+['Phrases',2,'EVERY CLOUD HAS A SILVER LINING'],['Phrases',3,'DONT COUNT YOUR CHICKENS BEFORE THEY HATCH'],['Phrases',3,'THE GRASS IS ALWAYS GREENER ON THE OTHER SIDE'],['Phrases',3,'WHEN THE CAT IS AWAY THE MICE WILL PLAY'],
+['Phrases',1,'BITE THE BULLET'],['Phrases',2,'BARKING UP THE WRONG TREE'],['Phrases',2,'SPILL THE BEANS'],['Phrases',3,'THE BALL IS NOW IN YOUR COURT'],
+['Phrases',1,'COST AN ARM AND A LEG'],['Phrases',2,'WHEN PIGS FLY'],['Phrases',3,'A PICTURE IS WORTH A THOUSAND WORDS'],
+/* Things */
+['Things',1,'GOLDEN KEY'],['Things',1,'RED UMBRELLA'],['Things',1,'WOODEN CHAIR'],['Things',1,'SILVER SPOON'],
+['Things',2,'A POCKET WATCH ON A CHAIN'],['Things',2,'THE OLD GRANDFATHER CLOCK'],['Things',2,'A STACK OF DUSTY BOOKS'],['Things',2,'BRASS TELESCOPE'],
+['Things',3,'A VELVET CURTAIN AND A CRYSTAL CHANDELIER'],['Things',3,'THE LEATHER ARMCHAIR BY THE FIREPLACE'],['Things',3,'A MUSIC BOX THAT PLAYS A LULLABY'],['Things',1,'PAPER BOAT'],
+['Things',2,'A BICYCLE WITH A WICKER BASKET'],['Things',2,'THE LAMP ON THE BEDSIDE TABLE'],['Things',3,'AN ANTIQUE COMPASS WITH A CRACKED GLASS'],['Things',1,'SNOW GLOBE'],
+['Things',3,'THE KEY TO THE LITTLE ATTIC DOOR'],['Things',2,'WOOLLY WINTER SOCKS'],
+/* Nature */
+['Nature',1,'FULL MOON'],['Nature',1,'MORNING DEW'],['Nature',1,'SUMMER RAIN'],['Nature',1,'WILD FLOWERS'],
+['Nature',2,'A RAINBOW AFTER THE STORM'],['Nature',2,'THE SOUND OF FALLING LEAVES'],['Nature',2,'A FLOCK OF GEESE IN AUTUMN'],['Nature',2,'SUNLIGHT THROUGH THE TREES'],
+['Nature',3,'A THUNDERSTORM ROLLING IN OVER THE HILLS'],['Nature',3,'FIREFLIES DANCING ABOVE A QUIET MEADOW'],['Nature',3,'THE FIRST SNOWFLAKES OF THE WINTER'],['Nature',1,'LOUD THUNDER'],
+['Nature',2,'A RIVER WINDING THROUGH THE VALLEY'],['Nature',3,'MIST RISING FROM THE LAKE AT DAWN'],['Nature',1,'SALT WATER'],['Nature',2,'TALL PINE TREES'],
+['Nature',3,'THE TIDE CREEPING SLOWLY BACK OVER THE SAND'],['Nature',2,'A CLEAR STARRY NIGHT'],
+/* Animals */
+['Animals',1,'SLEEPY KITTEN'],['Animals',1,'GOLDEN EAGLE'],['Animals',1,'POLAR BEAR'],['Animals',1,'BUSY BEES'],
+['Animals',2,'A HERD OF WILD HORSES'],['Animals',2,'THE LAZY LION ON THE ROCK'],['Animals',2,'PENGUINS SLIDING ON THE ICE'],['Animals',2,'A FOX IN THE MOONLIGHT'],
+['Animals',3,'A FAMILY OF ELEPHANTS CROSSING THE RIVER'],['Animals',3,'THE CLEVER OCTOPUS ESCAPES FROM THE TANK'],['Animals',3,'A SQUIRREL BURYING ACORNS FOR THE WINTER'],['Animals',1,'GREEN FROG'],
+['Animals',2,'DOLPHINS PLAYING IN THE WAVES'],['Animals',3,'A HEDGEHOG CURLED UP UNDER THE HEDGE'],['Animals',1,'BABY OWL'],['Animals',2,'THE SLOWEST TORTOISE'],
+['Animals',3,'A PARADE OF DUCKLINGS FOLLOWING THEIR MOTHER'],['Animals',2,'NIGHT OF THE FRIENDLY BATS'],
+/* Sport & Games */
+['Sport & Games',1,'TENNIS MATCH'],['Sport & Games',1,'LUCKY DICE'],['Sport & Games',1,'FINAL WHISTLE'],['Sport & Games',1,'CHESS CLUB'],
+['Sport & Games',2,'A PERFECT STRIKE AT THE BOWLING ALLEY'],['Sport & Games',2,'THE CROWD ROARS AT THE FINISH LINE'],['Sport & Games',2,'A GAME OF CARDS BY CANDLELIGHT'],['Sport & Games',2,'SLALOM DOWN A SNOWY SLOPE'],
+['Sport & Games',3,'THE UNDERDOGS WIN IN THE LAST MINUTE'],['Sport & Games',3,'A SLOW AND CAREFUL MOVE WITH THE BISHOP'],['Sport & Games',3,'ROLLING DOUBLE SIX WHEN YOU NEED IT MOST'],['Sport & Games',1,'GOLDEN MEDAL'],
+['Sport & Games',2,'JUMPING OVER THE HIGH BAR'],['Sport & Games',3,'A THRILLING RACE ON A RAINY MORNING'],['Sport & Games',1,'ARCHERY TARGET'],['Sport & Games',2,'PLAYING FOR THE FAMILY TROPHY'],
+['Sport & Games',3,'EVERYONE CHEERS WHEN THE LAST TILE FALLS'],['Sport & Games',2,'ROUND THE TABLE WE GO'],
+/* People & Jobs */
+['People & Jobs',1,'BRAVE FIREFIGHTER'],['People & Jobs',1,'FRIENDLY BAKER'],['People & Jobs',1,'KIND NEIGHBOUR'],['People & Jobs',1,'SHIP CAPTAIN'],
+['People & Jobs',2,'THE CLEVER DETECTIVE'],['People & Jobs',2,'A TALENTED STREET MUSICIAN'],['People & Jobs',2,'THE VILLAGE POSTMAN ON HIS ROUND'],['People & Jobs',2,'A PATIENT MATH TEACHER'],
+['People & Jobs',3,'THE MYSTERIOUS STRANGER AT THE BACK OF THE ROOM'],['People & Jobs',3,'AN ADVENTUROUS MAPMAKER FROM THE NORTH'],['People & Jobs',3,'A GRANDMOTHER WHO TELLS WONDERFUL STORIES'],['People & Jobs',1,'WISE OLD WIZARD'],
+['People & Jobs',2,'A CHEERFUL TAXI DRIVER'],['People & Jobs',3,'THE QUIET GARDENER WITH THE ENORMOUS HAT'],['People & Jobs',1,'JOLLY SAILOR'],['People & Jobs',2,'THE NIGHT SHIFT NURSE'],
+['People & Jobs',3,'A CLOCKMAKER WHO NEVER LOSES TRACK OF TIME'],['People & Jobs',2,'BEST FRIENDS FOREVER'],
+/* Travel */
+['Travel',1,'WINDOW SEAT'],['Travel',1,'NIGHT TRAIN'],['Travel',1,'PACKED SUITCASE'],['Travel',1,'HOLIDAY PLANS'],
+['Travel',2,'BOARDING THE MORNING FLIGHT'],['Travel',2,'A ROAD TRIP ALONG THE COAST'],['Travel',2,'THE LAST FERRY OF THE DAY'],['Travel',2,'A POSTCARD FROM LISBON'],
+['Travel',3,'LOST LUGGAGE ON THE WAY TO THE ISLAND'],['Travel',3,'A SLEEPER TRAIN THROUGH THE SNOWY MOUNTAINS'],['Travel',3,'EXPLORING NARROW STREETS WITHOUT A MAP'],['Travel',1,'SUNNY SKIES'],
+['Travel',2,'CAMPING UNDER THE STARS'],['Travel',3,'THE LONG WAY ROUND IS OFTEN THE BEST'],['Travel',1,'PASSPORT CONTROL'],['Travel',2,'A SAILING TRIP IN SPRING'],
+['Travel',3,'ARRIVING AT THE HOTEL JUST BEFORE MIDNIGHT'],['Travel',2,'A FUNNY HOTEL BREAKFAST'],
+/* At Home */
+['At Home',1,'COSY BLANKET'],['At Home',1,'FAMILY DINNER'],['At Home',1,'GARDEN GATE'],['At Home',1,'SUNDAY MORNING'],
+['At Home',2,'A WARM FIRE ON A WINTER NIGHT'],['At Home',2,'THE KITCHEN SMELLS OF FRESH BREAD'],['At Home',2,'LAUGHTER AROUND THE KITCHEN TABLE'],['At Home',2,'BOARD GAMES ON A RAINY DAY'],
+['At Home',3,'A LAZY AFTERNOON WITH TEA AND A GOOD BOOK'],['At Home',3,'EVERYONE GATHERS IN THE LIVING ROOM TO PLAY'],['At Home',3,'THE SMELL OF PANCAKES DRIFTING UP THE STAIRS'],['At Home',1,'WELCOME HOME'],
+['At Home',2,'FRESH SHEETS ON THE BED'],['At Home',3,'A CHRISTMAS TREE GLOWING IN THE CORNER'],['At Home',1,'HOT CHOCOLATE'],['At Home',2,'THE FRONT DOOR CREAKS OPEN'],
+['At Home',3,'GRANDPA SNORING IN HIS FAVOURITE ARMCHAIR'],['At Home',2,'A TIDY BOOKSHELF'],
+/* Wonders & Words */
+['Wonders & Words',1,'MAGIC SPELL'],['Wonders & Words',1,'HIDDEN TREASURE'],['Wonders & Words',1,'DRAGONS AND KNIGHTS'],['Wonders & Words',1,'SECRET CODE'],
+['Wonders & Words',2,'A MAP WITH A RED CROSS'],['Wonders & Words',2,'THE LOST CITY OF GOLD'],['Wonders & Words',2,'A POTION THAT MAKES YOU INVISIBLE'],['Wonders & Words',2,'THE WIZARDS TOWER'],
+['Wonders & Words',3,'A RIDDLE WRITTEN IN INVISIBLE INK'],['Wonders & Words',3,'THE ENCHANTED FOREST AT THE END OF THE WORLD'],['Wonders & Words',3,'ONCE UPON A TIME IN A DISTANT KINGDOM'],['Wonders & Words',1,'MIDNIGHT FEAST'],
+['Wonders & Words',2,'A SHIP IN A BOTTLE'],['Wonders & Words',3,'THE MOST PRECIOUS JEWEL IN THE ROYAL VAULT'],['Wonders & Words',1,'BRIGHT IDEA'],['Wonders & Words',2,'WORDS THAT SPIN AROUND']
+];

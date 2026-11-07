@@ -10236,6 +10236,121 @@ async function runPresentation(A,W,frame){
     });
   }
 
+  /* —— WORDSPIN —————— */
+  suite('WORDSPIN — the puzzle library is big, varied and fits the board',()=>{
+    const F=n=>W.eval(n);
+    const lib=F('WS_PUZZLES'),layout=F('wsLayout');
+    check('at least 150 puzzles',lib.length>=150);
+    check('all three difficulties are used, each with at least 30 puzzles',[1,2,3].every(d=>lib.filter(p=>p[1]===d).length>=30));
+    check('at least 8 categories',new Set(lib.map(p=>p[0])).size>=8);
+    check('every puzzle fits 4 rows of 14 tiles',lib.every(p=>!!layout(p[2])));
+    check('puzzles use capital letters, spaces, apostrophes, hyphens and commas only',lib.every(p=>/^[A-Z ',-]+$/.test(p[2])));
+    check('no puzzle appears twice',new Set(lib.map(p=>p[2])).size===lib.length);
+    check('the library is plain data: the engine file holds no puzzle text',!/WS_PUZZLES=\[/.test(W.eval('String(wsPick)')));
+    check('a long phrase wraps on word boundaries and never splits a word',(()=>{const r=layout('THE SLOW TORTOISE WINS THE RACE');return r&&r.every(x=>x.length<=14)&&r.join(' ')==='THE SLOW TORTOISE WINS THE RACE';})());
+    check('a phrase that cannot fit is refused',layout('A '.repeat(40))===null&&layout('SUPERCALIFRAGILISTIC')===null);
+  });
+  suite('WORDSPIN — the wheel: fixed wedges, and the spin is decided once from the seed',()=>{
+    const F=n=>W.eval(n);
+    const segs=F('WS_SEGS'),wsNew=F('wsNew'),wsApply=F('wsApply'),SEG=F('WS_SEG_DEG');
+    const pts=segs.filter(s=>s.k==='pts');
+    check('the wheel has 24 wedges: points 250 to 1000 plus BANKRUPT, LOSE A TURN, FREE PLAY and WILD',segs.length===24&&Math.min(...pts.map(s=>s.v))===250&&Math.max(...pts.map(s=>s.v))===1000
+      &&['bankrupt','lose','free','wild'].every(k=>segs.some(s=>s.k===k)));
+    check('there are two BANKRUPT wedges and one of each other special',segs.filter(s=>s.k==='bankrupt').length===2&&['lose','free','wild'].every(k=>segs.filter(s=>s.k===k).length===1));
+    const run=seed=>{const w=wsNew(3,{seed,rounds:2}),out=[];for(let i=0;i<12&&w.phase==='spin';i++){const f=wsApply(w,w.cur,{t:'spin'},1);out.push([f.idx,Math.round(f.angle*1000)]);if(w.phase==='letter')break;}return JSON.stringify(out);};
+    check('the same seed gives the same spin on every device; another seed gives another',run(4242)===run(4242)&&run(4242)!==run(9191));
+    let landed=true,seen=new Set();
+    for(let s=1;s<=60;s++){const w=wsNew(2,{seed:s*131}),f=wsApply(w,1,{t:'spin'},1);
+      const under=Math.round((((-f.angle)%360)+360)%360/SEG)%24;seen.add(f.idx);if(under!==f.idx)landed=false;}
+    check('the final angle puts the chosen wedge under the pointer',landed);
+    check('over 60 seeds the wheel reaches many different wedges',seen.size>=14);
+    check('the wheel always turns forward by at least four full turns',(()=>{const w=wsNew(2,{seed:77});const a=w.angle;const f=wsApply(w,1,{t:'spin'},1);return f.angle-a>=4*360&&f.turns>=4;})());
+    check('only the player on turn may act',(()=>{const w=wsNew(3,{seed:5});return wsApply(w,2,{t:'spin'},1)===null&&wsApply(w,3,{t:'spin'},1)===null;})());
+    check('state survives being sent through JSON and continues identically',(()=>{const a=wsNew(2,{seed:31});const b=JSON.parse(JSON.stringify(a));const fa=wsApply(a,1,{t:'spin'},1),fb=wsApply(b,1,{t:'spin'},1);return JSON.stringify(fa)===JSON.stringify(fb);})());
+  });
+  suite('WORDSPIN — consonants, scoring, wrong letters, bankrupt, lose a turn, free play, wild',()=>{
+    const F=n=>W.eval(n);
+    const wsNew=F('wsNew'),wsApply=F('wsApply');
+    const mk=(P,text,lv)=>{const w=wsNew(P,{seed:11});w.puzzle={c:'Test',d:1,t:text,i:-1};w.called='';w.rs=w.rs.map(()=>0);w.bank=w.bank.map(()=>0);w.cur=1;if(lv){w.phase='letter';w.lv=lv;}return w;};
+    const findSeed=(pred)=>{for(let s=1;s<4000;s++){const w=wsNew(3,{seed:s});w.puzzle={c:'T',d:1,t:'BANANA SPLIT',i:-1};const f=wsApply(w,1,{t:'spin'},1);if(pred(f))return s;}return 0;};
+    check('a consonant pays its wedge value for every tile it fills',(()=>{const w=mk(2,'BANANA SPLIT',{k:'pts',v:500});const f=wsApply(w,1,{t:'letter',ch:'N'},1);return f.hit&&f.n===2&&f.gain===1000&&w.rs[0]===1000&&w.phase==='spin'&&w.cur===1;})());
+    check('after a hit the same player spins again; points are kept in the round score, not the bank',(()=>{const w=mk(2,'BANANA SPLIT',{k:'pts',v:250});wsApply(w,1,{t:'letter',ch:'B'},1);return w.rs[0]===250&&w.bank[0]===0&&w.cur===1;})());
+    check('a letter that is not in the phrase passes the turn and scores nothing',(()=>{const w=mk(2,'BANANA SPLIT',{k:'pts',v:900});const f=wsApply(w,1,{t:'letter',ch:'Z'},1);return !f.hit&&w.rs[0]===0&&w.cur===2&&w.phase==='spin';})());
+    check('a letter already called cannot be called again',(()=>{const w=mk(2,'BANANA SPLIT',{k:'pts',v:500});wsApply(w,1,{t:'letter',ch:'N'},1);w.phase='letter';w.lv={k:'pts',v:500};return wsApply(w,1,{t:'letter',ch:'N'},1)===null;})());
+    check('after a point wedge you cannot name a vowel (you must buy it)',(()=>{const w=mk(2,'BANANA SPLIT',{k:'pts',v:500});return wsApply(w,1,{t:'letter',ch:'A'},1)===null&&w.called==='';})());
+    check('letters are accepted in lower case and with accents',(()=>{const w=mk(2,'BANANA SPLIT',{k:'pts',v:500});const f=wsApply(w,1,{t:'letter',ch:'n'},1);return f&&f.n===2;})());
+    check('you cannot call a letter before you have spun',(()=>{const w=mk(2,'BANANA SPLIT');return wsApply(w,1,{t:'letter',ch:'N'},1)===null;})());
+    const sb=findSeed(f=>f.seg==='bankrupt');
+    check('BANKRUPT wipes only the current round score, keeps the banked total, and passes the turn',sb>0&&(()=>{const w=wsNew(3,{seed:sb});w.puzzle={c:'T',d:1,t:'BANANA SPLIT',i:-1};w.rs[0]=1750;w.bank[0]=3000;const f=wsApply(w,1,{t:'spin'},1);return f.seg==='bankrupt'&&w.rs[0]===0&&w.bank[0]===3000&&f.lost===1750&&w.cur===2&&w.phase==='spin'&&w.stats.bankrupt[0]===1;})());
+    const sl=findSeed(f=>f.seg==='lose');
+    check('LOSE A TURN passes the turn and keeps every score',sl>0&&(()=>{const w=wsNew(3,{seed:sl});w.puzzle={c:'T',d:1,t:'BANANA SPLIT',i:-1};w.rs[0]=600;const f=wsApply(w,1,{t:'spin'},1);return f.seg==='lose'&&w.rs[0]===600&&w.cur===2;})());
+    const sp=findSeed(f=>f.seg==='pts');
+    check('a point wedge puts the player into the letter step, with the wedge value',sp>0&&(()=>{const w=wsNew(3,{seed:sp});w.puzzle={c:'T',d:1,t:'BANANA SPLIT',i:-1};const f=wsApply(w,1,{t:'spin'},1);return w.phase==='letter'&&w.lv.v===f.v&&f.v>=250&&f.v<=1000&&w.cur===1;})());
+    check('FREE PLAY: a wrong letter costs nothing and the player keeps the turn; vowels may be named',(()=>{const w=mk(2,'BANANA SPLIT',{k:'free',v:500,any:true,free:true});const f=wsApply(w,1,{t:'letter',ch:'Z'},1);const a=w.cur===1&&w.phase==='spin';const w2=mk(2,'BANANA SPLIT',{k:'free',v:500,any:true,free:true});const g=wsApply(w2,1,{t:'letter',ch:'A'},1);return a&&g.hit&&g.n===3&&w2.rs[0]===0;})());
+    check('WILD: any consonant pays 500 per tile, a vowel is free and pays nothing',(()=>{const w=mk(2,'BANANA SPLIT',{k:'wild',v:500,any:true});const f=wsApply(w,1,{t:'letter',ch:'L'},1);const w2=mk(2,'BANANA SPLIT',{k:'wild',v:500,any:true});const g=wsApply(w2,1,{t:'letter',ch:'I'},1);return f.gain===500&&w.rs[0]===500&&g.hit&&w2.rs[0]===0;})());
+    check('the wheel cannot be spun when no consonant is left to find',(()=>{const w=mk(2,'AAA');return w.phase==='spin'&&wsApply(w,1,{t:'spin'},1)===null;})());
+    check('the best single win is recorded in the stats',(()=>{const w=mk(2,'BANANA SPLIT',{k:'pts',v:500});wsApply(w,1,{t:'letter',ch:'N'},1);return w.stats.best[0]===1000&&w.stats.hits[0]===1;})());
+  });
+  suite('WORDSPIN — vowels cost 250 and solving is forgiving about spelling',()=>{
+    const F=n=>W.eval(n);
+    const wsNew=F('wsNew'),wsApply=F('wsApply'),wsNorm=F('wsNorm');
+    const mk=(text,rs)=>{const w=wsNew(3,{seed:11});w.puzzle={c:'Test',d:1,t:text,i:-1};w.called='';w.rs=[rs||0,0,0];w.cur=1;return w;};
+    check('buying a vowel costs 250 from the round score and reveals every copy',(()=>{const w=mk('BANANA SPLIT',900);const f=wsApply(w,1,{t:'vowel',ch:'A'},1);return f.hit&&f.n===3&&w.rs[0]===650&&w.cur===1&&w.stats.vowels[0]===1;})());
+    check('a vowel needs 250 in the round score (the banked total does not count)',(()=>{const w=mk('BANANA SPLIT',200);w.bank[0]=9000;return wsApply(w,1,{t:'vowel',ch:'A'},1)===null&&w.rs[0]===200;})());
+    check('exactly 250 is enough',(()=>{const w=mk('BANANA SPLIT',250);const f=wsApply(w,1,{t:'vowel',ch:'I'},1);return f.hit&&w.rs[0]===0;})());
+    check('a vowel that is not in the phrase still costs 250 and passes the turn',(()=>{const w=mk('BANANA SPLIT',500);const f=wsApply(w,1,{t:'vowel',ch:'O'},1);return !f.hit&&w.rs[0]===250&&w.cur===2;})());
+    check('a consonant cannot be bought, and a vowel cannot be bought twice',(()=>{const w=mk('BANANA SPLIT',900);const a=wsApply(w,1,{t:'vowel',ch:'B'},1);const b=wsApply(w,1,{t:'vowel',ch:'A'},1);const c=wsApply(w,1,{t:'vowel',ch:'A'},1);return a===null&&b&&c===null;})());
+    check('solving is not case, space, punctuation or accent sensitive',wsNorm("  Pièce of cake!! ")==='PIECEOFCAKE'&&wsNorm('piece-of-cake')===wsNorm('PIECE OF CAKE')&&wsNorm('ÉÀÖ')==='EAO');
+    check('empty or missing answers never count as correct',wsNorm('')===''&&wsNorm(null)===''&&(()=>{const w=mk('PIECE OF CAKE');return wsApply(w,1,{t:'solve',text:''},1).ok===false;})());
+    check('a correct solve (any spelling) wins the round and banks the round score',(()=>{const w=mk('PIECE OF CAKE',1200);const f=wsApply(w,1,{t:'solve',text:'piece of  cake'},1);return f.ok&&w.phase==='roundend'&&w.bank[0]===1200&&w.roundWin===1&&w.stats.solved[0]===1;})());
+    check('a round winner with less than 500 still banks 500',(()=>{const w=mk('PIECE OF CAKE',100);wsApply(w,1,{t:'solve',text:'PIECE OF CAKE'},1);return w.bank[0]===500;})());
+    check('only the round winner banks: the others lose their round scores',(()=>{const w=mk('PIECE OF CAKE',300);w.rs=[300,2000,0];w.bank=[0,100,0];wsApply(w,1,{t:'solve',text:'PIECE OF CAKE'},1);return w.bank[0]===500&&w.bank[1]===100;})());
+    check('a wrong solve passes the turn and keeps the round score',(()=>{const w=mk('PIECE OF CAKE',700);const f=wsApply(w,1,{t:'solve',text:'PIECE OF PIE'},1);return !f.ok&&w.cur===2&&w.rs[0]===700&&w.stats.wrongSolve[0]===1&&w.phase==='spin';})());
+    check('revealing the last missing tile wins the round without typing',(()=>{const w=mk('HI',0);w.phase='letter';w.lv={k:'pts',v:300};wsApply(w,1,{t:'letter',ch:'H'},1);w.rs[0]=250;const f=wsApply(w,1,{t:'vowel',ch:'I'},1);return f.round===500&&w.phase==='roundend'&&w.roundWin===1;})());
+  });
+  suite('WORDSPIN — turn order, rounds and the final puzzle',()=>{
+    const F=n=>W.eval(n);
+    const wsNew=F('wsNew'),wsApply=F('wsApply'),WS=F('WS_FINAL_MS');
+    const play=(w,ans)=>{w.puzzle={c:'T',d:1,t:ans,i:-1};};
+    check('a wrong guess hands the turn on in seat order and wraps round the table',(()=>{const w=wsNew(3,{seed:2});w.puzzle={c:'T',d:1,t:'BANANA',i:-1};const seq=[];for(let k=0;k<4;k++){w.phase='letter';w.lv={k:'pts',v:300};wsApply(w,w.cur,{t:'letter',ch:'Z'+''},1);w.called='';seq.push(w.cur);}return seq.join('')==='2312';})());
+    check('2, 3 and 4 rounds can be chosen; anything else becomes 3',wsNew(2,{rounds:2}).rounds===2&&wsNew(2,{rounds:4}).rounds===4&&wsNew(2,{rounds:9}).rounds===3&&wsNew(2).rounds===3);
+    check('2 to 4 players: fewer or more are clamped',wsNew(1).P===2&&wsNew(9).P===4&&wsNew(3).P===3);
+    check('the next round starts one seat further on and has a fresh puzzle and fresh round scores',(()=>{const w=wsNew(3,{seed:8,rounds:3});const first=w.puzzle.t;play(w,'ONE');w.rs=[400,0,0];wsApply(w,1,{t:'solve',text:'one'},1);const f=wsApply(w,1,{t:'next'},1);return f.kind==='round'&&w.round===2&&w.cur===2&&w.starter===2&&w.rs.every(x=>x===0)&&w.called===''&&w.puzzle.t!==first&&w.phase==='spin';})());
+    check('a puzzle is never repeated inside one game',(()=>{const w=wsNew(2,{seed:19,rounds:4});const seen=[w.puzzle.t];for(let k=1;k<4;k++){play(w,'X');w.cur=1;wsApply(w,1,{t:'solve',text:'x'},1);wsApply(w,1,{t:'next'},1);seen.push(w.puzzle.t);}return new Set(seen).size===4;})());
+    check('after the last round the player with the highest bank plays the final alone',(()=>{const w=wsNew(3,{seed:23,rounds:2});w.bank=[100,100,100];play(w,'ONE');wsApply(w,1,{t:'solve',text:'one'},1);wsApply(w,1,{t:'next'},1);play(w,'TWO');w.cur=2;wsApply(w,2,{t:'solve',text:'two'},1);w.bank=[500,3000,900];const f=wsApply(w,2,{t:'next'},1);return f.kind==='final'&&w.phase==='fpick'&&w.cur===2&&w.final.leader===2;})());
+    const finalState=()=>{const w=wsNew(3,{seed:23,rounds:2});play(w,'ONE');wsApply(w,1,{t:'solve',text:'one'},1);wsApply(w,1,{t:'next'},1);play(w,'TWO');w.cur=2;wsApply(w,2,{t:'solve',text:'two'},1);w.bank=[500,3000,900];wsApply(w,2,{t:'next'},1);w.puzzle={c:'T',d:2,t:'THE BIG BRIGHT STAR',i:-1};return w;};
+    check('in the final R S T L N E are already shown',(()=>{const w=finalState();return w.called==='RSTLNE';})());
+    check('the final needs exactly three new consonants and one vowel',(()=>{const w=finalState();return wsApply(w,2,{t:'fpick',letters:'BCDG'},1)===null&&wsApply(w,2,{t:'fpick',letters:'BCAE'},1)===null&&wsApply(w,2,{t:'fpick',letters:'BCD'},1)===null&&wsApply(w,2,{t:'fpick',letters:'BCDA'},1)&&w.phase==='fsolve';})());
+    check('letters already given (R S T L N E) cannot be chosen again',(()=>{const w=finalState();return wsApply(w,2,{t:'fpick',letters:'RBCA'},1)===null&&wsApply(w,2,{t:'fpick',letters:'BCDE'},1)===null;})());
+    check('picking starts the 30 second clock',(()=>{const w=finalState();const f=wsApply(w,2,{t:'fpick',letters:'BCHA'},5000);return f.deadline===5000+WS&&WS===30000;})());
+    check('solving the final in time adds 5000 and ends the game with the leader on top',(()=>{const w=finalState();wsApply(w,2,{t:'fpick',letters:'BGHI'},1000);const f=wsApply(w,2,{t:'fsolve',text:'the big bright star'},20000);return f.ok&&w.over&&w.bank[1]===8000&&w.win===2&&w.final.solved;})());
+    check('a wrong answer in the final does not end it: the leader can try again until time is up',(()=>{const w=finalState();wsApply(w,2,{t:'fpick',letters:'BGHI'},1000);const a=wsApply(w,2,{t:'fsolve',text:'wrong'},2000);const b=wsApply(w,2,{t:'fsolve',text:'THE BIG BRIGHT STAR'},3000);return !a.ok&&b.ok&&w.over;})());
+    check('after 30 seconds the final is lost: no bonus, and the puzzle is shown',(()=>{const w=finalState();wsApply(w,2,{t:'fpick',letters:'BGHI'},1000);const f=wsApply(w,2,{t:'fsolve',text:'THE BIG BRIGHT STAR'},1000+WS+5000);return f.kind==='ftime'&&w.over&&w.bank[1]===3000&&!w.final.solved&&w.called.length===26;})());
+    check('the timeout action only works once the clock has run out (or when forced for an away player)',(()=>{const w=finalState();wsApply(w,2,{t:'fpick',letters:'BGHI'},1000);return wsApply(w,2,{t:'ftime'},5000)===null&&wsApply(w,2,{t:'ftime'},1000+WS)&&w.over;})());
+    check('the final can be lost and the leader can still win; or be overtaken',(()=>{const w=finalState();w.bank=[2990,3000,2000];wsApply(w,2,{t:'fpick',letters:'BGHI'},1000);wsApply(w,2,{t:'ftime',force:1},2000);return w.win===2&&w.over&&F('wsMoment')(w,['A','B','C']).indexOf('held on')>0;})());
+    check('after the game is over nothing more can be played',(()=>{const w=finalState();wsApply(w,2,{t:'fpick',letters:'BGHI'},1000);wsApply(w,2,{t:'ftime',force:1},2000);return wsApply(w,2,{t:'spin'},1)===null&&wsApply(w,w.cur,{t:'next'},1)===null;})());
+    check('ties for the lead go to the player who sits first',(()=>{const w=finalState();w.bank=[3000,3000,100];return F('wsLeader')(w)===1;})());
+  });
+  suite('WORDSPIN — computer players always make legal moves and finish the game',()=>{
+    const F=n=>W.eval(n);
+    const wsNew=F('wsNew'),wsApply=F('wsApply'),bot=F('wsBotAct');
+    const lcg=s=>()=>{s=(s*48271)%2147483647;return s/2147483647;};
+    let bad=0,unfinished=0,total=0;
+    for(let g=0;g<80;g++){
+      const P=2+g%3,w=wsNew(P,{seed:g*313+7,rounds:2+g%3}),r=lcg(g+3);let n=0;
+      while(!w.over&&n++<6000){const f=wsApply(w,w.cur,bot(w,g%2?'sharp':'gentle',r),1000);if(!f){bad++;break;}if(w.phase==='fsolve')wsApply(w,w.cur,{t:'ftime',force:1},1000);}
+      if(!w.over)unfinished++;total+=w.moves;
+    }
+    check('80 complete computer-only games (2 to 4 players, 2 to 4 rounds): no illegal move',bad===0);
+    check('every one of them reaches a winner',unfinished===0&&total>500);
+    check('a sharp bot solves earlier than a gentle one',(()=>{const w=wsNew(2,{seed:1});w.puzzle={c:'T',d:1,t:'HELLO WORLD',i:-1};w.called='HELOWRD';w.cur=1;return bot(w,'sharp',()=>0).t==='solve';})());
+  });
+  suite('WORDSPIN — it is in the catalogue',()=>{
+    const F=n=>W.eval(n);
+    const g=F('GAMES').find(x=>x.id==='wordspin');
+    check('the game is listed with 2 to 4 players and written rules',!!g&&g.minP===2&&g.maxP===4&&g.rules.length>=5);
+  });
+
   /* —— The Abyss: easier to read —————— */
   suite('The Abyss — where could I land, and what is tied to what',()=>{
     const F=n=>W.eval(n);

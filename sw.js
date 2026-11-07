@@ -19,6 +19,7 @@ const REPLACED_ASSETS = ['./assets/games/bowling.jpg','./assets/games/bl_lane_ev
 const APP_SHELL = [
   './CardTableV17_2fixed.html',
   './manifest.json',
+  './wordspin-puzzles.js',
   './assets/icons/icon-192.png',
   './assets/icons/icon-512.png',
 ];

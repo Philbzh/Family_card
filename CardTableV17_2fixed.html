@@ -4703,6 +4703,7 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
 <div id="overlay-root"></div>
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 <input type="file" accept="image/*" capture="environment" id="snap-input" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;" aria-hidden="true">
+<script src="wordspin-puzzles.js"></script>
 <script>
 'use strict';
 
@@ -5365,6 +5366,13 @@ const GAMES=[
      'Land on another player and you <b>💥 bump</b> them back 3 squares. A <b>double</b> rolls again — but <b>three doubles in a row</b> throws you back to the start.',
      '<b>🃏 Tricks</b> are single-use cards everybody can see next to your name. You start with one, win another on a ⭐, and get a consolation one when a black hole swallows you (3 at most). Once per turn, <i>before</i> you roll: <b>💨 Shove</b> a rival back 6 · <b>🔄 Swap</b> places with a rival · <b>✂️ Cut</b> a ladder · <b>🧱 Plug</b> a black hole · <b>❄️ Freeze</b> a rival for a turn. A cut or plug lasts until your next turn.',
      'The board is built fresh for every game, so you cannot rely on knowing it. Play online with friends, together on one device, or against bots.']},
+  {id:'wordspin',cat:'party',icon:'🎡',name:'WORDSPIN',players:'2–4',dur:'15–25 min',diff:'easy',deal:0,minP:2,maxP:4,
+   rules:['<b>Spin the wheel. Reveal the phrase. Solve it.</b> A hidden phrase is shown as blank letter tiles with a category. Play 2, 3 or 4 rounds — then the leader faces the <b>final puzzle</b>.',
+     'On your turn <b>spin the wheel</b>. A <b>number</b> (250–1000) means: name a <b>consonant</b>. If it is in the phrase you win that number <b>for every time it appears</b>. If it is not, the turn passes.',
+     '<b>BANKRUPT</b> wipes your score for this round (your banked totals are safe) and passes the turn. <b>LOSE A TURN</b> passes it. <b>FREE PLAY</b> lets you name any letter — vowels too — and a wrong one costs nothing. <b>WILD</b> lets you name any letter at 500 per tile; a vowel is free.',
+     'Instead of spinning you may <b>buy a vowel</b> for <b>250</b> (you need that much in this round), or <b>solve</b> the puzzle. A wrong vowel or a wrong solve passes the turn.',
+     'Solve it and you <b>bank your round score</b> (at least 500). Only the round winner banks. After the last round the leader plays the <b>final puzzle</b>: R S T L N E are given, choose <b>three more consonants and one vowel</b>, then you have <b>30 seconds</b> to solve it for 5000 bonus points.',
+     'Play online with each person on their own device — the wheel and the puzzle are shared, your letters are private — together on one device, or against the computer.']},
   {id:'lepouilleux',cat:'cards',icon:'🂫',name:'Old Maid',players:'2–8',dur:'5–15 min',diff:'easy',deal:0,cover:'assets/games/lepouilleux.jpg',
    rules:['A standard 52-card deck, minus the <b>Jack of Clubs</b> — 51 cards dealt out to everyone.',
      'A pair is two cards of the <b>same rank and same color</b> — K♥+K♦, or 8♠+8♣ (not just any same rank).',
@@ -21108,6 +21116,193 @@ function abRunSeq(ab,renderNow,done){
 }
 
 
+/* ═══════ WORDSPIN ═══════  (a wheel-and-word game: spin, call letters, buy vowels, solve the hidden phrase)
+   Everything in this block is PURE: ws* functions change a plain state object and return a record (ws.fx) of what just happened, so every device can
+   replay it and the tests can check it. The puzzle LIBRARY (WS_PUZZLES) lives in wordspin-puzzles.js and is data only.
+   Seats are 1..P. One action per call: wsApply(ws, seat, act, now).
+   Phases: 'spin' (spin, buy a vowel or solve) -> 'letter' (call a letter after a point wedge) -> back to 'spin'; 'roundend' (puzzle solved) -> next round;
+   after the last round: 'fpick' (the leader chooses 3 consonants + 1 vowel) -> 'fsolve' (30 seconds) -> over.
+   The wheel result is drawn ONCE from the game's own random stream (ws.rng, a Park-Miller generator seeded in the state), so the host decides it and
+   every device lands on the same wedge: ws.fx carries the wedge and the final angle. */
+const WS_CODES=['250','500','300','B','600','400','W','750','350','L','900','450','F','1000','550','B','700','300','800','500','650','250','850','400'];
+const WS_SEGS=WS_CODES.map(c=>c==='B'?{k:'bankrupt',label:'BANKRUPT'}:c==='L'?{k:'lose',label:'LOSE A TURN'}:c==='F'?{k:'free',label:'FREE PLAY',v:500}:c==='W'?{k:'wild',label:'WILD',v:500}:{k:'pts',label:c,v:+c});
+const WS_SEG_DEG=360/WS_SEGS.length;
+const WS_VOWELS='AEIOU',WS_VOWEL_COST=250,WS_MIN_WIN=500,WS_FINAL_GIVEN='RSTLNE',WS_FINAL_PRIZE=5000,WS_FINAL_MS=30000,WS_COLS=14,WS_ROWS=4;
+const WS_ALPHA='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+function wsNorm(s){return String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
+function wsRand(ws){ws.rng=(ws.rng*48271)%2147483647;return ws.rng/2147483647;}
+function wsIsVowel(ch){return WS_VOWELS.indexOf(ch)>=0;}
+function wsPuzLetters(t){return [...new Set(wsNorm(t).split('').filter(c=>WS_ALPHA.indexOf(c)>=0))].join('');}
+// The board: words wrapped onto at most 4 rows of 14 tiles. Returns the rows (strings) or null when the phrase does not fit.
+function wsLayout(t){
+  const words=String(t).toUpperCase().split(/\s+/).filter(Boolean),rows=[];let cur='';
+  for(const w of words){
+    if(w.length>WS_COLS)return null;
+    if(cur&&cur.length+1+w.length>WS_COLS){rows.push(cur);cur=w;}else cur=cur?cur+' '+w:w;
+  }
+  if(cur)rows.push(cur);
+  return rows.length<=WS_ROWS?rows:null;
+}
+function wsPick(ws,minD,maxD){
+  const lib=(typeof WS_PUZZLES!=='undefined'?WS_PUZZLES:[]);
+  let c=[];lib.forEach((p,i)=>{if(p[1]>=minD&&p[1]<=maxD&&ws.used.indexOf(i)<0)c.push(i);});
+  if(!c.length){ws.used=[];lib.forEach((p,i)=>{if(p[1]>=minD&&p[1]<=maxD)c.push(i);});}
+  if(!c.length)return{c:'Phrases',d:1,t:'HELLO WORLD',i:-1};
+  const i=c[Math.floor(wsRand(ws)*c.length)];ws.used.push(i);
+  return{c:lib[i][0],d:lib[i][1],t:lib[i][2],i};
+}
+function wsNew(P,opts){
+  opts=opts||{};
+  const n=Math.max(2,Math.min(4,(P|0)||2)),seed=((opts.seed||Date.now())%2147483646)+1;
+  const z=()=>new Array(n).fill(0);
+  const ws={v:1,P:n,rounds:[2,3,4].indexOf(opts.rounds)>=0?opts.rounds:3,diff:opts.diff||0,seed,rng:seed,round:1,starter:1,cur:1,phase:'spin',
+    rs:z(),bank:z(),called:'',puzzle:null,used:[],lv:null,angle:0,moves:0,fx:null,over:false,win:0,roundWin:0,final:null,
+    stats:{spins:z(),bankrupt:z(),lose:z(),vowels:z(),hits:z(),misses:z(),solved:z(),wrongSolve:z(),best:z(),rounds:z(),earned:z()}};
+  for(let i=0;i<7;i++)wsRand(ws);   // warm up so close seeds do not give close first spins
+  wsStartRound(ws);
+  return ws;
+}
+function wsStart(ws,first){ws.starter=ws.cur=first||1;return ws;}
+function wsStartRound(ws){
+  const d=ws.diff;
+  ws.puzzle=wsPick(ws,d||1,d||(ws.round<=1?2:3));ws.called='';ws.rs=ws.rs.map(()=>0);ws.cur=ws.starter;ws.phase='spin';ws.lv=null;ws.roundWin=0;
+}
+function wsPass(ws){ws.cur=ws.cur%ws.P+1;ws.phase='spin';ws.lv=null;}
+function wsLeft(ws,vow){return wsPuzLetters(ws.puzzle.t).split('').filter(c=>ws.called.indexOf(c)<0&&wsIsVowel(c)===!!vow);}
+function wsComplete(ws){return wsPuzLetters(ws.puzzle.t).split('').every(c=>ws.called.indexOf(c)>=0);}
+function wsCanSpin(ws){return ws.phase==='spin'&&wsLeft(ws,false).length>0;}
+function wsCanBuy(ws,seat){return ws.phase==='spin'&&ws.rs[(seat||ws.cur)-1]>=WS_VOWEL_COST&&WS_VOWELS.split('').some(v=>ws.called.indexOf(v)<0);}
+function wsCount(ws,ch){return wsNorm(ws.puzzle.t).split('').filter(c=>c===ch).length;}
+function wsRoundWin(ws,seat){
+  const got=Math.max(ws.rs[seat-1],WS_MIN_WIN),pl=wsPuzLetters(ws.puzzle.t);
+  ws.bank[seat-1]+=got;ws.roundWin=seat;ws.phase='roundend';ws.lv=null;
+  ws.called=pl+ws.called.split('').filter(c=>pl.indexOf(c)<0).join('');
+  ws.stats.rounds[seat-1]++;ws.stats.earned[seat-1]+=got;
+  return got;
+}
+function wsLeader(ws){let b=0;for(let i=1;i<ws.P;i++)if(ws.bank[i]>ws.bank[b])b=i;return b+1;}
+function wsFinish(ws,solved){
+  const f=ws.final;f.solved=!!solved;
+  if(solved){ws.bank[f.leader-1]+=WS_FINAL_PRIZE;ws.stats.solved[f.leader-1]++;ws.stats.earned[f.leader-1]+=WS_FINAL_PRIZE;}
+  ws.called=WS_ALPHA;ws.over=true;ws.phase='over';ws.win=wsLeader(ws);
+}
+function wsApply(ws,seat,act,now){
+  if(!ws||ws.over||!act||seat!==ws.cur)return null;
+  now=now||Date.now();
+  const t=act.t,i=seat-1,st=ws.stats;
+  if(t==='spin'){
+    if(!wsCanSpin(ws))return null;
+    const idx=Math.floor(wsRand(ws)*WS_SEGS.length),off=(wsRand(ws)-.5)*.7*WS_SEG_DEG,turns=4+Math.floor(wsRand(ws)*3);
+    const from=ws.angle,target=-(idx*WS_SEG_DEG+off),delta=(((target-from)%360)+360)%360;
+    ws.angle=from+turns*360+delta;
+    const seg=WS_SEGS[idx];st.spins[i]++;ws.moves++;
+    const fx={kind:'spin',seat,idx,seg:seg.k,v:seg.v||0,from,angle:ws.angle,turns};
+    if(seg.k==='pts'||seg.k==='wild'||seg.k==='free'){ws.lv={k:seg.k,v:seg.v,any:seg.k!=='pts',free:seg.k==='free'};ws.phase='letter';}
+    else if(seg.k==='bankrupt'){fx.lost=ws.rs[i];ws.rs[i]=0;st.bankrupt[i]++;wsPass(ws);}
+    else{st.lose[i]++;wsPass(ws);}
+    ws.fx=fx;return fx;
+  }
+  if(t==='letter'){
+    if(ws.phase!=='letter'||!ws.lv)return null;
+    const ch=wsNorm(act.ch);
+    if(ch.length!==1||WS_ALPHA.indexOf(ch)<0||ws.called.indexOf(ch)>=0)return null;
+    if(wsIsVowel(ch)&&!ws.lv.any)return null;
+    const n=wsCount(ws,ch),vow=wsIsVowel(ch),lv=ws.lv;
+    ws.called+=ch;ws.moves++;
+    const gain=vow?0:lv.v*n,fx={kind:'letter',seat,ch,n,gain,hit:n>0,free:!!lv.free};
+    if(n>0){
+      ws.rs[i]+=gain;st.hits[i]++;if(gain>st.best[i])st.best[i]=gain;ws.phase='spin';ws.lv=null;
+      if(wsComplete(ws))fx.round=wsRoundWin(ws,seat);
+    }else{st.misses[i]++;if(lv.free){ws.phase='spin';ws.lv=null;}else wsPass(ws);}
+    ws.fx=fx;return fx;
+  }
+  if(t==='vowel'){
+    const ch=wsNorm(act.ch);
+    if(ws.phase!=='spin'||ch.length!==1||!wsIsVowel(ch)||ws.called.indexOf(ch)>=0||ws.rs[i]<WS_VOWEL_COST)return null;
+    const n=wsCount(ws,ch);
+    ws.rs[i]-=WS_VOWEL_COST;ws.called+=ch;ws.moves++;st.vowels[i]++;
+    const fx={kind:'vowel',seat,ch,n,hit:n>0};
+    if(n>0){st.hits[i]++;if(wsComplete(ws))fx.round=wsRoundWin(ws,seat);}else{st.misses[i]++;wsPass(ws);}
+    ws.fx=fx;return fx;
+  }
+  if(t==='solve'){
+    if(ws.phase!=='spin')return null;
+    const ok=wsNorm(act.text)===wsNorm(ws.puzzle.t)&&wsNorm(act.text)!=='';
+    ws.moves++;const fx={kind:'solve',seat,ok,text:String(act.text||'')};
+    if(ok){st.solved[i]++;fx.round=wsRoundWin(ws,seat);}else{st.wrongSolve[i]++;wsPass(ws);}
+    ws.fx=fx;return fx;
+  }
+  if(t==='next'){
+    if(ws.phase!=='roundend')return null;
+    ws.moves++;
+    if(ws.round<ws.rounds){
+      ws.round++;ws.starter=ws.starter%ws.P+1;wsStartRound(ws);
+      ws.fx={kind:'round',seat:ws.cur,round:ws.round};return ws.fx;
+    }
+    const leader=wsLeader(ws),fp=wsPick(ws,2,3);
+    ws.puzzle=fp;ws.called=WS_FINAL_GIVEN;ws.rs=ws.rs.map(()=>0);ws.cur=leader;ws.phase='fpick';ws.lv=null;ws.roundWin=0;
+    ws.final={leader,picks:'',deadline:0,solved:false};
+    ws.fx={kind:'final',seat:leader};return ws.fx;
+  }
+  if(t==='fpick'){
+    if(ws.phase!=='fpick')return null;
+    const L=[...new Set(wsNorm(act.letters).split(''))].filter(c=>WS_ALPHA.indexOf(c)>=0);
+    const cons=L.filter(c=>!wsIsVowel(c)),vows=L.filter(c=>wsIsVowel(c));
+    if(cons.length!==3||vows.length!==1||L.some(c=>WS_FINAL_GIVEN.indexOf(c)>=0))return null;
+    ws.final.picks=L.join('');ws.called+=L.join('');ws.final.deadline=now+WS_FINAL_MS;ws.phase='fsolve';ws.moves++;
+    const fx={kind:'fpick',seat,letters:L.join(''),deadline:ws.final.deadline};
+    ws.fx=fx;
+    if(wsComplete(ws)){wsFinish(ws,true);fx.auto=true;}
+    return fx;
+  }
+  if(t==='fsolve'){
+    if(ws.phase!=='fsolve')return null;
+    if(now>ws.final.deadline+1500){wsFinish(ws,false);ws.moves++;ws.fx={kind:'ftime',seat};return ws.fx;}
+    const ok=wsNorm(act.text)===wsNorm(ws.puzzle.t)&&wsNorm(act.text)!=='';
+    ws.moves++;ws.fx={kind:'fsolve',seat,ok,text:String(act.text||'')};
+    if(ok)wsFinish(ws,true);else st.wrongSolve[i]++;
+    return ws.fx;
+  }
+  if(t==='ftime'){
+    if(ws.phase!=='fsolve'||(now<ws.final.deadline&&!act.force))return null;
+    wsFinish(ws,false);ws.moves++;ws.fx={kind:'ftime',seat};return ws.fx;
+  }
+  return null;
+}
+function wsMoment(ws,names){
+  const w=ws.win,nm=names[w-1]||'Someone',f=ws.final;
+  if(f&&f.solved&&f.leader===w)return `${nm} solved the final puzzle and took the crown`;
+  if(f&&!f.solved&&f.leader===w)return `${nm} held on to the lead through the final puzzle`;
+  if(f&&f.solved)return `${names[f.leader-1]||'The leader'} solved the final, but ${nm} still came out on top`;
+  return `${nm} won WORDSPIN`;
+}
+// Computer players. level: 'gentle' (default) or 'sharp'. r is a random function (tests pass a fixed one).
+const WS_FREQ='ETAOINSRHLDCUMFPGWYBVKXJQZ';
+function wsBotAct(ws,level,r){
+  r=r||Math.random;const sharp=level==='sharp',seat=ws.cur;
+  const all=wsPuzLetters(ws.puzzle.t),shown=all.split('').filter(c=>ws.called.indexOf(c)>=0).length,frac=all.length?shown/all.length:1;
+  const bestCons=()=>{const c=WS_FREQ.split('').filter(x=>!wsIsVowel(x)&&ws.called.indexOf(x)<0);return c.length?(!sharp&&r()<.25?c[Math.floor(r()*Math.min(8,c.length))]:c[0]):null;};
+  const bestVowel=()=>WS_FREQ.split('').find(x=>wsIsVowel(x)&&ws.called.indexOf(x)<0)||null;
+  if(ws.phase==='roundend')return{t:'next'};
+  if(ws.phase==='letter'){
+    if(ws.lv.any&&frac>.35&&r()<.4&&bestVowel())return{t:'letter',ch:bestVowel()};
+    return{t:'letter',ch:bestCons()||bestVowel()};
+  }
+  if(ws.phase==='fpick'){
+    const c=WS_FREQ.split('').filter(x=>!wsIsVowel(x)&&ws.called.indexOf(x)<0).slice(0,3);
+    return{t:'fpick',letters:c.join('')+bestVowel()};
+  }
+  if(ws.phase==='fsolve')return{t:'fsolve',text:r()<(sharp?.8:.5)?ws.puzzle.t:'NO IDEA'};
+  if(frac>=(sharp?.6:.8)&&r()<(sharp?.9:.6))return{t:'solve',text:r()<(sharp?.04:.15)?'NOT SURE':ws.puzzle.t};
+  if(!wsCanSpin(ws)){
+    if(wsCanBuy(ws,seat)&&bestVowel())return{t:'vowel',ch:bestVowel()};
+    return{t:'solve',text:ws.puzzle.t};
+  }
+  if(wsCanBuy(ws,seat)&&frac>=.3&&wsLeft(ws,true).length&&r()<(sharp?.5:.25))return{t:'vowel',ch:wsLeft(ws,true)[0]};
+  return{t:'spin'};
+}
+
+
 /* ═══════ BLACKWATER ═══════  (Battleship-inspired naval intelligence game)
    Find them. Fool them. Fire. Two admirals, a 10 x 10 ocean and a secret fleet of five ships (17 cells) plus two decoys. On your turn you may first take ONE
    scan — 📡 sonar (3x3 area: how many squares are busy: ship parts, decoys and mines) or 💣 depth charge (5x5 area: how many echoes in the middle 3x3 and at the edge) — which does not use up the turn; then
@@ -30380,7 +30575,7 @@ function runCountUps(){
    and against what state", and botAct() dispatches to the one per-game function that makes it. */
 // Every game listed here can seat a bot. Anything not here (there is nothing, currently) simply
 // never offers the button, and the driver below stays dormant for it.
-const BOT_GAMES=new Set(['bowling','archery','balloonblast','marksman','hoopfever','maumau','uno','texas','fivecard','blackjack','yahtzee','battle','roulette','dicedual','farkle','bingo','lepouilleux','slots','pig','liarsdice','summit','hotbomb','bust','shutbox','fourrow','tension','mayhem','chainreaction','gauntlet','abyss','blackwater','airhockey','pong','invaders','pool','precision','clay']);
+const BOT_GAMES=new Set(['bowling','archery','balloonblast','marksman','hoopfever','maumau','uno','texas','fivecard','blackjack','yahtzee','battle','roulette','dicedual','farkle','bingo','lepouilleux','slots','pig','liarsdice','summit','hotbomb','bust','shutbox','fourrow','tension','mayhem','chainreaction','gauntlet','abyss','wordspin','blackwater','airhockey','pong','invaders','pool','precision','clay']);
 let _botTimer=null,_botSig=null;
 function isBotPlayer(p){return!!(p&&p.bot);}
 // A full table can still gain a bot by converting an empty seat — Battle seats exactly two, so
