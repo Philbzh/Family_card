@@ -10396,6 +10396,8 @@ async function runPresentation(A,W,frame){
     const F=n=>W.eval(n),g=F('GAMES').find(x=>x.id==='tablemind');
     check('the game is listed with its players, rules and cover',!!g&&g.minP===2&&g.maxP===4&&g.rules.length>=5&&/tablemind/.test(g.cover));
     check('it can be played online and against bots',F('ONLINE_GAMES').indexOf('tablemind')>=0&&F('BOT_GAMES').has('tablemind'));
+    check('Wiz the owl hosts: thinking pose while a question is open, cheering after a right answer, shocked after a wrong one, crowned at the end',(()=>{const N=F('tmNew'),mk=()=>{const t=N(2,{seed:5});F('tmStart')(t,0);return t;};const t=mk();const ask=F('tmWizPose')(t)===4;t.fx={kind:'reveal',act:1,seats:[{ok:true},{ok:false}]};t.phase='reveal';const ok=F('tmWizPose')(t)===2;t.fx.seats=[{ok:false},{ok:false}];const bad=F('tmWizPose')(t)===3;t.over=true;return ask&&ok&&bad&&F('tmWizPose')(t)===6;})());
+    check('Wiz speaks German and his lines escape player names',(()=>{const t=F('tmNew')(2,{seed:6});F('tmStart')(t,0);t.over=true;t.win=1;return /TABLE MIND/.test(F('tmWizSay')(t,[{name:'<b>X</b>'},{name:'Y'}]))&&F('tmWizSay')(t,[{name:'<b>X</b>'},{name:'Y'}]).indexOf('<b>')<0;})());
     check('every public sound exists',['pick','lock','ok','bad','bank','life','seal','chase','caught','escape','intro'].every(k=>typeof F('TMSFX')[k]==='function'));
   });
   suite('WORDSPIN auf Deutsch — the German puzzle library',()=>{
