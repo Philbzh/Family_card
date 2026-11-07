@@ -10141,6 +10141,263 @@ async function runPresentation(A,W,frame){
       if(keep.hist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keep.hist);
     }
   });
+  /* —— TABLE MIND: the question library and the pure rules engine (tablemind-questions-de.js, tablemind-engine.js) —————— */
+  suite('TABLE MIND — the German question library',()=>{
+    const F=n=>W.eval(n),lib=F('TM_Q_DE');
+    check('at least 250 questions',lib.length>=250);
+    check('every entry has ten fields and four different answers',lib.every(e=>e.length===10&&new Set(e.slice(4,8)).size===4&&e.slice(3).every(x=>typeof x==='string'&&x.length>0)));
+    check('no question appears twice',new Set(lib.map(e=>e[3])).size===lib.length);
+    check('all six categories and all five levels, at least 9 questions in each combination',[0,1,2,3,4,5].every(c=>[1,2,3,4,5].every(d=>lib.filter(e=>e[0]===c&&e[1]===d).length>=9)));
+    check('questions fit the shared screen (130 letters at most) and answers fit a button (60 at most)',lib.every(e=>e[3].length<=130&&e.slice(4,8).every(a=>a.length<=60)));
+    check('the clue for the Archive never contains the right answer',lib.every(e=>e[4].length<5||e[9].toLowerCase().indexOf(e[4].toLowerCase())<0));
+    check('at least 75 percent of the questions are about Europe',lib.filter(e=>e[2]==='E').length>=lib.length*.75);
+    check('the questions are in German (they use ä ö ü ß somewhere and no English quiz words)',lib.some(e=>/[äöüß]/.test(e[3]+e[8]))&&lib.every(e=>!/\b(the|which|what)\b/i.test(e[3])));
+  });
+  suite('TABLE MIND — act 1: the climb, banking and risk',()=>{
+    const F=n=>W.eval(n),N=F('tmNew'),S=F('tmStart'),A=F('tmApply'),CFG=F('TM_CFG');
+    const fresh=(P,seed)=>{const t=N(P,{seed:seed||11});S(t,0);return t;};
+    const right=(t,s)=>A(t,s,{t:'ans',i:t.q[s-1].cor},1000);
+    const wrong=(t,s)=>A(t,s,{t:'ans',i:(t.q[s-1].cor+1)%4},1000);
+    let t=fresh(2);
+    check('a new game opens with a question for each player, at level 1 for everyone',t.phase==='ask'&&t.act===1&&t.q[0]&&t.q[1]&&F('tmQ')(t,t.q[0]).d===1&&F('tmQ')(t,t.q[1]).d===1);
+    check('the two players get different questions',t.q[0].i!==t.q[1].i);
+    right(t,1);
+    check('one answer does not close the question while the other player is still thinking',t.phase==='ask'&&t.ans[0]!=null);
+    check('the same player cannot answer twice (a repeated action changes nothing)',A(t,1,{t:'ans',i:0},1100)===false&&t.stats.right[0]===0);
+    wrong(t,2);
+    check('when everybody has answered, the answers are revealed',t.phase==='reveal'&&t.res[0]==='ok'&&t.res[1]==='bad');
+    check('a right answer at level 1 puts 1.000 on the table unbanked',t.unb[0]===CFG.ladder[0]&&t.bank[0]===0&&t.lvl[0]===1);
+    check('a wrong answer leaves the player with nothing at risk',t.unb[1]===0&&t.lvl[1]===0);
+    F('tmTick')(t,t.dl+1);
+    check('after the reveal only the player who was right has to decide',t.phase==='decide'&&t.pendingDecide[0]===true&&t.pendingDecide[1]===false);
+    check('a player who was wrong cannot bank or continue',A(t,2,{t:'bank'},t.dl-1)===false);
+    A(t,1,{t:'bank'},t.dl-1);
+    check('BANKEN secures the money and starts a new climb from level 0',t.bank[0]===1000&&t.unb[0]===0&&t.lvl[0]===0);
+    check('the next question cycle opens at once',t.phase==='ask'&&t.cycle===2);
+    t=fresh(2);right(t,1);right(t,2);F('tmTick')(t,t.dl+1);A(t,1,{t:'go'},t.dl-1);A(t,2,{t:'bank'},t.dl-1);
+    check('WEITER keeps the money unbanked and the next question is one level harder',t.bank[0]===0&&t.unb[0]===1000&&t.lvl[0]===1&&F('tmQ')(t,t.q[0]).d===2&&F('tmQ')(t,t.q[1]).d===1);
+    wrong(t,1);right(t,2);
+    check('a wrong answer after WEITER loses the unbanked money',t.unb[0]===0&&t.bank[0]===0&&t.bank[1]===1000);
+    t=fresh(2);t.bank[0]=7000;right(t,1);wrong(t,2);F('tmTick')(t,t.dl+1);A(t,1,{t:'go'},t.dl-1);wrong(t,1);
+    check('a wrong answer never touches earlier banked money',t.bank[0]===7000);
+    t=fresh(2);t.lvl[0]=4;t.q[0]=F('tmPickQ')(t,-1,5);right(t,1);wrong(t,2);
+    check('the top level pays 25.000 plus the 5.000 prestige bonus straight into the bank',t.bank[0]===CFG.ladder[4]+CFG.topBonus&&t.lvl[0]===0&&t.unb[0]===0&&t.stats.topHits[0]===1);
+    t=fresh(2);right(t,1);
+    check('an answer after the deadline is refused',A(t,2,{t:'ans',i:0},t.dl+5000)===false);
+    F('tmTick')(t,t.dl+1);
+    check('a player who never answers gets nothing and the game moves on (nobody is blocked)',t.phase==='reveal'&&t.res[1]==='late'&&t.stats.late[1]===1);
+    t=fresh(3);for(let c=0;c<CFG.cycles1;c++){for(let s=1;s<=3;s++)right(t,s);F('tmTick')(t,t.dl+1);if(t.phase==='decide'){for(let s=1;s<=3;s++)A(t,s,{t:'go'},t.dl-1);}}
+    check('act 1 ends after the set number of cycles and act 2 begins with a realm choice',t.act===2&&t.phase==='pick');
+    check('money still unbanked at the very end of act 1 is banked automatically',t.unb.every(x=>x===0)&&t.bank.every(x=>x>0));
+  });
+  suite('TABLE MIND — the four lifelines',()=>{
+    const F=n=>W.eval(n),N=F('tmNew'),S=F('tmStart'),A=F('tmApply');
+    const fresh=P=>{const t=N(P,{seed:21});S(t,0);return t;};
+    let t=fresh(3);
+    check('THE CUT removes two wrong answers and keeps the right one',A(t,1,{t:'life',k:'cut'},500)&&t.elim[0].length===2&&t.elim[0].indexOf(t.q[0].cor)<0);
+    check('a lifeline can be used only as often as the player has it',A(t,1,{t:'life',k:'cut'},600)===false&&t.life[0].cut===0);
+    check('a removed answer cannot be chosen',A(t,1,{t:'ans',i:t.elim[0][0]},700)===false);
+    check('THE ARCHIVE shows the clue, once per question',A(t,2,{t:'life',k:'archive'},500)&&t.clue[1]===1&&A(t,2,{t:'life',k:'archive'},510)===false);
+    const before=F('tmSeatDl')(t,3);A(t,3,{t:'life',k:'freeze'},500);
+    check('TIME FREEZE gives that player 10 more seconds, the others none',F('tmSeatDl')(t,3)===before+F('TM_CFG').ms.freeze&&F('tmSeatDl')(t,1)===before);
+    A(t,1,{t:'ans',i:t.q[0].cor},800);
+    check('no lifeline once the answer is locked in',A(t,1,{t:'life',k:'freeze'},900)===false);
+    t=fresh(3);
+    check('THE COUNCIL: the asker opens it, a second one cannot be opened at the same time',A(t,1,{t:'life',k:'council'},500)&&A(t,2,{t:'life',k:'council'},510)===false&&t.council.for===1);
+    check('the asker cannot advise themselves',A(t,1,{t:'vote',i:2},520)===false);
+    check('another player can advise, but only once',A(t,2,{t:'vote',i:2},520)&&A(t,2,{t:'vote',i:3},530)===false);
+    check('the result is not revealed until everyone has advised',t.council.done===false);
+    A(t,3,{t:'vote',i:2},540);
+    check('when the last adviser is done the votes are counted: two votes for C',t.council.done&&t.council.res[2]===2&&t.council.res.reduce((a,b)=>a+b,0)===2);
+    check('the asker gets extra time while the council meets, others do not',F('tmSeatDl')(t,1)>F('tmSeatDl')(t,2));
+    t=fresh(2);A(t,1,{t:'life',k:'council'},500);
+    check('with two players the other one can still advise',A(t,2,{t:'vote',i:1},520)&&t.council.done&&t.council.res[1]===1);
+    t=fresh(3);A(t,1,{t:'life',k:'council'},500);A(t,2,{t:'vote',i:0},510);F('tmTick')(t,500+F('TM_CFG').ms.council+1);
+    check('a missing adviser cannot block the council: it closes by itself on time',t.council.done&&t.council.res[0]===1);
+  });
+  suite('TABLE MIND — act 2: realms and seals',()=>{
+    const F=n=>W.eval(n),N=F('tmNew'),A=F('tmApply'),CFG=F('TM_CFG');
+    const t=N(2,{seed:31});F('tmStart')(t,0);t.cycle=CFG.cycles1;F('tmTick')(t,t.dl+1);F('tmTick')(t,t.dl+1);
+    check('a table where nobody answers still reaches the realm choice (timeouts move the game on)',t.act===2&&t.phase==='pick');
+    A(t,1,{t:'cat',c:2},t.dl-100);
+    check('a realm choice cannot be changed',t.phase==='pick'&&A(t,1,{t:'cat',c:3},t.dl-90)===false);
+    A(t,2,{t:'cat',c:2},t.dl-100);
+    check('when both have chosen, the questions open: realm 2 for both, different questions',t.phase==='ask'&&t.q[0].i!==t.q[1].i&&F('tmQ')(t,t.q[0]).c===2&&F('tmQ')(t,t.q[1]).c===2);
+    A(t,1,{t:'ans',i:t.q[0].cor},t.dl-100);A(t,2,{t:'ans',i:(t.q[1].cor+1)%4},t.dl-100);
+    check('a right answer earns the seal of that realm, a wrong one does not',t.seals[0].length===1&&t.seals[0][0]===2&&t.seals[1].length===0);
+    check('the questions in act 2 are all of the same level (3)',F('tmQ')(t,t.q[0]).d===3&&F('tmQ')(t,t.q[1]).d===3);
+    check('seals are worth money in the final total',F('tmTotal')(t,1)-t.bank[0]===CFG.sealValue);
+    t.seals[0]=[2,2,2];
+    check('three seals from the same realm count as one (variety is rewarded)',F('tmSealCount')(t,1)===1);
+    t.seals[0]=[0,2,5];
+    check('three different realms count as three',F('tmSealCount')(t,1)===3);
+  });
+  suite('TABLE MIND — act 3: the Hunt and the Chaser',()=>{
+    const F=n=>W.eval(n),N=F('tmNew'),A=F('tmApply'),CFG=F('TM_CFG');
+    const hunt=(P,seed,offers,seals)=>{const t=N(P,{seed,chaser:'professor'});t.offer=offers.slice();if(seals)t.seals=seals;F('tmStartHunt')(t,0);return t;};
+    let t=hunt(3,41,['safe','std','risk']);
+    check('the starting offers give 3, 2 and 1 steps head start, with 1x, 2x, 3x rewards',t.lane.map(l=>l.pl).join()==='3,2,1'&&t.lane.map(l=>l.mult).join()==='1,2,3');
+    check('every lane has its own position and the Chaser starts at zero everywhere',t.lane.every(l=>l.chp===0&&l.st==='run'));
+    check('all players face the same question in the Hunt',t.q[0].i===t.q[1].i&&t.q[1].i===t.q[2].i);
+    check('the Chaser result for the question is decided before any player answers',typeof t.ch.ok==='boolean'&&t.ch.mv>=0&&t.ch.mv<=2&&(t.ch.ok||t.ch.mv===0));
+    const ch0=JSON.stringify(t.ch);
+    for(let s=1;s<=3;s++)A(t,s,{t:'ans',i:t.q[s-1].cor},100);
+    check('a right answer moves the player one step; the Chaser moves as rolled, not as answered',t.lane[0].pl===4&&t.lane[1].pl===3&&t.lane[2].pl===2&&t.lane.every(l=>l.chp===t.ch.mv));
+    check('the Chaser roll did not change when the answers came in',JSON.stringify(t.fx.ch)===ch0);
+    const run=good=>{const u=hunt(2,77,['std','std']);const out=[];for(let k=0;k<5;k++){out.push(JSON.stringify(u.ch));A(u,1,{t:'ans',i:good?u.q[0].cor:(u.q[0].cor+1)%4},100);A(u,2,{t:'ans',i:u.q[1].cor},100);if(u.over||u.lane.every(l=>l.st!=='run'))break;F('tmTick')(u,u.dl+1);}return out;};
+    const a=run(true),b=run(false),n=Math.min(a.length,b.length);
+    check('the same seed gives the same Chaser rolls whatever the players answer',n>=2&&a.slice(0,n).join()===b.slice(0,n).join());
+    t=hunt(2,5,['std','std']);t.lane[0].pl=6;t.lane[0].chp=1;t.ch={ok:false,mv:0,p:50};
+    A(t,1,{t:'ans',i:t.q[0].cor},100);A(t,2,{t:'ans',i:t.q[1].cor},100);
+    check('reaching the seventh step before the Chaser moves means ESCAPE',t.lane[0].st==='escaped'&&t.fx.seats[0].escaped===1);
+    t=hunt(2,6,['std','std']);t.lane[0].pl=3;t.lane[0].chp=2;t.ch={ok:true,mv:1,p:50};
+    A(t,1,{t:'ans',i:(t.q[0].cor+1)%4},100);A(t,2,{t:'ans',i:t.q[1].cor},100);
+    check('a wrong answer while the Chaser catches up means CAUGHT',t.lane[0].st==='caught'&&t.fx.seats[0].caught===1);
+    t=hunt(2,7,['std','std'],[[0,1,2],[]]);
+    check('three different seals give the shield, a one-step head start and an extra Archive',t.lane[0].shield===1&&t.lane[0].pl===3&&t.life[0].archive===2);
+    t.lane[0].pl=3;t.lane[0].chp=2;t.ch={ok:true,mv:1,p:50};
+    A(t,1,{t:'ans',i:(t.q[0].cor+1)%4},100);A(t,2,{t:'ans',i:t.q[1].cor},100);
+    check('the shield saves the player once: the Chaser is pushed back to one step behind',t.lane[0].st==='run'&&t.lane[0].shield===0&&t.lane[0].chp===2&&t.fx.seats[0].shield===1);
+    t=hunt(2,8,['risk','risk'],[[0,1],[]]);
+    check('the head start can never be bigger than the maximum',t.lane[0].pl<=CFG.maxAdv&&t.lane[0].pl===2);
+    t=hunt(2,9,['safe','safe']);t.lane.forEach(l=>{l.pl=6;});t.ch={ok:false,mv:0,p:50};
+    A(t,1,{t:'ans',i:t.q[0].cor},100);A(t,2,{t:'ans',i:t.q[1].cor},100);F('tmTick')(t,t.dl+1);
+    check('when every lane is decided the game is over and the winner has the highest total',t.over&&t.phase==='over'&&t.totals[t.win-1]===Math.max.apply(null,t.totals));
+    t=hunt(2,10,['std','std']);t.hunt.n=CFG.maxHunt-1;t.ch={ok:false,mv:0,p:50};
+    A(t,1,{t:'ans',i:(t.q[0].cor+1)%4},100);A(t,2,{t:'ans',i:(t.q[1].cor+1)%4},100);
+    check('a hunt cannot go on for ever: after the last question everybody still running is caught',t.lane.every(l=>l.st==='caught'));
+    const tot=hunt(2,12,['risk','std']);tot.lane[0].st='escaped';tot.bank=[1000,5000];tot.seals=[[],[0,1]];
+    check('the final total is bank + seals + escape reward x multiplier',F('tmTotal')(tot,1)===1000+CFG.escapeBase*3&&F('tmTotal')(tot,2)===5000+2*CFG.sealValue);
+  });
+  suite('TABLE MIND — whole games, reproducibility and balance',()=>{
+    const F=n=>W.eval(n),N=F('tmNew'),S=F('tmStart'),A=F('tmApply'),T=F('tmTick'),B=F('tmBotAct');
+    const rr=seed=>{let x=seed%2147483646+1;return()=>{x=(x*48271)%2147483647;return x/2147483647;};};
+    const play=(P,seed)=>{const t=N(P,{seed}),r=rr(seed+5);S(t,0);let now=0,g=0;
+      while(!t.over&&g++<5000){let did=false;for(let s=1;s<=P;s++){const a=B(t,s,s%2?'sharp':'gentle',r);if(a&&A(t,s,a,now))did=true;}if(!did){now=Math.max(now+500,t.dl);T(t,now);}now+=40;}
+      return t;};
+    let done=0,okTotals=0;
+    for(let k=0;k<40;k++){const P=2+k%3,t=play(P,100+k);if(t.over)done++;if(t.totals&&t.totals.length===P&&t.totals[t.win-1]===Math.max.apply(null,t.totals))okTotals++;}
+    check('40 complete games with bots (2, 3 and 4 players) all reach a result',done===40);
+    check('in every game the winner has the highest total',okTotals===40);
+    check('the same seed and the same actions give exactly the same game',JSON.stringify(play(3,555))===JSON.stringify(play(3,555)));
+    const e=(o,s)=>F('tmSimHunt')('professor',o,s,1500,9).escape;
+    const safe=e('safe',.65),std=e('std',.65),risk=e('risk',.65);
+    check('the safer the start, the likelier the escape (safe > standard > risky)',safe>std&&std>risk);
+    check('a typical player escapes on the standard start between 35 and 80 percent of the time',std>.35&&std<.8);
+    check('a weak player does not always escape and a strong player does not always get caught',e('std',.45)<.6&&e('std',.85)>.6&&e('risk',.85)<.9);
+    check('the Chaser profiles differ a little, by realm',F('tmChaserP')('professor',1,3)!==F('tmChaserP')('jaeger',1,3)&&F('tmChaserP')('jaeger',3,3)>F('tmChaserP')('jaeger',2,3));
+  });
+  /* —— TABLE MIND online: simultaneous answers, private screens, the room clock, the end (awaits live at the top level) —————— */
+  {
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const pause=ms=>new Promise(r=>setTimeout(r,ms));
+    W.__keepSbTm=W.eval('_sb');
+    W.eval('window.__origSetTimeoutTm=setTimeout; setTimeout=(fn)=>0;');
+    let DB=null;const clone=o=>JSON.parse(JSON.stringify(o));
+    W.__fakeSb={from:()=>({
+      select:()=>({eq:()=>({single:()=>Promise.resolve({data:DB?{state:clone(DB)}:null,error:DB?null:{message:'none'}})})}),
+      upsert:row=>{DB=clone(row.state);return Promise.resolve({error:null});},
+      update:row=>({eq:()=>({eq:()=>({select:()=>{DB=clone(row.state);return Promise.resolve({data:[{id:'T'}],error:null});}})})})})};
+    const P=(id,n,i)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,roundsWon:0,chips:900,c4Result:null});
+    const room=(n,seed)=>{const ps=[P('a','Anna',0),P('b','Ben',1),P('c','Cleo',2)].slice(0,n||3);const tm=F('tmNew')(ps.length,{seed:seed||777,chaser:'professor'});F('tmStart')(tm,Date.now());return{phase:'game',gameId:'tablemind',host:'a',players:ps,curIdx:0,tm,winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};};
+    const seen={};
+    try{
+      G.isOnline=true;G.roomId='T';G.myPid='a';G.isHost=true;G.scr='table';G.selGame='tablemind';G.snd=false;
+      W.eval('_sb=window.__fakeSb');
+      const cor=(st,s)=>st.tm.q[s-1].cor;
+      // Anna and Ben answer one after the other on their own devices; each write keeps the other's answer
+      DB=room(3);G.srv=clone(DB);G.tmSel=-1;
+      G.myPid='a';await F('oTmMutate')(st=>F('tmApply')(st.tm,1,{t:'ans',i:cor(st,1)},500));
+      G.myPid='b';await F('oTmMutate')(st=>F('tmApply')(st.tm,2,{t:'ans',i:(cor(st,2)+1)%4},510));
+      seen.two=clone(DB);
+      // a repeated answer is refused and the room stays as it was
+      const before=JSON.stringify(DB.tm);const again=await F('oTmMutate')(st=>F('tmApply')(st.tm,1,{t:'ans',i:0},520));seen.again=again===false&&JSON.stringify(DB.tm)===before;
+      // a tap on Ben's device can only ever answer for Ben
+      DB=room(3);G.myPid='b';G.srv=clone(DB);G.tmSel=2;F('tmTap')('tmlock',{dataset:{}});await pause(40);seen.benOnly=clone(DB);
+      // each device draws only its own question; the other players' questions and answers never reach its screen
+      DB=room(3);G.srv=clone(DB);G.tmIntro=null;
+      G.myPid='a';seen.htmlA=F('rTablemindTable')();G.myPid='b';seen.htmlB=F('rTablemindTable')();
+      seen.qA=F('tmQ')(DB.tm,DB.tm.q[0]);seen.qB=F('tmQ')(DB.tm,DB.tm.q[1]);
+      // the clock: when everybody is late any device can close the question
+      DB=room(3);DB.tm.dl=Date.now()-60000;G.myPid='c';G.srv=clone(DB);await F('oTmTick')();seen.ticked=clone(DB);
+      // the room clock never runs a question out early
+      DB=room(3);DB.tm.dl=Date.now()+60000;G.srv=clone(DB);const t0=JSON.stringify(DB.tm);await F('oTmTick')();seen.early=JSON.stringify(DB.tm)===t0;
+      // the Council on two devices: Ben is asked for advice by Anna and the asker sees only the totals
+      DB=room(3);G.myPid='a';G.srv=clone(DB);await F('oTmMutate')(st=>F('tmApply')(st.tm,1,{t:'life',k:'council'},500));
+      G.myPid='b';G.srv=clone(DB);seen.councilB=F('rTablemindTable')();
+      await F('oTmMutate')(st=>F('tmApply')(st.tm,2,{t:'vote',i:1},510));G.myPid='c';await F('oTmMutate')(st=>F('tmApply')(st.tm,3,{t:'vote',i:1},520));
+      G.myPid='a';G.srv=clone(DB);seen.councilA=F('rTablemindTable')();seen.council=clone(DB.tm.council);
+      // the end: the last lane is decided, the room names the winner and keeps a Table Moment
+      DB=room(2);{const t=DB.tm;t.offer=['std','std'];F('tmStartHunt')(t,0);t.lane.forEach(l=>{l.pl=6;});t.lane[1].st='caught';t.ch={ok:false,mv:0,p:50};}
+      G.myPid='a';G.srv=clone(DB);await F('oTmMutate')(st=>{const ok=F('tmApply')(st.tm,1,{t:'ans',i:cor(st,1)},500);if(ok){F('tmTick')(st.tm,st.tm.dl+1);F('oTmAfter')(st);}return ok;});seen.win=clone(DB);
+      const lobby={phase:'lobby',gameId:'tablemind',host:'a',players:[P('a','Anna',0),P('b','Ben',1),P('c','Cleo',2)],_ts:Date.now()-5000};
+      G.myPid='a';G.srv=clone(lobby);F('oStartGame')(clone(lobby));seen.started=clone(G.srv);
+      DB=clone(seen.win);G.isHost=true;G.srv=clone(DB);await F('oRematch')();seen.rematch=clone(DB);
+    } finally {
+      W.eval('setTimeout=window.__origSetTimeoutTm');
+      W.eval('_sb=window.__keepSbTm');
+      G.isOnline=false;G.srv=null;G.scr='home';G.isHost=false;G.tm=null;G.tmSel=-1;G.tmIntro=null;
+      try{W.localStorage.removeItem('ct_online_session');W.localStorage.removeItem('ct_resume');}catch(e){}
+    }
+    suite('TABLE MIND online — the room, simultaneous answers and the end',()=>{
+      check('two players answer from two devices and both answers are in the room',seen.two.tm.ans[0]!=null&&seen.two.tm.ans[1]!=null&&seen.two.tm.ans[2]==null);
+      check('a repeated answer is refused and changes nothing',seen.again);
+      check('Ben\'s device can only answer for Ben',seen.benOnly.tm.ans[1]===2&&seen.benOnly.tm.ans[0]==null&&seen.benOnly.tm.ans[2]==null);
+      const A_=new DOMParser().parseFromString(seen.htmlA,'text/html'),B_=new DOMParser().parseFromString(seen.htmlB,'text/html');
+      check('each player gets four answer buttons for their own question',A_.querySelectorAll('.tm-right [data-a="tmans"]').length===4&&B_.querySelectorAll('.tm-right [data-a="tmans"]').length===4);
+      check('Anna\'s screen shows Anna\'s question and none of Ben\'s',seen.htmlA.indexOf(seen.qA.text.replace(/&/g,'&amp;'))>=0&&(seen.qA.text===seen.qB.text||seen.htmlA.indexOf(seen.qB.text.replace(/&/g,'&amp;'))<0));
+      check('Ben\'s answers do not appear on Anna\'s screen',seen.qA.text===seen.qB.text||seen.qB.ans.every(a=>seen.htmlA.indexOf(a.replace(/&/g,'&amp;'))<0||seen.qA.ans.indexOf(a)>=0));
+      check('the shared stage shows every player and whether they have locked in',/denkt nach/.test(seen.htmlA)&&A_.querySelectorAll('.tm-pod').length===3);
+      check('when everyone is late the room clock closes the question',seen.ticked.tm.phase==='reveal'&&seen.ticked.tm.stats.late.every(x=>x===1));
+      check('the room clock never closes a question while time is left',seen.early);
+      check('an adviser sees the asker\'s question and four vote buttons',new DOMParser().parseFromString(seen.councilB,'text/html').querySelectorAll('[data-a="tmvote"]').length===4&&/fragt den Rat/.test(seen.councilB));
+      check('the asker sees only the totals: two votes for B and nothing about who',seen.council.done&&seen.council.res[1]===2&&/Der Rat hat entschieden/.test(seen.councilA)&&JSON.stringify(seen.council.res)==='[0,2,0,0]');
+      check('the end of the hunt names the winner, the totals and a Table Moment in the room',seen.win.winner==='a'&&seen.win.tm.over&&seen.win.players[0].c4Result==='win'&&seen.win.players[0].totalScore===seen.win.tm.totals[0]&&/TABLE MIND/.test(seen.win.moment));
+      check('starting from the lobby makes a three-player game with the opening question',seen.started.gameId==='tablemind'&&seen.started.tm.P===3&&seen.started.tm.phase==='ask'&&seen.started.tm.q.every(q=>!!q));
+      check('Rematch: same players, a fresh game',seen.rematch.gameId==='tablemind'&&seen.rematch.phase==='game'&&!seen.rematch.winner&&seen.rematch.tm.moves===0&&seen.rematch.players.length===2);
+    });
+  }
+  suite('TABLE MIND — the local game on one device, passed from hand to hand',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const keep={snd:G.snd,hist:W.localStorage.getItem('ct_history')};
+    try{
+      G.isOnline=false;G.srv=null;G.snd=false;
+      F('startNow')('tablemind',3);
+      check('starting a local game opens the table with the opening card and a game for three',G.scr==='table'&&!!G.tm&&G.tm.P===3&&G.lp.length===3&&G.tmIntro===G.tm.seed);
+      G.lp.forEach(p=>{p.bot=null;});G.tmIntro=null;
+      const tm=G.tm;tm.dl=Date.now()+30000;
+      let html=F('rTablemindTable')();
+      const q0=F('tmQ')(tm,tm.q[0]);
+      check('before the first player has picked the device up, the question is hidden behind a pass screen',/data-a="tmready"/.test(html)&&html.indexOf(q0.text)<0&&/Anna|Player 1/.test(html));
+      F('tmReady')();html=F('rTablemindTable')();
+      check('after "Ich bin ..." the first player sees their question and four answers',html.indexOf(q0.text.replace(/&/g,'&amp;'))>=0&&(html.match(/data-a="tmans"/g)||[]).length===4);
+      G.tmSel=1;F('tmTap')('tmlock',{dataset:{}});
+      check('locking in the answer moves the device on to the next player',tm.ans[0]===1&&F('tmLocalViewer')(tm).seat===2);
+      html=F('rTablemindTable')();
+      check('the next player first gets the pass screen; the answer of the first player is nowhere on screen',/data-a="tmready"/.test(html)&&html.indexOf(q0.text)<0);
+      // play the whole game through the same functions the buttons call
+      let s=9;const r=()=>{s=(s*48271)%2147483647;return s/2147483647;};let n=0;
+      while(!tm.over&&n++<3000){
+        const v=F('tmLocalViewer')(tm);
+        if(v){F('tmReady')();const a=F('tmBotAct')(tm,v.seat,'sharp',r);if(a){if(a.t==='ans'){G.tmSel=a.i;F('tmTap')('tmlock',{dataset:{}});}else F('tmSend')(a);}else F('tmApply')(tm,v.seat,{t:'ans',to:1},Date.now());}
+        else{F('tmTick')(tm,tm.dl+1);}
+        F('tmLocalAfterAction')();
+      }
+      check('the game plays through all three acts to a winner',tm.over&&tm.totals.length===3);
+      check('the family history gets a TABLE MIND entry with every player\'s statistics',(()=>{const h=F('getHistory')()[0];return h&&h.game==='tablemind'&&Object.keys(h.stats.tm).length===3&&!!h.moment;})());
+      const res=F('rMatchEnd')?F('rMatchEnd')():'';
+      check('the results screen shows the standings and the Chaser',typeof res==='string'&&/DAS ERGEBNIS/.test(res)&&/Chaser/.test(res));
+    } finally {
+      G.snd=keep.snd;F('tmLoopStop')();G.tm=null;G.scr='home';G.tmEnded=0;
+      if(keep.hist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keep.hist);
+    }
+  });
+  suite('TABLE MIND — it is part of the app (menu, rules, bots, sounds are wired in)',()=>{
+    const F=n=>W.eval(n),g=F('GAMES').find(x=>x.id==='tablemind');
+    check('the game is listed with its players, rules and cover',!!g&&g.minP===2&&g.maxP===4&&g.rules.length>=5&&/tablemind/.test(g.cover));
+    check('it can be played online and against bots',F('ONLINE_GAMES').indexOf('tablemind')>=0&&F('BOT_GAMES').has('tablemind'));
+    check('every public sound exists',['pick','lock','ok','bad','bank','life','seal','chase','caught','escape','intro'].every(k=>typeof F('TMSFX')[k]==='function'));
+  });
   suite('WORDSPIN auf Deutsch — the German puzzle library',()=>{
     const F=n=>W.eval(n);
     const lib=F('WS_PUZZLES_DE'),layout=F('wsLayout');

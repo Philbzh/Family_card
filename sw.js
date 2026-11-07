@@ -3,7 +3,7 @@
 // app shell itself. Multiplayer still needs a live connection (Supabase requests are always
 // passed straight through to the network, never cached), so this is about the shell — the HTML,
 // icons, and manifest — not about playing an online game with no signal.
-const CACHE_NAME = 'our-table-v322';
+const CACHE_NAME = 'our-table-v323';
 // Pictures live in their OWN cache, which a new app version does not throw away: the ~12 MB of covers,
 // room pictures and avatars used to be downloaded again from scratch on every visit (network-first with
 // no-store) and again on every release, so on a slow connection the home screen painted only the top strip
@@ -21,6 +21,10 @@ const APP_SHELL = [
   './manifest.json',
   './wordspin-puzzles.js',
   './wordspin-puzzles-de.js',
+  './tablemind-questions-de.js',
+  './tablemind-engine.js',
+  './tablemind-ui.js',
+  './assets/games/tablemind.svg',
   './assets/icons/icon-192.png',
   './assets/icons/icon-512.png',
 ];

@@ -4864,6 +4864,9 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
 <input type="file" accept="image/*" capture="environment" id="snap-input" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;" aria-hidden="true">
 <script src="wordspin-puzzles.js"></script>
 <script src="wordspin-puzzles-de.js"></script>
+<script src="tablemind-questions-de.js"></script>
+<script src="tablemind-engine.js"></script>
+<script src="tablemind-ui.js"></script>
 <script>
 'use strict';
 
@@ -5194,6 +5197,7 @@ async function oForceSkipCurrentPlayer(){
     if(state.gameId==='gauntlet'){await oGtAuto();return;}
     if(state.gameId==='abyss'){await oAbAuto();return;}
     if(state.gameId==='wordspin'){await oWsAuto();return;}
+    if(state.gameId==='tablemind'){await oTmTick();return;}
     if(state.gameId==='blackwater'){await oBwAuto();return;}
     if(state.gameId==='pool'){await oPlAuto();return;}
     if(state.gameId==='hotbomb'||state.gameId==='vault'||state.gameId==='escape'){return;}
@@ -5321,7 +5325,7 @@ const REACTION_GAME={
   liarsdice:['👀','😏','😈'],skull:['👀','😏','😈'],texas:['😎','😏','👀'],fivecard:['😎','😏','👀'],blackjack:['🤞','😎','😱'],
   farkle:['🤞','😱','💀'],pig:['🤞','😱','💀'],bust:['🤞','😱','💀'],yahtzee:['🤞','🎉','🙏'],dicedual:['😈','🔥','💀'],summit:['💪','😱','🙏'],
   slots:['🤞','🎉','🙏'],roulette:['🤞','😱','🎉'],bingo:['🤞','🎉','🙄'],shutbox:['🤞','😱','🙏'],tension:['😱','🤞','💥'],hotbomb:['💥','😱','🤞'],
-  bowling:['🔥','👏','😱'],fourrow:['😏','👀','🔥'],mayhem:['💥','🤯','😈'],chainreaction:['💥','🤯','😱'],gauntlet:['😈','😱','💥'],wordspin:['😱','🔥','👏'],abyss:['😱','😂','😈'],blackwater:['😏','👀','💥'],airhockey:['🔥','🤯','👏'],balloonblast:['😱','🔥','👏'],marksman:['😱','🔥','👏'],hoopfever:['😱','🔥','👏'],pool:['👏','🔥','😱'],pong:['🔥','🤯','👏'],invaders:['💥','🤯','😱'],vault:['🤔','👀','🙏'],escape:['🤔','👀','🫣'],drawit:['😂','🤔','🙈'],
+  bowling:['🔥','👏','😱'],fourrow:['😏','👀','🔥'],mayhem:['💥','🤯','😈'],chainreaction:['💥','🤯','😱'],gauntlet:['😈','😱','💥'],wordspin:['😱','🔥','👏'],tablemind:['🤯','🔥','👏'],abyss:['😱','😂','😈'],blackwater:['😏','👀','💥'],airhockey:['🔥','🤯','👏'],balloonblast:['😱','🔥','👏'],marksman:['😱','🔥','👏'],hoopfever:['😱','🔥','👏'],pool:['👏','🔥','😱'],pong:['🔥','🤯','👏'],invaders:['💥','🤯','😱'],vault:['🤔','👀','🙏'],escape:['🤔','👀','🫣'],drawit:['😂','🤔','🙈'],
   maumau:['😈','😏','🙄'],uno:['😈','😏','🙄'],lepouilleux:['👀','😏','🙈'],battle:['🔥','💪','😎']
 };
 // The strip's order for a game: its own three first, then the usual order, no repeats.
@@ -5527,6 +5531,13 @@ const GAMES=[
      'Land on another player and you <b>💥 bump</b> them back 3 squares. A <b>double</b> rolls again — but <b>three doubles in a row</b> throws you back to the start.',
      '<b>🃏 Tricks</b> are single-use cards everybody can see next to your name. You start with one, win another on a ⭐, and get a consolation one when a black hole swallows you (3 at most). Once per turn, <i>before</i> you roll: <b>💨 Shove</b> a rival back 6 · <b>🔄 Swap</b> places with a rival · <b>✂️ Cut</b> a ladder · <b>🧱 Plug</b> a black hole · <b>❄️ Freeze</b> a rival for a turn. A cut or plug lasts until your next turn.',
      'The board is built fresh for every game, so you cannot rely on knowing it. Play online with friends, together on one device, or against bots.']},
+  {id:'tablemind',cat:'party',icon:'🧠',name:'TABLE MIND',players:'2–4',dur:'20–30 min',diff:'medium',deal:0,minP:2,maxP:4,cover:'assets/games/tablemind.svg',
+   rules:['<b>Wissen. Strategie. Ruhm.</b> Drei Akte: erst baust du ein Vermögen auf, dann sammelst du Wissenssiegel, am Ende musst du dem Chaser entkommen. Alles auf Deutsch, alle antworten gleichzeitig auf ihrem eigenen Gerät.',
+     '<b>Akt I – Der Aufstieg:</b> Jeder bekommt eine Frage auf seiner Stufe (1.000 € bis 25.000 €). Richtig = nächste Stufe. Danach entscheidest du: <b>BANKEN</b> (Geld sichern, neu bei Stufe 1 beginnen) oder <b>WEITER</b> (riskieren). Eine falsche Antwort kostet nur das ungesicherte Geld.',
+     '<b>Vier Joker, jeder nur einmal pro Akt:</b> ✂️ <b>Der Schnitt</b> (zwei falsche Antworten weg) · 🗳️ <b>Der Rat</b> (die anderen tippen geheim — sie dürfen schwindeln!) · 📜 <b>Das Archiv</b> (ein Hinweis) · ⏸️ <b>Zeit anhalten</b> (+10 Sekunden).',
+     '<b>Akt II – Die sechs Welten:</b> Dreimal wählst du heimlich eine Welt (Geografie, Geschichte, Kultur, Sport, Lebensart, Wissen). Richtig beantwortet = Siegel. Verschiedene Siegel zählen mehr: 1 Siegel = ein Extra-Archiv, 2 = ein Feld Vorsprung, 3 = ein Schutzschild in der Jagd. Jedes Siegel ist auch 2.500 € wert.',
+     '<b>Akt III – Die Jagd:</b> Alle stehen auf eigenen Bahnen, sieben Felder bis zum Ziel, und der Chaser ist hinter euch. Vorher wählst du: <b>SICHER</b> (3 Felder Vorsprung, ×1), <b>STANDARD</b> (2 Felder, ×2) oder <b>RISIKO</b> (1 Feld, ×3). Jede richtige Antwort bringt dich ein Feld weiter; der Chaser bewegt sich nach einem festen, fairen Zufall — nie nach deiner Antwort. Wer entkommt, bekommt 10.000 € mal den Faktor.',
+     'Gewonnen hat, wer am Ende die meisten Euro hat: gesichertes Geld + Siegel + Belohnung fürs Entkommen. Online spielt jeder auf seinem Gerät, zu Hause kann das Gerät herumgereicht werden, und Computergegner sind möglich.']},
   {id:'wordspin',cat:'party',icon:'🎡',name:'WORDSPIN',players:'2–4',dur:'15–25 min',diff:'easy',deal:0,minP:2,maxP:4,cover:'assets/games/wordspin.jpg',
    rules:['<b>Spin the wheel. Reveal the phrase. Solve it.</b> A hidden phrase is shown as blank letter tiles with a category. Play 2, 3 or 4 rounds — then the leader faces the <b>final puzzle</b>.',
      'On your turn <b>spin the wheel</b>. A <b>number</b> (250–1000) means: name a <b>consonant</b>. If it is in the phrase you win that number <b>for every time it appears</b>. If it is not, the turn passes.',
@@ -5624,7 +5635,7 @@ const GAMES=[
 ];
 // Single source of truth for which unlocked games have online-multiplayer support, so the "online"
 // gate and the local-only badge on a game's card can never drift out of sync with each other.
-const ONLINE_GAMES=['bowling','archery','clay','precision','balloonblast','marksman','hoopfever','pool','invaders','pong','airhockey','maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice','summit','hotbomb','vault','bust','escape','shutbox','fourrow','skull','tension','mayhem','chainreaction','gauntlet','abyss','wordspin','blackwater','pinball'];
+const ONLINE_GAMES=['tablemind','bowling','archery','clay','precision','balloonblast','marksman','hoopfever','pool','invaders','pong','airhockey','maumau','blackjack','battle','yahtzee','texas','fivecard','roulette','uno','dicedual','farkle','bingo','lepouilleux','slots','pig','drawit','liarsdice','summit','hotbomb','vault','bust','escape','shutbox','fourrow','skull','tension','mayhem','chainreaction','gauntlet','abyss','wordspin','blackwater','pinball'];
 // The Games tab groups its (growing) roster into these, rather than one long scroll -- every GAMES
 // entry's `cat` must be one of these ids. Order here is the order the category tiles are shown in.
 const GAME_CATEGORIES=[
@@ -6093,6 +6104,11 @@ const ACHIEVEMENTS=[
   {id:'ab-saboteur',icon:'🃏',name:'Saboteur',desc:'Played 4 tricks in one Abyss game',check:()=>getHistory().some(h=>{const s=abMine(h);return s&&s.trick>=4;})},
   {id:'ab-horizon',icon:'🕳️',secret:true,name:'Event Horizon',desc:'Swallowed by black holes twice in one game',check:()=>getHistory().some(h=>{const s=abMine(h);return s&&s.hole>=2;})},
   {id:'ws-first',icon:'🎡',name:'Round and Round',desc:'Played a game of WORDSPIN',check:()=>getHistory().some(h=>h.game==='wordspin')},
+  {id:'tm-first',icon:'🧠',name:'Table Mind',desc:'Played a game of TABLE MIND',check:()=>getHistory().some(h=>h.game==='tablemind')},
+  {id:'tm-escape',icon:'🏃',name:'Slipped the Hunter',desc:'Escaped the Chaser in TABLE MIND',check:()=>getHistory().some(h=>{const s=tmMine(h);return s&&s.hunt==='escaped';})},
+  {id:'tm-summit',icon:'🏔️',name:'Top of the Ladder',desc:'Reached the highest prize level in TABLE MIND',check:()=>getHistory().some(h=>{const s=tmMine(h);return s&&s.top>=1;})},
+  {id:'tm-seals',icon:'🏅',name:'Six Worlds',desc:'Won three different knowledge seals in one game',check:()=>getHistory().some(h=>{const s=tmMine(h);return s&&s.seals>=3;})},
+  {id:'tm-nolife',icon:'🧊',secret:true,name:'No Lifelines',desc:'Won TABLE MIND without using a single lifeline',check:()=>getHistory().some(h=>{const s=tmMine(h);return s&&h.winner===G.myName&&s.lifes===0;})},
   {id:'ws-crown',icon:'👑',name:'Crown Solver',desc:'Solved the final puzzle in WORDSPIN',check:()=>getHistory().some(h=>{const s=wsMine(h);return s&&s.final==='solved';})},
   {id:'ws-big',icon:'💎',name:'Big Letter',desc:'Won 3000 or more from a single letter',check:()=>getHistory().some(h=>{const s=wsMine(h);return s&&s.best>=3000;})},
   {id:'ws-broke',icon:'💀',secret:true,name:'Flat Broke',desc:'Went BANKRUPT three times in one WORDSPIN game',check:()=>getHistory().some(h=>{const s=wsMine(h);return s&&s.bankrupt>=3;})},
@@ -6338,7 +6354,7 @@ function homeFavsHTML(history){
 const START_LABELS={bowling:'🎳 Roll the First Ball',maumau:'🃏 Deal the Cards',battle:'⚔️ Flip the First Cards',lepouilleux:'🃏 Deal the Cards',romme:'🃏 Deal the Cards',uno:'🃏 Deal the Cards',hearts:'🃏 Deal the Cards',bridge:'🃏 Deal the Cards',texas:'🃏 Deal the Cards',fivecard:'🃏 Deal the Cards',blackjack:'🃏 Deal the Cards',
   yahtzee:'🎲 Start Rolling',farkle:'🎲 Start Rolling',pig:'🎲 Start Rolling',dicedual:'🎲 Start Rolling',bust:'🎲 Roll the Dice',liarsdice:'🎲 Roll the Dice',summit:'🏔️ Start the Climb',shutbox:'📦 Open the Box',
   roulette:'🎡 Open the Table',slots:'🎰 Power Up the Machine',bingo:'🎱 Call the Numbers',fourrow:'🔴 Drop the First Disc',chainreaction:'⚛️ Start the Chain',blackwater:'⚓ Take Your Positions',mayhem:'💥 Let it Rip',
-  gauntlet:'🏁 To the Starting Line',abyss:'🕳️ Enter the Abyss',wordspin:'🎡 Spin the Wheel',drawit:'🎨 Start Drawing',hotbomb:'💣 Light the Fuse',skull:'🌹 Place Your First Rose',tension:'⚙️ Start the Machine',
+  gauntlet:'🏁 To the Starting Line',abyss:'🕳️ Enter the Abyss',wordspin:'🎡 Spin the Wheel',tablemind:'🧠 Start the Climb',drawit:'🎨 Start Drawing',hotbomb:'💣 Light the Fuse',skull:'🌹 Place Your First Rose',tension:'⚙️ Start the Machine',
   airhockey:'🏒 Drop the Puck',pong:'🏓 Serve',invaders:'👾 Start the Wave',pinball:'🎱 Launch the Ball',pool:'🎱 Break the Rack',
   clay:'🥏 To the Field',archery:'🏹 To the Trail',precision:'🎯 Enter the Range',balloonblast:'🎈 Step Right Up',marksman:'🎯 Take Aim',hoopfever:'🏀 Take the First Shot',vault:'🔐 Start the Adventure',escape:'🗝️ Start the Adventure'};
 const START_BY_CAT={cards:'🃏 Deal the Cards',dice:'🎲 Start Rolling',casino:'🎰 Open the Table',classic:'🎯 Start the Game',party:'🎉 Let\'s Play',arcade:'🕹️ Start the Game',fairground:'🎪 Step Right Up',olympic:'🏅 To the Field',coop:'🔐 Start the Adventure'};
@@ -6372,7 +6388,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=322;
+const APP_BUILD=323;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -7928,6 +7944,7 @@ function lDeal(){
   if(game.id==='gauntlet'){lDealGauntlet();return;}
   if(game.id==='abyss'){lDealAbyss();return;}
   if(game.id==='wordspin'){lDealWordspin();return;}
+  if(game.id==='tablemind'){lDealTablemind();return;}
   if(game.id==='blackwater'){lDealBlackwater();return;}
   if(game.id==='airhockey'||game.id==='pong'||game.id==='invaders'){lDealAirHockey();return;}
   if(game.id==='pool'){lDealPool();return;}
@@ -15101,7 +15118,7 @@ function rTourOv(){
    waits its turn behind a bigger moment, and it stays still for anyone who asked their device for less motion.
    For online games stageOnSrv() spots the same moments in the room state, so EVERY device sees them, not only
    the one that rolled. */
-const STAGE_TAGS={wordspin:'Spin. Reveal. Solve.',bowling:'Aim. Spin. Release.',archery:'Draw. Hold. Release.',balloonblast:'Pop. Score. Repeat.',marksman:'Find the perfect shot.',hoopfever:'Nothing but net.',pool:'Aim. Control. Clear the table.',pinball:'Wake the machine.',precision:'Hold. Breathe. Fire.',clay:'Lead it. Break it.',invaders:'Shoot the fleet. Survive the return.',pong:'Simple to learn. Brutal to master.',airhockey:'Hit. Defend. Dominate.',maumau:'Match, shed, shout Mau!',texas:'Read the table.',fivecard:'Draw to the best hand.',blackjack:'Beat the dealer to 21.',battle:'Flip. Win. Repeat.',yahtzee:'Five dice. Thirteen chances.',roulette:'Place your bets.',dicedual:'Roll. Strike. Survive.',uno:'Match the colour. Shout UNO!',farkle:'How much will you risk?',bingo:'Keep your eyes on your card.',lepouilleux:'Don’t get stuck with the Old Maid.',slots:'Pull the lever.',pig:'One roll too many…',drawit:'Draw. Guess. Laugh.',liarsdice:'Trust nobody.',summit:'How far will you go?',hotbomb:'Pass it. Don’t hold it.',vault:'Nobody cracks it alone.',bust:'One more!',escape:'Enter. Explore. Solve.',shutbox:'Close them all.',fourrow:'Four. In. A. Row.',skull:'Flower or skull?',tension:'Pull. Push. Survive.',mayhem:'Four in a row. No mercy.',chainreaction:'Light the fuse. Watch it go.',gauntlet:'Run. Risk. Outsmart. Survive.',abyss:'Climb, fall, bump. Reach the top.',blackwater:'Find them. Fool them. Fire.'};
+const STAGE_TAGS={tablemind:'Knowledge. Strategy. Glory.',wordspin:'Spin. Reveal. Solve.',bowling:'Aim. Spin. Release.',archery:'Draw. Hold. Release.',balloonblast:'Pop. Score. Repeat.',marksman:'Find the perfect shot.',hoopfever:'Nothing but net.',pool:'Aim. Control. Clear the table.',pinball:'Wake the machine.',precision:'Hold. Breathe. Fire.',clay:'Lead it. Break it.',invaders:'Shoot the fleet. Survive the return.',pong:'Simple to learn. Brutal to master.',airhockey:'Hit. Defend. Dominate.',maumau:'Match, shed, shout Mau!',texas:'Read the table.',fivecard:'Draw to the best hand.',blackjack:'Beat the dealer to 21.',battle:'Flip. Win. Repeat.',yahtzee:'Five dice. Thirteen chances.',roulette:'Place your bets.',dicedual:'Roll. Strike. Survive.',uno:'Match the colour. Shout UNO!',farkle:'How much will you risk?',bingo:'Keep your eyes on your card.',lepouilleux:'Don’t get stuck with the Old Maid.',slots:'Pull the lever.',pig:'One roll too many…',drawit:'Draw. Guess. Laugh.',liarsdice:'Trust nobody.',summit:'How far will you go?',hotbomb:'Pass it. Don’t hold it.',vault:'Nobody cracks it alone.',bust:'One more!',escape:'Enter. Explore. Solve.',shutbox:'Close them all.',fourrow:'Four. In. A. Row.',skull:'Flower or skull?',tension:'Pull. Push. Survive.',mayhem:'Four in a row. No mercy.',chainreaction:'Light the fuse. Watch it go.',gauntlet:'Run. Risk. Outsmart. Survive.',abyss:'Climb, fall, bump. Reach the top.',blackwater:'Find them. Fool them. Fire.'};
 const STAGE_TONES={
   good:{c:'95,214,138',buzz:[20,40,20]},bad:{c:'255,90,78',buzz:[40,50,40]},gold:{c:'244,201,93',buzz:[20,30,60]},
   hot:{c:'255,138,47',buzz:[15,30,15]},cool:{c:'126,200,242',buzz:[15]}
@@ -21516,7 +21533,7 @@ function wsBotAct(ws,level,r){
 }
 
 
-let _wsEndAt=0;
+let _wsEndAt=0;let _tmEndAt=0;
 /* ── WORDSPIN: choices before the game (rounds, puzzle level): the host sets them online ── */
 function wsRounds(){let n=3;try{n=+localStorage.getItem('ct_ws_rounds')||3;}catch(e){}return[2,3,4].indexOf(n)>=0?n:3;}
 function wsLevel(){let n=0;try{n=+localStorage.getItem('ct_ws_level')||0;}catch(e){}return n>=0&&n<=3?n:0;}
@@ -31343,7 +31360,7 @@ function runCountUps(){
    and against what state", and botAct() dispatches to the one per-game function that makes it. */
 // Every game listed here can seat a bot. Anything not here (there is nothing, currently) simply
 // never offers the button, and the driver below stays dormant for it.
-const BOT_GAMES=new Set(['bowling','archery','balloonblast','marksman','hoopfever','maumau','uno','texas','fivecard','blackjack','yahtzee','battle','roulette','dicedual','farkle','bingo','lepouilleux','slots','pig','liarsdice','summit','hotbomb','bust','shutbox','fourrow','tension','mayhem','chainreaction','gauntlet','abyss','wordspin','blackwater','airhockey','pong','invaders','pool','precision','clay']);
+const BOT_GAMES=new Set(['tablemind','bowling','archery','balloonblast','marksman','hoopfever','maumau','uno','texas','fivecard','blackjack','yahtzee','battle','roulette','dicedual','farkle','bingo','lepouilleux','slots','pig','liarsdice','summit','hotbomb','bust','shutbox','fourrow','tension','mayhem','chainreaction','gauntlet','abyss','wordspin','tablemind','blackwater','airhockey','pong','invaders','pool','precision','clay']);
 let _botTimer=null,_botSig=null;
 function isBotPlayer(p){return!!(p&&p.bot);}
 // A full table can still gain a bot by converting an empty seat — Battle seats exactly two, so
@@ -32352,6 +32369,20 @@ function onSrvCore(state){
         if(Date.now()<_bwEndAt){G.scr='table';render();return;}
         G.scr='matchend';render();return;
       }
+      if(state.gameId==='tablemind'){
+        if(state.winner!==prevWinner){
+          SFX.win();v14WinnerBurst();celebrateWin(state.winnerName,state.winnerAv);fxPulse('gold');
+          const wIdx=(state.players||[]).findIndex(p=>p.id===state.winner);if(wIdx>=0)fxSeatGlow(wIdx,'gold');
+          if(state.winner===G.myPid){G.tw++;localStorage.setItem('ct_tw',G.tw);}
+          addHistory({game:'tablemind',winner:state.winnerName,winnerAvatar:state.winnerAv,date:new Date().toISOString(),players:(state.players||[]).map(p=>p.name),mode:'online',
+            moment:state.moment||`${state.winnerName} gewinnt TABLE MIND.`,
+            stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions,tm:tmStatsFor(state.tm,(state.players||[]).map(p=>p.name))}});
+          _tmEndAt=Date.now()+3600;
+          setTimeout(()=>{if(G.isOnline&&G.srv&&G.srv.gameId==='tablemind'&&G.srv.winner){G.scr='matchend';render();}},3650);
+        }
+        if(Date.now()<_tmEndAt){G.scr='table';render();return;}
+        G.scr='matchend';render();return;
+      }
       if(state.gameId==='wordspin'){
         if(state.winner!==prevWinner){
           SFX.win();v14WinnerBurst();celebrateWin(state.winnerName,state.winnerAv);fxPulse('gold');
@@ -32691,7 +32722,7 @@ function hasActiveTable(){
 }
 // One accent color per game, echoing the home-screen game-card border colors, so a portrait's
 // frame and plaque tie back to whichever game it was won at.
-const MOMENT_ACCENT={wordspin:'#e9c46a',maumau:'#5fd68a',texas:'#eac976',fivecard:'#eac976',blackjack:'#ef7688',battle:'#7ec2f2',romme:'#a8e0a0',hearts:'#f2a0b4',bridge:'#a8c8e0',uno:'#e0a8d8',yahtzee:'#f2c94c',roulette:'#e0637a',dicedual:'#e8843e',farkle:'#4fd6c9',bingo:'#b98af0',lepouilleux:'#6b6b7a',slots:'#f0cc60',pig:'#f2a0b4',drawit:'#f2954c',liarsdice:'#e0594a',summit:'#7ec2f2',hotbomb:'#ff7a45',vault:'#e0b040',bust:'#ff5a4e',escape:'#45c4b0',shutbox:'#d9a35c',fourrow:'#f2c230',skull:'#c9a0f0',tension:'#e8a24a',mayhem:'#ff9a3c',chainreaction:'#ff7a3c',gauntlet:'#e6c36a',abyss:'#8f9bff',blackwater:'#5fc7b8'};
+const MOMENT_ACCENT={tablemind:'#e9c46a',wordspin:'#e9c46a',maumau:'#5fd68a',texas:'#eac976',fivecard:'#eac976',blackjack:'#ef7688',battle:'#7ec2f2',romme:'#a8e0a0',hearts:'#f2a0b4',bridge:'#a8c8e0',uno:'#e0a8d8',yahtzee:'#f2c94c',roulette:'#e0637a',dicedual:'#e8843e',farkle:'#4fd6c9',bingo:'#b98af0',lepouilleux:'#6b6b7a',slots:'#f0cc60',pig:'#f2a0b4',drawit:'#f2954c',liarsdice:'#e0594a',summit:'#7ec2f2',hotbomb:'#ff7a45',vault:'#e0b040',bust:'#ff5a4e',escape:'#45c4b0',shutbox:'#d9a35c',fourrow:'#f2c230',skull:'#c9a0f0',tension:'#e8a24a',mayhem:'#ff9a3c',chainreaction:'#ff7a3c',gauntlet:'#e6c36a',abyss:'#8f9bff',blackwater:'#5fc7b8'};
 function rMoments(){
   const history=getHistory().filter(famWallOK),shown=G.momAll?history:history.slice(0,60);
   const frames=shown.map(h=>{
@@ -37132,7 +37163,7 @@ function rSetup(){
       ${game.id==='fourrow'?c4OptionsHTML():''}
       ${game.id==='chainreaction'?crOptionsHTML():''}
       ${game.id==='gauntlet'?gtOptionsHTML():''}
-      ${game.id==='wordspin'?wsOptionsHTML():''}
+      ${game.id==='wordspin'?wsOptionsHTML():''}${game.id==='tablemind'?tmOptionsHTML():''}
       ${game.id==='blackwater'?bwOptionsHTML():''}
       ${game.id==='mayhem'?mhOptionsHTML():''}
       ${game.id==='tension'?tnOptionsHTML():''}
@@ -37300,6 +37331,12 @@ function oStartGame(rs){
         const gs={phase:'game',gameId:'blackwater',host:rs.host,hr:rs.hr||G.hr,players,curIdx:0,
           bw:bwNew(undefined,rs.bw&&rs.bw.rules?rs.bw.rules:bwRules()),bwSeries:rs.bwSeries||null,winner:null,winnerName:null,winnerAv:null,lastAct:'',round:1,_ts:Date.now()};
         G.srv=gs;G.bwDep=null;G.bwSel=null;G.bwTab='fleet';dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
+        return;
+      }
+      if(rs.gameId==='tablemind'){
+        const players=rs.players.slice(0,4).map(p=>({...p,totalScore:0,c4Result:null}));
+        const gs=tmBuildRoom(rs,players);
+        G.srv=gs;G.tmFxKey='';G.tmIntro=gs.tm.seed;G.tmEnded=0;G.tmShown={};dbWrite(G.roomId,gs).then(()=>{G.gp++;localStorage.setItem('ct_gp',G.gp);});
         return;
       }
       if(rs.gameId==='wordspin'){
@@ -37474,7 +37511,7 @@ function rLobby(){
       ${game.id==='fourrow'&&G.isHost?c4OptionsHTML():''}
       ${game.id==='chainreaction'&&G.isHost?crOptionsHTML():''}
       ${game.id==='gauntlet'&&G.isHost?gtOptionsHTML():''}
-      ${game.id==='wordspin'&&G.isHost?wsOptionsHTML():''}
+      ${game.id==='wordspin'&&G.isHost?wsOptionsHTML():''}${game.id==='tablemind'&&G.isHost?tmOptionsHTML():''}
       ${game.id==='blackwater'&&G.isHost?bwOptionsHTML():''}
       ${game.id==='mayhem'&&G.isHost?mhOptionsHTML():''}
       ${game.id==='tension'&&G.isHost?tnOptionsHTML():''}
@@ -37532,6 +37569,7 @@ function rTable(){
   if(_tblGameId==='gauntlet')return rGauntletTable();
   if(_tblGameId==='abyss')return rAbyssTable();
   if(_tblGameId==='wordspin')return rWordspinTable();
+  if(_tblGameId==='tablemind')return rTablemindTable();
   if(_tblGameId==='blackwater')return rBlackwaterTable();
   if(fgIs(_tblGameId))return rFairTable();
   if(_tblGameId==='pinball')return rPinballTable();
@@ -39138,6 +39176,7 @@ window.addEventListener('orientationchange',()=>{_lastVw=window.innerWidth;updat
 function matchMoment(sorted){
   const winner=sorted[0];
   if((G.isOnline?G.srv?.gameId:G.selGame)==='mayhem'){const mm=G.isOnline?(G.srv&&G.srv.moment):G.mhMoment;if(mm)return esc(mm);}
+  if((G.isOnline?G.srv?.gameId:G.selGame)==='tablemind'){const mm=G.isOnline?(G.srv&&G.srv.moment):G.tmMoment;if(mm)return esc(mm);}
   if((G.isOnline?G.srv?.gameId:G.selGame)==='gauntlet'){const mm=G.isOnline?(G.srv&&G.srv.moment):G.gtMoment;if(mm)return esc(mm);}
   if((G.isOnline?G.srv?.gameId:G.selGame)==='abyss'){const mm=G.isOnline?(G.srv&&G.srv.moment):G.abMoment;if(mm)return esc(mm);}
   if((G.isOnline?G.srv?.gameId:G.selGame)==='wordspin'){const mm=G.isOnline?(G.srv&&G.srv.moment):G.wsMoment;if(mm)return esc(mm);}
@@ -39225,19 +39264,20 @@ function rMatchEnd(){
   const isGT=(G.isOnline?G.srv?.gameId:G.selGame)==='gauntlet';
   const isAB=(G.isOnline?G.srv?.gameId:G.selGame)==='abyss';
   const isWS=(G.isOnline?G.srv?.gameId:G.selGame)==='wordspin';
+  const isTM=(G.isOnline?G.srv?.gameId:G.selGame)==='tablemind';
   const isBW=(G.isOnline?G.srv?.gameId:G.selGame)==='blackwater';
   const isPS=['precision','clay','archery','bowling'].includes(G.isOnline?G.srv?.gameId:G.selGame);
-  const isC4=['fourrow','mayhem','chainreaction','gauntlet','abyss','wordspin','blackwater','airhockey','pong','invaders','pool','pinball','precision','clay','archery','bowling','balloonblast','marksman','hoopfever'].includes(G.isOnline?G.srv?.gameId:G.selGame);
+  const isC4=['fourrow','mayhem','chainreaction','gauntlet','abyss','wordspin','tablemind','blackwater','airhockey','pong','invaders','pool','pinball','precision','clay','archery','bowling','balloonblast','marksman','hoopfever'].includes(G.isOnline?G.srv?.gameId:G.selGame);
   const isSK=(G.isOnline?G.srv?.gameId:G.selGame)==='skull';
   const isTN=(G.isOnline?G.srv?.gameId:G.selGame)==='tension';
   const c4Draw=isC4&&players.every(p=>p.c4Result==='draw');
   const chipGame=isPoker()||G.selGame==='blackjack'||G.selGame==='roulette'||G.selGame==='slots';
   const sorted=[...players].sort((a,b)=>isTN?tnRankKey(b)-tnRankKey(a):isSK?skRankKey(b)-skRankKey(a):isSB?stbRankKey(a)-stbRankKey(b):isHB?hbRankKey(b)-hbRankKey(a):isSM?smRank(b)-smRank(a):isLD?((b.dice?.length||0)-(a.dice?.length||0)||(b.ldOutAt||0)-(a.ldOutAt||0)):isBattle?((b.hand?.length||0)-(a.hand?.length||0)):chipGame?((b.chips||0)-(a.chips||0)):((b.totalScore||0)-(a.totalScore||0)));
-  const rows=sorted.map((p,i)=>`<div class="sr${i===0?' win':''}"><span class="sr-rank">${rankMark(i)}</span><span class="sr-av">${avHTML(p.avatar)}</span><span class="sr-name">${esc(p.name)}</span><span class="sr-delta" style="color:var(--paper3);">${isPS?esc(p.psLine||''):isWS?wsFmt(p.totalScore||0)+' points':isBW?((p.bwLeft||0)+' ship'+((p.bwLeft||0)!==1?'s':'')+' left'):isAB?(p.abPos>=100?'reached the top':'square '+(p.abPos||0)):isGT?(p.gtHome===1?'1 runner home':(p.gtHome||0)+' runners home'):isCR?(p.crRank===1?'last one standing':'knocked out on move '+(p.crOutAt||'?')):isSK?(p.sk&&p.sk.out?'out of discs':((p.sk&&(p.sk.hand.length+p.sk.stack.length))||0)+' discs left'):isTN?((p.tnCol||0)+' collapse'+((p.tnCol||0)!==1?'s':'')):isSB?(p.stbTiles===0?'shut the box!':(p.stbTiles||0)+' tile'+((p.stbTiles||0)!==1?'s':'')+' up'):(p.roundsWon||0)+' win'+((p.roundsWon||0)!==1?'s':'')}</span>${isC4?'<span class="sr-pts">'+(p.c4Result==='win'?'🏆':p.c4Result==='draw'?'½':'—')+'</span>':''}<span class="sr-pts"${isC4?' hidden':''} data-count="${isSK?((p.sk&&p.sk.pts)||0):isSB?(p.stbScore||0):isHB?(p.strikes||0):isSM?(p.order||[]).length:isLD?(p.dice?.length||0):isBattle?(p.hand?.length||0):chipGame?p.chips:(p.totalScore||0)}" data-count-suffix="${isSK?' ⭐':isSB?' pts':isHB?' 💥':isSM?' 🚩 · '+(p.cr||0)+' 💎':isLD?' 🎲':isBattle?' cards':chipGame?'c':''}">${isSK?((p.sk&&p.sk.pts)||0)+' ⭐':isSB?(p.stbScore||0)+' pts':isHB?(p.strikes||0)+' 💥':isSM?(p.order||[]).length+' 🚩 · '+(p.cr||0)+' 💎':isLD?(p.dice?.length||0)+' 🎲':isBattle?(p.hand?.length||0)+' cards':chipGame?p.chips+'c':p.totalScore||0}</span></div>`).join('');
+  const rows=sorted.map((p,i)=>`<div class="sr${i===0?' win':''}"><span class="sr-rank">${rankMark(i)}</span><span class="sr-av">${avHTML(p.avatar)}</span><span class="sr-name">${esc(p.name)}</span><span class="sr-delta" style="color:var(--paper3);">${isPS?esc(p.psLine||''):isWS?wsFmt(p.totalScore||0)+' points':isTM?tmEur(p.totalScore||0):isBW?((p.bwLeft||0)+' ship'+((p.bwLeft||0)!==1?'s':'')+' left'):isAB?(p.abPos>=100?'reached the top':'square '+(p.abPos||0)):isGT?(p.gtHome===1?'1 runner home':(p.gtHome||0)+' runners home'):isCR?(p.crRank===1?'last one standing':'knocked out on move '+(p.crOutAt||'?')):isSK?(p.sk&&p.sk.out?'out of discs':((p.sk&&(p.sk.hand.length+p.sk.stack.length))||0)+' discs left'):isTN?((p.tnCol||0)+' collapse'+((p.tnCol||0)!==1?'s':'')):isSB?(p.stbTiles===0?'shut the box!':(p.stbTiles||0)+' tile'+((p.stbTiles||0)!==1?'s':'')+' up'):(p.roundsWon||0)+' win'+((p.roundsWon||0)!==1?'s':'')}</span>${isC4?'<span class="sr-pts">'+(p.c4Result==='win'?'🏆':p.c4Result==='draw'?'½':'—')+'</span>':''}<span class="sr-pts"${isC4?' hidden':''} data-count="${isSK?((p.sk&&p.sk.pts)||0):isSB?(p.stbScore||0):isHB?(p.strikes||0):isSM?(p.order||[]).length:isLD?(p.dice?.length||0):isBattle?(p.hand?.length||0):chipGame?p.chips:(p.totalScore||0)}" data-count-suffix="${isSK?' ⭐':isSB?' pts':isHB?' 💥':isSM?' 🚩 · '+(p.cr||0)+' 💎':isLD?' 🎲':isBattle?' cards':chipGame?'c':''}">${isSK?((p.sk&&p.sk.pts)||0)+' ⭐':isSB?(p.stbScore||0)+' pts':isHB?(p.strikes||0)+' 💥':isSM?(p.order||[]).length+' 🚩 · '+(p.cr||0)+' 💎':isLD?(p.dice?.length||0)+' 🎲':isBattle?(p.hand?.length||0)+' cards':chipGame?p.chips+'c':p.totalScore||0}</span></div>`).join('');
   const ms=G.matchStats;
   const ahr=ahIs(G.isOnline?G.srv?.gameId:G.selGame)?ahResultStats():null;
   const ahPool=(G.isOnline?G.srv?.gameId:G.selGame)==='pool',ahPong=(G.isOnline?G.srv?.gameId:G.selGame)==='pong',ahInv=(G.isOnline?G.srv?.gameId:G.selGame)==='invaders';
-  const statChips=isWS?wsChipsHTML():(G.selGame==='bowling'&&G.blResult)?blChipsHTML():(G.selGame==='archery'&&G.acResult)?acChipsHTML():(G.selGame==='clay'&&G.clResult)?clChipsHTML():(G.selGame==='precision'&&G.psResult)?psChipsHTML():(G.selGame==='pinball'&&G.pbResult)?pbChipsHTML():fgIs(G.isOnline?G.srv?.gameId:G.selGame)&&G.fgResult?fgChipsHTML():ahr?`<div class="tonight-stats">
+  const statChips=isTM?tmChipsHTML():isWS?wsChipsHTML():(G.selGame==='bowling'&&G.blResult)?blChipsHTML():(G.selGame==='archery'&&G.acResult)?acChipsHTML():(G.selGame==='clay'&&G.clResult)?clChipsHTML():(G.selGame==='precision'&&G.psResult)?psChipsHTML():(G.selGame==='pinball'&&G.pbResult)?pbChipsHTML():fgIs(G.isOnline?G.srv?.gameId:G.selGame)&&G.fgResult?fgChipsHTML():ahr?`<div class="tonight-stats">
     <div class="tonight-stat"><div class="ts-val">${ahr.team?(ahr.score[0]+ahr.score[1]):ahr.score[0]+'–'+ahr.score[1]}</div><div class="ts-lbl">${ahr.team?'👾 Team score · wave '+ahr.wave:ahPool?'🎱 Balls potted':'🏒 Final score'}</div></div>
     <div class="tonight-stat"><div class="ts-val">${ahr.fastest||'–'}</div><div class="ts-lbl">${ahPool?'📏 Longest pot (cm)':ahInv?'🔥 Best combo (hits)':ahPong?'⚡ Top ball speed (km/h)':'⚡ Fastest shot (km/h)'}</div></div>
     <div class="tonight-stat"><div class="ts-val">${ahr.bestRally||'–'}</div><div class="ts-lbl">${ahPool?'🎱 Best run (balls)':ahInv?'👾 Aliens destroyed':'🔁 Longest rally'}</div></div>
@@ -39257,7 +39297,7 @@ function rMatchEnd(){
       ${fgHighlightHTML()}
       ${statChips}
       <div class="panel" style="text-align:center;margin-bottom:.8rem;"><div class="panel-lbl">TABLE MOMENT</div><div style="font-family:var(--serif);font-size:1.1rem;color:var(--paper);margin:.2rem 0;">${matchMoment(sorted)}</div></div>
-      ${isGT?gtResultsHTML():''}${isBW?bwResultsHTML():''}${isWS?wsResultsHTML():''}
+      ${isGT?gtResultsHTML():''}${isBW?bwResultsHTML():''}${isWS?wsResultsHTML():''}${isTM?tmResultsHTML():''}
       ${podiumHTML(sorted)}
       <div class="standings">${rows}</div>
       ${resButtonsHTML()}
@@ -39286,7 +39326,7 @@ function rYahtzeeEnd(){
 /* ════════ ROUTER ════════ */
 
 /* ═══ V14 CINEMATIC LAYER ═══ */
-function v14GameLabel(id){return ({maumau:'Mau Mau',texas:"Texas Hold'em",fivecard:'Five Card Draw',blackjack:'Blackjack',battle:'Battle',romme:'Rommé',hearts:'Hearts',bridge:'Bridge',yahtzee:'Yahtzee',roulette:'Roulette',dicedual:'Dice Duel',uno:'Uno',farkle:'Farkle',bingo:'Bingo',lepouilleux:'Old Maid',slots:'Slot Machine',pig:'Pig',drawit:'Draw-it',liarsdice:"Liar's Dice",summit:'Summit',hotbomb:'Hot Bomb',vault:'The Vault',bust:'BUST',escape:'Escape',shutbox:'Shut the Box',fourrow:'4 in a Row',skull:'Flower or Skull',tension:'Tension',mayhem:'4 in a Row · Mayhem',chainreaction:'Chain Reaction',gauntlet:'The Gauntlet',abyss:'The Abyss',wordspin:'WORDSPIN',blackwater:'Blackwater'})[id]||id||'Card Game'}
+function v14GameLabel(id){return ({tablemind:'TABLE MIND',maumau:'Mau Mau',texas:"Texas Hold'em",fivecard:'Five Card Draw',blackjack:'Blackjack',battle:'Battle',romme:'Rommé',hearts:'Hearts',bridge:'Bridge',yahtzee:'Yahtzee',roulette:'Roulette',dicedual:'Dice Duel',uno:'Uno',farkle:'Farkle',bingo:'Bingo',lepouilleux:'Old Maid',slots:'Slot Machine',pig:'Pig',drawit:'Draw-it',liarsdice:"Liar's Dice",summit:'Summit',hotbomb:'Hot Bomb',vault:'The Vault',bust:'BUST',escape:'Escape',shutbox:'Shut the Box',fourrow:'4 in a Row',skull:'Flower or Skull',tension:'Tension',mayhem:'4 in a Row · Mayhem',chainreaction:'Chain Reaction',gauntlet:'The Gauntlet',abyss:'The Abyss',wordspin:'WORDSPIN',blackwater:'Blackwater'})[id]||id||'Card Game'}
 function stageIsCards(id){const g=GAMES.find(x=>x.id===id);return!!g&&(g.cat==='cards'||g.cat==='casino');}
 function v14Intro(id,dealerName,dealerAvatar){
   const old=document.querySelector('.game-intro');if(old)old.remove();
@@ -40285,6 +40325,7 @@ document.addEventListener('click',e=>{
   else if(a==='bw-guide-x'){try{localStorage.setItem('ct_bw_guided','1');}catch(e){}SFX.chip();render();}
   else if(a==='gt-anim'){gtAnimNext();SFX.chip();render();}
   else if(/^ws(spin|vowelmode|solvemode|cancel|key|call|submit|next|lock|anim|view)$/.test(a)){wsTap(a,t);}
+  else if(/^tm(ans|lock|life|vote|bank|go|cat|offer|ready|opt|anim|intro)$/.test(a)){tmTap(a,t);}
   else if(a==='ws-rounds'){wsSetPref('rounds',+t.getAttribute('data-m'));render();}
   else if(a==='ws-level'){wsSetPref('level',+t.getAttribute('data-m'));render();}
   else if(a==='ws-lang'){wsSetPref('lang',t.getAttribute('data-m')==='de'?'de':'en');render();}
