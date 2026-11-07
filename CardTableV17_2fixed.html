@@ -5531,7 +5531,7 @@ const GAMES=[
      'Land on another player and you <b>💥 bump</b> them back 3 squares. A <b>double</b> rolls again — but <b>three doubles in a row</b> throws you back to the start.',
      '<b>🃏 Tricks</b> are single-use cards everybody can see next to your name. You start with one, win another on a ⭐, and get a consolation one when a black hole swallows you (3 at most). Once per turn, <i>before</i> you roll: <b>💨 Shove</b> a rival back 6 · <b>🔄 Swap</b> places with a rival · <b>✂️ Cut</b> a ladder · <b>🧱 Plug</b> a black hole · <b>❄️ Freeze</b> a rival for a turn. A cut or plug lasts until your next turn.',
      'The board is built fresh for every game, so you cannot rely on knowing it. Play online with friends, together on one device, or against bots.']},
-  {id:'tablemind',cat:'party',icon:'🧠',name:'TABLE MIND',players:'2–4',dur:'20–30 min',diff:'medium',deal:0,minP:2,maxP:4,cover:'assets/games/tablemind.svg',
+  {id:'tablemind',cat:'party',icon:'🧠',name:'TABLE MIND',players:'2–4',dur:'20–30 min',diff:'medium',deal:0,minP:2,maxP:4,cover:'assets/games/tablemind.jpg',
    rules:['<b>Wissen. Strategie. Ruhm.</b> Drei Akte: erst baust du ein Vermögen auf, dann sammelst du Wissenssiegel, am Ende musst du dem Chaser entkommen. Alles auf Deutsch, alle antworten gleichzeitig auf ihrem eigenen Gerät.',
      '<b>Akt I – Der Aufstieg:</b> Alle bekommen immer <b>dieselbe Frage</b> (1.000 € bis 25.000 € Stufen). Richtig = nächste Stufe. Danach entscheidest du: <b>BANKEN</b> (Geld sichern, neu bei Stufe 1 beginnen) oder <b>WEITER</b> (riskieren). Eine falsche Antwort kostet nur das ungesicherte Geld. Nach sechs Fragen kommt das <b>Duell</b>: die zwei Reichsten bekommen eine schwere Frage, der Sieger gewinnt 5.000 € (bei zwei richtigen Antworten gewinnt der Schnellere).',
      '<b>Vier Joker, jeder nur einmal pro Akt:</b> ✂️ <b>Der Schnitt</b> (zwei falsche Antworten weg) · 🗳️ <b>Der Rat</b> (die anderen tippen geheim — sie dürfen schwindeln!) · 📜 <b>Das Archiv</b> (ein Hinweis) · ⏸️ <b>Zeit anhalten</b> (+10 Sekunden).',
@@ -6388,7 +6388,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=337;
+const APP_BUILD=338;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -21588,11 +21588,12 @@ function wsWheelSVG(ang,lang){
       else if(s.k==='free'){fill='url(#wsGold)';tc='#2a1b00';sz=6.3;}
       else if(s.k==='wild'){fill='#8b2f9c';tc='#fff';sz=8.5;}
       else if(String(label).length>3)sz=9.6;
-      const tr=`rotate(${i*w-90}) translate(${R-5},0)`;
+      // the labels on the left half are turned round, so every number reads the right way up (from the rim towards the hub)
+      const flip=i*w>=180,anc=flip?'start':'end',tr=flip?`rotate(${i*w+90}) translate(${-(R-5)},0)`:`rotate(${i*w-90}) translate(${R-5},0)`,d1=flip?3:-3,d2=flip?-6.2:6.2;
       let txt;
-      if(s.k==='lose')txt=`<text transform="${tr}" text-anchor="end" font-size="${sz}" font-weight="800" fill="${tc}" letter-spacing=".3" dominant-baseline="central">${lang==='de'?'<tspan x="0" dy="0">AUSSETZEN</tspan>':'<tspan x="0" dy="-3">LOSE A</tspan><tspan x="0" dy="6.2">TURN</tspan>'}</text>`;
-      else if(s.k==='free')txt=`<text transform="${tr}" text-anchor="end" font-size="${sz}" font-weight="800" fill="${tc}" letter-spacing=".3" dominant-baseline="central">${lang==='de'?'<tspan x="0" dy="-3">FREI-</tspan><tspan x="0" dy="6.2">SPIEL</tspan>':'<tspan x="0" dy="-3">FREE</tspan><tspan x="0" dy="6.2">PLAY</tspan>'}</text>`;
-      else txt=`<text transform="${tr}" text-anchor="end" font-size="${sz}" font-weight="800" fill="${tc}" letter-spacing="${s.k==='pts'?.4:.5}" dominant-baseline="central" font-family="Georgia,serif">${label}</text>`;
+      if(s.k==='lose')txt=`<text transform="${tr}" text-anchor="${anc}" font-size="${sz}" font-weight="800" fill="${tc}" letter-spacing=".3" dominant-baseline="central">${lang==='de'?'<tspan x="0" dy="0">AUSSETZEN</tspan>':`<tspan x="0" dy="${d1}">LOSE A</tspan><tspan x="0" dy="${d2}">TURN</tspan>`}</text>`;
+      else if(s.k==='free')txt=`<text transform="${tr}" text-anchor="${anc}" font-size="${sz}" font-weight="800" fill="${tc}" letter-spacing=".3" dominant-baseline="central">${lang==='de'?(flip?`<tspan x="0" dy="${d1}">SPIEL</tspan><tspan x="0" dy="${d2}">FREI-</tspan>`:`<tspan x="0" dy="${d1}">FREI-</tspan><tspan x="0" dy="${d2}">SPIEL</tspan>`):(flip?`<tspan x="0" dy="${d1}">PLAY</tspan><tspan x="0" dy="${d2}">FREE</tspan>`:`<tspan x="0" dy="${d1}">FREE</tspan><tspan x="0" dy="${d2}">PLAY</tspan>`)}</text>`;
+      else txt=`<text transform="${tr}" text-anchor="${anc}" font-size="${sz}" font-weight="800" fill="${tc}" letter-spacing="${s.k==='pts'?.4:.5}" dominant-baseline="central" font-family="Georgia,serif">${label}</text>`;
       out.push(`<g class="ws-wedge" data-i="${i}"><path d="M0 0 L${x1} ${y1} A${R} ${R} 0 0 1 ${x2} ${y2} Z" fill="${fill}" stroke="${stroke}" stroke-width=".7"/>${s.k==='bankrupt'?`<path d="M0 0 L${x1} ${y1} A${R} ${R} 0 0 1 ${x2} ${y2} Z" fill="none" stroke="#d946a8" stroke-width="1.1" opacity=".8"/>`:''}${txt}</g>`);
     });
     _wsWheelStatic[lang]=out.join('');

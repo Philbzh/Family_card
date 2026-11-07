@@ -10321,6 +10321,47 @@ async function runPresentation(A,W,frame){
     T(t,t.dl+1);
     check('after all questions of the round the next choice begins',t.phase==='pick'&&t.round2===2);
   });
+  suite('TABLE MIND — render sweep: every screen of every phase renders for every player, online and local',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n),AV=W.eval('AVATARS'),N=F('tmNew'),A=F('tmApply'),T=F('tmTick'),B=F('tmBotAct'),R=F('rTablemindTable');
+    const keep={on:G.isOnline,srv:G.srv,scr:G.scr,sel:G.selGame,pid:G.myPid,snd:G.snd,lp:G.lp,tm:G.tm,view:G.tmViewer,ready:G.tmReadyKey};
+    const errs=[];let screens=0,games=0,done=0;
+    const rr=seed=>{let x=seed%2147483646+1;return()=>{x=(x*48271)%2147483647;return x/2147483647;};};
+    try{
+      G.snd=false;
+      for(const [P,seed,hc] of [[2,501,0],[3,502,-1],[4,503,1],[3,504,0]]){
+        games++;const tm=N(P,{seed}),r=rr(seed+9);F('tmStart')(tm,0);
+        const players=[];for(let i=0;i<P;i++)players.push({id:'p'+i,name:'Spieler '+i,avatar:AV[i%AV.length],hand:[]});
+        if(hc)for(let s=1;s<=P;s+=2)A(tm,s,{t:'hcap',v:hc},5);
+        G.isOnline=true;G.selGame='tablemind';G.scr='table';G.srv={phase:'game',gameId:'tablemind',host:'p0',players,curIdx:0,tm,winner:null};
+        let now=10,g=0;
+        const sweep=()=>{for(const pid of players.map(p=>p.id).concat(['nobody'])){G.myPid=pid;try{const h=R();screens++;if(typeof h!=='string'||/undefined|NaN|\[object/.test(h))errs.push(P+'p '+tm.act+'/'+tm.phase+' '+pid+': bad text '+(h.match(/.{20}(undefined|NaN|\[object).{20}/)||[''])[0]);}catch(e){errs.push(P+'p '+tm.act+'/'+tm.phase+' '+pid+': '+e.message);}}};
+        sweep();
+        while(!tm.over&&g++<2500){
+          let did=false;for(let s=1;s<=P;s++){const a=B(tm,s,s%2?'sharp':'gentle',r);if(a&&A(tm,s,a,now)){did=true;sweep();}}
+          if(!did){now=Math.max(now+500,tm.dl);T(tm,now);sweep();}
+          now+=40;
+        }
+        if(tm.over)done++;
+        G.myPid='p0';try{R();screens++;}catch(e){errs.push('over screen: '+e.message);}
+      }
+      // local hot-seat: the pass screens, the pads and the stage for the player holding the device
+      G.isOnline=false;G.srv=null;G.selGame='tablemind';G.scr='table';
+      const lp=[{name:'A',avatar:AV[0]},{name:'B',avatar:AV[1]}];G.lp=lp;
+      const tl=N(2,{seed:520}),rl=rr(77);F('tmStart')(tl,0);G.tm=tl;G.tmReadyKey='';G.tmIntro=null;let gg=0,nn=10;
+      while(!tl.over&&gg++<900){
+        const v=F('tmLocalViewer')(tl);
+        try{R();screens++;}catch(e){errs.push('local '+tl.act+'/'+tl.phase+': '+e.message);}
+        if(v){F('tmReady')();try{R();screens++;}catch(e){errs.push('local pad '+tl.act+'/'+tl.phase+': '+e.message);}const a=B(tl,v.seat,'sharp',rl);if(a)A(tl,v.seat,a,nn);else A(tl,v.seat,{t:'ans',to:1},nn);}
+        else{for(let s=1;s<=2;s++){const a=B(tl,s,'gentle',rl);if(a)A(tl,s,a,nn);}nn=Math.max(nn+500,tl.dl);T(tl,nn);}
+        nn+=40;
+      }
+    } finally {
+      G.isOnline=keep.on;G.srv=keep.srv;G.scr=keep.scr;G.selGame=keep.sel;G.myPid=keep.pid;G.snd=keep.snd;G.lp=keep.lp;G.tm=keep.tm;G.tmViewer=keep.view;G.tmReadyKey=keep.ready;
+    }
+    check('four complete online games (2, 3, 4 and 3 players, with handicaps) and one local game were played through',games===4&&done===4);
+    check('over a thousand screens were rendered (every phase, every player, plus an outsider)',screens>1000,screens+' screens');
+    check('no screen threw an error or printed undefined / NaN / [object]',errs.length===0,errs.slice(0,6).join(' | '));
+  });
   suite('TABLE MIND — act 2: realms and seals',()=>{
     const F=n=>W.eval(n),N=F('tmNew'),A=F('tmApply'),CFG=F('TM_CFG');
     const t=N(2,{seed:31});F('tmStart')(t,0);t.cycle=CFG.cycles1;F('tmTick')(t,t.dl+1);F('tmTick')(t,t.dl+1);F('tmTick')(t,t.dl+1);F('tmTick')(t,t.dl+1);

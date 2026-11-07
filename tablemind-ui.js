@@ -259,6 +259,8 @@
 .tm-hc{padding:.28rem .65rem;border-radius:999px;border:1px solid rgba(201,164,92,.4);background:transparent;color:#d8cfbd;font:600 .7rem/1 inherit;cursor:pointer;touch-action:manipulation;}
 .tm-hc.on{background:linear-gradient(180deg,#f3deaa,#c9a45c);color:#1a1300;border-color:#ead08a;}
 .tm-realm.used{opacity:.4;filter:grayscale(.7);cursor:not-allowed;}.tm-realm small{font-size:.58rem;letter-spacing:.06em;color:#a99d78;}
+/* the "… is thinking" pill must not cover the reaction row (all games with a reaction strip) */
+body:has(.react-strip) .peer-think{bottom:calc(9rem + env(safe-area-inset-bottom,0px));}
 .tm-foot{display:flex;gap:.5rem;justify-content:center;margin-top:.4rem;}
 .tm-opt{display:flex;gap:.4rem;flex-wrap:wrap;justify-content:center;align-items:center;margin:.4rem 0;font-size:.78rem;color:var(--paper2,#d8cfbd);}
 .tm-opt button{padding:.3rem .7rem;border-radius:999px;border:1px solid rgba(201,164,92,.5);background:rgba(29,83,54,.4);color:inherit;font:inherit;cursor:pointer;}
