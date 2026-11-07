@@ -4545,6 +4545,17 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
   .ws-main>:not(.ws-top):not(.ws-stage){grid-column:1/-1;}
 }
 @media(max-width:480px){.ws-plate{min-width:4.2rem;padding:.25rem .45rem .3rem;}.ws-bank{font-size:1rem;}.ws-board{padding:.4rem;gap:.2rem;}.ws-row{gap:.2rem;}.ws-k{border-radius:7px;font-size:.92rem;}.ws-kr{gap:.2rem;}}
+/* the host (Wiz the owl) and the category emblems */
+.ws-hint{display:flex;align-items:center;justify-content:center;gap:.6rem;text-align:left;}
+.ws-host{width:3.7rem;height:3.7rem;flex:none;border-radius:50%;object-fit:cover;border:2px solid #e9c46a;box-shadow:0 0 18px rgba(233,196,106,.5),0 4px 10px rgba(0,0,0,.6);background:#0b1233;}
+.ws-host.hop{animation:ws-hop .6s cubic-bezier(.3,1.6,.5,1) 1;}
+@keyframes ws-hop{0%{transform:translateY(8px) scale(.85);}60%{transform:translateY(-6px) scale(1.08);}100%{transform:none;}}
+.ws-say{position:relative;max-width:min(26rem,calc(100vw - 7rem));padding:.45rem .8rem;border-radius:14px;background:rgba(13,21,56,.88);border:1px solid rgba(233,196,106,.32);font-size:.9rem;line-height:1.3;}
+.ws-say::before{content:"";position:absolute;left:-7px;top:50%;margin-top:-6px;border:6px solid transparent;border-right-color:rgba(233,196,106,.45);border-left:0;}
+.ws-cat{display:inline-flex;align-items:center;gap:.45rem;}
+.ws-cat-ic{width:1.7rem;height:1.7rem;margin:-.45rem 0 -.45rem -.75rem;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55));}
+.ws-bar-ic{width:1.5rem;height:1.5rem;vertical-align:middle;}
+@media(prefers-reduced-motion:reduce){.ws-host.hop{animation:none;}}
 /* celebrations: confetti and sparks, a light sweep over the board, a dark red vignette for BANKRUPT */
 .ws-fx{position:fixed;inset:0;pointer-events:none;z-index:8000;overflow:hidden;}
 .ws-p{position:absolute;left:var(--x0,50%);top:var(--y0,-4%);width:var(--s,8px);height:calc(var(--s,8px)*1.7);background:var(--c);border-radius:2px;opacity:0;animation:ws-fall var(--t,2s) cubic-bezier(.25,.6,.35,1) forwards;animation-delay:var(--d,0s);}
@@ -6360,7 +6371,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=319;
+const APP_BUILD=320;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -21629,6 +21640,21 @@ const WS_TX={
 function wsTx(l){const lang=l&&l.lang?l.lang:l,d=WS_TX[lang]||WS_TX.en;return(k,...a)=>{let s=d[k];if(s==null)s=WS_TX.en[k]||k;return s.replace(/\{(\d)\}/g,(m,i)=>a[i]);};}
 function wsLang(){let v='en';try{v=localStorage.getItem('ct_ws_lang')||'en';}catch(e){}return v==='de'?'de':'en';}
 function wsCurLang(){const ws=G.isOnline?(G.srv&&G.srv.ws):G.ws;return ws&&ws.lang?ws.lang:wsLang();}
+const WS_CAT_IC={'Food & Drink':0,'Places':1,'Phrases':2,'Things':3,'Nature':4,'Animals':5,'Sport & Games':6,'People & Jobs':7,'Travel':8,'At Home':9,'Wonders & Words':10,'Essen & Trinken':0,'Orte':1,'Redewendungen':2,'Dinge':3,'Natur':4,'Tiere':5,'Sport & Spiele':6,'Menschen & Berufe':7,'Reisen':8,'Zuhause':9,'Wunder & Wörter':10};
+// Which of Wiz's six poses fits the moment (1 welcome, 2 cheering, 3 shocked, 4 thinking, 5 wink, 6 champion)? Worked out from the game state, so every device shows the same one.
+function wsHostPose(ws,spinning){
+  if(ws.over)return 6;
+  if(spinning)return 5;
+  if(ws.phase==='roundend')return 2;
+  const f=ws.fx;
+  if(f){
+    if(f.kind==='spin'&&f.seg==='bankrupt')return 3;
+    if((f.kind==='solve'&&!f.ok)||((f.kind==='letter'||f.kind==='vowel')&&!f.hit&&!f.free)||f.kind==='ftime')return 3;
+    if(f.kind==='spin'&&f.seg==='lose')return 5;
+  }
+  if(ws.phase==='letter'||ws.phase==='fpick'||ws.phase==='fsolve')return 4;
+  return ws.moves===0?1:1;
+}
 function wsHintText(ws,p,mine,seq){
   const T=wsTx(ws),nm=`<b>${esc(p.name)}</b>`;
   if(seq)return T('wheelTurning');
@@ -21709,15 +21735,19 @@ function rWordspinTable(){
   const roundLine=ws.final?`<span class="ws-rnd final">${T('finalBanner')}</span>`:`<span class="ws-rnd">${T('roundOf',ws.round,ws.rounds)}</span>`;
   queueMicrotask(wsPostRender);
   const view=wsView();
+  const pose=wsHostPose(ws,!!seq),hop=G.wsPose!==pose&&G.wsPose!=null;G.wsPose=pose;
+  const hintTxt=wsHintText(ws,p,mine&&!botTurn,seq);
+  const hostHTML=`<img class="ws-host${hop?' hop':''}" src="assets/games/ws_owl_${pose}.jpg" alt="" width="60" height="60">`;
+  const catIc=WS_CAT_IC[ws.puzzle.c];
   return`<div id="s-table" class="scr on game-wordspin ws-v-${view}">
     <div class="game-bar">
-      <div class="gb-game">🎡 <span class="cr-gbn">WORDSPIN</span></div>
+      <div class="gb-game"><img class="ws-bar-ic" src="assets/games/ws_emblem.png" alt="" width="24" height="24"> <span class="cr-gbn">WORDSPIN</span></div>
       <div class="gb-turn p${seq?fx.seat:seat}${mine&&!ws.over&&!seq?' mine':''}">${avChar(mover.avatar)} ${T("turn",esc(mover.name))}</div>
       <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
     </div>
     <div class="ws-strip">${plates}</div>
     <div class="ws-main">
-      <div class="ws-top">${ws.final?'<div class="ws-final-band" role="img" aria-label=""></div>':''}<div class="ws-meta"><span class="ws-cat">${esc(ws.puzzle.c)}</span>${roundLine}</div>${wsBoardHTML(ws,flip,deal)}<div class="ws-hint">${wsHintText(ws,p,mine&&!botTurn,seq)}</div></div>
+      <div class="ws-top">${ws.final?'<div class="ws-final-band" role="img" aria-label=""></div>':''}<div class="ws-meta"><span class="ws-cat">${catIc!=null?`<img class="ws-cat-ic" src="assets/games/ws_cat_${catIc}.png" alt="" width="28" height="28">`:''}${esc(ws.puzzle.c)}</span>${roundLine}</div>${wsBoardHTML(ws,flip,deal)}<div class="ws-hint">${hostHTML}${hintTxt?`<span class="ws-say">${hintTxt}</span>`:''}</div></div>
       <div class="ws-stage">
         <div class="ws-left"><div class="ws-wheel-wrap an-${gtAnim()}" style="${kbPhase?'width:min(52vw,11rem)':''}">${wsWheelSVG(ang,ws.lang)}</div></div>
         <div class="ws-right">${wsPanelHTML(ws,p,mine,acts,seq,players)}

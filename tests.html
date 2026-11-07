@@ -10229,6 +10229,23 @@ async function runPresentation(A,W,frame){
       if(keep.anim==null)W.localStorage.removeItem('ct_gt_anim');else W.localStorage.setItem('ct_gt_anim',keep.anim);
     }
   });
+  suite('WORDSPIN — the host owl and the category emblems',()=>{
+    const F=n=>W.eval(n);
+    const wsNew=F('wsNew'),pose=F('wsHostPose'),IC=F('WS_CAT_IC');
+    const mk=()=>{const w=wsNew(2,{seed:5});w.moves=3;w.fx=null;return w;};
+    check('Wiz welcomes the table at the very start and waves in a quiet turn',(()=>{const w=wsNew(2,{seed:5});return pose(w,false)===1;})()&&pose(mk(),false)===1);
+    check('Wiz winks while the wheel turns, thinks while a letter or an answer is being chosen',pose(mk(),true)===5&&(()=>{const w=mk();w.phase='letter';const a=pose(w,false);w.phase='fsolve';return a===4&&pose(w,false)===4;})());
+    check('Wiz is shocked by BANKRUPT, a miss, a wrong answer and lost time',(()=>{const w=mk();const r=[{kind:'spin',seg:'bankrupt'},{kind:'letter',hit:false,free:false},{kind:'vowel',hit:false},{kind:'solve',ok:false},{kind:'ftime'}].map(f=>{w.fx=f;return pose(w,false);});return r.every(x=>x===3);})());
+    check('a free-play miss does not shock Wiz',(()=>{const w=mk();w.fx={kind:'letter',hit:false,free:true};return pose(w,false)!==3;})());
+    check('Wiz cheers when a round is solved and wears the crown when the game is over',(()=>{const w=mk();w.phase='roundend';const a=pose(w,false);w.over=true;return a===2&&pose(w,false)===6;})());
+    check('every category of both puzzle libraries has an emblem',F('WS_PUZZLES').concat(F('WS_PUZZLES_DE')).every(p=>IC[p[0]]!=null&&IC[p[0]]>=0&&IC[p[0]]<=10));
+    check('English and German names of a category share the same emblem',IC['Food & Drink']===IC['Essen & Trinken']&&IC['Animals']===IC['Tiere']&&IC['Wonders & Words']===IC['Wunder & Wörter']);
+    check('the table shows the host next to the hint and the emblem next to the category',(()=>{
+      const G=W.eval('G'),keep=G.wsInstant;try{G.isOnline=false;G.srv=null;G.snd=false;G.wsInstant=true;F('startNow')('wordspin',2);G.lp.forEach(p=>{p.bot=null;});G.ws.cur=1;G.lcur=0;
+        const html=F('rWordspinTable')();return html.indexOf('src="assets/games/ws_owl_1.jpg"')>0&&html.indexOf('class="ws-host')>0&&html.indexOf('class="ws-cat-ic" src="assets/games/ws_cat_')>0;
+      }finally{G.wsInstant=keep;G.ws=null;G.scr='home';}
+    })());
+  });
   suite('WORDSPIN — it is wired in everywhere the other games are',()=>{
     const F=n=>W.eval(n);
     check('it plays online and against bots, with a tour, a tagline, an accent, a history name and reactions',F('ONLINE_GAMES').includes('wordspin')&&F('BOT_GAMES').has('wordspin')&&F('TOURS').wordspin.slides.length===5&&!!F('STAGE_TAGS').wordspin&&!!F('MOMENT_ACCENT').wordspin&&F('v14GameLabel')('wordspin')==='WORDSPIN'&&F('REACTION_GAME').wordspin.length===3);
