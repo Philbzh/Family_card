@@ -27,6 +27,7 @@ const TM_CFG={
   cycles1:6,                        // questions per player in act 1 (a "climb" may be restarted after banking)
   sealRounds:3,                     // realm challenges per player in act 2
   sealValue:2500,
+  duelPrize:5000,                   // the head-to-head after act 1: the two richest players, one hard question
   track:7,
   offers:{safe:{adv:3,mult:1},std:{adv:2,mult:2},risk:{adv:1,mult:3}},
   escapeBase:10000,
@@ -60,10 +61,10 @@ function tmNew(P,opts){
   const tm={v:1,P:n,seed,rng:seed,rng2:(seed*7+13)%2147483646+1,lang:'de',act:1,phase:'ask',cycle:0,round2:0,used:[],catN:[0,0,0,0,0,0],
     lib:opts.lib||null,relaxed:!!opts.relaxed,
     lvl:z(),unb:z(),bank:z(),q:nl(),ans:nl(),ansAt:z(),res:nl(),pick:nl(),ext:z(),elim:nl(),clue:z(),gain:z(),
-    life:[],council:null,pendingDecide:new Array(n).fill(false),seals:[],sealNew:z(),
+    life:[],council:null,duel:null,duelDone:false,pendingDecide:new Array(n).fill(false),seals:[],sealNew:z(),
     chaser:opts.chaser&&TM_CFG.chasers[opts.chaser]?opts.chaser:null,ch:null,lane:[],offer:nl(),
     dl:0,moves:0,fx:null,over:false,win:0,
-    stats:{right:z(),wrong:z(),late:z(),lifes:z(),best:z(),topHits:z(),banks:z(),councilFor:z(),hardRight:z(),mislead:z()}};
+    stats:{right:z(),wrong:z(),late:z(),lifes:z(),best:z(),topHits:z(),duels:z(),banks:z(),councilFor:z(),hardRight:z(),mislead:z()}};
   for(let i=0;i<n;i++){tm.life.push(Object.assign({},TM_CFG.lives));tm.seals.push([]);}
   for(let i=0;i<7;i++){tmRand(tm);tmRand2(tm);}
   if(!tm.chaser)tm.chaser=TM_CH_KEYS[Math.floor(tmRand(tm)*TM_CH_KEYS.length)];
@@ -95,15 +96,26 @@ function tmMs(tm,key){return Math.round(TM_CFG.ms[key]*(tm.relaxed&&/^ask/.test(
 function tmResetAsk(tm){tm.ans=tm.ans.map(()=>null);tm.ansAt=tm.ansAt.map(()=>0);tm.res=tm.res.map(()=>null);tm.ext=tm.ext.map(()=>0);tm.elim=tm.elim.map(()=>null);tm.clue=tm.clue.map(()=>0);tm.gain=tm.gain.map(()=>0);tm.council=null;tm.fx=null;}
 function tmOpenCycle1(tm,now){
   tm.cycle++;tm.act=1;tm.phase='ask';tmResetAsk(tm);
-  for(let s=0;s<tm.P;s++)tm.q[s]=tmPickQ(tm,-1,tm.lvl[s]+1);
+  // players on the same level get the very same question (they play at the same time); different levels, different questions
+  const byLvl={};
+  for(let s=0;s<tm.P;s++){const k=tm.lvl[s];if(!byLvl[k])byLvl[k]=tmPickQ(tm,-1,k+1);tm.q[s]=byLvl[k];}
+  tm.dl=now+tmMs(tm,'ask1');
+}
+function tmOpenDuel(tm,now){
+  const order=[];for(let s=1;s<=tm.P;s++)order.push(s);
+  order.sort((a,b)=>tm.bank[b-1]-tm.bank[a-1]||a-b);
+  tm.duel=order.slice(0,2).sort((a,b)=>a-b);tm.act=1;tm.phase='ask';tmResetAsk(tm);
+  const q=tmPickQ(tm,-1,4);
+  for(let s=0;s<tm.P;s++)tm.q[s]=tm.duel.indexOf(s+1)>=0?q:null;
   tm.dl=now+tmMs(tm,'ask1');
 }
 function tmOpenPick(tm,now){tm.act=2;tm.phase='pick';tm.round2++;tmResetAsk(tm);tm.pick=tm.pick.map(()=>null);tm.q=tm.q.map(()=>null);tm.dl=now+tmMs(tm,'pick');
   if(tm.round2===1)tm.life.forEach(l=>{l.cut=TM_CFG.lives.cut;l.archive=TM_CFG.lives.archive;l.freeze=TM_CFG.lives.freeze;});}
 function tmOpenAsk2(tm,now){
   tm.phase='ask';tmResetAsk(tm);
-  // two players in the same realm still get different questions (tm.used)
-  for(let s=0;s<tm.P;s++)tm.q[s]=tmPickQ(tm,tm.pick[s],3);
+  // players who chose the same realm get the very same question
+  const byCat={};
+  for(let s=0;s<tm.P;s++){const k=tm.pick[s];if(!byCat[k])byCat[k]=tmPickQ(tm,k,3);tm.q[s]=byCat[k];}
   tm.dl=now+tmMs(tm,'ask2');
 }
 function tmOpenOffer(tm,now){tm.act=3;tm.phase='offer';tmResetAsk(tm);tm.q=tm.q.map(()=>null);tm.offer=tm.offer.map(()=>null);tm.dl=now+tmMs(tm,'offer');
@@ -138,7 +150,7 @@ function tmChaserP(key,cat,d){
 }
 
 /* ───── queries ───── */
-function tmActive(tm,s){return tm.act!==3||tm.lane[s-1].st==='run';}
+function tmActive(tm,s){if(tm.duel&&tm.duel.indexOf(s)<0)return false;return tm.act!==3||tm.lane[s-1].st==='run';}
 function tmSeatDl(tm,s){return tm.dl+tm.ext[s-1];}
 function tmAskDone(tm,now){
   for(let s=1;s<=tm.P;s++){if(!tmActive(tm,s))continue;if(tm.ans[s-1]==null&&now<tmSeatDl(tm,s))return false;}
@@ -243,7 +255,9 @@ function tmResolveAsk(tm,now){
     if(a==null||a<0)tm.stats.late[i]++;else if(ok)tm.stats.right[i]++;else tm.stats.wrong[i]++;
     const e=tmLib(tm)[q.i];if(ok&&e&&e[1]>=4)tm.stats.hardRight[i]++;
     const o={s,ok,a,cor:q.cor,money:0,seal:0,steps:0};
-    if(act===1){
+    if(act===1&&tm.duel){
+      // the duel has its own prize, settled below
+    }else if(act===1){
       if(ok){
         const top=tm.lvl[i]>=TM_CFG.ladder.length-1;
         tm.unb[i]=TM_CFG.ladder[tm.lvl[i]];tm.stats.best[i]=Math.max(tm.stats.best[i],tm.unb[i]);
@@ -254,6 +268,15 @@ function tmResolveAsk(tm,now){
       if(ok){const have=tm.seals[i].indexOf(tm.pick[i])>=0;tm.seals[i].push(tm.pick[i]);o.seal=1;o.dup=have?1:0;}
     }
     fx.seats.push(o);
+  }
+  if(tm.duel){
+    const oks=tm.duel.filter(s=>tm.res[s-1]==='ok');let w=0;
+    if(oks.length===1)w=oks[0];
+    else if(oks.length===2)w=tm.ansAt[oks[0]-1]<tm.ansAt[oks[1]-1]?oks[0]:tm.ansAt[oks[1]-1]<tm.ansAt[oks[0]-1]?oks[1]:0;
+    const share=oks.length===2&&!w?oks:[];
+    if(w){tm.bank[w-1]+=TM_CFG.duelPrize;tm.stats.duels[w-1]++;}
+    share.forEach(s=>{tm.bank[s-1]+=TM_CFG.duelPrize/2;});
+    fx.duel={w,seats:tm.duel.slice(),prize:TM_CFG.duelPrize,tie:share.length>0};
   }
   if(act===3)tmHuntMove(tm,fx);
   tm.fx=fx;tm.phase='reveal';tm.dl=now+tmMs(tm,'reveal')+(act===3?1800:0);
@@ -281,10 +304,11 @@ function tmDecide(tm,s,bank){
   else tm.gain[i]=2;
 }
 function tmAfterDecide(tm,now){
-  if(tm.cycle>=TM_CFG.cycles1){tmOpenPick(tm,now);return;}
+  if(tm.cycle>=TM_CFG.cycles1){if(tm.P>=2&&!tm.duelDone){tmOpenDuel(tm,now);return;}tmOpenPick(tm,now);return;}
   tmOpenCycle1(tm,now);
 }
 function tmAfterReveal(tm,now){
+  if(tm.duel){tm.duel=null;tm.duelDone=true;tmOpenPick(tm,now);return;}
   if(tm.act===1){
     if(tm.pendingDecide&&tm.pendingDecide.some(v=>v===true)){tm.phase='decide';tm.dl=now+tmMs(tm,'decide');return;}
     tmAfterDecide(tm,now);return;

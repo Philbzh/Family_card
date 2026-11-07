@@ -10160,7 +10160,7 @@ async function runPresentation(A,W,frame){
     const wrong=(t,s)=>A(t,s,{t:'ans',i:(t.q[s-1].cor+1)%4},1000);
     let t=fresh(2);
     check('a new game opens with a question for each player, at level 1 for everyone',t.phase==='ask'&&t.act===1&&t.q[0]&&t.q[1]&&F('tmQ')(t,t.q[0]).d===1&&F('tmQ')(t,t.q[1]).d===1);
-    check('the two players get different questions',t.q[0].i!==t.q[1].i);
+    check('players on the same level get the very same question',t.q[0].i===t.q[1].i);
     right(t,1);
     check('one answer does not close the question while the other player is still thinking',t.phase==='ask'&&t.ans[0]!=null);
     check('the same player cannot answer twice (a repeated action changes nothing)',A(t,1,{t:'ans',i:0},1100)===false&&t.stats.right[0]===0);
@@ -10187,7 +10187,8 @@ async function runPresentation(A,W,frame){
     F('tmTick')(t,t.dl+1);
     check('a player who never answers gets nothing and the game moves on (nobody is blocked)',t.phase==='reveal'&&t.res[1]==='late'&&t.stats.late[1]===1);
     t=fresh(3);for(let c=0;c<CFG.cycles1;c++){for(let s=1;s<=3;s++)right(t,s);F('tmTick')(t,t.dl+1);if(t.phase==='decide'){for(let s=1;s<=3;s++)A(t,s,{t:'go'},t.dl-1);}}
-    check('act 1 ends after the set number of cycles and act 2 begins with a realm choice',t.act===2&&t.phase==='pick');
+    check('act 1 ends after the set number of cycles with the duel of the two richest players',!!t.duel&&t.act===1);F('tmTick')(t,t.dl+1);F('tmTick')(t,t.dl+1);
+    check('after the duel act 2 begins with a realm choice',t.act===2&&t.phase==='pick');
     check('money still unbanked at the very end of act 1 is banked automatically',t.unb.every(x=>x===0)&&t.bank.every(x=>x>0));
   });
   suite('TABLE MIND — the four lifelines',()=>{
@@ -10217,12 +10218,12 @@ async function runPresentation(A,W,frame){
   });
   suite('TABLE MIND — act 2: realms and seals',()=>{
     const F=n=>W.eval(n),N=F('tmNew'),A=F('tmApply'),CFG=F('TM_CFG');
-    const t=N(2,{seed:31});F('tmStart')(t,0);t.cycle=CFG.cycles1;F('tmTick')(t,t.dl+1);F('tmTick')(t,t.dl+1);
+    const t=N(2,{seed:31});F('tmStart')(t,0);t.cycle=CFG.cycles1;F('tmTick')(t,t.dl+1);F('tmTick')(t,t.dl+1);F('tmTick')(t,t.dl+1);F('tmTick')(t,t.dl+1);
     check('a table where nobody answers still reaches the realm choice (timeouts move the game on)',t.act===2&&t.phase==='pick');
     A(t,1,{t:'cat',c:2},t.dl-100);
     check('a realm choice cannot be changed',t.phase==='pick'&&A(t,1,{t:'cat',c:3},t.dl-90)===false);
     A(t,2,{t:'cat',c:2},t.dl-100);
-    check('when both have chosen, the questions open: realm 2 for both, different questions',t.phase==='ask'&&t.q[0].i!==t.q[1].i&&F('tmQ')(t,t.q[0]).c===2&&F('tmQ')(t,t.q[1]).c===2);
+    check('when both have chosen, the questions open: realm 2 for both, the very same question',t.phase==='ask'&&t.q[0].i===t.q[1].i&&F('tmQ')(t,t.q[0]).c===2&&F('tmQ')(t,t.q[1]).c===2);
     A(t,1,{t:'ans',i:t.q[0].cor},t.dl-100);A(t,2,{t:'ans',i:(t.q[1].cor+1)%4},t.dl-100);
     check('a right answer earns the seal of that realm, a wrong one does not',t.seals[0].length===1&&t.seals[0][0]===2&&t.seals[1].length===0);
     check('the questions in act 2 are all of the same level (3)',F('tmQ')(t,t.q[0]).d===3&&F('tmQ')(t,t.q[1]).d===3);
