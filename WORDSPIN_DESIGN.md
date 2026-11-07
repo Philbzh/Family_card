@@ -28,4 +28,4 @@ Puzzle library (size, variety, fits the board, no duplicates), wheel (24 wedges,
 ## Not done
 - Not yet played on real devices.
 - The stage backdrop and textures from the first picture sheet are not used (the sheet was never saved as a file).
-- The short how-to-play tour (the slide show) is English only; the rules page is also in German.
+- Nothing known; every WORDSPIN text exists in English and German.

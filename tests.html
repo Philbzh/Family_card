@@ -10178,21 +10178,22 @@ async function runPresentation(A,W,frame){
   suite('WORDSPIN auf Deutsch — the screen speaks German',()=>{
     const G=W.eval('G'),F=n=>W.eval(n);
     const keep={lang:W.localStorage.getItem('ct_ws_lang'),hist:W.localStorage.getItem('ct_history'),inst:G.wsInstant};
-    let de='',en='',opt='',rules='';
+    let de='',en='',opt='',rules='',tour='',tourEn='';
     try{
       G.isOnline=false;G.srv=null;G.snd=false;G.wsInstant=true;
       F('wsSetPref')('lang','de');
       check('the language choice makes a German game',F('wsNewGame')(2,1).lang==='de');
       F('startNow')('wordspin',2);G.lp.forEach(p=>{p.bot=null;});G.ws.cur=1;G.lcur=0;G.ws.rs[0]=500;
-      de=F('rWordspinTable')();opt=F('wsOptionsHTML')();rules=F('rRulesOv')();
+      de=F('rWordspinTable')();opt=F('wsOptionsHTML')();rules=F('rRulesOv')();G.tour={id:'wordspin',i:0};tour=F('rTourOv')();G.tour=null;
       F('wsSetPref')('lang','en');F('startNow')('wordspin',2);G.lp.forEach(p=>{p.bot=null;});G.ws.cur=1;G.lcur=0;
-      en=F('rWordspinTable')();
+      en=F('rWordspinTable')();G.tour={id:'wordspin',i:0};tourEn=F('rTourOv')();G.tour=null;
       const d=new DOMParser().parseFromString(de,'text/html'),e=new DOMParser().parseFromString(en,'text/html');
       check('German table: DREHEN, Vokal kaufen, Lösen and "ist dran"',/DREHEN/.test(de)&&/Vokal kaufen/.test(de)&&/Lösen/.test(de)&&/ist dran/.test(de)&&!/>SPIN</.test(de));
       check('German wheel: BANKROTT, AUSSETZEN, FREI- SPIEL and JOKER instead of the English words',(()=>{const w=F('wsWheelSVG')(0,'de');return/BANKROTT/.test(w)&&/AUSSETZEN/.test(w)&&/SPIEL/.test(w)&&/JOKER/.test(w)&&!/BANKRUPT/.test(w);})());
       check('the English wheel is unchanged',/BANKRUPT/.test(F('wsWheelSVG')(0,'en'))&&/SPIN/.test(en)&&!/DREHEN/.test(en));
       check('the vowel keyboard has Ä Ö Ü only in German',(()=>{G.ws.phase='letter';G.ws.lv={k:'wild',v:500,any:true};const deK=F('wsKeyboard')(G.ws,{cons:1,vows:1,sel:'',dis:()=>false});G.ws.lang='de';const deK2=F('wsKeyboard')(G.ws,{cons:1,vows:1,sel:'',dis:()=>false});G.ws.lang='en';return(deK.match(/class="ws-k v/g)||[]).length===5&&(deK2.match(/class="ws-k v/g)||[]).length===8&&/data-c="Ä"/.test(deK2);})());
       check('the options offer English and Deutsch, and the German page is in German',/data-a="ws-lang" data-m="de"/.test(opt)&&/Wie viele Runden/.test(opt));
+      check('the how-to-play tour is in German for a German game and English for an English one',/Dreh das Rad/.test(tour)&&/Weiter/.test(tour)&&/Spin the wheel/.test(tourEn)&&!/Weiter/.test(tourEn));
       check('the rules overlay is in German for a German game',/Dreh das Rad/.test(rules)&&/Verstanden/.test(rules));
     } finally {
       G.wsInstant=keep.inst;G.ws=null;G.scr='home';

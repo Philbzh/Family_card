@@ -6337,7 +6337,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=315;
+const APP_BUILD=316;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -14993,7 +14993,13 @@ const TOURS={
     {ic:'🔤',h:'Name a letter',t:'If the consonant is in the phrase you win the number <b>for every tile</b> it fills — and spin again. If not, the turn passes. <b>Vowels cost 250</b> to buy — and you must have that much in this round.'},
     {ic:'💀',h:'Bankrupt and friends',t:'<b>BANKRUPT</b> wipes your score for this round (not your banked total). <b>LOSE A TURN</b> passes. <b>FREE PLAY</b> lets you name any letter safely. <b>WILD</b> lets you name any letter for 500 per tile.'},
     {ic:'💡',h:'Solve it',t:'Think you know it? Instead of spinning, <b>solve</b>. Capital letters and punctuation do not matter. A wrong answer passes the turn. The winner of a round banks their round score.'},
-    {ic:'👑',h:'The final puzzle',t:'After the last round the leader gets <b>R S T L N E</b> for free, picks <b>3 more consonants and 1 vowel</b> and has <b>30 seconds</b> to solve it for <b>5000</b> bonus points.'}]},
+    {ic:'👑',h:'The final puzzle',t:'After the last round the leader gets <b>R S T L N E</b> for free, picks <b>3 more consonants and 1 vowel</b> and has <b>30 seconds</b> to solve it for <b>5000</b> bonus points.'}],
+   de:{title:'So spielt man WORDSPIN',slides:[
+    {ic:'🎡',h:'Dreh das Rad',t:'In jeder Runde versteckt sich ein <b>Satz</b> hinter leeren Feldern, dazu gibt es eine Kategorie als Hinweis. Wenn du dran bist, <b>drehst du</b>: Eine Zahl heißt „nenne einen Konsonanten für so viele Punkte pro Feld“.'},
+    {ic:'🔤',h:'Nenne einen Buchstaben',t:'Kommt der Konsonant im Satz vor, bekommst du die Zahl <b>für jedes Feld</b> — und drehst noch einmal. Wenn nicht, ist der Nächste dran. <b>Vokale kosten 250</b> — so viel musst du in dieser Runde haben. Ä, Ö und Ü zählen als Vokale.'},
+    {ic:'💀',h:'Bankrott und Freunde',t:'<b>BANKROTT</b> löscht dein Geld in dieser Runde (nicht dein gutgeschriebenes). <b>AUSSETZEN</b> gibt die Runde ab. <b>FREISPIEL</b> erlaubt einen beliebigen Buchstaben ohne Risiko. <b>JOKER</b> erlaubt einen beliebigen Buchstaben für 500 pro Feld.'},
+    {ic:'💡',h:'Löse es',t:'Du weißt es schon? Dann <b>löse</b>, statt zu drehen. Groß- und Kleinschreibung und Satzzeichen sind egal, Ä Ö Ü darfst du auch als AE OE UE tippen. Eine falsche Antwort gibt die Runde ab. Der Rundensieger bucht sein Rundengeld.'},
+    {ic:'👑',h:'Das Finalrätsel',t:'Nach der letzten Runde bekommt der Führende <b>R S T L N E</b> geschenkt, wählt <b>3 weitere Konsonanten und 1 Vokal</b> und hat <b>30 Sekunden</b>, um es für <b>5000</b> Bonuspunkte zu lösen.'}]}},
   abyss:{title:'How to play The Abyss',slides:[
     {ic:'🎲',h:'Roll and race to the top',t:'Roll <b>two dice</b> and walk the total. The first to reach <b>square 100</b> wins — you do not need an exact roll. A <b>double</b> rolls again; three in a row throws you back to the start.'},
     {ic:'🪜',h:'Ladders, rockets and stars',t:'Land on the foot of a <b>ladder</b> and climb it. A <b>🚀</b> is a long one. A <b>⭐ star</b> means roll again.'},
@@ -15041,13 +15047,13 @@ function tourMaybeAuto(){
 }
 function tourBtnHTML(id){id=tourKey(id);return TOURS[id]?`<button class="tour-btn" data-a="tour-open" data-id="${id}">▶ Quick tour — how to play</button>`:'';}
 function rTourOv(){
-  const t=TOURS[G.tour.id],i=G.tour.i,n=t.slides.length,s=t.slides[i];
+  const t0=TOURS[G.tour.id],de=G.tour.id==='wordspin'&&wsCurLang()==='de'&&!!t0.de,t=de?t0.de:t0,i=G.tour.i,n=t.slides.length,s=t.slides[i];
   const dots=t.slides.map((_,k)=>`<i class="${k===i?'on':''}"></i>`).join('');
   return`<div class="ov tour-ov" data-a="tour-noop"><div class="ov-box tour-box" role="dialog" aria-modal="true" aria-label="${esc(t.title)}">
     <div class="tour-top"><span>${esc(t.title)}</span><button class="tour-x" data-a="tour-close" aria-label="Close">✕</button></div>
     <div class="tour-slide" key="${i}"><div class="tour-ic">${s.ic}</div><h3>${esc(s.h)}</h3><p>${s.t}</p></div>
     <div class="tour-dots">${dots}</div>
-    <div class="tour-nav"><button class="btn btn-ghost" data-a="tour-prev" ${i===0?'disabled':''}>◀ Back</button>${i<n-1?`<button class="btn btn-gold" data-a="tour-next">Next ▶</button>`:`<button class="btn btn-gold" data-a="tour-close">Let’s play ✓</button>`}</div>
+    <div class="tour-nav"><button class="btn btn-ghost" data-a="tour-prev" ${i===0?'disabled':''}>◀ ${de?'Zurück':'Back'}</button>${i<n-1?`<button class="btn btn-gold" data-a="tour-next">${de?'Weiter':'Next'} ▶</button>`:`<button class="btn btn-gold" data-a="tour-close">${de?'Los geht’s ✓':'Let’s play ✓'}</button>`}</div>
   </div></div>`;
 }
 /* ═══════ TOURS END ═══════ */
