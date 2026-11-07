@@ -255,6 +255,9 @@
 .game-tablemind.tx-l .tm-q{font-size:1.45rem!important;}.game-tablemind.tx-l .tm-a{font-size:1.15rem!important;min-height:3.4rem!important;}.game-tablemind.tx-l .tm-say{font-size:1.05rem!important;}.game-tablemind.tx-l .tm-expl,.game-tablemind.tx-l .tm-sub{font-size:1.05rem;}
 .game-tablemind.tx-xl .tm-q{font-size:1.8rem!important;line-height:1.3;}.game-tablemind.tx-xl .tm-a{font-size:1.4rem!important;min-height:4rem!important;}.game-tablemind.tx-xl .tm-say{font-size:1.2rem!important;}.game-tablemind.tx-xl .tm-expl,.game-tablemind.tx-xl .tm-sub{font-size:1.2rem;}.game-tablemind.tx-xl .tm-btn{font-size:1.25rem;}
 .game-tablemind.tx-hc{color:#fff;}.game-tablemind.tx-hc .tm-q,.game-tablemind.tx-hc .tm-say{color:#fff!important;}.game-tablemind.tx-hc .tm-q{font-size:1.5rem!important;}.game-tablemind.tx-hc .tm-a{font-size:1.2rem!important;min-height:3.5rem!important;background:#04140d!important;border:2px solid #ead08a!important;color:#fff!important;}.game-tablemind.tx-hc .tm-a.cor{background:#0b6b3a!important;border-color:#7dffb0!important;}.game-tablemind.tx-hc .tm-a.wrg{background:#7a1020!important;border-color:#ff9aa6!important;}.game-tablemind.tx-hc .tm-card{background:#030d09!important;border:2px solid #ead08a!important;}.game-tablemind.tx-hc .tm-pod{background:#030d09!important;border-color:#ead08a!important;}.game-tablemind.tx-hc .tm-chip,.game-tablemind.tx-hc .tm-wchip{color:#fff;}
+.tm-hcap{display:flex;flex-wrap:wrap;gap:.35rem;align-items:center;justify-content:center;margin:0 0 .6rem;font-size:.7rem;color:var(--paper3,#8e887d);}
+.tm-hc{padding:.28rem .65rem;border-radius:999px;border:1px solid rgba(201,164,92,.4);background:transparent;color:#d8cfbd;font:600 .7rem/1 inherit;cursor:pointer;touch-action:manipulation;}
+.tm-hc.on{background:linear-gradient(180deg,#f3deaa,#c9a45c);color:#1a1300;border-color:#ead08a;}
 .tm-foot{display:flex;gap:.5rem;justify-content:center;margin-top:.4rem;}
 .tm-opt{display:flex;gap:.4rem;flex-wrap:wrap;justify-content:center;align-items:center;margin:.4rem 0;font-size:.78rem;color:var(--paper2,#d8cfbd);}
 .tm-opt button{padding:.3rem .7rem;border-radius:999px;border:1px solid rgba(201,164,92,.5);background:rgba(29,83,54,.4);color:inherit;font:inherit;cursor:pointer;}
@@ -519,6 +522,7 @@ function tmTap(a,t){
   const tm=tmObj();if(!tm)return;
   const d=t&&t.dataset?t.dataset:{};
   if(a==='tmopt'){tmOptTap(d.k);return;}
+  if(a==='tmhcap'){TMSFX.pick();try{localStorage.setItem('ct_tm_hcap',String(+d.v));}catch(e){}tmSend({t:'hcap',v:+d.v});return;}
   if(a==='tmtext'){tmTextNext();SFX.chip&&SFX.chip();render();return;}
   if(a==='tmanim'){gtAnimNext();SFX.chip&&SFX.chip();render();return;}
   if(a==='tmintro'){G.tmIntro=null;render();return;}
@@ -666,7 +670,7 @@ function tmStageHTML(tm,players,me,padHasQ){
 function tmQuestionPad(tm,me,players){
   const i=me-1,qq=tm.q[i];if(!qq)return'';
   const q=tmQ(tm,qq),L=tm.life[i],ans=tm.ans[i],locked=ans!=null,rev=tm.phase==='reveal';
-  const chips=`<div class="tm-qchips"><span class="tm-chip">${TM_CATS[q.c].ic} ${esc(TM_CATS[q.c].short)}</span>${qq.rv?`<span class="tm-chip">🔁 Wiederholung</span>`:''}${(!tm.duel&&tm.act===1&&tm.cycle===tm.gold)?`<span class="tm-chip gold">⭐ GOLDENE FRAGE ×2</span>`:''}${tm.duel?`<span class="tm-chip gold">⚔️ DUELL · ${tmEur(TM_CFG.duelPrize)}</span>`:tm.act===1?`<span class="tm-chip gold">Stufe ${tm.lvl[i]+1} von 5 · ${tmEur(TM_CFG.ladder[tm.lvl[i]])}</span>`:tm.act===2?`<span class="tm-chip gold">Siegel ${tm.round2}/${TM_CFG.sealRounds}</span>`:`<span class="tm-chip gold">Vorsprung ${tm.lane[i].pl-tm.lane[i].chp} · ×${tm.lane[i].mult}</span>`}</div>`;
+  const chips=`<div class="tm-qchips"><span class="tm-chip">${TM_CATS[q.c].ic} ${esc(TM_CATS[q.c].short)}</span>${qq.rv?`<span class="tm-chip">🔁 Wiederholung</span>`:''}${(!tm.duel&&tm.act===1&&tm.cycle===tm.gold)?`<span class="tm-chip gold">⭐ GOLDENE FRAGE ×2</span>`:''}${tm.duel?`<span class="tm-chip gold">⚔️ DUELL · ${tmEur(TM_CFG.duelPrize)}</span>`:tm.act===1?`<span class="tm-chip gold">Stufe ${tm.lvl[i]+1} von 5 · ${tmEur(tmAmt(tm,i,tm.lvl[i]))}</span>`:tm.act===2?`<span class="tm-chip gold">Siegel ${tm.round2}/${TM_CFG.sealRounds}</span>`:`<span class="tm-chip gold">Vorsprung ${tm.lane[i].pl-tm.lane[i].chp} · ×${tm.lane[i].mult}</span>`}</div>`;
   const sel=G.tmSel;
   const answers=q.ans.map((a,k)=>{
     const el=tm.elim[i]&&tm.elim[i].indexOf(k)>=0;
@@ -679,6 +683,7 @@ function tmQuestionPad(tm,me,players){
     return`<button class="tm-a${c}${dis?' stat':''}" ${dis?'':`data-a="tmans" data-i="${k}"`} ${dis?'disabled':''}><span class="tm-l">${TM_LETTERS[k]}</span>${esc(a)}</button>`;
   }).join('');
   let extra='';
+  const hc=(!locked&&!rev&&tm.act===1&&tm.cycle===1&&!tm.duel)?`<div class="tm-hcap"><span>Schwierigkeit:</span>${[[-1,'Leicht · halber Preis'],[0,'Normal'],[1,'Schwer · 1,5× Preis']].map(([v,l])=>`<button class="tm-hc${tm.hcap[i]===v?' on':''}" data-a="tmhcap" data-v="${v}">${l}</button>`).join('')}</div>`:'';
   if(!locked&&!rev){
     extra=`<div class="tm-row" style="margin-top:.6rem"><button class="tm-btn big" data-a="tmlock" ${sel<0?'disabled':''}>${sel<0?'WÄHLE EINE ANTWORT':'ANTWORT SPERREN'}</button></div>`;
     if(tm.clue[i])extra=`<div class="tm-clue">📜 ${esc(q.clue)}</div>`+extra;
@@ -698,7 +703,7 @@ function tmQuestionPad(tm,me,players){
     const head=!o||o.skip?'':o.ok?`<div class="tm-banner">RICHTIG!</div>`:tm.res[i]==='late'?`<div class="tm-banner bad">ZEIT ABGELAUFEN</div>`:`<div class="tm-banner bad">LEIDER FALSCH</div>`;
     res=head+`<div class="tm-expl">${esc(q.expl)}</div>`+tmNextHTML(tm,me,players)+`<button class="tm-flag" data-a="tmflag" data-i="${qq.i}">⚑ Frage melden</button>`;
   }
-  return`<div class="tm-card">${chips}${locked||rev?'':'<div class="tm-timer"><b>--</b><i></i></div>'}<div class="tm-q">${esc(q.text)}</div><div class="tm-ans">${answers}</div>${extra}${res}</div>`;
+  return`<div class="tm-card">${chips}${locked||rev?'':'<div class="tm-timer"><b>--</b><i></i></div>'}${hc}<div class="tm-q">${esc(q.text)}</div><div class="tm-ans">${answers}</div>${extra}${res}</div>`;
 }
 
 /* who has locked in? small chips with a tick, instead of a vague "waiting" line */
@@ -750,7 +755,7 @@ function tmCouncilCard(tm,me,players){
 function tmDecidePad(tm,me,players){
   const i=me-1;
   if(tm.pendingDecide[i]!==true)return`<div class="tm-card tm-wait">${tm.res[i]==='ok'?'Entschieden ✓':'Diesmal nichts zu entscheiden.'}${tmWaitList(tm,players,me)}</div>`;
-  const nxt=TM_CFG.ladder[tm.lvl[i]],lq=tm.q[i]?tmQ(tm,tm.q[i]):null;
+  const nxt=tmAmt(tm,i,tm.lvl[i]),lq=tm.q[i]?tmQ(tm,tm.q[i]):null;
   return`<div class="tm-card"><div class="tm-title">BANKEN ODER WEITER?</div><div class="tm-timer"><b>--</b><i></i></div>
     <div class="tm-sub">Du hast <b>${tmEur(tm.unb[i])}</b> im Spiel. Gesichert sind ${tmEur(tm.bank[i])}.</div>
     <div class="tm-row"><button class="tm-btn big" data-a="tmbank">BANKEN · ${tmEur(tm.unb[i])} sichern</button><button class="tm-btn big ghost" data-a="tmgo">WEITER · für ${tmEur(nxt)}${tm.lvl[i]===TM_CFG.ladder.length-1?' + Bonus':''}</button></div>
@@ -891,7 +896,8 @@ function tmPostRender(){
   tmLoopStart();document.body.classList.add('tm-on');
   const key=[tm.seed,tm.act,tm.phase,tm.cycle,tm.round2,tm.hunt?tm.hunt.n:0,''].join('|');
   if(G.tmFxKey===key)return;
-  const first=G.tmFxKey==='';G.tmFxKey=key;if(first)G.tmAct=tm.act;
+  const first=G.tmFxKey==='';G.tmFxKey=key;if(first){G.tmAct=tm.act;G.tmHcapSent=0;}
+  if(G.isOnline&&tm.act===1&&tm.cycle===1&&tm.phase==='ask'&&!tm.duel&&!G.tmHcapSent){const me=tmMySeat();let v=0;try{v=+localStorage.getItem('ct_tm_hcap')||0;}catch(e){}if(me&&v&&tm.hcap[me-1]!==v&&tm.ans[me-1]==null){G.tmHcapSent=1;tmSend({t:'hcap',v});}}
   if(first&&G.tmIntro===tm.seed){TMSFX.intro();return;}
   if(G.tmAct!==tm.act){const prev=G.tmAct;G.tmAct=tm.act;if(prev&&tm.act>1)tmActCard(tm);}
   if(tm.phase==='reveal'&&tm.fx){

@@ -27,6 +27,7 @@ const TM_CFG={
   cycles1:6,                        // questions per player in act 1 (a "climb" may be restarted after banking)
   sealRounds:3,                     // realm challenges per player in act 2
   sealValue:2500,
+  hcapMult:{'-1':.5,'0':1,'1':1.5},   // family handicap: easier questions pay half, harder ones pay 1.5 times
   reviewMax:2,                      // old mistakes brought back per game
   streakBonus:500,                  // act 1: every third right answer in a row
   duelPrize:5000,                   // the head-to-head after act 1: the two richest players, one hard question
@@ -63,7 +64,7 @@ function tmNew(P,opts){
   const tm={v:1,P:n,seed,rng:seed,rng2:(seed*7+13)%2147483646+1,lang:'de',act:1,phase:'ask',cycle:0,round2:0,used:[],catN:[0,0,0,0,0,0],
     lib:opts.lib||null,relaxed:!!opts.relaxed,review:(opts.review||[]).slice(0,12),reviewUsed:0,gold:0,
     lvl:z(),unb:z(),bank:z(),q:nl(),ans:nl(),ansAt:z(),res:nl(),pick:nl(),ext:z(),elim:nl(),clue:z(),gain:z(),
-    life:[],council:null,streak:z(),rdy:z(),log:[],duel:null,duelDone:false,pendingDecide:new Array(n).fill(false),seals:[],sealNew:z(),
+    life:[],council:null,hcap:z(),streak:z(),rdy:z(),log:[],duel:null,duelDone:false,pendingDecide:new Array(n).fill(false),seals:[],sealNew:z(),
     chaser:opts.chaser&&TM_CFG.chasers[opts.chaser]?opts.chaser:null,ch:null,lane:[],offer:nl(),
     dl:0,moves:0,fx:null,over:false,win:0,
     stats:{right:z(),wrong:z(),late:z(),lifes:z(),best:z(),topHits:z(),duels:z(),streaks:z(),banks:z(),councilFor:z(),hardRight:z(),mislead:z()}};
@@ -106,7 +107,7 @@ function tmOpenCycle1(tm,now){
   tm.cycle++;tm.act=1;tm.phase='ask';tmResetAsk(tm);
   // players on the same level get the very same question (they play at the same time); different levels, different questions
   const byLvl={};
-  for(let s=0;s<tm.P;s++){const k=tm.lvl[s];if(!byLvl[k])byLvl[k]=tmPickQ(tm,-1,k+1);tm.q[s]=byLvl[k];}
+  for(let s=0;s<tm.P;s++){const d=tmHDiff(tm,s,tm.lvl[s]+1),k=d;if(!byLvl[k])byLvl[k]=tmPickQ(tm,-1,d);tm.q[s]=byLvl[k];}
   tm.dl=now+tmMs(tm,'ask1');
 }
 function tmOpenDuel(tm,now){
@@ -123,11 +124,13 @@ function tmOpenAsk2(tm,now){
   tm.phase='ask';tmResetAsk(tm);
   // players who chose the same realm get the very same question
   const byCat={};
-  for(let s=0;s<tm.P;s++){const k=tm.pick[s];if(!byCat[k])byCat[k]=tmPickQ(tm,k,3);tm.q[s]=byCat[k];}
+  for(let s=0;s<tm.P;s++){const d=tmHDiff(tm,s,3),k=tm.pick[s]+'|'+d;if(!byCat[k])byCat[k]=tmPickQ(tm,tm.pick[s],d);tm.q[s]=byCat[k];}
   tm.dl=now+tmMs(tm,'ask2');
 }
 function tmOpenOffer(tm,now){tm.act=3;tm.phase='offer';tmResetAsk(tm);tm.q=tm.q.map(()=>null);tm.offer=tm.offer.map(()=>null);tm.dl=now+tmMs(tm,'offer');
   tm.life.forEach(l=>{l.cut=TM_CFG.lives.cut;l.archive=TM_CFG.lives.archive;l.freeze=TM_CFG.lives.freeze;});}
+function tmAmt(tm,i,lvl){return Math.round(TM_CFG.ladder[lvl]*(TM_CFG.hcapMult[String(tm.hcap[i])]||1)/50)*50;}
+function tmHDiff(tm,i,base){return Math.max(1,Math.min(5,base+tm.hcap[i]));}
 function tmSealCount(tm,s){return new Set(tm.seals[s-1]).size;}
 function tmStartHunt(tm,now){
   tm.hunt={n:0};tm.lane=[];
@@ -225,6 +228,16 @@ function tmApply(tm,seat,act,now){
       const need=[];for(let k=1;k<=tm.P;k++)if(!(tm.fx&&tm.fx.seats[k-1]&&tm.fx.seats[k-1].skip))need.push(k);
       if(need.every(k=>tm.rdy[k-1]))tmAfterReveal(tm,now);
       return true;}
+    case'hcap':{
+      const v=act.v|0;
+      if(ph!=='ask'||tm.act!==1||tm.cycle!==1||tm.duel||s<1||s>tm.P||tm.ans[i]!=null||v<-1||v>1||tm.hcap[i]===v)return false;
+      const old=tm.q[i];tm.hcap[i]=v;
+      const d=tmHDiff(tm,i,tm.lvl[i]+1);
+      // share a question with a player who is already on the same difficulty; otherwise draw a new one (and hand the old one back)
+      const mate=tm.q.findIndex((q,k)=>k!==i&&q&&tmHDiff(tm,k,tm.lvl[k]+1)===d);
+      tm.q[i]=mate>=0?tm.q[mate]:tmPickQ(tm,-1,d);
+      if(old&&!tm.q.some(q=>q&&q.i===old.i)){const u=tm.used.indexOf(old.i);if(u>=0)tm.used.splice(u,1);}
+      tm.elim[i]=null;tm.clue[i]=0;tm.moves++;return true;}
     case'tick':return tmTick(tm,now);
   }
   return false;
@@ -279,8 +292,8 @@ function tmResolveAsk(tm,now){
     }else if(act===1){
       if(ok){
         const top=tm.lvl[i]>=TM_CFG.ladder.length-1;
-        if(tm.cycle===tm.gold){o.gold=TM_CFG.ladder[tm.lvl[i]];tm.bank[i]+=o.gold;}
-        tm.unb[i]=TM_CFG.ladder[tm.lvl[i]];tm.stats.best[i]=Math.max(tm.stats.best[i],tm.unb[i]);
+        if(tm.cycle===tm.gold){o.gold=tmAmt(tm,i,tm.lvl[i]);tm.bank[i]+=o.gold;}
+        tm.unb[i]=tmAmt(tm,i,tm.lvl[i]);tm.stats.best[i]=Math.max(tm.stats.best[i],tm.unb[i]);
         if(top){tm.unb[i]+=TM_CFG.topBonus;tm.bank[i]+=tm.unb[i];o.money=tm.unb[i];o.top=1;tm.stats.topHits[i]++;tm.unb[i]=0;tm.lvl[i]=0;}
         else{o.money=tm.unb[i];tm.lvl[i]++;tm.pendingDecide[i]=tm.cycle<TM_CFG.cycles1;if(!tm.pendingDecide[i]){tm.bank[i]+=tm.unb[i];tm.unb[i]=0;o.auto=1;}}
       }else{o.lost=tm.unb[i];tm.unb[i]=0;tm.lvl[i]=0;}
