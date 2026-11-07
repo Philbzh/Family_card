@@ -717,6 +717,25 @@ function tmWaitList(tm,players,me){
 }
 
 /* "Frage melden": remembers a question that looked wrong, on this device, so it can be checked and corrected later */
+
+/* ───────── keyboard (desktop): A-D or 1-4 pick an answer, Enter locks in / continues, N = Weiter ───────── */
+function tmKey(e){
+  const tm=tmObj();if(!tm||G.scr!=='table'||tm.over||e.ctrlKey||e.metaKey||e.altKey)return false;
+  const tg=e.target&&e.target.tagName;if(tg==='INPUT'||tg==='TEXTAREA'||tg==='SELECT')return false;
+  if(document.querySelector&&document.querySelector('.ov,.tour-ov'))return false;   // an overlay (rules, tour) has the keyboard
+  const k=String(e.key||'').toLowerCase(),me=tmMySeat();
+  if(!G.isOnline){const v=tmLocalViewer(tm);if(v&&G.tmReadyKey!==tmLocalKey(tm,v.seat,v.mode)){if(k==='enter'||k===' '){tmReady();return true;}return false;}}
+  const idx='abcd'.indexOf(k)>=0&&k.length===1?'abcd'.indexOf(k):('1234'.indexOf(k)>=0&&k.length===1?'1234'.indexOf(k):-1);
+  if(tm.phase==='ask'&&idx>=0){
+    const seat=G.isOnline?me:G.tmViewer;if(!seat||!tmActiveSeat(tm,seat)||tm.ans[seat-1]!=null)return false;
+    if(tm.elim[seat-1]&&tm.elim[seat-1].indexOf(idx)>=0)return false;
+    G.tmSel=idx;TMSFX.pick();render();return true;
+  }
+  if(tm.phase==='ask'&&(k==='enter'||k===' ')&&G.tmSel>=0){tmTap('tmlock',{dataset:{}});return true;}
+  if(tm.phase==='reveal'&&(k==='n'||k==='enter'||k==='arrowright')){tmTap('tmnext',{dataset:{}});return true;}
+  return false;
+}
+if(typeof document!=='undefined'&&!window.__tmKeys){window.__tmKeys=1;document.addEventListener('keydown',e=>{try{if(tmKey(e))e.preventDefault();}catch(err){}});}
 function tmFlagQuestion(i){
   try{
     const e=tmLib(null)[i];if(!e)return;

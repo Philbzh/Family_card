@@ -10362,6 +10362,23 @@ async function runPresentation(A,W,frame){
     check('over a thousand screens were rendered (every phase, every player, plus an outsider)',screens>1000,screens+' screens');
     check('no screen threw an error or printed undefined / NaN / [object]',errs.length===0,errs.slice(0,6).join(' | '));
   });
+  suite('TABLE MIND — keyboard control on the desktop',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const keep={on:G.isOnline,scr:G.scr,sel:G.selGame,tm:G.tm,lp:G.lp,view:G.tmViewer,ready:G.tmReadyKey,snd:G.snd,hist:W.localStorage.getItem('ct_history')};
+    try{
+      G.isOnline=false;G.srv=null;G.snd=false;
+      F('startNow')('tablemind',2);G.lp.forEach(p=>{p.bot=null;});G.tmIntro=null;const tm=G.tm;
+      const key=k=>F('tmKey')({key:k,target:{tagName:'DIV'}});
+      check('on the pass screen Enter picks the device up',key('Enter')===true&&G.tmReadyKey!==''&&G.tmViewer===1);
+      check('B (or 2) selects the second answer',key('b')===true&&G.tmSel===1&&key('3')===true&&G.tmSel===2);
+      check('Enter locks the selected answer in',key('Enter')===true&&tm.ans[0]===2);
+      check('keys do nothing while typing in a text field',F('tmKey')({key:'a',target:{tagName:'INPUT'}})===false);
+      check('a key that means nothing here is ignored',key('x')===false);
+    } finally {
+      F('tmLoopStop')();G.isOnline=keep.on;G.scr=keep.scr;G.selGame=keep.sel;G.tm=keep.tm;G.lp=keep.lp;G.tmViewer=keep.view;G.tmReadyKey=keep.ready;G.snd=keep.snd;
+      if(keep.hist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keep.hist);
+    }
+  });
   suite('TABLE MIND — act 2: realms and seals',()=>{
     const F=n=>W.eval(n),N=F('tmNew'),A=F('tmApply'),CFG=F('TM_CFG');
     const t=N(2,{seed:31});F('tmStart')(t,0);t.cycle=CFG.cycles1;F('tmTick')(t,t.dl+1);F('tmTick')(t,t.dl+1);F('tmTick')(t,t.dl+1);F('tmTick')(t,t.dl+1);
