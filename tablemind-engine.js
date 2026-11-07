@@ -27,6 +27,7 @@ const TM_CFG={
   cycles1:6,                        // questions per player in act 1 (a "climb" may be restarted after banking)
   sealRounds:3,                     // realm challenges per player in act 2
   sealValue:2500,
+  streakBonus:500,                  // act 1: every third right answer in a row
   duelPrize:5000,                   // the head-to-head after act 1: the two richest players, one hard question
   track:7,
   offers:{safe:{adv:3,mult:1},std:{adv:2,mult:2},risk:{adv:1,mult:3}},
@@ -36,11 +37,11 @@ const TM_CFG={
   huntDiff:[2,2,3,3,3,4,3,4,4,3,4,4,5,4,5,5],
   lives:{cut:1,archive:1,freeze:1,council:1},
   grace:1500,
-  ms:{ask1:30000,ask2:25000,ask3:22000,decide:12000,pick:15000,offer:15000,reveal:5200,freeze:10000,council:15000},
+  ms:{ask1:30000,ask2:25000,ask3:22000,decide:12000,pick:15000,offer:15000,reveal:3000,revealWrong:5000,freeze:10000,council:15000},
   chasers:{
-    professor:{name:'Der Professor',ic:'🎓',p:.70,dbl:.03,cat:{his:.07,wis:.07,spo:-.09,ess:-.03}},
-    jaeger:{name:'Der Jäger',ic:'🐺',p:.67,dbl:.10,cat:{geo:.05,spo:.08,kul:-.08,wis:-.04}},
-    strategin:{name:'Die Strategin',ic:'🦊',p:.685,dbl:.06,cat:{},hard:-.10}
+    professor:{name:'Der Professor',ic:'🎓',p:.74,dbl:.03,cat:{his:.07,wis:.07,spo:-.09,ess:-.03}},
+    jaeger:{name:'Der Jäger',ic:'🐺',p:.71,dbl:.10,cat:{geo:.05,spo:.08,kul:-.08,wis:-.04}},
+    strategin:{name:'Die Strategin',ic:'🦊',p:.725,dbl:.06,cat:{},hard:-.10}
   },
   diffAdj:.07                       // the Chaser's chance changes by this much per difficulty step away from 3
 };
@@ -61,10 +62,10 @@ function tmNew(P,opts){
   const tm={v:1,P:n,seed,rng:seed,rng2:(seed*7+13)%2147483646+1,lang:'de',act:1,phase:'ask',cycle:0,round2:0,used:[],catN:[0,0,0,0,0,0],
     lib:opts.lib||null,relaxed:!!opts.relaxed,
     lvl:z(),unb:z(),bank:z(),q:nl(),ans:nl(),ansAt:z(),res:nl(),pick:nl(),ext:z(),elim:nl(),clue:z(),gain:z(),
-    life:[],council:null,duel:null,duelDone:false,pendingDecide:new Array(n).fill(false),seals:[],sealNew:z(),
+    life:[],council:null,streak:z(),rdy:z(),log:[],duel:null,duelDone:false,pendingDecide:new Array(n).fill(false),seals:[],sealNew:z(),
     chaser:opts.chaser&&TM_CFG.chasers[opts.chaser]?opts.chaser:null,ch:null,lane:[],offer:nl(),
     dl:0,moves:0,fx:null,over:false,win:0,
-    stats:{right:z(),wrong:z(),late:z(),lifes:z(),best:z(),topHits:z(),duels:z(),banks:z(),councilFor:z(),hardRight:z(),mislead:z()}};
+    stats:{right:z(),wrong:z(),late:z(),lifes:z(),best:z(),topHits:z(),duels:z(),streaks:z(),banks:z(),councilFor:z(),hardRight:z(),mislead:z()}};
   for(let i=0;i<n;i++){tm.life.push(Object.assign({},TM_CFG.lives));tm.seals.push([]);}
   for(let i=0;i<7;i++){tmRand(tm);tmRand2(tm);}
   if(!tm.chaser)tm.chaser=TM_CH_KEYS[Math.floor(tmRand(tm)*TM_CH_KEYS.length)];
@@ -93,7 +94,7 @@ function tmPickQ(tm,cat,d){
 
 /* ───── opening a question round ───── */
 function tmMs(tm,key){return Math.round(TM_CFG.ms[key]*(tm.relaxed&&/^ask/.test(key)?1.6:1));}
-function tmResetAsk(tm){tm.ans=tm.ans.map(()=>null);tm.ansAt=tm.ansAt.map(()=>0);tm.res=tm.res.map(()=>null);tm.ext=tm.ext.map(()=>0);tm.elim=tm.elim.map(()=>null);tm.clue=tm.clue.map(()=>0);tm.gain=tm.gain.map(()=>0);tm.council=null;tm.fx=null;}
+function tmResetAsk(tm){tm.rdy=tm.rdy.map(()=>0);tm.ans=tm.ans.map(()=>null);tm.ansAt=tm.ansAt.map(()=>0);tm.res=tm.res.map(()=>null);tm.ext=tm.ext.map(()=>0);tm.elim=tm.elim.map(()=>null);tm.clue=tm.clue.map(()=>0);tm.gain=tm.gain.map(()=>0);tm.council=null;tm.fx=null;}
 function tmOpenCycle1(tm,now){
   tm.cycle++;tm.act=1;tm.phase='ask';tmResetAsk(tm);
   // players on the same level get the very same question (they play at the same time); different levels, different questions
@@ -211,6 +212,12 @@ function tmApply(tm,seat,act,now){
       tm.offer[i]=act.k;tm.moves++;
       if(tm.offer.every(v=>v!=null))tmStartHunt(tm,now);
       return true;}
+    case'next':{
+      if(ph!=='reveal'||s<1||s>tm.P||tm.rdy[i]||(tm.fx&&tm.fx.seats[i]&&tm.fx.seats[i].skip))return false;
+      tm.rdy[i]=1;tm.moves++;
+      const need=[];for(let k=1;k<=tm.P;k++)if(!(tm.fx&&tm.fx.seats[k-1]&&tm.fx.seats[k-1].skip))need.push(k);
+      if(need.every(k=>tm.rdy[k-1]))tmAfterReveal(tm,now);
+      return true;}
     case'tick':return tmTick(tm,now);
   }
   return false;
@@ -251,10 +258,15 @@ function tmResolveAsk(tm,now){
     const i=s-1;
     if(!tmActive(tm,s)){tm.res[i]=null;fx.seats.push({s,skip:1});continue;}
     const q=tm.q[i],a=tm.ans[i],ok=a!=null&&a===q.cor;
+    if(tm.log.indexOf(q.i)<0)tm.log.push(q.i);
     tm.res[i]=(a==null||a<0)?'late':ok?'ok':'bad';
     if(a==null||a<0)tm.stats.late[i]++;else if(ok)tm.stats.right[i]++;else tm.stats.wrong[i]++;
     const e=tmLib(tm)[q.i];if(ok&&e&&e[1]>=4)tm.stats.hardRight[i]++;
     const o={s,ok,a,cor:q.cor,money:0,seal:0,steps:0};
+    if(act===1&&!tm.duel){
+      if(ok){tm.streak[i]++;if(tm.streak[i]%3===0){o.streak=tm.streak[i];o.bonus=TM_CFG.streakBonus;tm.bank[i]+=o.bonus;tm.stats.streaks[i]++;}}
+      else tm.streak[i]=0;
+    }
     if(act===1&&tm.duel){
       // the duel has its own prize, settled below
     }else if(act===1){
@@ -279,7 +291,9 @@ function tmResolveAsk(tm,now){
     fx.duel={w,seats:tm.duel.slice(),prize:TM_CFG.duelPrize,tie:share.length>0};
   }
   if(act===3)tmHuntMove(tm,fx);
-  tm.fx=fx;tm.phase='reveal';tm.dl=now+tmMs(tm,'reveal')+(act===3?1800:0);
+  // the pause adapts: short when everybody was right, long enough to read the answer when somebody was wrong; "Weiter" ends it early
+  const anyBad=tm.res.some(r=>r==='bad'||r==='late');
+  tm.fx=fx;tm.phase='reveal';tm.dl=now+(anyBad?TM_CFG.ms.revealWrong:TM_CFG.ms.reveal)+(act===3?1800:0);
 }
 function tmHuntMove(tm,fx){
   fx.ch=tm.ch;
@@ -349,6 +363,7 @@ function tmBotAct(tm,seat,level,r){
     let w=Math.floor(r()*4);if(w===q.cor)w=(w+1)%4;if(tm.elim[i]&&tm.elim[i].indexOf(w)>=0){w=[0,1,2,3].find(x=>x!==q.cor&&tm.elim[i].indexOf(x)<0);}
     return{t:'ans',i:w};
   }
+  if(tm.phase==='reveal'){return tm.rdy[i]||(tm.fx&&tm.fx.seats[i]&&tm.fx.seats[i].skip)?null:{t:'next'};}
   if(tm.phase==='decide'){
     if(tm.pendingDecide&&tm.pendingDecide[i]!==true)return null;
     const lv=tm.lvl[i];   // levels already climbed

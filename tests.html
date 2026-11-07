@@ -10216,6 +10216,34 @@ async function runPresentation(A,W,frame){
     t=fresh(3);A(t,1,{t:'life',k:'council'},500);A(t,2,{t:'vote',i:0},510);F('tmTick')(t,500+F('TM_CFG').ms.council+1);
     check('a missing adviser cannot block the council: it closes by itself on time',t.council.done&&t.council.res[0]===1);
   });
+  suite('TABLE MIND — learning: the right answer stays until everybody taps Weiter',()=>{
+    const F=n=>W.eval(n),N=F('tmNew'),A=F('tmApply'),T=F('tmTick');
+    const t=N(2,{seed:61});F('tmStart')(t,0);
+    A(t,1,{t:'ans',i:t.q[0].cor},100);A(t,2,{t:'ans',i:(t.q[1].cor+1)%4},120);
+    check('after a wrong answer the reveal stays about 5 seconds',t.phase==='reveal'&&t.dl-120>=4500&&t.dl-120<=5500);
+    check('the question and its right answer are logged for the "what we learned" list',t.log.length>=1&&t.log.indexOf(t.q[0].i)>=0);
+    check('one player tapping Weiter does not move the game on; a second tap from the same player changes nothing',A(t,1,{t:'next'},200)&&t.phase==='reveal'&&A(t,1,{t:'next'},210)===false);
+    A(t,2,{t:'next'},220);
+    check('when everybody has tapped Weiter the game moves on at once',t.phase!=='reveal');
+    check('Weiter outside the reveal is refused',A(t,1,{t:'next'},300)===false);
+    const u=N(2,{seed:62});F('tmStart')(u,0);A(u,1,{t:'ans',i:u.q[0].cor},100);A(u,2,{t:'ans',i:u.q[1].cor},120);T(u,u.dl+1);
+    check('without any tap the reveal still ends by itself when its time is up',u.phase!=='reveal');
+    const w=N(2,{seed:63});F('tmStart')(w,0);A(w,1,{t:'ans',i:w.q[0].cor},100);A(w,2,{t:'ans',i:w.q[1].cor},120);
+    check('when everybody was right the pause is shorter (about 3 seconds)',w.phase==='reveal'&&w.dl-120>=2500&&w.dl-120<=3500);
+  });
+  suite('TABLE MIND — streak bonus: every third right answer in a row in act 1',()=>{
+    const F=n=>W.eval(n),N=F('tmNew'),A=F('tmApply'),CFG=F('TM_CFG');
+    const t=N(2,{seed:71});F('tmStart')(t,0);t.streak=[2,0];
+    A(t,1,{t:'ans',i:t.q[0].cor},100);A(t,2,{t:'ans',i:t.q[1].cor},120);
+    check('the third right answer in a row pays a bonus straight into the bank',t.fx.seats[0].bonus===CFG.streakBonus&&t.bank[0]===CFG.streakBonus&&t.stats.streaks[0]===1);
+    check('the second right answer in a row (first for this player) pays nothing',!t.fx.seats[1].bonus&&t.bank[1]===0&&t.streak[1]===1);
+    const u=N(2,{seed:72});F('tmStart')(u,0);u.streak=[2,2];
+    A(u,1,{t:'ans',i:(u.q[0].cor+1)%4},100);A(u,2,{t:'ans',i:u.q[1].cor},120);
+    check('a wrong answer ends the streak',u.streak[0]===0&&!u.fx.seats[0].bonus&&u.fx.seats[1].bonus===CFG.streakBonus);
+    const w=N(2,{seed:73});F('tmStart')(w,0);w.streak=[5,5];
+    A(w,1,{t:'ans',i:w.q[0].cor},100);A(w,2,{t:'ans',i:w.q[1].cor},120);
+    check('the bonus repeats at 6, 9 ... (every third)',w.fx.seats[0].bonus===CFG.streakBonus&&w.streak[0]===6);
+  });
   suite('TABLE MIND — act 2: realms and seals',()=>{
     const F=n=>W.eval(n),N=F('tmNew'),A=F('tmApply'),CFG=F('TM_CFG');
     const t=N(2,{seed:31});F('tmStart')(t,0);t.cycle=CFG.cycles1;F('tmTick')(t,t.dl+1);F('tmTick')(t,t.dl+1);F('tmTick')(t,t.dl+1);F('tmTick')(t,t.dl+1);
@@ -10399,6 +10427,9 @@ async function runPresentation(A,W,frame){
     check('it can be played online and against bots',F('ONLINE_GAMES').indexOf('tablemind')>=0&&F('BOT_GAMES').has('tablemind'));
     check('Wiz the owl hosts: thinking pose while a question is open, cheering after a right answer, shocked after a wrong one, crowned at the end',(()=>{const N=F('tmNew'),mk=()=>{const t=N(2,{seed:5});F('tmStart')(t,0);return t;};const t=mk();const ask=F('tmWizPose')(t)===4;t.fx={kind:'reveal',act:1,seats:[{ok:true},{ok:false}]};t.phase='reveal';const ok=F('tmWizPose')(t)===2;t.fx.seats=[{ok:false},{ok:false}];const bad=F('tmWizPose')(t)===3;t.over=true;return ask&&ok&&bad&&F('tmWizPose')(t)===6;})());
     check('Wiz speaks German and his lines escape player names',(()=>{const t=F('tmNew')(2,{seed:6});F('tmStart')(t,0);t.over=true;t.win=1;return /TABLE MIND/.test(F('tmWizSay')(t,[{name:'<b>X</b>'},{name:'Y'}]))&&F('tmWizSay')(t,[{name:'<b>X</b>'},{name:'Y'}]).indexOf('<b>')<0;})());
+    check('the waiting list shows who has locked in (tick) and who is still thinking (dots)',(()=>{const tm=F('tmNew')(3,{seed:8});F('tmStart')(tm,Date.now());F('tmApply')(tm,2,{t:'ans',i:0},Date.now()+10);const h=F('tmWaitList')(tm,[{name:'Ann',avatar:A.AVATARS[0]},{name:'Ben',avatar:A.AVATARS[1]},{name:'Cy',avatar:A.AVATARS[2]}],1);return /Ben ✓/.test(h)&&/Cy …/.test(h)&&!/Ann/.test(h);})());
+    check('the how-to-play tour exists in English and German with five slides each',(()=>{const T=F('TOURS').tablemind;return !!T&&T.slides.length===5&&T.de.slides.length===5&&T.de.slides.every(s=>s.ic&&s.h&&s.t);})());
+    check('a player can report a doubtful question: it is remembered on this device (once) and listed in the results',(()=>{const k='ct_tm_flags',old=W.localStorage.getItem(k);W.localStorage.removeItem(k);F('tmFlagQuestion')(3);F('tmFlagQuestion')(3);const l=JSON.parse(W.localStorage.getItem(k)||'[]');const ok=l.length===1&&l[0].i===3&&/GEMERKTE FRAGEN/.test(F('tmFlaggedHTML')());if(old==null)W.localStorage.removeItem(k);else W.localStorage.setItem(k,old);return ok;})());
     check('every public sound exists',['pick','lock','ok','bad','bank','life','seal','chase','caught','escape','intro'].every(k=>typeof F('TMSFX')[k]==='function'));
   });
   suite('WORDSPIN auf Deutsch — the German puzzle library',()=>{
