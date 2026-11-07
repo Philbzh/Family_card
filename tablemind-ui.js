@@ -250,6 +250,11 @@
 .tm-pb small{font-size:.7rem;color:#d8cfbd;}.tm-pb b{font-size:.78rem;color:#fbf7ed;}
 .tm-flag{display:block;margin:.5rem auto 0;padding:.25rem .8rem;border-radius:999px;border:1px solid rgba(201,164,92,.35);background:transparent;color:#a99d78;font:600 .68rem/1 inherit;letter-spacing:.06em;cursor:pointer;}
 .tm-learn{margin-top:.8rem;text-align:left;font-size:.82rem;color:var(--paper2,#d8cfbd);}.tm-learn summary{cursor:pointer;color:#ead08a;font-weight:700;letter-spacing:.04em;}.tm-learn ol{margin:.5rem 0 0;padding-left:1.2rem;display:grid;gap:.45rem;}.tm-learn li b{color:#fbf7ed;font-weight:600;}
+/* text size and contrast */
+.tm-aa{font:800 .85rem/1 var(--serif,Georgia,serif);color:var(--tg);}
+.game-tablemind.tx-l .tm-q{font-size:1.45rem!important;}.game-tablemind.tx-l .tm-a{font-size:1.15rem!important;min-height:3.4rem!important;}.game-tablemind.tx-l .tm-say{font-size:1.05rem!important;}.game-tablemind.tx-l .tm-expl,.game-tablemind.tx-l .tm-sub{font-size:1.05rem;}
+.game-tablemind.tx-xl .tm-q{font-size:1.8rem!important;line-height:1.3;}.game-tablemind.tx-xl .tm-a{font-size:1.4rem!important;min-height:4rem!important;}.game-tablemind.tx-xl .tm-say{font-size:1.2rem!important;}.game-tablemind.tx-xl .tm-expl,.game-tablemind.tx-xl .tm-sub{font-size:1.2rem;}.game-tablemind.tx-xl .tm-btn{font-size:1.25rem;}
+.game-tablemind.tx-hc{color:#fff;}.game-tablemind.tx-hc .tm-q,.game-tablemind.tx-hc .tm-say{color:#fff!important;}.game-tablemind.tx-hc .tm-q{font-size:1.5rem!important;}.game-tablemind.tx-hc .tm-a{font-size:1.2rem!important;min-height:3.5rem!important;background:#04140d!important;border:2px solid #ead08a!important;color:#fff!important;}.game-tablemind.tx-hc .tm-a.cor{background:#0b6b3a!important;border-color:#7dffb0!important;}.game-tablemind.tx-hc .tm-a.wrg{background:#7a1020!important;border-color:#ff9aa6!important;}.game-tablemind.tx-hc .tm-card{background:#030d09!important;border:2px solid #ead08a!important;}.game-tablemind.tx-hc .tm-pod{background:#030d09!important;border-color:#ead08a!important;}.game-tablemind.tx-hc .tm-chip,.game-tablemind.tx-hc .tm-wchip{color:#fff;}
 .tm-foot{display:flex;gap:.5rem;justify-content:center;margin-top:.4rem;}
 .tm-opt{display:flex;gap:.4rem;flex-wrap:wrap;justify-content:center;align-items:center;margin:.4rem 0;font-size:.78rem;color:var(--paper2,#d8cfbd);}
 .tm-opt button{padding:.3rem .7rem;border-radius:999px;border:1px solid rgba(201,164,92,.5);background:rgba(29,83,54,.4);color:inherit;font:inherit;cursor:pointer;}
@@ -273,12 +278,26 @@ function tmOptionsHTML(){
   const ch=tmPrefChaser(),rl=tmPrefRelaxed();
   return`<div class="tm-opt"><span>Zeit:</span><button data-a="tmopt" data-k="relaxed">${rl?'Entspannt':'Normal'}</button><span>Chaser:</span><button data-a="tmopt" data-k="chaser">${ch?TM_CFG.chasers[ch].name:'Zufällig'}</button></div>`;
 }
+function tmTextMode(){let v='';try{v=localStorage.getItem('ct_tm_text')||'';}catch(e){}return['l','xl','hc'].indexOf(v)>=0?v:'';}
+function tmTextNext(){const m=tmTextMode(),n={'':'l',l:'xl',xl:'hc',hc:''}[m];try{localStorage.setItem('ct_tm_text',n);}catch(e){}}
 function tmOptTap(k){
   if(k==='relaxed')tmSetPref('relaxed',tmPrefRelaxed()?0:1);
   else{const ch=tmPrefChaser(),i=ch?TM_CH_KEYS.indexOf(ch):-1;tmSetPref('chaser',i+1>=TM_CH_KEYS.length?'':TM_CH_KEYS[i+1]);}
   SFX.chip&&SFX.chip();render();
 }
-function tmNewGame(n){return tmNew(n,{seed:Date.now(),relaxed:tmPrefRelaxed(),chaser:tmPrefChaser()||undefined});}
+
+/* ───────── remembered mistakes ("Wiz brings back a question you got wrong") ───────── */
+function tmMissedList(){try{const l=JSON.parse(localStorage.getItem('ct_tm_missed')||'[]');return Array.isArray(l)?l:[];}catch(e){return[];}}
+function tmMissedIdx(){const lib=tmLib(null),l=tmMissedList();return l.map(t=>lib.findIndex(e=>e[3]===t)).filter(i=>i>=0);}
+function tmRecordResults(tm,seats){
+  try{
+    const lib=tmLib(tm);let l=tmMissedList();
+    seats.forEach(s=>{const qq=tm.q[s-1],r=tm.res[s-1];if(!qq||!r)return;const e=lib[qq.i];if(!e)return;
+      if(r==='ok')l=l.filter(t=>t!==e[3]);else if(l.indexOf(e[3])<0)l.push(e[3]);});
+    localStorage.setItem('ct_tm_missed',JSON.stringify(l.slice(-40)));
+  }catch(e){}
+}
+function tmNewGame(n){return tmNew(n,{seed:Date.now(),relaxed:tmPrefRelaxed(),chaser:tmPrefChaser()||undefined,review:tmMissedIdx()});}
 
 /* ───────── sounds (built from the app's own tone/haptic) ───────── */
 const TMSFX={
@@ -500,6 +519,7 @@ function tmTap(a,t){
   const tm=tmObj();if(!tm)return;
   const d=t&&t.dataset?t.dataset:{};
   if(a==='tmopt'){tmOptTap(d.k);return;}
+  if(a==='tmtext'){tmTextNext();SFX.chip&&SFX.chip();render();return;}
   if(a==='tmanim'){gtAnimNext();SFX.chip&&SFX.chip();render();return;}
   if(a==='tmintro'){G.tmIntro=null;render();return;}
   if(a==='tmready'){tmReady();return;}
@@ -532,7 +552,7 @@ function tmPodsHTML(tm,players,me,fx){
     else if(tm.phase==='pick')state=tm.pick[i]!=null?'gewählt ✓':'wählt…';
     else if(tm.phase==='offer')state=tm.offer[i]!=null?'gewählt ✓':'wählt…';
     else if(tm.phase==='reveal'&&o&&!o.skip){state=o.ok?'richtig':tm.res[i]==='late'?'keine Antwort':'falsch';cls=o.ok?'ok':'bad';}
-    const delta=tm.phase==='reveal'&&o&&tm.act===1&&!tm.duel?(o.ok?'+'+tmEur(o.money)+(o.bonus?' 🔥+'+tmEur(o.bonus):''):(o.lost?'−'+tmEur(o.lost):'')):'';
+    const delta=tm.phase==='reveal'&&o&&tm.act===1&&!tm.duel?(o.ok?'+'+tmEur(o.money)+(o.bonus?' 🔥+'+tmEur(o.bonus):'')+(o.gold?' ⭐+'+tmEur(o.gold):''):(o.lost?'−'+tmEur(o.lost):'')):'';
     const sealNew=tm.phase==='reveal'&&o&&o.seal&&tm.act===2;
     return`<div class="tm-pod${me===s?' me':''}${lead===s?' lead':''}${sealNew||(o&&o.ok&&tm.phase==='reveal')?' pulse':''}" data-s="${s}">
       <span class="tm-av">${avHTML(p.avatar)}</span><span class="tm-nm">${esc(p.name)}</span>
@@ -646,7 +666,7 @@ function tmStageHTML(tm,players,me,padHasQ){
 function tmQuestionPad(tm,me,players){
   const i=me-1,qq=tm.q[i];if(!qq)return'';
   const q=tmQ(tm,qq),L=tm.life[i],ans=tm.ans[i],locked=ans!=null,rev=tm.phase==='reveal';
-  const chips=`<div class="tm-qchips"><span class="tm-chip">${TM_CATS[q.c].ic} ${esc(TM_CATS[q.c].short)}</span>${tm.duel?`<span class="tm-chip gold">⚔️ DUELL · ${tmEur(TM_CFG.duelPrize)}</span>`:tm.act===1?`<span class="tm-chip gold">Stufe ${tm.lvl[i]+1} von 5 · ${tmEur(TM_CFG.ladder[tm.lvl[i]])}</span>`:tm.act===2?`<span class="tm-chip gold">Siegel ${tm.round2}/${TM_CFG.sealRounds}</span>`:`<span class="tm-chip gold">Vorsprung ${tm.lane[i].pl-tm.lane[i].chp} · ×${tm.lane[i].mult}</span>`}</div>`;
+  const chips=`<div class="tm-qchips"><span class="tm-chip">${TM_CATS[q.c].ic} ${esc(TM_CATS[q.c].short)}</span>${qq.rv?`<span class="tm-chip">🔁 Wiederholung</span>`:''}${(!tm.duel&&tm.act===1&&tm.cycle===tm.gold)?`<span class="tm-chip gold">⭐ GOLDENE FRAGE ×2</span>`:''}${tm.duel?`<span class="tm-chip gold">⚔️ DUELL · ${tmEur(TM_CFG.duelPrize)}</span>`:tm.act===1?`<span class="tm-chip gold">Stufe ${tm.lvl[i]+1} von 5 · ${tmEur(TM_CFG.ladder[tm.lvl[i]])}</span>`:tm.act===2?`<span class="tm-chip gold">Siegel ${tm.round2}/${TM_CFG.sealRounds}</span>`:`<span class="tm-chip gold">Vorsprung ${tm.lane[i].pl-tm.lane[i].chp} · ×${tm.lane[i].mult}</span>`}</div>`;
   const sel=G.tmSel;
   const answers=q.ans.map((a,k)=>{
     const el=tm.elim[i]&&tm.elim[i].indexOf(k)>=0;
@@ -802,6 +822,8 @@ function tmWizSay(tm,players){
   if(tm.over){const w=tm.win-1;return`${nm(w)} ist der TABLE MIND! Glückwunsch!`;}
   const fx=tm.phase==='reveal'?tm.fx:null;
   if(fx&&fx.duel)return fx.duel.w?`${nm(fx.duel.w-1)} gewinnt das Duell und holt ${tmEur(fx.duel.prize)}!`:fx.duel.tie?'Unentschieden! Das Preisgeld wird geteilt.':'Kein Sieger im Duell — beide verpassen die Chance.';
+  if(tm.act===1&&!tm.duel&&tm.phase==='ask'&&tm.cycle===tm.gold)return'⭐ Goldene Frage! Wer richtig liegt, bekommt doppelt.';
+  if(tm.act===1&&!tm.duel&&tm.phase==='ask'&&tm.q.some(q=>q&&q.rv))return'🔁 Die kenne ich doch: Diese Frage hattet ihr schon einmal falsch!';
   if(tm.duel&&tm.phase==='ask')return`Das große Duell! ${nm(tm.duel[0]-1)} gegen ${nm(tm.duel[1]-1)} — nur einer kann gewinnen.`;
   if(fx){
     if(tm.act===1){if(fx.seats.some(o=>o.top))return'Die höchste Stufe! Ein echter Wissenssieg!';const sb=fx.seats.findIndex(o=>o.bonus);if(sb>=0)return`🔥 ${nm(sb)} hat eine Serie — ${tmEur(TM_CFG.streakBonus)} Bonus!`;return fx.seats.some(o=>o.ok)?v(['Richtig! Das war stark.','Wunderbar — das Wissen sitzt!']):v(['Autsch! Diesmal nicht.','Knapp daneben — weiter geht’s.']);}
@@ -838,8 +860,8 @@ function rTablemindTable(){
   const showIntro=G.tmIntro===tm.seed&&Date.now()<tm.dl&&tm.moves===0&&tm.act===1&&tm.cycle===1;
   const actTxt=tm.act===1?`Frage ${Math.min(tm.cycle,TM_CFG.cycles1)} von ${TM_CFG.cycles1}`:tm.act===2?`Siegel ${tm.round2} von ${TM_CFG.sealRounds}`:`Jagd · Frage ${(tm.hunt?tm.hunt.n:0)+(tm.phase==='ask'?1:0)}`;
   queueMicrotask(tmPostRender);
-  return`<div id="s-table" class="scr on game-tablemind an-${an}">
-    <div class="game-bar"><div class="gb-game"><span class="tm-logo">TABLE MIND</span></div><div class="gb-turn tm-bartitle"><span><b>AKT ${['','I','II','III'][tm.act]}</b> · ${TM_ACT_NAMES[tm.act]}</span><small>${esc(actTxt)}</small></div><div class="gb-right"><button class="ico-btn tm-animbtn" data-a="tmanim" aria-label="Animation: ${an==='full'?'voll':an==='light'?'leicht':'aus'}" title="Animation: ${an==='full'?'voll':an==='light'?'leicht':'aus'}">${an==='off'?'⏸':an==='light'?'✨':'🎬'}</button>${rulesBtn()}${quitBtn()}${sndBtn()}</div></div>
+  return`<div id="s-table" class="scr on game-tablemind an-${an}${tmTextMode()?' tx-'+tmTextMode():''}">
+    <div class="game-bar"><div class="gb-game"><span class="tm-logo">TABLE MIND</span></div><div class="gb-turn tm-bartitle"><span><b>AKT ${['','I','II','III'][tm.act]}</b> · ${TM_ACT_NAMES[tm.act]}</span><small>${esc(actTxt)}</small></div><div class="gb-right"><button class="ico-btn tm-animbtn tm-aa" data-a="tmtext" aria-label="Textgröße und Kontrast" title="Textgröße und Kontrast">Aa</button><button class="ico-btn tm-animbtn" data-a="tmanim" aria-label="Animation: ${an==='full'?'voll':an==='light'?'leicht':'aus'}" title="Animation: ${an==='full'?'voll':an==='light'?'leicht':'aus'}">${an==='off'?'⏸':an==='light'?'✨':'🎬'}</button>${rulesBtn()}${quitBtn()}${sndBtn()}</div></div>
     <div class="tm-main ${tm.act===3&&tm.phase!=='offer'?'':'split'}">
       <div class="tm-actline"><b>AKT ${['','I','II','III'][tm.act]}</b> · ${TM_ACT_NAMES[tm.act]} · ${esc(actTxt)}</div>
       ${tmHostHTML(tm,players)}
@@ -874,6 +896,7 @@ function tmPostRender(){
   if(G.tmAct!==tm.act){const prev=G.tmAct;G.tmAct=tm.act;if(prev&&tm.act>1)tmActCard(tm);}
   if(tm.phase==='reveal'&&tm.fx){
     const fx=tm.fx,me=tmMySeat()||0;
+    if(G.isOnline){if(me)tmRecordResults(tm,[me]);}else tmRecordResults(tm,tm.fx.seats.map((o,k)=>k+1).filter(k=>!isBotPlayer(G.lp[k-1])));
     const result=()=>{
     if(tm.act===3){
       const mineO=fx.seats[me-1];

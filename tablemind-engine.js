@@ -27,6 +27,7 @@ const TM_CFG={
   cycles1:6,                        // questions per player in act 1 (a "climb" may be restarted after banking)
   sealRounds:3,                     // realm challenges per player in act 2
   sealValue:2500,
+  reviewMax:2,                      // old mistakes brought back per game
   streakBonus:500,                  // act 1: every third right answer in a row
   duelPrize:5000,                   // the head-to-head after act 1: the two richest players, one hard question
   track:7,
@@ -60,7 +61,7 @@ function tmNew(P,opts){
   const n=Math.max(2,Math.min(4,(P|0)||2)),seed=((opts.seed||Date.now())%2147483646)+1;
   const z=()=>new Array(n).fill(0),nl=()=>new Array(n).fill(null);
   const tm={v:1,P:n,seed,rng:seed,rng2:(seed*7+13)%2147483646+1,lang:'de',act:1,phase:'ask',cycle:0,round2:0,used:[],catN:[0,0,0,0,0,0],
-    lib:opts.lib||null,relaxed:!!opts.relaxed,
+    lib:opts.lib||null,relaxed:!!opts.relaxed,review:(opts.review||[]).slice(0,12),reviewUsed:0,gold:0,
     lvl:z(),unb:z(),bank:z(),q:nl(),ans:nl(),ansAt:z(),res:nl(),pick:nl(),ext:z(),elim:nl(),clue:z(),gain:z(),
     life:[],council:null,streak:z(),rdy:z(),log:[],duel:null,duelDone:false,pendingDecide:new Array(n).fill(false),seals:[],sealNew:z(),
     chaser:opts.chaser&&TM_CFG.chasers[opts.chaser]?opts.chaser:null,ch:null,lane:[],offer:nl(),
@@ -69,6 +70,7 @@ function tmNew(P,opts){
   for(let i=0;i<n;i++){tm.life.push(Object.assign({},TM_CFG.lives));tm.seals.push([]);}
   for(let i=0;i<7;i++){tmRand(tm);tmRand2(tm);}
   if(!tm.chaser)tm.chaser=TM_CH_KEYS[Math.floor(tmRand(tm)*TM_CH_KEYS.length)];
+  tm.gold=2+Math.floor(tmRand(tm)*(TM_CFG.cycles1-2));   // the golden question: one cycle in act 1 pays double, announced when it opens
   return tm;
 }
 // Start (or restart) the game: opens the first act 1 question for everybody.
@@ -78,6 +80,11 @@ function tmStart(tm,now){tm.act=1;tm.cycle=0;tmOpenCycle1(tm,now||0);return tm;}
 // cat: wanted category or -1 (= the least used one); d: difficulty. Never repeats inside a match; relaxes difficulty only when a pool is empty.
 function tmPickQ(tm,cat,d){
   const lib=tmLib(tm);
+  // "Wiz brings back a question you got wrong last time": in act 1, from the second question on, at most reviewMax per game
+  if(tm.review&&tm.review.length&&tm.reviewUsed<TM_CFG.reviewMax&&tm.act===1&&tm.cycle>=2&&!tm.duel){
+    const r=tm.review.find(x=>lib[x]&&tm.used.indexOf(x)<0&&Math.abs(lib[x][1]-d)<=1);
+    if(r!=null){tm.reviewUsed++;tm.used.push(r);tm.catN[lib[r][0]]++;const ord=tmShuffled(tm,4);return{i:r,ord,cor:ord.indexOf(0),rv:1};}
+  }
   const pool=(cc,dd)=>{const r=[];lib.forEach((e,i)=>{if((cc<0||e[0]===cc)&&e[1]===dd&&tm.used.indexOf(i)<0)r.push(i);});return r;};
   if(cat<0){const mn=Math.min.apply(null,tm.catN);const cs=[];tm.catN.forEach((v,c)=>{if(v===mn&&pool(c,d).length)cs.push(c);});
     if(cs.length)cat=cs[Math.floor(tmRand(tm)*cs.length)];
@@ -272,6 +279,7 @@ function tmResolveAsk(tm,now){
     }else if(act===1){
       if(ok){
         const top=tm.lvl[i]>=TM_CFG.ladder.length-1;
+        if(tm.cycle===tm.gold){o.gold=TM_CFG.ladder[tm.lvl[i]];tm.bank[i]+=o.gold;}
         tm.unb[i]=TM_CFG.ladder[tm.lvl[i]];tm.stats.best[i]=Math.max(tm.stats.best[i],tm.unb[i]);
         if(top){tm.unb[i]+=TM_CFG.topBonus;tm.bank[i]+=tm.unb[i];o.money=tm.unb[i];o.top=1;tm.stats.topHits[i]++;tm.unb[i]=0;tm.lvl[i]=0;}
         else{o.money=tm.unb[i];tm.lvl[i]++;tm.pendingDecide[i]=tm.cycle<TM_CFG.cycles1;if(!tm.pendingDecide[i]){tm.bank[i]+=tm.unb[i];tm.unb[i]=0;o.auto=1;}}

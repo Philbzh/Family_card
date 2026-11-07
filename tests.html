@@ -10155,7 +10155,7 @@ async function runPresentation(A,W,frame){
   });
   suite('TABLE MIND — act 1: the climb, banking and risk',()=>{
     const F=n=>W.eval(n),N=F('tmNew'),S=F('tmStart'),A=F('tmApply'),CFG=F('TM_CFG');
-    const fresh=(P,seed)=>{const t=N(P,{seed:seed||11});S(t,0);return t;};
+    const fresh=(P,seed)=>{const t=N(P,{seed:seed||11});t.gold=99;S(t,0);return t;};   // no golden question in these money tests
     const right=(t,s)=>A(t,s,{t:'ans',i:t.q[s-1].cor},1000);
     const wrong=(t,s)=>A(t,s,{t:'ans',i:(t.q[s-1].cor+1)%4},1000);
     let t=fresh(2);
@@ -10243,6 +10243,33 @@ async function runPresentation(A,W,frame){
     const w=N(2,{seed:73});F('tmStart')(w,0);w.streak=[5,5];
     A(w,1,{t:'ans',i:w.q[0].cor},100);A(w,2,{t:'ans',i:w.q[1].cor},120);
     check('the bonus repeats at 6, 9 ... (every third)',w.fx.seats[0].bonus===CFG.streakBonus&&w.streak[0]===6);
+  });
+  suite('TABLE MIND — golden question and repeated mistakes',()=>{
+    const F=n=>W.eval(n),N=F('tmNew'),A=F('tmApply'),T=F('tmTick'),CFG=F('TM_CFG'),lib=F('TM_Q_DE');
+    const t=N(2,{seed:81});
+    check('one cycle between 2 and the last of act 1 is the golden question',t.gold>=2&&t.gold<=CFG.cycles1-1);
+    F('tmStart')(t,0);t.cycle=t.gold-1;t.phase='reveal';T(t,t.dl+1);
+    check('the golden cycle opens as cycle number "gold"',t.cycle===t.gold&&t.phase==='ask');
+    A(t,1,{t:'ans',i:t.q[0].cor},100);A(t,2,{t:'ans',i:(t.q[1].cor+1)%4},120);
+    check('a right answer on the golden question pays the amount twice (the second half straight into the bank)',t.fx.seats[0].gold===CFG.ladder[0]&&t.bank[0]===CFG.ladder[0]&&t.unb[0]===CFG.ladder[0]);
+    check('a wrong answer on the golden question pays nothing extra',!t.fx.seats[1].gold&&t.bank[1]===0);
+    // repeated mistakes
+    const idx=lib.findIndex(e=>e[1]===2);
+    const r=N(2,{seed:82,review:[idx]});F('tmStart')(r,0);
+    check('the first question is never a repeat (they start from the second)',!r.q.some(q=>q&&q.rv));
+    r.cycle=1;r.phase='reveal';T(r,r.dl+1);
+    check('from the second question on a remembered mistake of a fitting level comes back, marked as a repeat',r.q.some(q=>q&&q.rv&&q.i===idx)&&r.reviewUsed===1);
+    check('a repeat is asked only once per game',(()=>{const u=N(2,{seed:83,review:[idx]});F('tmStart')(u,0);u.used=[];let n=0;for(let c=0;c<5;c++){u.cycle=1+c;u.phase='reveal';T(u,u.dl+1);if(u.q.some(q=>q&&q.rv))n++;}return n<=1&&u.reviewUsed<=1;})());
+    check('mistakes are remembered on this device when answered wrong and forgotten when answered right',(()=>{const k='ct_tm_missed',old=W.localStorage.getItem(k);W.localStorage.removeItem(k);const g=N(2,{seed:84});F('tmStart')(g,0);A(g,1,{t:'ans',i:(g.q[0].cor+1)%4},10);A(g,2,{t:'ans',i:(g.q[1].cor+1)%4},20);F('tmRecordResults')(g,[1,2]);const a=F('tmMissedList')().length===1;
+      const g2=N(2,{seed:85});F('tmStart')(g2,0);g2.q[0]=g.q[0];A(g2,1,{t:'ans',i:g.q[0].cor},10);A(g2,2,{t:'ans',i:g2.q[1].cor},20);F('tmRecordResults')(g2,[1]);const b=F('tmMissedList')().length===0;
+      if(old==null)W.localStorage.removeItem(k);else W.localStorage.setItem(k,old);return a&&b;})());
+  });
+  suite('TABLE MIND — text size and contrast setting',()=>{
+    const F=n=>W.eval(n),k='ct_tm_text',old=W.localStorage.getItem(k);
+    W.localStorage.removeItem(k);
+    const seq=[];for(let i=0;i<4;i++){F('tmTextNext')();seq.push(F('tmTextMode')());}
+    check('the Aa button cycles normal → large → extra large → high contrast → normal',seq.join()==='l,xl,hc,');
+    if(old==null)W.localStorage.removeItem(k);else W.localStorage.setItem(k,old);
   });
   suite('TABLE MIND — act 2: realms and seals',()=>{
     const F=n=>W.eval(n),N=F('tmNew'),A=F('tmApply'),CFG=F('TM_CFG');
