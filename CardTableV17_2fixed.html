@@ -4538,13 +4538,27 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
   .ws-main>:not(.ws-top):not(.ws-stage){grid-column:1/-1;}
 }
 @media(max-width:480px){.ws-plate{min-width:4.2rem;padding:.25rem .45rem .3rem;}.ws-bank{font-size:1rem;}.ws-board{padding:.4rem;gap:.2rem;}.ws-row{gap:.2rem;}.ws-k{border-radius:7px;font-size:.92rem;}.ws-kr{gap:.2rem;}}
+/* celebrations: confetti and sparks, a light sweep over the board, a dark red vignette for BANKRUPT */
+.ws-fx{position:fixed;inset:0;pointer-events:none;z-index:8000;overflow:hidden;}
+.ws-p{position:absolute;left:var(--x0,50%);top:var(--y0,-4%);width:var(--s,8px);height:calc(var(--s,8px)*1.7);background:var(--c);border-radius:2px;opacity:0;animation:ws-fall var(--t,2s) cubic-bezier(.25,.6,.35,1) forwards;animation-delay:var(--d,0s);}
+.ws-p.sp{height:var(--s,6px);border-radius:50%;box-shadow:0 0 8px 1px var(--c);top:var(--y0,45%);}
+@keyframes ws-fall{0%{opacity:1;transform:translate(0,0) rotate(0);}85%{opacity:1;}100%{opacity:0;transform:translate(var(--x),var(--y)) rotate(var(--r));}}
+.ws-board{position:relative;overflow:hidden;}
+.ws-board.ws-sweep::after{content:"";position:absolute;top:-20%;bottom:-20%;width:34%;left:0;background:linear-gradient(100deg,transparent,rgba(255,244,200,.55),transparent);transform:translateX(-130%) skewX(-12deg);animation:ws-sweep 1.2s ease-out 1;pointer-events:none;}
+@keyframes ws-sweep{to{transform:translateX(420%) skewX(-12deg);}}
+.ws-vig{position:fixed;inset:0;z-index:7999;pointer-events:none;background:radial-gradient(70% 60% at 50% 45%,transparent 25%,rgba(70,0,45,.9));animation:ws-vig 1.6s ease both;}
+@keyframes ws-vig{0%{opacity:0;}18%{opacity:1;}70%{opacity:1;}100%{opacity:0;}}
+.ws-wheel-wrap.shudder{animation:ws-shudder .55s ease 1;}
+@keyframes ws-shudder{0%,100%{transform:none;}15%{transform:translate(-6px,2px) rotate(-.8deg);}30%{transform:translate(6px,-2px) rotate(.8deg);}45%{transform:translate(-4px,1px);}60%{transform:translate(4px,-1px);}80%{transform:translate(-2px,0);}}
+.ws-plate.crack{animation:ws-crack 1s ease 1;border-color:#ff4fb8;}
+@keyframes ws-crack{0%,100%{transform:none;filter:none;}12%{transform:translate(-5px,1px) rotate(-3deg);filter:brightness(1.6) hue-rotate(300deg);}26%{transform:translate(5px,-1px) rotate(3deg);}40%{transform:translate(-3px,1px) rotate(-2deg);}55%{transform:translate(2px,0);filter:brightness(1.2);}}
 /* one device can be the shared stage (wheel and puzzle, big) and the others private controllers (letters, vowels, solving) */
 .ws-v-stage .ws-panel{display:none;}
 .ws-v-stage .ws-wheel-wrap{width:min(88vw,34rem,max(16rem,calc(100vh - 28rem)))!important;}
 .ws-v-stage .ws-board{max-width:calc(var(--cols,14)*3.2rem + 1.4rem);}
 @media(min-width:900px) and (orientation:landscape){.ws-v-stage .ws-left{grid-column:1/-1;justify-self:center;}}
 .ws-v-pad .ws-left{display:none;}
-@media(prefers-reduced-motion:reduce){.ws-t.flip,.ws-board.deal .ws-t.bl,.ws-wedge.win,.ws-bulb,.ws-clock.low b{animation:none!important;}.ws-intro{display:none;}}
+@media(prefers-reduced-motion:reduce){.ws-fx,.ws-vig{display:none;}.ws-board.ws-sweep::after,.ws-wheel-wrap.shudder,.ws-plate.crack{animation:none!important;}.ws-t.flip,.ws-board.deal .ws-t.bl,.ws-wedge.win,.ws-bulb,.ws-clock.low b{animation:none!important;}.ws-intro{display:none;}}
 </style>
 <style>
 
@@ -5746,6 +5760,8 @@ const SFX={
   wsLand(k){if(k==='bankrupt'){tone(230,.22,'sawtooth');setTimeout(()=>tone(150,.3,'sawtooth'),140);setTimeout(()=>tone(90,.45,'sawtooth'),300);haptic([60,40,60,40,120]);}else if(k==='lose'){tone(300,.12,'triangle');setTimeout(()=>tone(220,.2,'triangle'),110);haptic([30,40,30]);}else{[660,880,1175,1568].forEach((f,i)=>setTimeout(()=>tone(f,.16),i*85));haptic([15,30,15,30,40]);}},
   wsHit(n){const k=Math.min(5,n||1);for(let i=0;i<k;i++)setTimeout(()=>tone(740+i*110,.11),i*110);haptic([12,24,12]);},
   wsCount(){tone(1320,.02,'sine');},
+  wsFanfare(){[523,659,784,1046,1318].forEach((f,i)=>setTimeout(()=>tone(f,.22),i*110));setTimeout(()=>{tone(1568,.5);tone(784,.5,'triangle');},620);haptic([30,50,30,50,120]);},
+  wsBeat(){tone(70,.12,'sine');setTimeout(()=>tone(60,.1,'sine'),140);haptic(18);},
   wsIntro(){[196,247,294,392,494,587].forEach((f,i)=>setTimeout(()=>tone(f,.28,'triangle'),i*220));haptic([20,60,20,60,80]);},
   play:()=>{tone(490,.08);setTimeout(()=>tone(560,.06),70);haptic(15);},
   draw:()=>{tone(220,.14,'triangle');haptic(12);},
@@ -6337,7 +6353,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=316;
+const APP_BUILD=317;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -21729,6 +21745,7 @@ function wsPostRender(){
       const ms=w.final.deadline-Date.now(),left=Math.max(0,Math.ceil(ms/1000));
       const b=el.querySelector('b'),bar=el.querySelector('i');if(b)b.textContent=left;if(bar)bar.style.width=Math.max(0,Math.min(100,ms/WS_FINAL_MS*100))+'%';
       el.classList.toggle('low',left<=8);
+      if(left<=8&&left>0&&G._wsBeatAt!==left&&!G.wsInstant&&gtAnim()!=='off'){G._wsBeatAt=left;SFX.wsBeat();}
       if(ms<=0&&G.wsFtSent!==w.moves&&(!G.isOnline||isMyTurn())){G.wsFtSent=w.moves;G.isOnline?oWsDo({t:'ftime'}):wsDoLocal({t:'ftime'});}
     },250);
   }
@@ -21784,6 +21801,36 @@ function wsFeel(fx){
   else if(fx.kind==='round'||fx.kind==='final')SFX.deal();
   else if(fx.kind==='fpick')SFX.wsHit(2);
 }
+/* ── WORDSPIN: the big moments (confetti, sparks, light sweep, BANKRUPT vignette); always behind the Full / Light / Off switch ── */
+function wsFxLevel(){let reduced=false;try{reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}return G.wsInstant||reduced?'off':gtAnim();}
+function wsConfetti(kind){
+  const lvl=wsFxLevel();if(lvl==='off')return;
+  const n=lvl==='full'?(kind==='crown'?96:kind==='spark'?36:68):20,cols=['#e9c46a','#fff1c2','#3da5ff','#8b5cf6','#d946a8'],root=document.createElement('div');root.className='ws-fx';
+  for(let i=0;i<n;i++){
+    const p=document.createElement('i'),sp=kind==='spark',a=Math.random()*Math.PI*2,d=(sp?60+Math.random()*(innerWidth*.45):0);
+    p.className='ws-p'+(sp?' sp':'');
+    p.style.setProperty('--c',cols[i%cols.length]);p.style.setProperty('--s',(sp?4+Math.random()*5:6+Math.random()*7)+'px');
+    p.style.setProperty('--t',(1.6+Math.random()*1.3)+'s');p.style.setProperty('--d',(Math.random()*.5)+'s');p.style.setProperty('--r',(Math.random()*900-450)+'deg');
+    if(sp){p.style.setProperty('--x0','50%');p.style.setProperty('--x',Math.cos(a)*d+'px');p.style.setProperty('--y',Math.sin(a)*d+'px');}
+    else{p.style.setProperty('--x0',(Math.random()*100)+'%');p.style.setProperty('--x',(Math.random()*160-80)+'px');p.style.setProperty('--y',(innerHeight*(.6+Math.random()*.6))+'px');}
+    root.appendChild(p);
+  }
+  document.body.appendChild(root);setTimeout(()=>{try{root.remove();}catch(e){}},3600);
+}
+function wsAfterFx(fx){
+  if(!fx||wsFxLevel()==='off')return;
+  const won=(fx.kind==='solve'&&fx.ok)||((fx.kind==='letter'||fx.kind==='vowel')&&fx.round)||(fx.kind==='fsolve'&&fx.ok)||(fx.kind==='fpick'&&fx.auto);
+  if(won){
+    const crown=fx.kind==='fsolve'||fx.kind==='fpick';
+    wsConfetti(crown?'crown':'solve');SFX.wsFanfare();
+    const b=document.querySelector('.ws-board');if(b){b.classList.add('ws-sweep');setTimeout(()=>b.classList.remove('ws-sweep'),1400);}
+  }else if(fx.kind==='letter'&&fx.gain>=2000){wsConfetti('spark');}
+  if(fx.kind==='spin'&&fx.seg==='bankrupt'){
+    const v=document.createElement('div');v.className='ws-vig';document.body.appendChild(v);setTimeout(()=>{try{v.remove();}catch(e){}},1700);
+    const w=document.querySelector('.ws-wheel-wrap');if(w){w.classList.add('shudder');setTimeout(()=>w.classList.remove('shudder'),700);}
+    const pl=document.querySelector('.ws-plate[data-s="'+fx.seat+'"]');if(pl){pl.classList.add('crack');setTimeout(()=>pl.classList.remove('crack'),1100);}
+  }
+}
 function wsRunSeq(ws,renderNow,done){
   const fx=ws&&ws.fx;
   let reduced=false;try{reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
@@ -21810,7 +21857,7 @@ function wsRunSeq(ws,renderNow,done){
     else if(fx.kind==='ftime')stageEmit('WS_EVT',{text:T('timeUp'),sub:T('timeSub'),icon:'⏰',tone:'bad',pri:3,ms:1600});
   };
   if(!fx||fx.kind!=='spin'){
-    G.wsSeq=null;if(fx&&!G.wsInstant){wsFeel(fx);stages();}
+    G.wsSeq=null;if(fx&&!G.wsInstant){wsFeel(fx);stages();setTimeout(()=>wsAfterFx(fx),90);}
     if(done){if(G.wsInstant)done();else setTimeout(done,ws.over?900:0);}
     return;
   }
@@ -21828,7 +21875,7 @@ function wsRunSeq(ws,renderNow,done){
     G.wsDisp=fx.angle;const el=document.getElementById('ws-rot');if(el)el.setAttribute('transform','rotate('+fx.angle+')');
     SFX.wsLand(fx.seg);
     const wd=document.querySelector('.ws-wedge[data-i="'+fx.idx+'"]');if(wd)wd.classList.add('win');
-    setTimeout(()=>{if(G.wsSeq!==seq)return;G.wsSeq=null;stages();render();if(done)done();},1150);
+    setTimeout(()=>{if(G.wsSeq!==seq)return;G.wsSeq=null;stages();render();wsAfterFx(fx);if(done)done();},1150);
   };
   const step=now=>{
     if(G.wsSeq!==seq||finished)return;

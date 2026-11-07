@@ -10201,6 +10201,34 @@ async function runPresentation(A,W,frame){
       if(keep.hist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keep.hist);
     }
   });
+  suite('WORDSPIN — the big moments (confetti, sparks, vignette) respect the animation switch',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n),D=W.document;
+    const keep={inst:G.wsInstant,anim:W.localStorage.getItem('ct_gt_anim'),snd:G.snd};
+    const clear=()=>D.querySelectorAll('.ws-fx,.ws-vig').forEach(e=>e.remove());
+    try{
+      G.snd=false;clear();
+      G.wsInstant=true;F('wsAfterFx')({kind:'solve',ok:true,seat:1});
+      check('with instant play (tests, skipped animations) nothing is drawn',D.querySelectorAll('.ws-fx,.ws-vig').length===0);
+      G.wsInstant=false;W.localStorage.setItem('ct_gt_anim','off');F('wsAfterFx')({kind:'solve',ok:true,seat:1});
+      check('with Animations Off nothing is drawn',D.querySelectorAll('.ws-fx,.ws-vig').length===0);
+      W.localStorage.setItem('ct_gt_anim','full');
+      const reduced=F('wsFxLevel')()==='off';
+      F('wsAfterFx')({kind:'solve',ok:true,seat:1});
+      const n1=D.querySelectorAll('.ws-fx .ws-p').length;clear();
+      check('solving a puzzle throws confetti on Full (or nothing for a device that asks for reduced motion)',reduced?n1===0:n1>=40);
+      W.localStorage.setItem('ct_gt_anim','light');F('wsAfterFx')({kind:'solve',ok:true,seat:1});
+      const n2=D.querySelectorAll('.ws-fx .ws-p').length;clear();
+      check('Light throws only a little confetti',reduced?n2===0:(n2>0&&n2<n1));
+      W.localStorage.setItem('ct_gt_anim','full');F('wsAfterFx')({kind:'spin',seg:'bankrupt',seat:1,lost:500});
+      const v=D.querySelectorAll('.ws-vig').length;clear();
+      check('BANKRUPT darkens the screen (not on reduced motion)',reduced?v===0:v===1);
+      F('wsAfterFx')({kind:'spin',seg:'pts',seat:1,v:500});
+      check('an ordinary spin draws no celebration',D.querySelectorAll('.ws-fx,.ws-vig').length===0);
+    } finally {
+      clear();G.wsInstant=keep.inst;G.snd=keep.snd;
+      if(keep.anim==null)W.localStorage.removeItem('ct_gt_anim');else W.localStorage.setItem('ct_gt_anim',keep.anim);
+    }
+  });
   suite('WORDSPIN — it is wired in everywhere the other games are',()=>{
     const F=n=>W.eval(n);
     check('it plays online and against bots, with a tour, a tagline, an accent, a history name and reactions',F('ONLINE_GAMES').includes('wordspin')&&F('BOT_GAMES').has('wordspin')&&F('TOURS').wordspin.slides.length===5&&!!F('STAGE_TAGS').wordspin&&!!F('MOMENT_ACCENT').wordspin&&F('v14GameLabel')('wordspin')==='WORDSPIN'&&F('REACTION_GAME').wordspin.length===3);
