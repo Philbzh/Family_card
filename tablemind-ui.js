@@ -135,7 +135,7 @@
 .game-tablemind.an-off *{transition:none!important;}
 .game-tablemind.an-light .tm-chaser .face{animation:none!important;}
 @media(prefers-reduced-motion:reduce){.game-tablemind *{animation-duration:.01ms!important;transition:none!important;}}
-@media(max-width:759px){.tm-pod{min-width:4.6rem;padding:.25rem .4rem .3rem;}.tm-pods{gap:.3rem;}.tm-money{font-size:.95rem;}.tm-seals i{font-size:.58rem;}.tm-unb{display:none;}.tm-stage .tm-lad{display:none;}.tm-q{font-size:1.05rem;margin:.1rem 0 .5rem;}.tm-a{min-height:2.7rem;padding:.4rem .6rem;}.game-tablemind .gb-turn{display:none;}.tm-pass .tm-av{display:flex;justify-content:center;}}
+@media(max-width:759px){.tm-pod{min-width:4.6rem;padding:.25rem .4rem .3rem;}.tm-pods{gap:.3rem;}.tm-money{font-size:.95rem;}.tm-seals i{font-size:.58rem;}.tm-unb{display:none;}.tm-stage .tm-lad{display:none;}.tm-q{font-size:1.05rem;margin:.1rem 0 .5rem;}.tm-a{min-height:2.7rem;padding:.4rem .6rem;}.tm-pass .tm-av{display:flex;justify-content:center;}}
 .tm-host{grid-column:1/-1;display:flex;align-items:center;gap:.7rem;justify-content:center;margin:.1rem auto .25rem;max-width:34rem;}
 .tm-wiz{flex:none;width:4.4rem;height:4.4rem;border-radius:50%;object-fit:cover;border:2px solid #c9a45c;box-shadow:0 0 22px rgba(201,164,92,.55),0 4px 12px rgba(0,0,0,.6);background:#0b2115;}
 .tm-wiz.hop{animation:tm-hop .6s cubic-bezier(.3,1.6,.5,1) 1;}
@@ -174,6 +174,62 @@
 .tm-pod .tm-seals{grid-area:se;margin-top:.1rem;}.tm-pod .tm-seals i{font-size:.78rem!important;}
 .tm-pod .tm-delta{top:-.7rem;}
 .tm-main{padding-top:.4rem!important;}
+/* ===== lean pass: bar title, small Wiz, ring timer, slim lifelines ===== */
+.tm-bartitle{display:flex!important;flex-direction:column;align-items:center;justify-content:center;line-height:1.15;font-family:var(--serif,Georgia,serif);letter-spacing:.14em;color:var(--tg3);font-size:.7rem;text-transform:uppercase;min-width:0;}
+.tm-bartitle b{color:var(--tg);}
+.tm-bartitle small{font:500 .62rem/1.2 inherit;letter-spacing:.12em;color:var(--paper3,#8e887d);}
+.tm-animbtn{font-size:1.15rem;line-height:1;}
+.tm-host{gap:.55rem!important;margin:0!important;}
+.tm-host:not(.big) .tm-wiz{width:4.6rem!important;height:4.6rem!important;border-width:2px;}
+@media(min-width:760px){.tm-host:not(.big) .tm-wiz{width:5.6rem!important;height:5.6rem!important;}}
+.tm-host:not(.big) .tm-say{padding:.55rem .85rem!important;font-size:.95rem!important;line-height:1.3;}
+.tm-host:not(.big) .tm-say small{display:block;}
+.tm-host.big .tm-wiz{width:7rem!important;height:7rem!important;}
+.tm-host .tm-wiz,.tm-host .tm-say{transition:width .3s,height .3s,font-size .3s;}
+.tm-card{position:relative;}
+.tm-timer{position:absolute!important;top:.55rem;right:.7rem;width:2.7rem;height:2.7rem;margin:0!important;display:flex;align-items:center;justify-content:center;gap:0!important;z-index:2;}
+.tm-timer b{position:relative;min-width:0!important;text-align:center!important;font:800 .95rem/1 var(--serif,Georgia,serif)!important;color:var(--tg3)!important;z-index:1;}
+.tm-timer i{position:absolute!important;inset:0;height:auto!important;border-radius:50%!important;background:conic-gradient(#ead08a var(--w,100%),rgba(255,255,255,.12) 0)!important;-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 calc(100% - 4px));mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 calc(100% - 4px));overflow:visible!important;}
+.tm-timer i::after{display:none!important;}
+.tm-timer.low b{color:#ff9d8a!important;}.tm-timer.low i{background:conic-gradient(#ff7a68 var(--w,100%),rgba(255,255,255,.12) 0)!important;}
+.tm-qchips{justify-content:flex-start!important;padding-right:3.4rem;margin-bottom:.6rem!important;}
+.tm-lives{gap:.3rem!important;margin-top:.7rem!important;}
+.tm-life{min-width:0!important;flex:1 1 0;padding:.35rem .2rem!important;font-size:.62rem!important;border-radius:11px!important;}
+.tm-life b{font-size:.9rem!important;}
+.tm-q{margin:.1rem 0 .8rem!important;}
+.tm-title{padding-right:3.2rem;}
+/* horizontal prize ladder */
+.tm-lad{display:grid!important;grid-template-columns:repeat(5,1fr);gap:.35rem!important;max-width:none!important;padding:0!important;flex-direction:row!important;}
+.tm-rung{flex-direction:column!important;align-items:center;gap:.2rem!important;padding:.4rem .2rem!important;border-left:0!important;border-bottom:3px solid rgba(201,164,92,.4);font-size:.85rem!important;text-align:center;}
+.tm-rung.on{border-bottom-color:#ead08a;}
+.tm-rung .who{min-height:1.3rem;justify-content:center;}.tm-rung .who .av-img{width:1.3rem!important;height:1.3rem!important;border-radius:50%;}
+.tm-stage .tm-lad{display:grid!important;}
+.tm-actline{grid-column:1/-1;display:none;text-align:center;font:600 .62rem/1 var(--serif,Georgia,serif);letter-spacing:.16em;text-transform:uppercase;color:var(--paper3,#8e887d);margin-bottom:-.2rem;}
+.tm-actline b{color:var(--tg);}
+@media(max-width:559px){.tm-bartitle{display:none!important;}.tm-actline{display:block;order:-4;}}
+@media(max-width:559px){.tm-pods{flex-wrap:nowrap!important;gap:.3rem!important;}.tm-pod{flex:1 1 0!important;max-width:none!important;grid-template-columns:auto 1fr!important;grid-template-areas:"av money" "nm nm" "se se"!important;padding:.3rem .4rem!important;text-align:left;}.tm-pod .tm-state{display:none!important;}.tm-pod .tm-money{font-size:.8rem!important;text-align:right;white-space:nowrap;letter-spacing:-.01em;}.tm-pod .tm-av .av-img{width:1.7rem!important;height:1.7rem!important;}.tm-pod .tm-nm{font-size:.68rem;}}
+/* ===== The Hunt: tall ladders, TV-style ===== */
+.tm-vcols{display:grid;grid-template-columns:repeat(var(--cols,2),1fr);gap:.5rem;}
+.tm-vcol{--rh:1.75rem;border-radius:14px;padding:.4rem .35rem .5rem;background:linear-gradient(180deg,rgba(14,50,36,.8),rgba(5,22,15,.92));border:1px solid rgba(201,164,92,.28);min-width:0;}
+.tm-vcol.me{border-color:#ead08a;box-shadow:0 0 0 1px rgba(201,164,92,.4),0 0 22px rgba(201,164,92,.2);}
+.tm-vcol.cau{opacity:.65;filter:saturate(.6);}.tm-vcol.esc{border-color:#4ade80;box-shadow:0 0 20px rgba(74,222,128,.3);}
+.tm-vh{display:flex;flex-direction:column;align-items:center;gap:.05rem;margin-bottom:.35rem;min-width:0;}
+.tm-vh .a .av-img{width:1.7rem;height:1.7rem;border-radius:50%;}
+.tm-vh b{font-size:.7rem;color:#f3ead2;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tm-vh small{font-size:.56rem;letter-spacing:.06em;color:var(--paper3,#8e887d);text-transform:uppercase;}
+.tm-vl{position:relative;display:flex;flex-direction:column;gap:3px;}
+.tm-vr{height:calc(var(--rh) - 3px);border-radius:7px;display:flex;align-items:center;justify-content:center;font:700 .62rem/1 var(--serif,Georgia,serif);letter-spacing:.1em;color:#8a7f5e;background:linear-gradient(180deg,#143b2b,#0a2418);border:1px solid rgba(201,164,92,.22);}
+.tm-vr.fin{background:linear-gradient(180deg,#f3deaa,#c9a45c 60%,#8f6f2f);color:#1a1300;border-color:#ead08a;}
+.tm-vr.st{color:#6e6648;}
+.tm-vmk{position:absolute;left:0;right:0;height:calc(var(--rh) - 3px);top:calc((var(--n) - 1 - var(--pos)) * var(--rh));transition:top .95s cubic-bezier(.3,.8,.3,1);display:flex;align-items:center;justify-content:center;gap:.25rem;border-radius:7px;font:800 .8rem/1 var(--serif,Georgia,serif);color:#1a1300;z-index:2;}
+.tm-vmk.pl{background:linear-gradient(180deg,#fff1c2,#e9c46a 55%,#b8892f);box-shadow:0 0 14px rgba(255,236,160,.6);}
+.tm-vmk.pl .a .av-img{width:1.25rem;height:1.25rem;border-radius:50%;display:block;}
+.tm-vmk.ch{background:linear-gradient(180deg,#7a1f2c,#3d0c16);box-shadow:0 0 16px rgba(255,70,80,.55);border:1px solid #ff6b6b;z-index:3;color:#ffd0d0;}
+.tm-vmk.ch .tm-chsvg{height:1.3rem;width:auto;}
+.tm-vmk.half{width:50%;}.tm-vmk.half.r{left:auto;right:0;}.tm-vmk.half.l{right:auto;left:0;}
+.tm-vmk.half.pl{font-size:.6rem;}.tm-vmk.half.pl .a{display:none;}
+.game-tablemind.an-off .tm-vmk,.game-tablemind.an-light .tm-vmk{transition-duration:.2s;}
+@media(min-width:900px){.tm-vcol{--rh:2.1rem;padding:.6rem .6rem .7rem;}.tm-vr{font-size:.72rem;}.tm-vh b{font-size:.85rem;}.tm-vh .a .av-img{width:2.2rem;height:2.2rem;}.tm-vmk{font-size:1rem;}.tm-vmk.pl .a .av-img{width:1.6rem;height:1.6rem;}.tm-vmk.ch .tm-chsvg{height:1.7rem;}}
 .tm-foot{display:flex;gap:.5rem;justify-content:center;margin-top:.4rem;}
 .tm-opt{display:flex;gap:.4rem;flex-wrap:wrap;justify-content:center;align-items:center;margin:.4rem 0;font-size:.78rem;color:var(--paper2,#d8cfbd);}
 .tm-opt button{padding:.3rem .7rem;border-radius:999px;border:1px solid rgba(201,164,92,.5);background:rgba(29,83,54,.4);color:inherit;font:inherit;cursor:pointer;}
@@ -460,10 +516,10 @@ function tmPodsHTML(tm,players,me,fx){
     </div>`;}).join('')}</div>`;
 }
 function tmLadderHTML(tm,players){
-  const L=TM_CFG.ladder;
+  const L=TM_CFG.ladder,short=v=>v>=1000?(v/1000).toLocaleString('de-DE')+'K':v;
   return`<div class="tm-lad">${L.map((v,k)=>{
     const here=players.slice(0,tm.P).map((p,i)=>tm.lvl[i]===k+1?`<span>${avHTML(p.avatar)}</span>`:'').join('');
-    return`<div class="tm-rung${k===L.length-1?' top':''}${tm.lvl.some(l=>l===k+1)?' on':''}"><span class="amt">${k+1} · ${tmEur(v)}${k===L.length-1?' + Bonus':''}</span><span class="who">${here}</span></div>`;}).join('')}</div>`;
+    return`<div class="tm-rung${k===L.length-1?' top':''}${tm.lvl.some(l=>l===k+1)?' on':''}"><b>${short(v)}</b><span class="who">${here}</span></div>`;}).join('')}</div>`;
 }
 function tmRealmsHTML(tm,me,mode){   // mode 'pick' (buttons) or 'show' (who chose what)
   const have=new Set(me?tm.seals[me-1]:[]);
@@ -488,13 +544,28 @@ function tmChaserHTML(tm){
   return`<div class="tm-chaser"><span class="face">${tmChaserSVG(tm.chaser,74)}</span><div><b>${esc(c.name)}</b><small>jagt euch alle</small></div></div>`;
 }
 function tmLanesHTML(tm,players,me){
-  return`<div class="tm-lanes">${players.slice(0,tm.P).map((p,i)=>{
+  // The Hunt as a tall ladder per player (finish at the top, start at the bottom). The lit bars are the player and the Chaser; they slide between rungs.
+  const N=TM_CFG.track;
+  if(G.tmMkSeed!==tm.seed){G.tmMkSeed=tm.seed;G.tmMk={};}
+  const cols=players.slice(0,tm.P).map((p,i)=>{
     const L=tm.lane[i];if(!L)return'';
-    const cell=100/8,pos=x=>`calc(${x}*(100% - 14px)/8 + ${x}*2px)`;
-    return`<div class="tm-lane${L.st==='escaped'?' esc':L.st==='caught'?' cau':''}"><div class="tm-lane-h"><span>${esc(p.name)}${me===i+1?' (du)':''} · ×${L.mult}</span><span>${L.st==='escaped'?'ENTKOMMEN':L.st==='caught'?'GEFANGEN':(TM_CFG.track-L.pl)+' bis zum Ziel · Abstand '+(L.pl-L.chp)}</span></div>
-      <div class="tm-track">${Array.from({length:8},(_, k)=>`<div class="tm-cell${k===7?' fin':''}">${k===0?'START':k===7?'':k}</div>`).join('')}
-      <span class="tm-mk ch" style="left:${pos(L.chp)}">${tmChaserSVG(tm.chaser,26)}</span>
-      <span class="tm-mk pl" style="left:${pos(Math.min(7,L.pl))}">${avHTML(p.avatar)}</span></div></div>`;}).join('')}</div>`;
+    const plPos=Math.min(N,L.pl),chPos=Math.max(0,L.chp);
+    const rungs=[];for(let k=N;k>=0;k--)rungs.push(`<div class="tm-vr${k===N?' fin':''}${k===0?' st':''}">${k===N?'ZIEL':k===0?'START':k}</div>`);
+    const kp='p'+i,kc='c'+i,prevP=G.tmMk[kp]==null?plPos:G.tmMk[kp],prevC=G.tmMk[kc]==null?chPos:G.tmMk[kc];
+    const shared=plPos===chPos;
+    const st=L.st==='escaped'?' esc':L.st==='caught'?' cau':'';
+    return`<div class="tm-vcol${st}${me===i+1?' me':''}"><div class="tm-vh"><span class="a">${avHTML(p.avatar)}</span><b>${esc(p.name)}</b><small>${L.st==='escaped'?'ENTKOMMEN':L.st==='caught'?'GEFANGEN':'×'+L.mult+' · Abstand '+(L.pl-L.chp)}</small></div>
+      <div class="tm-vl" style="--n:${N+1}">${rungs.join('')}
+        <div class="tm-vmk ch${shared?' half r':''}" data-k="${kc}" data-pos="${chPos}" style="--pos:${prevC}">${tmChaserSVG(tm.chaser,22)}</div>
+        <div class="tm-vmk pl${shared?' half l':''}" data-k="${kp}" data-pos="${plPos}" style="--pos:${prevP}">❯ <span class="a">${avHTML(p.avatar)}</span> ❮</div>
+      </div></div>`;}).join('');
+  return`<div class="tm-vcols" style="--cols:${tm.P}">${cols}</div>`;
+}
+function tmMoveMarkers(){
+  const els=document.querySelectorAll('.tm-vmk[data-k]');if(!els.length)return;
+  G.tmMk=G.tmMk||{};
+  const go=()=>els.forEach(el=>{const pos=+el.dataset.pos;el.style.setProperty('--pos',pos);G.tmMk[el.dataset.k]=pos;});
+  if(gtAnim()==='off')go();else requestAnimationFrame(()=>requestAnimationFrame(go));
 }
 function tmBannerHTML(tm,players){
   const fx=tm.fx;if(!fx)return'';
@@ -672,7 +743,8 @@ function tmWizSay(tm,players){
 }
 function tmHostHTML(tm,players){
   const pose=tmWizPose(tm),hop=G.tmPose!=null&&G.tmPose!==pose;G.tmPose=pose;
-  return`<div class="tm-host"><img class="tm-wiz${hop?' hop':''}" src="assets/games/ws_owl_${pose}.jpg" alt="Wiz" width="64" height="64"><div class="tm-say"><small>WIZ</small>${tmWizSay(tm,players)}</div></div>`;
+  const big=tm.over||pose===6||(tm.phase==='reveal'&&tm.fx&&(tm.fx.duel||(tm.act===3&&tm.fx.seats.some(o=>o.escaped||o.caught))||(tm.act===2&&tm.fx.seats.some(o=>o.seal))));
+  return`<div class="tm-host${big?' big':''}"><img class="tm-wiz${hop?' hop':''}" src="assets/games/ws_owl_${pose}.jpg" alt="Wiz" width="64" height="64"><div class="tm-say"><small>WIZ</small>${tmWizSay(tm,players)}</div></div>`;
 }
 function rTablemindTable(){
   const tm=tmObj();
@@ -685,11 +757,12 @@ function rTablemindTable(){
   const actTxt=tm.act===1?`Frage ${Math.min(tm.cycle,TM_CFG.cycles1)} von ${TM_CFG.cycles1}`:tm.act===2?`Siegel ${tm.round2} von ${TM_CFG.sealRounds}`:`Jagd · Frage ${(tm.hunt?tm.hunt.n:0)+(tm.phase==='ask'?1:0)}`;
   queueMicrotask(tmPostRender);
   return`<div id="s-table" class="scr on game-tablemind an-${an}">
-    <div class="game-bar"><div class="gb-game"><span class="tm-logo">TABLE MIND</span></div><div class="gb-turn">${esc(actTxt)}</div><div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div></div>
+    <div class="game-bar"><div class="gb-game"><span class="tm-logo">TABLE MIND</span></div><div class="gb-turn tm-bartitle"><span><b>AKT ${['','I','II','III'][tm.act]}</b> · ${TM_ACT_NAMES[tm.act]}</span><small>${esc(actTxt)}</small></div><div class="gb-right"><button class="ico-btn tm-animbtn" data-a="tmanim" aria-label="Animation: ${an==='full'?'voll':an==='light'?'leicht':'aus'}" title="Animation: ${an==='full'?'voll':an==='light'?'leicht':'aus'}">${an==='off'?'⏸':an==='light'?'✨':'🎬'}</button>${rulesBtn()}${quitBtn()}${sndBtn()}</div></div>
     <div class="tm-main ${tm.act===3&&tm.phase!=='offer'?'':'split'}">
+      <div class="tm-actline"><b>AKT ${['','I','II','III'][tm.act]}</b> · ${TM_ACT_NAMES[tm.act]} · ${esc(actTxt)}</div>
       ${tmHostHTML(tm,players)}
       ${tmPodsHTML(tm,players,me,tm.phase==='reveal'?tm.fx:null)}
-      <div class="tm-left"><div class="tm-act"><b>AKT ${['','I','II','III'][tm.act]}</b> ${TM_ACT_NAMES[tm.act]}</div>${tmStageHTML(tm,players,me,pad.indexOf('tm-q')>=0)}<div class="tm-foot"><button class="tm-btn ghost" data-a="tmanim">Animation: ${an==='full'?'Voll':an==='light'?'Leicht':'Aus'}</button></div></div>
+      <div class="tm-left">${tmStageHTML(tm,players,me,pad.indexOf('tm-q')>=0)}</div>
       <div class="tm-right">${pad}</div>
     </div>
     ${showIntro?tmIntroHTML():''}
@@ -708,6 +781,7 @@ function tmActCard(tm){
 /* ───────── effects when the state moves on ───────── */
 function tmPostRender(){
   const tm=tmObj();if(!tm||!document.querySelector('.game-tablemind'))return;
+  tmMoveMarkers();
   tmLoopStart();document.body.classList.add('tm-on');
   const key=[tm.seed,tm.act,tm.phase,tm.cycle,tm.round2,tm.hunt?tm.hunt.n:0,''].join('|');
   if(G.tmFxKey===key)return;
