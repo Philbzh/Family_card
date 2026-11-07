@@ -10054,6 +10054,101 @@ async function runPresentation(A,W,frame){
     });
   }
 
+  /* —— WORDSPIN online: the host-drawn spin, the room, the end, the rematch (awaits live at the top level) —————— */
+  {
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const oWsDo=F('oWsDo'),oWsAuto=F('oWsAuto'),wsNew=F('wsNew'),wsStart=F('wsStart'),wsApply=F('wsApply'),oStartGame=F('oStartGame');
+    W.__keepSbWs=W.eval('_sb');
+    W.eval('window.__origSetTimeoutWs=setTimeout; setTimeout=(fn)=>0;');
+    let DB=null;const clone=o=>JSON.parse(JSON.stringify(o));
+    W.__fakeSb={from:()=>({
+      select:()=>({eq:()=>({single:()=>Promise.resolve({data:DB?{state:clone(DB)}:null,error:DB?null:{message:'none'}})})}),
+      upsert:row=>{DB=clone(row.state);return Promise.resolve({error:null});},
+      update:row=>({eq:()=>({eq:()=>({select:()=>{DB=clone(row.state);return Promise.resolve({data:[{id:'T'}],error:null});}})})})})};
+    const P=(id,n,i)=>({id,name:n,avatar:A.AVATARS[i],hand:[],totalScore:0,roundsWon:0,chips:900,c4Result:null});
+    const room=(first,n,seed)=>{const ps=[P('a','Anna',0),P('b','Ben',1),P('c','Cleo',2)].slice(0,n||3);const ws=wsStart(wsNew(ps.length,{seed:seed||4242,rounds:2}),first);ws.puzzle={c:'Test',d:1,t:'BANANA SPLIT',i:-1};return{phase:'game',gameId:'wordspin',host:'a',players:ps,curIdx:first-1,ws,winner:null,winnerName:null,winnerAv:null,round:1,_ts:Date.now()-5000};};
+    const seen={};
+    try{
+      G.isOnline=true;G.roomId='T';G.myPid='a';G.isHost=true;G.scr='table';G.selGame='wordspin';
+      W.eval('_sb=window.__fakeSb');
+      DB=room(1);G.srv=clone(DB);await oWsDo({t:'spin'});seen.spin=clone(DB);
+      // the very same spin worked out again from the same starting room gives the same wedge (the room decides it once)
+      DB=room(1);G.srv=clone(DB);await oWsDo({t:'spin'});seen.spin2=clone(DB);
+      DB=room(1);G.myPid='b';G.srv=clone(DB);G.srv.curIdx=1;const b1=JSON.stringify(DB);await oWsDo({t:'spin'});seen.notMine=JSON.stringify(DB)===b1;
+      DB=room(2);G.myPid='a';G.srv=clone(DB);await oWsAuto();seen.auto=clone(DB);
+      // a second device renders the room as it is written: same wedge under the pointer, the keyboard only for the player on turn
+      DB=room(1,3,99);DB.ws.phase='letter';DB.ws.lv={k:'pts',v:500,any:false};DB.ws.angle=1000;G.abSeq=null;G.wsSeq=null;G.wsDisp=null;
+      G.myPid='a';G.srv=clone(DB);G.wsSeedFor=null;seen.mineHtml=F('rWordspinTable')();
+      G.myPid='b';G.srv=clone(DB);G.wsSeedFor=null;seen.waitHtml=F('rWordspinTable')();
+      DB=room(1);G.myPid='a';G.srv=clone(DB);G.wsSeedFor=null;seen.spinHtml=F('rWordspinTable')();
+      // the final: a correct answer in time ends the game for everybody, with the winner and a Table Moment in the room
+      DB=room(1,2);{const w=DB.ws;w.puzzle={c:'T',d:2,t:'THE BIG STAR',i:-1};w.phase='fsolve';w.called='RSTLNEBGHI';w.final={leader:1,picks:'BGHI',deadline:Date.now()+20000,solved:false};w.bank=[3000,1000];}
+      G.myPid='a';G.srv=clone(DB);await oWsDo({t:'fsolve',text:'the big star'});seen.win=clone(DB);
+      // the host starts it from the lobby
+      const lobby={phase:'lobby',gameId:'wordspin',host:'a',players:[P('a','Anna',0),P('b','Ben',1),P('c','Cleo',2),P('d','Dan',3)],_ts:Date.now()-5000};
+      G.myPid='a';G.srv=clone(lobby);oStartGame(clone(lobby));seen.started=clone(G.srv);
+      DB=clone(seen.win);G.isHost=true;G.srv=clone(DB);await F('oRematch')();seen.rematch=clone(DB);
+    } finally {
+      W.eval('setTimeout=window.__origSetTimeoutWs');
+      W.eval('_sb=window.__keepSbWs');
+      G.isOnline=false;G.srv=null;G.scr='home';G.isHost=false;G.ws=null;G.wsSeq=null;G.wsSeedFor=null;
+      try{W.localStorage.removeItem('ct_online_session');W.localStorage.removeItem('ct_resume');}catch(e){}
+    }
+    suite('WORDSPIN online — the room, the host-drawn spin and the end',()=>{
+      check('the player on turn spins and the room records the move, the wedge, the final angle and the next player',seen.spin.ws.moves===1&&!!seen.spin.ws.fx&&seen.spin.ws.fx.kind==='spin'&&seen.spin.ws.angle===seen.spin.ws.fx.angle&&seen.spin.curIdx===seen.spin.ws.cur-1);
+      check('the spin is decided once by the room: same room, same wedge and same angle on every device',seen.spin.ws.fx.idx===seen.spin2.ws.fx.idx&&seen.spin.ws.fx.angle===seen.spin2.ws.fx.angle);
+      check('a device that is not on turn changes nothing',seen.notMine);
+      check('an away player is spun for, and the room says so',seen.auto.ws.moves===1&&seen.auto.ws.fx.seat===2&&/skipped/.test(seen.auto.lastAct));
+      check('the final ends the game: winner, ranks, totals and a Table Moment are in the room',seen.win.winner==='a'&&seen.win.ws.over&&seen.win.players[0].c4Result==='win'&&seen.win.players[0].totalScore===8000&&seen.win.players[1].c4Result==='loss'&&!!seen.win.moment);
+      check('starting from the lobby makes a four-player game with a puzzle and a wheel',seen.started.gameId==='wordspin'&&seen.started.ws.P===4&&seen.started.ws.moves===0&&seen.started.curIdx===seen.started.ws.cur-1&&!!seen.started.ws.puzzle.t);
+      check('Rematch: same players, a fresh puzzle set, nobody has moved',seen.rematch.gameId==='wordspin'&&seen.rematch.phase==='game'&&!seen.rematch.winner&&seen.rematch.ws.moves===0&&seen.rematch.players.length===2);
+      const mine=new DOMParser().parseFromString(seen.mineHtml,'text/html'),wait=new DOMParser().parseFromString(seen.waitHtml,'text/html'),sp=new DOMParser().parseFromString(seen.spinHtml,'text/html');
+      check('every device draws the wheel at the angle stored in the room',/rotate\(1000\)/.test(seen.mineHtml)&&/rotate\(1000\)/.test(seen.waitHtml));
+      check('only the player on turn gets the letter keyboard; the others see who they wait for',mine.querySelectorAll('[data-a="wskey"]').length===21&&wait.querySelectorAll('[data-a="wskey"]').length===0&&/Anna/.test(wait.querySelector('.ws-hint').textContent));
+      check('the player on turn gets the SPIN, Buy a vowel and Solve buttons',sp.querySelectorAll('[data-a="wsspin"]').length===1&&sp.querySelectorAll('[data-a="wsvowelmode"]').length===1&&sp.querySelectorAll('[data-a="wssolvemode"]').length===1);
+      check('the Buy a vowel button is off while the round score is under 250',sp.querySelector('[data-a="wsvowelmode"]').disabled===true);
+    });
+  }
+  suite('WORDSPIN — the local game on one device, start to finish',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const keep={inst:G.wsInstant,sync:W.eval('SHOW_SYNC'),hist:W.localStorage.getItem('ct_history')};
+    try{
+      G.isOnline=false;G.srv=null;G.snd=false;G.wsInstant=true;W.eval('SHOW_SYNC=true');
+      F('startNow')('wordspin',3);
+      check('starting a local game opens the table with a wheel, a board and a seated bot',G.scr==='table'&&!!G.ws&&G.ws.P===3&&G.lp.length===3);
+      G.lp.forEach(p=>{p.bot=null;});G.ws.cur=1;G.ws.starter=1;G.lcur=0;G.ws.puzzle={c:'Test',d:1,t:'AB',i:-1};G.ws.called='';
+      F('wsDoLocal')({t:'spin'});
+      check('a spin moves the wheel to the stored angle at once when animation is off',G.wsDisp===G.ws.angle&&G.ws.moves===1);
+      const ws=G.ws;
+      if(ws.phase==='letter'){ws.lv={k:'pts',v:500};ws.called='';ws.cur=1;}
+      else{ws.phase='letter';ws.lv={k:'pts',v:500};ws.cur=1;ws.called='';}
+      G.lcur=0;F('wsDoLocal')({t:'letter',ch:'B'});
+      check('a correct letter scores and the same player carries on',G.ws.rs[0]===500&&G.ws.cur===1);
+      G.ws.rs[0]=300;F('wsDoLocal')({t:'vowel',ch:'A'});
+      check('buying the last vowel completes the puzzle and the round winner banks',G.ws.phase==='roundend'&&G.ws.bank[0]===500);
+      const html=F('rWordspinTable')();
+      check('the round-end screen shows the phrase and a Next button',/solved it/.test(html)&&/data-a="wsnext"/.test(html));
+      F('wsDoLocal')({t:'next'});
+      check('Next starts round 2 with the next player first',G.ws.round===2&&G.ws.cur===2);
+      // play the rest with legal bot moves and see the results
+      let n=0;const bot=F('wsBotAct');let s=5;const r=()=>{s=(s*48271)%2147483647;return s/2147483647;};
+      while(!G.ws.over&&n++<4000){if(G.ws.phase==='fsolve'){F('wsDoLocal')({t:'ftime',force:1});}else F('wsDoLocal')(bot(G.ws,'sharp',r));}
+      check('the game plays to a winner and the family history gets a WORDSPIN entry with each player’s stats',G.ws.over&&(()=>{const h=F('getHistory')()[0];return h&&h.game==='wordspin'&&Object.keys(h.stats.ws).length===3&&!!h.moment;})());
+      const res=F('rMatchEnd')?F('rMatchEnd')():'';
+      check('the results screen has the WORDSPIN statistics',typeof res==='string'&&/Puzzles solved/.test(res)&&/Best spin/.test(res));
+    } finally {
+      G.wsInstant=keep.inst;W.eval('SHOW_SYNC='+keep.sync);G.ws=null;G.wsSeq=null;G.scr='home';
+      if(keep.hist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keep.hist);
+    }
+  });
+  suite('WORDSPIN — it is wired in everywhere the other games are',()=>{
+    const F=n=>W.eval(n);
+    check('it plays online and against bots, with a tour, a tagline, an accent, a history name and reactions',F('ONLINE_GAMES').includes('wordspin')&&F('BOT_GAMES').has('wordspin')&&F('TOURS').wordspin.slides.length===5&&!!F('STAGE_TAGS').wordspin&&!!F('MOMENT_ACCENT').wordspin&&F('v14GameLabel')('wordspin')==='WORDSPIN'&&F('REACTION_GAME').wordspin.length===3);
+    check('it has four trophies',F('ACHIEVEMENTS').filter(a=>/^ws-/.test(a.id)).length===4);
+    check('the wheel is drawn with all 24 wedges and a pointer',(()=>{const s=F('wsWheelSVG')(0);return(s.match(/class="ws-wedge"/g)||[]).length===24&&/id="ws-ptr"/.test(s);})());
+    check('the board shows only the letters called so far',(()=>{const w=F('wsNew')(2,{seed:3});w.puzzle={c:'T',d:1,t:'HELLO WORLD',i:-1};w.called='LO';const html=F('wsBoardHTML')(w,'',false);return(html.match(/ws-t on/g)||[]).length===5&&(html.match(/ws-t bl/g)||[]).length===5;})());
+  });
+
   /* —— The Abyss, step 2: sabotage tricks —————— */
   suite('The Abyss — tricks: getting them',()=>{
     const F=n=>W.eval(n);
