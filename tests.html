@@ -10246,6 +10246,27 @@ async function runPresentation(A,W,frame){
       }finally{G.wsInstant=keep;G.ws=null;G.scr='home';}
     })());
   });
+  suite('WORDSPIN — what Wiz says (English and German)',()=>{
+    const F=n=>W.eval(n);
+    const wsNew=F('wsNew'),Q=F('wsQuip'),names=['Anna','Ben'];
+    const mk=(lang,fx,extra)=>{const w=wsNew(2,{seed:5,lang});w.moves=4;w.fx=fx;if(extra)Object.assign(w,extra);return w;};
+    check('at the very start Wiz welcomes the table, in both languages',/Welcome|Let/.test(Q(wsNew(2,{seed:5}),names))&&/Willkommen|Los geht/.test(Q(wsNew(2,{seed:5,lang:'de'}),names)));
+    check('nothing is said when nothing has happened yet after the start',Q(mk('en',null),names)==='');
+    check('a big wedge, a small wedge and a middle wedge get different comments',(()=>{const a=Q(mk('en',{kind:'spin',seg:'pts',v:1000,seat:1}),names),b=Q(mk('en',{kind:'spin',seg:'pts',v:250,seat:1}),names),c=Q(mk('en',{kind:'spin',seg:'pts',v:500,seat:1}),names);return a&&b&&c&&a!==b&&b!==c&&a!==c;})());
+    check('BANKRUPT names the player who lost, LOSE A TURN too',/Anna/.test(Q(mk('en',{kind:'spin',seg:'bankrupt',seat:1,lost:500}),names))&&/Ben/.test(Q(mk('en',{kind:'spin',seg:'lose',seat:2}),names)));
+    check('a miss names the letter, a free-play miss says nothing',/Z/.test(Q(mk('en',{kind:'letter',ch:'Z',n:0,hit:false,free:false,seat:1}),names))&&Q(mk('en',{kind:'letter',ch:'Z',n:0,hit:false,free:true,seat:1}),names)==='');
+    check('one, two and three or more tiles each get their own line',(()=>{const r=[1,2,3].map(n=>Q(mk('en',{kind:'letter',ch:'T',n,hit:true,gain:300*n,seat:1}),names));return r.every(Boolean)&&new Set(r).size===3&&/3/.test(r[2]);})());
+    check('a solved puzzle praises the solver, a wrong answer names them',/Anna/.test(Q(mk('en',{kind:'solve',ok:true,seat:1}),names))&&/Ben/.test(Q(mk('en',{kind:'solve',ok:false,seat:2}),names)));
+    check('the final, running out of time and the winner each have a line',(()=>{const a=Q(mk('en',{kind:'final',seat:1}),names),b=Q(mk('en',{kind:'ftime',seat:1}),names),c=Q(mk('en',{kind:'fsolve',ok:true,seat:1},{over:true,win:2}),names);return a&&b&&/Ben/.test(c);})());
+    check('the German lines are German and name the player too',/Anna/.test(Q(mk('de',{kind:'spin',seg:'bankrupt',seat:1,lost:5}),names))&&/Kein|Nicht/.test(Q(mk('de',{kind:'letter',ch:'Q',n:0,hit:false,free:false,seat:1}),names))&&/gewinnt|Achtung/.test(Q(mk('de',{kind:'fsolve',ok:true,seat:1},{over:true,win:1}),names)));
+    check('the same state always gets the same comment (no randomness), another move count may pick the other variant',(()=>{const f={kind:'solve',ok:true,seat:1};const a=Q(mk('en',f),names),b=Q(mk('en',f),names);const w2=mk('en',f);w2.moves=5;return a===b&&Q(w2,names)!==''&&Q(w2,names)!==a;})());
+    check('names are made safe (no HTML slips into the speech bubble)',Q(mk('en',{kind:'solve',ok:true,seat:1}),['<b>Hax</b>']).indexOf('<b>')<0);
+    check('every English line has a German twin with the same placeholders',(()=>{const Q2=F('WS_QUIPS');return Object.keys(Q2.en).every(k=>Q2.de[k]&&Q2.de[k].length===Q2.en[k].length&&Q2.en[k].every((s,i)=>(s.match(/\{\d\}/g)||[]).sort().join()===(Q2.de[k][i].match(/\{\d\}/g)||[]).sort().join()));})());
+    check('the speech bubble shows the quip above the hint',(()=>{
+      const G=W.eval('G'),keep=G.wsInstant;try{G.isOnline=false;G.srv=null;G.snd=false;G.wsInstant=true;F('startNow')('wordspin',2);G.lp.forEach(p=>{p.bot=null;});G.ws.cur=1;G.lcur=0;
+        return F('rWordspinTable')().indexOf('class="ws-quip"')>0;}finally{G.wsInstant=keep;G.ws=null;G.scr='home';}
+    })());
+  });
   suite('WORDSPIN — it is wired in everywhere the other games are',()=>{
     const F=n=>W.eval(n);
     check('it plays online and against bots, with a tour, a tagline, an accent, a history name and reactions',F('ONLINE_GAMES').includes('wordspin')&&F('BOT_GAMES').has('wordspin')&&F('TOURS').wordspin.slides.length===5&&!!F('STAGE_TAGS').wordspin&&!!F('MOMENT_ACCENT').wordspin&&F('v14GameLabel')('wordspin')==='WORDSPIN'&&F('REACTION_GAME').wordspin.length===3);

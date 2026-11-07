@@ -4551,6 +4551,7 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
 .ws-host.hop{animation:ws-hop .6s cubic-bezier(.3,1.6,.5,1) 1;}
 @keyframes ws-hop{0%{transform:translateY(8px) scale(.85);}60%{transform:translateY(-6px) scale(1.08);}100%{transform:none;}}
 .ws-say{position:relative;max-width:min(26rem,calc(100vw - 7rem));padding:.45rem .8rem;border-radius:14px;background:rgba(13,21,56,.88);border:1px solid rgba(233,196,106,.32);font-size:.9rem;line-height:1.3;}
+.ws-quip{display:block;color:#e9c46a;font-style:italic;font-size:.86rem;margin-bottom:.15rem;}
 .ws-say::before{content:"";position:absolute;left:-7px;top:50%;margin-top:-6px;border:6px solid transparent;border-right-color:rgba(233,196,106,.45);border-left:0;}
 .ws-cat{display:inline-flex;align-items:center;gap:.45rem;}
 .ws-cat-ic{width:1.7rem;height:1.7rem;margin:-.45rem 0 -.45rem -.75rem;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55));}
@@ -6371,7 +6372,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=321;
+const APP_BUILD=322;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -21637,6 +21638,48 @@ const WS_TX={
   finalTitle:'DAS FINALRÄTSEL',finalSolved:'{0} hat es gelöst (+{1})',finalLost:'{0}: die Zeit ist abgelaufen',hPlayer:'Spieler',hTotal:'Gesamt',hRounds:'Runden',hBest:'Bester Dreh',hBankrupt:'Bankrott',hVowels:'Vokale',hSpins:'Drehs',
   optRounds:'Wie viele Runden?',opt2:'2 Runden',opt2d:'Etwa 12 Minuten',opt3:'3 Runden',opt3d:'Etwa 18 Minuten',opt4:'4 Runden',opt4d:'Etwa 25 Minuten',optPuz:'Rätsel',optMixed:'Gemischt',optMixedD:'Erst leichte, später schwerere',optEasy:'Leicht',optEasyD:'Kurze, bekannte Sätze',optMed:'Mittel',optMedD:'Längere Sätze',optHard:'Schwer',optHardD:'Lang und knifflig',optLang:'Sprache der Rätsel',optEn:'English',optEnD:'English puzzles and texts',optDe:'Deutsch',optDeD:'Deutsche Rätsel und Texte'}
 };
+const WS_QUIPS={
+ en:{start:['Welcome, everyone! May the best word win.',"Let's spin! I have a good feeling about this table."],
+  big:['{0}! Now that is serious money.','{0} per tile — lovely!'],small:['Modest, but it all adds up.','Small wedge, big plans.'],mid:['Decent! Choose wisely.','A fine number. Name a consonant.'],
+  bankrupt:['Ouch — {1} goes bankrupt!','Oh no, {1}. The wheel giveth, the wheel taketh.'],lose:['Skipped! {1} has to watch this round.','Lose a turn — the others thank you, {1}.'],
+  free:["Free play! Take a risk, it's on the house.",'Free play — nothing to lose!'],wild:['Wild! Anything goes.','Wild wedge — pick your favourite!'],
+  hitn:['{0} × {2} — splendid!','What a haul: {0} tiles!'],hit2:['Two tiles — nicely done.','A pair! Lovely.'],hit1:['Found it!','One tile — every bit counts.'],
+  miss:['No {2} here. Next player!','Not a single {2}. Oh dear.'],vowel:['A vowel — how elegant.','Buying vowels, are we? Very refined.'],
+  solved:['Solved! Brilliant, {1}!','{1} cracks it — bravo!'],wrong:['Not quite, {1}…','Close, perhaps — but no.'],
+  final:['The final puzzle — hold on to your tiles!','One puzzle, one crown. Good luck!'],time:["Time's up — the puzzle wins this one.",'Tick tock… too late!'],win:['{1} wins WORDSPIN. A champion!','All hail {1}!']},
+ de:{start:['Willkommen zusammen! Das beste Wort gewinnt.',"Los geht's! Ich habe ein gutes Gefühl bei dieser Runde."],
+  big:['{0}! Das ist ordentlich Geld.','{0} pro Feld — wunderbar!'],small:['Bescheiden, aber Kleinvieh macht auch Mist.','Kleines Feld, große Pläne.'],mid:['Ordentlich! Wähle klug.','Eine schöne Zahl. Nenne einen Konsonanten.'],
+  bankrupt:['Autsch — {1} ist bankrott!','Oje, {1}. Was das Rad gibt, nimmt das Rad.'],lose:['Ausgesetzt! {1} schaut diese Runde zu.','Aussetzen — die anderen danken dir, {1}.'],
+  free:['Freispiel! Geh ein Risiko ein, es kostet nichts.','Freispiel — da kann nichts schiefgehen!'],wild:['Joker! Alles ist erlaubt.','Joker — such dir deinen Lieblingsbuchstaben aus!'],
+  hitn:['{0}× {2} — großartig!','Was für ein Fund: {0} Felder!'],hit2:['Zwei Felder — gut gemacht.','Ein Pärchen! Schön.'],hit1:['Gefunden!','Ein Feld — jedes zählt.'],
+  miss:['Kein {2} dabei. Der Nächste!','Nicht ein einziges {2}. Oje.'],vowel:['Ein Vokal — wie elegant.','Vokale kaufen? Sehr vornehm.'],
+  solved:['Gelöst! Brillant, {1}!','{1} knackt es — bravo!'],wrong:['Leider nicht ganz, {1}…','Nah dran vielleicht — aber nein.'],
+  final:['Das Finalrätsel — jetzt wird es ernst!','Ein Rätsel, eine Krone. Viel Glück!'],time:['Die Zeit ist um — das Rätsel gewinnt.','Tick tack… zu spät!'],win:['{1} gewinnt WORDSPIN. Ein Meister!','Alle Achtung vor {1}!']}
+};
+// What Wiz says about the last thing that happened ('' when nothing worth a comment). Same words on every device: it only reads the game state.
+function wsQuip(ws,names){
+  const L=WS_QUIPS[ws.lang==='de'?'de':'en'],f=ws.fx,nm=s=>esc((names&&names[s-1])||'');
+  const say=(k,a0,a1,a2)=>{const v=L[k],i=(ws.moves+(f&&f.seat||0))%v.length;return v[i].replace('{0}',()=>a0==null?'':a0).replace('{1}',()=>a1==null?'':a1).replace('{2}',()=>a2==null?'':a2);};
+  if(ws.over)return say('win',0,nm(ws.win));
+  if(!f)return ws.moves===0?say('start'):'';
+  switch(f.kind){
+    case'spin':
+      if(f.seg==='bankrupt')return say('bankrupt',0,nm(f.seat));
+      if(f.seg==='lose')return say('lose',0,nm(f.seat));
+      if(f.seg==='free')return say('free');
+      if(f.seg==='wild')return say('wild');
+      return say(f.v>=800?'big':f.v<=350?'small':'mid',f.v);
+    case'letter':case'vowel':
+      if(!f.hit)return f.free?'':say('miss',0,0,f.ch);
+      if(f.kind==='vowel')return say('vowel');
+      return f.n>=3?say('hitn',f.n,0,f.ch):f.n===2?say('hit2'):say('hit1');
+    case'solve':case'fsolve':return f.ok?say('solved',0,nm(f.seat)):say('wrong',0,nm(f.seat));
+    case'round':return say('start');
+    case'final':case'fpick':return say('final');
+    case'ftime':return say('time');
+  }
+  return'';
+}
 function wsTx(l){const lang=l&&l.lang?l.lang:l,d=WS_TX[lang]||WS_TX.en;return(k,...a)=>{let s=d[k];if(s==null)s=WS_TX.en[k]||k;return s.replace(/\{(\d)\}/g,(m,i)=>a[i]);};}
 function wsLang(){let v='en';try{v=localStorage.getItem('ct_ws_lang')||'en';}catch(e){}return v==='de'?'de':'en';}
 function wsCurLang(){const ws=G.isOnline?(G.srv&&G.srv.ws):G.ws;return ws&&ws.lang?ws.lang:wsLang();}
@@ -21737,6 +21780,7 @@ function rWordspinTable(){
   const view=wsView();
   const pose=wsHostPose(ws,!!seq),hop=G.wsPose!==pose&&G.wsPose!=null;G.wsPose=pose;
   const hintTxt=wsHintText(ws,p,mine&&!botTurn,seq);
+  const quip=seq?'':wsQuip(ws,players.map(q=>q.name));
   const hostHTML=`<img class="ws-host${hop?' hop':''}" src="assets/games/ws_owl_${pose}.jpg" alt="" width="60" height="60">`;
   const catIc=WS_CAT_IC[ws.puzzle.c];
   return`<div id="s-table" class="scr on game-wordspin ws-v-${view}">
@@ -21747,7 +21791,7 @@ function rWordspinTable(){
     </div>
     <div class="ws-strip">${plates}</div>
     <div class="ws-main">
-      <div class="ws-top">${ws.final?'<div class="ws-final-band" role="img" aria-label=""></div>':''}<div class="ws-meta"><span class="ws-cat">${catIc!=null?`<img class="ws-cat-ic" src="assets/games/ws_cat_${catIc}.png" alt="" width="28" height="28">`:''}${esc(ws.puzzle.c)}</span>${roundLine}</div>${wsBoardHTML(ws,flip,deal)}<div class="ws-hint">${hostHTML}${hintTxt?`<span class="ws-say">${hintTxt}</span>`:''}</div></div>
+      <div class="ws-top">${ws.final?'<div class="ws-final-band" role="img" aria-label=""></div>':''}<div class="ws-meta"><span class="ws-cat">${catIc!=null?`<img class="ws-cat-ic" src="assets/games/ws_cat_${catIc}.png" alt="" width="28" height="28">`:''}${esc(ws.puzzle.c)}</span>${roundLine}</div>${wsBoardHTML(ws,flip,deal)}<div class="ws-hint">${hostHTML}${(hintTxt||quip)?`<span class="ws-say">${quip?`<em class="ws-quip">${quip}</em>`:''}${hintTxt}</span>`:''}</div></div>
       <div class="ws-stage">
         <div class="ws-left"><div class="ws-wheel-wrap an-${gtAnim()}" style="${kbPhase?'width:min(52vw,11rem)':''}">${wsWheelSVG(ang,ws.lang)}</div></div>
         <div class="ws-right">${wsPanelHTML(ws,p,mine,acts,seq,players)}
