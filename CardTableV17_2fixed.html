@@ -4830,6 +4830,7 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 <input type="file" accept="image/*" capture="environment" id="snap-input" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;" aria-hidden="true">
 <script src="wordspin-puzzles.js"></script>
+<script src="wordspin-puzzles-de.js"></script>
 <script>
 'use strict';
 
@@ -5499,7 +5500,8 @@ const GAMES=[
      '<b>BANKRUPT</b> wipes your score for this round (your banked totals are safe) and passes the turn. <b>LOSE A TURN</b> passes it. <b>FREE PLAY</b> lets you name any letter — vowels too — and a wrong one costs nothing. <b>WILD</b> lets you name any letter at 500 per tile; a vowel is free.',
      'Instead of spinning you may <b>buy a vowel</b> for <b>250</b> (you need that much in this round), or <b>solve</b> the puzzle. A wrong vowel or a wrong solve passes the turn.',
      'Solve it and you <b>bank your round score</b> (at least 500). Only the round winner banks. After the last round the leader plays the <b>final puzzle</b>: R S T L N E are given, choose <b>three more consonants and one vowel</b>, then you have <b>30 seconds</b> to solve it for 5000 bonus points.',
-     'Play online with each person on their own device — the wheel and the puzzle are shared, your letters are private — together on one device, or against the computer.']},
+     'Play online with each person on their own device — the wheel and the puzzle are shared, your letters are private — together on one device, or against the computer.'],
+   rulesDe:['<b>Dreh das Rad. Enthülle den Satz. Löse ihn.</b> Hinter leeren Feldern steckt ein Satz, dazu gibt es eine Kategorie als Hinweis. Ihr spielt 2, 3 oder 4 Runden — danach spielt der Führende das <b>Finalrätsel</b>.','Wenn du dran bist, <b>drehst du das Rad</b>. Eine <b>Zahl</b> (250–1000) heißt: nenne einen <b>Konsonanten</b>. Kommt er im Satz vor, bekommst du die Zahl <b>für jedes Feld</b>, in dem er steht. Kommt er nicht vor, ist der Nächste dran.','<b>BANKROTT</b> löscht dein Geld in dieser Runde (dein gutgeschriebenes Geld bleibt) und gibt die Runde ab. <b>AUSSETZEN</b> gibt sie nur ab. <b>FREISPIEL</b>: nenne einen beliebigen Buchstaben, auch einen Vokal — ein falscher kostet nichts. <b>JOKER</b>: ein beliebiger Buchstabe für 500 pro Feld, ein Vokal ist gratis.','Statt zu drehen darfst du einen <b>Vokal kaufen</b> (<b>250</b>, so viel musst du in dieser Runde haben; Ä, Ö und Ü zählen als Vokale) oder das Rätsel <b>lösen</b>. Ein falscher Vokal oder eine falsche Lösung gibt die Runde ab.','Wer löst, bekommt sein Rundengeld <b>gutgeschrieben</b> (mindestens 500). Nur der Rundensieger bucht. Nach der letzten Runde spielt der Führende das <b>Finalrätsel</b>: R S T L N E sind gegeben, wähle <b>drei weitere Konsonanten und einen Vokal</b>, dann hast du <b>30 Sekunden</b> für 5000 Bonuspunkte. Ä, Ö, Ü darfst du auch als AE, OE, UE tippen; ß ist SS.','Spielt online, jeder auf seinem Gerät — Rad und Rätsel sind für alle gleich, deine Buchstaben nur für dich — gemeinsam an einem Gerät oder gegen den Computer.']},
   {id:'lepouilleux',cat:'cards',icon:'🂫',name:'Old Maid',players:'2–8',dur:'5–15 min',diff:'easy',deal:0,cover:'assets/games/lepouilleux.jpg',
    rules:['A standard 52-card deck, minus the <b>Jack of Clubs</b> — 51 cards dealt out to everyone.',
      'A pair is two cards of the <b>same rank and same color</b> — K♥+K♦, or 8♠+8♣ (not just any same rank).',
@@ -6335,7 +6337,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=314;
+const APP_BUILD=315;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -21276,12 +21278,26 @@ function abRunSeq(ab,renderNow,done){
 const WS_CODES=['250','500','300','B','600','400','W','750','350','L','900','450','F','1000','550','B','700','300','800','500','650','250','850','400'];
 const WS_SEGS=WS_CODES.map(c=>c==='B'?{k:'bankrupt',label:'BANKRUPT'}:c==='L'?{k:'lose',label:'LOSE A TURN'}:c==='F'?{k:'free',label:'FREE PLAY',v:500}:c==='W'?{k:'wild',label:'WILD',v:500}:{k:'pts',label:c,v:+c});
 const WS_SEG_DEG=360/WS_SEGS.length;
-const WS_VOWELS='AEIOU',WS_VOWEL_COST=250,WS_MIN_WIN=500,WS_FINAL_GIVEN='RSTLNE',WS_FINAL_PRIZE=5000,WS_FINAL_MS=30000,WS_COLS=14,WS_ROWS=4;
-const WS_ALPHA='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-function wsNorm(s){return String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
+const WS_VOWELS='AEIOUÄÖÜ',WS_VOWEL_COST=250,WS_MIN_WIN=500,WS_FINAL_GIVEN='RSTLNE',WS_FINAL_PRIZE=5000,WS_FINAL_MS=30000,WS_COLS=14,WS_ROWS=4;
+const WS_ALPHA='ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÜ';
+const WS_VOWELS_EN='AEIOU';
+function wsVowelsFor(ws){return ws&&ws.lang==='de'?WS_VOWELS:WS_VOWELS_EN;}
+// Letters only, upper case, no accents. German keeps Ä Ö Ü as letters of their own and reads ß as SS; English folds every accent away (Ä -> A).
+function wsNorm(s,lang){
+  let t=String(s==null?'':s).toUpperCase();
+  if(lang==='de')t=t.replace(/Ä/g,'').replace(/Ö/g,'').replace(/Ü/g,'');
+  t=t.normalize('NFD').replace(/[̀-ͯ]/g,'');
+  if(lang==='de')t=t.replace(//g,'Ä').replace(//g,'Ö').replace(//g,'Ü');
+  return t.replace(/[^A-Z0-9ÄÖÜ]/g,'');
+}
+// Is this typed answer the puzzle? German players may type AE OE UE for Ä Ö Ü.
+function wsSame(a,b,lang){
+  const x=s=>wsNorm(s,lang).replace(/Ä/g,'AE').replace(/Ö/g,'OE').replace(/Ü/g,'UE');
+  return x(a)!==''&&x(a)===x(b);
+}
 function wsRand(ws){ws.rng=(ws.rng*48271)%2147483647;return ws.rng/2147483647;}
 function wsIsVowel(ch){return WS_VOWELS.indexOf(ch)>=0;}
-function wsPuzLetters(t){return [...new Set(wsNorm(t).split('').filter(c=>WS_ALPHA.indexOf(c)>=0))].join('');}
+function wsPuzLetters(t,lang){return [...new Set(wsNorm(t,lang).split('').filter(c=>WS_ALPHA.indexOf(c)>=0))].join('');}
 // The board: words wrapped onto at most 4 rows of 14 tiles. Returns the rows (strings) or null when the phrase does not fit.
 function wsLayout(t){
   const words=String(t).toUpperCase().split(/\s+/).filter(Boolean),rows=[];let cur='';
@@ -21293,7 +21309,7 @@ function wsLayout(t){
   return rows.length<=WS_ROWS?rows:null;
 }
 function wsPick(ws,minD,maxD){
-  const lib=(typeof WS_PUZZLES!=='undefined'?WS_PUZZLES:[]);
+  const lib=ws.lang==='de'?(typeof WS_PUZZLES_DE!=='undefined'?WS_PUZZLES_DE:[]):(typeof WS_PUZZLES!=='undefined'?WS_PUZZLES:[]);
   let c=[];lib.forEach((p,i)=>{if(p[1]>=minD&&p[1]<=maxD&&ws.used.indexOf(i)<0)c.push(i);});
   if(!c.length){ws.used=[];lib.forEach((p,i)=>{if(p[1]>=minD&&p[1]<=maxD)c.push(i);});}
   if(!c.length)return{c:'Phrases',d:1,t:'HELLO WORLD',i:-1};
@@ -21305,7 +21321,7 @@ function wsNew(P,opts){
   const n=Math.max(2,Math.min(4,(P|0)||2)),seed=((opts.seed||Date.now())%2147483646)+1;
   const z=()=>new Array(n).fill(0);
   const ws={v:1,P:n,rounds:[2,3,4].indexOf(opts.rounds)>=0?opts.rounds:3,diff:opts.diff||0,seed,rng:seed,round:1,starter:1,cur:1,phase:'spin',
-    rs:z(),bank:z(),called:'',puzzle:null,used:[],lv:null,angle:0,moves:0,fx:null,over:false,win:0,roundWin:0,final:null,
+    lang:opts.lang==='de'?'de':'en',rs:z(),bank:z(),called:'',puzzle:null,used:[],lv:null,angle:0,moves:0,fx:null,over:false,win:0,roundWin:0,final:null,
     stats:{spins:z(),bankrupt:z(),lose:z(),vowels:z(),hits:z(),misses:z(),solved:z(),wrongSolve:z(),best:z(),rounds:z(),earned:z()}};
   for(let i=0;i<7;i++)wsRand(ws);   // warm up so close seeds do not give close first spins
   wsStartRound(ws);
@@ -21317,13 +21333,13 @@ function wsStartRound(ws){
   ws.puzzle=wsPick(ws,d||1,d||(ws.round<=1?2:3));ws.called='';ws.rs=ws.rs.map(()=>0);ws.cur=ws.starter;ws.phase='spin';ws.lv=null;ws.roundWin=0;
 }
 function wsPass(ws){ws.cur=ws.cur%ws.P+1;ws.phase='spin';ws.lv=null;}
-function wsLeft(ws,vow){return wsPuzLetters(ws.puzzle.t).split('').filter(c=>ws.called.indexOf(c)<0&&wsIsVowel(c)===!!vow);}
-function wsComplete(ws){return wsPuzLetters(ws.puzzle.t).split('').every(c=>ws.called.indexOf(c)>=0);}
+function wsLeft(ws,vow){return wsPuzLetters(ws.puzzle.t,ws.lang).split('').filter(c=>ws.called.indexOf(c)<0&&wsIsVowel(c)===!!vow);}
+function wsComplete(ws){return wsPuzLetters(ws.puzzle.t,ws.lang).split('').every(c=>ws.called.indexOf(c)>=0);}
 function wsCanSpin(ws){return ws.phase==='spin'&&wsLeft(ws,false).length>0;}
-function wsCanBuy(ws,seat){return ws.phase==='spin'&&ws.rs[(seat||ws.cur)-1]>=WS_VOWEL_COST&&WS_VOWELS.split('').some(v=>ws.called.indexOf(v)<0);}
-function wsCount(ws,ch){return wsNorm(ws.puzzle.t).split('').filter(c=>c===ch).length;}
+function wsCanBuy(ws,seat){return ws.phase==='spin'&&ws.rs[(seat||ws.cur)-1]>=WS_VOWEL_COST&&wsVowelsFor(ws).split('').some(v=>ws.called.indexOf(v)<0);}
+function wsCount(ws,ch){return wsNorm(ws.puzzle.t,ws.lang).split('').filter(c=>c===ch).length;}
 function wsRoundWin(ws,seat){
-  const got=Math.max(ws.rs[seat-1],WS_MIN_WIN),pl=wsPuzLetters(ws.puzzle.t);
+  const got=Math.max(ws.rs[seat-1],WS_MIN_WIN),pl=wsPuzLetters(ws.puzzle.t,ws.lang);
   ws.bank[seat-1]+=got;ws.roundWin=seat;ws.phase='roundend';ws.lv=null;
   ws.called=pl+ws.called.split('').filter(c=>pl.indexOf(c)<0).join('');
   ws.stats.rounds[seat-1]++;ws.stats.earned[seat-1]+=got;
@@ -21353,8 +21369,9 @@ function wsApply(ws,seat,act,now){
   }
   if(t==='letter'){
     if(ws.phase!=='letter'||!ws.lv)return null;
-    const ch=wsNorm(act.ch);
+    const ch=wsNorm(act.ch,ws.lang);
     if(ch.length!==1||WS_ALPHA.indexOf(ch)<0||ws.called.indexOf(ch)>=0)return null;
+    if(!wsVowelsFor(ws).includes(ch)&&wsIsVowel(ch))return null;
     if(wsIsVowel(ch)&&!ws.lv.any)return null;
     const n=wsCount(ws,ch),vow=wsIsVowel(ch),lv=ws.lv;
     ws.called+=ch;ws.moves++;
@@ -21366,7 +21383,7 @@ function wsApply(ws,seat,act,now){
     ws.fx=fx;return fx;
   }
   if(t==='vowel'){
-    const ch=wsNorm(act.ch);
+    const ch=wsNorm(act.ch,ws.lang);
     if(ws.phase!=='spin'||ch.length!==1||!wsIsVowel(ch)||ws.called.indexOf(ch)>=0||ws.rs[i]<WS_VOWEL_COST)return null;
     const n=wsCount(ws,ch);
     ws.rs[i]-=WS_VOWEL_COST;ws.called+=ch;ws.moves++;st.vowels[i]++;
@@ -21376,7 +21393,7 @@ function wsApply(ws,seat,act,now){
   }
   if(t==='solve'){
     if(ws.phase!=='spin')return null;
-    const ok=wsNorm(act.text)===wsNorm(ws.puzzle.t)&&wsNorm(act.text)!=='';
+    const ok=wsSame(act.text,ws.puzzle.t,ws.lang);
     ws.moves++;const fx={kind:'solve',seat,ok,text:String(act.text||'')};
     if(ok){st.solved[i]++;fx.round=wsRoundWin(ws,seat);}else{st.wrongSolve[i]++;wsPass(ws);}
     ws.fx=fx;return fx;
@@ -21395,7 +21412,7 @@ function wsApply(ws,seat,act,now){
   }
   if(t==='fpick'){
     if(ws.phase!=='fpick')return null;
-    const L=[...new Set(wsNorm(act.letters).split(''))].filter(c=>WS_ALPHA.indexOf(c)>=0);
+    const L=[...new Set(wsNorm(act.letters,ws.lang).split(''))].filter(c=>WS_ALPHA.indexOf(c)>=0);
     const cons=L.filter(c=>!wsIsVowel(c)),vows=L.filter(c=>wsIsVowel(c));
     if(cons.length!==3||vows.length!==1||L.some(c=>WS_FINAL_GIVEN.indexOf(c)>=0))return null;
     ws.final.picks=L.join('');ws.called+=L.join('');ws.final.deadline=now+WS_FINAL_MS;ws.phase='fsolve';ws.moves++;
@@ -21407,7 +21424,7 @@ function wsApply(ws,seat,act,now){
   if(t==='fsolve'){
     if(ws.phase!=='fsolve')return null;
     if(now>ws.final.deadline+1500){wsFinish(ws,false);ws.moves++;ws.fx={kind:'ftime',seat};return ws.fx;}
-    const ok=wsNorm(act.text)===wsNorm(ws.puzzle.t)&&wsNorm(act.text)!=='';
+    const ok=wsSame(act.text,ws.puzzle.t,ws.lang);
     ws.moves++;ws.fx={kind:'fsolve',seat,ok,text:String(act.text||'')};
     if(ok)wsFinish(ws,true);else st.wrongSolve[i]++;
     return ws.fx;
@@ -21419,26 +21436,32 @@ function wsApply(ws,seat,act,now){
   return null;
 }
 function wsMoment(ws,names){
-  const w=ws.win,nm=names[w-1]||'Someone',f=ws.final;
+  const w=ws.win,nm=names[w-1]||(ws.lang==='de'?'Jemand':'Someone'),f=ws.final;
+  if(ws.lang==='de'){
+    if(f&&f.solved&&f.leader===w)return `${nm} hat das Finalrätsel gelöst und die Krone geholt`;
+    if(f&&!f.solved&&f.leader===w)return `${nm} hat die Führung durch das Finalrätsel gerettet`;
+    if(f&&f.solved)return `${names[f.leader-1]||'Der Führende'} löste das Finale, aber ${nm} gewann trotzdem`;
+    return `${nm} gewinnt WORDSPIN`;
+  }
   if(f&&f.solved&&f.leader===w)return `${nm} solved the final puzzle and took the crown`;
   if(f&&!f.solved&&f.leader===w)return `${nm} held on to the lead through the final puzzle`;
   if(f&&f.solved)return `${names[f.leader-1]||'The leader'} solved the final, but ${nm} still came out on top`;
   return `${nm} won WORDSPIN`;
 }
 // Computer players. level: 'gentle' (default) or 'sharp'. r is a random function (tests pass a fixed one).
-const WS_FREQ='ETAOINSRHLDCUMFPGWYBVKXJQZ';
+const WS_FREQ='ETAOINSRHLDCUMFPGWYBVKXJQZ',WS_FREQ_DE='ENISRATDHULCGMOBWFKZPVÄÜÖJYXQ';
 function wsBotAct(ws,level,r){
-  r=r||Math.random;const sharp=level==='sharp',seat=ws.cur;
-  const all=wsPuzLetters(ws.puzzle.t),shown=all.split('').filter(c=>ws.called.indexOf(c)>=0).length,frac=all.length?shown/all.length:1;
-  const bestCons=()=>{const c=WS_FREQ.split('').filter(x=>!wsIsVowel(x)&&ws.called.indexOf(x)<0);return c.length?(!sharp&&r()<.25?c[Math.floor(r()*Math.min(8,c.length))]:c[0]):null;};
-  const bestVowel=()=>WS_FREQ.split('').find(x=>wsIsVowel(x)&&ws.called.indexOf(x)<0)||null;
+  r=r||Math.random;const sharp=level==='sharp',seat=ws.cur,FQ=ws.lang==='de'?WS_FREQ_DE:WS_FREQ;
+  const all=wsPuzLetters(ws.puzzle.t,ws.lang),shown=all.split('').filter(c=>ws.called.indexOf(c)>=0).length,frac=all.length?shown/all.length:1;
+  const bestCons=()=>{const c=FQ.split('').filter(x=>!wsIsVowel(x)&&ws.called.indexOf(x)<0);return c.length?(!sharp&&r()<.25?c[Math.floor(r()*Math.min(8,c.length))]:c[0]):null;};
+  const bestVowel=()=>FQ.split('').find(x=>wsIsVowel(x)&&ws.called.indexOf(x)<0)||null;
   if(ws.phase==='roundend')return{t:'next'};
   if(ws.phase==='letter'){
     if(ws.lv.any&&frac>.35&&r()<.4&&bestVowel())return{t:'letter',ch:bestVowel()};
     return{t:'letter',ch:bestCons()||bestVowel()};
   }
   if(ws.phase==='fpick'){
-    const c=WS_FREQ.split('').filter(x=>!wsIsVowel(x)&&ws.called.indexOf(x)<0).slice(0,3);
+    const c=FQ.split('').filter(x=>!wsIsVowel(x)&&ws.called.indexOf(x)<0).slice(0,3);
     return{t:'fpick',letters:c.join('')+bestVowel()};
   }
   if(ws.phase==='fsolve')return{t:'fsolve',text:r()<(sharp?.8:.5)?ws.puzzle.t:'NO IDEA'};
@@ -21460,22 +21483,23 @@ function wsView(){let v='full';try{v=localStorage.getItem('ct_ws_view')||'full';
 function wsSetView(v){try{localStorage.setItem('ct_ws_view',v);}catch(e){}}
 function wsSetPref(k,v){try{localStorage.setItem('ct_ws_'+k,String(v));}catch(e){}}
 function wsOptionsHTML(){
-  const r=wsRounds(),l=wsLevel();
+  const r=wsRounds(),l=wsLevel(),lg=wsLang(),T=wsTx(lg);
   const tog=(a,m,n,d,on)=>`<div class="hr-tog${on?' on':''}" data-a="${a}" data-m="${m}"><div class="hr-row"><span class="hr-nm">${n}</span><span class="hr-chk">${on?'✓':''}</span></div><span class="hr-desc">${d}</span></div>`;
-  return`<div class="panel"><div class="panel-lbl">How many rounds?</div><div class="hr-grid">${[[2,'2 rounds','About 12 minutes'],[3,'3 rounds','About 18 minutes'],[4,'4 rounds','About 25 minutes']].map(([k,n,d])=>tog('ws-rounds',k,n,d,r===k)).join('')}</div>
-    <div class="panel-lbl" style="margin-top:.6rem;">Puzzles</div><div class="hr-grid">${[[0,'Mixed','Easy ones first, harder later'],[1,'Easy','Short, familiar phrases'],[2,'Medium','Longer phrases'],[3,'Hard','Long and tricky']].map(([k,n,d])=>tog('ws-level',k,n,d,l===k)).join('')}</div></div>`;
+  return`<div class="panel"><div class="panel-lbl">${T('optLang')}</div><div class="hr-grid">${tog('ws-lang','en',T('optEn'),T('optEnD'),lg==='en')}${tog('ws-lang','de',T('optDe'),T('optDeD'),lg==='de')}</div>
+    <div class="panel-lbl" style="margin-top:.6rem;">${T('optRounds')}</div><div class="hr-grid">${[[2,'opt2','opt2d'],[3,'opt3','opt3d'],[4,'opt4','opt4d']].map(([k,n,d])=>tog('ws-rounds',k,T(n),T(d),r===k)).join('')}</div>
+    <div class="panel-lbl" style="margin-top:.6rem;">${T('optPuz')}</div><div class="hr-grid">${[[0,'optMixed','optMixedD'],[1,'optEasy','optEasyD'],[2,'optMed','optMedD'],[3,'optHard','optHardD']].map(([k,n,d])=>tog('ws-level',k,T(n),T(d),l===k)).join('')}</div></div>`;
 }
 function wsNewGame(n,first){
-  return wsStart(wsNew(n,{rounds:wsRounds(),diff:wsLevel(),seed:Date.now()*7+Math.floor(Math.random()*1000003)}),first||1);
+  return wsStart(wsNew(n,{rounds:wsRounds(),diff:wsLevel(),lang:wsLang(),seed:Date.now()*7+Math.floor(Math.random()*1000003)}),first||1);
 }
 function wsResetView(){G.wsSeq=null;G.wsDisp=null;G.wsMode='';G.wsPick='';G.wsPicks='';G.wsText='';G.wsLastR=null;G.wsShown={};G.wsFtSent=0;if(G.wsClockT){clearInterval(G.wsClockT);G.wsClockT=null;}}
 /* ── WORDSPIN: the wheel (drawn in SVG) ── */
 const WS_FILL=['#16307f','#1d54b8','#4a2c9c','#0d2159'];
 function wsPt(a,r){const t=a*Math.PI/180;return[+(r*Math.sin(t)).toFixed(2),+(-r*Math.cos(t)).toFixed(2)];}
-let _wsWheelStatic='';
-function wsWheelSVG(ang,o){
-  o=o||{};
-  if(!_wsWheelStatic){
+const _wsWheelStatic={};
+function wsWheelSVG(ang,lang){
+  lang=lang==='de'?'de':'en';
+  if(!_wsWheelStatic[lang]){
     const R=92,out=[];
     out.push(`<defs><radialGradient id="wsGloss" cx="50%" cy="38%" r="65%"><stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></radialGradient>
       <linearGradient id="wsRim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff1c2"/><stop offset=".35" stop-color="#e9c46a"/><stop offset=".7" stop-color="#8a5f17"/><stop offset="1" stop-color="#f4d88a"/></linearGradient>
@@ -21485,7 +21509,7 @@ function wsWheelSVG(ang,o){
     const w=WS_SEG_DEG;
     WS_SEGS.forEach((s,i)=>{
       const a0=i*w-w/2,a1=i*w+w/2,[x1,y1]=wsPt(a0,R),[x2,y2]=wsPt(a1,R);
-      let fill=WS_FILL[i%4],tc='#f6dc8d',stroke='#e9c46a',sz=11,label=s.label;
+      let fill=WS_FILL[i%4],tc='#f6dc8d',stroke='#e9c46a',sz=11,label=lang==='de'?({bankrupt:'BANKROTT',wild:'JOKER'}[s.k]||s.label):s.label;
       if(s.k==='bankrupt'){fill='#05060d';tc='#ff5cc0';sz=6.3;}
       else if(s.k==='lose'){fill='#2a1646';tc='#e9dcff';sz=5.4;}
       else if(s.k==='free'){fill='url(#wsGold)';tc='#2a1b00';sz=6.3;}
@@ -21493,18 +21517,18 @@ function wsWheelSVG(ang,o){
       else if(String(label).length>3)sz=9.6;
       const tr=`rotate(${i*w-90}) translate(${R-5},0)`;
       let txt;
-      if(s.k==='lose')txt=`<text transform="${tr}" text-anchor="end" font-size="${sz}" font-weight="800" fill="${tc}" letter-spacing=".3" dominant-baseline="central"><tspan x="0" dy="-3">LOSE A</tspan><tspan x="0" dy="6.2">TURN</tspan></text>`;
-      else if(s.k==='free')txt=`<text transform="${tr}" text-anchor="end" font-size="${sz}" font-weight="800" fill="${tc}" letter-spacing=".3" dominant-baseline="central"><tspan x="0" dy="-3">FREE</tspan><tspan x="0" dy="6.2">PLAY</tspan></text>`;
+      if(s.k==='lose')txt=`<text transform="${tr}" text-anchor="end" font-size="${sz}" font-weight="800" fill="${tc}" letter-spacing=".3" dominant-baseline="central">${lang==='de'?'<tspan x="0" dy="0">AUSSETZEN</tspan>':'<tspan x="0" dy="-3">LOSE A</tspan><tspan x="0" dy="6.2">TURN</tspan>'}</text>`;
+      else if(s.k==='free')txt=`<text transform="${tr}" text-anchor="end" font-size="${sz}" font-weight="800" fill="${tc}" letter-spacing=".3" dominant-baseline="central">${lang==='de'?'<tspan x="0" dy="-3">FREI-</tspan><tspan x="0" dy="6.2">SPIEL</tspan>':'<tspan x="0" dy="-3">FREE</tspan><tspan x="0" dy="6.2">PLAY</tspan>'}</text>`;
       else txt=`<text transform="${tr}" text-anchor="end" font-size="${sz}" font-weight="800" fill="${tc}" letter-spacing="${s.k==='pts'?.4:.5}" dominant-baseline="central" font-family="Georgia,serif">${label}</text>`;
       out.push(`<g class="ws-wedge" data-i="${i}"><path d="M0 0 L${x1} ${y1} A${R} ${R} 0 0 1 ${x2} ${y2} Z" fill="${fill}" stroke="${stroke}" stroke-width=".7"/>${s.k==='bankrupt'?`<path d="M0 0 L${x1} ${y1} A${R} ${R} 0 0 1 ${x2} ${y2} Z" fill="none" stroke="#d946a8" stroke-width="1.1" opacity=".8"/>`:''}${txt}</g>`);
     });
-    _wsWheelStatic=out.join('');
+    _wsWheelStatic[lang]=out.join('');
   }
   const bulbs=[];for(let i=0;i<WS_SEGS.length;i++){const[x,y]=wsPt(i*WS_SEG_DEG+WS_SEG_DEG/2,100);bulbs.push(`<circle class="ws-bulb" cx="${x}" cy="${y}" r="2.3" style="animation-delay:${(i*70)%1600}ms"/>`);}
   const rim=`<circle r="105.5" fill="none" stroke="#04060f" stroke-width="13"/><circle r="105.5" fill="none" stroke="url(#wsRim)" stroke-width="10.5"/><circle r="94.2" fill="none" stroke="#04060f" stroke-width="2.4"/>`;
   const hub=`<circle r="17" fill="url(#wsHub)" stroke="#04060f" stroke-width="1.5"/><circle r="12.5" fill="none" stroke="#7d5612" stroke-width=".8"/><circle r="7.4" fill="url(#wsGem)" stroke="#e9c46a" stroke-width="1"/><path d="M-3 -3 L0 -5.4 L3 -3" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width=".8"/>`;
   const pointer=`<g id="ws-ptr"><path d="M-10 -121 L10 -121 L0 -93 Z" fill="url(#wsGold)" stroke="#04060f" stroke-width="1.6" stroke-linejoin="round"/><circle cx="0" cy="-114" r="2.6" fill="#2f87f0" stroke="#fff8" stroke-width=".6"/></g>`;
-  return`<svg viewBox="-112 -124 224 236" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The prize wheel">${rim}<g id="ws-rot" class="rot" transform="rotate(${ang})">${_wsWheelStatic}<circle r="92" fill="url(#wsGloss)" pointer-events="none"/></g><g>${bulbs.join('')}</g>${hub}${pointer}</svg>`;
+  return`<svg viewBox="-112 -124 224 236" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The prize wheel">${rim}<g id="ws-rot" class="rot" transform="rotate(${ang})">${_wsWheelStatic[lang]}<circle r="92" fill="url(#wsGloss)" pointer-events="none"/></g><g>${bulbs.join('')}</g>${hub}${pointer}</svg>`;
 }
 /* ── WORDSPIN: the puzzle board ── */
 function wsBoardHTML(ws,flip,deal){
@@ -21532,52 +21556,90 @@ function wsKeyboard(ws,o){
   // o.cons / o.vows: which sets to show; o.sel: selected letters; o.dis(ch): disabled?
   const kb=(letters,cls)=>`<div class="ws-kr">${letters.split('').map(ch=>`<button class="ws-k${cls}${o.sel.indexOf(ch)>=0?' sel':''}" data-a="wskey" data-c="${ch}"${o.dis(ch)?' disabled':''} aria-label="${ch}">${ch}</button>`).join('')}</div>`;
   const C='BCDFGHJKLMNPQRSTVWXYZ';
-  return`<div class="ws-kb">${o.cons?kb(C.slice(0,7),'')+kb(C.slice(7,14),'')+kb(C.slice(14),''):''}${o.vows?kb('AEIOU',' v'):''}</div>`;
+  return`<div class="ws-kb">${o.cons?kb(C.slice(0,7),'')+kb(C.slice(7,14),'')+kb(C.slice(14),''):''}${o.vows?kb(wsVowelsFor(ws),' v'):''}</div>`;
 }
 /* ── WORDSPIN: the screen ── */
+/* ── WORDSPIN: the words on the screen, in English and German ── */
+const WS_TX={
+ en:{wheelTurning:'The wheel is turning…',gameOver:'Game over',
+  spinMine:'{0}, it is your turn — spin the wheel, buy a vowel or solve.',thinking:'{0} is thinking…',
+  nameCons:'Name a <b>consonant</b> — <b>{0}</b> for each one',freeHint:'<b>FREE PLAY</b> — name any letter, a wrong one costs nothing',wildHint:'<b>WILD</b> — any letter; consonants pay <b>500</b> each, a vowel is free',
+  fpickMine:'{0}, this is the <b>final puzzle</b>. R S T L N E are given — choose <b>3 consonants and 1 vowel</b>.',fpickOther:'{0} is choosing letters for the final puzzle…',
+  fsolveMine:'You have <b>30 seconds</b> — type the phrase!',fsolveOther:'{0} has 30 seconds to solve it…',
+  spins:'{0} spins…',solvedIt:'{0} solved it!',banked:'+{0} banked',finalBtn:'FINAL PUZZLE ▶',nextRound:'NEXT ROUND ▶',nextUp:'Next up…',finalPuzzle:'Final puzzle',waiting:'Waiting',
+  buyVowelTitle:'Buy a vowel · {0}',back:'Back',buy:'Buy {0}',solveTitle:'Solve the puzzle',typePhrase:'Type the phrase',solve:'Solve',wrongPasses:'A wrong answer passes the turn.',
+  spin:'SPIN',buyVowel:'Buy a vowel',youHave:'{0} · you have {1}',solveSmall:'a wrong answer passes',noCons:'No consonants left — buy a vowel or solve it.',
+  pickCons:'Pick a consonant · {0} each',freeLbl:'Free play · any letter',wildLbl:'Wild · any letter',call:'Call {0}',aLetter:'a letter',
+  threeOne:'3 consonants + 1 vowel',lockIn:'Lock them in',turn:'{0}’s turn',round:'ROUND',roundOf:'Round {0} of {1}',finalBanner:'★ FINAL PUZZLE ★',
+  anim:'✨ Animations: {0}',full:'Full',light:'Light',off:'Off',viewFull:'🖥 This screen: everything',viewStage:'📺 This screen: the stage only',viewPad:'📱 This screen: my controls',
+  bankrupt:'BANKRUPT',bankruptSub:'{0} loses {1} this round',lose:'LOSE A TURN',loseSub:'{0} passes',freeEvt:'FREE PLAY',freeSub:'Any letter — a wrong one costs nothing',wildEvt:'WILD',wildSub:'Any letter you like',ptsSub:'{0} — name a consonant',
+  noLetter:'NO {0}',passes:'{0} passes',solvedEvt:'SOLVED!',cracks:'{0} cracks it',notQuite:'NOT QUITE',keepTrying:'Keep trying!',finalEvt:'FINAL PUZZLE',finalSub:'{0} plays for the crown',timeUp:"TIME'S UP",timeSub:'The final puzzle slips away',champ:'WORDSPIN CHAMPION',
+  chipPuzzles:'🧩 Puzzles solved',chipBest:'💎 Best single letter',chipBankrupt:'💀 Bankruptcies',chipVowels:'🔤 Vowels bought',chipTime:'⏱ Play Time',
+  finalTitle:'THE FINAL PUZZLE',finalSolved:'{0} solved it (+{1})',finalLost:'{0} ran out of time',hPlayer:'Player',hTotal:'Total',hRounds:'Rounds won',hBest:'Best spin',hBankrupt:'Bankrupt',hVowels:'Vowels',hSpins:'Spins',
+  optRounds:'How many rounds?',opt2:'2 rounds',opt2d:'About 12 minutes',opt3:'3 rounds',opt3d:'About 18 minutes',opt4:'4 rounds',opt4d:'About 25 minutes',optPuz:'Puzzles',optMixed:'Mixed',optMixedD:'Easy ones first, harder later',optEasy:'Easy',optEasyD:'Short, familiar phrases',optMed:'Medium',optMedD:'Longer phrases',optHard:'Hard',optHardD:'Long and tricky',optLang:'Language of the puzzles',optEn:'English',optEnD:'English puzzles and texts',optDe:'Deutsch',optDeD:'Deutsche Rätsel und Texte'},
+ de:{wheelTurning:'Das Rad dreht sich…',gameOver:'Spiel vorbei',
+  spinMine:'{0}, du bist dran — dreh das Rad, kaufe einen Vokal oder löse das Rätsel.',thinking:'{0} überlegt…',
+  nameCons:'Nenne einen <b>Konsonanten</b> — <b>{0}</b> für jeden',freeHint:'<b>FREISPIEL</b> — nenne einen beliebigen Buchstaben, ein falscher kostet nichts',wildHint:'<b>JOKER</b> — ein beliebiger Buchstabe; Konsonanten zahlen <b>500</b> pro Feld, ein Vokal ist gratis',
+  fpickMine:'{0}, das ist das <b>Finalrätsel</b>. R S T L N E sind gegeben — wähle <b>3 Konsonanten und 1 Vokal</b>.',fpickOther:'{0} wählt Buchstaben für das Finalrätsel…',
+  fsolveMine:'Du hast <b>30 Sekunden</b> — tippe die Lösung!',fsolveOther:'{0} hat 30 Sekunden zum Lösen…',
+  spins:'{0} dreht…',solvedIt:'{0} hat es gelöst!',banked:'+{0} gutgeschrieben',finalBtn:'FINALRÄTSEL ▶',nextRound:'NÄCHSTE RUNDE ▶',nextUp:'Gleich geht es weiter…',finalPuzzle:'Finalrätsel',waiting:'Warten',
+  buyVowelTitle:'Vokal kaufen · {0}',back:'Zurück',buy:'{0} kaufen',solveTitle:'Rätsel lösen',typePhrase:'Lösung eintippen',solve:'Lösen',wrongPasses:'Eine falsche Antwort gibt die Runde ab.',
+  spin:'DREHEN',buyVowel:'Vokal kaufen',youHave:'{0} · du hast {1}',solveSmall:'falsch = Runde weg',noCons:'Keine Konsonanten mehr — kaufe einen Vokal oder löse das Rätsel.',
+  pickCons:'Wähle einen Konsonanten · je {0}',freeLbl:'Freispiel · beliebiger Buchstabe',wildLbl:'Joker · beliebiger Buchstabe',call:'{0} nennen',aLetter:'einen Buchstaben',
+  threeOne:'3 Konsonanten + 1 Vokal',lockIn:'Bestätigen',turn:'{0} ist dran',round:'RUNDE',roundOf:'Runde {0} von {1}',finalBanner:'★ FINALRÄTSEL ★',
+  anim:'✨ Animationen: {0}',full:'Voll',light:'Leicht',off:'Aus',viewFull:'🖥 Dieser Bildschirm: alles',viewStage:'📺 Dieser Bildschirm: nur die Bühne',viewPad:'📱 Dieser Bildschirm: meine Eingabe',
+  bankrupt:'BANKROTT',bankruptSub:'{0} verliert {1} in dieser Runde',lose:'AUSSETZEN',loseSub:'{0} setzt aus',freeEvt:'FREISPIEL',freeSub:'Beliebiger Buchstabe — falsch kostet nichts',wildEvt:'JOKER',wildSub:'Ein beliebiger Buchstabe',ptsSub:'{0} — nenne einen Konsonanten',
+  noLetter:'KEIN {0}',passes:'{0} gibt ab',solvedEvt:'GELÖST!',cracks:'{0} knackt es',notQuite:'NICHT GANZ',keepTrying:'Weiter versuchen!',finalEvt:'FINALRÄTSEL',finalSub:'{0} spielt um die Krone',timeUp:'ZEIT ABGELAUFEN',timeSub:'Das Finalrätsel ist verloren',champ:'WORDSPIN-MEISTER',
+  chipPuzzles:'🧩 Gelöste Rätsel',chipBest:'💎 Bester einzelner Buchstabe',chipBankrupt:'💀 Bankrotte',chipVowels:'🔤 Gekaufte Vokale',chipTime:'⏱ Spielzeit',
+  finalTitle:'DAS FINALRÄTSEL',finalSolved:'{0} hat es gelöst (+{1})',finalLost:'{0}: die Zeit ist abgelaufen',hPlayer:'Spieler',hTotal:'Gesamt',hRounds:'Runden',hBest:'Bester Dreh',hBankrupt:'Bankrott',hVowels:'Vokale',hSpins:'Drehs',
+  optRounds:'Wie viele Runden?',opt2:'2 Runden',opt2d:'Etwa 12 Minuten',opt3:'3 Runden',opt3d:'Etwa 18 Minuten',opt4:'4 Runden',opt4d:'Etwa 25 Minuten',optPuz:'Rätsel',optMixed:'Gemischt',optMixedD:'Erst leichte, später schwerere',optEasy:'Leicht',optEasyD:'Kurze, bekannte Sätze',optMed:'Mittel',optMedD:'Längere Sätze',optHard:'Schwer',optHardD:'Lang und knifflig',optLang:'Sprache der Rätsel',optEn:'English',optEnD:'English puzzles and texts',optDe:'Deutsch',optDeD:'Deutsche Rätsel und Texte'}
+};
+function wsTx(l){const lang=l&&l.lang?l.lang:l,d=WS_TX[lang]||WS_TX.en;return(k,...a)=>{let s=d[k];if(s==null)s=WS_TX.en[k]||k;return s.replace(/\{(\d)\}/g,(m,i)=>a[i]);};}
+function wsLang(){let v='en';try{v=localStorage.getItem('ct_ws_lang')||'en';}catch(e){}return v==='de'?'de':'en';}
+function wsCurLang(){const ws=G.isOnline?(G.srv&&G.srv.ws):G.ws;return ws&&ws.lang?ws.lang:wsLang();}
 function wsHintText(ws,p,mine,seq){
-  const nm=`<b>${esc(p.name)}</b>`;
-  if(seq)return'The wheel is turning…';
-  if(ws.over)return'Game over';
+  const T=wsTx(ws),nm=`<b>${esc(p.name)}</b>`;
+  if(seq)return T('wheelTurning');
+  if(ws.over)return T('gameOver');
   switch(ws.phase){
-    case'spin':return mine?`${nm}, it is your turn — spin the wheel, buy a vowel or solve.`:`${nm} is thinking…`;
-    case'letter':{const v=ws.lv;const what=v.k==='pts'?`Name a <b>consonant</b> — <b>${v.v}</b> for each one`:v.k==='free'?'<b>FREE PLAY</b> — name any letter, a wrong one costs nothing':'<b>WILD</b> — any letter; consonants pay <b>500</b> each, a vowel is free';return mine?what:`${nm}: ${what.replace(/<\/?b>/g,'')}`;}
+    case'spin':return mine?T('spinMine',nm):T('thinking',nm);
+    case'letter':{const v=ws.lv;const what=v.k==='pts'?T('nameCons',v.v):v.k==='free'?T('freeHint'):T('wildHint');return mine?what:`${nm}: ${what.replace(/<\/?b>/g,'')}`;}
     case'roundend':return'';
-    case'fpick':return mine?`${nm}, this is the <b>final puzzle</b>. R S T L N E are given — choose <b>3 consonants and 1 vowel</b>.`:`${nm} is choosing letters for the final puzzle…`;
-    case'fsolve':return mine?'You have <b>30 seconds</b> — type the phrase!':`${nm} has 30 seconds to solve it…`;
+    case'fpick':return mine?T('fpickMine',nm):T('fpickOther',nm);
+    case'fsolve':return mine?T('fsolveMine'):T('fsolveOther',nm);
   }
   return'';
 }
 function wsPanelHTML(ws,p,mine,acts,seq,players){
   if(ws.over)return'';
-  const nm=esc(p.name);
-  if(seq)return`<div class="ws-panel"><div class="ws-lbl">${esc(nm)} spins…</div></div>`;
+  const T=wsTx(ws),nm=esc(p.name);
+  if(seq)return`<div class="ws-panel"><div class="ws-lbl">${T('spins',nm)}</div></div>`;
   if(ws.phase==='roundend'){
     const w=players[ws.roundWin-1]||p,amt=Math.max(ws.rs[ws.roundWin-1],WS_MIN_WIN);
     const last=ws.round>=ws.rounds;
-    return`<div class="ws-panel"><div class="ws-won"><h3>${avChar(w.avatar)} ${esc(w.name)} solved it!</h3><p>“${esc(ws.puzzle.t)}”</p><p>+${wsFmt(amt)} banked</p></div>
-      ${(acts||(!G.isOnline&&!isBotPlayer(p)))&&!isBotPlayer(p)?`<button class="ws-spin" data-a="wsnext" style="font-size:1rem;letter-spacing:.12em;min-width:14rem">${last?'FINAL PUZZLE ▶':'NEXT ROUND ▶'}</button>`:`<div class="ws-lbl">Next up…</div>`}</div>`;
+    return`<div class="ws-panel"><div class="ws-won"><h3>${avChar(w.avatar)} ${T('solvedIt',esc(w.name))}</h3><p>“${esc(ws.puzzle.t)}”</p><p>${T('banked',wsFmt(amt))}</p></div>
+      ${(acts||(!G.isOnline&&!isBotPlayer(p)))&&!isBotPlayer(p)?`<button class="ws-spin" data-a="wsnext" style="font-size:1rem;letter-spacing:.12em;min-width:14rem">${last?T('finalBtn'):T('nextRound')}</button>`:`<div class="ws-lbl">${T('nextUp')}</div>`}</div>`;
   }
-  if(!acts)return`<div class="ws-panel"><div class="ws-lbl">${esc(ws.phase==='fpick'||ws.phase==='fsolve'?'Final puzzle':'Waiting')}</div><div style="font-size:.9rem;color:#cfd7f5;text-align:center">${wsHintText(ws,p,false,false)}</div>${ws.phase==='fsolve'?wsClockHTML(ws):''}</div>`;
+  if(!acts)return`<div class="ws-panel"><div class="ws-lbl">${esc(ws.phase==='fpick'||ws.phase==='fsolve'?T('finalPuzzle'):T('waiting'))}</div><div style="font-size:.9rem;color:#cfd7f5;text-align:center">${wsHintText(ws,p,false,false)}</div>${ws.phase==='fsolve'?wsClockHTML(ws):''}</div>`;
   if(ws.phase==='spin'){
-    if(G.wsMode==='vowel')return`<div class="ws-panel"><div class="ws-lbl">Buy a vowel · ${WS_VOWEL_COST}</div>${wsKeyboard(ws,{vows:1,sel:G.wsPick||'',dis:c=>ws.called.indexOf(c)>=0})}<div class="ws-acts"><button class="ws-btn" data-a="wscancel">Back</button><button class="ws-btn gold" data-a="wscall"${G.wsPick?'':' disabled'}>Buy ${G.wsPick||'…'}</button></div></div>`;
-    if(G.wsMode==='solve')return`<div class="ws-panel"><div class="ws-lbl">Solve the puzzle</div><input class="ws-in" id="ws-in" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Type the phrase" value="${esc(G.wsText||'')}" maxlength="80"><div class="ws-acts"><button class="ws-btn" data-a="wscancel">Back</button><button class="ws-btn gold" data-a="wssubmit">Solve</button></div><div class="ws-lbl" style="letter-spacing:.08em;text-transform:none">A wrong answer passes the turn.</div></div>`;
+    if(G.wsMode==='vowel')return`<div class="ws-panel"><div class="ws-lbl">${T('buyVowelTitle',WS_VOWEL_COST)}</div>${wsKeyboard(ws,{vows:1,sel:G.wsPick||'',dis:c=>ws.called.indexOf(c)>=0})}<div class="ws-acts"><button class="ws-btn" data-a="wscancel">${T('back')}</button><button class="ws-btn gold" data-a="wscall"${G.wsPick?'':' disabled'}>${T('buy',G.wsPick||'…')}</button></div></div>`;
+    if(G.wsMode==='solve')return`<div class="ws-panel"><div class="ws-lbl">${T('solveTitle')}</div><input class="ws-in" id="ws-in" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="${T('typePhrase')}" value="${esc(G.wsText||'')}" maxlength="80"><div class="ws-acts"><button class="ws-btn" data-a="wscancel">${T('back')}</button><button class="ws-btn gold" data-a="wssubmit">${T('solve')}</button></div><div class="ws-lbl" style="letter-spacing:.08em;text-transform:none">${T('wrongPasses')}</div></div>`;
     const canSpin=wsCanSpin(ws),canBuy=wsCanBuy(ws);
-    return`<div class="ws-panel"><button class="ws-spin" data-a="wsspin"${canSpin?'':' disabled'}>SPIN</button>
-      <div class="ws-acts"><button class="ws-btn" data-a="wsvowelmode"${canBuy?'':' disabled'}>Buy a vowel<small>${WS_VOWEL_COST} · you have ${wsFmt(ws.rs[ws.cur-1])}</small></button><button class="ws-btn" data-a="wssolvemode">Solve<small>a wrong answer passes</small></button></div>
-      ${canSpin?'':'<div class="ws-lbl" style="text-transform:none;letter-spacing:.05em">No consonants left — buy a vowel or solve it.</div>'}</div>`;
+    return`<div class="ws-panel"><button class="ws-spin" data-a="wsspin"${canSpin?'':' disabled'}>${T('spin')}</button>
+      <div class="ws-acts"><button class="ws-btn" data-a="wsvowelmode"${canBuy?'':' disabled'}>${T('buyVowel')}<small>${T('youHave',WS_VOWEL_COST,wsFmt(ws.rs[ws.cur-1]))}</small></button><button class="ws-btn" data-a="wssolvemode">${T('solve')}<small>${T('solveSmall')}</small></button></div>
+      ${canSpin?'':`<div class="ws-lbl" style="text-transform:none;letter-spacing:.05em">${T('noCons')}</div>`}</div>`;
   }
   if(ws.phase==='letter'){
     const any=ws.lv.any;
-    return`<div class="ws-panel"><div class="ws-lbl">${ws.lv.k==='pts'?`Pick a consonant · ${ws.lv.v} each`:ws.lv.k==='free'?'Free play · any letter':'Wild · any letter'}</div>${wsKeyboard(ws,{cons:1,vows:any,sel:G.wsPick||'',dis:c=>ws.called.indexOf(c)>=0})}<div class="ws-acts"><button class="ws-btn gold" data-a="wscall"${G.wsPick?'':' disabled'}>Call ${G.wsPick||'a letter'}</button></div></div>`;
+    return`<div class="ws-panel"><div class="ws-lbl">${ws.lv.k==='pts'?T('pickCons',ws.lv.v):ws.lv.k==='free'?T('freeLbl'):T('wildLbl')}</div>${wsKeyboard(ws,{cons:1,vows:any,sel:G.wsPick||'',dis:c=>ws.called.indexOf(c)>=0})}<div class="ws-acts"><button class="ws-btn gold" data-a="wscall"${G.wsPick?'':' disabled'}>${T('call',G.wsPick||T('aLetter'))}</button></div></div>`;
   }
   if(ws.phase==='fpick'){
     const sel=G.wsPicks||'',nc=sel.split('').filter(c=>!wsIsVowel(c)).length,nv=sel.length-nc;
     const slots=['•','•','•','•'].map((_,i)=>sel[i]?`<i>${sel[i]}</i>`:'<i class="e"></i>').join('');
-    return`<div class="ws-panel"><div class="ws-lbl">3 consonants + 1 vowel</div><div class="ws-chosen">${slots}</div>${wsKeyboard(ws,{cons:1,vows:1,sel,dis:c=>WS_FINAL_GIVEN.indexOf(c)>=0||(!wsIsVowel(c)&&nc>=3&&sel.indexOf(c)<0)||(wsIsVowel(c)&&nv>=1&&sel.indexOf(c)<0)})}<div class="ws-acts"><button class="ws-btn gold" data-a="wslock"${nc===3&&nv===1?'':' disabled'}>Lock them in</button></div></div>`;
+    return`<div class="ws-panel"><div class="ws-lbl">${T('threeOne')}</div><div class="ws-chosen">${slots}</div>${wsKeyboard(ws,{cons:1,vows:1,sel,dis:c=>WS_FINAL_GIVEN.indexOf(c)>=0||(!wsIsVowel(c)&&nc>=3&&sel.indexOf(c)<0)||(wsIsVowel(c)&&nv>=1&&sel.indexOf(c)<0)})}<div class="ws-acts"><button class="ws-btn gold" data-a="wslock"${nc===3&&nv===1?'':' disabled'}>${T('lockIn')}</button></div></div>`;
   }
   if(ws.phase==='fsolve'){
-    return`<div class="ws-panel">${wsClockHTML(ws)}<input class="ws-in" id="ws-in" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Type the phrase" value="${esc(G.wsText||'')}" maxlength="80"><div class="ws-acts"><button class="ws-btn gold" data-a="wssubmit">Solve</button></div></div>`;
+    return`<div class="ws-panel">${wsClockHTML(ws)}<input class="ws-in" id="ws-in" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="${T('typePhrase')}" value="${esc(G.wsText||'')}" maxlength="80"><div class="ws-acts"><button class="ws-btn gold" data-a="wssubmit">${T('solve')}</button></div></div>`;
   }
   return'';
 }
@@ -21589,6 +21651,7 @@ function rWordspinTable(){
   const online=G.isOnline,state=online?G.srv:null;
   const players=online?(state&&state.players||[]):G.lp;
   const ws=(online?state&&state.ws:G.ws)||wsNew(players.length||2,{seed:1});
+  const T=wsTx(ws);
   if(G.wsSeedFor!==ws.seed){G.wsSeedFor=ws.seed;G.wsShown={};G.wsDisp=null;G.wsMode='';G.wsPick='';G.wsPicks='';G.wsText='';G.wsLastR=null;G.wsSeq=null;}
   const seq=G.wsSeq,fx=seq&&seq.fx;
   const seat=ws.cur,p=players[seat-1]||{name:'—',avatar:null};
@@ -21600,7 +21663,7 @@ function rWordspinTable(){
   const rs=ws.rs.slice();if(fx&&fx.kind==='spin'&&fx.seg==='bankrupt')rs[fx.seat-1]=fx.lost;
   const sh=(k,to)=>{const v=G.wsShown&&G.wsShown[k];return wsFmt(v==null?to:v);};
   const lead=ws.bank.some(b=>b>0)?wsLeader(ws):0;
-  const plates=players.slice(0,ws.P).map((q,i)=>`<div class="ws-plate${(seq?fx.seat:seat)===i+1&&!ws.over?' on':''}${lead===i+1?' lead':''}" data-s="${i+1}"><span class="ws-av">${avChar(q.avatar)}</span><span class="ws-nm">${esc(q.name)}</span><span class="ws-bank ws-num" data-k="b${i}" data-to="${ws.bank[i]}">${sh('b'+i,ws.bank[i])}</span>${ws.final?'':`<span class="ws-rs">ROUND <b class="ws-num" data-k="r${i}" data-to="${rs[i]}">${sh('r'+i,rs[i])}</b></span>`}</div>`).join('');
+  const plates=players.slice(0,ws.P).map((q,i)=>`<div class="ws-plate${(seq?fx.seat:seat)===i+1&&!ws.over?' on':''}${lead===i+1?' lead':''}" data-s="${i+1}"><span class="ws-av">${avChar(q.avatar)}</span><span class="ws-nm">${esc(q.name)}</span><span class="ws-bank ws-num" data-k="b${i}" data-to="${ws.bank[i]}">${sh('b'+i,ws.bank[i])}</span>${ws.final?'':`<span class="ws-rs">${T('round')} <b class="ws-num" data-k="r${i}" data-to="${rs[i]}">${sh('r'+i,rs[i])}</b></span>`}</div>`).join('');
   // flip bookkeeping: which letters just turned over
   const last=G.wsLastR,now=Date.now();let flip='',deal=false;
   const pkey=ws.puzzle.t+'|'+ws.round+'|'+(ws.final?1:0);
@@ -21611,22 +21674,22 @@ function rWordspinTable(){
   }else{G.wsLastR={seed:ws.seed,moves:ws.moves,pkey,called:ws.called,flip:'',deal:true,at:now};deal=true;}
   const kbPhase=!seq&&acts&&(ws.phase==='letter'||ws.phase==='fpick'||G.wsMode==='vowel');
   const ang=G.wsDisp!=null?G.wsDisp:ws.angle;
-  const roundLine=ws.final?'<span class="ws-rnd final">★ FINAL PUZZLE ★</span>':`<span class="ws-rnd">Round ${ws.round} of ${ws.rounds}</span>`;
+  const roundLine=ws.final?`<span class="ws-rnd final">${T('finalBanner')}</span>`:`<span class="ws-rnd">${T('roundOf',ws.round,ws.rounds)}</span>`;
   queueMicrotask(wsPostRender);
   const view=wsView();
   return`<div id="s-table" class="scr on game-wordspin ws-v-${view}">
     <div class="game-bar">
       <div class="gb-game">🎡 <span class="cr-gbn">WORDSPIN</span></div>
-      <div class="gb-turn p${seq?fx.seat:seat}${mine&&!ws.over&&!seq?' mine':''}">${avChar(mover.avatar)} ${esc(mover.name)}’s turn</div>
+      <div class="gb-turn p${seq?fx.seat:seat}${mine&&!ws.over&&!seq?' mine':''}">${avChar(mover.avatar)} ${T("turn",esc(mover.name))}</div>
       <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
     </div>
     <div class="ws-strip">${plates}</div>
     <div class="ws-main">
       <div class="ws-top"><div class="ws-meta"><span class="ws-cat">${esc(ws.puzzle.c)}</span>${roundLine}</div>${wsBoardHTML(ws,flip,deal)}<div class="ws-hint">${wsHintText(ws,p,mine&&!botTurn,seq)}</div></div>
       <div class="ws-stage">
-        <div class="ws-left"><div class="ws-wheel-wrap an-${gtAnim()}" style="${kbPhase?'width:min(52vw,11rem)':''}">${wsWheelSVG(ang)}</div></div>
+        <div class="ws-left"><div class="ws-wheel-wrap an-${gtAnim()}" style="${kbPhase?'width:min(52vw,11rem)':''}">${wsWheelSVG(ang,ws.lang)}</div></div>
         <div class="ws-right">${wsPanelHTML(ws,p,mine,acts,seq,players)}
-          <div class="ws-foot"><button class="gt-animbtn" data-a="wsanim" aria-label="Animations">✨ Animations: ${{full:'Full',light:'Light',off:'Off'}[gtAnim()]}</button><button class="gt-animbtn" data-a="wsview" aria-label="This screen shows">${{full:'🖥 This screen: everything',stage:'📺 This screen: the stage only',pad:'📱 This screen: my controls'}[view]}</button></div></div>
+          <div class="ws-foot"><button class="gt-animbtn" data-a="wsanim" aria-label="Animations">${T('anim',T(gtAnim()))}</button><button class="gt-animbtn" data-a="wsview" aria-label="This screen shows">${T({full:'viewFull',stage:'viewStage',pad:'viewPad'}[view])}</button></div></div>
       </div>
       ${!mine&&online&&!ws.over?awayIndicatorHTML(p.id,p.name):''}
     </div>
@@ -21669,7 +21732,7 @@ function wsPostRender(){
 function wsIntro(){
   if(document.getElementById('ws-intro'))return;
   const d=document.createElement('div');d.id='ws-intro';d.className='ws-intro';
-  d.innerHTML=`<div class="ws-intro-wheel">${wsWheelSVG(0).replace('<g id="ws-rot" class="rot"','<g class="rot"')}</div><div class="ws-intro-logo">${'WORDSPIN'.split('').map((c,i)=>`<span style="--i:${i}">${c}</span>`).join('')}</div><div class="ws-intro-sub">SPIN · REVEAL · SOLVE</div>`;
+  d.innerHTML=`<div class="ws-intro-wheel">${wsWheelSVG(0,wsCurLang()).replace('<g id="ws-rot" class="rot"','<g class="rot"')}</div><div class="ws-intro-logo">${'WORDSPIN'.split('').map((c,i)=>`<span style="--i:${i}">${c}</span>`).join('')}</div><div class="ws-intro-sub">SPIN · REVEAL · SOLVE</div>`;
   const rm=()=>{try{d.remove();}catch(e){}};
   d.addEventListener('click',rm);document.body.appendChild(d);setTimeout(rm,3800);
   SFX.wsIntro();
@@ -21723,21 +21786,22 @@ function wsRunSeq(ws,renderNow,done){
   const stages=()=>{
     if(G.wsInstant||!fx)return;
     const w=players[fx.seat-1];
+    const T=wsTx(ws);
     if(fx.kind==='spin'){
       const S=WS_SEGS[fx.idx];
-      if(fx.seg==='bankrupt')stageEmit('WS_EVT',{who:w,text:'BANKRUPT',sub:`${nm(fx.seat)} loses ${wsFmt(fx.lost)} this round`,icon:'💀',tone:'bad',pri:3,ms:1700});
-      else if(fx.seg==='lose')stageEmit('WS_EVT',{who:w,text:'LOSE A TURN',sub:`${nm(fx.seat)} passes`,icon:'⏭️',tone:'bad',pri:2});
-      else if(fx.seg==='free')stageEmit('WS_EVT',{who:w,text:'FREE PLAY',sub:'Any letter — a wrong one costs nothing',icon:'🎁',tone:'good',pri:2});
-      else if(fx.seg==='wild')stageEmit('WS_EVT',{who:w,text:'WILD',sub:'Any letter you like',icon:'✨',tone:'hot',pri:2});
-      else stageEmit('WS_EVT',{who:w,text:String(S.v),sub:`${nm(fx.seat)} — name a consonant`,icon:'🎯',tone:'good',pri:1,ms:1100});
+      if(fx.seg==='bankrupt')stageEmit('WS_EVT',{who:w,text:T('bankrupt'),sub:T('bankruptSub',nm(fx.seat),wsFmt(fx.lost)),icon:'💀',tone:'bad',pri:3,ms:1700});
+      else if(fx.seg==='lose')stageEmit('WS_EVT',{who:w,text:T('lose'),sub:T('loseSub',nm(fx.seat)),icon:'⏭️',tone:'bad',pri:2});
+      else if(fx.seg==='free')stageEmit('WS_EVT',{who:w,text:T('freeEvt'),sub:T('freeSub'),icon:'🎁',tone:'good',pri:2});
+      else if(fx.seg==='wild')stageEmit('WS_EVT',{who:w,text:T('wildEvt'),sub:T('wildSub'),icon:'✨',tone:'hot',pri:2});
+      else stageEmit('WS_EVT',{who:w,text:String(S.v),sub:T('ptsSub',nm(fx.seat)),icon:'🎯',tone:'good',pri:1,ms:1100});
     }else if(fx.kind==='letter'||fx.kind==='vowel'){
       if(fx.hit&&fx.n>1)stageEmit('WS_EVT',{who:w,text:`${fx.n} × ${fx.ch}`,sub:fx.gain?`+${wsFmt(fx.gain)}`:'',icon:'🔤',tone:'good',pri:0,ms:900});
-      else if(!fx.hit&&!fx.free)stageEmit('WS_EVT',{who:w,text:`NO ${fx.ch}`,sub:`${nm(fx.seat)} passes`,icon:'✖️',tone:'bad',pri:1,ms:1000});
+      else if(!fx.hit&&!fx.free)stageEmit('WS_EVT',{who:w,text:T('noLetter',fx.ch),sub:T('passes',nm(fx.seat)),icon:'✖️',tone:'bad',pri:1,ms:1000});
     }else if(fx.kind==='solve'||fx.kind==='fsolve'){
-      if(fx.ok)stageEmit('WS_EVT',{who:w,text:'SOLVED!',sub:`${nm(fx.seat)} cracks it`,icon:'🏆',tone:'good',pri:3,ms:1700});
-      else stageEmit('WS_EVT',{who:w,text:'NOT QUITE',sub:fx.kind==='solve'?`${nm(fx.seat)} passes`:'Keep trying!',icon:'🙈',tone:'bad',pri:1,ms:1100});
-    }else if(fx.kind==='final')stageEmit('WS_EVT',{who:players[fx.seat-1],text:'FINAL PUZZLE',sub:`${nm(fx.seat)} plays for the crown`,icon:'👑',tone:'hot',pri:3,ms:1800});
-    else if(fx.kind==='ftime')stageEmit('WS_EVT',{text:"TIME'S UP",sub:'The final puzzle slips away',icon:'⏰',tone:'bad',pri:3,ms:1600});
+      if(fx.ok)stageEmit('WS_EVT',{who:w,text:T('solvedEvt'),sub:T('cracks',nm(fx.seat)),icon:'🏆',tone:'good',pri:3,ms:1700});
+      else stageEmit('WS_EVT',{who:w,text:T('notQuite'),sub:fx.kind==='solve'?T('passes',nm(fx.seat)):T('keepTrying'),icon:'🙈',tone:'bad',pri:1,ms:1100});
+    }else if(fx.kind==='final')stageEmit('WS_EVT',{who:players[fx.seat-1],text:T('finalEvt'),sub:T('finalSub',nm(fx.seat)),icon:'👑',tone:'hot',pri:3,ms:1800});
+    else if(fx.kind==='ftime')stageEmit('WS_EVT',{text:T('timeUp'),sub:T('timeSub'),icon:'⏰',tone:'bad',pri:3,ms:1600});
   };
   if(!fx||fx.kind!=='spin'){
     G.wsSeq=null;if(fx&&!G.wsInstant){wsFeel(fx);stages();}
@@ -21804,7 +21868,7 @@ function wsEndLocal(wsArg){
   G.wsMoment=wsMoment(ws,names);
   G.tw++;localStorage.setItem('ct_tw',G.tw);
   SFX.win();v14WinnerBurst();celebrateWin(winner.name,winner.avatar);fxPulse('gold');fxSeatGlow(ws.win-1,'gold');
-  stageEmit('BIG_WIN',{who:winner,text:'WORDSPIN CHAMPION',sub:G.wsMoment,icon:'🎡'});
+  stageEmit('BIG_WIN',{who:winner,text:wsTx(ws)('champ'),sub:G.wsMoment,icon:'🎡'});
   addHistory({game:'wordspin',winner:winner.name,winnerAvatar:winner.avatar,date:new Date().toISOString(),players:names,moment:G.wsMoment,
     stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions,ws:wsStatsFor(ws,names)}});
   render();
@@ -21851,22 +21915,22 @@ async function oWsAuto(){
 }
 /* ── WORDSPIN: the results card ── */
 function wsChipsHTML(){
-  const ws=G.isOnline?(G.srv&&G.srv.ws):G.ws;if(!ws)return'';const s=ws.stats,sum=a=>a.reduce((x,y)=>x+y,0);
+  const ws=G.isOnline?(G.srv&&G.srv.ws):G.ws;if(!ws)return'';const T=wsTx(ws),s=ws.stats,sum=a=>a.reduce((x,y)=>x+y,0);
   return`<div class="tonight-stats">
-    <div class="tonight-stat"><div class="ts-val">${ws.rounds}</div><div class="ts-lbl">🧩 Puzzles solved</div></div>
-    <div class="tonight-stat"><div class="ts-val">${wsFmt(Math.max(...s.best,0))}</div><div class="ts-lbl">💎 Best single letter</div></div>
-    <div class="tonight-stat"><div class="ts-val">${sum(s.bankrupt)}</div><div class="ts-lbl">💀 Bankruptcies</div></div>
-    <div class="tonight-stat"><div class="ts-val">${sum(s.vowels)}</div><div class="ts-lbl">🔤 Vowels bought</div></div>
-    <div class="tonight-stat"><div class="ts-val">${fmtPlayTime(Date.now()-G.matchStats.startedAt)}</div><div class="ts-lbl">⏱ Play Time</div></div>
+    <div class="tonight-stat"><div class="ts-val">${ws.rounds}</div><div class="ts-lbl">${T('chipPuzzles')}</div></div>
+    <div class="tonight-stat"><div class="ts-val">${wsFmt(Math.max(...s.best,0))}</div><div class="ts-lbl">${T('chipBest')}</div></div>
+    <div class="tonight-stat"><div class="ts-val">${sum(s.bankrupt)}</div><div class="ts-lbl">${T('chipBankrupt')}</div></div>
+    <div class="tonight-stat"><div class="ts-val">${sum(s.vowels)}</div><div class="ts-lbl">${T('chipVowels')}</div></div>
+    <div class="tonight-stat"><div class="ts-val">${fmtPlayTime(Date.now()-G.matchStats.startedAt)}</div><div class="ts-lbl">${T('chipTime')}</div></div>
   </div>`;
 }
 function wsResultsHTML(){
   const ws=G.isOnline?(G.srv&&G.srv.ws):G.ws;if(!ws||!ws.over)return'';
-  const players=G.isOnline?(G.srv.players||[]):G.lp,s=ws.stats;
+  const T=wsTx(ws),players=G.isOnline?(G.srv.players||[]):G.lp,s=ws.stats;
   const rows=players.slice(0,ws.P).map((p,i)=>({p,i})).sort((a,b)=>ws.bank[b.i]-ws.bank[a.i]).map(({p,i})=>`<tr><td>${avChar(p.avatar)} ${esc(p.name)}</td><td>${wsFmt(ws.bank[i])}</td><td>${s.rounds[i]}</td><td>${s.best[i]?wsFmt(s.best[i]):'–'}</td><td>${s.bankrupt[i]}</td><td>${s.vowels[i]}</td><td>${s.spins[i]}</td></tr>`).join('');
   const f=ws.final;
-  return`<div class="panel ws-res"><div class="panel-lbl">THE FINAL PUZZLE</div><div style="text-align:center;color:#e9c46a;font-family:var(--serif)">“${esc(ws.puzzle.t)}”</div>${f?`<div style="text-align:center;font-size:.85rem;color:var(--paper2)">${esc((players[f.leader-1]||{}).name||'')} ${f.solved?'solved it (+'+wsFmt(WS_FINAL_PRIZE)+')':'ran out of time'}</div>`:''}
-    <table><tr><th>Player</th><th>Total</th><th>Rounds won</th><th>Best spin</th><th>Bankrupt</th><th>Vowels</th><th>Spins</th></tr>${rows}</table></div>`;
+  return`<div class="panel ws-res"><div class="panel-lbl">${T('finalTitle')}</div><div style="text-align:center;color:#e9c46a;font-family:var(--serif)">“${esc(ws.puzzle.t)}”</div>${f?`<div style="text-align:center;font-size:.85rem;color:var(--paper2)">${f.solved?T('finalSolved',esc((players[f.leader-1]||{}).name||''),wsFmt(WS_FINAL_PRIZE)):T('finalLost',esc((players[f.leader-1]||{}).name||''))}</div>`:''}
+    <table><tr><th>${T('hPlayer')}</th><th>${T('hTotal')}</th><th>${T('hRounds')}</th><th>${T('hBest')}</th><th>${T('hBankrupt')}</th><th>${T('hVowels')}</th><th>${T('hSpins')}</th></tr>${rows}</table></div>`;
 }
 
 
@@ -38733,7 +38797,7 @@ function rMauOv(mp){
     ${canCall?`<button class="btn btn-gold" data-a="mau" style="min-width:11rem;">${word}</button>`:''}
   </div></div>`;
 }
-function rRulesOv(){const game=currentGame();const paylineHTML=game.id==='slots'?slotPaylineDiagramHTML():'';return`<div class="ov" data-a="close-rules"><div class="ov-box" role="dialog" aria-modal="true" aria-label="${esc(game.name)} rules"><div class="ov-pic" style="--pg:url(assets/ui/pg_rules.jpg)"></div><div class="ov-title">${game.icon} ${game.name}</div>${paylineHTML}<div class="rules-list">${(game.rules||[]).map(r=>`<div>${r}</div>`).join('')}</div>${tourBtnHTML(game.id)}<button class="btn btn-ghost" data-a="close-rules" style="margin-top:.4rem;">Got it ✓</button></div></div>`;}
+function rRulesOv(){const game=currentGame();const paylineHTML=game.id==='slots'?slotPaylineDiagramHTML():'';return`<div class="ov" data-a="close-rules"><div class="ov-box" role="dialog" aria-modal="true" aria-label="${esc(game.name)} rules"><div class="ov-pic" style="--pg:url(assets/ui/pg_rules.jpg)"></div><div class="ov-title">${game.icon} ${game.name}</div>${paylineHTML}<div class="rules-list">${((game.id==='wordspin'&&wsCurLang()==='de'&&game.rulesDe)||game.rules||[]).map(r=>`<div>${r}</div>`).join('')}</div>${tourBtnHTML(game.id)}<button class="btn btn-ghost" data-a="close-rules" style="margin-top:.4rem;">${game.id==='wordspin'&&wsCurLang()==='de'?'Verstanden ✓':'Got it ✓'}</button></div></div>`;}
 function rQuitOv(){return`<div class="ov" data-a="close-quit"><div class="ov-box" role="dialog" aria-modal="true" aria-label="End the game?"><div class="ov-pic" style="--pg:url(assets/ui/pg_quit.jpg)"></div><div class="ov-title">End the game?</div><p class="ov-sub">Current scores and chips will be lost.</p><div class="quit-btns"><button class="btn btn-danger" data-a="quit-confirm">Yes, end game</button><button class="btn btn-ghost" data-a="close-quit">Keep playing</button></div></div></div>`;}
 // An honest accounting of what this app actually stores and where, plus the two actions that
 // matter: take a copy of it, or wipe the local copy. Synced results deliberately can't be
@@ -40086,6 +40150,7 @@ document.addEventListener('click',e=>{
   else if(/^ws(spin|vowelmode|solvemode|cancel|key|call|submit|next|lock|anim|view)$/.test(a)){wsTap(a,t);}
   else if(a==='ws-rounds'){wsSetPref('rounds',+t.getAttribute('data-m'));render();}
   else if(a==='ws-level'){wsSetPref('level',+t.getAttribute('data-m'));render();}
+  else if(a==='ws-lang'){wsSetPref('lang',t.getAttribute('data-m')==='de'?'de':'en');render();}
   else if(a==='abroll'||a==='abtrick'||a==='abtarget'||a==='abcancel'||a==='abcell'){abTap(a,t);}
   else if(a==='ab-reach'){abReachSet(!abReachOn());SFX.chip();render();}
   else if(a==='c4drop'){const c=+t.getAttribute('data-c');G.isOnline?oC4Drop(c):c4Play(c);}

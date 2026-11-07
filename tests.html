@@ -10141,6 +10141,65 @@ async function runPresentation(A,W,frame){
       if(keep.hist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keep.hist);
     }
   });
+  suite('WORDSPIN auf Deutsch — the German puzzle library',()=>{
+    const F=n=>W.eval(n);
+    const lib=F('WS_PUZZLES_DE'),layout=F('wsLayout');
+    check('at least 150 German puzzles',lib.length>=150);
+    check('all three difficulties, each with at least 30 puzzles',[1,2,3].every(d=>lib.filter(p=>p[1]===d).length>=30));
+    check('at least 8 categories',new Set(lib.map(p=>p[0])).size>=8);
+    check('every puzzle fits 4 rows of 14 tiles',lib.every(p=>!!layout(p[2])));
+    check('only capitals, Ä Ö Ü, spaces, apostrophes, hyphens and commas (ß is written SS)',lib.every(p=>/^[A-ZÄÖÜ ,'-]+$/.test(p[2])));
+    check('no puzzle appears twice, and none is also in the English library',new Set(lib.map(p=>p[2])).size===lib.length);
+    check('the German library has puzzles with umlauts',lib.filter(p=>/[ÄÖÜ]/.test(p[2])).length>=30);
+  });
+  suite('WORDSPIN auf Deutsch — letters, umlauts and solving',()=>{
+    const F=n=>W.eval(n);
+    const wsNew=F('wsNew'),wsApply=F('wsApply'),wsNorm=F('wsNorm'),wsSame=F('wsSame');
+    const mk=(text,rs,lang)=>{const w=wsNew(3,{seed:11,lang:lang||'de'});w.puzzle={c:'Test',d:1,t:text,i:-1};w.called='';w.rs=[rs||0,0,0];w.cur=1;return w;};
+    check('German keeps Ä Ö Ü as letters and reads ß as SS; English folds them to A O U',wsNorm('Größe ÄÖÜ äöü','de')==='GRÖSSEÄÖÜÄÖÜ'&&wsNorm('Größe ÄÖÜ','en')==='GROSSEAOU');
+    check('a typed answer may use AE OE UE for Ä Ö Ü, in any case, with spaces or punctuation',wsSame('Maedchen','MÄDCHEN','de')&&wsSame('mÜde!','MUEDE','de')&&wsSame('gro ß e','GROSSE','de')&&!wsSame('mude','MÜDE','de')&&!wsSame('','','de'));
+    check('a new German game draws its puzzles from the German library, an English one from the English',(()=>{const d=wsNew(2,{seed:5,lang:'de'}),e=wsNew(2,{seed:5});return d.lang==='de'&&F('WS_PUZZLES_DE').some(p=>p[2]===d.puzzle.t)&&e.lang==='en'&&F('WS_PUZZLES').some(p=>p[2]===e.puzzle.t);})());
+    check('Ä, Ö and Ü are vowels: they cannot be named after a point wedge, and cost 250 to buy',(()=>{const w=mk('MÄDCHEN KÖNIG',900);w.phase='letter';w.lv={k:'pts',v:500};const a=wsApply(w,1,{t:'letter',ch:'Ä'},1);w.phase='spin';w.lv=null;const f=wsApply(w,1,{t:'vowel',ch:'ä'},1);return a===null&&f&&f.hit&&f.n===1&&w.rs[0]===650;})());
+    check('a consonant pays per tile; the letter S fills both tiles of an ß written as SS',(()=>{const w=mk('GROSS',0);w.phase='letter';w.lv={k:'pts',v:300};const f=wsApply(w,1,{t:'letter',ch:'s'},1);return f.n===2&&f.gain===600;})());
+    check('wild and free play accept an umlaut in German',(()=>{const w=mk('MÜDE',0);w.phase='letter';w.lv={k:'wild',v:500,any:true};const f=wsApply(w,1,{t:'letter',ch:'Ü'},1);return f&&f.hit&&w.rs[0]===0;})());
+    check('solving in German accepts the umlaut or its spelling out, and ends the round',(()=>{const w=mk('DAS MÄDCHEN',700);const f=wsApply(w,1,{t:'solve',text:'das maedchen'},1);return f.ok&&w.phase==='roundend'&&w.bank[0]===700;})());
+    check('the English game is untouched: Ä counts as A, and there are only five vowels to buy',(()=>{const w=mk('BANANA',900,'en');const f=wsApply(w,1,{t:'vowel',ch:'Ä'},1);return f&&f.ch==='A'&&F('wsVowelsFor')(w)==='AEIOU';})());
+    check('the final in German: three consonants and one vowel, umlaut allowed, and the prize is paid',(()=>{
+      const w=wsNew(2,{seed:23,lang:'de',rounds:2});w.bank=[100,100];w.puzzle={c:'T',d:1,t:'EIN',i:-1};wsApply(w,1,{t:'solve',text:'ein'},1);wsApply(w,1,{t:'next'},1);w.puzzle={c:'T',d:1,t:'ZWEI',i:-1};w.cur=2;wsApply(w,2,{t:'solve',text:'zwei'},1);w.bank=[500,3000];wsApply(w,2,{t:'next'},1);
+      w.puzzle={c:'T',d:2,t:'DER MÜDE HUND',i:-1};const a=wsApply(w,2,{t:'fpick',letters:'DMHÜ'},1000);const f=wsApply(w,2,{t:'fsolve',text:'der muede hund'},5000);return a&&f.ok&&w.over&&w.bank[1]===8000;})());
+    const lcg=s=>()=>{s=(s*48271)%2147483647;return s/2147483647;};
+    let bad=0,open=0;const bot=F('wsBotAct');
+    for(let g=0;g<40;g++){const w=wsNew(2+g%3,{seed:g*131+9,rounds:2+g%3,lang:'de'}),r=lcg(g+7);let n=0;
+      while(!w.over&&n++<6000){const f=wsApply(w,w.cur,bot(w,g%2?'sharp':'gentle',r),1000);if(!f){bad++;break;}if(w.phase==='fsolve')wsApply(w,w.cur,{t:'ftime',force:1},1000);}
+      if(!w.over)open++;}
+    check('40 complete German computer-only games: no illegal move and every one ends',bad===0&&open===0);
+    check('the German moment text is German',F('wsMoment')((()=>{const w=wsNew(2,{seed:1,lang:'de'});w.win=1;w.final=null;return w;})(),['Anna','Ben'])==='Anna gewinnt WORDSPIN');
+  });
+  suite('WORDSPIN auf Deutsch — the screen speaks German',()=>{
+    const G=W.eval('G'),F=n=>W.eval(n);
+    const keep={lang:W.localStorage.getItem('ct_ws_lang'),hist:W.localStorage.getItem('ct_history'),inst:G.wsInstant};
+    let de='',en='',opt='',rules='';
+    try{
+      G.isOnline=false;G.srv=null;G.snd=false;G.wsInstant=true;
+      F('wsSetPref')('lang','de');
+      check('the language choice makes a German game',F('wsNewGame')(2,1).lang==='de');
+      F('startNow')('wordspin',2);G.lp.forEach(p=>{p.bot=null;});G.ws.cur=1;G.lcur=0;G.ws.rs[0]=500;
+      de=F('rWordspinTable')();opt=F('wsOptionsHTML')();rules=F('rRulesOv')();
+      F('wsSetPref')('lang','en');F('startNow')('wordspin',2);G.lp.forEach(p=>{p.bot=null;});G.ws.cur=1;G.lcur=0;
+      en=F('rWordspinTable')();
+      const d=new DOMParser().parseFromString(de,'text/html'),e=new DOMParser().parseFromString(en,'text/html');
+      check('German table: DREHEN, Vokal kaufen, Lösen and "ist dran"',/DREHEN/.test(de)&&/Vokal kaufen/.test(de)&&/Lösen/.test(de)&&/ist dran/.test(de)&&!/>SPIN</.test(de));
+      check('German wheel: BANKROTT, AUSSETZEN, FREI- SPIEL and JOKER instead of the English words',(()=>{const w=F('wsWheelSVG')(0,'de');return/BANKROTT/.test(w)&&/AUSSETZEN/.test(w)&&/SPIEL/.test(w)&&/JOKER/.test(w)&&!/BANKRUPT/.test(w);})());
+      check('the English wheel is unchanged',/BANKRUPT/.test(F('wsWheelSVG')(0,'en'))&&/SPIN/.test(en)&&!/DREHEN/.test(en));
+      check('the vowel keyboard has Ä Ö Ü only in German',(()=>{G.ws.phase='letter';G.ws.lv={k:'wild',v:500,any:true};const deK=F('wsKeyboard')(G.ws,{cons:1,vows:1,sel:'',dis:()=>false});G.ws.lang='de';const deK2=F('wsKeyboard')(G.ws,{cons:1,vows:1,sel:'',dis:()=>false});G.ws.lang='en';return(deK.match(/class="ws-k v/g)||[]).length===5&&(deK2.match(/class="ws-k v/g)||[]).length===8&&/data-c="Ä"/.test(deK2);})());
+      check('the options offer English and Deutsch, and the German page is in German',/data-a="ws-lang" data-m="de"/.test(opt)&&/Wie viele Runden/.test(opt));
+      check('the rules overlay is in German for a German game',/Dreh das Rad/.test(rules)&&/Verstanden/.test(rules));
+    } finally {
+      G.wsInstant=keep.inst;G.ws=null;G.scr='home';
+      if(keep.lang==null)W.localStorage.removeItem('ct_ws_lang');else W.localStorage.setItem('ct_ws_lang',keep.lang);
+      if(keep.hist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keep.hist);
+    }
+  });
   suite('WORDSPIN — it is wired in everywhere the other games are',()=>{
     const F=n=>W.eval(n);
     check('it plays online and against bots, with a tour, a tagline, an accent, a history name and reactions',F('ONLINE_GAMES').includes('wordspin')&&F('BOT_GAMES').has('wordspin')&&F('TOURS').wordspin.slides.length===5&&!!F('STAGE_TAGS').wordspin&&!!F('MOMENT_ACCENT').wordspin&&F('v14GameLabel')('wordspin')==='WORDSPIN'&&F('REACTION_GAME').wordspin.length===3);
@@ -10429,7 +10488,7 @@ async function runPresentation(A,W,frame){
     check('picking starts the 30 second clock',(()=>{const w=finalState();const f=wsApply(w,2,{t:'fpick',letters:'BCHA'},5000);return f.deadline===5000+WS&&WS===30000;})());
     check('solving the final in time adds 5000 and ends the game with the leader on top',(()=>{const w=finalState();wsApply(w,2,{t:'fpick',letters:'BGHI'},1000);const f=wsApply(w,2,{t:'fsolve',text:'the big bright star'},20000);return f.ok&&w.over&&w.bank[1]===8000&&w.win===2&&w.final.solved;})());
     check('a wrong answer in the final does not end it: the leader can try again until time is up',(()=>{const w=finalState();wsApply(w,2,{t:'fpick',letters:'BGHI'},1000);const a=wsApply(w,2,{t:'fsolve',text:'wrong'},2000);const b=wsApply(w,2,{t:'fsolve',text:'THE BIG BRIGHT STAR'},3000);return !a.ok&&b.ok&&w.over;})());
-    check('after 30 seconds the final is lost: no bonus, and the puzzle is shown',(()=>{const w=finalState();wsApply(w,2,{t:'fpick',letters:'BGHI'},1000);const f=wsApply(w,2,{t:'fsolve',text:'THE BIG BRIGHT STAR'},1000+WS+5000);return f.kind==='ftime'&&w.over&&w.bank[1]===3000&&!w.final.solved&&w.called.length===26;})());
+    check('after 30 seconds the final is lost: no bonus, and the puzzle is shown',(()=>{const w=finalState();wsApply(w,2,{t:'fpick',letters:'BGHI'},1000);const f=wsApply(w,2,{t:'fsolve',text:'THE BIG BRIGHT STAR'},1000+WS+5000);return f.kind==='ftime'&&w.over&&w.bank[1]===3000&&!w.final.solved&&w.called.length>=26;})());
     check('the timeout action only works once the clock has run out (or when forced for an away player)',(()=>{const w=finalState();wsApply(w,2,{t:'fpick',letters:'BGHI'},1000);return wsApply(w,2,{t:'ftime'},5000)===null&&wsApply(w,2,{t:'ftime'},1000+WS)&&w.over;})());
     check('the final can be lost and the leader can still win; or be overtaken',(()=>{const w=finalState();w.bank=[2990,3000,2000];wsApply(w,2,{t:'fpick',letters:'BGHI'},1000);wsApply(w,2,{t:'ftime',force:1},2000);return w.win===2&&w.over&&F('wsMoment')(w,['A','B','C']).indexOf('held on')>0;})());
     check('after the game is over nothing more can be played',(()=>{const w=finalState();wsApply(w,2,{t:'fpick',letters:'BGHI'},1000);wsApply(w,2,{t:'ftime',force:1},2000);return wsApply(w,2,{t:'spin'},1)===null&&wsApply(w,w.cur,{t:'next'},1)===null;})());

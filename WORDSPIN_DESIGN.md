@@ -11,10 +11,11 @@ A wheel-and-word game for 2–4 players (local on one device, against bots, or o
 - **Solving** ignores case, spaces, punctuation and accents. Only the round winner banks (at least 500).
 - **Rounds:** 2, 3 or 4, then the bank leader plays the **final puzzle**: R S T L N E are given, 3 more consonants and 1 vowel, 30 seconds, +5000 if solved.
 - **Puzzle level:** Mixed, Easy, Medium or Hard (chosen before the game; the host online).
+- **Language:** English or Deutsch, chosen before the game (the host online) and stored in the game state, so every device shows the same language. German: Ä Ö Ü are letters of their own and count as vowels (250), ß is read as SS, answers may be typed with AE OE UE; all WORDSPIN buttons, hints, banners, results and the rules page are German (the rest of the app stays English).
 
 ## Where things are
 - **Engine (pure, no screen code):** `ws*` functions in `CardTableV17_2fixed.html` — `wsNew`, `wsApply`, `wsBotAct`, `wsLayout`, `wsNorm`. One action per call, every call returns a record (`ws.fx`) of what happened so any device can replay it.
-- **Puzzle library (data only):** `wordspin-puzzles.js`, 230 original puzzles, 11 categories, 3 difficulties; listed in `sw.js`.
+- **Puzzle libraries (data only):** `wordspin-puzzles.js` (230 English) and `wordspin-puzzles-de.js` (165 German), 11 categories, 3 difficulties each; both listed in `sw.js`. The texts on screen are in `WS_TX` (en / de).
 - **Wheel result:** drawn once from the game's own random stream (`ws.rng`, seeded in the state) inside the room update, and stored as wedge + final angle. Every device animates to the same angle.
 - **Screens:** `rWordspinTable`. Per-device choice: everything / the stage only / my controls.
 - **Local:** `lDealWordspin`, `wsDoLocal`, `botWordspinAct`, `wsEndLocal`. **Online:** `oWsDo`, `oWsFinish`, `oWsAuto` (away players), start and rematch in `oStartGame`.
@@ -27,4 +28,4 @@ Puzzle library (size, variety, fits the board, no duplicates), wheel (24 wedges,
 ## Not done
 - Not yet played on real devices.
 - The stage backdrop and textures from the first picture sheet are not used (the sheet was never saved as a file).
-- No German or other-language puzzles.
+- The short how-to-play tour (the slide show) is English only; the rules page is also in German.
