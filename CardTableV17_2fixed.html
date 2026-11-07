@@ -4538,6 +4538,12 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
   .ws-main>:not(.ws-top):not(.ws-stage){grid-column:1/-1;}
 }
 @media(max-width:480px){.ws-plate{min-width:4.2rem;padding:.25rem .45rem .3rem;}.ws-bank{font-size:1rem;}.ws-board{padding:.4rem;gap:.2rem;}.ws-row{gap:.2rem;}.ws-k{border-radius:7px;font-size:.92rem;}.ws-kr{gap:.2rem;}}
+/* one device can be the shared stage (wheel and puzzle, big) and the others private controllers (letters, vowels, solving) */
+.ws-v-stage .ws-panel{display:none;}
+.ws-v-stage .ws-wheel-wrap{width:min(88vw,34rem,max(16rem,calc(100vh - 28rem)))!important;}
+.ws-v-stage .ws-board{max-width:calc(var(--cols,14)*3.2rem + 1.4rem);}
+@media(min-width:900px) and (orientation:landscape){.ws-v-stage .ws-left{grid-column:1/-1;justify-self:center;}}
+.ws-v-pad .ws-left{display:none;}
 @media(prefers-reduced-motion:reduce){.ws-t.flip,.ws-board.deal .ws-t.bl,.ws-wedge.win,.ws-bulb,.ws-clock.low b{animation:none!important;}.ws-intro{display:none;}}
 </style>
 <style>
@@ -6329,7 +6335,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=312;
+const APP_BUILD=313;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -21450,6 +21456,8 @@ let _wsEndAt=0;
 /* ── WORDSPIN: choices before the game (rounds, puzzle level): the host sets them online ── */
 function wsRounds(){let n=3;try{n=+localStorage.getItem('ct_ws_rounds')||3;}catch(e){}return[2,3,4].indexOf(n)>=0?n:3;}
 function wsLevel(){let n=0;try{n=+localStorage.getItem('ct_ws_level')||0;}catch(e){}return n>=0&&n<=3?n:0;}
+function wsView(){let v='full';try{v=localStorage.getItem('ct_ws_view')||'full';}catch(e){}return v==='stage'||v==='pad'?v:'full';}
+function wsSetView(v){try{localStorage.setItem('ct_ws_view',v);}catch(e){}}
 function wsSetPref(k,v){try{localStorage.setItem('ct_ws_'+k,String(v));}catch(e){}}
 function wsOptionsHTML(){
   const r=wsRounds(),l=wsLevel();
@@ -21605,7 +21613,8 @@ function rWordspinTable(){
   const ang=G.wsDisp!=null?G.wsDisp:ws.angle;
   const roundLine=ws.final?'<span class="ws-rnd final">★ FINAL PUZZLE ★</span>':`<span class="ws-rnd">Round ${ws.round} of ${ws.rounds}</span>`;
   queueMicrotask(wsPostRender);
-  return`<div id="s-table" class="scr on game-wordspin">
+  const view=wsView();
+  return`<div id="s-table" class="scr on game-wordspin ws-v-${view}">
     <div class="game-bar">
       <div class="gb-game">🎡 <span class="cr-gbn">WORDSPIN</span></div>
       <div class="gb-turn p${seq?fx.seat:seat}${mine&&!ws.over&&!seq?' mine':''}">${avChar(mover.avatar)} ${esc(mover.name)}’s turn</div>
@@ -21617,7 +21626,7 @@ function rWordspinTable(){
       <div class="ws-stage">
         <div class="ws-left"><div class="ws-wheel-wrap an-${gtAnim()}" style="${kbPhase?'width:min(52vw,11rem)':''}">${wsWheelSVG(ang)}</div></div>
         <div class="ws-right">${wsPanelHTML(ws,p,mine,acts,seq,players)}
-          <div class="ws-foot"><button class="gt-animbtn" data-a="wsanim" aria-label="Animations">✨ Animations: ${{full:'Full',light:'Light',off:'Off'}[gtAnim()]}</button></div></div>
+          <div class="ws-foot"><button class="gt-animbtn" data-a="wsanim" aria-label="Animations">✨ Animations: ${{full:'Full',light:'Light',off:'Off'}[gtAnim()]}</button><button class="gt-animbtn" data-a="wsview" aria-label="This screen shows">${{full:'🖥 This screen: everything',stage:'📺 This screen: the stage only',pad:'📱 This screen: my controls'}[view]}</button></div></div>
       </div>
       ${!mine&&online&&!ws.over?awayIndicatorHTML(p.id,p.name):''}
     </div>
@@ -21669,6 +21678,7 @@ function wsIntro(){
 function wsTap(a,t){
   const ws=G.isOnline?(G.srv&&G.srv.ws):G.ws;if(!ws)return;
   if(a==='wsanim'){gtAnimNext();SFX.chip();render();return;}
+  if(a==='wsview'){wsSetView({full:'stage',stage:'pad',pad:'full'}[wsView()]);SFX.chip();render();return;}
   if(ws.over||G.wsSeq)return;
   if(G.isOnline&&!isMyTurn())return;
   if(!G.isOnline&&isBotPlayer(G.lp[ws.cur-1]))return;
@@ -40073,7 +40083,7 @@ document.addEventListener('click',e=>{
   else if(a==='bw-timer'){bwSetRule('timer',+t.getAttribute('data-n'));SFX.chip();render();}
   else if(a==='bw-guide-x'){try{localStorage.setItem('ct_bw_guided','1');}catch(e){}SFX.chip();render();}
   else if(a==='gt-anim'){gtAnimNext();SFX.chip();render();}
-  else if(/^ws(spin|vowelmode|solvemode|cancel|key|call|submit|next|lock|anim)$/.test(a)){wsTap(a,t);}
+  else if(/^ws(spin|vowelmode|solvemode|cancel|key|call|submit|next|lock|anim|view)$/.test(a)){wsTap(a,t);}
   else if(a==='ws-rounds'){wsSetPref('rounds',+t.getAttribute('data-m'));render();}
   else if(a==='ws-level'){wsSetPref('level',+t.getAttribute('data-m'));render();}
   else if(a==='abroll'||a==='abtrick'||a==='abtarget'||a==='abcancel'||a==='abcell'){abTap(a,t);}

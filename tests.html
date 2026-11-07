@@ -10146,6 +10146,15 @@ async function runPresentation(A,W,frame){
     check('it plays online and against bots, with a tour, a tagline, an accent, a history name and reactions',F('ONLINE_GAMES').includes('wordspin')&&F('BOT_GAMES').has('wordspin')&&F('TOURS').wordspin.slides.length===5&&!!F('STAGE_TAGS').wordspin&&!!F('MOMENT_ACCENT').wordspin&&F('v14GameLabel')('wordspin')==='WORDSPIN'&&F('REACTION_GAME').wordspin.length===3);
     check('it has four trophies',F('ACHIEVEMENTS').filter(a=>/^ws-/.test(a.id)).length===4);
     check('the wheel is drawn with all 24 wedges and a pointer',(()=>{const s=F('wsWheelSVG')(0);return(s.match(/class="ws-wedge"/g)||[]).length===24&&/id="ws-ptr"/.test(s);})());
+    check('each device can be the shared stage, a private controller, or both: the choice is remembered and changes what is drawn',(()=>{
+      const G=W.eval('G'),keep=W.localStorage.getItem('ct_ws_view');
+      try{
+        G.isOnline=false;G.srv=null;G.snd=false;G.wsInstant=true;F('startNow')('wordspin',2);G.lp.forEach(p=>{p.bot=null;});G.ws.cur=1;G.lcur=0;
+        const seen=[];
+        for(let k=0;k<3;k++){const html=F('rWordspinTable')();seen.push([F('wsView')(),/ws-v-(full|stage|pad)/.exec(html)[1]]);F('wsTap')('wsview');}
+        return seen.map(s=>s.join(':')).join()==='full:full,stage:stage,pad:pad'&&F('wsView')()==='full';
+      }finally{G.wsInstant=false;G.ws=null;G.scr='home';if(keep==null)W.localStorage.removeItem('ct_ws_view');else W.localStorage.setItem('ct_ws_view',keep);}
+    })());
     check('the board shows only the letters called so far',(()=>{const w=F('wsNew')(2,{seed:3});w.puzzle={c:'T',d:1,t:'HELLO WORLD',i:-1};w.called='LO';const html=F('wsBoardHTML')(w,'',false);return(html.match(/ws-t on/g)||[]).length===5&&(html.match(/ws-t bl/g)||[]).length===5;})());
   });
 
