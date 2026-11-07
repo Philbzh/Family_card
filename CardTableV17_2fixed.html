@@ -4514,7 +4514,10 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
 .ws-intro-wheel svg{width:100%;display:block;}
 .ws-intro-wheel svg g.rot{animation:ws-intro-spin 2.8s cubic-bezier(.15,.7,.2,1) both;transform-origin:0 0;}
 .ws-intro-logo{display:flex;gap:.12em;font:800 clamp(2.2rem,11vw,4rem)/1 var(--serif,Georgia,serif);letter-spacing:.06em;color:var(--wg);text-shadow:0 0 30px rgba(233,196,106,.7);}
-.ws-intro-logo span{opacity:0;animation:ws-letter .6s ease forwards;animation-delay:calc(1.2s + var(--i)*.09s);}
+.ws-intro-logo span{opacity:0;background:linear-gradient(100deg,#b8892f 30%,#fff6d0 50%,#b8892f 70%) 100% 0/300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:ws-letter .6s ease forwards,ws-shine 1.6s ease forwards;animation-delay:calc(1.2s + var(--i)*.09s),calc(2.1s + var(--i)*.07s);}
+@keyframes ws-shine{to{background-position:0 0;}}
+.ws-intro .ws-bulb{opacity:0;animation:ws-ignite .3s ease forwards!important;animation-delay:calc(.5s + var(--i)*70ms)!important;}
+@keyframes ws-ignite{0%{opacity:0;}60%{opacity:1;filter:drop-shadow(0 0 6px #fff3c6);}100%{opacity:1;filter:drop-shadow(0 0 3px #ffe08a);}}
 .ws-intro-sub{font-size:.8rem;letter-spacing:.5em;color:#9fb4ff;opacity:0;animation:ws-letter .8s ease 2.2s forwards;}
 @keyframes ws-intro-in{0%{transform:scale(.4) translateY(40px);opacity:0;}30%{opacity:1;}100%{transform:none;opacity:1;}}
 @keyframes ws-intro-spin{0%{transform:rotate(-540deg);}100%{transform:rotate(0);}}
@@ -6353,7 +6356,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=317;
+const APP_BUILD=318;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -21527,7 +21530,10 @@ function wsWheelSVG(ang,lang){
       <linearGradient id="wsRim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff1c2"/><stop offset=".35" stop-color="#e9c46a"/><stop offset=".7" stop-color="#8a5f17"/><stop offset="1" stop-color="#f4d88a"/></linearGradient>
       <radialGradient id="wsHub" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#fff6d0"/><stop offset=".5" stop-color="#e9c46a"/><stop offset="1" stop-color="#7d5612"/></radialGradient>
       <radialGradient id="wsGem" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#bfe3ff"/><stop offset=".5" stop-color="#2f87f0"/><stop offset="1" stop-color="#0a2a7a"/></radialGradient>
-      <linearGradient id="wsGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff1c2"/><stop offset=".5" stop-color="#e9c46a"/><stop offset="1" stop-color="#a97918"/></linearGradient></defs>`);
+      <linearGradient id="wsGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff1c2"/><stop offset=".5" stop-color="#e9c46a"/><stop offset="1" stop-color="#a97918"/></linearGradient>
+      <linearGradient id="wsGlass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".36"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+      <linearGradient id="wsRimHi" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset=".6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".5"/></linearGradient>
+      <clipPath id="wsFace"><circle r="92"/></clipPath></defs>`);
     const w=WS_SEG_DEG;
     WS_SEGS.forEach((s,i)=>{
       const a0=i*w-w/2,a1=i*w+w/2,[x1,y1]=wsPt(a0,R),[x2,y2]=wsPt(a1,R);
@@ -21546,11 +21552,11 @@ function wsWheelSVG(ang,lang){
     });
     _wsWheelStatic[lang]=out.join('');
   }
-  const bulbs=[];for(let i=0;i<WS_SEGS.length;i++){const[x,y]=wsPt(i*WS_SEG_DEG+WS_SEG_DEG/2,100);bulbs.push(`<circle class="ws-bulb" cx="${x}" cy="${y}" r="2.3" style="animation-delay:${(i*70)%1600}ms"/>`);}
-  const rim=`<circle r="105.5" fill="none" stroke="#04060f" stroke-width="13"/><circle r="105.5" fill="none" stroke="url(#wsRim)" stroke-width="10.5"/><circle r="94.2" fill="none" stroke="#04060f" stroke-width="2.4"/>`;
+  const bulbs=[];for(let i=0;i<WS_SEGS.length;i++){const[x,y]=wsPt(i*WS_SEG_DEG+WS_SEG_DEG/2,100);bulbs.push(`<circle cx="${x}" cy="${y}" r="4.6" fill="#ffe9a8" opacity=".2"/><circle class="ws-bulb" cx="${x}" cy="${y}" r="2.3" style="--i:${i};animation-delay:${(i*70)%1600}ms"/>`);}
+  const rim=`<circle r="105.5" fill="none" stroke="#04060f" stroke-width="13"/><circle r="105.5" fill="none" stroke="url(#wsRim)" stroke-width="10.5"/><circle r="94.2" fill="none" stroke="#04060f" stroke-width="2.4"/><circle r="105.5" fill="none" stroke="url(#wsRimHi)" stroke-width="10.5"/><circle r="110.9" fill="none" stroke="#fff6d0" stroke-opacity=".55" stroke-width=".6"/><circle r="99.6" fill="none" stroke="#000" stroke-opacity=".45" stroke-width="1.1"/>`;
   const hub=`<circle r="17" fill="url(#wsHub)" stroke="#04060f" stroke-width="1.5"/><circle r="12.5" fill="none" stroke="#7d5612" stroke-width=".8"/><circle r="7.4" fill="url(#wsGem)" stroke="#e9c46a" stroke-width="1"/><path d="M-3 -3 L0 -5.4 L3 -3" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width=".8"/>`;
   const pointer=`<g id="ws-ptr"><path d="M-10 -121 L10 -121 L0 -93 Z" fill="url(#wsGold)" stroke="#04060f" stroke-width="1.6" stroke-linejoin="round"/><circle cx="0" cy="-114" r="2.6" fill="#2f87f0" stroke="#fff8" stroke-width=".6"/></g>`;
-  return`<svg viewBox="-112 -124 224 236" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The prize wheel">${rim}<g id="ws-rot" class="rot" transform="rotate(${ang})">${_wsWheelStatic[lang]}<circle r="92" fill="url(#wsGloss)" pointer-events="none"/></g><g>${bulbs.join('')}</g>${hub}${pointer}</svg>`;
+  return`<svg viewBox="-112 -124 224 236" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The prize wheel">${rim}<g id="ws-rot" class="rot" transform="rotate(${ang})">${_wsWheelStatic[lang]}<circle r="92" fill="url(#wsGloss)" pointer-events="none"/></g><ellipse cx="-24" cy="-50" rx="66" ry="30" transform="rotate(-26 -24 -50)" fill="url(#wsGlass)" clip-path="url(#wsFace)" pointer-events="none"/><g>${bulbs.join('')}</g>${hub}${pointer}</svg>`;
 }
 /* ── WORDSPIN: the puzzle board ── */
 function wsBoardHTML(ws,flip,deal){
