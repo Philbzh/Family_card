@@ -25,9 +25,10 @@ const TM_CATS=[
 const TM_CFG={
   ladder:[1000,2500,5000,10000,25000],topBonus:5000,
   cycles1:6,                        // questions per player in act 1 (a "climb" may be restarted after banking)
-  sealRounds:3,                     // realm challenges per player in act 2
+  sealRounds:2,                     // realm choices per player in act 2 (each realm only once)
+  sideBonus:500,                    // act 2: a right answer to somebody else's realm question
   sealValue:2500,
-  hcapMult:{'-1':.5,'0':1,'1':1.5},   // family handicap: easier questions pay half, harder ones pay 1.5 times
+  hcapMult:{'-1':.5,'0':1,'1':1.5},   // family handicap: Leicht removes two wrong answers on every question and pays half, Schwer pays 1.5 times
   reviewMax:2,                      // old mistakes brought back per game
   streakBonus:500,                  // act 1: every third right answer in a row
   duelPrize:5000,                   // the head-to-head after act 1: the two richest players, one hard question
@@ -64,10 +65,10 @@ function tmNew(P,opts){
   const tm={v:1,P:n,seed,rng:seed,rng2:(seed*7+13)%2147483646+1,lang:'de',act:1,phase:'ask',cycle:0,round2:0,used:[],catN:[0,0,0,0,0,0],
     lib:opts.lib||null,relaxed:!!opts.relaxed,review:(opts.review||[]).slice(0,12),reviewUsed:0,gold:0,
     lvl:z(),unb:z(),bank:z(),q:nl(),ans:nl(),ansAt:z(),res:nl(),pick:nl(),ext:z(),elim:nl(),clue:z(),gain:z(),
-    life:[],council:null,hcap:z(),streak:z(),rdy:z(),log:[],duel:null,duelDone:false,pendingDecide:new Array(n).fill(false),seals:[],sealNew:z(),
+    life:[],council:null,queue:[],owner:0,easyOn:z(),picked:Array.from({length:n},()=>[]),hcap:z(),streak:z(),rdy:z(),log:[],duel:null,duelDone:false,pendingDecide:new Array(n).fill(false),seals:[],sealNew:z(),
     chaser:opts.chaser&&TM_CFG.chasers[opts.chaser]?opts.chaser:null,ch:null,lane:[],offer:nl(),
     dl:0,moves:0,fx:null,over:false,win:0,
-    stats:{right:z(),wrong:z(),late:z(),lifes:z(),best:z(),topHits:z(),duels:z(),streaks:z(),banks:z(),councilFor:z(),hardRight:z(),mislead:z()}};
+    stats:{right:z(),wrong:z(),late:z(),lifes:z(),best:z(),topHits:z(),duels:z(),streaks:z(),catR:Array.from({length:n},()=>[0,0,0,0,0,0]),catN:Array.from({length:n},()=>[0,0,0,0,0,0]),banks:z(),councilFor:z(),hardRight:z(),mislead:z()}};
   for(let i=0;i<n;i++){tm.life.push(Object.assign({},TM_CFG.lives));tm.seals.push([]);}
   for(let i=0;i<7;i++){tmRand(tm);tmRand2(tm);}
   if(!tm.chaser)tm.chaser=TM_CH_KEYS[Math.floor(tmRand(tm)*TM_CH_KEYS.length)];
@@ -105,9 +106,11 @@ function tmMs(tm,key){return Math.round(TM_CFG.ms[key]*(tm.relaxed&&/^ask/.test(
 function tmResetAsk(tm){tm.rdy=tm.rdy.map(()=>0);tm.ans=tm.ans.map(()=>null);tm.ansAt=tm.ansAt.map(()=>0);tm.res=tm.res.map(()=>null);tm.ext=tm.ext.map(()=>0);tm.elim=tm.elim.map(()=>null);tm.clue=tm.clue.map(()=>0);tm.gain=tm.gain.map(()=>0);tm.council=null;tm.fx=null;}
 function tmOpenCycle1(tm,now){
   tm.cycle++;tm.act=1;tm.phase='ask';tmResetAsk(tm);
-  // players on the same level get the very same question (they play at the same time); different levels, different questions
-  const byLvl={};
-  for(let s=0;s<tm.P;s++){const d=tmHDiff(tm,s,tm.lvl[s]+1),k=d;if(!byLvl[k])byLvl[k]=tmPickQ(tm,-1,d);tm.q[s]=byLvl[k];}
+  // EVERYBODY answers the very same question at the same time; its level is the (rounded) average level of the players
+  const d=Math.max(1,Math.min(5,Math.round(tm.lvl.reduce((a,b)=>a+b+1,0)/tm.P)));
+  const q=tmPickQ(tm,-1,d);
+  for(let s=0;s<tm.P;s++)tm.q[s]=q;
+  tmApplyEasy(tm);
   tm.dl=now+tmMs(tm,'ask1');
 }
 function tmOpenDuel(tm,now){
@@ -121,23 +124,38 @@ function tmOpenDuel(tm,now){
 function tmOpenPick(tm,now){tm.act=2;tm.phase='pick';tm.round2++;tmResetAsk(tm);tm.pick=tm.pick.map(()=>null);tm.q=tm.q.map(()=>null);tm.dl=now+tmMs(tm,'pick');
   if(tm.round2===1)tm.life.forEach(l=>{l.cut=TM_CFG.lives.cut;l.archive=TM_CFG.lives.archive;l.freeze=TM_CFG.lives.freeze;});}
 function tmOpenAsk2(tm,now){
-  tm.phase='ask';tmResetAsk(tm);
-  // players who chose the same realm get the very same question
-  const byCat={};
-  for(let s=0;s<tm.P;s++){const d=tmHDiff(tm,s,3),k=tm.pick[s]+'|'+d;if(!byCat[k])byCat[k]=tmPickQ(tm,tm.pick[s],d);tm.q[s]=byCat[k];}
+  // after everybody has chosen a realm, the questions come one after the other: one question per player's realm, answered by ALL at the same time.
+  // Only the player whose realm it is can win the seal; everybody else earns a small bonus for a right answer.
+  tm.queue=[];for(let s=1;s<=tm.P;s++)tm.queue.push(s);
+  tmNextAsk2(tm,now);
+}
+function tmNextAsk2(tm,now){
+  const s=tm.queue.shift();tm.owner=s;tm.phase='ask';tmResetAsk(tm);
+  const q=tmPickQ(tm,tm.pick[s-1],3);
+  for(let k=0;k<tm.P;k++)tm.q[k]=q;
+  tmApplyEasy(tm);
   tm.dl=now+tmMs(tm,'ask2');
+}
+// family handicap "Leicht": two wrong answers are taken away on every question
+function tmApplyEasy(tm){
+  for(let s=0;s<tm.P;s++){
+    if(tm.hcap[s]<0&&tm.q[s]&&tm.ans[s]==null&&!tm.elim[s]){
+      const wrong=[0,1,2,3].filter(x=>x!==tm.q[s].cor),keep=wrong[Math.floor(tmRand2(tm)*3)];
+      tm.elim[s]=wrong.filter(x=>x!==keep);tm.easyOn[s]=1;
+    }else if(tm.hcap[s]>=0)tm.easyOn[s]=0;
+  }
 }
 function tmOpenOffer(tm,now){tm.act=3;tm.phase='offer';tmResetAsk(tm);tm.q=tm.q.map(()=>null);tm.offer=tm.offer.map(()=>null);tm.dl=now+tmMs(tm,'offer');
   tm.life.forEach(l=>{l.cut=TM_CFG.lives.cut;l.archive=TM_CFG.lives.archive;l.freeze=TM_CFG.lives.freeze;});}
 function tmAmt(tm,i,lvl){return Math.round(TM_CFG.ladder[lvl]*(TM_CFG.hcapMult[String(tm.hcap[i])]||1)/50)*50;}
-function tmHDiff(tm,i,base){return Math.max(1,Math.min(5,base+tm.hcap[i]));}
+function tmHDiff(tm,i,base){return Math.max(1,Math.min(5,base));}
 function tmSealCount(tm,s){return new Set(tm.seals[s-1]).size;}
 function tmStartHunt(tm,now){
   tm.hunt={n:0};tm.lane=[];
   for(let s=1;s<=tm.P;s++){
     const o=TM_CFG.offers[tm.offer[s-1]||'std'],n=tmSealCount(tm,s);
     let adv=o.adv;if(n>=2)adv=Math.min(TM_CFG.maxAdv,adv+1);
-    tm.lane.push({pl:adv,chp:0,st:'run',mult:o.mult,shield:n>=3?1:0,start:adv,steps:0});
+    tm.lane.push({pl:adv,chp:0,st:'run',mult:o.mult,shield:n>=2?1:0,start:adv,steps:0});
     if(n>=1)tm.life[s-1].archive+=1;
   }
   tmOpenHunt(tm,now);
@@ -213,8 +231,8 @@ function tmApply(tm,seat,act,now){
       return true;}
     case'cat':{
       if(ph!=='pick'||s<1||s>tm.P||tm.pick[i]!=null)return false;
-      const c=act.c|0;if(c<0||c>5)return false;
-      tm.pick[i]=c;tm.moves++;
+      const c=act.c|0;if(c<0||c>5||tm.picked[i].indexOf(c)>=0)return false;   // every realm can be chosen only once per player
+      tm.pick[i]=c;tm.picked[i].push(c);tm.moves++;
       if(tm.pick.every(v=>v!=null))tmOpenAsk2(tm,now);
       return true;}
     case'offer':{
@@ -231,13 +249,9 @@ function tmApply(tm,seat,act,now){
     case'hcap':{
       const v=act.v|0;
       if(ph!=='ask'||tm.act!==1||tm.cycle!==1||tm.duel||s<1||s>tm.P||tm.ans[i]!=null||v<-1||v>1||tm.hcap[i]===v)return false;
-      const old=tm.q[i];tm.hcap[i]=v;
-      const d=tmHDiff(tm,i,tm.lvl[i]+1);
-      // share a question with a player who is already on the same difficulty; otherwise draw a new one (and hand the old one back)
-      const mate=tm.q.findIndex((q,k)=>k!==i&&q&&tmHDiff(tm,k,tm.lvl[k]+1)===d);
-      tm.q[i]=mate>=0?tm.q[mate]:tmPickQ(tm,-1,d);
-      if(old&&!tm.q.some(q=>q&&q.i===old.i)){const u=tm.used.indexOf(old.i);if(u>=0)tm.used.splice(u,1);}
-      tm.elim[i]=null;tm.clue[i]=0;tm.moves++;return true;}
+      tm.hcap[i]=v;
+      if(v>=0&&tm.easyOn[i]){tm.elim[i]=null;tm.easyOn[i]=0;}   // switching away from Leicht gives the answers back
+      tmApplyEasy(tm);tm.moves++;return true;}
     case'tick':return tmTick(tm,now);
   }
   return false;
@@ -255,11 +269,11 @@ function tmTick(tm,now){
   if(now<tm.dl)return false;
   if(ph==='reveal'){tmAfterReveal(tm,now);return true;}
   if(ph==='decide'){for(let s=1;s<=tm.P;s++)if(tm.pendingDecide[s-1]===true)tmDecide(tm,s,true);tmAfterDecide(tm,now);return true;}
-  if(ph==='pick'){tm.pick=tm.pick.map((v,k)=>v!=null?v:tmLeastSeal(tm,k+1));tmOpenAsk2(tm,now);return true;}
+  if(ph==='pick'){tm.pick=tm.pick.map((v,k)=>{if(v!=null)return v;const c=tmLeastSeal(tm,k+1);tm.picked[k].push(c);return c;});tmOpenAsk2(tm,now);return true;}
   if(ph==='offer'){tm.offer=tm.offer.map(v=>v||'std');tmStartHunt(tm,now);return true;}
   return false;
 }
-function tmLeastSeal(tm,s){const have=new Set(tm.seals[s-1]);for(let c=0;c<6;c++)if(!have.has(c))return c;return 0;}
+function tmLeastSeal(tm,s){const used=tm.picked[s-1];for(let c=0;c<6;c++)if(used.indexOf(c)<0)return c;return 0;}
 function tmCouncilCheck(tm,now){
   const c=tm.council;if(!c||c.done)return;
   const need=tm.P-1;
@@ -279,6 +293,7 @@ function tmResolveAsk(tm,now){
     if(!tmActive(tm,s)){tm.res[i]=null;fx.seats.push({s,skip:1});continue;}
     const q=tm.q[i],a=tm.ans[i],ok=a!=null&&a===q.cor;
     if(tm.log.indexOf(q.i)<0)tm.log.push(q.i);
+    {const e0=tmLib(tm)[q.i];if(e0){tm.stats.catN[i][e0[0]]++;if(a!=null&&a===q.cor)tm.stats.catR[i][e0[0]]++;}}
     tm.res[i]=(a==null||a<0)?'late':ok?'ok':'bad';
     if(a==null||a<0)tm.stats.late[i]++;else if(ok)tm.stats.right[i]++;else tm.stats.wrong[i]++;
     const e=tmLib(tm)[q.i];if(ok&&e&&e[1]>=4)tm.stats.hardRight[i]++;
@@ -298,7 +313,9 @@ function tmResolveAsk(tm,now){
         else{o.money=tm.unb[i];tm.lvl[i]++;tm.pendingDecide[i]=tm.cycle<TM_CFG.cycles1;if(!tm.pendingDecide[i]){tm.bank[i]+=tm.unb[i];tm.unb[i]=0;o.auto=1;}}
       }else{o.lost=tm.unb[i];tm.unb[i]=0;tm.lvl[i]=0;}
     }else if(act===2){
-      if(ok){const have=tm.seals[i].indexOf(tm.pick[i])>=0;tm.seals[i].push(tm.pick[i]);o.seal=1;o.dup=have?1:0;}
+      if(ok&&s===tm.owner){tm.seals[i].push(tm.pick[i]);o.seal=1;}
+      else if(ok){tm.bank[i]+=TM_CFG.sideBonus;o.side=TM_CFG.sideBonus;}
+      o.owner=tm.owner;
     }
     fx.seats.push(o);
   }
@@ -349,6 +366,7 @@ function tmAfterReveal(tm,now){
     tmAfterDecide(tm,now);return;
   }
   if(tm.act===2){
+    if(tm.queue&&tm.queue.length){tmNextAsk2(tm,now);return;}
     if(tm.round2>=TM_CFG.sealRounds)tmOpenOffer(tm,now);else tmOpenPick(tm,now);
     return;
   }
@@ -393,7 +411,7 @@ function tmBotAct(tm,seat,level,r){
   }
   if(tm.phase==='pick'){
     if(tm.pick[i]!=null)return null;
-    const have=new Set(tm.seals[i]),opts=[0,1,2,3,4,5].filter(c=>!have.has(c));
+    const opts=[0,1,2,3,4,5].filter(c=>tm.picked[i].indexOf(c)<0);
     return{t:'cat',c:opts[Math.floor(r()*opts.length)]};
   }
   if(tm.phase==='offer'){

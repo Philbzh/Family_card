@@ -10175,7 +10175,7 @@ async function runPresentation(A,W,frame){
     check('BANKEN secures the money and starts a new climb from level 0',t.bank[0]===1000&&t.unb[0]===0&&t.lvl[0]===0);
     check('the next question cycle opens at once',t.phase==='ask'&&t.cycle===2);
     t=fresh(2);right(t,1);right(t,2);F('tmTick')(t,t.dl+1);A(t,1,{t:'go'},t.dl-1);A(t,2,{t:'bank'},t.dl-1);
-    check('WEITER keeps the money unbanked and the next question is one level harder',t.bank[0]===0&&t.unb[0]===1000&&t.lvl[0]===1&&F('tmQ')(t,t.q[0]).d===2&&F('tmQ')(t,t.q[1]).d===1);
+    check('WEITER keeps the money unbanked; everybody gets the same next question, at the average level of the players',t.bank[0]===0&&t.unb[0]===1000&&t.lvl[0]===1&&t.q[0].i===t.q[1].i&&F('tmQ')(t,t.q[0]).d===2);
     wrong(t,1);right(t,2);
     check('a wrong answer after WEITER loses the unbanked money',t.unb[0]===0&&t.bank[0]===0&&t.bank[1]===1000);
     t=fresh(2);t.bank[0]=7000;right(t,1);wrong(t,2);F('tmTick')(t,t.dl+1);A(t,1,{t:'go'},t.dl-1);wrong(t,1);
@@ -10271,19 +10271,55 @@ async function runPresentation(A,W,frame){
     check('the Aa button cycles normal → large → extra large → high contrast → normal',seq.join()==='l,xl,hc,');
     if(old==null)W.localStorage.removeItem(k);else W.localStorage.setItem(k,old);
   });
-  suite('TABLE MIND — family handicap: easier or harder questions for a fair prize',()=>{
-    const F=n=>W.eval(n),N=F('tmNew'),A=F('tmApply'),T=F('tmTick'),CFG=F('TM_CFG'),qd=(t,i)=>F('tmQ')(t,t.q[i]).d;
+  suite('TABLE MIND — family handicap: easier or harder for a fair prize, always the same question',()=>{
+    const F=n=>W.eval(n),N=F('tmNew'),A=F('tmApply'),T=F('tmTick'),CFG=F('TM_CFG');
     const t=N(3,{seed:91});t.gold=99;F('tmStart')(t,0);
-    check('everybody starts on Normal',t.hcap.join()==='0,0,0'&&qd(t,0)===1&&qd(t,2)===1);
+    check('everybody starts on Normal with the very same question and no answer removed',t.hcap.join()==='0,0,0'&&t.q[0].i===t.q[1].i&&t.q[1].i===t.q[2].i&&t.elim.every(e=>e===null));
     A(t,1,{t:'hcap',v:-1},100);A(t,3,{t:'hcap',v:1},100);
-    check('Schwer gets a harder question (level 2 at the first rung); Leicht stays at the easiest level',qd(t,2)===2&&qd(t,0)===1);
-    check('players on the same difficulty share the very same question',t.q[0].i===t.q[1].i&&t.q[2].i!==t.q[0].i);
-    check('the new question of a player who changed is a different one and the old one is not wasted',t.used.indexOf(t.q[2].i)>=0);
+    check('Leicht: two wrong answers are taken away for that player only; the question stays the same for everybody',t.elim[0]&&t.elim[0].length===2&&t.elim[0].indexOf(t.q[0].cor)<0&&t.elim[1]===null&&t.elim[2]===null&&t.q[0].i===t.q[2].i);
     A(t,1,{t:'ans',i:t.q[0].cor},200);A(t,2,{t:'ans',i:t.q[1].cor},210);A(t,3,{t:'ans',i:t.q[2].cor},220);
     check('prizes follow the handicap: Leicht pays half, Normal full, Schwer one and a half times',t.unb.join()===[500,1000,1500].join());
-    check('the handicap cannot be changed after the answer or after the first question',A(t,1,{t:'hcap',v:0},230)===false);
+    check('the handicap cannot be changed after the answer',A(t,1,{t:'hcap',v:0},230)===false);
+    const u=N(2,{seed:92});u.gold=99;F('tmStart')(u,0);A(u,1,{t:'hcap',v:-1},50);A(u,1,{t:'hcap',v:0},60);
+    check('switching back from Leicht gives the answers back',u.elim[0]===null&&u.hcap[0]===0);
+    check('the Leicht player gets two fewer answers on every later question too',(()=>{const w=N(2,{seed:93});w.gold=99;F('tmStart')(w,0);A(w,1,{t:'hcap',v:-1},50);A(w,1,{t:'ans',i:w.q[0].cor},100);A(w,2,{t:'ans',i:w.q[1].cor},110);A(w,1,{t:'next'},120);A(w,2,{t:'next'},130);F('tmTick')(w,w.dl+1);A(w,1,{t:'go'},w.dl-1);A(w,2,{t:'go'},w.dl-1);return w.cycle===2&&w.phase==='ask'&&w.elim[0]&&w.elim[0].length===2&&w.elim[1]===null;})());
+  });
+  suite('TABLE MIND — family strengths per realm',()=>{
+    const F=n=>W.eval(n),N=F('tmNew'),A=F('tmApply');
+    const t=N(2,{seed:95});t.gold=99;F('tmStart')(t,0);A(t,1,{t:'ans',i:t.q[0].cor},100);A(t,2,{t:'ans',i:(t.q[1].cor+1)%4},120);
+    const c0=F('tmQ')(t,t.q[0]).c;
+    check('every answered question counts for its realm: right and total per player',t.stats.catN[0][c0]===1&&t.stats.catR[0][c0]===1&&t.stats.catN[1][c0]===1&&t.stats.catR[1][c0]===0);
+    const hist=[{game:'tablemind',stats:{tm:{Papa:{cr:[8,2,0,0,0,0],cn:[10,5,0,0,0,0]},Shadow:{cr:[3,4,0,0,0,0],cn:[10,5,0,0,0,0]}}}},{game:'wordspin',stats:{}},{game:'tablemind',stats:{tm:{Papa:{cr:[1,1,0,0,0,0],cn:[5,1,0,0,0,0]}}}}];
+    const S=F('tmStrengthsFrom')(hist,5);
+    check('the family history adds up all games per player and finds the best player per realm',S.by.Papa.n[0]===15&&S.by.Papa.r[0]===9&&S.best[0]==='Papa'&&S.best[1]==='Shadow'&&S.best[2]===null);
+    check('a realm with fewer than five questions gets no medal',F('tmStrengthsFrom')([{game:'tablemind',stats:{tm:{X:{cr:[1,0,0,0,0,0],cn:[2,0,0,0,0,0]}}}}],5).best[0]===null);
+  });
+  suite('TABLE MIND — every realm can be chosen only once per player',()=>{
+    const F=n=>W.eval(n),N=F('tmNew'),A=F('tmApply'),T=F('tmTick'),CFG=F('TM_CFG');
+    const t=N(2,{seed:97});F('tmStart')(t,0);t.cycle=CFG.cycles1;T(t,t.dl+1);T(t,t.dl+1);T(t,t.dl+1);T(t,t.dl+1);
+    check('act 2 starts with the first choice',t.act===2&&t.phase==='pick'&&t.round2===1);
+    A(t,1,{t:'cat',c:3},t.dl-100);A(t,2,{t:'cat',c:3},t.dl-100);
+    check('two players may choose the same realm in the same round',t.phase==='ask'&&t.picked[0].join()==='3'&&t.picked[1].join()==='3');
+    for(let k=0;k<2;k++){A(t,1,{t:'ans',i:t.q[0].cor},t.dl-100);A(t,2,{t:'ans',i:t.q[1].cor},t.dl-100);T(t,t.dl+1);}
+    check('round 2: the realm chosen before is refused, another one is accepted',t.phase==='pick'&&A(t,1,{t:'cat',c:3},t.dl-100)===false&&A(t,1,{t:'cat',c:4},t.dl-100)&&t.picked[0].join()==='3,4');
+    const u=N(2,{seed:98});F('tmStart')(u,0);u.cycle=CFG.cycles1;for(let k=0;k<4;k++)T(u,u.dl+1);
+    u.picked[0]=[0,1];u.picked[1]=[2];
+    T(u,u.dl+1);
+    check('when the clock runs out the game chooses a realm the player has not used yet',u.phase==='ask'&&u.picked[0].length===3&&new Set(u.picked[0]).size===3&&u.picked[1].length===2&&new Set(u.picked[1]).size===2);
+  });
+  suite('TABLE MIND — act 2: one question for everybody, one after the other',()=>{
+    const F=n=>W.eval(n),N=F('tmNew'),A=F('tmApply'),T=F('tmTick'),CFG=F('TM_CFG');
+    const t=N(2,{seed:99});F('tmStart')(t,0);t.cycle=CFG.cycles1;for(let k=0;k<4;k++)T(t,t.dl+1);
+    A(t,1,{t:'cat',c:1},t.dl-100);A(t,2,{t:'cat',c:4},t.dl-100);
+    check('after the choices the first question comes from the realm of player 1 and is the same for both',t.phase==='ask'&&t.owner===1&&t.q[0].i===t.q[1].i&&F('tmQ')(t,t.q[0]).c===1);
+    A(t,1,{t:'ans',i:t.q[0].cor},t.dl-100);A(t,2,{t:'ans',i:t.q[1].cor},t.dl-100);
+    check('the owner of the realm wins the seal, the other player earns the small bonus instead',t.seals[0].join()==='1'&&t.seals[1].length===0&&t.fx.seats[1].side===CFG.sideBonus&&t.bank[1]===CFG.sideBonus);
     T(t,t.dl+1);
-    check('banking and later questions keep the handicap (level 2 is 2,500 x factor)',(()=>{A(t,1,{t:'go'},t.dl-1);A(t,2,{t:'go'},t.dl-1);A(t,3,{t:'go'},t.dl-1);return t.cycle===2&&F('tmAmt')(t,0,1)===1250&&F('tmAmt')(t,2,1)===3750&&A(t,2,{t:'hcap',v:1},t.dl-100)===false;})());
+    check('then the next question comes from the realm of player 2, again the same for both',t.phase==='ask'&&t.owner===2&&F('tmQ')(t,t.q[0]).c===4&&t.q[0].i===t.q[1].i);
+    A(t,1,{t:'ans',i:(t.q[0].cor+1)%4},t.dl-100);A(t,2,{t:'ans',i:t.q[1].cor},t.dl-100);
+    check('player 2 wins the seal of the realm they chose; a wrong answer of player 1 earns nothing',t.seals[1].join()==='4'&&t.seals[0].join()==='1'&&!t.fx.seats[0].side);
+    T(t,t.dl+1);
+    check('after all questions of the round the next choice begins',t.phase==='pick'&&t.round2===2);
   });
   suite('TABLE MIND — act 2: realms and seals',()=>{
     const F=n=>W.eval(n),N=F('tmNew'),A=F('tmApply'),CFG=F('TM_CFG');
