@@ -562,8 +562,9 @@ function tmLocalLoop(tm,now){
   const v=tmLocalViewer(tm);
   if(v&&v.mode==='ask'&&G.tmReadyKey===tmLocalKey(tm,v.seat,'ask')&&now>tmSeatDl(tm,v.seat)+300){tmApply(tm,v.seat,{t:'ans',to:1},now);acted=true;G.tmSel=-1;}
   if(v&&v.mode==='vote'&&G.tmReadyKey===tmLocalKey(tm,v.seat,'vote')&&tm.council&&now>tm.council.until){tmTick(tm,now);acted=true;}
-  if(!acted&&tmDueNow(tm,now)&&!(v&&tm.phase!=='reveal'&&G.tmReadyKey!==tmLocalKey(tm,v.seat,v.mode)&&tm.phase==='ask'&&false)){
+  if(!acted&&tmDueNow(tm,now)){
     // do not run the clock out on a player who has not even picked the device up yet (their clock starts at "Ich bin ...")
+    if(v&&tm.phase!=='reveal'&&G.tmReadyKey!==tmLocalKey(tm,v.seat,v.mode))return;   // their clock starts at LOS
     if(tm.phase==='ask'&&v)return;
     if(tmTick(tm,now))acted=true;
   }
@@ -903,7 +904,7 @@ function tmOfferPad(tm,me,players){
   const i=me-1;
   if(tm.offer[i]!=null){const o=TM_OFFER_INFO[tm.offer[i]];return`<div class="tm-card tm-wait"><div class="tm-title">Bestätigt ✓</div><div class="tm-offer ${tm.offer[i]} sel" style="max-width:15rem;margin:.3rem auto;cursor:default"><h4>${o.n}</h4><span class="big">×${o.m}</span><b>${o.h}</b></div>${tmWaitList(tm,players,me)}</div>`;}
   const n=tmSealCount(tm,me),bonus=[];
-  if(n>=1)bonus.push('1 zusätzliches Archiv');if(n>=2){bonus.push('+1 Feld Vorsprung');bonus.push('Schutzschild (fängt einen Fang ab)');}
+  if(n>=1)bonus.push('+1 Feld Vorsprung');if(n>=2)bonus.push('Schutzschild');
   return`<div class="tm-card"><div class="tm-title">DIE JAGD — DEIN ANGEBOT</div><div class="tm-timer"><b>--</b><i></i></div>
     ${bonus.length?'<div class="tm-sub">Siegel-Bonus: <b>'+bonus.join(', ')+'</b></div>':''}
     <div class="tm-offers">${['safe','std','risk'].map(k=>{const o=TM_OFFER_INFO[k];return`<button class="tm-offer ${k}" data-a="tmoffer" data-k="${k}"><h4>${o.n}</h4><span class="big">×${o.m}</span><b>${o.h}</b></button>`;}).join('')}</div></div>`;
@@ -1078,10 +1079,9 @@ function tmChipsHTML(){
   const sum=a=>a.reduce((x,y)=>x+y,0),esc_=tm.lane.filter(l=>l.st==='escaped').length;
   const tot=sum(tm.stats.right)+sum(tm.stats.wrong)+sum(tm.stats.late);
   return`<div class="tonight-stats">
-    <div class="tonight-stat"><div class="ts-val">${tot}</div><div class="ts-lbl">❓ Fragen gestellt</div></div>
+    <div class="tonight-stat"><div class="ts-val">${tot}</div><div class="ts-lbl">❓ Antworten</div></div>
     <div class="tonight-stat"><div class="ts-val">${tot?Math.round(sum(tm.stats.right)/tot*100):0}%</div><div class="ts-lbl">🎯 richtig</div></div>
     <div class="tonight-stat"><div class="ts-val">${esc_}/${tm.P}</div><div class="ts-lbl">🏃 dem Chaser entkommen</div></div>
-    <div class="tonight-stat"><div class="ts-val">${sum(tm.stats.lifes)}</div><div class="ts-lbl">🃏 Joker benutzt</div></div>
     <div class="tonight-stat"><div class="ts-val">${fmtPlayTime(Date.now()-G.matchStats.startedAt)}</div><div class="ts-lbl">⏱ Spielzeit</div></div>
   </div>`;
 }

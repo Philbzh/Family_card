@@ -28,7 +28,7 @@ const TM_CFG={
   sealRounds:2,                     // realm choices per player in act 2 (each realm only once)
   sideBonus:500,                    // act 2: a right answer to somebody else's realm question
   sealValue:2500,
-  hcapMult:{'-1':.5,'0':1,'1':1.5},   // family handicap: Leicht removes two wrong answers on every question and pays half, Schwer pays 1.5 times
+  hcapMult:{'-1':1,'0':1,'1':.75},   // family handicap: Leicht removes two wrong answers on every question and pays half, Schwer pays 1.5 times
   autoBank:true,                    // act 1: every right answer is banked at once and the climb goes on by itself (no Banken/Weiter question)
   reviewMax:2,                      // old mistakes brought back per game
   streakBonus:500,                  // act 1: every third right answer in a row
@@ -39,7 +39,7 @@ const TM_CFG={
   maxAdv:4,                         // a head start can never be bigger than this
   maxHunt:16,                       // after this many hunt questions everybody still running is caught
   huntDiff:[2,2,3,3,3,4,3,4,4,3,4,4,5,4,5,5],
-  lives:{cut:1,archive:1,freeze:1,council:1},
+  lives:{cut:0,archive:0,freeze:0,council:0},   // lifelines are retired (the engine cases stay for old rooms)
   grace:1500,
   ms:{ask1:30000,ask2:25000,ask3:22000,decide:12000,pick:15000,offer:15000,reveal:3000,revealWrong:5000,freeze:10000,council:15000},
   chasers:{
@@ -104,7 +104,7 @@ function tmPickQ(tm,cat,d){
 
 /* ───── opening a question round ───── */
 function tmMs(tm,key){return Math.round(TM_CFG.ms[key]*(tm.relaxed&&/^ask/.test(key)?1.6:1));}
-function tmResetAsk(tm){tm.rdy=tm.rdy.map(()=>0);tm.ans=tm.ans.map(()=>null);tm.ansAt=tm.ansAt.map(()=>0);tm.res=tm.res.map(()=>null);tm.ext=tm.ext.map(()=>0);tm.elim=tm.elim.map(()=>null);tm.clue=tm.clue.map(()=>0);tm.gain=tm.gain.map(()=>0);tm.council=null;tm.fx=null;}
+function tmResetAsk(tm){tm.dur=[];tm.rdy=tm.rdy.map(()=>0);tm.ans=tm.ans.map(()=>null);tm.ansAt=tm.ansAt.map(()=>0);tm.res=tm.res.map(()=>null);tm.ext=tm.ext.map(()=>0);tm.elim=tm.elim.map(()=>null);tm.clue=tm.clue.map(()=>0);tm.gain=tm.gain.map(()=>0);tm.council=null;tm.fx=null;}
 function tmOpenCycle1(tm,now){
   tm.cycle++;tm.act=1;tm.phase='ask';tmResetAsk(tm);
   // EVERYBODY answers the very same question at the same time; its level is the (rounded) average level of the players
@@ -120,6 +120,7 @@ function tmOpenDuel(tm,now){
   tm.duel=order.slice(0,2).sort((a,b)=>a-b);tm.act=1;tm.phase='ask';tmResetAsk(tm);
   const q=tmPickQ(tm,-1,4);
   for(let s=0;s<tm.P;s++)tm.q[s]=tm.duel.indexOf(s+1)>=0?q:null;
+  tmApplyEasy(tm);
   tm.dl=now+tmMs(tm,'ask1');
 }
 function tmOpenPick(tm,now){tm.act=2;tm.phase='pick';tm.round2++;tmResetAsk(tm);tm.pick=tm.pick.map(()=>null);tm.q=tm.q.map(()=>null);tm.dl=now+tmMs(tm,'pick');
@@ -155,9 +156,8 @@ function tmStartHunt(tm,now){
   tm.hunt={n:0};tm.lane=[];
   for(let s=1;s<=tm.P;s++){
     const o=TM_CFG.offers[tm.offer[s-1]||'std'],n=tmSealCount(tm,s);
-    let adv=o.adv;if(n>=2)adv=Math.min(TM_CFG.maxAdv,adv+1);
+    let adv=o.adv;if(n>=1)adv=Math.min(TM_CFG.maxAdv,adv+1);
     tm.lane.push({pl:adv,chp:0,st:'run',mult:o.mult,shield:n>=2?1:0,start:adv,steps:0});
-    if(n>=1)tm.life[s-1].archive+=1;
   }
   tmOpenHunt(tm,now);
 }
@@ -166,6 +166,7 @@ function tmOpenHunt(tm,now){
   const d=TM_CFG.huntDiff[Math.min(tm.hunt.n,TM_CFG.huntDiff.length-1)];
   const q=tmPickQ(tm,-1,d);
   for(let s=0;s<tm.P;s++)tm.q[s]=q;
+  tmApplyEasy(tm);
   // The Chaser's result is rolled NOW from the game's own stream: it cannot depend on any player's answer, and animation timing never decides it.
   const cat=tmLib(tm)[q.i][0],dd=tmLib(tm)[q.i][1],p=tmChaserP(tm.chaser,cat,dd);
   const roll=tmRand(tm),rd=tmRand(tm),ok=roll<p;
@@ -205,7 +206,7 @@ function tmApply(tm,seat,act,now){
       if(act.to){tm.ans[i]=-1;tm.ansAt[i]=now;tm.moves++;if(tmAskDone(tm,now))tmResolveAsk(tm,now);return true;}   // hot-seat: this player's own clock ran out
       const k=act.i|0;if(k<0||k>3||(tm.elim[i]&&tm.elim[i].indexOf(k)>=0))return false;
       if(now>tmSeatDl(tm,s)+TM_CFG.grace)return false;       // too late: the question already closed for this player (a little grace for clocks that differ between devices)
-      tm.ans[i]=k;tm.ansAt[i]=now;tm.moves++;
+      tm.ans[i]=k;tm.ansAt[i]=now;(tm.dur=tm.dur||[])[i]=Math.max(0,now-(tm.dl-tmMs(tm,'ask'+(tm.duel?1:tm.act))));tm.moves++;
       if(tmAskDone(tm,now))tmResolveAsk(tm,now);
       return true;}
     case'life':{
@@ -323,7 +324,7 @@ function tmResolveAsk(tm,now){
   if(tm.duel){
     const oks=tm.duel.filter(s=>tm.res[s-1]==='ok');let w=0;
     if(oks.length===1)w=oks[0];
-    else if(oks.length===2)w=tm.ansAt[oks[0]-1]<tm.ansAt[oks[1]-1]?oks[0]:tm.ansAt[oks[1]-1]<tm.ansAt[oks[0]-1]?oks[1]:0;
+    else if(oks.length===2){const d=tm.dur||[],a=d[oks[0]-1]!=null?d[oks[0]-1]:tm.ansAt[oks[0]-1],b=d[oks[1]-1]!=null?d[oks[1]-1]:tm.ansAt[oks[1]-1];w=a<b?oks[0]:b<a?oks[1]:0;}
     const share=oks.length===2&&!w?oks:[];
     if(w){tm.bank[w-1]+=TM_CFG.duelPrize;tm.stats.duels[w-1]++;}
     share.forEach(s=>{tm.bank[s-1]+=TM_CFG.duelPrize/2;});

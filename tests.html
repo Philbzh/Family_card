@@ -10193,7 +10193,7 @@ async function runPresentation(A,W,frame){
   });
   suite('TABLE MIND — the four lifelines',()=>{
     const F=n=>W.eval(n),N=F('tmNew'),S=F('tmStart'),A=F('tmApply');
-    const fresh=P=>{const t=N(P,{seed:21});S(t,0);return t;};
+    const fresh=P=>{const t=N(P,{seed:21});S(t,0);t.life.forEach(l=>{l.cut=1;l.archive=1;l.freeze=1;l.council=1;});return t;};   // lifelines are retired in the game: the engine cases are still tested with one of each
     let t=fresh(3);
     check('THE CUT removes two wrong answers and keeps the right one',A(t,1,{t:'life',k:'cut'},500)&&t.elim[0].length===2&&t.elim[0].indexOf(t.q[0].cor)<0);
     check('a lifeline can be used only as often as the player has it',A(t,1,{t:'life',k:'cut'},600)===false&&t.life[0].cut===0);
@@ -10278,7 +10278,7 @@ async function runPresentation(A,W,frame){
     A(t,1,{t:'hcap',v:-1},100);A(t,3,{t:'hcap',v:1},100);
     check('Leicht: two wrong answers are taken away for that player only; the question stays the same for everybody',t.elim[0]&&t.elim[0].length===2&&t.elim[0].indexOf(t.q[0].cor)<0&&t.elim[1]===null&&t.elim[2]===null&&t.q[0].i===t.q[2].i);
     A(t,1,{t:'ans',i:t.q[0].cor},200);A(t,2,{t:'ans',i:t.q[1].cor},210);A(t,3,{t:'ans',i:t.q[2].cor},220);
-    check('prizes follow the handicap: Leicht pays half, Normal full, Schwer one and a half times',t.unb.join()===[500,1000,1500].join());
+    check('prizes follow the handicap: Leicht pays the full amount (but gets two answers fewer), Normal full, Schwer three quarters',t.unb.join()===[1000,1000,750].join());
     check('the handicap cannot be changed after the answer',A(t,1,{t:'hcap',v:0},230)===false);
     const u=N(2,{autoBank:false,seed:92});u.gold=99;F('tmStart')(u,0);A(u,1,{t:'hcap',v:-1},50);A(u,1,{t:'hcap',v:0},60);
     check('switching back from Leicht gives the answers back',u.elim[0]===null&&u.hcap[0]===0);
@@ -10418,7 +10418,7 @@ async function runPresentation(A,W,frame){
     A(t,1,{t:'ans',i:(t.q[0].cor+1)%4},100);A(t,2,{t:'ans',i:t.q[1].cor},100);
     check('a wrong answer while the Chaser catches up means CAUGHT',t.lane[0].st==='caught'&&t.fx.seats[0].caught===1);
     t=hunt(2,7,['std','std'],[[0,1,2],[]]);
-    check('three different seals give the shield, a one-step head start and an extra Archive',t.lane[0].shield===1&&t.lane[0].pl===3&&t.life[0].archive===2);
+    check('three different seals give the shield and a one-step head start (the Archive is retired)',t.lane[0].shield===1&&t.lane[0].pl===3);
     t.lane[0].pl=3;t.lane[0].chp=2;t.ch={ok:true,mv:1,p:50};
     A(t,1,{t:'ans',i:(t.q[0].cor+1)%4},100);A(t,2,{t:'ans',i:t.q[1].cor},100);
     check('the shield saves the player once: the Chaser is pushed back to one step behind',t.lane[0].st==='run'&&t.lane[0].shield===0&&t.lane[0].chp===2&&t.fx.seats[0].shield===1);
@@ -10487,7 +10487,7 @@ async function runPresentation(A,W,frame){
       // the room clock never runs a question out early
       DB=room(3);DB.tm.dl=Date.now()+60000;G.srv=clone(DB);const t0=JSON.stringify(DB.tm);await F('oTmTick')();seen.early=JSON.stringify(DB.tm)===t0;
       // the Council on two devices: Ben is asked for advice by Anna and the asker sees only the totals
-      DB=room(3);G.myPid='a';G.srv=clone(DB);await F('oTmMutate')(st=>F('tmApply')(st.tm,1,{t:'life',k:'council'},500));
+      DB=room(3);G.myPid='a';G.srv=clone(DB);await F('oTmMutate')(st=>{st.tm.life.forEach(l=>{l.council=1;});return F('tmApply')(st.tm,1,{t:'life',k:'council'},500);});
       G.myPid='b';G.srv=clone(DB);seen.councilB=F('rTablemindTable')();
       await F('oTmMutate')(st=>F('tmApply')(st.tm,2,{t:'vote',i:1},510));G.myPid='c';await F('oTmMutate')(st=>F('tmApply')(st.tm,3,{t:'vote',i:1},520));
       G.myPid='a';G.srv=clone(DB);seen.councilA=F('rTablemindTable')();seen.council=clone(DB.tm.council);
@@ -10565,7 +10565,7 @@ async function runPresentation(A,W,frame){
     check('WORDSPIN never repeats a puzzle seen in earlier games',(()=>{const lib=F('wsLib')('de');const seen=[];lib.forEach((p,i)=>{if(i%2===0)seen.push(i);});const ws=F('wsNew')(2,{seed:5,lang:'de',seen});const got=[];for(let k=0;k<12;k++){const q=F('wsPick')(ws,1,3);got.push(q.i);}return got.every(i=>seen.indexOf(i)<0)&&new Set(got).size===got.length;})());
     check('Wiz speaks German and his lines escape player names',(()=>{const t=F('tmNew')(2,{seed:6});F('tmStart')(t,0);t.over=true;t.win=1;return /TABLE MIND/.test(F('tmWizSay')(t,[{name:'<b>X</b>'},{name:'Y'}]))&&F('tmWizSay')(t,[{name:'<b>X</b>'},{name:'Y'}]).indexOf('<b>')<0;})());
     check('the waiting list shows who has locked in (tick) and who is still thinking (dots)',(()=>{const tm=F('tmNew')(3,{seed:8});F('tmStart')(tm,Date.now());F('tmApply')(tm,2,{t:'ans',i:0},Date.now()+10);const h=F('tmWaitList')(tm,[{name:'Ann',avatar:A.AVATARS[0]},{name:'Ben',avatar:A.AVATARS[1]},{name:'Cy',avatar:A.AVATARS[2]}],1);return /Ben ✓/.test(h)&&/Cy …/.test(h)&&!/Ann/.test(h);})());
-    check('the how-to-play tour exists in English and German with five slides each',(()=>{const T=F('TOURS').tablemind;return !!T&&T.slides.length===5&&T.de.slides.length===5&&T.de.slides.every(s=>s.ic&&s.h&&s.t);})());
+    check('the how-to-play tour exists in English and German with four short slides each',(()=>{const T=F('TOURS').tablemind;return !!T&&T.slides.length===4&&T.de.slides.length===4&&T.de.slides.every(s=>s.ic&&s.h&&s.t);})());
     check('a player can report a doubtful question: it is remembered on this device (once) and listed in the results',(()=>{const k='ct_tm_flags',old=W.localStorage.getItem(k);W.localStorage.removeItem(k);F('tmFlagQuestion')(3);F('tmFlagQuestion')(3);const l=JSON.parse(W.localStorage.getItem(k)||'[]');const ok=l.length===1&&l[0].i===3&&/GEMERKTE FRAGEN/.test(F('tmFlaggedHTML')());if(old==null)W.localStorage.removeItem(k);else W.localStorage.setItem(k,old);return ok;})());
     check('every public sound exists',['pick','lock','ok','bad','bank','life','seal','chase','caught','escape','intro'].every(k=>typeof F('TMSFX')[k]==='function'));
   });
