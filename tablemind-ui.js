@@ -7,7 +7,7 @@
   if(typeof document==='undefined')return;
   const css=`
 .game-tablemind{--tg:#c9a45c;--tg2:#8f6f2f;--tg3:#f3deaa;--tb:#c9a45c;--tv:#8b5cf6;--tm:#d946a8;--tn:#07140d;color:#f4efe0;position:relative;overflow-x:hidden;}
-#s-table.game-tablemind.scr{background:radial-gradient(120% 75% at 50% -10%,#1a6840 0%,#0e4028 42%,#062018 78%,#04120c 100%),#04120c;}
+#s-table.game-tablemind.scr{background:linear-gradient(180deg,rgba(4,18,12,.55),rgba(4,18,12,.9) 62%,#04120c),url(assets/games/tm_studio.jpg) center top/cover no-repeat,radial-gradient(120% 75% at 50% -10%,#1a6840 0%,#0e4028 42%,#062018 78%,#04120c 100%),#04120c;}
 .game-tablemind::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;background:radial-gradient(1.5px 1.5px at 12% 18%,#fff9 50%,transparent 51%),radial-gradient(1px 1px at 72% 12%,#fff8 50%,transparent 51%),radial-gradient(1.4px 1.4px at 88% 40%,#bfd8ff9a 50%,transparent 51%),radial-gradient(1px 1px at 30% 62%,#fff7 50%,transparent 51%),radial-gradient(60% 40% at 85% 85%,rgba(201,164,92,.22),transparent 70%),radial-gradient(50% 35% at 8% 30%,rgba(201,164,92,.16),transparent 70%);}
 .game-tablemind>*{position:relative;z-index:1;}
 .game-tablemind .game-bar{background:linear-gradient(180deg,rgba(7,20,13,.92),rgba(7,20,13,.6));border-bottom:1px solid rgba(201,164,92,.35);}
@@ -261,6 +261,18 @@
 .tm-realm.used{opacity:.4;filter:grayscale(.7);cursor:not-allowed;}.tm-realm small{font-size:.58rem;letter-spacing:.06em;color:#a99d78;}
 /* the "… is thinking" pill must not cover the reaction row (all games with a reaction strip) */
 body:has(.react-strip) .peer-think{bottom:calc(9rem + env(safe-area-inset-bottom,0px));}
+.tm-emb{display:inline-block;border-radius:50%;object-fit:cover;vertical-align:middle;flex:none;}
+.tm-emb.xs{width:1.05rem;height:1.05rem;}.tm-emb.sm{width:1.35rem;height:1.35rem;}.tm-emb.lg{width:3.1rem;height:3.1rem;filter:drop-shadow(0 2px 6px rgba(0,0,0,.5));}.tm-emb.intro{width:clamp(2.6rem,11vw,4.2rem);height:clamp(2.6rem,11vw,4.2rem);}
+.tm-seals i .tm-emb{width:.95rem;height:.95rem;}
+.tm-realm .ic{display:flex;justify-content:center;}
+.tm-realm:not(.stat):not(.used):hover .tm-emb{transform:scale(1.08);transition:transform .2s;}
+.tm-ico{display:inline-block;object-fit:cover;vertical-align:middle;flex:none;}
+.tm-ico.life{width:2.1rem;height:2.1rem;border-radius:.4rem;}.tm-ico.inl{width:1.15rem;height:1.15rem;border-radius:50%;vertical-align:-.2em;}.tm-ico.inl.big{width:1.9rem;height:1.9rem;vertical-align:-.45em;}.tm-ico.gate{width:1.4rem;height:1.4rem;border-radius:4px;margin-right:.25rem;vertical-align:middle;}
+.tm-life[disabled] .tm-ico{filter:grayscale(.8) brightness(.7);}
+.tm-chimg{display:block;width:4.8rem;height:4.8rem;border-radius:18px;object-fit:cover;object-position:50% 20%;border:2px solid #c9a45c;box-shadow:0 0 26px rgba(255,120,90,.35),0 6px 14px rgba(0,0,0,.6);animation:tm-breathe 3.2s ease-in-out infinite;}
+.tm-chm{width:100%;height:100%;max-width:1.5rem;max-height:1.5rem;border-radius:50%;object-fit:cover;object-position:50% 20%;border:1px solid #ff9a8a;}
+.tm-chaser{background:linear-gradient(90deg,rgba(0,0,0,.78),rgba(0,0,0,.35)),url(assets/games/tm_ch_loom.jpg) right center/cover no-repeat;border-radius:16px;border:1px solid rgba(255,120,90,.35);padding:.5rem 1rem!important;}
+@media(min-width:900px){.tm-emb.lg{width:3.6rem;height:3.6rem;}.tm-chimg{width:6rem;height:6rem;}}
 .tm-foot{display:flex;gap:.5rem;justify-content:center;margin-top:.4rem;}
 .tm-opt{display:flex;gap:.4rem;flex-wrap:wrap;justify-content:center;align-items:center;margin:.4rem 0;font-size:.78rem;color:var(--paper2,#d8cfbd);}
 .tm-opt button{padding:.3rem .7rem;border-radius:999px;border:1px solid rgba(201,164,92,.5);background:rgba(29,83,54,.4);color:inherit;font:inherit;cursor:pointer;}
@@ -275,6 +287,9 @@ const TM_ACT_NAMES=['','DER AUFSTIEG','DIE SECHS WELTEN','DIE JAGD'];
 const TM_OFFER_INFO={safe:{n:'SICHER',h:'3 Felder Vorsprung',m:1,t:'Beste Chance zu entkommen, kleine Belohnung.'},std:{n:'STANDARD',h:'2 Felder Vorsprung',m:2,t:'Ausgewogen: gute Chance, doppelte Belohnung.'},risk:{n:'RISIKO',h:'1 Feld Vorsprung',m:3,t:'Knapp! Aber dreifache Belohnung bei Erfolg.'}};
 const TM_LIFE_INFO={cut:{n:'Der Schnitt',ic:'✂️',t:'Zwei falsche Antworten verschwinden'},council:{n:'Der Rat',ic:'🗳️',t:'Die anderen beraten dich — oder führen dich in die Irre'},archive:{n:'Das Archiv',ic:'📜',t:'Ein Hinweis zur Frage'},freeze:{n:'Zeit anhalten',ic:'⏸️',t:'10 Sekunden mehr'}};
 const TM_LETTERS='ABCD';
+/* pictures from the master sheet: realm emblems tm_realm_0..5, lifelines tm_life_*, Chasers tm_ch_*, badges tm_seal / tm_gold / tm_duel / tm_streak, tm_gate, tm_studio */
+function tmEmb(k,cls){return`<img class="tm-emb${cls?' '+cls:''}" src="assets/games/tm_realm_${k}.jpg" alt="" draggable="false">`;}
+function tmIco(n,cls){return`<img class="tm-ico${cls?' '+cls:''}" src="assets/games/tm_${n}.jpg" alt="" draggable="false">`;}
 function tmEur(n){return(n||0).toLocaleString('de-DE')+' €';}
 function tmCatName(c){return TM_CATS[c].de;}
 function tmPrefChaser(){let v='';try{v=localStorage.getItem('ct_tm_chaser')||'';}catch(e){}return TM_CH_KEYS.indexOf(v)>=0?v:'';}
@@ -559,13 +574,13 @@ function tmPodsHTML(tm,players,me,fx){
     else if(tm.phase==='pick')state=tm.pick[i]!=null?'gewählt ✓':'wählt…';
     else if(tm.phase==='offer')state=tm.offer[i]!=null?'gewählt ✓':'wählt…';
     else if(tm.phase==='reveal'&&o&&!o.skip){state=o.ok?'richtig':tm.res[i]==='late'?'keine Antwort':'falsch';cls=o.ok?'ok':'bad';}
-    const delta=tm.phase==='reveal'&&o&&tm.act===1&&!tm.duel?(o.ok?'+'+tmEur(o.money)+(o.bonus?' 🔥+'+tmEur(o.bonus):'')+(o.gold?' ⭐+'+tmEur(o.gold):''):(o.lost?'−'+tmEur(o.lost):'')):(tm.phase==='reveal'&&o&&tm.act===2&&o.side?'+'+tmEur(o.side):'');
+    const delta=tm.phase==='reveal'&&o&&tm.act===1&&!tm.duel?(o.ok?'+'+tmEur(o.money)+(o.bonus?' '+tmIco('streak','inl')+'+'+tmEur(o.bonus):'')+(o.gold?' '+tmIco('gold','inl')+'+'+tmEur(o.gold):''):(o.lost?'−'+tmEur(o.lost):'')):(tm.phase==='reveal'&&o&&tm.act===2&&o.side?'+'+tmEur(o.side):'');
     const sealNew=tm.phase==='reveal'&&o&&o.seal&&tm.act===2;
     return`<div class="tm-pod${me===s?' me':''}${lead===s?' lead':''}${sealNew||(o&&o.ok&&tm.phase==='reveal')?' pulse':''}" data-s="${s}">
       <span class="tm-av">${avHTML(p.avatar)}</span><span class="tm-nm">${esc(p.name)}</span>
       <span class="tm-money">${tmEur(tm.act===3&&tm.lane[i]&&tm.lane[i].st==='escaped'?tmTotal(tm,s):tm.bank[i])}</span>
       <span class="tm-unb">${tm.unb[i]>0?'+'+tmEur(tm.unb[i])+' im Spiel':''}</span>
-      ${seals.size?`<span class="tm-seals">${TM_CATS.map((c,k)=>seals.has(k)?`<i class="on" title="${esc(c.de)}">${c.ic}</i>`:'').join('')}</span>`:''}
+      ${seals.size?`<span class="tm-seals">${TM_CATS.map((c,k)=>seals.has(k)?`<i class="on" title="${esc(c.de)}">${tmEmb(k,'xs')}</i>`:'').join('')}</span>`:''}
       <span class="tm-state ${cls}">${state}</span>${delta&&G&&gtAnim()!=='off'?`<span class="tm-delta${o.ok?'':' neg'}">${delta}</span>`:''}
     </div>`;}).join('')}</div>`;
 }
@@ -577,7 +592,7 @@ function tmLadderHTML(tm,players){
 }
 function tmRealmsHTML(tm,me,mode){   // mode 'pick' (buttons) or 'show' (who chose what)
   const have=new Set(me?tm.seals[me-1]:[]),used=new Set(me&&tm.picked?tm.picked[me-1]:[]);
-  return`<div class="tm-realms">${TM_CATS.map((c,k)=>`<${mode==='pick'?'button':'div'} class="tm-realm${have.has(k)?' got':''}${mode!=='pick'?' stat':''}${mode==='pick'&&used.has(k)?' used':''}" style="--c:${c.col}" ${mode==='pick'&&!used.has(k)?`data-a="tmcat" data-c="${k}"`:''} ${mode==='pick'&&used.has(k)?'disabled':''}><span class="ic">${c.ic}</span>${esc(c.de)}${mode==='pick'&&used.has(k)?'<small>schon gewählt</small>':''}</${mode==='pick'?'button':'div'}>`).join('')}</div>`;
+  return`<div class="tm-realms">${TM_CATS.map((c,k)=>`<${mode==='pick'?'button':'div'} class="tm-realm${have.has(k)?' got':''}${mode!=='pick'?' stat':''}${mode==='pick'&&used.has(k)?' used':''}" style="--c:${c.col}" ${mode==='pick'&&!used.has(k)?`data-a="tmcat" data-c="${k}"`:''} ${mode==='pick'&&used.has(k)?'disabled':''}><span class="ic">${tmEmb(k,'lg')}</span>${esc(c.de)}${mode==='pick'&&used.has(k)?'<small>schon gewählt</small>':''}</${mode==='pick'?'button':'div'}>`).join('')}</div>`;
 }
 
 /* ───────── the Chaser: a hooded figure drawn in code (one per profile) ───────── */
@@ -595,7 +610,7 @@ function tmChaserSVG(key,px){
 }
 function tmChaserHTML(tm){
   const c=TM_CFG.chasers[tm.chaser];
-  return`<div class="tm-chaser"><span class="face">${tmChaserSVG(tm.chaser,74)}</span><div><b>${esc(c.name)}</b><small>jagt euch alle</small></div></div>`;
+  return`<div class="tm-chaser"><span class="face"><img class="tm-chimg" src="assets/games/tm_ch_${tm.chaser}.jpg" alt="" draggable="false"></span><div><b>${esc(c.name)}</b><small>jagt euch alle</small></div></div>`;
 }
 function tmLanesHTML(tm,players,me){
   // The Hunt as a tall ladder per player (finish at the top, start at the bottom). The lit bars are the player and the Chaser; they slide between rungs.
@@ -606,13 +621,13 @@ function tmLanesHTML(tm,players,me){
     const plPos=Math.min(N,L.pl),chPos=Math.max(0,L.chp);
     const fxo=tm.phase==='reveal'&&tm.fx&&tm.fx.seats?tm.fx.seats[i]:null,lunge=fxo&&fxo.chTo!=null&&fxo.chTo>fxo.chFrom,hit=fxo&&fxo.caught;
     const prize=Math.round(TM_CFG.escapeBase*L.mult/1000)+'K';
-    const rungs=[];for(let k=N;k>=0;k--)rungs.push(`<div class="tm-vr${k===N?' fin':''}${k===0?' st':''}">${k===N?'ZIEL · '+prize:k===0?'START':k}</div>`);
+    const rungs=[];for(let k=N;k>=0;k--)rungs.push(`<div class="tm-vr${k===N?' fin':''}${k===0?' st':''}">${k===N?tmIco('gate','gate')+' ZIEL · '+prize:k===0?'START':k}</div>`);
     const kp='p'+i,kc='c'+i,prevP=G.tmMk[kp]==null?plPos:G.tmMk[kp],prevC=G.tmMk[kc]==null?chPos:G.tmMk[kc];
     const shared=plPos===chPos;
     const st=L.st==='escaped'?' esc':L.st==='caught'?' cau':'';
     return`<div class="tm-vcol${st}${me===i+1?' me':''}${hit?' hit':''}"><div class="tm-vh"><span class="a">${avHTML(p.avatar)}</span><b>${esc(p.name)}</b><small>${L.st==='escaped'?'ENTKOMMEN':L.st==='caught'?'GEFANGEN':'×'+L.mult+' · Abstand '+(L.pl-L.chp)}</small></div>
       <div class="tm-vl" style="--n:${N+1}">${rungs.join('')}
-        <div class="tm-vmk ch${shared?' half r':''}${lunge?' lunge':''}" data-k="${kc}" data-pos="${chPos}" style="--pos:${prevC}">${tmChaserSVG(tm.chaser,22)}</div>
+        <div class="tm-vmk ch${shared?' half r':''}${lunge?' lunge':''}" data-k="${kc}" data-pos="${chPos}" style="--pos:${prevC}"><img class="tm-chm" src="assets/games/tm_ch_${tm.chaser}.jpg" alt="" draggable="false"></div>
         <div class="tm-vmk pl${shared?' half l':''}" data-k="${kp}" data-pos="${plPos}" style="--pos:${prevP}">❯ <span class="a">${avHTML(p.avatar)}</span> ❮</div>
       </div></div>`;}).join('');
   return`<div class="tm-vcols" style="--cols:${tm.P}">${cols}</div>`;
@@ -626,13 +641,13 @@ function tmMoveMarkers(){
 function tmBannerHTML(tm,players){
   const fx=tm.fx;if(!fx)return'';
   const nm=i=>esc((players[i]||{}).name||'');
-  if(fx.duel){const d=fx.duel;return d.w?`<div class="tm-banner">⚔️ ${nm(d.w-1).toUpperCase()} GEWINNT DAS DUELL!</div>`:d.tie?`<div class="tm-banner">⚔️ DUELL UNENTSCHIEDEN — GETEILT!</div>`:`<div class="tm-banner bad">⚔️ DUELL OHNE SIEGER</div>`;}
+  if(fx.duel){const d=fx.duel;return d.w?`<div class="tm-banner">${tmIco('duel','inl big')} ${nm(d.w-1).toUpperCase()} GEWINNT DAS DUELL!</div>`:d.tie?`<div class="tm-banner">${tmIco('duel','inl big')} DUELL UNENTSCHIEDEN — GETEILT!</div>`:`<div class="tm-banner bad">${tmIco('duel','inl big')} DUELL OHNE SIEGER</div>`;}
   if(tm.act===1){
     const ok=fx.seats.filter(o=>o.ok),top=fx.seats.find(o=>o.top);
     if(top)return`<div class="tm-banner">EIN WISSENSSIEG!</div>`;
     return ok.length?`<div class="tm-banner">RICHTIG!</div>`:`<div class="tm-banner bad">LEIDER FALSCH</div>`;
   }
-  if(tm.act===2){const got=fx.seats.filter(o=>o.seal);return got.length?`<div class="tm-banner">WISSENSSIEGEL!</div>`:`<div class="tm-banner bad">KEIN SIEGEL</div>`;}
+  if(tm.act===2){const got=fx.seats.filter(o=>o.seal);return got.length?`<div class="tm-banner">${tmIco('seal','inl big')} WISSENSSIEGEL!</div>`:`<div class="tm-banner bad">KEIN SIEGEL</div>`;}
   const esc_=fx.seats.findIndex(o=>o.escaped),cau=fx.seats.findIndex(o=>o.caught);
   if(esc_>=0)return`<div class="tm-banner">${nm(esc_).toUpperCase()} IST ENTKOMMEN!</div>`;
   if(cau>=0)return`<div class="tm-banner hot">DER CHASER HAT ${nm(cau).toUpperCase()} ERWISCHT!</div>`;
@@ -646,23 +661,23 @@ function tmRevealAllHTML(tm,players){
     for(let k=1;k<=tm.P;k++)if(tm.q[k-1]&&tm.q[k-1].i===qq.i&&tm.res[k-1])who.push(`<span class="tm-resc ${tm.res[k-1]==='ok'?'ok':'bad'}">${esc(players[k-1].name)} ${tm.res[k-1]==='ok'?'✓':tm.res[k-1]==='late'?'⏱':'✗'}</span>`);
     const chosen=new Set();for(let k=1;k<=tm.P;k++)if(tm.q[k-1]&&tm.q[k-1].i===qq.i&&tm.ans[k-1]!=null&&tm.ans[k-1]>=0)chosen.add(tm.ans[k-1]);
     const grid=q.ans.map((a,k)=>`<div class="tm-a stat ${k===q.cor?'cor':chosen.has(k)?'wrg':'dim'}"><span class="tm-l">${TM_LETTERS[k]}</span>${esc(a)}</div>`).join('');
-    out.push(`<div class="tm-card"><div class="tm-qchips"><span class="tm-chip">${TM_CATS[q.c].ic} ${esc(TM_CATS[q.c].short)}</span></div><div class="tm-q">${esc(q.text)}</div><div class="tm-ans">${grid}</div><div class="tm-expl">${esc(q.expl)}</div><div class="tm-res" style="margin-top:.5rem">${who.join('')}</div></div>`);
+    out.push(`<div class="tm-card"><div class="tm-qchips"><span class="tm-chip">${tmEmb(q.c,'sm')} ${esc(TM_CATS[q.c].short)}</span></div><div class="tm-q">${esc(q.text)}</div><div class="tm-ans">${grid}</div><div class="tm-expl">${esc(q.expl)}</div><div class="tm-res" style="margin-top:.5rem">${who.join('')}</div></div>`);
   }
   return out.join('');
 }
 function tmStageHTML(tm,players,me,padHasQ){
   const fx=tm.phase==='reveal'?tm.fx:null;
   let body='';
-  if(tm.duel)body=`<div class="tm-card" style="text-align:center"><div class="tm-title">⚔️ DAS DUELL</div><div class="tm-sub"><b>${tm.duel.map(x=>esc(players[x-1].name)).join('</b> gegen <b>')}</b> — eine schwere Frage, ${tmEur(TM_CFG.duelPrize)} für den Sieger. Bei zwei richtigen Antworten gewinnt, wer schneller war.</div></div>`;
+  if(tm.duel)body=`<div class="tm-card" style="text-align:center"><div class="tm-title">${tmIco('duel','inl big')} DAS DUELL</div><div class="tm-sub"><b>${tm.duel.map(x=>esc(players[x-1].name)).join('</b> gegen <b>')}</b> — eine schwere Frage, ${tmEur(TM_CFG.duelPrize)} für den Sieger. Bei zwei richtigen Antworten gewinnt, wer schneller war.</div></div>`;
   else if(tm.act===1)body=tmLadderHTML(tm,players);
   else if(tm.act===2){
     if(tm.phase==='pick')body='';
-    else body=`<div class="tm-qchips">${players.slice(0,tm.P).map((p,i)=>tm.pick[i]!=null?`<span class="tm-chip gold">${esc(p.name)}: ${TM_CATS[tm.pick[i]].ic} ${esc(TM_CATS[tm.pick[i]].short)}</span>`:'').join('')}</div>`;
+    else body=`<div class="tm-qchips">${players.slice(0,tm.P).map((p,i)=>tm.pick[i]!=null?`<span class="tm-chip gold">${esc(p.name)}: ${tmEmb(tm.pick[i],'xs')} ${esc(TM_CATS[tm.pick[i]].short)}</span>`:'').join('')}</div>`;
   }else{
     body=tmChaserHTML(tm)+(tm.phase==='offer'?`<div class="tm-sub">Jeder wählt heimlich sein Angebot.</div>`:tmLanesHTML(tm,players,me));
     if((tm.phase==='ask'||tm.phase==='reveal')&&!padHasQ){
       const q=tm.q[0]&&tmQ(tm,tm.q[0]);
-      if(q)body+=`<div class="tm-card" style="margin-top:.5rem"><div class="tm-qchips"><span class="tm-chip">${TM_CATS[q.c].ic} ${esc(TM_CATS[q.c].short)}</span><span class="tm-chip gold">Frage ${tm.hunt.n+(tm.phase==='reveal'?0:1)}</span></div><div class="tm-q">${esc(q.text)}</div>
+      if(q)body+=`<div class="tm-card" style="margin-top:.5rem"><div class="tm-qchips"><span class="tm-chip">${tmEmb(q.c,'sm')} ${esc(TM_CATS[q.c].short)}</span><span class="tm-chip gold">Frage ${tm.hunt.n+(tm.phase==='reveal'?0:1)}</span></div><div class="tm-q">${esc(q.text)}</div>
         <div class="tm-ans">${q.ans.map((a,k)=>`<div class="tm-a stat${tm.phase==='reveal'?(k===q.cor?' cor':' dim'):''}"><span class="tm-l">${TM_LETTERS[k]}</span>${esc(a)}</div>`).join('')}</div>${tm.phase==='reveal'?`<div class="tm-expl">${esc(q.expl)}</div>`:''}</div>`;
     }
   }
@@ -673,7 +688,7 @@ function tmStageHTML(tm,players,me,padHasQ){
 function tmQuestionPad(tm,me,players){
   const i=me-1,qq=tm.q[i];if(!qq)return'';
   const q=tmQ(tm,qq),L=tm.life[i],ans=tm.ans[i],locked=ans!=null,rev=tm.phase==='reveal';
-  const chips=`<div class="tm-qchips"><span class="tm-chip">${TM_CATS[q.c].ic} ${esc(TM_CATS[q.c].short)}</span>${qq.rv?`<span class="tm-chip">🔁 Wiederholung</span>`:''}${(!tm.duel&&tm.act===1&&tm.cycle===tm.gold)?`<span class="tm-chip gold">⭐ GOLDENE FRAGE ×2</span>`:''}${tm.duel?`<span class="tm-chip gold">⚔️ DUELL · ${tmEur(TM_CFG.duelPrize)}</span>`:tm.act===1?`<span class="tm-chip gold">Stufe ${tm.lvl[i]+1} von 5 · ${tmEur(tmAmt(tm,i,tm.lvl[i]))}</span>`:tm.act===2?`<span class="tm-chip gold">${tm.owner===me?'🏅 Deine Welt — dein Siegel!':'Welt von '+esc((players[tm.owner-1]||{}).name||'?')+' · +'+tmEur(TM_CFG.sideBonus)}</span>`:`<span class="tm-chip gold">Vorsprung ${tm.lane[i].pl-tm.lane[i].chp} · ×${tm.lane[i].mult}</span>`}</div>`;
+  const chips=`<div class="tm-qchips"><span class="tm-chip">${tmEmb(q.c,'sm')} ${esc(TM_CATS[q.c].short)}</span>${qq.rv?`<span class="tm-chip">🔁 Wiederholung</span>`:''}${(!tm.duel&&tm.act===1&&tm.cycle===tm.gold)?`<span class="tm-chip gold">${tmIco('gold','inl')} GOLDENE FRAGE ×2</span>`:''}${tm.duel?`<span class="tm-chip gold">${tmIco('duel','inl')} DUELL · ${tmEur(TM_CFG.duelPrize)}</span>`:tm.act===1?`<span class="tm-chip gold">Stufe ${tm.lvl[i]+1} von 5 · ${tmEur(tmAmt(tm,i,tm.lvl[i]))}</span>`:tm.act===2?`<span class="tm-chip gold">${tm.owner===me?'🏅 Deine Welt — dein Siegel!':'Welt von '+esc((players[tm.owner-1]||{}).name||'?')+' · +'+tmEur(TM_CFG.sideBonus)}</span>`:`<span class="tm-chip gold">Vorsprung ${tm.lane[i].pl-tm.lane[i].chp} · ×${tm.lane[i].mult}</span>`}</div>`;
   const sel=G.tmSel;
   const answers=q.ans.map((a,k)=>{
     const el=tm.elim[i]&&tm.elim[i].indexOf(k)>=0;
@@ -691,7 +706,7 @@ function tmQuestionPad(tm,me,players){
     extra=`<div class="tm-row" style="margin-top:.6rem"><button class="tm-btn big" data-a="tmlock" ${sel<0?'disabled':''}>${sel<0?'WÄHLE EINE ANTWORT':'ANTWORT SPERREN'}</button></div>`;
     if(tm.clue[i])extra=`<div class="tm-clue">📜 ${esc(q.clue)}</div>`+extra;
     const keys=tm.act===1?['cut','council','archive','freeze']:['cut','archive','freeze'];
-    extra+=`<div class="tm-lives">${keys.map(k=>{const dis=L[k]<1||(k==='cut'&&tm.elim[i])||(k==='archive'&&tm.clue[i])||(k==='council'&&(tm.council||tm.P<2));return`<button class="tm-life" data-a="tmlife" data-k="${k}" title="${esc(TM_LIFE_INFO[k].t)}" ${dis?'disabled':''}><span>${TM_LIFE_INFO[k].ic}</span><b>${L[k]}</b>${TM_LIFE_INFO[k].n}</button>`;}).join('')}</div>`;
+    extra+=`<div class="tm-lives">${keys.map(k=>{const dis=L[k]<1||(k==='cut'&&tm.elim[i])||(k==='archive'&&tm.clue[i])||(k==='council'&&(tm.council||tm.P<2));return`<button class="tm-life" data-a="tmlife" data-k="${k}" title="${esc(TM_LIFE_INFO[k].t)}" ${dis?'disabled':''}><span>${tmIco('life_'+k,'life')}</span><b>${L[k]}</b>${TM_LIFE_INFO[k].n}</button>`;}).join('')}</div>`;
   }else if(locked&&!rev){
     extra=`<div class="tm-wait">${ans>=0?`Deine Antwort <b>${TM_LETTERS[ans]}</b> ist gesperrt ✓`:'Die Zeit ist abgelaufen.'}</div>`+tmWaitList(tm,players,me);
   }
@@ -766,7 +781,7 @@ function tmStrengthsHTML(){
   let hist=[];try{hist=getHistory();}catch(e){}
   const S=tmStrengthsFrom(hist);if(!S.names.length)return'';
   const rows=S.names.map(nm=>`<tr><td>${esc(nm)}</td>${TM_CATS.map((c,k)=>{const n=S.by[nm].n[k];if(!n)return'<td>–</td>';const p=Math.round(S.by[nm].r[k]/n*100);return`<td>${S.best[k]===nm?'🥇 ':''}${p}%</td>`;}).join('')}</tr>`).join('');
-  return`<details class="tm-learn"><summary>🏅 Familien-Stärken</summary><table style="width:100%;font-size:.78rem;margin-top:.4rem"><tr><th></th>${TM_CATS.map(c=>`<th title="${esc(c.de)}">${c.ic}</th>`).join('')}</tr>${rows}</table><div style="font-size:.68rem;color:var(--paper3,#8e887d);margin-top:.3rem">🥇 = beste Trefferquote (mindestens 5 Fragen in dieser Welt)</div></details>`;
+  return`<details class="tm-learn"><summary>🏅 Familien-Stärken</summary><table style="width:100%;font-size:.78rem;margin-top:.4rem"><tr><th></th>${TM_CATS.map((c,k)=>`<th title="${esc(c.de)}">${tmEmb(k,'sm')}</th>`).join('')}</tr>${rows}</table><div style="font-size:.68rem;color:var(--paper3,#8e887d);margin-top:.3rem">🥇 = beste Trefferquote (mindestens 5 Fragen in dieser Welt)</div></details>`;
 }
 function tmFlaggedHTML(){
   let list=[];try{list=JSON.parse(localStorage.getItem('ct_tm_flags')||'[]');}catch(e){}
@@ -775,7 +790,7 @@ function tmFlaggedHTML(){
 }
 function tmSharedQCard(tm,reveal){
   const q=tm.q[0]&&tmQ(tm,tm.q[0]);if(!q)return'';
-  return`<div class="tm-card"><div class="tm-qchips"><span class="tm-chip">${TM_CATS[q.c].ic} ${esc(TM_CATS[q.c].short)}</span><span class="tm-chip gold">Frage ${tm.hunt.n+(tm.phase==='reveal'?0:1)}</span></div><div class="tm-q">${esc(q.text)}</div>
+  return`<div class="tm-card"><div class="tm-qchips"><span class="tm-chip">${tmEmb(q.c,'sm')} ${esc(TM_CATS[q.c].short)}</span><span class="tm-chip gold">Frage ${tm.hunt.n+(tm.phase==='reveal'?0:1)}</span></div><div class="tm-q">${esc(q.text)}</div>
     <div class="tm-ans">${q.ans.map((a,k)=>`<div class="tm-a stat${tm.phase==='reveal'?(k===q.cor?' cor':' dim'):''}"><span class="tm-l">${TM_LETTERS[k]}</span>${esc(a)}</div>`).join('')}</div>${tm.phase==='reveal'?`<div class="tm-expl">${esc(q.expl)}</div>`+tmNextHTML(tm,G.isOnline?tmMySeat():0,tmPlayers()):''}</div>`;
 }
 function tmNextHTML(tm,me,players){
@@ -803,7 +818,7 @@ function tmDecidePad(tm,me,players){
 }
 function tmPickPad(tm,me,players){
   const i=me-1;
-  if(tm.pick[i]!=null)return`<div class="tm-card tm-wait"><div class="tm-title">Bestätigt ✓</div><div class="tm-realm sel stat" style="--c:${TM_CATS[tm.pick[i]].col};max-width:14rem;margin:.3rem auto"><span class="ic">${TM_CATS[tm.pick[i]].ic}</span>${esc(TM_CATS[tm.pick[i]].de)}</div>${tmWaitList(tm,players,me)}</div>`;
+  if(tm.pick[i]!=null)return`<div class="tm-card tm-wait"><div class="tm-title">Bestätigt ✓</div><div class="tm-realm sel stat" style="--c:${TM_CATS[tm.pick[i]].col};max-width:14rem;margin:.3rem auto"><span class="ic">${tmEmb(tm.pick[i],'lg')}</span>${esc(TM_CATS[tm.pick[i]].de)}</div>${tmWaitList(tm,players,me)}</div>`;
   return`<div class="tm-card"><div class="tm-title">WÄHLE DEINE WELT</div><div class="tm-timer"><b>--</b><i></i></div><div class="tm-sub"><b>Deine Wahl ${tm.round2} von ${TM_CFG.sealRounds}</b> — du wählst für dich allein. Jede Welt nur <b>einmal</b> (gewählte sind grau). Danach kommt <b>eine Frage aus deiner Welt für alle</b>: richtig = dein Siegel (✓), die anderen bekommen einen Bonus für eine richtige Antwort.</div>${tmRealmsHTML(tm,me,'pick')}</div>`;
 }
 function tmOfferPad(tm,me,players){
@@ -844,7 +859,7 @@ function tmPadHTML(tm,players,me){
   return'';
 }
 function tmIntroHTML(){
-  return`<div class="tm-intro" data-a="tmintro"><img class="wiz" src="assets/games/ws_owl_1.jpg" alt=""><div class="ic">${TM_CATS.map((c,k)=>`<i style="animation-delay:${.9+k*.18}s">${c.ic}</i>`).join('')}</div><div class="t1">TABLE MIND</div><div class="t2">WISSEN. STRATEGIE. RUHM.</div><div class="hint">TIPPEN ZUM ÜBERSPRINGEN</div></div>`;
+  return`<div class="tm-intro" data-a="tmintro"><img class="wiz" src="assets/games/ws_owl_1.jpg" alt=""><div class="ic">${TM_CATS.map((c,k)=>`<i style="animation-delay:${.9+k*.18}s">${tmEmb(k,'intro')}</i>`).join('')}</div><div class="t1">TABLE MIND</div><div class="t2">WISSEN. STRATEGIE. RUHM.</div><div class="hint">TIPPEN ZUM ÜBERSPRINGEN</div></div>`;
 }
 
 /* ───────── Wiz, the owl from WORDSPIN, hosts the show ───────── */
@@ -988,6 +1003,6 @@ function tmResultsHTML(){
     return`<tr><td>${avChar(p.avatar)} ${esc(p.name)}</td><td>${tmEur(tm.bank[i])}</td><td>${r.seals}</td><td>${L.st==='escaped'?'✅ ×'+L.mult:'❌'}</td><td>${n?Math.round(tm.stats.right[i]/n*100):0}%</td><td><b>${tmEur(r.total)}</b></td></tr>`;}).join('');
   const st=tmStandings(tm),top=st.slice(0,3),hs=[7,5,4];
   const pod=`<div class="tm-podium"><img src="assets/games/ws_owl_6.jpg" alt="Wiz"><div class="t">👑 ${esc((players[tm.win-1]||{}).name||'')} IST DER TABLE MIND!</div><div class="tm-pbars">${[1,0,2].filter(k=>top[k]).map(k=>{const r=top[k],pl=players[r.s-1]||{name:'?'};return`<div class="tm-pb p${k+1}"><small>${tmEur(r.total)}</small><div class="bar" style="height:${hs[k]}rem">${k+1}</div><b>${esc(pl.name)}</b></div>`;}).join('')}</div></div>`;
-  return`<div class="panel ws-res">${pod}<div class="panel-lbl">DAS ERGEBNIS · Chaser: ${c.ic} ${esc(c.name)}</div>
+  return`<div class="panel ws-res">${pod}<div class="panel-lbl">DAS ERGEBNIS · Chaser: <img class="tm-emb xs" src="assets/games/tm_ch_${tm.chaser}.jpg" alt=""> ${esc(c.name)}</div>
     <table><tr><th>Spieler</th><th>Gesichert</th><th>Siegel</th><th>Jagd</th><th>Treffer</th><th>Gesamt</th></tr>${rows}</table>${tmFlaggedHTML()}${tmStrengthsHTML()}${tmLearnedHTML(tm)}</div>`;
 }
