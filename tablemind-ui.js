@@ -109,6 +109,9 @@
 @keyframes tmCor{0%{transform:scale(.97);filter:brightness(1)}35%{transform:scale(1.045);filter:brightness(1.45)}100%{transform:scale(1.015);filter:brightness(1.1)}}
 #s-table .tm-a.cor{animation:tmCor .75s ease both;}
 @keyframes tmFill{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+.tm-menu{position:absolute;right:.8rem;top:3.4rem;z-index:40;display:flex;flex-direction:column;gap:.35rem;padding:.6rem;border-radius:14px;border:1px solid rgba(201,164,92,.5);background:rgba(6,26,17,.97);box-shadow:0 14px 30px -10px #000;min-width:13rem;}
+.tm-menu>button{padding:.55rem .8rem;border-radius:10px;border:1px solid rgba(201,164,92,.35);background:rgba(29,83,54,.45);color:#f4efe0;font-weight:600;font-size:.9rem;line-height:1.1;font-family:inherit;text-align:left;cursor:pointer;}
+.tm-menu .tm-mr{display:flex;align-items:center;gap:.5rem;color:#d8cfbd;font-size:.9rem;}
 .tm-btn.next{position:relative;overflow:hidden;}.tm-btn.next .fill{position:absolute;inset:0;background:rgba(40,25,0,.28);transform-origin:left;animation:tmFill linear forwards;pointer-events:none;}.tm-btn.next span{position:relative;}
 @keyframes tmChZoom{from{transform:scale(1);opacity:.1}30%{opacity:.6}to{transform:scale(1.22);opacity:.5}}
 .tm-titlecard .chbg{position:absolute;inset:0;background-size:cover;background-position:center 20%;animation:tmChZoom 2.6s ease-out both;z-index:-1;}
@@ -653,6 +656,7 @@ function tmTap(a,t){
   if(a==='tmhcs'){tmHcSelfSet(+d.v);return;}
   const tm=tmObj();if(!tm)return;
   if(a==='tmhcap'){TMSFX.pick();try{localStorage.setItem('ct_tm_hcap',String(+d.v));}catch(e){}tmSend({t:'hcap',v:+d.v});return;}
+  if(a==='tmmenu'){G.tmMenu=!G.tmMenu;SFX.chip&&SFX.chip();render();return;}
   if(a==='tmtext'){tmTextNext();SFX.chip&&SFX.chip();render();return;}
   if(a==='tmanim'){gtAnimNext();SFX.chip&&SFX.chip();render();return;}
   if(a==='tmintro'){G.tmIntro=null;render();return;}
@@ -1058,7 +1062,7 @@ function rTablemindTable(){
   const actTxt=tm.act===1?`Frage ${Math.min(tm.cycle,tm.c1||TM_CFG.cycles1)} von ${tm.c1||TM_CFG.cycles1}`:tm.act===2?`Siegel ${tm.round2} von ${tm.sr||TM_CFG.sealRounds}`:`Jagd · Frage ${(tm.hunt?tm.hunt.n:0)+(tm.phase==='ask'?1:0)}`;
   queueMicrotask(tmPostRender);
   return`<div id="s-table" class="scr on game-tablemind an-${an} tm-bg-${tm.over?'over':tm.duel?'duel':'act'+tm.act}${tmTextMode()?' tx-'+tmTextMode():''}">
-    <div class="game-bar"><div class="gb-game"><span class="tm-logo">TABLE MIND</span></div><div class="gb-turn tm-bartitle"><span><b>AKT ${['','I','II','III'][tm.act]}</b> · ${TM_ACT_NAMES[tm.act]}</span><small>${esc(actTxt)}</small></div><div class="gb-right"><button class="ico-btn tm-animbtn tm-aa" data-a="tmtext" aria-label="Textgröße und Kontrast" title="Textgröße und Kontrast">Aa</button><button class="ico-btn tm-animbtn" data-a="tmanim" aria-label="Animation: ${an==='full'?'voll':an==='light'?'leicht':'aus'}" title="Animation: ${an==='full'?'voll':an==='light'?'leicht':'aus'}">${an==='off'?'⏸':an==='light'?'✨':'🎬'}</button>${rulesBtn()}${quitBtn()}${sndBtn()}</div></div>
+    <div class="game-bar"><div class="gb-game"><span class="tm-logo">TABLE MIND</span></div><div class="gb-turn tm-bartitle"><span><b>AKT ${['','I','II','III'][tm.act]}</b> · ${TM_ACT_NAMES[tm.act]}</span><small>${esc(actTxt)}</small></div><div class="gb-right"><button class="ico-btn tm-animbtn tm-aa" data-a="tmmenu" aria-label="Menü" aria-expanded="${G.tmMenu?'true':'false'}" title="Menü">⋯</button>${quitBtn()}${sndBtn()}</div></div>${G.tmMenu?`<div class="tm-menu"><button data-a="tmtext">Textgröße · ${({'':'normal',l:'groß',xl:'sehr groß',hc:'Kontrast'})[tmTextMode()]}</button><button data-a="tmanim">Animation · ${an==='full'?'voll':an==='light'?'leicht':'aus'}</button><span class="tm-mr">${rulesBtn()} Spielregeln</span></div>`:''}
     <div class="tm-main ${tm.act===3&&tm.phase!=='offer'?'':'split'}${tm.act===3?' act3':''}">
       <div class="tm-actline"><b>AKT ${['','I','II','III'][tm.act]}</b> · ${TM_ACT_NAMES[tm.act]} · ${esc(actTxt)}</div>
       ${tmPodsHTML(tm,players,me,tm.phase==='reveal'?tm.fx:null)}
@@ -1089,7 +1093,7 @@ function tmPostRender(){
   tmLoopStart();document.body.classList.add('tm-on');
   const key=[tm.seed,tm.act,tm.phase,tm.cycle,tm.round2,tm.hunt?tm.hunt.n:0,''].join('|');
   if(G.tmFxKey===key)return;
-  const first=G.tmFxKey==='';G.tmFxKey=key;if(first){G.tmAct=tm.act;G.tmHcapSent=0;}
+  const first=G.tmFxKey==='';G.tmFxKey=key;G.tmMenu=false;if(first){G.tmAct=tm.act;G.tmHcapSent=0;}
   if(G.isOnline&&tm.act===1&&tm.cycle===1&&tm.phase==='ask'&&!tm.duel&&!G.tmHcapSent){const me=tmMySeat();let v=0;try{v=+localStorage.getItem('ct_tm_hcap')||0;}catch(e){}if(me&&v&&tm.hcap[me-1]!==v&&tm.ans[me-1]==null){G.tmHcapSent=1;tmSend({t:'hcap',v});}}
   if(first&&G.tmIntro===tm.seed){TMSFX.intro();return;}
   if(G.tmAct!==tm.act){const prev=G.tmAct;G.tmAct=tm.act;if(prev&&tm.act>1)tmActCard(tm);}
