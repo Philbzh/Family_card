@@ -15,7 +15,7 @@ A wheel-and-word game for 2–4 players (local on one device, against bots, or o
 
 ## Where things are
 - **Engine (pure, no screen code):** `ws*` functions in `CardTableV17_2fixed.html` — `wsNew`, `wsApply`, `wsBotAct`, `wsLayout`, `wsNorm`. One action per call, every call returns a record (`ws.fx`) of what happened so any device can replay it.
-- **Puzzle libraries (data only):** `wordspin-puzzles.js` (230 English) and `wordspin-puzzles-de.js` (165 German), 11 categories, 3 difficulties each; both listed in `sw.js`. The texts on screen are in `WS_TX` (en / de).
+- **Puzzle libraries (data only):** `wordspin-puzzles.js` (230 English) and `wordspin-puzzles-de.js` (1146 German), 11 categories, 3 difficulties each; both listed in `sw.js`. The texts on screen are in `WS_TX` (en / de).
 - **Wheel result:** drawn once from the game's own random stream (`ws.rng`, seeded in the state) inside the room update, and stored as wedge + final angle. Every device animates to the same angle.
 - **Screens:** `rWordspinTable`. Per-device choice: everything / the stage only / my controls.
 - **Local:** `lDealWordspin`, `wsDoLocal`, `botWordspinAct`, `wsEndLocal`. **Online:** `oWsDo`, `oWsFinish`, `oWsAuto` (away players), start and rematch in `oStartGame`.
