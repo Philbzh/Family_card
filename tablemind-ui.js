@@ -422,7 +422,7 @@ function tmRecordSeen(tm){
     tm.q.forEach(qq=>{if(!qq)return;const e=lib[qq.i];if(e&&l.indexOf(e[3])<0)l.push(e[3]);});
     localStorage.setItem('ct_tm_seen',JSON.stringify(l));}catch(e){}
 }
-function tmNewGame(n,local){const tm=tmNew(n,{seed:Date.now(),relaxed:tmPrefRelaxed(),chaser:tmPrefChaser()||undefined,review:[],seen:tmSeenIdx()});
+function tmNewGame(n,local){const tm=tmNew(n,{c1:n<=2?8:undefined,sr:n<=2?3:undefined,seed:Date.now(),relaxed:tmPrefRelaxed(),chaser:tmPrefChaser()||undefined,review:[],seen:tmSeenIdx()});
   if(local&&G.lp)tm.hcap=G.lp.slice(0,n).map((p,i)=>isBotPlayer(p)?0:tmHcOf(tmHcKey(p,i)));
   return tm;}
 
@@ -927,7 +927,7 @@ function tmDecidePad(tm,me,players){
 function tmPickPad(tm,me,players){
   const i=me-1;
   if(tm.pick[i]!=null)return`<div class="tm-card tm-wait"><div class="tm-title">Bestätigt ✓</div><div class="tm-realm sel stat" style="--c:${TM_CATS[tm.pick[i]].col};max-width:14rem;margin:.3rem auto"><span class="ic">${tmEmb(tm.pick[i],'lg')}</span>${esc(TM_CATS[tm.pick[i]].de)}</div>${tmWaitList(tm,players,me)}</div>`;
-  return`<div class="tm-card"><div class="tm-title">WÄHLE DEINE WELT <small>${tm.round2} von ${TM_CFG.sealRounds}</small></div><div class="tm-timer"><b>--</b><i></i></div>${tmRealmsHTML(tm,me,'pick')}</div>`;
+  return`<div class="tm-card"><div class="tm-title">WÄHLE DEINE WELT <small>${tm.round2} von ${tm.sr||TM_CFG.sealRounds}</small></div><div class="tm-timer"><b>--</b><i></i></div>${tmRealmsHTML(tm,me,'pick')}</div>`;
 }
 function tmOfferPad(tm,me,players){
   const i=me-1;
@@ -1055,7 +1055,7 @@ function rTablemindTable(){
   if(verdict&&tm.act===2){const g=tm.fx.seats.findIndex(o=>o.seal);verdict.x=g>=0?'Siegel für '+esc((players[g]||{}).name||'')+'.':'Kein Siegel.';}
   let askText='';if(tm.phase==='ask'&&pad.indexOf('tm-qcard')>=0){const mq=me&&tm.q[me-1];if(mq)askText=tmQ(tm,mq).text;}
   const showIntro=G.tmIntro===tm.seed&&Date.now()<tm.dl&&tm.moves===0&&tm.act===1&&tm.cycle===1;
-  const actTxt=tm.act===1?`Frage ${Math.min(tm.cycle,TM_CFG.cycles1)} von ${TM_CFG.cycles1}`:tm.act===2?`Siegel ${tm.round2} von ${TM_CFG.sealRounds}`:`Jagd · Frage ${(tm.hunt?tm.hunt.n:0)+(tm.phase==='ask'?1:0)}`;
+  const actTxt=tm.act===1?`Frage ${Math.min(tm.cycle,tm.c1||TM_CFG.cycles1)} von ${tm.c1||TM_CFG.cycles1}`:tm.act===2?`Siegel ${tm.round2} von ${tm.sr||TM_CFG.sealRounds}`:`Jagd · Frage ${(tm.hunt?tm.hunt.n:0)+(tm.phase==='ask'?1:0)}`;
   queueMicrotask(tmPostRender);
   return`<div id="s-table" class="scr on game-tablemind an-${an} tm-bg-${tm.over?'over':tm.duel?'duel':'act'+tm.act}${tmTextMode()?' tx-'+tmTextMode():''}">
     <div class="game-bar"><div class="gb-game"><span class="tm-logo">TABLE MIND</span></div><div class="gb-turn tm-bartitle"><span><b>AKT ${['','I','II','III'][tm.act]}</b> · ${TM_ACT_NAMES[tm.act]}</span><small>${esc(actTxt)}</small></div><div class="gb-right"><button class="ico-btn tm-animbtn tm-aa" data-a="tmtext" aria-label="Textgröße und Kontrast" title="Textgröße und Kontrast">Aa</button><button class="ico-btn tm-animbtn" data-a="tmanim" aria-label="Animation: ${an==='full'?'voll':an==='light'?'leicht':'aus'}" title="Animation: ${an==='full'?'voll':an==='light'?'leicht':'aus'}">${an==='off'?'⏸':an==='light'?'✨':'🎬'}</button>${rulesBtn()}${quitBtn()}${sndBtn()}</div></div>

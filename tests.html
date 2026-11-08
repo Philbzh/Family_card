@@ -10379,6 +10379,18 @@ async function runPresentation(A,W,frame){
       if(keep.hist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keep.hist);
     }
   });
+  suite('TABLE MIND — a player who has gone away does not stall the table',()=>{
+    const F=n=>W.eval(n),N=F('tmNew'),A=F('tmApply'),T=F('tmTick');
+    const t=N(3,{seed:41,autoBank:false});F('tmStart')(t,0);
+    check('a seat that let two questions run out in a row counts as away',(()=>{t.miss=[0,2,0];return F('tmAway')(t,2)===true&&F('tmAway')(t,1)===false;})());
+    A(t,1,{t:'ans',i:t.q[0].cor},1000);
+    check('the others are still waited for',t.phase==='ask');
+    A(t,3,{t:'ans',i:t.q[2].cor},1500);
+    check('when everybody who is present has answered the question closes at once (no waiting for the absent seat)',t.phase==='reveal'&&t.res[1]==='late'&&t.res[0]==='ok');
+    check('missing the question counts again, answering clears it',t.miss[1]===3&&t.miss[0]===0);
+    const u=N(2,{seed:42});F('tmStart')(u,0);u.miss=[2,2];A(u,1,{t:'ans',i:0},1000);
+    check('if everybody is away the table waits as usual',u.phase==='ask'||u.phase==='reveal');
+  });
   suite('TABLE MIND — act 2: realms and seals',()=>{
     const F=n=>W.eval(n),N=F('tmNew'),A=F('tmApply'),CFG=F('TM_CFG');
     const t=N(2,{seed:31});F('tmStart')(t,0);t.cycle=CFG.cycles1;F('tmTick')(t,t.dl+1);F('tmTick')(t,t.dl+1);F('tmTick')(t,t.dl+1);F('tmTick')(t,t.dl+1);

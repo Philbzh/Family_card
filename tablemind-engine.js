@@ -64,7 +64,7 @@ function tmNew(P,opts){
   const n=Math.max(2,Math.min(4,(P|0)||2)),seed=((opts.seed||Date.now())%2147483646)+1;
   const z=()=>new Array(n).fill(0),nl=()=>new Array(n).fill(null);
   const tm={v:1,P:n,seed,rng:seed,rng2:(seed*7+13)%2147483646+1,lang:'de',act:1,phase:'ask',cycle:0,round2:0,used:(opts.seen||[]).filter(x=>Number.isInteger(x)&&x>=0).slice(),catN:[0,0,0,0,0,0],
-    lib:opts.lib||null,relaxed:!!opts.relaxed,autoBank:opts.autoBank!==undefined?!!opts.autoBank:!!TM_CFG.autoBank,review:(opts.review||[]).slice(0,12),reviewUsed:0,gold:0,
+    lib:opts.lib||null,relaxed:!!opts.relaxed,c1:opts.c1||TM_CFG.cycles1,sr:opts.sr||TM_CFG.sealRounds,autoBank:opts.autoBank!==undefined?!!opts.autoBank:!!TM_CFG.autoBank,review:(opts.review||[]).slice(0,12),reviewUsed:0,gold:0,
     lvl:z(),unb:z(),bank:z(),q:nl(),ans:nl(),ansAt:z(),res:nl(),pick:nl(),ext:z(),elim:nl(),clue:z(),gain:z(),
     life:[],council:null,queue:[],owner:0,easyOn:z(),picked:Array.from({length:n},()=>[]),hcap:z(),streak:z(),rdy:z(),log:[],duel:null,duelDone:false,pendingDecide:new Array(n).fill(false),seals:[],sealNew:z(),
     chaser:opts.chaser&&TM_CFG.chasers[opts.chaser]?opts.chaser:null,ch:null,lane:[],offer:nl(),
@@ -73,7 +73,7 @@ function tmNew(P,opts){
   for(let i=0;i<n;i++){tm.life.push(Object.assign({},TM_CFG.lives));tm.seals.push([]);}
   for(let i=0;i<7;i++){tmRand(tm);tmRand2(tm);}
   if(!tm.chaser)tm.chaser=TM_CH_KEYS[Math.floor(tmRand(tm)*TM_CH_KEYS.length)];
-  tm.gold=2+Math.floor(tmRand(tm)*(TM_CFG.cycles1-2));   // the golden question: one cycle in act 1 pays double, announced when it opens
+  tm.gold=2+Math.floor(tmRand(tm)*(tm.c1-2));   // the golden question: one cycle in act 1 pays double, announced when it opens
   return tm;
 }
 // Start (or restart) the game: opens the first act 1 question for everybody.
@@ -183,8 +183,12 @@ function tmChaserP(key,cat,d){
 /* ───── queries ───── */
 function tmActive(tm,s){if(tm.duel&&tm.duel.indexOf(s)<0)return false;return tm.act!==3||tm.lane[s-1].st==='run';}
 function tmSeatDl(tm,s){return tm.dl+tm.ext[s-1];}
+// a player who let two questions in a row run out is treated as away: the others no longer wait for them (as long as somebody else is still playing)
+function tmAway(tm,s){return !!(tm.miss&&tm.miss[s-1]>=2);}
 function tmAskDone(tm,now){
-  for(let s=1;s<=tm.P;s++){if(!tmActive(tm,s))continue;if(tm.ans[s-1]==null&&now<tmSeatDl(tm,s))return false;}
+  const present=[];for(let s=1;s<=tm.P;s++)if(tmActive(tm,s)&&!tmAway(tm,s))present.push(s);
+  const waitFor=present.length?present:(()=>{const a=[];for(let s=1;s<=tm.P;s++)if(tmActive(tm,s))a.push(s);return a;})();
+  for(const s of waitFor){if(tm.ans[s-1]==null&&now<tmSeatDl(tm,s))return false;}
   return true;
 }
 function tmUnbanked(tm,s){return tm.unb[s-1];}
@@ -297,6 +301,7 @@ function tmResolveAsk(tm,now){
     if(tm.log.indexOf(q.i)<0)tm.log.push(q.i);
     {const e0=tmLib(tm)[q.i];if(e0){tm.stats.catN[i][e0[0]]++;if(a!=null&&a===q.cor)tm.stats.catR[i][e0[0]]++;}}
     tm.res[i]=(a==null||a<0)?'late':ok?'ok':'bad';
+    (tm.miss=tm.miss||[])[i]=(a==null||a<0)?((tm.miss[i]||0)+1):0;
     if(a==null||a<0)tm.stats.late[i]++;else if(ok)tm.stats.right[i]++;else tm.stats.wrong[i]++;
     const e=tmLib(tm)[q.i];if(ok&&e&&e[1]>=4)tm.stats.hardRight[i]++;
     const o={s,ok,a,cor:q.cor,money:0,seal:0,steps:0};
@@ -312,7 +317,7 @@ function tmResolveAsk(tm,now){
         if(tm.cycle===tm.gold){o.gold=tmAmt(tm,i,tm.lvl[i]);tm.bank[i]+=o.gold;}
         tm.unb[i]=tmAmt(tm,i,tm.lvl[i]);tm.stats.best[i]=Math.max(tm.stats.best[i],tm.unb[i]);
         if(top){tm.unb[i]+=TM_CFG.topBonus;tm.bank[i]+=tm.unb[i];o.money=tm.unb[i];o.top=1;tm.stats.topHits[i]++;tm.unb[i]=0;tm.lvl[i]=0;}
-        else{o.money=tm.unb[i];tm.lvl[i]++;tm.pendingDecide[i]=!tm.autoBank&&tm.cycle<TM_CFG.cycles1;if(!tm.pendingDecide[i]){tm.bank[i]+=tm.unb[i];tm.unb[i]=0;o.auto=1;}}
+        else{o.money=tm.unb[i];tm.lvl[i]++;tm.pendingDecide[i]=!tm.autoBank&&tm.cycle<(tm.c1||TM_CFG.cycles1);if(!tm.pendingDecide[i]){tm.bank[i]+=tm.unb[i];tm.unb[i]=0;o.auto=1;}}
       }else{o.lost=tm.unb[i];tm.unb[i]=0;tm.lvl[i]=0;}
     }else if(act===2){
       if(ok&&s===tm.owner){tm.seals[i].push(tm.pick[i]);o.seal=1;}
@@ -358,7 +363,7 @@ function tmDecide(tm,s,bank){
   else tm.gain[i]=2;
 }
 function tmAfterDecide(tm,now){
-  if(tm.cycle>=TM_CFG.cycles1){if(tm.P>=2&&!tm.duelDone){tmOpenDuel(tm,now);return;}tmOpenPick(tm,now);return;}
+  if(tm.cycle>=(tm.c1||TM_CFG.cycles1)){if(tm.P>=2&&!tm.duelDone){tmOpenDuel(tm,now);return;}tmOpenPick(tm,now);return;}
   tmOpenCycle1(tm,now);
 }
 function tmAfterReveal(tm,now){
@@ -369,7 +374,7 @@ function tmAfterReveal(tm,now){
   }
   if(tm.act===2){
     if(tm.queue&&tm.queue.length){tmNextAsk2(tm,now);return;}
-    if(tm.round2>=TM_CFG.sealRounds)tmOpenOffer(tm,now);else tmOpenPick(tm,now);
+    if(tm.round2>=(tm.sr||TM_CFG.sealRounds))tmOpenOffer(tm,now);else tmOpenPick(tm,now);
     return;
   }
   // act 3
