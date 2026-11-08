@@ -94,6 +94,17 @@
 #s-table .tm-a.dim{opacity:.35;}
 #s-table .tm-state,#s-table .tm-pod .tm-state{font-size:.74rem!important;color:#c9bf9c!important;}
 .game-tablemind .react-strip .rb{width:2.75rem!important;height:2.75rem!important;}
+.tm-fins{display:flex;flex-direction:column;gap:.4rem;margin:.6rem 0;}
+.tm-fin{display:grid;grid-template-columns:1.6rem 1fr auto;gap:.1rem .5rem;align-items:center;padding:.5rem .7rem;border-radius:12px;border:1px solid rgba(201,164,92,.3);background:rgba(10,36,24,.55);}
+.tm-fin.first{border-color:#e9c46a;background:linear-gradient(180deg,rgba(233,196,106,.2),rgba(10,36,24,.6));}
+.tm-fin .rk{font:800 1rem/1 var(--serif,Georgia,serif);color:var(--tg,#c9a45c);text-align:center;}
+.tm-fin .nm{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tm-fin .tt{font:800 1.05rem/1 var(--serif,Georgia,serif);color:#f3deaa;}
+.tm-fin small{grid-column:2/4;font-size:.74rem;color:#c9bf9c;}
+.tm-more{margin-top:.5rem;}.tm-more>summary{cursor:pointer;padding:.5rem .2rem;color:#c9bf9c;font-size:.85rem;}
+/* the Hunt on phones/portrait: the race first, then Wiz and the question */
+@media not all and (min-width:760px) and (orientation:landscape){.tm-main.act3 .tm-pods{order:-4;}.tm-main.act3 .tm-left{order:-3;margin-top:0!important;}.tm-main.act3 .tm-host{order:-2;}.tm-main.act3 .tm-right{order:-1;}}
+@media(max-width:559px){.tm-main.act3 .tm-vcol{--rh:1.25rem;}.tm-main.act3 .tm-chaser{display:none;}}
 .tm-btn.next{width:auto;min-width:9rem;padding:.5rem 1.3rem;font-size:.9rem;border-radius:999px;}
 .tm-row:has(.tm-btn.next){justify-content:flex-end;}
 .tm-btn[disabled]{opacity:.4;pointer-events:none;}
@@ -782,7 +793,7 @@ function tmStageHTML(tm,players,me,padHasQ){
 function tmQuestionPad(tm,me,players){
   const i=me-1,qq=tm.q[i];if(!qq)return'';
   const q=tmQ(tm,qq),L=tm.life[i],ans=tm.ans[i],locked=ans!=null,rev=tm.phase==='reveal';
-  const chips=`<div class="tm-qchips"><span class="tm-chip">${tmEmb(q.c,'sm')} ${esc(TM_CATS[q.c].short)}</span>${(!tm.duel&&tm.act===1&&tm.cycle===tm.gold)?`<span class="tm-chip gold">${tmIco('gold','inl')} GOLDENE FRAGE ×2</span>`:''}${tm.duel?`<span class="tm-chip gold">${tmIco('duel','inl')} DUELL · ${tmEur(TM_CFG.duelPrize)}</span>`:tm.act===1?`<span class="tm-chip gold">Stufe ${tm.lvl[i]+1} von 5 · ${tmEur(tmAmt(tm,i,tm.lvl[i]))}</span>`:tm.act===2?`<span class="tm-chip gold">${tm.owner===me?'🏅 Deine Welt — dein Siegel!':'Welt von '+esc((players[tm.owner-1]||{}).name||'?')+' · +'+tmEur(TM_CFG.sideBonus)}</span>`:`<span class="tm-chip gold">Vorsprung ${tm.lane[i].pl-tm.lane[i].chp} · ×${tm.lane[i].mult}</span>`}</div>`;
+  const chips=`<div class="tm-qchips"><span class="tm-chip">${tmEmb(q.c,'sm')} ${esc(TM_CATS[q.c].short)}</span>${(!tm.duel&&tm.act===1&&tm.cycle===tm.gold)?`<span class="tm-chip gold">${tmIco('gold','inl')} Goldene Frage ×2</span>`:''}${tm.duel?`<span class="tm-chip gold">${tmIco('duel','inl')} DUELL · ${tmEur(TM_CFG.duelPrize)}</span>`:tm.act===1?`<span class="tm-chip gold">${tmEur(tmAmt(tm,i,tm.lvl[i]))}</span>`:tm.act===2?`<span class="tm-chip gold">${tm.owner===me?'Dein Siegel':'+'+tmEur(TM_CFG.sideBonus)}</span>`:''}</div>`;
   const sel=G.tmSel;
   const answers=q.ans.map((a,k)=>{
     const el=tm.elim[i]&&tm.elim[i].indexOf(k)>=0;
@@ -1033,7 +1044,7 @@ function rTablemindTable(){
   queueMicrotask(tmPostRender);
   return`<div id="s-table" class="scr on game-tablemind an-${an} tm-bg-${tm.over?'over':tm.duel?'duel':'act'+tm.act}${tmTextMode()?' tx-'+tmTextMode():''}">
     <div class="game-bar"><div class="gb-game"><span class="tm-logo">TABLE MIND</span></div><div class="gb-turn tm-bartitle"><span><b>AKT ${['','I','II','III'][tm.act]}</b> · ${TM_ACT_NAMES[tm.act]}</span><small>${esc(actTxt)}</small></div><div class="gb-right"><button class="ico-btn tm-animbtn tm-aa" data-a="tmtext" aria-label="Textgröße und Kontrast" title="Textgröße und Kontrast">Aa</button><button class="ico-btn tm-animbtn" data-a="tmanim" aria-label="Animation: ${an==='full'?'voll':an==='light'?'leicht':'aus'}" title="Animation: ${an==='full'?'voll':an==='light'?'leicht':'aus'}">${an==='off'?'⏸':an==='light'?'✨':'🎬'}</button>${rulesBtn()}${quitBtn()}${sndBtn()}</div></div>
-    <div class="tm-main ${tm.act===3&&tm.phase!=='offer'?'':'split'}">
+    <div class="tm-main ${tm.act===3&&tm.phase!=='offer'?'':'split'}${tm.act===3?' act3':''}">
       <div class="tm-actline"><b>AKT ${['','I','II','III'][tm.act]}</b> · ${TM_ACT_NAMES[tm.act]} · ${esc(actTxt)}</div>
       ${tmPodsHTML(tm,players,me,tm.phase==='reveal'?tm.fx:null)}
       ${tmHostHTML(tm,players,askText,verdict)}
@@ -1100,10 +1111,9 @@ function tmChipsHTML(){
 function tmResultsHTML(){
   const tm=tmObj();if(!tm||!tm.over)return'';
   const players=tmPlayers(),c=TM_CFG.chasers[tm.chaser];
-  const rows=tmStandings(tm).map(r=>{const i=r.s-1,p=players[i]||{name:'?',avatar:null},L=tm.lane[i],n=tm.stats.right[i]+tm.stats.wrong[i]+tm.stats.late[i];
-    return`<tr><td>${avChar(p.avatar)} ${esc(p.name)}</td><td>${tmEur(tm.bank[i])}</td><td>${r.seals}</td><td>${L.st==='escaped'?'✅ ×'+L.mult:'❌'}</td><td>${n?Math.round(tm.stats.right[i]/n*100):0}%</td><td><b>${tmEur(r.total)}</b></td></tr>`;}).join('');
-  const st=tmStandings(tm),top=st.slice(0,3),hs=[7,5,4];
-  const pod=`<div class="tm-podium"><img src="assets/games/ws_owl_6.jpg" alt="Wiz"><div class="t">👑 ${esc((players[tm.win-1]||{}).name||'')} IST DER TABLE MIND!</div><div class="tm-pbars">${[1,0,2].filter(k=>top[k]).map(k=>{const r=top[k],pl=players[r.s-1]||{name:'?'};return`<div class="tm-pb p${k+1}"><small>${tmEur(r.total)}</small><div class="bar" style="height:${hs[k]}rem">${k+1}</div><b>${esc(pl.name)}</b></div>`;}).join('')}</div></div>`;
-  return`<div class="panel ws-res">${pod}<div class="panel-lbl">DAS ERGEBNIS · Chaser: <img class="tm-emb xs" src="assets/games/tm_ch_${tm.chaser}.jpg" alt=""> ${esc(c.name)}</div>
-    <table><tr><th>Spieler</th><th>Gesichert</th><th>Siegel</th><th>Jagd</th><th>Treffer</th><th>Gesamt</th></tr>${rows}</table>${tmFlaggedHTML()}${tmStrengthsHTML()}${tmLearnedHTML(tm)}</div>`;
+  const st=tmStandings(tm);
+  const rows=st.map((r,k)=>{const i=r.s-1,p=players[i]||{name:'?',avatar:null},L=tm.lane[i],n=tm.stats.right[i]+tm.stats.wrong[i]+tm.stats.late[i];
+    return`<div class="tm-fin${k===0?' first':''}"><span class="rk">${k+1}</span><span class="nm">${avChar(p.avatar)} ${esc(p.name)}</span><b class="tt">${tmEur(r.total)}</b><small>Konto ${tmEur(tm.bank[i])} · ${r.seals} Siegel · ${L.st==='escaped'?'entkommen':'gefangen'} · ${n?Math.round(tm.stats.right[i]/n*100):0}% richtig</small></div>`;}).join('');
+  const hero=`<div class="tm-podium"><img src="assets/games/ws_owl_6.jpg" alt="Wiz"><div class="t">${esc((players[tm.win-1]||{}).name||'')} ist der TABLE MIND!</div></div>`;
+  return`<div class="panel ws-res">${hero}<div class="tm-fins">${rows}</div><details class="tm-more"><summary>Details · Chaser: ${esc(c.name)}</summary>${tmFlaggedHTML()}${tmStrengthsHTML()}${tmLearnedHTML(tm)}</details></div>`;
 }
