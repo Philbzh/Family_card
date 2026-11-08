@@ -23,16 +23,16 @@ const TM_CATS=[
 ];
 /* Every balancing number is here, nowhere else. */
 const TM_CFG={
-  ladder:[1000,2500,5000,10000,25000],topBonus:5000,
+  ladder:[1000,2000,3000,5000,8000],topBonus:2000,   // flatter ladder: the Act I leader no longer wins almost every game
   cycles1:6,                        // questions per player in act 1 (a "climb" may be restarted after banking)
   sealRounds:2,                     // realm choices per player in act 2 (each realm only once)
   sideBonus:500,                    // act 2: a right answer to somebody else's realm question
-  sealValue:2500,
-  hcapMult:{'-1':1,'0':1,'1':.75},   // family handicap: Leicht removes two wrong answers on every question and pays half, Schwer pays 1.5 times
+  sealValue:4000,
+  hcapMult:{'-1':1,'0':1,'1':.75},   // family handicap: Leicht removes two wrong answers on every question (full prize), Schwer pays three quarters
   autoBank:true,                    // act 1: every right answer is banked at once and the climb goes on by itself (no Banken/Weiter question)
   reviewMax:2,                      // old mistakes brought back per game
   streakBonus:500,                  // act 1: every third right answer in a row
-  duelPrize:5000,                   // the head-to-head after act 1: the two richest players, one hard question
+  duelPrize:3000,                   // the head-to-head after act 1: the two richest players, one hard question
   track:7,
   offers:{safe:{adv:3,mult:1},std:{adv:2,mult:2},risk:{adv:1,mult:3}},
   escapeBase:10000,
