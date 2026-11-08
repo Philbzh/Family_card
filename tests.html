@@ -10589,7 +10589,7 @@ async function runPresentation(A,W,frame){
     check('at least 8 categories',new Set(lib.map(p=>p[0])).size>=8);
     check('every puzzle fits 4 rows of 14 tiles',lib.every(p=>!!layout(p[2])));
     check('only capitals, Ä Ö Ü, spaces, apostrophes, hyphens and commas (ß is written SS)',lib.every(p=>/^[A-ZÄÖÜ ,'-]+$/.test(p[2])));
-    check('no puzzle appears twice, and none is also in the English library',new Set(lib.map(p=>p[2])).size===lib.length);
+    check('no puzzle appears twice, and none is also in the English library',new Set(lib.map(p=>p[2].replace(/[^A-ZÄÖÜ]/g,''))).size===lib.length);
     check('the German library has puzzles with umlauts',lib.filter(p=>/[ÄÖÜ]/.test(p[2])).length>=30);
   });
   suite('WORDSPIN auf Deutsch — letters, umlauts and solving',()=>{
@@ -10915,7 +10915,7 @@ async function runPresentation(A,W,frame){
     check('at least 8 categories',new Set(lib.map(p=>p[0])).size>=8);
     check('every puzzle fits 4 rows of 14 tiles',lib.every(p=>!!layout(p[2])));
     check('puzzles use capital letters, spaces, apostrophes, hyphens and commas only',lib.every(p=>/^[A-Z ',-]+$/.test(p[2])));
-    check('no puzzle appears twice',new Set(lib.map(p=>p[2])).size===lib.length);
+    check('no puzzle appears twice',new Set(lib.map(p=>p[2].replace(/[^A-ZÄÖÜ]/g,''))).size===lib.length);
     check('the library is plain data: the engine file holds no puzzle text',!/WS_PUZZLES=\[/.test(W.eval('String(wsPick)')));
     check('a long phrase wraps on word boundaries and never splits a word',(()=>{const r=layout('THE SLOW TORTOISE WINS THE RACE');return r&&r.every(x=>x.length<=14)&&r.join(' ')==='THE SLOW TORTOISE WINS THE RACE';})());
     check('a phrase that cannot fit is refused',layout('A '.repeat(40))===null&&layout('SUPERCALIFRAGILISTIC')===null);

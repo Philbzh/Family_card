@@ -6389,7 +6389,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=378;
+const APP_BUILD=379;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -21379,10 +21379,18 @@ function wsLayout(t){
 }
 function wsPick(ws,minD,maxD){
   const lib=ws.lang==='de'?(typeof WS_PUZZLES_DE!=='undefined'?WS_PUZZLES_DE:[]):(typeof WS_PUZZLES!=='undefined'?WS_PUZZLES:[]);
-  let c=[];lib.forEach((p,i)=>{if(p[1]>=minD&&p[1]<=maxD&&ws.used.indexOf(i)<0)c.push(i);});
-  if(!c.length){ws.used=[];lib.forEach((p,i)=>{if(p[1]>=minD&&p[1]<=maxD)c.push(i);});}
-  if(!c.length)return{c:'Phrases',d:1,t:'HELLO WORLD',i:-1};
-  const i=c[Math.floor(wsRand(ws)*c.length)];ws.used.push(i);
+  ws.gused=ws.gused||[];
+  const free=d=>{const c=[];lib.forEach((p,i)=>{if(p[1]===d&&ws.used.indexOf(i)<0)c.push(i);});return c;};
+  let levels=[];for(let d=minD;d<=maxD;d++)if(free(d).length)levels.push(d);
+  if(!levels.length){   // this range is used up: forget what earlier games used here, but never what THIS game used
+    ws.used=ws.used.filter(i=>!(lib[i]&&lib[i][1]>=minD&&lib[i][1]<=maxD)||ws.gused.indexOf(i)>=0);
+    for(let d=minD;d<=maxD;d++)if(free(d).length)levels.push(d);
+  }
+  if(!levels.length){ws.used=[];ws.gused=[];for(let d=minD;d<=maxD;d++)if(free(d).length)levels.push(d);}
+  if(!levels.length)return{c:'Phrases',d:1,t:'HELLO WORLD',i:-1};
+  const r0=wsRand(ws)*levels.length,li=Math.min(levels.length-1,Math.floor(r0)),d=levels[li];   // ONE random number: the whole part picks the level, the fraction picks the puzzle (the random stream stays as it was)   // level first, so the long phrases are not drowned by the many single words
+  const c=free(d);
+  const i=c[Math.min(c.length-1,Math.floor((r0-li)*c.length))];ws.used.push(i);ws.gused.push(i);
   return{c:lib[i][0],d:lib[i][1],t:lib[i][2],i};
 }
 function wsNew(P,opts){
@@ -21564,10 +21572,17 @@ function wsLib(lang){return lang==='de'?(typeof WS_PUZZLES_DE!=='undefined'?WS_P
 function wsSeenKey(lang){return 'ct_ws_seen_'+(lang==='de'?'de':'en');}
 function wsSeenList(lang){try{const l=JSON.parse(localStorage.getItem(wsSeenKey(lang))||'[]');return Array.isArray(l)?l:[];}catch(e){return[];}}
 function wsSeenIdx(lang){const lib=wsLib(lang);let l=wsSeenList(lang);
-  if(l.length>=lib.length-45){l=[];try{localStorage.setItem(wsSeenKey(lang),'[]');}catch(e){}}
-  const m=new Map();lib.forEach((p,i)=>m.set(p[2],i));return l.map(t=>m.get(t)).filter(i=>i!=null);}
+  const m=new Map();lib.forEach((p,i)=>m.set(p[2],i));
+  l=l.filter(t=>m.has(t));   // texts that are no longer in the list do not count
+  const keep=new Set(l.slice(-20));
+  for(let d=1;d<=3;d++){   // per difficulty: when too few unseen puzzles are left, that level starts again (the newest 20 stay remembered)
+    const total=lib.filter(p=>p[1]===d).length,seenD=l.filter(t=>lib[m.get(t)][1]===d).length;
+    if(total>0&&total-seenD<Math.min(15,Math.ceil(total/3)))l=l.filter(t=>lib[m.get(t)][1]!==d||keep.has(t));
+  }
+  try{localStorage.setItem(wsSeenKey(lang),JSON.stringify(l));}catch(e){}
+  return l.map(t=>m.get(t)).filter(i=>i!=null);}
 function wsRecordSeen(ws){
-  try{if(!ws||!ws.puzzle||ws.puzzle.i<0)return;const l=wsSeenList(ws.lang);if(l.indexOf(ws.puzzle.t)<0){l.push(ws.puzzle.t);localStorage.setItem(wsSeenKey(ws.lang),JSON.stringify(l));}}catch(e){}
+  try{if(!ws||!ws.puzzle||ws.puzzle.i<0)return;const key=ws.lang+'|'+ws.puzzle.t;if(G.wsRecKey===key)return;G.wsRecKey=key;const l=wsSeenList(ws.lang);if(l.indexOf(ws.puzzle.t)<0){l.push(ws.puzzle.t);localStorage.setItem(wsSeenKey(ws.lang),JSON.stringify(l));}}catch(e){}
 }
 function wsNewGame(n,first){
   return wsStart(wsNew(n,{rounds:wsRounds(),diff:wsLevel(),lang:wsLang(),seen:wsSeenIdx(wsLang()),seed:Date.now()*7+Math.floor(Math.random()*1000003)}),first||1);
