@@ -286,6 +286,8 @@ body:has(.react-strip) .peer-think{bottom:calc(9rem + env(safe-area-inset-bottom
 .tm-banner{display:flex;align-items:center;justify-content:center;gap:.4rem;min-height:3.4rem;padding:.2rem 0 .35rem;border-style:solid;border-width:0 27px;border-color:transparent;border-image:url(assets/games/tm_ui_ribbon.png) 0 80 0 80 fill / 0 27px 0 27px stretch;color:#3a2100!important;text-shadow:0 1px 0 rgba(255,244,190,.7)!important;font-size:clamp(1rem,4.2vw,1.45rem)!important;letter-spacing:.07em;filter:drop-shadow(0 6px 10px rgba(0,0,0,.5));}
 .tm-banner.bad{color:#5b0f1e!important;}.tm-banner.hot{color:#4a1236!important;}
 .tm-banner .tm-ico{filter:none;}
+/* reactions float up over the whole screen (the shared reaction code looks for this host) */
+.tm-react-host{position:fixed;inset:0;pointer-events:none;z-index:60;overflow:hidden;}
 .tm-foot{display:flex;gap:.5rem;justify-content:center;margin-top:.4rem;}
 .tm-opt{display:flex;gap:.4rem;flex-wrap:wrap;justify-content:center;align-items:center;margin:.4rem 0;font-size:.78rem;color:var(--paper2,#d8cfbd);}
 .tm-opt button{padding:.3rem .7rem;border-radius:999px;border:1px solid rgba(201,164,92,.5);background:rgba(29,83,54,.4);color:inherit;font:inherit;cursor:pointer;}
@@ -954,6 +956,7 @@ function rTablemindTable(){
       <div class="tm-right">${pad}</div>
     </div>
     ${showIntro?tmIntroHTML():''}
+    <div class="tm-react-host"></div>
     ${typeof talkStripHTML==='function'?talkStripHTML():''}
   </div>`;
 }
