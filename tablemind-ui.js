@@ -303,7 +303,7 @@ const TM_OFFER_INFO={safe:{n:'SICHER',h:'3 Felder Vorsprung',m:1,t:'Beste Chance
 const TM_LIFE_INFO={cut:{n:'Der Schnitt',ic:'✂️',t:'Zwei falsche Antworten verschwinden'},council:{n:'Der Rat',ic:'🗳️',t:'Die anderen beraten dich — oder führen dich in die Irre'},archive:{n:'Das Archiv',ic:'📜',t:'Ein Hinweis zur Frage'},freeze:{n:'Zeit anhalten',ic:'⏸️',t:'10 Sekunden mehr'}};
 const TM_LETTERS='ABCD';
 /* pictures from the master sheet: realm emblems tm_realm_0..5, lifelines tm_life_*, Chasers tm_ch_*, badges tm_seal / tm_gold / tm_duel / tm_streak, tm_gate, tm_studio */
-function tmEmb(k,cls){return`<img class="tm-emb${cls?' '+cls:''}" src="assets/games/tm_realm_${k}.jpg" alt="" draggable="false">`;}
+function tmEmb(k,cls){return`<img class="tm-emb${cls?' '+cls:''}" src="assets/games/tm_realm_${k}.png" alt="" draggable="false">`;}
 function tmIco(n,cls){return`<img class="tm-ico${cls?' '+cls:''}" src="assets/games/tm_${n}.jpg" alt="" draggable="false">`;}
 function tmEur(n){return(n||0).toLocaleString('de-DE')+' €';}
 function tmCatName(c){return TM_CATS[c].de;}
