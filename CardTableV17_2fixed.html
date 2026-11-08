@@ -6389,7 +6389,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=379;
+const APP_BUILD=380;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -21541,13 +21541,17 @@ function wsBotAct(ws,level,r){
     const c=FQ.split('').filter(x=>!wsIsVowel(x)&&ws.called.indexOf(x)<0).slice(0,3);
     return{t:'fpick',letters:c.join('')+bestVowel()};
   }
-  if(ws.phase==='fsolve')return{t:'fsolve',text:r()<(sharp?.8:.5)?ws.puzzle.t:'NO IDEA'};
+  if(ws.phase==='fsolve'){   // a bot gets two tries, and guesses right with a chance that grows with what is already revealed (it used to retry every second until it was right)
+    ws.final.bt=(ws.final.bt||0)+1;
+    if(ws.final.bt>2)return null;   // two tries at most, then the clock decides
+    return{t:'fsolve',text:r()<((sharp?.5:.28)+frac*.3)?ws.puzzle.t:'NO IDEA'};
+  }
   if(frac>=(sharp?.6:.8)&&r()<(sharp?.9:.6))return{t:'solve',text:r()<(sharp?.04:.15)?'NOT SURE':ws.puzzle.t};
   if(!wsCanSpin(ws)){
     if(wsCanBuy(ws,seat)&&bestVowel())return{t:'vowel',ch:bestVowel()};
-    return{t:'solve',text:ws.puzzle.t};
+    return{t:'solve',text:ws.puzzle.t};   // nothing else is left to do
   }
-  if(wsCanBuy(ws,seat)&&frac>=.3&&wsLeft(ws,true).length&&r()<(sharp?.5:.25))return{t:'vowel',ch:wsLeft(ws,true)[0]};
+  if(wsCanBuy(ws,seat)&&frac>=.3&&bestVowel()&&r()<(sharp?.5:.25))return{t:'vowel',ch:bestVowel()};   // by frequency, like a human: no peeking at which vowel is in the puzzle
   return{t:'spin'};
 }
 
