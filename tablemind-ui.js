@@ -112,6 +112,20 @@
 .tm-menu{position:absolute;right:.8rem;top:3.4rem;z-index:40;display:flex;flex-direction:column;gap:.35rem;padding:.6rem;border-radius:14px;border:1px solid rgba(201,164,92,.5);background:rgba(6,26,17,.97);box-shadow:0 14px 30px -10px #000;min-width:13rem;}
 .tm-menu>button{padding:.55rem .8rem;border-radius:10px;border:1px solid rgba(201,164,92,.35);background:rgba(29,83,54,.45);color:#f4efe0;font-weight:600;font-size:.9rem;line-height:1.1;font-family:inherit;text-align:left;cursor:pointer;}
 .tm-menu .tm-mr{display:flex;align-items:center;gap:.5rem;color:#d8cfbd;font-size:.9rem;}
+.tm-crown{position:fixed;inset:0;z-index:90;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;text-align:center;background:linear-gradient(180deg,rgba(4,18,12,.35),rgba(4,18,12,.9)),url(assets/games/tm_bg_victory.jpg) center/cover no-repeat,#04120c;animation:crIn .6s ease both;cursor:pointer;}
+@keyframes crIn{from{opacity:0}to{opacity:1}}
+.cr-orbit{position:relative;width:13rem;height:13rem;display:flex;align-items:center;justify-content:center;}
+.cr-ring{position:absolute;inset:0;animation:crSpin 5s cubic-bezier(.2,.7,.2,1) both;}
+.cr-ring img{position:absolute;left:50%;top:50%;width:3.6rem;height:3.6rem;margin:-1.8rem 0 0 -1.8rem;transform:rotate(var(--a)) translateY(-5.9rem) rotate(calc(-1*var(--a)));filter:drop-shadow(0 4px 10px rgba(0,0,0,.6));}
+@keyframes crSpin{from{transform:rotate(-540deg) scale(.4);opacity:0}25%{opacity:1}to{transform:rotate(0) scale(1)}}
+.cr-av{width:7rem;height:7rem;border-radius:50%;border:3px solid #e9c46a;box-shadow:0 0 0 6px rgba(233,196,106,.25),0 0 60px rgba(233,196,106,.6);overflow:hidden;display:flex;align-items:center;justify-content:center;background:#0b2a1b;animation:crPop .8s .3s cubic-bezier(.2,1.4,.3,1) both;}
+.cr-av img{width:100%;height:100%;object-fit:cover;}
+@keyframes crPop{from{transform:scale(.2);opacity:0}to{transform:scale(1);opacity:1}}
+.cr-name{font:800 2rem/1.1 var(--serif,Georgia,serif);color:#f3deaa;text-shadow:0 0 24px rgba(233,196,106,.7);animation:crIn 1s .9s both;}
+.cr-sub{font:600 .85rem/1 var(--serif,Georgia,serif);letter-spacing:.3em;text-transform:uppercase;color:#d8cfbd;animation:crIn 1s 1.1s both;}
+.cr-total{font:800 2.6rem/1.1 var(--serif,Georgia,serif);color:#fff6d6;font-variant-numeric:tabular-nums;margin-top:.4rem;animation:crIn 1s 1.2s both;}
+.cr-wiz{width:7rem;height:7rem;border-radius:50%;border:2px solid #c9a45c;margin-top:.8rem;animation:crPop .8s 1.5s both;}
+@media(prefers-reduced-motion:reduce){.cr-ring,.cr-av,.cr-name,.cr-sub,.cr-total,.cr-wiz{animation:none;}}
 .tm-btn.next{position:relative;overflow:hidden;}.tm-btn.next .fill{position:absolute;inset:0;background:rgba(40,25,0,.28);transform-origin:left;animation:tmFill linear forwards;pointer-events:none;}.tm-btn.next span{position:relative;}
 @keyframes tmChZoom{from{transform:scale(1);opacity:.1}30%{opacity:.6}to{transform:scale(1.22);opacity:.5}}
 .tm-titlecard .chbg{position:absolute;inset:0;background-size:cover;background-position:center 20%;animation:tmChZoom 2.6s ease-out both;z-index:-1;}
@@ -513,7 +527,7 @@ function tmEndLocal(){
   addHistory({game:'tablemind',winner:winner.name,winnerAvatar:winner.avatar,date:new Date().toISOString(),players:names,moment:G.tmMoment,
     stats:{cardsPlayed:G.matchStats.cardsPlayed,comebacks:G.matchStats.comebacks,reactions:G.matchStats.reactions,tm:tmStatsFor(tm,names)}});
   render();
-  setTimeout(()=>{if(G.selGame==='tablemind'&&G.tm===tm&&G.scr==='table'){G.scr='matchend';render();}},3600);
+  setTimeout(()=>{if(G.selGame==='tablemind'&&G.tm===tm&&G.scr==='table'){G.scr='matchend';render();}},5600);
 }
 function tmStatsFor(tm,names){
   const o={};
@@ -1087,8 +1101,24 @@ function tmActCard(tm){
   document.body.appendChild(d);setTimeout(()=>{d.remove();},2700);
 }
 /* ───────── effects when the state moves on ───────── */
+/* the crowning: the winner's seals circle the avatar, the total counts up, Wiz celebrates (tap to skip) */
+function tmCrown(tm){
+  if(gtAnim()==='off'||document.getElementById('tm-crown'))return;
+  const players=tmPlayers(),w=tm.win-1,p=players[w]||{name:'',avatar:null};
+  const seals=[...new Set(tm.seals[w]||[])];
+  const total=(tm.totals&&tm.totals[w]!=null)?tm.totals[w]:tmTotal(tm,tm.win);
+  const d=document.createElement('div');d.id='tm-crown';d.className='tm-crown';
+  d.innerHTML=`<div class="cr-orbit"><div class="cr-ring">${seals.map((k,i)=>`<img src="assets/games/tm_realm_${k}.png" alt="" style="--a:${Math.round(i/Math.max(1,seals.length)*360)}deg">`).join('')}</div><div class="cr-av">${avHTML(p.avatar)}</div></div><div class="cr-name">${esc(p.name)}</div><div class="cr-sub">ist der TABLE MIND</div><div class="cr-total">0 €</div><img class="cr-wiz" src="${wizSrc(6)}" alt="" draggable="false">`;
+  d.onclick=()=>d.remove();
+  document.body.appendChild(d);
+  try{TMSFX.act(3);}catch(e){}
+  const el=d.querySelector('.cr-total'),t0=Date.now();
+  const iv=setInterval(()=>{if(!document.body.contains(d)){clearInterval(iv);return;}const k=Math.min(1,(Date.now()-t0)/1600);el.textContent=tmEur(Math.round(total*k*k*(3-2*k)/50)*50);if(k>=1)clearInterval(iv);},40);
+  setTimeout(()=>{d.remove();},5200);
+}
 function tmPostRender(){
   const tm=tmObj();if(!tm||!document.querySelector('.game-tablemind'))return;
+  if(tm.over&&G.tmCrownSeed!==tm.seed){G.tmCrownSeed=tm.seed;tmCrown(tm);}
   tmMoveMarkers();
   tmLoopStart();document.body.classList.add('tm-on');
   const key=[tm.seed,tm.act,tm.phase,tm.cycle,tm.round2,tm.hunt?tm.hunt.n:0,''].join('|');
