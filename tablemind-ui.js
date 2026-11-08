@@ -397,12 +397,15 @@ function tmLocalViewer(tm){
   return null;
 }
 function tmActiveSeat(tm,s){if(tm.duel&&tm.duel.indexOf(s)<0)return false;return tm.act!==3||(tm.lane[s-1]&&tm.lane[s-1].st==='run');}
-function tmReady(){
+// with only ONE human at the device (everybody else is a computer player) nobody has to hand the device over: the pass screen is skipped
+function tmSoloHuman(){return G.lp.filter(p=>!isBotPlayer(p)).length===1;}
+function tmReady(quiet){
   const tm=tmObj();if(!tm||G.isOnline)return;
   const v=tmLocalViewer(tm);if(!v)return;
   G.tmViewer=v.seat;G.tmReadyKey=tmLocalKey(tm,v.seat,v.mode);G.tmSel=-1;
   if(v.mode==='ask'){tm.dl=Date.now()+tmMs(tm,'ask'+tm.act);tm.ext=tm.ext.map(()=>0);}
   if(v.mode==='decide'||v.mode==='pick'||v.mode==='offer'){tm.dl=Math.max(tm.dl,Date.now()+(v.mode==='decide'?TM_CFG.ms.decide:v.mode==='pick'?TM_CFG.ms.pick:TM_CFG.ms.offer));}
+  if(quiet)return;
   TMSFX.open();render();
 }
 function tmEndLocal(){
@@ -855,6 +858,7 @@ function tmPadHTML(tm,players,me){
   if(!G.isOnline){
     const v=tmLocalViewer(tm);
     if(!v)return tm.phase==='reveal'?'':`<div class="tm-card tm-wait"><span class="dots">Computergegner denken nach</span></div>`;
+    if(G.tmReadyKey!==tmLocalKey(tm,v.seat,v.mode)&&tmSoloHuman())tmReady(true);
     if(G.tmReadyKey!==tmLocalKey(tm,v.seat,v.mode))return tmPassHTML(tm,players,v);
     G.tmViewer=v.seat;me=v.seat;
     if(v.mode==='vote')return tmCouncilCard(tm,me,players)||'';
