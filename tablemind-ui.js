@@ -89,8 +89,8 @@
 #s-table .tm-q{font-family:Georgia,'Times New Roman',serif!important;text-transform:none!important;letter-spacing:0!important;font-variant:normal!important;}
 #s-table .tm-a{font-size:1.05rem;min-height:3.4rem;overflow-wrap:break-word!important;word-break:normal!important;hyphens:manual;}
 @media(max-width:459px){#s-table .tm-a{font-size:.95rem;padding:.5rem .55rem;gap:.45rem;}#s-table .tm-a .tm-l{width:1.6rem;height:1.6rem;font-size:.85rem;}}
-#s-table .tm-a.cor::after{content:'¹3';margin-left:auto;font-weight:800;font-size:1.2em;color:#9af0b4;}
-#s-table .tm-a.wrg::after{content:'¹7';margin-left:auto;font-weight:800;font-size:1.2em;color:#ffb0a6;}
+#s-table .tm-a.cor::after{content:'✓';margin-left:auto;font-weight:800;font-size:1.2em;color:#9af0b4;}
+#s-table .tm-a.wrg::after{content:'✗';margin-left:auto;font-weight:800;font-size:1.2em;color:#ffb0a6;}
 #s-table .tm-a.dim{opacity:.35;}
 #s-table .tm-state,#s-table .tm-pod .tm-state{font-size:.74rem!important;color:#c9bf9c!important;}
 .game-tablemind .react-strip .rb{width:2.75rem!important;height:2.75rem!important;}
@@ -105,6 +105,14 @@
 /* the Hunt on phones/portrait: the race first, then Wiz and the question */
 @media not all and (min-width:760px) and (orientation:landscape){.tm-main.act3 .tm-pods{order:-4;}.tm-main.act3 .tm-left{order:-3;margin-top:0!important;}.tm-main.act3 .tm-host{order:-2;}.tm-main.act3 .tm-right{order:-1;}}
 @media(max-width:559px){.tm-main.act3 .tm-vcol{--rh:1.25rem;}.tm-main.act3 .tm-chaser{display:none;}}
+/* round 4 */
+@keyframes tmCor{0%{transform:scale(.97);filter:brightness(1)}35%{transform:scale(1.045);filter:brightness(1.45)}100%{transform:scale(1.015);filter:brightness(1.1)}}
+#s-table .tm-a.cor{animation:tmCor .75s ease both;}
+@keyframes tmFill{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+.tm-btn.next{position:relative;overflow:hidden;}.tm-btn.next .fill{position:absolute;inset:0;background:rgba(40,25,0,.28);transform-origin:left;animation:tmFill linear forwards;pointer-events:none;}.tm-btn.next span{position:relative;}
+@keyframes tmChZoom{from{transform:scale(1);opacity:.1}30%{opacity:.6}to{transform:scale(1.22);opacity:.5}}
+.tm-titlecard .chbg{position:absolute;inset:0;background-size:cover;background-position:center 20%;animation:tmChZoom 2.6s ease-out both;z-index:-1;}
+@media(prefers-reduced-motion:reduce){#s-table .tm-a.cor,.tm-titlecard .chbg{animation:none;}}
 .tm-btn.next{width:auto;min-width:9rem;padding:.5rem 1.3rem;font-size:.9rem;border-radius:999px;}
 .tm-row:has(.tm-btn.next){justify-content:flex-end;}
 .tm-btn[disabled]{opacity:.4;pointer-events:none;}
@@ -117,7 +125,6 @@
 .tm-timer{display:flex;align-items:center;gap:.55rem;margin:.1rem 0 .4rem;}
 .tm-timer b{min-width:2rem;text-align:right;font:800 1.2rem/1 var(--serif,Georgia,serif);color:#ead08a;font-variant-numeric:tabular-nums;}
 .tm-timer i{flex:1;height:.5rem;border-radius:9px;background:rgba(255,255,255,.1);position:relative;overflow:hidden;}
-linear-gradient(90deg,#8f6f2f,#ead08a);transition:width .3s linear;}
 .tm-timer.low b{color:#ff8e9d;}.tm-timer.low i::after{background:linear-gradient(90deg,#b8382c,#ff8e7d);}
 .tm-wait{text-align:center;color:#e2d9c4;padding:.5rem .3rem;}
 .tm-wait b{color:var(--tg);}
@@ -896,10 +903,10 @@ function tmSharedQCard(tm,reveal){
 }
 function tmNextHTML(tm,me,players){
   if(tm.phase!=='reveal')return'';
-  if(!G.isOnline)return`<div class="tm-row" style="margin-top:.6rem"><button class="tm-btn next" data-a="tmnext">WEITER ▶</button></div>`;
+  if(!G.isOnline)return`<div class="tm-row" style="margin-top:.6rem"><button class="tm-btn next" data-a="tmnext"><i class="fill" style="animation-duration:${Math.max(800,(tm.dl||0)-Date.now())}ms"></i><span>WEITER ▶</span></button></div>`;
   if(!me)return'';
   if(tm.rdy[me-1])return`<div class="tm-wait">Bereit ✓</div>`+tmWaitList(tm,players,me);
-  return`<div class="tm-row" style="margin-top:.6rem"><button class="tm-btn next" data-a="tmnext">WEITER ▶</button></div>`+tmWaitList(tm,players,me);
+  return`<div class="tm-row" style="margin-top:.6rem"><button class="tm-btn next" data-a="tmnext"><i class="fill" style="animation-duration:${Math.max(800,(tm.dl||0)-Date.now())}ms"></i><span>WEITER ▶</span></button></div>`+tmWaitList(tm,players,me);
 }
 function tmCouncilCard(tm,me,players){
   const c=tm.council;
@@ -1008,8 +1015,8 @@ function tmWizSay(tm,players){
     return fx.ch&&fx.ch.mv>0?v(['Der Chaser rückt näher …','Hört ihr die Schritte hinter euch?']):v(['Der Jäger stolpert! Nutzt den Vorsprung.','Durchatmen — der Chaser kam nicht vorwärts.']);
   }
   if(tm.phase==='decide')return v(['Mut oder Vorsicht?']);
-  if(tm.phase==='pick')return v(['Wähle deine Welt!','Was kannst du gut?']);
-  if(tm.phase==='offer')return v(['Wie mutig seid ihr?']);
+  if(tm.phase==='pick')return 'Wähl dein Thema. Richtig = Siegel!';
+  if(tm.phase==='offer')return 'Renn ins Ziel, bevor er dich fängt!';
   if(tm.act===1&&tm.cycle>=2&&tm.P>=2){
     const b=tm.bank.map((x,i)=>[x,i]).sort((a,c)=>c[0]-a[0]);
     if(b[0][0]>0&&b[0][0]>=b[1][0]*2&&(tm.cycle+tm.moves)%3===0)return`${nm(b[0][1])} läuft davon … wer holt ihn ein?`;
@@ -1019,11 +1026,19 @@ function tmWizSay(tm,players){
   if(tm.act===2)return`Die Welt von ${nm(tm.owner-1)}: ${(TM_CATS[tm.pick[tm.owner-1]]||{short:''}).short}`;
   return v(['Wer behält die Nerven?','Jede Antwort zählt!']);
 }
+function tmAskLabel(tm){
+  if(tm.act===1&&tm.cycle>=2){try{localStorage.setItem('ct_tm_hint1','1');}catch(e){}}
+  if(tm.duel)return'Duell · '+esc(tmEur(TM_CFG.duelPrize));
+  if(tm.act===1&&tm.cycle===tm.gold)return'Goldene Frage – doppelt!';
+  if(tm.act===1&&tm.cycle===1){let seen=0;try{seen=+localStorage.getItem('ct_tm_hint1')||0;}catch(e){}if(!seen)return'Richtig = Geld. Klettere bis '+esc(tmEur(TM_CFG.ladder[TM_CFG.ladder.length-1]))+'!';}
+  if(tm.act===2)return'Welt von '+esc(((tmPlayers()[tm.owner-1])||{}).name||'');
+  return'WIZ';
+}
 function tmHostHTML(tm,players,askText,verdict){
   let pose=tmWizPose(tm);if(verdict){const good=[2,6,'rich','applause','bow','laugh'];pose=verdict.ok?(good.indexOf(pose)>=0?pose:2):3;}   // Wiz's mood follows the viewer's own result
   const hop=G.tmPose!=null&&G.tmPose!==pose;G.tmPose=pose;
   const big=tm.over||pose===6||(tm.phase==='reveal'&&tm.fx&&(tm.fx.duel||(tm.act===3&&tm.fx.seats.some(o=>o.escaped||o.caught))||(tm.act===2&&tm.fx.seats.some(o=>o.seal))));
-  return`<div class="tm-host${big?' big':''}${askText?' ask':''}"><img class="tm-wiz${hop?' hop':''}" src="${wizSrc(pose)}" alt="Wiz" width="64" height="64"><div class="tm-say"><small>WIZ</small>${askText?`<span class="tm-wq">${esc(askText)}</span>`:(verdict?`<b class="tm-verd ${verdict.ok?'ok':'bad'}">${verdict.t}</b> ${verdict.x||''}`:tmWizSay(tm,players))}</div></div>`;
+  return`<div class="tm-host${big?' big':''}${askText?' ask':''}"><img class="tm-wiz${hop?' hop':''}" src="${wizSrc(pose)}" alt="Wiz" width="64" height="64"><div class="tm-say"><small>${askText?tmAskLabel(tm):'WIZ'}</small>${askText?`<span class="tm-wq">${esc(askText)}</span>`:(verdict?`<b class="tm-verd ${verdict.ok?'ok':'bad'}">${verdict.t}</b> ${verdict.x||''}`:tmWizSay(tm,players))}</div></div>`;
 }
 function rTablemindTable(){
   const tm=tmObj();
@@ -1064,7 +1079,7 @@ function tmActCard(tm){
   const old=document.getElementById('tm-titlecard');if(old)old.remove();
   const d=document.createElement('div');d.id='tm-titlecard';d.className='tm-titlecard';
   TMSFX.act(tm.act);
-  d.innerHTML=`<div class="a">AKT ${['','I','II','III'][tm.act]}</div><div class="n">${TM_ACT_NAMES[tm.act]}</div><div class="s">${TM_ACT_SUB[tm.act]}</div>`;
+  d.innerHTML=(tm.act===3&&tm.chaser?`<div class="chbg" style="background-image:url(assets/games/tm_ch_${tm.chaser}.jpg)"></div>`:'')+`<div class="a">AKT ${['','I','II','III'][tm.act]}</div><div class="n">${TM_ACT_NAMES[tm.act]}</div><div class="s">${TM_ACT_SUB[tm.act]}</div>`;
   document.body.appendChild(d);setTimeout(()=>{d.remove();},2700);
 }
 /* ───────── effects when the state moves on ───────── */
