@@ -10155,7 +10155,7 @@ async function runPresentation(A,W,frame){
   });
   suite('TABLE MIND — act 1: the climb, banking and risk',()=>{
     const F=n=>W.eval(n),N=F('tmNew'),S=F('tmStart'),A=F('tmApply'),CFG=F('TM_CFG');
-    const fresh=(P,seed)=>{const t=N(P,{seed:seed||11});t.gold=99;S(t,0);return t;};   // no golden question in these money tests
+    const fresh=(P,seed)=>{const t=N(P,{autoBank:false,seed:seed||11});t.gold=99;S(t,0);return t;};   // no golden question in these money tests
     const right=(t,s)=>A(t,s,{t:'ans',i:t.q[s-1].cor},1000);
     const wrong=(t,s)=>A(t,s,{t:'ans',i:(t.q[s-1].cor+1)%4},1000);
     let t=fresh(2);
@@ -10233,20 +10233,20 @@ async function runPresentation(A,W,frame){
   });
   suite('TABLE MIND — streak bonus: every third right answer in a row in act 1',()=>{
     const F=n=>W.eval(n),N=F('tmNew'),A=F('tmApply'),CFG=F('TM_CFG');
-    const t=N(2,{seed:71});F('tmStart')(t,0);t.streak=[2,0];
+    const t=N(2,{autoBank:false,seed:71});F('tmStart')(t,0);t.streak=[2,0];
     A(t,1,{t:'ans',i:t.q[0].cor},100);A(t,2,{t:'ans',i:t.q[1].cor},120);
     check('the third right answer in a row pays a bonus straight into the bank',t.fx.seats[0].bonus===CFG.streakBonus&&t.bank[0]===CFG.streakBonus&&t.stats.streaks[0]===1);
     check('the second right answer in a row (first for this player) pays nothing',!t.fx.seats[1].bonus&&t.bank[1]===0&&t.streak[1]===1);
-    const u=N(2,{seed:72});F('tmStart')(u,0);u.streak=[2,2];
+    const u=N(2,{autoBank:false,seed:72});F('tmStart')(u,0);u.streak=[2,2];
     A(u,1,{t:'ans',i:(u.q[0].cor+1)%4},100);A(u,2,{t:'ans',i:u.q[1].cor},120);
     check('a wrong answer ends the streak',u.streak[0]===0&&!u.fx.seats[0].bonus&&u.fx.seats[1].bonus===CFG.streakBonus);
-    const w=N(2,{seed:73});F('tmStart')(w,0);w.streak=[5,5];
+    const w=N(2,{autoBank:false,seed:73});F('tmStart')(w,0);w.streak=[5,5];
     A(w,1,{t:'ans',i:w.q[0].cor},100);A(w,2,{t:'ans',i:w.q[1].cor},120);
     check('the bonus repeats at 6, 9 ... (every third)',w.fx.seats[0].bonus===CFG.streakBonus&&w.streak[0]===6);
   });
   suite('TABLE MIND — golden question and repeated mistakes',()=>{
     const F=n=>W.eval(n),N=F('tmNew'),A=F('tmApply'),T=F('tmTick'),CFG=F('TM_CFG'),lib=F('TM_Q_DE');
-    const t=N(2,{seed:81});
+    const t=N(2,{autoBank:false,seed:81});
     check('one cycle between 2 and the last of act 1 is the golden question',t.gold>=2&&t.gold<=CFG.cycles1-1);
     F('tmStart')(t,0);t.cycle=t.gold-1;t.phase='reveal';T(t,t.dl+1);
     check('the golden cycle opens as cycle number "gold"',t.cycle===t.gold&&t.phase==='ask');
@@ -10255,13 +10255,13 @@ async function runPresentation(A,W,frame){
     check('a wrong answer on the golden question pays nothing extra',!t.fx.seats[1].gold&&t.bank[1]===0);
     // repeated mistakes
     const idx=lib.findIndex(e=>e[1]===2);
-    const r=N(2,{seed:82,review:[idx]});F('tmStart')(r,0);
+    const r=N(2,{autoBank:false,seed:82,review:[idx]});F('tmStart')(r,0);
     check('the first question is never a repeat (they start from the second)',!r.q.some(q=>q&&q.rv));
     r.cycle=1;r.phase='reveal';T(r,r.dl+1);
     check('from the second question on a remembered mistake of a fitting level comes back, marked as a repeat',r.q.some(q=>q&&q.rv&&q.i===idx)&&r.reviewUsed===1);
-    check('a repeat is asked only once per game',(()=>{const u=N(2,{seed:83,review:[idx]});F('tmStart')(u,0);u.used=[];let n=0;for(let c=0;c<5;c++){u.cycle=1+c;u.phase='reveal';T(u,u.dl+1);if(u.q.some(q=>q&&q.rv))n++;}return n<=1&&u.reviewUsed<=1;})());
-    check('mistakes are remembered on this device when answered wrong and forgotten when answered right',(()=>{const k='ct_tm_missed',old=W.localStorage.getItem(k);W.localStorage.removeItem(k);const g=N(2,{seed:84});F('tmStart')(g,0);A(g,1,{t:'ans',i:(g.q[0].cor+1)%4},10);A(g,2,{t:'ans',i:(g.q[1].cor+1)%4},20);F('tmRecordResults')(g,[1,2]);const a=F('tmMissedList')().length===1;
-      const g2=N(2,{seed:85});F('tmStart')(g2,0);g2.q[0]=g.q[0];A(g2,1,{t:'ans',i:g.q[0].cor},10);A(g2,2,{t:'ans',i:g2.q[1].cor},20);F('tmRecordResults')(g2,[1]);const b=F('tmMissedList')().length===0;
+    check('a repeat is asked only once per game',(()=>{const u=N(2,{autoBank:false,seed:83,review:[idx]});F('tmStart')(u,0);u.used=[];let n=0;for(let c=0;c<5;c++){u.cycle=1+c;u.phase='reveal';T(u,u.dl+1);if(u.q.some(q=>q&&q.rv))n++;}return n<=1&&u.reviewUsed<=1;})());
+    check('mistakes are remembered on this device when answered wrong and forgotten when answered right',(()=>{const k='ct_tm_missed',old=W.localStorage.getItem(k);W.localStorage.removeItem(k);const g=N(2,{autoBank:false,seed:84});F('tmStart')(g,0);A(g,1,{t:'ans',i:(g.q[0].cor+1)%4},10);A(g,2,{t:'ans',i:(g.q[1].cor+1)%4},20);F('tmRecordResults')(g,[1,2]);const a=F('tmMissedList')().length===1;
+      const g2=N(2,{autoBank:false,seed:85});F('tmStart')(g2,0);g2.q[0]=g.q[0];A(g2,1,{t:'ans',i:g.q[0].cor},10);A(g2,2,{t:'ans',i:g2.q[1].cor},20);F('tmRecordResults')(g2,[1]);const b=F('tmMissedList')().length===0;
       if(old==null)W.localStorage.removeItem(k);else W.localStorage.setItem(k,old);return a&&b;})());
   });
   suite('TABLE MIND — text size and contrast setting',()=>{
@@ -10273,16 +10273,16 @@ async function runPresentation(A,W,frame){
   });
   suite('TABLE MIND — family handicap: easier or harder for a fair prize, always the same question',()=>{
     const F=n=>W.eval(n),N=F('tmNew'),A=F('tmApply'),T=F('tmTick'),CFG=F('TM_CFG');
-    const t=N(3,{seed:91});t.gold=99;F('tmStart')(t,0);
+    const t=N(3,{autoBank:false,seed:91});t.gold=99;F('tmStart')(t,0);
     check('everybody starts on Normal with the very same question and no answer removed',t.hcap.join()==='0,0,0'&&t.q[0].i===t.q[1].i&&t.q[1].i===t.q[2].i&&t.elim.every(e=>e===null));
     A(t,1,{t:'hcap',v:-1},100);A(t,3,{t:'hcap',v:1},100);
     check('Leicht: two wrong answers are taken away for that player only; the question stays the same for everybody',t.elim[0]&&t.elim[0].length===2&&t.elim[0].indexOf(t.q[0].cor)<0&&t.elim[1]===null&&t.elim[2]===null&&t.q[0].i===t.q[2].i);
     A(t,1,{t:'ans',i:t.q[0].cor},200);A(t,2,{t:'ans',i:t.q[1].cor},210);A(t,3,{t:'ans',i:t.q[2].cor},220);
     check('prizes follow the handicap: Leicht pays half, Normal full, Schwer one and a half times',t.unb.join()===[500,1000,1500].join());
     check('the handicap cannot be changed after the answer',A(t,1,{t:'hcap',v:0},230)===false);
-    const u=N(2,{seed:92});u.gold=99;F('tmStart')(u,0);A(u,1,{t:'hcap',v:-1},50);A(u,1,{t:'hcap',v:0},60);
+    const u=N(2,{autoBank:false,seed:92});u.gold=99;F('tmStart')(u,0);A(u,1,{t:'hcap',v:-1},50);A(u,1,{t:'hcap',v:0},60);
     check('switching back from Leicht gives the answers back',u.elim[0]===null&&u.hcap[0]===0);
-    check('the Leicht player gets two fewer answers on every later question too',(()=>{const w=N(2,{seed:93});w.gold=99;F('tmStart')(w,0);A(w,1,{t:'hcap',v:-1},50);A(w,1,{t:'ans',i:w.q[0].cor},100);A(w,2,{t:'ans',i:w.q[1].cor},110);A(w,1,{t:'next'},120);A(w,2,{t:'next'},130);F('tmTick')(w,w.dl+1);A(w,1,{t:'go'},w.dl-1);A(w,2,{t:'go'},w.dl-1);return w.cycle===2&&w.phase==='ask'&&w.elim[0]&&w.elim[0].length===2&&w.elim[1]===null;})());
+    check('the Leicht player gets two fewer answers on every later question too',(()=>{const w=N(2,{autoBank:false,seed:93});w.gold=99;F('tmStart')(w,0);A(w,1,{t:'hcap',v:-1},50);A(w,1,{t:'ans',i:w.q[0].cor},100);A(w,2,{t:'ans',i:w.q[1].cor},110);A(w,1,{t:'next'},120);A(w,2,{t:'next'},130);F('tmTick')(w,w.dl+1);A(w,1,{t:'go'},w.dl-1);A(w,2,{t:'go'},w.dl-1);return w.cycle===2&&w.phase==='ask'&&w.elim[0]&&w.elim[0].length===2&&w.elim[1]===null;})());
   });
   suite('TABLE MIND — family strengths per realm',()=>{
     const F=n=>W.eval(n),N=F('tmNew'),A=F('tmApply');
@@ -10370,8 +10370,8 @@ async function runPresentation(A,W,frame){
       F('startNow')('tablemind',2);G.lp.forEach(p=>{p.bot=null;});G.tmIntro=null;const tm=G.tm;
       const key=k=>F('tmKey')({key:k,target:{tagName:'DIV'}});
       check('on the pass screen Enter picks the device up',key('Enter')===true&&G.tmReadyKey!==''&&G.tmViewer===1);
-      check('B (or 2) selects the second answer',key('b')===true&&G.tmSel===1&&key('3')===true&&G.tmSel===2);
-      check('Enter locks the selected answer in',key('Enter')===true&&tm.ans[0]===2);
+      check('one key press answers at once: B (or 2) is the second answer',key('b')===true&&tm.ans[0]===1);
+      check('a second key press after answering is ignored',key('c')===false&&tm.ans[0]===1);
       check('keys do nothing while typing in a text field',F('tmKey')({key:'a',target:{tagName:'INPUT'}})===false);
       check('a key that means nothing here is ignored',key('x')===false);
     } finally {

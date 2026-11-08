@@ -29,6 +29,7 @@ const TM_CFG={
   sideBonus:500,                    // act 2: a right answer to somebody else's realm question
   sealValue:2500,
   hcapMult:{'-1':.5,'0':1,'1':1.5},   // family handicap: Leicht removes two wrong answers on every question and pays half, Schwer pays 1.5 times
+  autoBank:true,                    // act 1: every right answer is banked at once and the climb goes on by itself (no Banken/Weiter question)
   reviewMax:2,                      // old mistakes brought back per game
   streakBonus:500,                  // act 1: every third right answer in a row
   duelPrize:5000,                   // the head-to-head after act 1: the two richest players, one hard question
@@ -63,7 +64,7 @@ function tmNew(P,opts){
   const n=Math.max(2,Math.min(4,(P|0)||2)),seed=((opts.seed||Date.now())%2147483646)+1;
   const z=()=>new Array(n).fill(0),nl=()=>new Array(n).fill(null);
   const tm={v:1,P:n,seed,rng:seed,rng2:(seed*7+13)%2147483646+1,lang:'de',act:1,phase:'ask',cycle:0,round2:0,used:(opts.seen||[]).filter(x=>Number.isInteger(x)&&x>=0).slice(),catN:[0,0,0,0,0,0],
-    lib:opts.lib||null,relaxed:!!opts.relaxed,review:(opts.review||[]).slice(0,12),reviewUsed:0,gold:0,
+    lib:opts.lib||null,relaxed:!!opts.relaxed,autoBank:opts.autoBank!==undefined?!!opts.autoBank:!!TM_CFG.autoBank,review:(opts.review||[]).slice(0,12),reviewUsed:0,gold:0,
     lvl:z(),unb:z(),bank:z(),q:nl(),ans:nl(),ansAt:z(),res:nl(),pick:nl(),ext:z(),elim:nl(),clue:z(),gain:z(),
     life:[],council:null,queue:[],owner:0,easyOn:z(),picked:Array.from({length:n},()=>[]),hcap:z(),streak:z(),rdy:z(),log:[],duel:null,duelDone:false,pendingDecide:new Array(n).fill(false),seals:[],sealNew:z(),
     chaser:opts.chaser&&TM_CFG.chasers[opts.chaser]?opts.chaser:null,ch:null,lane:[],offer:nl(),
@@ -310,7 +311,7 @@ function tmResolveAsk(tm,now){
         if(tm.cycle===tm.gold){o.gold=tmAmt(tm,i,tm.lvl[i]);tm.bank[i]+=o.gold;}
         tm.unb[i]=tmAmt(tm,i,tm.lvl[i]);tm.stats.best[i]=Math.max(tm.stats.best[i],tm.unb[i]);
         if(top){tm.unb[i]+=TM_CFG.topBonus;tm.bank[i]+=tm.unb[i];o.money=tm.unb[i];o.top=1;tm.stats.topHits[i]++;tm.unb[i]=0;tm.lvl[i]=0;}
-        else{o.money=tm.unb[i];tm.lvl[i]++;tm.pendingDecide[i]=tm.cycle<TM_CFG.cycles1;if(!tm.pendingDecide[i]){tm.bank[i]+=tm.unb[i];tm.unb[i]=0;o.auto=1;}}
+        else{o.money=tm.unb[i];tm.lvl[i]++;tm.pendingDecide[i]=!tm.autoBank&&tm.cycle<TM_CFG.cycles1;if(!tm.pendingDecide[i]){tm.bank[i]+=tm.unb[i];tm.unb[i]=0;o.auto=1;}}
       }else{o.lost=tm.unb[i];tm.unb[i]=0;tm.lvl[i]=0;}
     }else if(act===2){
       if(ok&&s===tm.owner){tm.seals[i].push(tm.pick[i]);o.seal=1;}

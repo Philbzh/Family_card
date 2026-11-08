@@ -36,8 +36,8 @@
 .tm-chip.gold{background:rgba(201,164,92,.18);border-color:rgba(201,164,92,.55);color:var(--tg3);}
 .tm-q{font:600 1.18rem/1.35 var(--serif,Georgia,serif);color:#fbf7ed;text-align:center;margin:.2rem 0 .7rem;text-wrap:balance;}
 @media(min-width:760px){.tm-q{font-size:1.4rem;}}
-.tm-ans{display:grid;grid-template-columns:1fr;gap:.45rem;}
-@media(min-width:620px){.tm-ans{grid-template-columns:1fr 1fr;}}
+.tm-ans{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;}
+.tm-a{min-width:0;overflow-wrap:anywhere;hyphens:auto;}
 .tm-a{display:flex;align-items:center;gap:.6rem;text-align:left;min-height:3.1rem;padding:.55rem .75rem;border-radius:14px;border:1px solid rgba(201,164,92,.45);background:linear-gradient(180deg,rgba(29,83,54,.7),rgba(11,32,21,.85));color:#f4efe0;font:600 1rem/1.25 inherit;cursor:pointer;transition:transform .15s,box-shadow .2s,border-color .2s,background .2s,opacity .3s;touch-action:manipulation;}
 .tm-a:active{transform:scale(.98);}
 .tm-a .tm-l{flex:none;width:1.9rem;height:1.9rem;border-radius:50%;display:flex;align-items:center;justify-content:center;font:800 .95rem/1 var(--serif,Georgia,serif);color:#0f2a1c;background:linear-gradient(180deg,#f3deaa,#c9a45c 60%,#8f6f2f);}
@@ -53,6 +53,28 @@
 .tm-btn.ghost{background:rgba(29,83,54,.55);color:#f3ead2;border-color:rgba(201,164,92,.5);box-shadow:none;font-weight:700;}
 .tm-btn.blue{background:linear-gradient(180deg,#f3e2b0,#d8b56a 55%,#9c7a38);border-color:#ead08a;color:#1a1300;}
 .tm-btn.big{width:100%;padding:.95rem 1rem;font-size:1.15rem;}
+.tm-host.ask:not(.big) .tm-wiz,.tm-host.ask .tm-wiz{width:7.6rem!important;height:7.6rem!important;}
+.tm-host.ask .tm-say{font-size:1.25rem;line-height:1.3;}
+.tm-verd{display:inline-block;margin-right:.3rem;font:800 1.15em/1.2 var(--serif,Georgia,serif);letter-spacing:.04em;}
+.tm-verd.ok{color:#8be6a8;}.tm-verd.bad{color:#ff9a8f;}
+.tm-host.ask .tm-wq{display:block;font-family:var(--serif,Georgia,serif);}
+.tm-host.ask{max-width:none!important;width:100%;justify-content:flex-start!important;}
+.tm-host.ask .tm-say{flex:1 1 auto;max-width:none!important;}
+@media(min-width:760px) and (orientation:landscape){.tm-host.ask{grid-column:2!important;}}
+@media(min-width:760px){.tm-host.ask:not(.big) .tm-wiz,.tm-host.ask .tm-wiz{width:9.2rem!important;height:9.2rem!important;}.tm-host.ask .tm-say{font-size:1.6rem;}}
+.tm-nextwrap{display:flex;justify-content:flex-end;position:sticky;bottom:.7rem;z-index:6;}.tm-nextwrap .tm-row{justify-content:flex-end!important;margin:0!important;}.tm-nextwrap .tm-wait,.tm-nextwrap .tm-wlist{text-align:right;justify-content:flex-end;}
+.tm-hcbox{margin:.5rem auto;max-width:26rem;padding:.55rem .7rem;border:1px solid rgba(201,164,92,.35);border-radius:14px;background:rgba(8,28,18,.45);}
+.tm-hct{font:700 .72rem/1 var(--serif,Georgia,serif);letter-spacing:.14em;text-transform:uppercase;color:var(--tg,#c9a45c);text-align:center;margin-bottom:.4rem;}
+.tm-hcrow{display:flex;gap:.35rem;align-items:center;justify-content:center;flex-wrap:wrap;margin:.25rem 0;font-size:.8rem;}.tm-hcrow>span{min-width:4.5rem;text-align:right;color:var(--paper2,#d8cfbd);}
+.tm-hcrow button{padding:.3rem .75rem;border-radius:999px;border:1px solid rgba(201,164,92,.5);background:rgba(29,83,54,.4);color:inherit;font:inherit;cursor:pointer;}.tm-hcrow button.on{background:linear-gradient(180deg,#f3deaa,#c9a45c);color:#1a2a1d;font-weight:700;}
+/* the step row: small and calm */
+.tm-stage .tm-lad{gap:.25rem!important;}
+.tm-lad .tm-rung{padding:.18rem .15rem!important;gap:.1rem!important;font-size:.7rem!important;border-radius:8px!important;min-height:0!important;line-height:1.1!important;}
+.tm-lad .tm-rung b{font-size:.72rem!important;letter-spacing:.04em;}
+.tm-lad .tm-rung .who{min-height:.9rem!important;}.tm-lad .tm-rung .who .av-img{width:.9rem!important;height:.9rem!important;}
+.tm-lad .tm-rung.on{transform:none!important;box-shadow:0 0 8px rgba(233,196,106,.45)!important;}
+.tm-btn.next{width:auto;min-width:9rem;padding:.5rem 1.3rem;font-size:.9rem;border-radius:999px;}
+.tm-row:has(.tm-btn.next){justify-content:flex-end;}
 .tm-btn[disabled]{opacity:.4;pointer-events:none;}
 .tm-row{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;}
 .tm-lives{display:flex;gap:.35rem;flex-wrap:wrap;justify-content:center;margin-top:.55rem;}
@@ -160,7 +182,7 @@
 @keyframes tm-card{0%{opacity:0;transform:scale(1.08)}14%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0}}
 @media(min-width:900px){.tm-pods{flex-wrap:nowrap;}.tm-pod{flex:1 1 0;max-width:9.5rem;}.tm-main{max-width:74rem;padding-top:1rem;gap:.8rem;}.tm-host{margin-bottom:.6rem;}.tm-wiz{width:6.4rem;height:6.4rem;}.tm-say{font-size:1.15rem;padding:.8rem 1rem;}.tm-pod{min-width:0;padding:.55rem .5rem .6rem;}.tm-av .av-img{width:2.6rem;height:2.6rem;}.tm-money{font-size:1.4rem;}.tm-seals i{font-size:.95rem;}.tm-q{font-size:1.6rem;}.tm-a{font-size:1.1rem;min-height:3.4rem;}.tm-rung{padding:.4rem .8rem;font-size:1.02rem;}.tm-lad{max-width:26rem;}.tm-rung .who .av-img{width:1.5rem;height:1.5rem;border-radius:50%;}}
 @media(min-width:1500px){.tm-main{max-width:96rem;}.tm-q{font-size:2rem;}.tm-a{font-size:1.25rem;min-height:3.8rem;}.tm-wiz{width:8rem;height:8rem;}.tm-say{font-size:1.35rem;}}
-@media not all and (min-width:760px) and (orientation:landscape){.tm-host{order:-3;}.tm-pods{order:-2;}.tm-right{order:-1;}}
+@media not all and (min-width:760px) and (orientation:landscape){.tm-pods{order:-3;}.tm-host{order:-2;}.tm-right{order:-1;}}
 @media(min-width:0px){.tm-main{padding:.6rem max(.9rem,3.5vw) 1.4rem!important;gap:.9rem;}.tm-left,.tm-right{display:flex;flex-direction:column;gap:.8rem;min-width:0;}.tm-pods{margin:.9rem 0 1rem;}.tm-lad{max-width:30rem;gap:.3rem;padding:0 .2rem;}.tm-rung{padding:.5rem .9rem;border-left:3px solid rgba(201,164,92,.5);}.tm-rung.on{border-left-color:#ead08a;}.tm-pass{padding:1.6rem 1rem;}.tm-pass .tm-av{display:flex;justify-content:center;font-size:1rem;}.tm-pass .tm-av .av-img{width:4rem;height:4rem;border:2px solid #c9a45c;}.tm-foot{margin-top:.2rem;}.tm-card{margin:0;}}
 /* compact score strip: one slim line per player, right under Wiz */
 .tm-pods{grid-column:1/-1;margin:.1rem 0 .2rem!important;gap:.4rem!important;flex-wrap:wrap!important;}
@@ -202,6 +224,8 @@
 .tm-lad{display:grid!important;grid-template-columns:repeat(5,1fr);gap:.35rem!important;max-width:none!important;padding:0!important;flex-direction:row!important;}
 .tm-rung{flex-direction:column!important;align-items:center;gap:.2rem!important;padding:.4rem .2rem!important;border-left:0!important;border-bottom:3px solid rgba(201,164,92,.4);font-size:.85rem!important;text-align:center;}
 .tm-rung.on{border-bottom-color:#ead08a;}
+.tm-rung.on{background:linear-gradient(180deg,#f3deaa,#c9a45c 70%,#9a7a35)!important;color:#1a2a1d!important;border-color:#ffe9a8!important;box-shadow:0 0 16px rgba(233,196,106,.55);transform:translateY(-2px);}
+.tm-title small{font-size:.6em;opacity:.7;letter-spacing:.1em;margin-left:.4rem;}
 .tm-rung .who{min-height:1.3rem;justify-content:center;}.tm-rung .who .av-img{width:1.3rem!important;height:1.3rem!important;border-radius:50%;}
 .tm-stage .tm-lad{display:grid!important;}
 .tm-actline{grid-column:1/-1;display:none;text-align:center;font:600 .62rem/1 var(--serif,Georgia,serif);letter-spacing:.16em;text-transform:uppercase;color:var(--paper3,#8e887d);margin-bottom:-.2rem;}
@@ -281,8 +305,8 @@ body:has(.react-strip) .peer-think{bottom:calc(9rem + env(safe-area-inset-bottom
 #s-table.game-tablemind.tm-bg-over.scr{background:linear-gradient(180deg,rgba(4,18,12,.35),rgba(4,18,12,.85) 66%,#04120c),url(assets/games/tm_bg_victory.jpg) center top/cover no-repeat,#04120c;}
 .tm-intro{background:linear-gradient(180deg,rgba(3,12,8,.35),rgba(3,12,8,.88)),url(assets/games/tm_bg_opening.jpg) center/cover no-repeat,#04120c!important;}
 .tm-titlecard{background:linear-gradient(180deg,rgba(3,12,8,.55),rgba(3,12,8,.9)),url(assets/games/tm_bg_opening.jpg) center/cover no-repeat,#04120c!important;}
-.tm-qcard{border:18px solid transparent!important;border-image:url(assets/games/tm_ui_qframe.png) 64 70 fill / 18px stretch!important;background:linear-gradient(180deg,rgba(14,52,38,.9),rgba(4,18,12,.94))!important;box-shadow:0 14px 30px -14px #000!important;padding:.3rem .5rem .6rem!important;}
-@media(min-width:760px){.tm-qcard{border-width:26px!important;border-image-width:26px!important;padding:.4rem .7rem .8rem!important;}}
+.tm-qcard{border:1px solid rgba(201,164,92,.35)!important;border-image:none!important;border-radius:18px!important;background:linear-gradient(180deg,rgba(14,52,38,.86),rgba(6,24,16,.92))!important;box-shadow:0 10px 26px -16px #000!important;padding:.8rem .9rem 1rem!important;}
+@media(min-width:760px){.tm-qcard{padding:1rem 1.2rem 1.2rem!important;}}
 .tm-banner{display:flex;align-items:center;justify-content:center;gap:.4rem;min-height:3.4rem;padding:.2rem 0 .35rem;border-style:solid;border-width:0 27px;border-color:transparent;border-image:url(assets/games/tm_ui_ribbon.png) 0 80 0 80 fill / 0 27px 0 27px stretch;color:#3a2100!important;text-shadow:0 1px 0 rgba(255,244,190,.7)!important;font-size:clamp(1rem,4.2vw,1.45rem)!important;letter-spacing:.07em;filter:drop-shadow(0 6px 10px rgba(0,0,0,.5));}
 .tm-banner.bad{color:#5b0f1e!important;}.tm-banner.hot{color:#4a1236!important;}
 .tm-banner .tm-ico{filter:none;}
@@ -312,7 +336,23 @@ function tmPrefRelaxed(){let v=0;try{v=+localStorage.getItem('ct_tm_relaxed')||0
 function tmSetPref(k,v){try{localStorage.setItem('ct_tm_'+k,String(v));}catch(e){}}
 function tmOptionsHTML(){
   const ch=tmPrefChaser(),rl=tmPrefRelaxed();
-  return`<div class="tm-opt"><span>Zeit:</span><button data-a="tmopt" data-k="relaxed">${rl?'Entspannt':'Normal'}</button><span>Chaser:</span><button data-a="tmopt" data-k="chaser">${ch?TM_CFG.chasers[ch].name:'Zufällig'}</button></div>`;
+  return`<div class="tm-opt"><span>Zeit:</span><button data-a="tmopt" data-k="relaxed">${rl?'Entspannt':'Normal'}</button><span>Chaser:</span><button data-a="tmopt" data-k="chaser">${ch?TM_CFG.chasers[ch].name:'Zufällig'}</button></div>${G.isOnline?'':tmHcapSetupHTML()}`;
+}
+/* the handicap is chosen BEFORE the game starts (setup / lobby), per player; it cannot be changed during the game */
+const TM_HC=[[-1,'Leicht'],[0,'Normal'],[1,'Schwer']];
+function tmHcMap(){try{const m=JSON.parse(localStorage.getItem('ct_tm_hcl')||'{}');return m&&typeof m==='object'?m:{};}catch(e){return{};}}
+function tmHcKey(p,i){return 'seat'+(i+1);}   // by seat, so it also works before names are typed
+function tmHcOf(name){const v=+tmHcMap()[String(name||'')];return v===-1||v===1?v:0;}
+function tmHcSet(name,v){const m=tmHcMap();m[String(name||'')]=v;try{localStorage.setItem('ct_tm_hcl',JSON.stringify(m));}catch(e){}SFX.chip&&SFX.chip();render();}
+function tmHcSelfSet(v){try{localStorage.setItem('ct_tm_hcap',String(v));}catch(e){}SFX.chip&&SFX.chip();render();}
+function tmHcapChips(cur,attrs){return TM_HC.map(([v,l])=>`<button class="${cur===v?'on':''}" ${attrs(v)}>${l}</button>`).join('');}
+function tmHcapSetupHTML(){   // one row per human player on this device
+  const rows=(G.lp||[]).map((p,i)=>isBotPlayer(p)?'':`<div class="tm-hcrow"><span>${esc(p.name||('Spieler '+(i+1)))}</span>${tmHcapChips(tmHcOf(tmHcKey(p,i)),v=>`data-a="tmhcl" data-n="${esc(tmHcKey(p,i))}" data-v="${v}"`)}</div>`).join('');
+  return rows?`<div class="tm-hcbox"><div class="tm-hct">Stufe</div>${rows}</div>`:'';
+}
+function tmHcapSelfHTML(){   // online lobby: my own level
+  let v=0;try{v=+localStorage.getItem('ct_tm_hcap')||0;}catch(e){}
+  return`<div class="tm-hcbox"><div class="tm-hct">Deine Stufe</div><div class="tm-hcrow">${tmHcapChips(v,x=>`data-a="tmhcs" data-v="${x}"`)}</div></div>`;
 }
 function tmTextMode(){let v='';try{v=localStorage.getItem('ct_tm_text')||'';}catch(e){}return['l','xl','hc'].indexOf(v)>=0?v:'';}
 function tmTextNext(){const m=tmTextMode(),n={'':'l',l:'xl',xl:'hc',hc:''}[m];try{localStorage.setItem('ct_tm_text',n);}catch(e){}}
@@ -343,7 +383,9 @@ function tmRecordSeen(tm){
     tm.q.forEach(qq=>{if(!qq)return;const e=lib[qq.i];if(e&&l.indexOf(e[3])<0)l.push(e[3]);});
     localStorage.setItem('ct_tm_seen',JSON.stringify(l));}catch(e){}
 }
-function tmNewGame(n){return tmNew(n,{seed:Date.now(),relaxed:tmPrefRelaxed(),chaser:tmPrefChaser()||undefined,review:[],seen:tmSeenIdx()});}
+function tmNewGame(n,local){const tm=tmNew(n,{seed:Date.now(),relaxed:tmPrefRelaxed(),chaser:tmPrefChaser()||undefined,review:[],seen:tmSeenIdx()});
+  if(local&&G.lp)tm.hcap=G.lp.slice(0,n).map((p,i)=>isBotPlayer(p)?0:tmHcOf(tmHcKey(p,i)));
+  return tm;}
 
 /* ───────── sounds (built from the app's own tone/haptic) ───────── */
 const TMSFX={
@@ -377,7 +419,7 @@ function tmMySeat(){
 /* ───────── local game ───────── */
 function lDealTablemind(){
   G.lp.forEach(p=>{p.totalScore=0;p.c4Result=null;});
-  G.tm=tmNewGame(G.lp.length);
+  G.tm=tmNewGame(G.lp.length,true);
   tmStart(G.tm,Date.now()+3200);
   G.tmViewer=null;G.tmReadyKey='';G.tmSel=-1;G.tmFxKey='';G.tmIntro=G.tm.seed;G.tmBotDue={};G.tmShown={};G.tmAct=0;G.tmPose=null;
   G.lcur=0;G.lres=null;
@@ -565,9 +607,11 @@ function tmSend(act){
   }
 }
 function tmTap(a,t){
-  const tm=tmObj();if(!tm)return;
   const d=t&&t.dataset?t.dataset:{};
   if(a==='tmopt'){tmOptTap(d.k);return;}
+  if(a==='tmhcl'){tmHcSet(d.n,+d.v);return;}
+  if(a==='tmhcs'){tmHcSelfSet(+d.v);return;}
+  const tm=tmObj();if(!tm)return;
   if(a==='tmhcap'){TMSFX.pick();try{localStorage.setItem('ct_tm_hcap',String(+d.v));}catch(e){}tmSend({t:'hcap',v:+d.v});return;}
   if(a==='tmtext'){tmTextNext();SFX.chip&&SFX.chip();render();return;}
   if(a==='tmanim'){gtAnimNext();SFX.chip&&SFX.chip();render();return;}
@@ -575,7 +619,7 @@ function tmTap(a,t){
   if(a==='tmready'){tmReady();return;}
   if(tm.over)return;
   const i=+d.i;
-  if(a==='tmans'){if(tm.phase!=='ask')return;G.tmSel=i;TMSFX.pick();render();return;}
+  if(a==='tmans'){if(tm.phase!=='ask')return;G.tmSel=-1;TMSFX.lock();tmSend({t:'ans',i});return;}
   if(a==='tmlock'){if(G.tmSel<0)return;TMSFX.lock();tmSend({t:'ans',i:G.tmSel});return;}
   if(a==='tmflag'){tmFlagQuestion(+d.i);return;}
   if(a==='tmnext'){TMSFX.pick();if(G.isOnline)tmSend({t:'next'});else{for(let k=1;k<=tm.P;k++)tmApply(tm,k,{t:'next'},Date.now());tmLocalAfterAction();}return;}
@@ -597,7 +641,7 @@ function tmPodsHTML(tm,players,me,fx){
     if(tm.phase==='ask'){
       if(!tmActiveSeat(tm,s))state=tm.duel?'schaut zu':(tm.lane[i]&&tm.lane[i].st==='escaped'?'entkommen':'gefangen');
       else if(tm.council&&!tm.council.done&&tm.council.for===s)state='fragt den Rat';
-      else state=tm.ans[i]!=null?'gesperrt ✓':'denkt nach…';
+      else state=tm.ans[i]!=null?'fertig ✓':'denkt nach…';
     }else if(tm.phase==='decide')state=tm.pendingDecide[i]===true?'entscheidet…':'';
     else if(tm.phase==='pick')state=tm.pick[i]!=null?'gewählt ✓':'wählt…';
     else if(tm.phase==='offer')state=tm.offer[i]!=null?'gewählt ✓':'wählt…';
@@ -615,8 +659,8 @@ function tmPodsHTML(tm,players,me,fx){
 function tmLadderHTML(tm,players){
   const L=TM_CFG.ladder,short=v=>v>=1000?(v/1000).toLocaleString('de-DE')+'K':v;
   return`<div class="tm-lad">${L.map((v,k)=>{
-    const here=players.slice(0,tm.P).map((p,i)=>tm.lvl[i]===k+1?`<span>${avHTML(p.avatar)}</span>`:'').join('');
-    return`<div class="tm-rung${k===L.length-1?' top':''}${tm.lvl.some(l=>l===k+1)?' on':''}"><b>${short(v)}</b><span class="who">${here}</span></div>`;}).join('')}</div>`;
+    const here=players.slice(0,tm.P).map((p,i)=>tm.lvl[i]===k?`<span>${avHTML(p.avatar)}</span>`:'').join('');
+    return`<div class="tm-rung${k===L.length-1?' top':''}${tm.lvl.some(l=>l===k)?' on':''}"><b>${short(v)}</b><span class="who">${here}</span></div>`;}).join('')}</div>`;
 }
 function tmRealmsHTML(tm,me,mode){   // mode 'pick' (buttons) or 'show' (who chose what)
   const have=new Set(me?tm.seals[me-1]:[]),used=new Set(me&&tm.picked?tm.picked[me-1]:[]);
@@ -673,7 +717,7 @@ function tmBannerHTML(tm,players){
   if(tm.act===1){
     const ok=fx.seats.filter(o=>o.ok),top=fx.seats.find(o=>o.top);
     if(top)return`<div class="tm-banner">EIN WISSENSSIEG!</div>`;
-    return ok.length?`<div class="tm-banner">RICHTIG!</div>`:`<div class="tm-banner bad">LEIDER FALSCH</div>`;
+    return'';   // Wiz says right or wrong himself
   }
   if(tm.act===2){const got=fx.seats.filter(o=>o.seal);return got.length?`<div class="tm-banner">${tmIco('seal','inl big')} WISSENSSIEGEL!</div>`:`<div class="tm-banner bad">KEIN SIEGEL</div>`;}
   const esc_=fx.seats.findIndex(o=>o.escaped),cau=fx.seats.findIndex(o=>o.caught);
@@ -689,7 +733,7 @@ function tmRevealAllHTML(tm,players){
     for(let k=1;k<=tm.P;k++)if(tm.q[k-1]&&tm.q[k-1].i===qq.i&&tm.res[k-1])who.push(`<span class="tm-resc ${tm.res[k-1]==='ok'?'ok':'bad'}">${esc(players[k-1].name)} ${tm.res[k-1]==='ok'?'✓':tm.res[k-1]==='late'?'⏱':'✗'}</span>`);
     const chosen=new Set();for(let k=1;k<=tm.P;k++)if(tm.q[k-1]&&tm.q[k-1].i===qq.i&&tm.ans[k-1]!=null&&tm.ans[k-1]>=0)chosen.add(tm.ans[k-1]);
     const grid=q.ans.map((a,k)=>`<div class="tm-a stat ${k===q.cor?'cor':chosen.has(k)?'wrg':'dim'}"><span class="tm-l">${TM_LETTERS[k]}</span>${esc(a)}</div>`).join('');
-    out.push(`<div class="tm-card"><div class="tm-qchips"><span class="tm-chip">${tmEmb(q.c,'sm')} ${esc(TM_CATS[q.c].short)}</span></div><div class="tm-q">${esc(q.text)}</div><div class="tm-ans">${grid}</div><div class="tm-expl">${esc(q.expl)}</div><div class="tm-res" style="margin-top:.5rem">${who.join('')}</div></div>`);
+    out.push(`<div class="tm-card"><div class="tm-qchips"><span class="tm-chip">${tmEmb(q.c,'sm')} ${esc(TM_CATS[q.c].short)}</span></div><div class="tm-q">${esc(q.text)}</div><div class="tm-ans">${grid}</div></div>`);
   }
   return out.join('');
 }
@@ -706,17 +750,17 @@ function tmStageHTML(tm,players,me,padHasQ){
     if((tm.phase==='ask'||tm.phase==='reveal')&&!padHasQ){
       const q=tm.q[0]&&tmQ(tm,tm.q[0]);
       if(q)body+=`<div class="tm-card" style="margin-top:.5rem"><div class="tm-qchips"><span class="tm-chip">${tmEmb(q.c,'sm')} ${esc(TM_CATS[q.c].short)}</span><span class="tm-chip gold">Frage ${tm.hunt.n+(tm.phase==='reveal'?0:1)}</span></div><div class="tm-q">${esc(q.text)}</div>
-        <div class="tm-ans">${q.ans.map((a,k)=>`<div class="tm-a stat${tm.phase==='reveal'?(k===q.cor?' cor':' dim'):''}"><span class="tm-l">${TM_LETTERS[k]}</span>${esc(a)}</div>`).join('')}</div>${tm.phase==='reveal'?`<div class="tm-expl">${esc(q.expl)}</div>`:''}</div>`;
+        <div class="tm-ans">${q.ans.map((a,k)=>`<div class="tm-a stat${tm.phase==='reveal'?(k===q.cor?' cor':' dim'):''}"><span class="tm-l">${TM_LETTERS[k]}</span>${esc(a)}</div>`).join('')}</div></div>`;
     }
   }
   const banner=fx?tmBannerHTML(tm,players):'';
-  const learn=(fx&&!G.isOnline&&!padHasQ&&tm.act!==3)?tmRevealAllHTML(tm,players)+tmNextHTML(tm,0,players):'';
+  const learn=(fx&&!G.isOnline&&!padHasQ&&tm.act!==3)?tmRevealAllHTML(tm,players):'';
   return`<div class="tm-stage">${banner}${learn}${body}</div>`;
 }
 function tmQuestionPad(tm,me,players){
   const i=me-1,qq=tm.q[i];if(!qq)return'';
   const q=tmQ(tm,qq),L=tm.life[i],ans=tm.ans[i],locked=ans!=null,rev=tm.phase==='reveal';
-  const chips=`<div class="tm-qchips"><span class="tm-chip">${tmEmb(q.c,'sm')} ${esc(TM_CATS[q.c].short)}</span>${qq.rv?`<span class="tm-chip">🔁 Wiederholung</span>`:''}${(!tm.duel&&tm.act===1&&tm.cycle===tm.gold)?`<span class="tm-chip gold">${tmIco('gold','inl')} GOLDENE FRAGE ×2</span>`:''}${tm.duel?`<span class="tm-chip gold">${tmIco('duel','inl')} DUELL · ${tmEur(TM_CFG.duelPrize)}</span>`:tm.act===1?`<span class="tm-chip gold">Stufe ${tm.lvl[i]+1} von 5 · ${tmEur(tmAmt(tm,i,tm.lvl[i]))}</span>`:tm.act===2?`<span class="tm-chip gold">${tm.owner===me?'🏅 Deine Welt — dein Siegel!':'Welt von '+esc((players[tm.owner-1]||{}).name||'?')+' · +'+tmEur(TM_CFG.sideBonus)}</span>`:`<span class="tm-chip gold">Vorsprung ${tm.lane[i].pl-tm.lane[i].chp} · ×${tm.lane[i].mult}</span>`}</div>`;
+  const chips=`<div class="tm-qchips"><span class="tm-chip">${tmEmb(q.c,'sm')} ${esc(TM_CATS[q.c].short)}</span>${(!tm.duel&&tm.act===1&&tm.cycle===tm.gold)?`<span class="tm-chip gold">${tmIco('gold','inl')} GOLDENE FRAGE ×2</span>`:''}${tm.duel?`<span class="tm-chip gold">${tmIco('duel','inl')} DUELL · ${tmEur(TM_CFG.duelPrize)}</span>`:tm.act===1?`<span class="tm-chip gold">Stufe ${tm.lvl[i]+1} von 5 · ${tmEur(tmAmt(tm,i,tm.lvl[i]))}</span>`:tm.act===2?`<span class="tm-chip gold">${tm.owner===me?'🏅 Deine Welt — dein Siegel!':'Welt von '+esc((players[tm.owner-1]||{}).name||'?')+' · +'+tmEur(TM_CFG.sideBonus)}</span>`:`<span class="tm-chip gold">Vorsprung ${tm.lane[i].pl-tm.lane[i].chp} · ×${tm.lane[i].mult}</span>`}</div>`;
   const sel=G.tmSel;
   const answers=q.ans.map((a,k)=>{
     const el=tm.elim[i]&&tm.elim[i].indexOf(k)>=0;
@@ -729,14 +773,11 @@ function tmQuestionPad(tm,me,players){
     return`<button class="tm-a${c}${dis?' stat':''}" ${dis?'':`data-a="tmans" data-i="${k}"`} ${dis?'disabled':''}><span class="tm-l">${TM_LETTERS[k]}</span>${esc(a)}</button>`;
   }).join('');
   let extra='';
-  const hc=(!locked&&!rev&&tm.act===1&&tm.cycle===1&&!tm.duel)?`<div class="tm-hcap"><span>Schwierigkeit:</span>${[[-1,'Leicht · 2 Antworten weg · halber Preis'],[0,'Normal'],[1,'Schwer · 1,5× Preis']].map(([v,l])=>`<button class="tm-hc${tm.hcap[i]===v?' on':''}" data-a="tmhcap" data-v="${v}">${l}</button>`).join('')}</div>`:'';
+  const hc='';
   if(!locked&&!rev){
-    extra=`<div class="tm-row" style="margin-top:.6rem"><button class="tm-btn big" data-a="tmlock" ${sel<0?'disabled':''}>${sel<0?'WÄHLE EINE ANTWORT':'ANTWORT SPERREN'}</button></div>`;
-    if(tm.clue[i])extra=`<div class="tm-clue">📜 ${esc(q.clue)}</div>`+extra;
-    const keys=tm.act===1?['cut','council','archive','freeze']:['cut','archive','freeze'];
-    extra+=`<div class="tm-lives">${keys.map(k=>{const dis=L[k]<1||(k==='cut'&&tm.elim[i])||(k==='archive'&&tm.clue[i])||(k==='council'&&(tm.council||tm.P<2));return`<button class="tm-life" data-a="tmlife" data-k="${k}" title="${esc(TM_LIFE_INFO[k].t)}" ${dis?'disabled':''}><span>${tmIco('life_'+k,'life')}</span><b>${L[k]}</b>${TM_LIFE_INFO[k].n}</button>`;}).join('')}</div>`;
+    if(tm.clue[i])extra=`<div class="tm-clue">📜 ${esc(q.clue)}</div>`;
   }else if(locked&&!rev){
-    extra=`<div class="tm-wait">${ans>=0?`Deine Antwort <b>${TM_LETTERS[ans]}</b> ist gesperrt ✓`:'Die Zeit ist abgelaufen.'}</div>`+tmWaitList(tm,players,me);
+    extra=`<div class="tm-wait">${ans>=0?`<b>${TM_LETTERS[ans]}</b> ✓`:'Zeit abgelaufen'}</div>`+tmWaitList(tm,players,me);
   }
   if(tm.council&&tm.council.for===me){
     const c=tm.council;
@@ -746,10 +787,9 @@ function tmQuestionPad(tm,me,players){
   let res='';
   if(rev){
     const o=tm.fx&&tm.fx.seats[i];
-    const head=!o||o.skip?'':o.ok?`<div class="tm-banner">RICHTIG!</div>`:tm.res[i]==='late'?`<div class="tm-banner bad">ZEIT ABGELAUFEN</div>`:`<div class="tm-banner bad">LEIDER FALSCH</div>`;
-    res=head+`<div class="tm-expl">${esc(q.expl)}</div>`+tmNextHTML(tm,me,players)+`<button class="tm-flag" data-a="tmflag" data-i="${qq.i}">⚑ Frage melden</button>`;
+    res=`<button class="tm-flag" data-a="tmflag" data-i="${qq.i}" title="Frage melden" aria-label="Frage melden">⚑</button>`;
   }
-  return`<div class="tm-card tm-qcard">${chips}${locked||rev?'':'<div class="tm-timer"><b>--</b><i></i></div>'}${hc}<div class="tm-q">${esc(q.text)}</div><div class="tm-ans">${answers}</div>${extra}${res}</div>`;
+  return`<div class="tm-card tm-qcard">${chips}${locked||rev?'':'<div class="tm-timer"><b>--</b><i></i></div>'}${hc}${rev?`<div class="tm-q">${esc(q.text)}</div>`:''}<div class="tm-ans">${answers}</div>${extra}${res}</div>`;
 }
 
 /* who has locked in? small chips with a tick, instead of a vague "waiting" line */
@@ -772,7 +812,7 @@ function tmKey(e){
   if(tm.phase==='ask'&&idx>=0){
     const seat=G.isOnline?me:G.tmViewer;if(!seat||!tmActiveSeat(tm,seat)||tm.ans[seat-1]!=null)return false;
     if(tm.elim[seat-1]&&tm.elim[seat-1].indexOf(idx)>=0)return false;
-    G.tmSel=idx;TMSFX.pick();render();return true;
+    tmTap('tmans',{dataset:{i:idx}});return true;
   }
   if(tm.phase==='ask'&&(k==='enter'||k===' ')&&G.tmSel>=0){tmTap('tmlock',{dataset:{}});return true;}
   if(tm.phase==='reveal'&&(k==='n'||k==='enter'||k==='arrowright')){tmTap('tmnext',{dataset:{}});return true;}
@@ -819,14 +859,14 @@ function tmFlaggedHTML(){
 function tmSharedQCard(tm,reveal){
   const q=tm.q[0]&&tmQ(tm,tm.q[0]);if(!q)return'';
   return`<div class="tm-card"><div class="tm-qchips"><span class="tm-chip">${tmEmb(q.c,'sm')} ${esc(TM_CATS[q.c].short)}</span><span class="tm-chip gold">Frage ${tm.hunt.n+(tm.phase==='reveal'?0:1)}</span></div><div class="tm-q">${esc(q.text)}</div>
-    <div class="tm-ans">${q.ans.map((a,k)=>`<div class="tm-a stat${tm.phase==='reveal'?(k===q.cor?' cor':' dim'):''}"><span class="tm-l">${TM_LETTERS[k]}</span>${esc(a)}</div>`).join('')}</div>${tm.phase==='reveal'?`<div class="tm-expl">${esc(q.expl)}</div>`+tmNextHTML(tm,G.isOnline?tmMySeat():0,tmPlayers()):''}</div>`;
+    <div class="tm-ans">${q.ans.map((a,k)=>`<div class="tm-a stat${tm.phase==='reveal'?(k===q.cor?' cor':' dim'):''}"><span class="tm-l">${TM_LETTERS[k]}</span>${esc(a)}</div>`).join('')}</div></div>`;
 }
 function tmNextHTML(tm,me,players){
   if(tm.phase!=='reveal')return'';
-  if(!G.isOnline)return`<div class="tm-row" style="margin-top:.6rem"><button class="tm-btn big" data-a="tmnext">WEITER ▶</button></div>`;
+  if(!G.isOnline)return`<div class="tm-row" style="margin-top:.6rem"><button class="tm-btn next" data-a="tmnext">WEITER ▶</button></div>`;
   if(!me)return'';
   if(tm.rdy[me-1])return`<div class="tm-wait">Bereit ✓</div>`+tmWaitList(tm,players,me);
-  return`<div class="tm-row" style="margin-top:.6rem"><button class="tm-btn big" data-a="tmnext">WEITER ▶</button></div>`+tmWaitList(tm,players,me);
+  return`<div class="tm-row" style="margin-top:.6rem"><button class="tm-btn next" data-a="tmnext">WEITER ▶</button></div>`+tmWaitList(tm,players,me);
 }
 function tmCouncilCard(tm,me,players){
   const c=tm.council;
@@ -847,7 +887,7 @@ function tmDecidePad(tm,me,players){
 function tmPickPad(tm,me,players){
   const i=me-1;
   if(tm.pick[i]!=null)return`<div class="tm-card tm-wait"><div class="tm-title">Bestätigt ✓</div><div class="tm-realm sel stat" style="--c:${TM_CATS[tm.pick[i]].col};max-width:14rem;margin:.3rem auto"><span class="ic">${tmEmb(tm.pick[i],'lg')}</span>${esc(TM_CATS[tm.pick[i]].de)}</div>${tmWaitList(tm,players,me)}</div>`;
-  return`<div class="tm-card"><div class="tm-title">WÄHLE DEINE WELT</div><div class="tm-timer"><b>--</b><i></i></div><div class="tm-sub"><b>Deine Wahl ${tm.round2} von ${TM_CFG.sealRounds}</b> — du wählst für dich allein. Jede Welt nur <b>einmal</b> (gewählte sind grau). Danach kommt <b>eine Frage aus deiner Welt für alle</b>: richtig = dein Siegel (✓), die anderen bekommen einen Bonus für eine richtige Antwort.</div>${tmRealmsHTML(tm,me,'pick')}</div>`;
+  return`<div class="tm-card"><div class="tm-title">WÄHLE DEINE WELT <small>${tm.round2} von ${TM_CFG.sealRounds}</small></div><div class="tm-timer"><b>--</b><i></i></div>${tmRealmsHTML(tm,me,'pick')}</div>`;
 }
 function tmOfferPad(tm,me,players){
   const i=me-1;
@@ -855,13 +895,13 @@ function tmOfferPad(tm,me,players){
   const n=tmSealCount(tm,me),bonus=[];
   if(n>=1)bonus.push('1 zusätzliches Archiv');if(n>=2){bonus.push('+1 Feld Vorsprung');bonus.push('Schutzschild (fängt einen Fang ab)');}
   return`<div class="tm-card"><div class="tm-title">DIE JAGD — DEIN ANGEBOT</div><div class="tm-timer"><b>--</b><i></i></div>
-    <div class="tm-sub">Sieben Felder bis zum Ziel. ${bonus.length?'Deine Siegel schenken dir: <b>'+bonus.join(', ')+'</b>.':'Ohne Siegel keine Zusatzvorteile.'}</div>
-    <div class="tm-offers">${['safe','std','risk'].map(k=>{const o=TM_OFFER_INFO[k];return`<button class="tm-offer ${k}" data-a="tmoffer" data-k="${k}"><h4>${o.n}</h4><span class="big">×${o.m}</span><b>${o.h}</b><small>${o.t}</small></button>`;}).join('')}</div></div>`;
+    ${bonus.length?'<div class="tm-sub">Siegel-Bonus: <b>'+bonus.join(', ')+'</b></div>':''}
+    <div class="tm-offers">${['safe','std','risk'].map(k=>{const o=TM_OFFER_INFO[k];return`<button class="tm-offer ${k}" data-a="tmoffer" data-k="${k}"><h4>${o.n}</h4><span class="big">×${o.m}</span><b>${o.h}</b></button>`;}).join('')}</div></div>`;
 }
 function tmPassHTML(tm,players,v){
   const p=players[v.seat-1];
   const what=v.mode==='vote'?'Du gibst einen Tipp für den Rat ab.':v.mode==='ask'?'Die Frage wartet auf dich.':v.mode==='decide'?'Du musst dich entscheiden.':v.mode==='pick'?'Du wählst deine Welt.':'Du wählst dein Angebot.';
-  return`<div class="tm-card tm-pass"><div class="tm-sub">Gerät weitergeben an</div><div class="tm-av" style="font-size:2rem">${avHTML(p.avatar)}</div><div class="who">${esc(p.name)}</div><div class="tm-sub">${what} Die anderen schauen bitte weg.</div><button class="tm-btn big" data-a="tmready">ICH BIN ${esc(p.name).toUpperCase()}</button></div>`;
+  return`<div class="tm-card tm-pass"><div class="tm-av" style="font-size:2rem">${avHTML(p.avatar)}</div><div class="who">${esc(p.name)}</div><button class="tm-btn big" data-a="tmready">LOS</button></div>`;
 }
 function tmPadHTML(tm,players,me){
   if(tm.over)return`<div class="tm-card tm-wait"><div class="tm-title">TABLE MIND ENTSCHIEDEN</div>Die Ergebnisse folgen …</div>`;
@@ -934,22 +974,22 @@ function tmWizSay(tm,players){
     if(c>=0)return`Oje — ${nm(c)} wurde erwischt!`;
     return fx.ch&&fx.ch.mv>0?v(['Der Chaser rückt näher …','Hört ihr die Schritte hinter euch?']):v(['Der Jäger stolpert! Nutzt den Vorsprung.','Durchatmen — der Chaser kam nicht vorwärts.']);
   }
-  if(tm.phase==='decide')return v(['Banken oder weiter? Mut oder Vorsicht!','Das ungesicherte Geld steht auf dem Spiel …']);
-  if(tm.phase==='pick')return v(['Jeder wählt seine eigene Welt — heimlich!','Drei Wahlen für jeden: nimm, was du gut kannst!','Jede Welt gibt es nur einmal pro Spieler!']);
-  if(tm.phase==='offer')return v(['Sicher, Standard oder Risiko — wie mutig seid ihr?','Je knapper der Vorsprung, desto größer die Belohnung.']);
+  if(tm.phase==='decide')return v(['Mut oder Vorsicht?']);
+  if(tm.phase==='pick')return v(['Wähle deine Welt!','Was kannst du gut?']);
+  if(tm.phase==='offer')return v(['Wie mutig seid ihr?']);
   if(tm.act===1&&tm.cycle>=2&&tm.P>=2){
     const b=tm.bank.map((x,i)=>[x,i]).sort((a,c)=>c[0]-a[0]);
     if(b[0][0]>0&&b[0][0]>=b[1][0]*2&&(tm.cycle+tm.moves)%3===0)return`${nm(b[0][1])} läuft davon … wer holt ihn ein?`;
     if(b[0][0]>0&&b[0][0]===b[1][0]&&(tm.cycle+tm.moves)%3===0)return'Gleichstand an der Spitze! Das wird spannend.';
   }
-  if(tm.act===1)return tm.moves===0?'Willkommen bei TABLE MIND! Ich bin Wiz, euer Gastgeber.':v(['Konzentration! Jeder hat seine eigene Frage.','Lasst euch Zeit — aber nicht zu viel!']);
-  if(tm.act===2)return`Frage aus der Welt von ${nm(tm.owner-1)}: ${(TM_CATS[tm.pick[tm.owner-1]]||{short:''}).short} — alle antworten, das Siegel gehört ${nm(tm.owner-1)}!`;
-  return v(['Der Chaser ist hinter euch. Jetzt zählt jede Antwort!','Eine Frage für alle — wer behält die Nerven?']);
+  if(tm.act===1)return tm.moves===0?'Willkommen! Ich bin Wiz.':v(['Konzentration!','Gleich geht es los!']);
+  if(tm.act===2)return`Die Welt von ${nm(tm.owner-1)}: ${(TM_CATS[tm.pick[tm.owner-1]]||{short:''}).short}`;
+  return v(['Wer behält die Nerven?','Jede Antwort zählt!']);
 }
-function tmHostHTML(tm,players){
+function tmHostHTML(tm,players,askText,verdict){
   const pose=tmWizPose(tm),hop=G.tmPose!=null&&G.tmPose!==pose;G.tmPose=pose;
   const big=tm.over||pose===6||(tm.phase==='reveal'&&tm.fx&&(tm.fx.duel||(tm.act===3&&tm.fx.seats.some(o=>o.escaped||o.caught))||(tm.act===2&&tm.fx.seats.some(o=>o.seal))));
-  return`<div class="tm-host${big?' big':''}"><img class="tm-wiz${hop?' hop':''}" src="${wizSrc(pose)}" alt="Wiz" width="64" height="64"><div class="tm-say"><small>WIZ</small>${tmWizSay(tm,players)}</div></div>`;
+  return`<div class="tm-host${big?' big':''}${askText?' ask':''}"><img class="tm-wiz${hop?' hop':''}" src="${wizSrc(pose)}" alt="Wiz" width="64" height="64"><div class="tm-say"><small>WIZ</small>${askText?`<span class="tm-wq">${esc(askText)}</span>`:(verdict?`<b class="tm-verd ${verdict.ok?'ok':'bad'}">${verdict.t}</b> `:'')+tmWizSay(tm,players)}</div></div>`;
 }
 function rTablemindTable(){
   const tm=tmObj();
@@ -958,16 +998,21 @@ function rTablemindTable(){
   const me=G.isOnline?tmMySeat():(tmLocalViewer(tm)?G.tmViewer:0);
   const an=gtAnim();
   const pad=tmPadHTML(tm,players,me);
+  let verdict=null;if(tm.phase==='reveal'&&tm.fx&&tm.fx.seats&&!tm.fx.duel&&tm.act!==3){
+    const vs=me||(!G.isOnline&&tmSoloHuman()?G.lp.findIndex(p=>!isBotPlayer(p))+1:0);
+    if(vs){const o=tm.fx.seats[vs-1];if(o&&!o.skip)verdict=o.ok?{ok:1,t:'Richtig!'}:tm.res[vs-1]==='late'?{ok:0,t:'Zeit abgelaufen!'}:{ok:0,t:'Leider falsch.'};}
+    else if(tm.act===1){const any=tm.fx.seats.some(o=>o.ok);verdict=any?{ok:1,t:'Richtig!'}:{ok:0,t:'Leider falsch.'};}
+  }
+  let askText='';if(tm.phase==='ask'&&pad.indexOf('tm-qcard')>=0){const mq=me&&tm.q[me-1];if(mq)askText=tmQ(tm,mq).text;}
   const showIntro=G.tmIntro===tm.seed&&Date.now()<tm.dl&&tm.moves===0&&tm.act===1&&tm.cycle===1;
   const actTxt=tm.act===1?`Frage ${Math.min(tm.cycle,TM_CFG.cycles1)} von ${TM_CFG.cycles1}`:tm.act===2?`Siegel ${tm.round2} von ${TM_CFG.sealRounds}`:`Jagd · Frage ${(tm.hunt?tm.hunt.n:0)+(tm.phase==='ask'?1:0)}`;
   queueMicrotask(tmPostRender);
   return`<div id="s-table" class="scr on game-tablemind an-${an} tm-bg-${tm.over?'over':tm.duel?'duel':'act'+tm.act}${tmTextMode()?' tx-'+tmTextMode():''}">
     <div class="game-bar"><div class="gb-game"><span class="tm-logo">TABLE MIND</span></div><div class="gb-turn tm-bartitle"><span><b>AKT ${['','I','II','III'][tm.act]}</b> · ${TM_ACT_NAMES[tm.act]}</span><small>${esc(actTxt)}</small></div><div class="gb-right"><button class="ico-btn tm-animbtn tm-aa" data-a="tmtext" aria-label="Textgröße und Kontrast" title="Textgröße und Kontrast">Aa</button><button class="ico-btn tm-animbtn" data-a="tmanim" aria-label="Animation: ${an==='full'?'voll':an==='light'?'leicht':'aus'}" title="Animation: ${an==='full'?'voll':an==='light'?'leicht':'aus'}">${an==='off'?'⏸':an==='light'?'✨':'🎬'}</button>${rulesBtn()}${quitBtn()}${sndBtn()}</div></div>
     <div class="tm-main ${tm.act===3&&tm.phase!=='offer'?'':'split'}">
-      <div class="tm-actline"><b>AKT ${['','I','II','III'][tm.act]}</b> · ${TM_ACT_NAMES[tm.act]} · ${esc(actTxt)}</div>
-      ${tmHostHTML(tm,players)}
       ${tmPodsHTML(tm,players,me,tm.phase==='reveal'?tm.fx:null)}
-      <div class="tm-left">${tmStageHTML(tm,players,me,pad.indexOf('tm-q')>=0)}</div>
+      ${tmHostHTML(tm,players,askText,verdict)}
+      <div class="tm-left">${tmStageHTML(tm,players,me,pad.indexOf('tm-q')>=0)}${tm.phase==='reveal'?'<div class="tm-nextwrap">'+tmNextHTML(tm,me,players)+'</div>':''}</div>
       <div class="tm-right">${pad}</div>
     </div>
     ${showIntro?tmIntroHTML():''}
@@ -977,7 +1022,7 @@ function rTablemindTable(){
 }
 
 
-const TM_ACT_SUB=['','Baue dein Vermögen auf — und entscheide: banken oder weiter?','Sammle Wissenssiegel. Sie machen dich in der Jagd stärker.','Der Chaser kommt. Sieben Felder bis zum Ziel.'];
+const TM_ACT_SUB=['','Beantworte Fragen und steige auf.','Sammle Siegel aus den sechs Welten.','Der Chaser kommt. Lauft ins Ziel!'];
 function tmActCard(tm){
   if(gtAnim()==='off')return;
   const old=document.getElementById('tm-titlecard');if(old)old.remove();
