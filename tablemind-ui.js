@@ -333,7 +333,17 @@ function tmRecordResults(tm,seats){
     localStorage.setItem('ct_tm_missed',JSON.stringify(l.slice(-40)));
   }catch(e){}
 }
-function tmNewGame(n){return tmNew(n,{seed:Date.now(),relaxed:tmPrefRelaxed(),chaser:tmPrefChaser()||undefined,review:tmMissedIdx()});}
+/* QUESTIONS NEVER REPEAT: every question this device has shown is remembered (by its text) and left out of the next games until
+   nearly the whole library has been seen; only then the memory starts again. Old mistakes are no longer brought back. */
+function tmSeenList(){try{const l=JSON.parse(localStorage.getItem('ct_tm_seen')||'[]');return Array.isArray(l)?l:[];}catch(e){return[];}}
+function tmSeenIdx(){const lib=tmLib(null);let l=tmSeenList();if(l.length>=lib.length-100){l=[];try{localStorage.setItem('ct_tm_seen','[]');}catch(e){}}
+  const m=new Map();lib.forEach((e,i)=>m.set(e[3],i));return l.map(t=>m.get(t)).filter(i=>i!=null);}
+function tmRecordSeen(tm){
+  try{const lib=tmLib(tm);let l=tmSeenList();
+    tm.q.forEach(qq=>{if(!qq)return;const e=lib[qq.i];if(e&&l.indexOf(e[3])<0)l.push(e[3]);});
+    localStorage.setItem('ct_tm_seen',JSON.stringify(l));}catch(e){}
+}
+function tmNewGame(n){return tmNew(n,{seed:Date.now(),relaxed:tmPrefRelaxed(),chaser:tmPrefChaser()||undefined,review:[],seen:tmSeenIdx()});}
 
 /* ───────── sounds (built from the app's own tone/haptic) ───────── */
 const TMSFX={
@@ -989,6 +999,7 @@ function tmPostRender(){
   if(G.tmAct!==tm.act){const prev=G.tmAct;G.tmAct=tm.act;if(prev&&tm.act>1)tmActCard(tm);}
   if(tm.phase==='reveal'&&tm.fx){
     const fx=tm.fx,me=tmMySeat()||0;
+    tmRecordSeen(tm);
     if(G.isOnline){if(me)tmRecordResults(tm,[me]);}else tmRecordResults(tm,tm.fx.seats.map((o,k)=>k+1).filter(k=>!isBotPlayer(G.lp[k-1])));
     const result=()=>{
     if(tm.act===3){

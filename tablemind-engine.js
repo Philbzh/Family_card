@@ -62,7 +62,7 @@ function tmNew(P,opts){
   opts=opts||{};
   const n=Math.max(2,Math.min(4,(P|0)||2)),seed=((opts.seed||Date.now())%2147483646)+1;
   const z=()=>new Array(n).fill(0),nl=()=>new Array(n).fill(null);
-  const tm={v:1,P:n,seed,rng:seed,rng2:(seed*7+13)%2147483646+1,lang:'de',act:1,phase:'ask',cycle:0,round2:0,used:[],catN:[0,0,0,0,0,0],
+  const tm={v:1,P:n,seed,rng:seed,rng2:(seed*7+13)%2147483646+1,lang:'de',act:1,phase:'ask',cycle:0,round2:0,used:(opts.seen||[]).filter(x=>Number.isInteger(x)&&x>=0).slice(),catN:[0,0,0,0,0,0],
     lib:opts.lib||null,relaxed:!!opts.relaxed,review:(opts.review||[]).slice(0,12),reviewUsed:0,gold:0,
     lvl:z(),unb:z(),bank:z(),q:nl(),ans:nl(),ansAt:z(),res:nl(),pick:nl(),ext:z(),elim:nl(),clue:z(),gain:z(),
     life:[],council:null,queue:[],owner:0,easyOn:z(),picked:Array.from({length:n},()=>[]),hcap:z(),streak:z(),rdy:z(),log:[],duel:null,duelDone:false,pendingDecide:new Array(n).fill(false),seals:[],sealNew:z(),

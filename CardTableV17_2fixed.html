@@ -6389,7 +6389,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=350;
+const APP_BUILD=351;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -21392,7 +21392,7 @@ function wsNew(P,opts){
   const n=Math.max(2,Math.min(4,(P|0)||2)),seed=((opts.seed||Date.now())%2147483646)+1;
   const z=()=>new Array(n).fill(0);
   const ws={v:1,P:n,rounds:[2,3,4].indexOf(opts.rounds)>=0?opts.rounds:3,diff:opts.diff||0,seed,rng:seed,round:1,starter:1,cur:1,phase:'spin',
-    lang:opts.lang==='de'?'de':'en',rs:z(),bank:z(),called:'',puzzle:null,used:[],lv:null,angle:0,moves:0,fx:null,over:false,win:0,roundWin:0,final:null,
+    lang:opts.lang==='de'?'de':'en',rs:z(),bank:z(),called:'',puzzle:null,used:(opts.seen||[]).filter(x=>Number.isInteger(x)&&x>=0).slice(),lv:null,angle:0,moves:0,fx:null,over:false,win:0,roundWin:0,final:null,
     stats:{spins:z(),bankrupt:z(),lose:z(),vowels:z(),hits:z(),misses:z(),solved:z(),wrongSolve:z(),best:z(),rounds:z(),earned:z()}};
   for(let i=0;i<7;i++)wsRand(ws);   // warm up so close seeds do not give close first spins
   wsStartRound(ws);
@@ -21560,8 +21560,19 @@ function wsOptionsHTML(){
     <div class="panel-lbl" style="margin-top:.6rem;">${T('optRounds')}</div><div class="hr-grid">${[[2,'opt2','opt2d'],[3,'opt3','opt3d'],[4,'opt4','opt4d']].map(([k,n,d])=>tog('ws-rounds',k,T(n),T(d),r===k)).join('')}</div>
     <div class="panel-lbl" style="margin-top:.6rem;">${T('optPuz')}</div><div class="hr-grid">${[[0,'optMixed','optMixedD'],[1,'optEasy','optEasyD'],[2,'optMed','optMedD'],[3,'optHard','optHardD']].map(([k,n,d])=>tog('ws-level',k,T(n),T(d),l===k)).join('')}</div></div>`;
 }
+/* PUZZLES NEVER REPEAT: every phrase this device has shown is remembered (by its text, per language) and left out of the next games
+   until nearly the whole list has been seen; only then the memory starts again. */
+function wsLib(lang){return lang==='de'?(typeof WS_PUZZLES_DE!=='undefined'?WS_PUZZLES_DE:[]):(typeof WS_PUZZLES!=='undefined'?WS_PUZZLES:[]);}
+function wsSeenKey(lang){return 'ct_ws_seen_'+(lang==='de'?'de':'en');}
+function wsSeenList(lang){try{const l=JSON.parse(localStorage.getItem(wsSeenKey(lang))||'[]');return Array.isArray(l)?l:[];}catch(e){return[];}}
+function wsSeenIdx(lang){const lib=wsLib(lang);let l=wsSeenList(lang);
+  if(l.length>=lib.length-45){l=[];try{localStorage.setItem(wsSeenKey(lang),'[]');}catch(e){}}
+  const m=new Map();lib.forEach((p,i)=>m.set(p[2],i));return l.map(t=>m.get(t)).filter(i=>i!=null);}
+function wsRecordSeen(ws){
+  try{if(!ws||!ws.puzzle||ws.puzzle.i<0)return;const l=wsSeenList(ws.lang);if(l.indexOf(ws.puzzle.t)<0){l.push(ws.puzzle.t);localStorage.setItem(wsSeenKey(ws.lang),JSON.stringify(l));}}catch(e){}
+}
 function wsNewGame(n,first){
-  return wsStart(wsNew(n,{rounds:wsRounds(),diff:wsLevel(),lang:wsLang(),seed:Date.now()*7+Math.floor(Math.random()*1000003)}),first||1);
+  return wsStart(wsNew(n,{rounds:wsRounds(),diff:wsLevel(),lang:wsLang(),seen:wsSeenIdx(wsLang()),seed:Date.now()*7+Math.floor(Math.random()*1000003)}),first||1);
 }
 function wsResetView(){G.wsSeq=null;G.wsDisp=null;G.wsMode='';G.wsPick='';G.wsPicks='';G.wsText='';G.wsLastR=null;G.wsShown={};G.wsFtSent=0;if(G.wsClockT){clearInterval(G.wsClockT);G.wsClockT=null;}}
 /* ── WORDSPIN: the wheel (drawn in SVG) ── */
@@ -21789,6 +21800,7 @@ function rWordspinTable(){
   const players=online?(state&&state.players||[]):G.lp;
   const ws=(online?state&&state.ws:G.ws)||wsNew(players.length||2,{seed:1});
   const T=wsTx(ws);
+  wsRecordSeen(ws);
   if(G.wsSeedFor!==ws.seed){G.wsSeedFor=ws.seed;G.wsShown={};G.wsDisp=null;G.wsMode='';G.wsPick='';G.wsPicks='';G.wsText='';G.wsLastR=null;G.wsSeq=null;}
   const seq=G.wsSeq,fx=seq&&seq.fx;
   const seat=ws.cur,p=players[seat-1]||{name:'—',avatar:null};
