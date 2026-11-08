@@ -729,7 +729,7 @@ function tmBannerHTML(tm,players){
     if(top)return`<div class="tm-banner">EIN WISSENSSIEG!</div>`;
     return'';   // Wiz says right or wrong himself
   }
-  if(tm.act===2){const got=fx.seats.filter(o=>o.seal);return got.length?`<div class="tm-banner">${tmIco('seal','inl big')} WISSENSSIEGEL!</div>`:`<div class="tm-banner bad">KEIN SIEGEL</div>`;}
+  if(tm.act===2)return'';   // Wiz says it
   const esc_=fx.seats.findIndex(o=>o.escaped),cau=fx.seats.findIndex(o=>o.caught);
   if(esc_>=0)return`<div class="tm-banner">${nm(esc_).toUpperCase()} IST ENTKOMMEN!</div>`;
   if(cau>=0)return`<div class="tm-banner hot">DER CHASER HAT ${nm(cau).toUpperCase()} ERWISCHT!</div>`;
@@ -750,11 +750,11 @@ function tmRevealAllHTML(tm,players){
 function tmStageHTML(tm,players,me,padHasQ){
   const fx=tm.phase==='reveal'?tm.fx:null;
   let body='';
-  if(tm.duel)body=`<div class="tm-card" style="text-align:center"><div class="tm-title">${tmIco('duel','inl big')} DAS DUELL</div><div class="tm-sub"><b>${tm.duel.map(x=>esc(players[x-1].name)).join('</b> gegen <b>')}</b> — eine schwere Frage, ${tmEur(TM_CFG.duelPrize)} für den Sieger. Bei zwei richtigen Antworten gewinnt, wer schneller war.</div></div>`;
+  if(tm.duel)body=`<div class="tm-sub" style="text-align:center"><b>${tm.duel.map(x=>esc(players[x-1].name)).join('</b> gegen <b>')}</b></div>`;
   else if(tm.act===1)body=tmLadderHTML(tm,players);
   else if(tm.act===2){
     if(tm.phase==='pick')body='';
-    else body=`<div class="tm-qchips">${players.slice(0,tm.P).map((p,i)=>tm.pick[i]!=null?`<span class="tm-chip gold">${esc(p.name)}: ${tmEmb(tm.pick[i],'xs')} ${esc(TM_CATS[tm.pick[i]].short)}</span>`:'').join('')}</div>`;
+    else body='';
   }else{
     body=tmChaserHTML(tm)+(tm.phase==='offer'?`<div class="tm-sub">Jeder wählt heimlich sein Angebot.</div>`:tmLanesHTML(tm,players,me));
     if((tm.phase==='ask'||tm.phase==='reveal')&&!padHasQ){
@@ -999,7 +999,7 @@ function tmWizSay(tm,players){
 function tmHostHTML(tm,players,askText,verdict){
   const pose=tmWizPose(tm),hop=G.tmPose!=null&&G.tmPose!==pose;G.tmPose=pose;
   const big=tm.over||pose===6||(tm.phase==='reveal'&&tm.fx&&(tm.fx.duel||(tm.act===3&&tm.fx.seats.some(o=>o.escaped||o.caught))||(tm.act===2&&tm.fx.seats.some(o=>o.seal))));
-  return`<div class="tm-host${big?' big':''}${askText?' ask':''}"><img class="tm-wiz${hop?' hop':''}" src="${wizSrc(pose)}" alt="Wiz" width="64" height="64"><div class="tm-say"><small>WIZ</small>${askText?`<span class="tm-wq">${esc(askText)}</span>`:(verdict?`<b class="tm-verd ${verdict.ok?'ok':'bad'}">${verdict.t}</b> `:'')+tmWizSay(tm,players)}</div></div>`;
+  return`<div class="tm-host${big?' big':''}${askText?' ask':''}"><img class="tm-wiz${hop?' hop':''}" src="${wizSrc(pose)}" alt="Wiz" width="64" height="64"><div class="tm-say"><small>WIZ</small>${askText?`<span class="tm-wq">${esc(askText)}</span>`:(verdict?`<b class="tm-verd ${verdict.ok?'ok':'bad'}">${verdict.t}</b> ${verdict.x||''}`:tmWizSay(tm,players))}</div></div>`;
 }
 function rTablemindTable(){
   const tm=tmObj();
@@ -1013,6 +1013,7 @@ function rTablemindTable(){
     if(vs){const o=tm.fx.seats[vs-1];if(o&&!o.skip)verdict=o.ok?{ok:1,t:'Richtig!'}:tm.res[vs-1]==='late'?{ok:0,t:'Zeit abgelaufen!'}:{ok:0,t:'Leider falsch.'};}
     else if(tm.act===1){const any=tm.fx.seats.some(o=>o.ok);verdict=any?{ok:1,t:'Richtig!'}:{ok:0,t:'Leider falsch.'};}
   }
+  if(verdict&&tm.act===2){const g=tm.fx.seats.findIndex(o=>o.seal);verdict.x=g>=0?'Siegel für '+esc((players[g]||{}).name||'')+'.':'Kein Siegel.';}
   let askText='';if(tm.phase==='ask'&&pad.indexOf('tm-qcard')>=0){const mq=me&&tm.q[me-1];if(mq)askText=tmQ(tm,mq).text;}
   const showIntro=G.tmIntro===tm.seed&&Date.now()<tm.dl&&tm.moves===0&&tm.act===1&&tm.cycle===1;
   const actTxt=tm.act===1?`Frage ${Math.min(tm.cycle,TM_CFG.cycles1)} von ${TM_CFG.cycles1}`:tm.act===2?`Siegel ${tm.round2} von ${TM_CFG.sealRounds}`:`Jagd · Frage ${(tm.hunt?tm.hunt.n:0)+(tm.phase==='ask'?1:0)}`;
