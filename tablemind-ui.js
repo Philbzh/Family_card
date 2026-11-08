@@ -273,6 +273,19 @@ body:has(.react-strip) .peer-think{bottom:calc(9rem + env(safe-area-inset-bottom
 .tm-chm{width:100%;height:100%;max-width:1.5rem;max-height:1.5rem;border-radius:50%;object-fit:cover;object-position:50% 20%;border:1px solid #ff9a8a;}
 .tm-chaser{background:linear-gradient(90deg,rgba(0,0,0,.78),rgba(0,0,0,.35)),url(assets/games/tm_ch_loom.jpg) right center/cover no-repeat;border-radius:16px;border:1px solid rgba(255,120,90,.35);padding:.5rem 1rem!important;}
 @media(min-width:900px){.tm-emb.lg{width:3.6rem;height:3.6rem;}.tm-chimg{width:6rem;height:6rem;}}
+/* ===== stage pictures (sheet 2): one backdrop per act, ornate question frame, gold ribbon banners ===== */
+#s-table.game-tablemind.tm-bg-act1.scr{background:linear-gradient(180deg,rgba(4,18,12,.5),rgba(4,18,12,.9) 64%,#04120c),url(assets/games/tm_bg_act1.jpg) center top/cover no-repeat,#04120c;}
+#s-table.game-tablemind.tm-bg-act2.scr{background:linear-gradient(180deg,rgba(4,18,12,.5),rgba(4,18,12,.9) 64%,#04120c),url(assets/games/tm_bg_act2.jpg) center top/cover no-repeat,#04120c;}
+#s-table.game-tablemind.tm-bg-act3.scr{background:linear-gradient(180deg,rgba(4,10,8,.45),rgba(4,10,8,.9) 62%,#030806),url(assets/games/tm_bg_act3.jpg) center top/cover no-repeat,#030806;}
+#s-table.game-tablemind.tm-bg-duel.scr{background:linear-gradient(180deg,rgba(4,18,12,.45),rgba(4,18,12,.9) 62%,#04120c),url(assets/games/tm_bg_duel.jpg) center top/cover no-repeat,#04120c;}
+#s-table.game-tablemind.tm-bg-over.scr{background:linear-gradient(180deg,rgba(4,18,12,.35),rgba(4,18,12,.85) 66%,#04120c),url(assets/games/tm_bg_victory.jpg) center top/cover no-repeat,#04120c;}
+.tm-intro{background:linear-gradient(180deg,rgba(3,12,8,.35),rgba(3,12,8,.88)),url(assets/games/tm_bg_opening.jpg) center/cover no-repeat,#04120c!important;}
+.tm-titlecard{background:linear-gradient(180deg,rgba(3,12,8,.55),rgba(3,12,8,.9)),url(assets/games/tm_bg_opening.jpg) center/cover no-repeat,#04120c!important;}
+.tm-qcard{border:18px solid transparent!important;border-image:url(assets/games/tm_ui_qframe.png) 64 70 fill / 18px stretch!important;background:linear-gradient(180deg,rgba(14,52,38,.9),rgba(4,18,12,.94))!important;box-shadow:0 14px 30px -14px #000!important;padding:.3rem .5rem .6rem!important;}
+@media(min-width:760px){.tm-qcard{border-width:26px!important;border-image-width:26px!important;padding:.4rem .7rem .8rem!important;}}
+.tm-banner{display:flex;align-items:center;justify-content:center;gap:.4rem;min-height:3.4rem;padding:.2rem 0 .35rem;border-style:solid;border-width:0 27px;border-color:transparent;border-image:url(assets/games/tm_ui_ribbon.png) 0 80 0 80 fill / 0 27px 0 27px stretch;color:#3a2100!important;text-shadow:0 1px 0 rgba(255,244,190,.7)!important;font-size:clamp(1rem,4.2vw,1.45rem)!important;letter-spacing:.07em;filter:drop-shadow(0 6px 10px rgba(0,0,0,.5));}
+.tm-banner.bad{color:#5b0f1e!important;}.tm-banner.hot{color:#4a1236!important;}
+.tm-banner .tm-ico{filter:none;}
 .tm-foot{display:flex;gap:.5rem;justify-content:center;margin-top:.4rem;}
 .tm-opt{display:flex;gap:.4rem;flex-wrap:wrap;justify-content:center;align-items:center;margin:.4rem 0;font-size:.78rem;color:var(--paper2,#d8cfbd);}
 .tm-opt button{padding:.3rem .7rem;border-radius:999px;border:1px solid rgba(201,164,92,.5);background:rgba(29,83,54,.4);color:inherit;font:inherit;cursor:pointer;}
@@ -721,7 +734,7 @@ function tmQuestionPad(tm,me,players){
     const head=!o||o.skip?'':o.ok?`<div class="tm-banner">RICHTIG!</div>`:tm.res[i]==='late'?`<div class="tm-banner bad">ZEIT ABGELAUFEN</div>`:`<div class="tm-banner bad">LEIDER FALSCH</div>`;
     res=head+`<div class="tm-expl">${esc(q.expl)}</div>`+tmNextHTML(tm,me,players)+`<button class="tm-flag" data-a="tmflag" data-i="${qq.i}">⚑ Frage melden</button>`;
   }
-  return`<div class="tm-card">${chips}${locked||rev?'':'<div class="tm-timer"><b>--</b><i></i></div>'}${hc}<div class="tm-q">${esc(q.text)}</div><div class="tm-ans">${answers}</div>${extra}${res}</div>`;
+  return`<div class="tm-card tm-qcard">${chips}${locked||rev?'':'<div class="tm-timer"><b>--</b><i></i></div>'}${hc}<div class="tm-q">${esc(q.text)}</div><div class="tm-ans">${answers}</div>${extra}${res}</div>`;
 }
 
 /* who has locked in? small chips with a tick, instead of a vague "waiting" line */
@@ -931,7 +944,7 @@ function rTablemindTable(){
   const showIntro=G.tmIntro===tm.seed&&Date.now()<tm.dl&&tm.moves===0&&tm.act===1&&tm.cycle===1;
   const actTxt=tm.act===1?`Frage ${Math.min(tm.cycle,TM_CFG.cycles1)} von ${TM_CFG.cycles1}`:tm.act===2?`Siegel ${tm.round2} von ${TM_CFG.sealRounds}`:`Jagd · Frage ${(tm.hunt?tm.hunt.n:0)+(tm.phase==='ask'?1:0)}`;
   queueMicrotask(tmPostRender);
-  return`<div id="s-table" class="scr on game-tablemind an-${an}${tmTextMode()?' tx-'+tmTextMode():''}">
+  return`<div id="s-table" class="scr on game-tablemind an-${an} tm-bg-${tm.over?'over':tm.duel?'duel':'act'+tm.act}${tmTextMode()?' tx-'+tmTextMode():''}">
     <div class="game-bar"><div class="gb-game"><span class="tm-logo">TABLE MIND</span></div><div class="gb-turn tm-bartitle"><span><b>AKT ${['','I','II','III'][tm.act]}</b> · ${TM_ACT_NAMES[tm.act]}</span><small>${esc(actTxt)}</small></div><div class="gb-right"><button class="ico-btn tm-animbtn tm-aa" data-a="tmtext" aria-label="Textgröße und Kontrast" title="Textgröße und Kontrast">Aa</button><button class="ico-btn tm-animbtn" data-a="tmanim" aria-label="Animation: ${an==='full'?'voll':an==='light'?'leicht':'aus'}" title="Animation: ${an==='full'?'voll':an==='light'?'leicht':'aus'}">${an==='off'?'⏸':an==='light'?'✨':'🎬'}</button>${rulesBtn()}${quitBtn()}${sndBtn()}</div></div>
     <div class="tm-main ${tm.act===3&&tm.phase!=='offer'?'':'split'}">
       <div class="tm-actline"><b>AKT ${['','I','II','III'][tm.act]}</b> · ${TM_ACT_NAMES[tm.act]} · ${esc(actTxt)}</div>
