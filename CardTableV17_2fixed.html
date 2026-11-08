@@ -6389,7 +6389,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=380;
+const APP_BUILD=381;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -21423,6 +21423,11 @@ function wsRoundWin(ws,seat){
   return got;
 }
 function wsLeader(ws){let b=0;for(let i=1;i<ws.P;i++)if(ws.bank[i]>ws.bank[b])b=i;return b+1;}
+function wsFinalist(ws){
+  const L=wsLeader(ws);let b=0;
+  for(let s=1;s<=ws.P;s++){if(s===L)continue;if(!b||ws.bank[s-1]>ws.bank[b-1])b=s;}
+  return(b&&ws.bank[L-1]-ws.bank[b-1]<WS_FINAL_PRIZE)?b:L;
+}
 function wsFinish(ws,solved){
   const f=ws.final;f.solved=!!solved;
   if(solved){ws.bank[f.leader-1]+=WS_FINAL_PRIZE;ws.stats.solved[f.leader-1]++;ws.stats.earned[f.leader-1]+=WS_FINAL_PRIZE;}
@@ -21482,7 +21487,7 @@ function wsApply(ws,seat,act,now){
       ws.round++;ws.starter=ws.starter%ws.P+1;wsStartRound(ws);
       ws.fx={kind:'round',seat:ws.cur,round:ws.round};return ws.fx;
     }
-    const leader=wsLeader(ws),fp=wsPick(ws,2,3);
+    const leader=wsFinalist(ws),fp=wsPick(ws,2,3);   // the runner-up plays when the prize could still change the result, otherwise it is the leader's victory lap
     ws.puzzle=fp;ws.called=WS_FINAL_GIVEN;ws.rs=ws.rs.map(()=>0);ws.cur=leader;ws.phase='fpick';ws.lv=null;ws.roundWin=0;
     ws.final={leader,picks:'',deadline:0,solved:false};
     ws.fx={kind:'final',seat:leader};return ws.fx;
@@ -21518,11 +21523,13 @@ function wsMoment(ws,names){
     if(f&&f.solved&&f.leader===w)return `${nm} hat das Finalrätsel gelöst und die Krone geholt`;
     if(f&&!f.solved&&f.leader===w)return `${nm} hat die Führung durch das Finalrätsel gerettet`;
     if(f&&f.solved)return `${names[f.leader-1]||'Der Führende'} löste das Finale, aber ${nm} gewann trotzdem`;
+    if(f&&!f.solved)return `${names[f.leader-1]||'Der Zweite'} verpasste im Finale die Krone — ${nm} gewinnt`;
     return `${nm} gewinnt WORDSPIN`;
   }
   if(f&&f.solved&&f.leader===w)return `${nm} solved the final puzzle and took the crown`;
   if(f&&!f.solved&&f.leader===w)return `${nm} held on to the lead through the final puzzle`;
   if(f&&f.solved)return `${names[f.leader-1]||'The leader'} solved the final, but ${nm} still came out on top`;
+  if(f&&!f.solved)return `${names[f.leader-1]||'The runner-up'} missed the crown in the final — ${nm} wins`;
   return `${nm} won WORDSPIN`;
 }
 // Computer players. level: 'gentle' (default) or 'sharp'. r is a random function (tests pass a fixed one).
