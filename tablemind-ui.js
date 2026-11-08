@@ -853,13 +853,24 @@ function tmWizPose(tm){
   const fx=tm.phase==='reveal'?tm.fx:null;
   if(fx&&fx.duel)return fx.duel.w?2:3;
   if(fx){
-    if(tm.act===1)return fx.seats.some(o=>o.top)?6:fx.seats.some(o=>o.ok)?2:3;
+    if(tm.act===1){
+      if(fx.seats.some(o=>o.top))return 6;
+      if(fx.seats.some(o=>o.gold))return'rich';
+      if(fx.seats.some(o=>o.bonus))return'applause';
+      return fx.seats.some(o=>o.ok)?2:3;
+    }
     if(tm.act===2)return fx.seats.some(o=>o.seal)?2:3;
-    if(fx.seats.some(o=>o.escaped))return 2;
+    if(fx.seats.some(o=>o.escaped))return'laugh';
     if(fx.seats.some(o=>o.caught))return 3;
-    return fx.ch&&fx.ch.mv>0?5:2;
+    return fx.ch&&fx.ch.mv>0?'tense':2;
   }
-  if(tm.phase==='ask'||tm.phase==='decide')return 4;
+  if(tm.phase==='ask'){
+    if(tm.duel)return'ready';
+    if(tm.act===1&&tm.cycle===tm.gold)return'rich';
+    return 4;
+  }
+  if(tm.phase==='decide')return'smug';
+  if(tm.phase==='pick'||tm.phase==='offer')return'detective';
   return 1;
 }
 function tmWizSay(tm,players){
@@ -893,7 +904,7 @@ function tmWizSay(tm,players){
 function tmHostHTML(tm,players){
   const pose=tmWizPose(tm),hop=G.tmPose!=null&&G.tmPose!==pose;G.tmPose=pose;
   const big=tm.over||pose===6||(tm.phase==='reveal'&&tm.fx&&(tm.fx.duel||(tm.act===3&&tm.fx.seats.some(o=>o.escaped||o.caught))||(tm.act===2&&tm.fx.seats.some(o=>o.seal))));
-  return`<div class="tm-host${big?' big':''}"><img class="tm-wiz${hop?' hop':''}" src="assets/games/ws_owl_${pose}.jpg" alt="Wiz" width="64" height="64"><div class="tm-say"><small>WIZ</small>${tmWizSay(tm,players)}</div></div>`;
+  return`<div class="tm-host${big?' big':''}"><img class="tm-wiz${hop?' hop':''}" src="${wizSrc(pose)}" alt="Wiz" width="64" height="64"><div class="tm-say"><small>WIZ</small>${tmWizSay(tm,players)}</div></div>`;
 }
 function rTablemindTable(){
   const tm=tmObj();

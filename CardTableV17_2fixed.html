@@ -6389,7 +6389,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=340;
+const APP_BUILD=341;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -21716,18 +21716,23 @@ function wsLang(){let v='en';try{v=localStorage.getItem('ct_ws_lang')||'en';}cat
 function wsCurLang(){const ws=G.isOnline?(G.srv&&G.srv.ws):G.ws;return ws&&ws.lang?ws.lang:wsLang();}
 const WS_CAT_IC={'Food & Drink':0,'Places':1,'Phrases':2,'Things':3,'Nature':4,'Animals':5,'Sport & Games':6,'People & Jobs':7,'Travel':8,'At Home':9,'Wonders & Words':10,'Essen & Trinken':0,'Orte':1,'Redewendungen':2,'Dinge':3,'Natur':4,'Tiere':5,'Sport & Spiele':6,'Menschen & Berufe':7,'Reisen':8,'Zuhause':9,'Wunder & Wörter':10,'Sprichwörter':2,'Märchen & Fantasie':10};
 // Which of Wiz's six poses fits the moment (1 welcome, 2 cheering, 3 shocked, 4 thinking, 5 wink, 6 champion)? Worked out from the game state, so every device shows the same one.
+function wizSrc(p){return typeof p==='number'?'assets/games/ws_owl_'+p+'.jpg':'assets/games/wiz_'+p+'.jpg';}   // Wiz's pictures: 1-6 are the first sheet, the names are the second sheet (laugh sad hope dizzy ready applause smug rich sleepy detective tense bow)
 function wsHostPose(ws,spinning){
   if(ws.over)return 6;
-  if(spinning)return 5;
+  if(spinning)return'ready';
   if(ws.phase==='roundend')return 2;
   const f=ws.fx;
   if(f){
-    if(f.kind==='spin'&&f.seg==='bankrupt')return 3;
-    if((f.kind==='solve'&&!f.ok)||((f.kind==='letter'||f.kind==='vowel')&&!f.hit&&!f.free)||f.kind==='ftime')return 3;
-    if(f.kind==='spin'&&f.seg==='lose')return 5;
+    if(f.kind==='spin'&&f.seg==='bankrupt')return'sad';
+    if(f.kind==='solve'&&!f.ok)return'dizzy';
+    if(f.kind==='ftime')return'sad';
+    if((f.kind==='letter'||f.kind==='vowel')&&!f.hit&&!f.free)return 3;
+    if(f.kind==='spin'&&f.seg==='lose')return'sleepy';
+    if((f.kind==='letter'||f.kind==='vowel')&&f.hit)return'applause';
   }
-  if(ws.phase==='letter'||ws.phase==='fpick'||ws.phase==='fsolve')return 4;
-  return ws.moves===0?1:1;
+  if(ws.phase==='fsolve')return'tense';
+  if(ws.phase==='letter'||ws.phase==='fpick')return 4;
+  return 1;
 }
 function wsHintText(ws,p,mine,seq){
   const T=wsTx(ws),nm=`<b>${esc(p.name)}</b>`;
@@ -21812,7 +21817,7 @@ function rWordspinTable(){
   const pose=wsHostPose(ws,!!seq),hop=G.wsPose!==pose&&G.wsPose!=null;G.wsPose=pose;
   const hintTxt=wsHintText(ws,p,mine&&!botTurn,seq);
   const quip=seq?'':wsQuip(ws,players.map(q=>q.name));
-  const hostHTML=`<img class="ws-host${hop?' hop':''}" src="assets/games/ws_owl_${pose}.jpg" alt="" width="60" height="60">`;
+  const hostHTML=`<img class="ws-host${hop?' hop':''}" src="${wizSrc(pose)}" alt="" width="60" height="60">`;
   const catIc=WS_CAT_IC[ws.puzzle.c];
   return`<div id="s-table" class="scr on game-wordspin ws-v-${view}">
     <div class="game-bar">
