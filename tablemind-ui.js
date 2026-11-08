@@ -67,7 +67,17 @@
 .tm-hct{font:700 .72rem/1 var(--serif,Georgia,serif);letter-spacing:.14em;text-transform:uppercase;color:var(--tg,#c9a45c);text-align:center;margin-bottom:.4rem;}
 .tm-hcrow{display:flex;gap:.35rem;align-items:center;justify-content:center;flex-wrap:wrap;margin:.25rem 0;font-size:.8rem;}.tm-hcrow>span{min-width:4.5rem;text-align:right;color:var(--paper2,#d8cfbd);}
 .tm-hcrow button{padding:.3rem .75rem;border-radius:999px;border:1px solid rgba(201,164,92,.5);background:rgba(29,83,54,.4);color:inherit;font:inherit;cursor:pointer;}.tm-hcrow button.on{background:linear-gradient(180deg,#f3deaa,#c9a45c);color:#1a2a1d;font-weight:700;}
-/* the step row: small and calm */
+/* the step row: a thin strip, amount and tiny player dots on ONE line */
+.tm-stage .tm-lad{gap:.2rem!important;}
+.tm-lad .tm-rung{flex-direction:row!important;justify-content:center!important;align-items:center!important;gap:.25rem!important;padding:.12rem .2rem!important;min-height:0!important;height:1.5rem!important;border-radius:999px!important;border-bottom-width:1px!important;}
+.tm-lad .tm-rung b{font-size:.68rem!important;}
+.tm-lad .tm-rung .who{min-height:0!important;gap:.05rem!important;}.tm-lad .tm-rung .who .av-img{width:.8rem!important;height:.8rem!important;}
+/* (older rules of the step row follow, kept for the narrow layouts) */
+.tm-left{margin-top:1.2rem!important;}
+@media(min-width:760px) and (orientation:landscape){.tm-left{margin-top:0!important;}}
+.tm-stage .tm-lad{margin:.2rem 0 .2rem!important;}
+.tm-nextwrap{margin-top:.7rem;margin-bottom:.4rem;}
+.tm-main{padding-left:max(1rem,4vw)!important;padding-right:max(1rem,4vw)!important;}
 .tm-stage .tm-lad{gap:.25rem!important;}
 .tm-lad .tm-rung{padding:.18rem .15rem!important;gap:.1rem!important;font-size:.7rem!important;border-radius:8px!important;min-height:0!important;line-height:1.1!important;}
 .tm-lad .tm-rung b{font-size:.72rem!important;letter-spacing:.04em;}
