@@ -83,6 +83,17 @@
 .tm-lad .tm-rung b{font-size:.72rem!important;letter-spacing:.04em;}
 .tm-lad .tm-rung .who{min-height:.9rem!important;}.tm-lad .tm-rung .who .av-img{width:.9rem!important;height:.9rem!important;}
 .tm-lad .tm-rung.on{transform:none!important;box-shadow:0 0 8px rgba(233,196,106,.45)!important;}
+/* round 2 (review): readable questions, clear right/wrong marks, bigger small print */
+#s-table .tm-wq{font-family:Georgia,'Times New Roman',serif!important;font-weight:600;font-size:1.2rem!important;line-height:1.3;text-transform:none!important;letter-spacing:0!important;font-variant:normal!important;}
+@media(min-width:760px){#s-table .tm-wq{font-size:1.6rem!important;}}
+#s-table .tm-q{font-family:Georgia,'Times New Roman',serif!important;text-transform:none!important;letter-spacing:0!important;font-variant:normal!important;}
+#s-table .tm-a{font-size:1.05rem;min-height:3.4rem;overflow-wrap:break-word!important;word-break:normal!important;hyphens:manual;}
+@media(max-width:459px){#s-table .tm-a{font-size:.95rem;padding:.5rem .55rem;gap:.45rem;}#s-table .tm-a .tm-l{width:1.6rem;height:1.6rem;font-size:.85rem;}}
+#s-table .tm-a.cor::after{content:'¹3';margin-left:auto;font-weight:800;font-size:1.2em;color:#9af0b4;}
+#s-table .tm-a.wrg::after{content:'¹7';margin-left:auto;font-weight:800;font-size:1.2em;color:#ffb0a6;}
+#s-table .tm-a.dim{opacity:.35;}
+#s-table .tm-state,#s-table .tm-pod .tm-state{font-size:.74rem!important;color:#c9bf9c!important;}
+.game-tablemind .react-strip .rb{width:2.75rem!important;height:2.75rem!important;}
 .tm-btn.next{width:auto;min-width:9rem;padding:.5rem 1.3rem;font-size:.9rem;border-radius:999px;}
 .tm-row:has(.tm-btn.next){justify-content:flex-end;}
 .tm-btn[disabled]{opacity:.4;pointer-events:none;}
@@ -902,17 +913,17 @@ function tmPickPad(tm,me,players){
 }
 function tmOfferPad(tm,me,players){
   const i=me-1;
-  if(tm.offer[i]!=null){const o=TM_OFFER_INFO[tm.offer[i]];return`<div class="tm-card tm-wait"><div class="tm-title">Bestätigt ✓</div><div class="tm-offer ${tm.offer[i]} sel" style="max-width:15rem;margin:.3rem auto;cursor:default"><h4>${o.n}</h4><span class="big">×${o.m}</span><b>${o.h}</b></div>${tmWaitList(tm,players,me)}</div>`;}
+  if(tm.offer[i]!=null){const o=TM_OFFER_INFO[tm.offer[i]];return`<div class="tm-card tm-wait"><div class="tm-title">Bestätigt ✓</div><div class="tm-offer ${tm.offer[i]} sel" style="max-width:15rem;margin:.3rem auto;cursor:default"><h4>${o.n}</h4><span class="big">${tmEur(TM_CFG.escapeBase*o.m)}</span><b>${o.h}</b></div>${tmWaitList(tm,players,me)}</div>`;}
   const n=tmSealCount(tm,me),bonus=[];
   if(n>=1)bonus.push('+1 Feld Vorsprung');if(n>=2)bonus.push('Schutzschild');
   return`<div class="tm-card"><div class="tm-title">DIE JAGD — DEIN ANGEBOT</div><div class="tm-timer"><b>--</b><i></i></div>
     ${bonus.length?'<div class="tm-sub">Siegel-Bonus: <b>'+bonus.join(', ')+'</b></div>':''}
-    <div class="tm-offers">${['safe','std','risk'].map(k=>{const o=TM_OFFER_INFO[k];return`<button class="tm-offer ${k}" data-a="tmoffer" data-k="${k}"><h4>${o.n}</h4><span class="big">×${o.m}</span><b>${o.h}</b></button>`;}).join('')}</div></div>`;
+    <div class="tm-offers">${['safe','std','risk'].map(k=>{const o=TM_OFFER_INFO[k];return`<button class="tm-offer ${k}" data-a="tmoffer" data-k="${k}"><h4>${o.n}</h4><span class="big">${tmEur(TM_CFG.escapeBase*o.m)}</span><b>${o.h}</b></button>`;}).join('')}</div></div>`;
 }
 function tmPassHTML(tm,players,v){
   const p=players[v.seat-1];
   const what=v.mode==='vote'?'Du gibst einen Tipp für den Rat ab.':v.mode==='ask'?'Die Frage wartet auf dich.':v.mode==='decide'?'Du musst dich entscheiden.':v.mode==='pick'?'Du wählst deine Welt.':'Du wählst dein Angebot.';
-  return`<div class="tm-card tm-pass"><div class="tm-av" style="font-size:2rem">${avHTML(p.avatar)}</div><div class="who">${esc(p.name)}</div><button class="tm-btn big" data-a="tmready">LOS</button></div>`;
+  return`<div class="tm-card tm-pass"><div class="tm-sub">Gib das Gerät an</div><div class="tm-av" style="font-size:2rem">${avHTML(p.avatar)}</div><div class="who">${esc(p.name)}</div><button class="tm-btn big" data-a="tmready">LOS</button></div>`;
 }
 function tmPadHTML(tm,players,me){
   if(tm.over)return`<div class="tm-card tm-wait"><div class="tm-title">TABLE MIND ENTSCHIEDEN</div>Die Ergebnisse folgen …</div>`;
@@ -1023,6 +1034,7 @@ function rTablemindTable(){
   return`<div id="s-table" class="scr on game-tablemind an-${an} tm-bg-${tm.over?'over':tm.duel?'duel':'act'+tm.act}${tmTextMode()?' tx-'+tmTextMode():''}">
     <div class="game-bar"><div class="gb-game"><span class="tm-logo">TABLE MIND</span></div><div class="gb-turn tm-bartitle"><span><b>AKT ${['','I','II','III'][tm.act]}</b> · ${TM_ACT_NAMES[tm.act]}</span><small>${esc(actTxt)}</small></div><div class="gb-right"><button class="ico-btn tm-animbtn tm-aa" data-a="tmtext" aria-label="Textgröße und Kontrast" title="Textgröße und Kontrast">Aa</button><button class="ico-btn tm-animbtn" data-a="tmanim" aria-label="Animation: ${an==='full'?'voll':an==='light'?'leicht':'aus'}" title="Animation: ${an==='full'?'voll':an==='light'?'leicht':'aus'}">${an==='off'?'⏸':an==='light'?'✨':'🎬'}</button>${rulesBtn()}${quitBtn()}${sndBtn()}</div></div>
     <div class="tm-main ${tm.act===3&&tm.phase!=='offer'?'':'split'}">
+      <div class="tm-actline"><b>AKT ${['','I','II','III'][tm.act]}</b> · ${TM_ACT_NAMES[tm.act]} · ${esc(actTxt)}</div>
       ${tmPodsHTML(tm,players,me,tm.phase==='reveal'?tm.fx:null)}
       ${tmHostHTML(tm,players,askText,verdict)}
       <div class="tm-left">${tmStageHTML(tm,players,me,pad.indexOf('tm-q')>=0)}${tm.phase==='reveal'?'<div class="tm-nextwrap">'+tmNextHTML(tm,me,players)+'</div>':''}</div>
