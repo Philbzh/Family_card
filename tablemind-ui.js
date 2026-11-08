@@ -885,7 +885,7 @@ function tmIntroHTML(){
 function tmWizPose(tm){
   if(tm.over)return 6;
   const fx=tm.phase==='reveal'?tm.fx:null;
-  if(fx&&fx.duel)return fx.duel.w?2:3;
+  if(fx&&fx.duel)return fx.duel.w?'bow':3;   // the Duel winner gets a bow from Wiz
   if(fx){
     if(tm.act===1){
       if(fx.seats.some(o=>o.top))return 6;
@@ -901,6 +901,7 @@ function tmWizPose(tm){
   if(tm.phase==='ask'){
     if(tm.duel)return'ready';
     if(tm.act===1&&tm.cycle===tm.gold)return'rich';
+    if(tm.act===3)return'hope';   // in the Hunt Wiz keeps his wings crossed for the runners
     return 4;
   }
   if(tm.phase==='decide')return'smug';
