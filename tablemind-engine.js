@@ -41,6 +41,7 @@ const TM_CFG={
   huntDiff:[2,2,3,3,3,4,3,4,4,3,4,4,5,4,5,5],
   lives:{cut:0,archive:0,freeze:0,council:0},   // lifelines are retired (the engine cases stay for old rooms)
   grace:1500,
+  actCard:2700,                     // how long the act title card covers the screen: the first clock of an act starts after it
   ms:{ask1:30000,ask2:25000,ask3:22000,decide:12000,pick:15000,offer:15000,reveal:3000,revealWrong:5000,freeze:10000,council:15000},
   chasers:{
     professor:{name:'Der Professor',ic:'🎓',p:.74,dbl:.03,cat:{his:.07,wis:.07,spo:-.09,ess:-.03}},
@@ -123,7 +124,7 @@ function tmOpenDuel(tm,now){
   tmApplyEasy(tm);
   tm.dl=now+tmMs(tm,'ask1');
 }
-function tmOpenPick(tm,now){tm.act=2;tm.phase='pick';tm.round2++;tmResetAsk(tm);tm.pick=tm.pick.map(()=>null);tm.q=tm.q.map(()=>null);tm.dl=now+tmMs(tm,'pick');
+function tmOpenPick(tm,now){tm.act=2;tm.phase='pick';tm.round2++;tmResetAsk(tm);tm.pick=tm.pick.map(()=>null);tm.q=tm.q.map(()=>null);tm.dl=now+tmMs(tm,'pick')+(tm.round2===1?TM_CFG.actCard:0);   // the first choice waits out the act title card
   if(tm.round2===1)tm.life.forEach(l=>{l.cut=TM_CFG.lives.cut;l.archive=TM_CFG.lives.archive;l.freeze=TM_CFG.lives.freeze;});}
 function tmOpenAsk2(tm,now){
   // after everybody has chosen a realm, the questions come one after the other: one question per player's realm, answered by ALL at the same time.
@@ -147,7 +148,7 @@ function tmApplyEasy(tm){
     }else if(tm.hcap[s]>=0)tm.easyOn[s]=0;
   }
 }
-function tmOpenOffer(tm,now){tm.act=3;tm.phase='offer';tmResetAsk(tm);tm.q=tm.q.map(()=>null);tm.offer=tm.offer.map(()=>null);tm.dl=now+tmMs(tm,'offer');
+function tmOpenOffer(tm,now){tm.act=3;tm.phase='offer';tmResetAsk(tm);tm.q=tm.q.map(()=>null);tm.offer=tm.offer.map(()=>null);tm.dl=now+tmMs(tm,'offer')+TM_CFG.actCard;
   tm.life.forEach(l=>{l.cut=TM_CFG.lives.cut;l.archive=TM_CFG.lives.archive;l.freeze=TM_CFG.lives.freeze;});}
 function tmAmt(tm,i,lvl){return Math.round(TM_CFG.ladder[lvl]*(TM_CFG.hcapMult[String(tm.hcap[i])]||1)/50)*50;}
 function tmHDiff(tm,i,base){return Math.max(1,Math.min(5,base));}
