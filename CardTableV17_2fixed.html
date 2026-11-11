@@ -4438,7 +4438,7 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
 .ws-intro-mascot{width:min(34vw,9rem);height:auto;opacity:0;animation:ws-letter .8s ease 2.5s forwards;filter:drop-shadow(0 8px 18px rgba(0,0,0,.5));}
 .ws-res-hero{border-radius:16px;box-shadow:0 0 0 1px rgba(233,196,106,.5),0 0 26px rgba(233,196,106,.3);margin:.2rem 0 .4rem;max-width:60%;height:auto;}
 .game-wordspin>*{position:relative;z-index:1;}
-#s-table.game-wordspin.tm-react-host{position:relative;}
+#s-table.game-wordspin{position:relative;}
 .game-wordspin .game-bar{background:linear-gradient(180deg,rgba(7,11,31,.92),rgba(7,11,31,.6));border-bottom:1px solid rgba(233,196,106,.35);}
 .ws-strip{display:flex;gap:.45rem;justify-content:center;flex-wrap:wrap;padding:.55rem .6rem .2rem;}
 .ws-plate{display:flex;flex-direction:column;align-items:center;gap:.05rem;min-width:5.2rem;padding:.3rem .65rem .35rem;border-radius:14px;
@@ -6414,7 +6414,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=388;
+const APP_BUILD=389;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -21883,7 +21883,7 @@ function rWordspinTable(){
   const quip=seq?'':wsQuip(ws,players.map(q=>q.name));
   const hostHTML=`<img class="ws-host${hop?' hop':''}" src="${wizSrc(pose)}" alt="" width="60" height="60">`;
   const catIc=WS_CAT_IC[ws.puzzle.c];
-  return`<div id="s-table" class="scr on game-wordspin tm-react-host ws-v-${view}${(G.wsMode==='solve'||ws.phase==='fsolve')?' ws-solving':''}">
+  return`<div id="s-table" class="scr on game-wordspin ws-v-${view}${(G.wsMode==='solve'||ws.phase==='fsolve')?' ws-solving':''}">
     <div class="game-bar">
       <div class="gb-game"><img class="ws-bar-ic" src="assets/games/ws_emblem.png" alt="" width="24" height="24"> <span class="cr-gbn">WORDSPIN</span></div>
       <div class="gb-turn p${seq?fx.seat:seat}${mine&&!ws.over&&!seq?' mine':''}">${avChar(mover.avatar)} ${T("turn",esc(mover.name))}</div>
@@ -39978,7 +39978,7 @@ function render(){
   // (3.3s / 4s timers), so a re-render landing mid-flight would cut them short: an incoming
   // reaction could be wiped the same instant it appeared. Carry any still-flying ones across the
   // rebuild, exactly like the focused input above.
-  const oldFelt=appEl.querySelector('.tm-react-host,.felt-table,.dw-stage,.dw-gate,.sm-scene,.hb-stage,.vt-stage,.es-stage');
+  const oldFelt=appEl.querySelector('.tm-react-host,.game-wordspin,.felt-table,.dw-stage,.dw-gate,.sm-scene,.hb-stage,.vt-stage,.es-stage');
   const flying=oldFelt?[...oldFelt.querySelectorAll('.float-r'),...oldFelt.querySelectorAll('.talk-bubbles')]:[];
   flying.forEach(n=>n.remove());
 
@@ -40004,7 +40004,7 @@ function render(){
   // Re-home the in-flight reactions onto the freshly built felt. If this render navigated away from
   // the table there's no felt to land on and they're simply dropped, which is the right outcome.
   if(flying.length){
-    const newFelt=appEl.querySelector('.tm-react-host,.felt-table,.dw-stage,.dw-gate,.sm-scene,.hb-stage,.vt-stage,.es-stage');
+    const newFelt=appEl.querySelector('.tm-react-host,.game-wordspin,.felt-table,.dw-stage,.dw-gate,.sm-scene,.hb-stage,.vt-stage,.es-stage');
     if(newFelt)flying.forEach(n=>newFelt.appendChild(n));
   }
   document.getElementById('app-sidebar-root').innerHTML=rSidebar();
@@ -40859,7 +40859,7 @@ let _reactStormTimes=[];
 // A few reactions move a little in their own way while they float (the class animates an inner span, so the rise is untouched).
 const REACTION_MOTION={'😱':'fr-shock','😂':'fr-shake','🔥':'fr-flame','👀':'fr-look','💀':'fr-skull','😏':'fr-smirk','💥':'fr-boom','🏆':'fr-sparkle','🤯':'fr-mind'};
 function spawnFloatEmoji(emoji){
-  const felt=document.querySelector('.tm-react-host,.felt-table,.dw-stage,.dw-gate,.sm-scene,.hb-stage,.vt-stage,.es-stage');if(!felt)return;
+  const felt=document.querySelector('.tm-react-host,.game-wordspin,.felt-table,.dw-stage,.dw-gate,.sm-scene,.hb-stage,.vt-stage,.es-stage');if(!felt)return;
   const now=Date.now();
   _reactStormTimes=_reactStormTimes.filter(t=>now-t<2200);
   _reactStormTimes.push(now);
@@ -40872,7 +40872,7 @@ function spawnFloatEmoji(emoji){
   if(isStorm)fxPulse('gold');
 }
 function spawnTalkBubble(entry){
-  const felt=document.querySelector('.tm-react-host,.felt-table,.dw-stage,.dw-gate,.sm-scene,.hb-stage,.vt-stage,.es-stage');if(!felt)return;
+  const felt=document.querySelector('.tm-react-host,.game-wordspin,.felt-table,.dw-stage,.dw-gate,.sm-scene,.hb-stage,.vt-stage,.es-stage');if(!felt)return;
   let wrap=felt.querySelector('.talk-bubbles');
   if(!wrap){wrap=document.createElement('div');wrap.className='talk-bubbles';wrap.setAttribute('role','log');wrap.setAttribute('aria-live','polite');felt.appendChild(wrap);}
   const el=document.createElement('div');el.className='talk-bubble';
