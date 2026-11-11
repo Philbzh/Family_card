@@ -1041,5 +1041,12 @@ WS_PUZZLES_DE.push(
 ["Märchen & Fantasie",1,"SANDMANN"],
 ["Märchen & Fantasie",1,"NUSSKNACKER"],
 ["Märchen & Fantasie",2,"DSCHINN"],
-["Märchen & Fantasie",3,"HEXENKESSEL"]
+["Märchen & Fantasie",3,"HEXENKESSEL"],
+["Sprichwörter",3,"GETEILTE FREUDE IST DOPPELTE FREUDE"],
+["Sprichwörter",2,"REDEN IST LEICHTER ALS HANDELN"],
+["Sprichwörter",2,"NACH REGEN KOMMT SONNENSCHEIN"],
+["Sprichwörter",1,"WER WAGT, GEWINNT"],
+["Sprichwörter",3,"MÜHSAM ERNÄHRT SICH DAS EICHHÖRNCHEN"],
+["Sprichwörter",3,"EIN SPATZ MACHT NOCH KEINEN SOMMER"],
+["Sprichwörter",3,"VIELE HÄNDE MACHEN DER ARBEIT EIN ENDE"]
 );
