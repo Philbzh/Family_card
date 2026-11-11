@@ -384,6 +384,7 @@ const TM_LIFE_INFO={cut:{n:'Der Schnitt',ic:'✂️',t:'Zwei falsche Antworten v
 const TM_LETTERS='ABCD';
 /* pictures from the master sheet: realm emblems tm_realm_0..5, lifelines tm_life_*, Chasers tm_ch_*, badges tm_seal / tm_gold / tm_duel / tm_streak, tm_gate, tm_studio */
 function tmEmb(k,cls){return`<img class="tm-emb${cls?' '+cls:''}" src="assets/games/tm_realm_${k}.png" alt="" draggable="false">`;}
+function tmStreakIco(n){const k=n>=12?'diamond':n>=9?'gold':n>=6?'silver':'bronze';return`<img class="tm-ico inl" src="assets/ui/streak_${k}.png" alt="" draggable="false">`;}
 function tmIco(n,cls){return`<img class="tm-ico${cls?' '+cls:''}" src="assets/games/tm_${n}.jpg" alt="" draggable="false">`;}
 function tmEur(n){return(n||0).toLocaleString('de-DE')+' €';}
 function tmCatName(c){return TM_CATS[c].de;}
@@ -704,7 +705,7 @@ function tmPodsHTML(tm,players,me,fx){
     else if(tm.phase==='pick')state=tm.pick[i]!=null?'gewählt ✓':'wählt…';
     else if(tm.phase==='offer')state=tm.offer[i]!=null?'gewählt ✓':'wählt…';
     else if(tm.phase==='reveal'&&o&&!o.skip){state=o.ok?'richtig':tm.res[i]==='late'?'keine Antwort':'falsch';cls=o.ok?'ok':'bad';}
-    const delta=tm.phase==='reveal'&&o&&tm.act===1&&!tm.duel?(o.ok?'+'+tmEur(o.money)+(o.bonus?' '+tmIco('streak','inl')+'+'+tmEur(o.bonus):'')+(o.gold?' '+tmIco('gold','inl')+'+'+tmEur(o.gold):''):(o.lost?'−'+tmEur(o.lost):'')):(tm.phase==='reveal'&&o&&tm.act===2&&o.side?'+'+tmEur(o.side):'');
+    const delta=tm.phase==='reveal'&&o&&tm.act===1&&!tm.duel?(o.ok?'+'+tmEur(o.money)+(o.bonus?' '+tmStreakIco(o.streak||3)+'+'+tmEur(o.bonus):'')+(o.gold?' '+tmIco('gold','inl')+'+'+tmEur(o.gold):''):(o.lost?'−'+tmEur(o.lost):'')):(tm.phase==='reveal'&&o&&tm.act===2&&o.side?'+'+tmEur(o.side):'');
     const sealNew=tm.phase==='reveal'&&o&&o.seal&&tm.act===2;
     return`<div class="tm-pod${me===s?' me':''}${lead===s?' lead':''}${sealNew||(o&&o.ok&&tm.phase==='reveal')?' pulse':''}" data-s="${s}">
       <span class="tm-av">${avHTML(p.avatar)}</span><span class="tm-nm">${esc(p.name)}</span>
@@ -1162,7 +1163,7 @@ function tmResultsHTML(){
   const players=tmPlayers(),c=TM_CFG.chasers[tm.chaser];
   const st=tmStandings(tm);
   const rows=st.map((r,k)=>{const i=r.s-1,p=players[i]||{name:'?',avatar:null},L=tm.lane[i],n=tm.stats.right[i]+tm.stats.wrong[i]+tm.stats.late[i];
-    return`<div class="tm-fin${k===0?' first':''}"><span class="rk">${k<3?`<img src="assets/ui/reward_${['gold','silver','bronze'][k]}.png" alt="${k+1}" style="width:1.7rem;height:1.7rem;object-fit:contain;vertical-align:middle">`:k+1}</span><span class="nm">${avChar(p.avatar)} ${esc(p.name)}</span><b class="tt">${tmEur(r.total)}</b><small>Konto ${tmEur(tm.bank[i])} · ${r.seals} Siegel · ${L.st==='escaped'?'entkommen':'gefangen'} · ${n?Math.round(tm.stats.right[i]/n*100):0}% richtig</small></div>`;}).join('');
+    return`<div class="tm-fin${k===0?' first':''}"><span class="rk">${k<3?`<img src="assets/ui/reward_${['gold','silver','bronze'][k]}.png" alt="${k+1}" style="width:1.7rem;height:1.7rem;object-fit:contain;vertical-align:middle">`:k+1}</span><span class="nm">${avChar(p.avatar)} ${esc(p.name)}</span><b class="tt">${tmEur(r.total)}</b><small>${tm.stats.streaks[i]?tmStreakIco(tm.stats.streaks[i]*3)+' '+tm.stats.streaks[i]+'× · ':''}Konto ${tmEur(tm.bank[i])} · ${r.seals} Siegel · ${L.st==='escaped'?'entkommen':'gefangen'} · ${n?Math.round(tm.stats.right[i]/n*100):0}% richtig</small></div>`;}).join('');
   const hero=`<div class="tm-podium"><img src="assets/games/tm_res_win.jpg" alt="" onerror="this.src='assets/games/ws_owl_6.jpg'"><div class="t">${esc((players[tm.win-1]||{}).name||'')} ist der TABLE MIND!</div></div>`;
   return`<div class="panel ws-res">${hero}<div class="tm-fins">${rows}</div><details class="tm-more"><summary>Details · Chaser: ${esc(c.name)}</summary>${tmFlaggedHTML()}${tmStrengthsHTML()}${tmLearnedHTML(tm)}</details></div>`;
 }
