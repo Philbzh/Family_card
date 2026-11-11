@@ -1162,7 +1162,7 @@ function tmResultsHTML(){
   const players=tmPlayers(),c=TM_CFG.chasers[tm.chaser];
   const st=tmStandings(tm);
   const rows=st.map((r,k)=>{const i=r.s-1,p=players[i]||{name:'?',avatar:null},L=tm.lane[i],n=tm.stats.right[i]+tm.stats.wrong[i]+tm.stats.late[i];
-    return`<div class="tm-fin${k===0?' first':''}"><span class="rk">${k+1}</span><span class="nm">${avChar(p.avatar)} ${esc(p.name)}</span><b class="tt">${tmEur(r.total)}</b><small>Konto ${tmEur(tm.bank[i])} · ${r.seals} Siegel · ${L.st==='escaped'?'entkommen':'gefangen'} · ${n?Math.round(tm.stats.right[i]/n*100):0}% richtig</small></div>`;}).join('');
+    return`<div class="tm-fin${k===0?' first':''}"><span class="rk">${k<3?`<img src="assets/ui/reward_${['gold','silver','bronze'][k]}.png" alt="${k+1}" style="width:1.7rem;height:1.7rem;object-fit:contain;vertical-align:middle">`:k+1}</span><span class="nm">${avChar(p.avatar)} ${esc(p.name)}</span><b class="tt">${tmEur(r.total)}</b><small>Konto ${tmEur(tm.bank[i])} · ${r.seals} Siegel · ${L.st==='escaped'?'entkommen':'gefangen'} · ${n?Math.round(tm.stats.right[i]/n*100):0}% richtig</small></div>`;}).join('');
   const hero=`<div class="tm-podium"><img src="assets/games/tm_res_win.jpg" alt="" onerror="this.src='assets/games/ws_owl_6.jpg'"><div class="t">${esc((players[tm.win-1]||{}).name||'')} ist der TABLE MIND!</div></div>`;
   return`<div class="panel ws-res">${hero}<div class="tm-fins">${rows}</div><details class="tm-more"><summary>Details · Chaser: ${esc(c.name)}</summary>${tmFlaggedHTML()}${tmStrengthsHTML()}${tmLearnedHTML(tm)}</details></div>`;
 }
