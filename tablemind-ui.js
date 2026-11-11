@@ -112,6 +112,7 @@
 .tm-menu{position:absolute;right:.8rem;top:3.4rem;z-index:40;display:flex;flex-direction:column;gap:.35rem;padding:.6rem;border-radius:14px;border:1px solid rgba(201,164,92,.5);background:rgba(6,26,17,.97);box-shadow:0 14px 30px -10px #000;min-width:13rem;}
 .tm-menu>button{padding:.55rem .8rem;border-radius:10px;border:1px solid rgba(201,164,92,.35);background:rgba(29,83,54,.45);color:#f4efe0;font-weight:600;font-size:.9rem;line-height:1.1;font-family:inherit;text-align:left;cursor:pointer;}
 .tm-menu .tm-mr{display:flex;align-items:center;gap:.5rem;color:#d8cfbd;font-size:.9rem;}
+@media(min-width:1100px){#app>#s-table.game-tablemind{max-width:none;width:100%;margin-right:0;}#s-table.game-tablemind>*{width:100%;max-width:60rem;margin-left:auto;margin-right:auto;}}
 .tm-crown{position:fixed;inset:0;z-index:90;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;text-align:center;background:linear-gradient(180deg,rgba(4,18,12,.35),rgba(4,18,12,.9)),url(assets/games/tm_bg_victory.jpg) center/cover no-repeat,#04120c;animation:crIn .6s ease both;cursor:pointer;}
 @keyframes crIn{from{opacity:0}to{opacity:1}}
 .cr-orbit{position:relative;width:13rem;height:13rem;display:flex;align-items:center;justify-content:center;}
