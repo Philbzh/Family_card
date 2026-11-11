@@ -4429,6 +4429,7 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
 .game-wordspin::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.55;
   background:radial-gradient(1.5px 1.5px at 12% 18%,#fff9 50%,transparent 51%),radial-gradient(1px 1px at 72% 12%,#fff8 50%,transparent 51%),radial-gradient(1.4px 1.4px at 88% 40%,#bfd8ff9a 50%,transparent 51%),radial-gradient(1px 1px at 30% 62%,#fff7 50%,transparent 51%),radial-gradient(1.3px 1.3px at 55% 80%,#ffe9a89a 50%,transparent 51%),radial-gradient(1px 1px at 6% 86%,#fff7 50%,transparent 51%),
   radial-gradient(60% 40% at 85% 85%,rgba(139,92,246,.22),transparent 70%),radial-gradient(50% 35% at 8% 30%,rgba(61,165,255,.16),transparent 70%);}
+.ws-res-hero{border-radius:16px;box-shadow:0 0 0 1px rgba(233,196,106,.5),0 0 26px rgba(233,196,106,.3);margin:.2rem 0 .4rem;max-width:60%;height:auto;}
 .game-wordspin>*{position:relative;z-index:1;}
 #s-table.game-wordspin.tm-react-host{position:relative;}
 .game-wordspin .game-bar{background:linear-gradient(180deg,rgba(7,11,31,.92),rgba(7,11,31,.6));border-bottom:1px solid rgba(233,196,106,.35);}
@@ -6391,7 +6392,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=384;
+const APP_BUILD=385;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -22140,7 +22141,9 @@ function wsResultsHTML(){
   const T=wsTx(ws),players=G.isOnline?(G.srv.players||[]):G.lp,s=ws.stats;
   const rows=players.slice(0,ws.P).map((p,i)=>({p,i})).sort((a,b)=>ws.bank[b.i]-ws.bank[a.i]).map(({p,i})=>`<tr><td>${avChar(p.avatar)} ${esc(p.name)}</td><td>${wsFmt(ws.bank[i])}</td><td>${s.rounds[i]}</td><td>${s.best[i]?wsFmt(s.best[i]):'–'}</td><td>${s.bankrupt[i]}</td><td>${s.vowels[i]}</td><td>${s.spins[i]}</td></tr>`).join('');
   const f=ws.final;
-  return`<div class="panel ws-res"><div class="panel-lbl">${T('finalTitle')}</div><div style="text-align:center;color:#e9c46a;font-family:var(--serif)">“${esc(ws.puzzle.t)}”</div>${f?`<div style="text-align:center;font-size:.85rem;color:var(--paper2)">${f.solved?T('finalSolved',esc((players[f.leader-1]||{}).name||''),wsFmt(WS_FINAL_PRIZE)):T('finalLost',esc((players[f.leader-1]||{}).name||''))}</div>`:''}
+  const lostFinal=!!(f&&!f.solved);
+  const hero=`<img class="ws-res-hero" src="assets/games/ws_res_${lostFinal?'lose':'win'}.jpg" alt="" width="${lostFinal?147:135}" height="129">`;
+  return`<div class="panel ws-res"><div class="panel-lbl">${T('finalTitle')}</div><div style="text-align:center">${hero}</div><div style="text-align:center;color:#e9c46a;font-family:var(--serif)">“${esc(ws.puzzle.t)}”</div>${f?`<div style="text-align:center;font-size:.85rem;color:var(--paper2)">${f.solved?T('finalSolved',esc((players[f.leader-1]||{}).name||''),wsFmt(WS_FINAL_PRIZE)):T('finalLost',esc((players[f.leader-1]||{}).name||''))}</div>`:''}
     <table><tr><th>${T('hPlayer')}</th><th>${T('hTotal')}</th><th>${T('hRounds')}</th><th>${T('hBest')}</th><th>${T('hBankrupt')}</th><th>${T('hVowels')}</th><th>${T('hSpins')}</th></tr>${rows}</table></div>`;
 }
 
