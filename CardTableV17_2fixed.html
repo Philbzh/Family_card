@@ -6419,7 +6419,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=394;
+const APP_BUILD=396;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -15168,8 +15168,8 @@ let _stageEl=null,_stageT=null,_stagePri=-1,_stageShakeT=null;
 // o: {text, sub, tone ('good'|'bad'|'gold'|'hot'|'cool'), icon, who:{name,avatar}, ms, pri, shake}
 // Which reactions fit a big moment (the ones that swell up for a few seconds on the reaction strip).
 function stageReactList(tone,mine){return tone==='gold'?['👏','🎉','😮']:tone==='bad'?(mine?['😅','😬','😱']:['😂','😏','😮']):tone==='good'?['👏','🔥','😮']:tone==='cool'?['😅','🙌','😮']:['🔥','😮','😱'];}
-const ACH_ART={'ws-first':'medal_19','ws-crown':'medal_04','ws-big':'medal_08','tm-first':'reward_brain','tm-escape':'medal_06','tm-summit':'medal_01','tm-seals':'medal_09'};
-function achArt(a,earned){const n=ACH_ART[a.id];return n?'<img class="ach-art'+(earned?'':' lock')+'" src="assets/ui/'+n+'.png" alt="" draggable="false">':a.icon;}
+const ACH_ART={'ws-first':'assets/games/ws_tr_wheel.png','ws-crown':'assets/games/ws_tr_crown.png','ws-big':'assets/games/ws_tr_diamond.png','tm-first':'reward_brain','tm-escape':'medal_06','tm-summit':'medal_01','tm-seals':'medal_09'};
+function achArt(a,earned){const n=ACH_ART[a.id];return n?'<img class="ach-art'+(earned?'':' lock')+'" src="'+(n.indexOf('/')>0?n:'assets/ui/'+n+'.png')+'" alt="" draggable="false">':a.icon;}
 function uiI(n,c){return'<img class="'+(c||'ui-i')+'" src="assets/ui/'+n+'.png" alt="" draggable="false">';}
 function stageMoment(o){
   if(!o||!o.text||typeof document==='undefined'||!document.body)return null;
@@ -21788,20 +21788,27 @@ const WS_CAT_IC={'Food & Drink':0,'Places':1,'Phrases':2,'Things':3,'Nature':4,'
 // Which of Wiz's six poses fits the moment (1 welcome, 2 cheering, 3 shocked, 4 thinking, 5 wink, 6 champion)? Worked out from the game state, so every device shows the same one.
 function wizSrc(p){return typeof p==='number'?'assets/games/ws_owl_'+p+'.jpg':'assets/games/wiz_'+p+'.jpg';}   // Wiz's pictures: 1-6 are the first sheet, the names are the second sheet (laugh sad hope dizzy ready applause smug rich sleepy detective tense bow)
 function wsHostPose(ws,spinning){
-  if(ws.over)return 6;
-  if(spinning)return'ready';
+  if(ws.over)return 6;                                   // trophy and crown
+  if(spinning)return'hope';                              // wings crossed while the wheel turns
   if(ws.phase==='roundend')return 2;
   const f=ws.fx;
+  const me=G.isOnline?(((G.srv&&G.srv.players)||[]).findIndex(q=>q.id===G.myPid)+1):0;
   if(f){
-    if(f.kind==='spin'&&f.seg==='bankrupt')return'sad';
-    if(f.kind==='solve'&&!f.ok)return'dizzy';
+    if(f.kind==='spin'&&f.seg==='bankrupt')return(me&&f.seat!==me)?'laugh':'sad';   // you cry about your own bankrupt, Wiz giggles at somebody else's
+    if(f.kind==='solve'&&!f.ok)return(me&&f.seat!==me)?'smug':'dizzy';
     if(f.kind==='ftime')return'sad';
+    if(f.kind==='final')return'bow';
     if((f.kind==='letter'||f.kind==='vowel')&&!f.hit&&!f.free)return 3;
     if(f.kind==='spin'&&f.seg==='lose')return'sleepy';
-    if((f.kind==='letter'||f.kind==='vowel')&&f.hit)return'applause';
+    if(f.kind==='spin'&&f.seg==='free')return 5;         // winks and points: any letter you like
+    if(f.kind==='spin'&&f.seg==='wild')return'smug';
+    if(f.kind==='spin'&&f.seg==='pts'&&f.v>=800)return'rich';
+    if((f.kind==='letter'||f.kind==='vowel')&&f.hit)return f.n>=3?'rich':'applause';
   }
   if(ws.phase==='fsolve')return'tense';
+  if(G.wsMode==='solve')return'detective';               // magnifying glass while you solve
   if(ws.phase==='letter'||ws.phase==='fpick')return 4;
+  if(ws.moves===0)return'bow';                           // the welcome bow
   return 1;
 }
 function wsHintText(ws,p,mine,seq){
@@ -22034,18 +22041,18 @@ function wsRunSeq(ws,renderNow,done){
     if(fx.kind==='spin'){
       const S=WS_SEGS[fx.idx];
       if(fx.seg==='bankrupt')stageEmit('WS_EVT',{who:w,text:T('bankrupt'),sub:T('bankruptSub',nm(fx.seat),wsFmt(fx.lost)),icon:uiI('mascot_crow'),tone:'bad',pri:3,ms:1700});
-      else if(fx.seg==='lose')stageEmit('WS_EVT',{who:w,text:T('lose'),sub:T('loseSub',nm(fx.seat)),icon:'⏭️',tone:'bad',pri:2});
-      else if(fx.seg==='free')stageEmit('WS_EVT',{who:w,text:T('freeEvt'),sub:T('freeSub'),icon:uiI('prize_gift_a'),tone:'good',pri:2});
+      else if(fx.seg==='lose')stageEmit('WS_EVT',{who:w,text:T('lose'),sub:T('loseSub',nm(fx.seat)),icon:uiI('hint_hourglass'),tone:'bad',pri:2});
+      else if(fx.seg==='free')stageEmit('WS_EVT',{who:w,text:T('freeEvt'),sub:T('freeSub'),icon:uiI('owl_wink'),tone:'good',pri:2});
       else if(fx.seg==='wild')stageEmit('WS_EVT',{who:w,text:T('wildEvt'),sub:T('wildSub'),icon:uiI('hint_wand'),tone:'hot',pri:2});
       else stageEmit('WS_EVT',{who:w,text:String(S.v),sub:T('ptsSub',nm(fx.seat)),icon:uiI('prize_coins'),tone:'good',pri:1,ms:1100});
     }else if(fx.kind==='letter'||fx.kind==='vowel'){
-      if(fx.hit&&fx.n>1)stageEmit('WS_EVT',{who:w,text:`${fx.n} × ${fx.ch}`,sub:fx.gain?`+${wsFmt(fx.gain)}`:'',icon:'🔤',tone:'good',pri:0,ms:900});
-      else if(!fx.hit&&!fx.free)stageEmit('WS_EVT',{who:w,text:T('noLetter',fx.ch),sub:T('passes',nm(fx.seat)),icon:'✖️',tone:'bad',pri:1,ms:1000});
+      if(fx.hit&&fx.n>1)stageEmit('WS_EVT',{who:w,text:`${fx.n} × ${fx.ch}`,sub:fx.gain?`+${wsFmt(fx.gain)}`:'',icon:fx.kind==='vowel'?uiI('tut_vowel'):'🔤',tone:'good',pri:0,ms:900});
+      else if(!fx.hit&&!fx.free)stageEmit('WS_EVT',{who:w,text:T('noLetter',fx.ch),sub:T('passes',nm(fx.seat)),icon:uiI('owl_think'),tone:'bad',pri:1,ms:1000});
     }else if(fx.kind==='solve'||fx.kind==='fsolve'){
       if(fx.ok)stageEmit('WS_EVT',{who:w,text:T('solvedEvt'),sub:T('cracks',nm(fx.seat)),icon:uiI('prize_chest'),tone:'good',pri:3,ms:1700});
       else stageEmit('WS_EVT',{who:w,text:T('notQuite'),sub:fx.kind==='solve'?T('passes',nm(fx.seat)):T('keepTrying'),icon:uiI('owl_shock'),tone:'bad',pri:1,ms:1100});
     }else if(fx.kind==='final')stageEmit('WS_EVT',{who:players[fx.seat-1],text:T('finalEvt'),sub:T('finalSub',nm(fx.seat)),icon:uiI('reward_laurel'),tone:'hot',pri:3,ms:1800});
-    else if(fx.kind==='ftime')stageEmit('WS_EVT',{text:T('timeUp'),sub:T('timeSub'),icon:'⏰',tone:'bad',pri:3,ms:1600});
+    else if(fx.kind==='ftime')stageEmit('WS_EVT',{text:T('timeUp'),sub:T('timeSub'),icon:uiI('tut_clock'),tone:'bad',pri:3,ms:1600});
   };
   if(!fx||fx.kind!=='spin'){
     G.wsSeq=null;if(fx&&!G.wsInstant){wsFeel(fx);stages();setTimeout(()=>wsAfterFx(fx),90);}
@@ -22175,7 +22182,8 @@ function wsResultsHTML(){
   const f=ws.final;
   const lostFinal=!!(f&&!f.solved);
   const wonFinal=!!(f&&f.solved);
-  const hero=wonFinal?`<img class="ws-res-hero ws-res-egg" src="assets/ui/mascot_egg.png" alt="" height="150">`:`<img class="ws-res-hero" src="assets/games/ws_res_${lostFinal?'lose':'win'}.jpg" alt="" width="${lostFinal?147:135}" height="129">`;
+  const _me=G.isOnline?(((G.srv&&G.srv.players)||[]).findIndex(q=>q.id===G.myPid)+1):0,_lead=ws.bank.indexOf(Math.max(...ws.bank.slice(0,ws.P)))+1;
+  const hero=(_me&&_me!==_lead&&!wonFinal)?`<img class="ws-res-hero" src="assets/games/ws_res_lose.jpg" alt="" width="147" height="129">`:wonFinal?`<img class="ws-res-hero ws-res-egg" src="assets/ui/mascot_egg.png" alt="" height="150">`:`<img class="ws-res-hero" src="assets/games/ws_res_${lostFinal?'lose':'win'}.jpg" alt="" width="${lostFinal?147:135}" height="129">`;
   return`<div class="panel ws-res"><div class="panel-lbl">${T('finalTitle')}</div><div style="text-align:center">${hero}</div><div style="text-align:center;color:#e9c46a;font-family:var(--serif)">“${esc(ws.puzzle.t)}”</div>${f?`<div style="text-align:center;font-size:.85rem;color:var(--paper2)">${f.solved?T('finalSolved',esc((players[f.leader-1]||{}).name||''),wsFmt(WS_FINAL_PRIZE)):T('finalLost',esc((players[f.leader-1]||{}).name||''))}</div>`:''}
     <table><tr><th>${T('hPlayer')}</th><th>${T('hTotal')}</th><th>${T('hRounds')}</th><th>${T('hBest')}</th><th>${T('hBankrupt')}</th><th>${T('hVowels')}</th><th>${T('hSpins')}</th></tr>${rows}</table></div>`;
 }
