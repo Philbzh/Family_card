@@ -6419,7 +6419,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=400;
+const APP_BUILD=401;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -6478,6 +6478,7 @@ function tbSwitch(code,opt){
 // links that go to other people must point at the published app, never at a file on this computer (a file:// address is useless to them, and the share sheet of the browser crashes on it)
 const APP_PUBLIC_URL='https://philbzh.github.io/Family_card/';
 function appBaseUrl(){return /^https?:$/.test(location.protocol)?location.origin+location.pathname:APP_PUBLIC_URL;}
+function roomInviteUrl(code){return appBaseUrl()+'?room='+encodeURIComponent(code||'');}
 function shareOk(u){return typeof navigator.share==='function'&&/^https?:\/\//.test(u||'');}
 function tbInviteLink(code,inv){const t=tbEntry(code)||{};return appBaseUrl()+'?join='+code+'&t='+encodeURIComponent(t.name||'')+(inv?'&i='+encodeURIComponent(inv):'');}
 // a new table is invitations-only from the start: this device is enrolled first, so its owner is never locked out
@@ -37600,6 +37601,7 @@ function rLobby(){
     <div class="lobby-body">
       <div class="pg-banner" style="--pg:url(assets/ui/pg_lobby.jpg)"></div>
       <div class="room-code-card" data-a="copy" role="button" tabindex="0" aria-label="Copy invite link, room code ${G.roomId||''}"><div class="rcc-eye">Tap to copy invite link</div><div class="rcc-code">${G.roomId||'----'}</div><div class="rcc-hint">Share via WhatsApp · iMessage · Any messaging app</div></div>
+      <div style="display:flex;justify-content:center;margin:-.2rem 0 .5rem;"><button class="btn btn-gold" data-a="share-room" style="min-width:12rem">📤 Share invite link</button></div>
       <div class="panel"><div class="panel-lbl">Players (${players.length} joined)</div><div class="seat-grid">${seats}</div></div>
       <div style="display:flex;justify-content:center;margin:-.3rem 0 .3rem;">
         <button class="ambient-toggle${G.notifyOn?' on':''}" data-a="toggle-notify" aria-pressed="${G.notifyOn}">🔔 Notify me when it's my turn</button>
@@ -40532,7 +40534,10 @@ document.addEventListener('click',e=>{
   else if(a==='start'){
     dbRead(G.roomId).then(rs=>oStartGame(rs));
   }
-  else if(a==='copy'){const url=new URL(location.href);url.searchParams.set('room',G.roomId);navigator.clipboard.writeText(url.toString()).then(()=>toast('🔗 Link copied!')).catch(()=>toast('Code: '+G.roomId));}
+  else if(a==='copy'){const url=roomInviteUrl(G.roomId);try{navigator.clipboard.writeText(url).then(()=>toast('🔗 Link copied!')).catch(()=>toast('Code: '+G.roomId+' — '+url));}catch(e){toast('Code: '+G.roomId+' — '+url);}}
+  else if(a==='share-room'){const url=roomInviteUrl(G.roomId),gm=GAMES.find(g=>g.id===((G.srv&&G.srv.gameId)||G.selGame))||{name:'a game'};
+    if(typeof navigator.share==='function'){navigator.share({title:'Our Table',text:'Join me for '+gm.name+' on Our Table! Room code '+G.roomId,url}).catch(()=>{});}
+    else{try{navigator.clipboard.writeText(url).then(()=>toast('🔗 Link copied!')).catch(()=>toast('Code: '+G.roomId));}catch(e){toast('Code: '+G.roomId);}}}
   else if(a==='ready'){G.scr='table';G.lpass2='';G.lDealIn=true;render();setTimeout(()=>{G.lDealIn=false;render();},1100);}
   else if(a==='play'){
     const cid=t.getAttribute('data-cid');
