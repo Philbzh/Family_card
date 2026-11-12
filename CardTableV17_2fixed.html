@@ -10,6 +10,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <title>OUR TABLE — Family Card Games</title>
 <meta name="description" content="Beautiful card games for family and friends — wherever everyone happens to be.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Our Table">
+<meta property="og:title" content="OUR TABLE — Family Card Games">
+<meta property="og:description" content="Join me for a game on Our Table — card, dice and party games for family and friends, wherever everyone happens to be.">
+<meta property="og:url" content="https://philbzh.github.io/Family_card/">
+<meta property="og:image" content="https://philbzh.github.io/Family_card/assets/icons/og-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="OUR TABLE — Family Card Games">
+<meta name="twitter:image" content="https://philbzh.github.io/Family_card/assets/icons/og-card.png">
 <meta name="theme-color" content="#08110e">
 <meta name="referrer" content="no-referrer">
 <script>
@@ -5175,6 +5186,8 @@ function resumeOnlineSession(){
   if(!raw)return Promise.resolve(false);
   let sess=null;try{sess=JSON.parse(raw);}catch(e){}
   if(!sess?.roomId||!sess?.myPid){localStorage.removeItem('ct_online_session');return Promise.resolve(false);}
+  // A NEW invite link wins over the room this device was in before: opening ?room=NEW must lead to NEW, not silently back into the old room.
+  try{const want=(new URLSearchParams(location.search).get('room')||'').toUpperCase();if(want&&want!==String(sess.roomId).toUpperCase()){localStorage.removeItem('ct_online_session');return Promise.resolve(false);}}catch(e){}
   const ready=typeof supabase==='undefined'?new Promise(res=>loadSupabase(res)):Promise.resolve();
   return ready.then(()=>dbRead(sess.roomId)).then(state=>{
     if(!state||!(state.players||[]).some(p=>p.id===sess.myPid)){
@@ -6419,7 +6432,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=401;
+const APP_BUILD=402;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
