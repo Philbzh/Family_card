@@ -6432,7 +6432,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=402;
+const APP_BUILD=403;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -21661,15 +21661,15 @@ function wsWheelSVG(ang,lang){
       <linearGradient id="wsGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff1c2"/><stop offset=".5" stop-color="#e9c46a"/><stop offset="1" stop-color="#a97918"/></linearGradient>
       <linearGradient id="wsGlass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".36"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
       <linearGradient id="wsRimHi" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset=".6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".5"/></linearGradient>
-      <clipPath id="wsFace"><circle r="92"/></clipPath></defs>`);
+      <clipPath id="wsFace"><circle r="92"/></clipPath><pattern id="wsTx_bankrupt" patternUnits="userSpaceOnUse" x="-92" y="-92" width="184" height="184"><image href="assets/ui/ws_wedge_bankrupt.webp" width="184" height="184" preserveAspectRatio="xMidYMid slice"/></pattern><pattern id="wsTx_lose" patternUnits="userSpaceOnUse" x="-92" y="-92" width="184" height="184"><image href="assets/ui/ws_wedge_lose.webp" width="184" height="184" preserveAspectRatio="xMidYMid slice"/></pattern><pattern id="wsTx_free" patternUnits="userSpaceOnUse" x="-92" y="-92" width="184" height="184"><image href="assets/ui/ws_wedge_free.webp" width="184" height="184" preserveAspectRatio="xMidYMid slice"/></pattern><pattern id="wsTx_wild" patternUnits="userSpaceOnUse" x="-92" y="-92" width="184" height="184"><image href="assets/ui/ws_wedge_wild.webp" width="184" height="184" preserveAspectRatio="xMidYMid slice"/></pattern></defs>`);
     const w=WS_SEG_DEG;
     WS_SEGS.forEach((s,i)=>{
       const a0=i*w-w/2,a1=i*w+w/2,[x1,y1]=wsPt(a0,R),[x2,y2]=wsPt(a1,R);
       let fill=WS_FILL[i%4],tc='#f6dc8d',stroke='#e9c46a',sz=11,label=lang==='de'?({bankrupt:'BANKROTT',wild:'JOKER'}[s.k]||s.label):s.label;
-      if(s.k==='bankrupt'){fill='#05060d';tc='#ff5cc0';sz=6.3;}
-      else if(s.k==='lose'){fill='#2a1646';tc='#e9dcff';sz=5.4;}
-      else if(s.k==='free'){fill='url(#wsGold)';tc='#2a1b00';sz=6.3;}
-      else if(s.k==='wild'){fill='#8b2f9c';tc='#fff';sz=8.5;}
+      let shade=0;if(s.k==='bankrupt'){fill='url(#wsTx_bankrupt)';shade=.25;tc='#ff5cc0';sz=6.3;}
+      else if(s.k==='lose'){fill='url(#wsTx_lose)';shade=.45;tc='#e9dcff';sz=5.4;}
+      else if(s.k==='free'){fill='url(#wsTx_free)';shade=.12;tc='#2a1b00';sz=6.3;}
+      else if(s.k==='wild'){fill='url(#wsTx_wild)';shade=.5;tc='#fff';sz=8.5;}
       else if(String(label).length>3)sz=9.6;
       // the labels on the left half are turned round, so every number reads the right way up (from the rim towards the hub)
       const flip=i*w>=180,anc=flip?'start':'end',tr=flip?`rotate(${i*w+90}) translate(${-(R-5)},0)`:`rotate(${i*w-90}) translate(${R-5},0)`,d1=flip?3:-3,d2=flip?-6.2:6.2;
@@ -21677,7 +21677,7 @@ function wsWheelSVG(ang,lang){
       if(s.k==='lose')txt=`<text transform="${tr}" text-anchor="${anc}" font-size="${sz}" font-weight="800" fill="${tc}" letter-spacing=".3" dominant-baseline="central">${lang==='de'?'<tspan x="0" dy="0">AUSSETZEN</tspan>':`<tspan x="0" dy="${d1}">LOSE A</tspan><tspan x="0" dy="${d2}">TURN</tspan>`}</text>`;
       else if(s.k==='free')txt=`<text transform="${tr}" text-anchor="${anc}" font-size="${sz}" font-weight="800" fill="${tc}" letter-spacing=".3" dominant-baseline="central">${lang==='de'?(flip?`<tspan x="0" dy="${d1}">SPIEL</tspan><tspan x="0" dy="${d2}">FREI-</tspan>`:`<tspan x="0" dy="${d1}">FREI-</tspan><tspan x="0" dy="${d2}">SPIEL</tspan>`):(flip?`<tspan x="0" dy="${d1}">PLAY</tspan><tspan x="0" dy="${d2}">FREE</tspan>`:`<tspan x="0" dy="${d1}">FREE</tspan><tspan x="0" dy="${d2}">PLAY</tspan>`)}</text>`;
       else txt=`<text transform="${tr}" text-anchor="${anc}" font-size="${sz}" font-weight="800" fill="${tc}" letter-spacing="${s.k==='pts'?.4:.5}" dominant-baseline="central" font-family="Georgia,serif">${label}</text>`;
-      out.push(`<g class="ws-wedge" data-i="${i}"><path d="M0 0 L${x1} ${y1} A${R} ${R} 0 0 1 ${x2} ${y2} Z" fill="${fill}" stroke="${stroke}" stroke-width=".7"/>${s.k==='bankrupt'?`<path d="M0 0 L${x1} ${y1} A${R} ${R} 0 0 1 ${x2} ${y2} Z" fill="none" stroke="#d946a8" stroke-width="1.1" opacity=".8"/>`:''}${txt}</g>`);
+      out.push(`<g class="ws-wedge" data-i="${i}"><path d="M0 0 L${x1} ${y1} A${R} ${R} 0 0 1 ${x2} ${y2} Z" fill="${fill}" stroke="${stroke}" stroke-width=".7"/>${shade?`<path d="M0 0 L${x1} ${y1} A${R} ${R} 0 0 1 ${x2} ${y2} Z" fill="#000" opacity="${shade}"/>`:''}${s.k==='bankrupt'?`<path d="M0 0 L${x1} ${y1} A${R} ${R} 0 0 1 ${x2} ${y2} Z" fill="none" stroke="#d946a8" stroke-width="1.1" opacity=".8"/>`:''}${txt}</g>`);
     });
     _wsWheelStatic[lang]=out.join('');
   }
