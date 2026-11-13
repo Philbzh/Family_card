@@ -4518,6 +4518,13 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
 @keyframes ws-hit{0%{box-shadow:inset 0 0 0 1px #fff7,0 0 0 0 rgba(255,236,160,.9),0 0 22px 6px rgba(255,236,160,.85),0 2px 4px rgba(0,0,0,.5);}100%{box-shadow:inset 0 0 0 1px #fff7,0 0 0 9px rgba(255,236,160,0),0 0 12px rgba(255,236,160,.45),0 2px 4px rgba(0,0,0,.5);}}
 .ws-plate.on{animation:ws-turn 1.6s ease-in-out infinite;position:relative;}
 @keyframes ws-turn{0%,100%{box-shadow:0 0 0 1px rgba(233,196,106,.5),0 0 26px 2px rgba(233,196,106,.38),0 10px 22px -10px #000;}50%{box-shadow:0 0 0 2px rgba(255,226,140,.9),0 0 38px 8px rgba(255,214,110,.6),0 10px 22px -10px #000;}}
+.ws-wheel-wrap{touch-action:none;-webkit-user-select:none;user-select:none;}
+.ws-wheel-wrap.ws-tense{animation:ws-tense .55s ease-in-out infinite;}
+@keyframes ws-tense{0%,100%{filter:none;}50%{filter:drop-shadow(0 0 16px rgba(255,60,120,.75));}}
+.ws-fly{position:fixed;z-index:9000;pointer-events:none;font:800 1.7rem/1 var(--serif,Georgia,serif);color:#fff1c2;text-shadow:0 0 12px #e9c46a,0 0 4px #e9c46a,0 2px 3px #000;white-space:nowrap;}
+.ws-plate.bump{animation:ws-bump .45s ease-out 1;}
+@keyframes ws-bump{0%{transform:translateY(-2px) scale(1.04);}40%{transform:translateY(-4px) scale(1.16);filter:brightness(1.4);}100%{transform:translateY(-2px) scale(1.04);}}
+.ws-streak{position:absolute;right:-6px;top:-8px;padding:.1rem .4rem;border-radius:999px;background:linear-gradient(180deg,#ff9a3c,#e0451f);color:#fff;font:800 .72rem/1.2 var(--serif,Georgia,serif);box-shadow:0 2px 6px #000a,0 0 10px rgba(255,140,40,.7);}
 .ws-plate.on::before{content:"";position:absolute;left:50%;top:-9px;width:12px;height:9px;margin-left:-6px;background:linear-gradient(#fff1c2,#e9c46a);clip-path:polygon(0 0,100% 0,50% 100%);filter:drop-shadow(0 0 4px rgba(255,214,110,.8));animation:ws-bob 1.1s ease-in-out infinite;}
 @keyframes ws-bob{0%,100%{transform:translateY(0);}50%{transform:translateY(3px);}}
 @keyframes ws-win{0%,100%{filter:none;}50%{filter:brightness(1.9) drop-shadow(0 0 6px #fff);}}
@@ -4626,7 +4633,7 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
 .ws-v-stage .ws-board{max-width:calc(var(--cols,14)*3.2rem + 1.4rem);}
 @media(min-width:900px) and (orientation:landscape){.ws-v-stage .ws-left{grid-column:1/-1;justify-self:center;}}
 .ws-v-pad .ws-left{display:none;}
-@media(prefers-reduced-motion:reduce){.ws-fx,.ws-vig{display:none;}.ws-board.ws-sweep::after,.ws-wheel-wrap.shudder,.ws-plate.crack{animation:none!important;}.ws-t.flip,.ws-t.on.flip,.ws-plate.on,.ws-plate.on::before,.ws-board.deal .ws-t.bl,.ws-wedge.win,.ws-bulb,.ws-clock.low b{animation:none!important;}.ws-intro{display:none;}}
+@media(prefers-reduced-motion:reduce){.ws-fx,.ws-vig{display:none;}.ws-board.ws-sweep::after,.ws-wheel-wrap.shudder,.ws-plate.crack{animation:none!important;}.ws-t.flip,.ws-t.on.flip,.ws-wheel-wrap.ws-tense,.ws-plate.bump,.ws-plate.on,.ws-plate.on::before,.ws-board.deal .ws-t.bl,.ws-wedge.win,.ws-bulb,.ws-clock.low b{animation:none!important;}.ws-intro{display:none;}}
 </style>
 <style>
 
@@ -6439,7 +6446,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=405;
+const APP_BUILD=406;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -21727,7 +21734,7 @@ function wsKeyboard(ws,o){
 /* ── WORDSPIN: the screen ── */
 /* ── WORDSPIN: the words on the screen, in English and German ── */
 const WS_TX={
- en:{wheelTurning:'The wheel is turning…',gameOver:'Game over',
+ en:{wheelTurning:'The wheel is turning…',streakEvt:'{0} in a row!',gameOver:'Game over',
   spinMine:'{0}, your turn.',thinking:'{0} is thinking…',
   nameCons:'Name a <b>consonant</b> — <b>{0}</b> for each one',freeHint:'<b>FREE PLAY</b> — name any letter, a wrong one costs nothing',wildHint:'<b>WILD</b> — any letter; consonants pay <b>500</b> each, a vowel is free',
   fpickMine:'{0}, this is the <b>final puzzle</b>. R S T L N E are given — choose <b>3 consonants and 1 vowel</b>.',fpickOther:'{0} is choosing letters for the final puzzle…',
@@ -21754,6 +21761,7 @@ const WS_TX={
   pickCons:'Konsonant wählen · {0} pro Feld',freeLbl:'Freispiel · beliebiger Buchstabe',wildLbl:'Joker · beliebiger Buchstabe',call:'{0} nennen',aLetter:'einen Buchstaben',
   threeOne:'3 Konsonanten + 1 Vokal',lockIn:'Bestätigen',turn:'{0} ist dran',round:'RUNDE',roundOf:'Runde {0} von {1}',finalBanner:'★ FINALRÄTSEL ★',
   anim:'✨ Animationen: {0}',full:'Voll',light:'Leicht',off:'Aus',viewFull:'🖥 Dieser Bildschirm: alles',viewStage:'📺 Dieser Bildschirm: nur die Bühne',viewPad:'📱 Dieser Bildschirm: meine Eingabe',
+  streakEvt:'{0} in Folge!',
   bankrupt:'BANKROTT',bankruptSub:'{0} verliert {1} in dieser Runde',lose:'AUSSETZEN',loseSub:'{0} setzt aus',freeEvt:'FREISPIEL',freeSub:'Beliebiger Buchstabe — falsch kostet nichts',wildEvt:'JOKER',wildSub:'Ein beliebiger Buchstabe',ptsSub:'{0} — nenne einen Konsonanten',
   noLetter:'KEIN {0}',passes:'{0} gibt ab',solvedEvt:'GELÖST!',cracks:'{0} knackt es',notQuite:'NICHT GANZ',keepTrying:'Weiter versuchen!',finalEvt:'FINALRÄTSEL',finalSub:'{0} spielt um die Krone',timeUp:'ZEIT ABGELAUFEN',timeSub:'Das Finalrätsel ist verloren',champ:'WORDSPIN-MEISTER',
   chipPuzzles:'🧩 Gelöste Rätsel',chipBest:'💎 Bester einzelner Buchstabe',chipBankrupt:'💀 Bankrotte',chipVowels:'🔤 Gekaufte Vokale',chipTime:'⏱ Spielzeit',
@@ -21942,6 +21950,7 @@ function wsPostRender(){
   const ws=G.isOnline?(G.srv&&G.srv.ws):G.ws;if(!ws||!document.getElementById('s-table')||!document.querySelector('.game-wordspin'))return;
   G.wsShown=G.wsShown||{};
   const off=gtAnim()==='off'||G.wsInstant;
+  document.querySelectorAll('.game-wordspin .ws-plate').forEach(pl=>{const n=(G.wsStreak&&G.wsStreak[pl.getAttribute('data-s')])||0;if(n>=2&&!ws.over){const b=document.createElement('span');b.className='ws-streak';b.textContent='🔥'+n;pl.appendChild(b);}});
   document.querySelectorAll('.game-wordspin .ws-num').forEach(el=>{
     const k=el.getAttribute('data-k'),to=+el.getAttribute('data-to'),from=G.wsShown[k]==null?to:G.wsShown[k];
     if(from===to||off){G.wsShown[k]=to;el.textContent=wsFmt(to);return;}
@@ -22038,6 +22047,7 @@ function wsConfetti(kind){
 }
 function wsAfterFx(fx){
   if(!fx||wsFxLevel()==='off')return;
+  wsFlyScore(fx);
   const won=(fx.kind==='solve'&&fx.ok)||((fx.kind==='letter'||fx.kind==='vowel')&&fx.round)||(fx.kind==='fsolve'&&fx.ok)||(fx.kind==='fpick'&&fx.auto);
   if(won){
     const crown=fx.kind==='fsolve'||fx.kind==='fpick';
@@ -22050,8 +22060,73 @@ function wsAfterFx(fx){
     const pl=document.querySelector('.ws-plate[data-s="'+fx.seat+'"]');if(pl){pl.classList.add('crack');setTimeout(()=>pl.classList.remove('crack'),1100);}
   }
 }
+/* ── WORDSPIN: streaks, flying points, Wiz reacting, flick-to-spin ── */
+function wsStreakUpdate(ws,fx){
+  const key=ws.seed+':'+ws.moves;
+  if(G.wsStrSeed!==ws.seed){G.wsStrSeed=ws.seed;G.wsStreak={};G.wsStrKey='';}
+  if(G.wsStrKey===key)return 0;
+  G.wsStrKey=key;
+  const S=G.wsStreak,q=fx.seat;
+  if(fx.kind==='letter'||fx.kind==='vowel'){
+    if(fx.hit)S[q]=(S[q]||0)+1;else if(!fx.free)S[q]=0;
+  }else if(fx.kind==='solve'||fx.kind==='fsolve'){
+    if(fx.ok)G.wsStreak={};else S[q]=0;
+  }else if(fx.kind==='spin'){
+    if(fx.seg==='bankrupt'||fx.seg==='lose')S[q]=0;
+  }else if(fx.kind==='round'||fx.kind==='final')G.wsStreak={};
+  return (fx.kind==='letter'||fx.kind==='vowel')&&fx.hit?(G.wsStreak[q]||0):0;
+}
+function wsFlyScore(fx){
+  if(!(fx.kind==='letter'||fx.kind==='vowel')||!fx.hit||!(fx.gain>0)||wsFxLevel()==='off')return;
+  const tile=document.querySelector('.ws-board .ws-t.on.flip'),plate=document.querySelector('.ws-plate[data-s="'+fx.seat+'"]');
+  if(!tile||!plate||!tile.animate)return;
+  const a=tile.getBoundingClientRect(),b=plate.getBoundingClientRect();
+  const el=document.createElement('div');el.className='ws-fly';el.textContent='+'+wsFmt(fx.gain);
+  const x=a.left+a.width/2,y=a.top+a.height/2;el.style.left=x+'px';el.style.top=y+'px';document.body.appendChild(el);
+  const dx=b.left+b.width/2-x,dy=b.top+b.height/2-y;
+  const an=el.animate([{transform:'translate(-50%,-50%) scale(.5)',opacity:0},{transform:'translate(-50%,-110%) scale(1.3)',opacity:1,offset:.22},{transform:'translate(-50%,-110%) scale(1.3)',opacity:1,offset:.48},{transform:'translate(calc(-50% + '+dx+'px),calc(-50% + '+dy+'px)) scale(.7)',opacity:.9}],{duration:1150,easing:'cubic-bezier(.4,0,.2,1)'});
+  const fin=()=>{try{el.remove();}catch(e){}plate.classList.add('bump');setTimeout(()=>plate.classList.remove('bump'),500);};
+  an.onfinish=fin;setTimeout(fin,1500);
+}
+function wsWizReact(pose){
+  const h=document.querySelector('.game-wordspin .ws-host');if(!h||gtAnim()==='off')return;
+  h.src=wizSrc(pose);h.classList.remove('hop');void h.offsetWidth;h.classList.add('hop');
+}
+(function wsWheelFlick(){
+  let d=null;
+  const ang=(e,c)=>Math.atan2(e.clientY-c.y,e.clientX-c.x)*180/Math.PI;
+  const rotTo=a=>{const r=document.getElementById('ws-rot');if(r)r.setAttribute('transform','rotate('+a+')');};
+  document.addEventListener('pointerdown',e=>{
+    if(d||!e.target||!e.target.closest)return;
+    const wrap=e.target.closest('.game-wordspin .ws-wheel-wrap');if(!wrap||G.wsSeq)return;
+    if(!document.querySelector('.game-wordspin [data-a="wsspin"]:not([disabled])'))return;
+    const w=G.isOnline?(G.srv&&G.srv.ws):G.ws;
+    const r=wrap.getBoundingClientRect(),c={x:r.left+r.width/2,y:r.top+r.height/2},a=ang(e,c);
+    d={id:e.pointerId,c,last:a,t:performance.now(),v:0,off:0,base:G.wsDisp!=null?G.wsDisp:((w&&w.angle)||0),k:null};
+    try{wrap.setPointerCapture(e.pointerId);}catch(_){}
+  });
+  document.addEventListener('pointermove',e=>{
+    if(!d||e.pointerId!==d.id)return;
+    const a=ang(e,d.c);let da=a-d.last;if(da>180)da-=360;if(da<-180)da+=360;d.last=a;
+    d.off=Math.max(-40,Math.min(220,d.off+da));
+    const now=performance.now(),dt=Math.max(1,now-d.t);d.t=now;d.v=d.v*.6+(da/dt)*1000*.4;
+    rotTo(d.base+d.off);
+    const k=Math.floor(-(d.base+d.off)/WS_SEG_DEG+.5);if(k!==d.k){if(d.k!==null)SFX.wsTick();d.k=k;}
+  });
+  const end=(e,cancel)=>{
+    if(!d||e.pointerId!==d.id)return;const s=d;d=null;
+    if(!cancel&&s.v>200&&s.off>8){
+      G.wsDisp=s.base+s.off;G.wsDragOff=s.off;G.wsFlick=Math.max(.8,Math.min(1.2,1.25-s.v/2400));
+      const btn=document.querySelector('.game-wordspin [data-a="wsspin"]:not([disabled])');if(btn)btn.click();
+      setTimeout(()=>{if(!G.wsSeq&&G.wsDragOff){G.wsDragOff=0;G.wsFlick=0;G.wsDisp=null;render();}},4500);
+    }else rotTo(s.base);
+  };
+  document.addEventListener('pointerup',e=>end(e,false));
+  document.addEventListener('pointercancel',e=>end(e,true));
+})();
 function wsRunSeq(ws,renderNow,done){
   const fx=ws&&ws.fx;
+  const strk=fx?wsStreakUpdate(ws,fx):0;
   let reduced=false;try{reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
   const players=gtSeatPlayers();
   const nm=s=>(players[s-1]||{}).name||'someone';
@@ -22076,7 +22151,7 @@ function wsRunSeq(ws,renderNow,done){
     else if(fx.kind==='ftime')stageEmit('WS_EVT',{text:T('timeUp'),sub:T('timeSub'),icon:uiI('tut_clock'),tone:'bad',pri:3,ms:1600});
   };
   if(!fx||fx.kind!=='spin'){
-    G.wsSeq=null;if(fx&&!G.wsInstant){wsFeel(fx);stages();setTimeout(()=>wsAfterFx(fx),90);}
+    G.wsSeq=null;if(fx&&!G.wsInstant){wsFeel(fx);stages();setTimeout(()=>wsAfterFx(fx),90);if(strk>=3)setTimeout(()=>stageEmit('WS_EVT',{who:players[fx.seat-1],text:'🔥 '+wsTx(ws)('streakEvt',strk),sub:nm(fx.seat),icon:uiI('streak_bronze'),tone:'hot',pri:2,ms:1300}),1000);}
     if(done){if(G.wsInstant)done();else setTimeout(done,ws.over?900:0);}
     return;
   }
@@ -22084,29 +22159,40 @@ function wsRunSeq(ws,renderNow,done){
     G.wsSeq=null;G.wsDisp=fx.angle;if(!G.wsInstant){SFX.wsLand(fx.seg);stages();}
     if(done)done();return;
   }
-  const seq={fx,id:ws.moves};G.wsSeq=seq;G.wsDisp=fx.from;
+  const seq={fx,id:ws.moves};G.wsSeq=seq;
+  // a flick on the wheel: carry on from where the hand let go (the result is already decided, this is only how it looks)
+  const nSeg=WS_SEGS.length;
+  const s0=Math.min(fx.from+(G.wsDragOff||0),fx.angle-45);G.wsDragOff=0;
+  const flickK=G.wsFlick||1;G.wsFlick=0;
+  G.wsDisp=s0;
   render();
-  const dur=Math.min(5600,3800+fx.turns*260),t0=performance.now();
-  let lastK=null,lastT=0,finished=false,litEl=null;
+  // close call: the wheel creeps to a stop right next to BANKRUPT
+  const closeCall=fx.seg!=='bankrupt'&&[1,-1].some(d=>{const sg=WS_SEGS[((fx.idx+d)%nSeg+nSeg)%nSeg];return sg&&sg.k==='bankrupt';});
+  const dur=(Math.min(5600,3800+fx.turns*260)+(closeCall?1600:0))*flickK,t0=performance.now();
+  let lastK=null,lastT=0,finished=false,litEl=null,wizAt=0,tense=false;
+  const wrapEl=()=>document.querySelector('.ws-wheel-wrap');
   SFX.wsSpin();
   const land=()=>{
     if(finished||G.wsSeq!==seq)return;finished=true;
     G.wsDisp=fx.angle;const el=document.getElementById('ws-rot');if(el)el.setAttribute('transform','rotate('+fx.angle+')');
     SFX.wsLand(fx.seg);
     if(litEl)litEl.classList.remove('lit');
+    {const w=wrapEl();if(w)w.classList.remove('ws-tense');}
     const wd=document.querySelector('.ws-wedge[data-i="'+fx.idx+'"]');if(wd)wd.classList.add('win');
     setTimeout(()=>{if(G.wsSeq!==seq)return;G.wsSeq=null;stages();render();wsAfterFx(fx);if(done)done();},1150);
   };
   const step=now=>{
     if(G.wsSeq!==seq||finished)return;
-    const u=Math.min(1,(now-t0)/dur),e=1-Math.pow(1-u,3.3),a=fx.from+(fx.angle-fx.from)*e;
+    const u=Math.min(1,(now-t0)/dur),e=1-Math.pow(1-u,closeCall?4.4:3.3),a=s0+(fx.angle-s0)*e;
     G.wsDisp=a;const el=document.getElementById('ws-rot');if(el)el.setAttribute('transform','rotate('+a+')');
     const k=Math.floor(-a/WS_SEG_DEG+.5);
     if(k!==lastK){
-      if(lastK!==null&&now-lastT>26){SFX.wsTick();lastT=now;const pt=document.getElementById('ws-ptr');if(pt){pt.style.transform='rotate(-16deg)';setTimeout(()=>{pt.style.transform='';},70);}}
+      if(lastK!==null&&now-lastT>26){SFX.wsTick();lastT=now;const slow=closeCall&&u>.8;if(slow){tone(120,.1,'sine');haptic(8);}const pt=document.getElementById('ws-ptr');if(pt){pt.style.transform=slow?'rotate(-27deg)':'rotate(-16deg)';setTimeout(()=>{pt.style.transform='';},slow?160:70);}}
       lastK=k;
       if(gtAnim()!=='off'){const n=WS_SEGS.length,ix=((k%n)+n)%n;if(litEl)litEl.classList.remove('lit');litEl=document.querySelector('.ws-wedge[data-i="'+ix+'"]');if(litEl)litEl.classList.add('lit');}
     }
+    if(closeCall&&u>.8&&!tense){tense=true;const w=wrapEl();if(w)w.classList.add('ws-tense');}
+    if(wizAt<2){const w=u>(closeCall?.88:.6)?(closeCall?2:1):0;if(w>wizAt){wizAt=w;wsWizReact(closeCall&&w===2?'dizzy':'tense');}}
     if(u<1)requestAnimationFrame(step);else land();
   };
   requestAnimationFrame(step);
