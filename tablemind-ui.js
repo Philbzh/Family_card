@@ -199,6 +199,7 @@
 .tm-bar i{display:block;height:.9rem;border-radius:6px;background:linear-gradient(90deg,#8b5cf6,#d946a8);min-width:.2rem;transition:width .9s cubic-bezier(.2,.8,.2,1);}
 .tm-intro{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.9rem;background:radial-gradient(120% 80% at 50% 20%,#1d5538,#04060f 70%);cursor:pointer;animation:tm-fade .5s both;}
 .tm-intro .t1{font:800 clamp(2rem,9vw,4.2rem)/1 var(--serif,Georgia,serif);letter-spacing:.2em;color:transparent;background:linear-gradient(100deg,#8a6a22 20%,#f3deaa 45%,#c9a45c 55%,#8a6a22 80%) 0 0/250% 100%;-webkit-background-clip:text;background-clip:text;animation:tm-shine 2.6s ease-out both;}
+.tm-intro .t1{filter:drop-shadow(0 3px 8px rgba(0,0,0,.9)) drop-shadow(0 0 2px rgba(0,0,0,.8));}
 .tm-intro .t2{font-size:clamp(.8rem,3vw,1.2rem);letter-spacing:.4em;color:#cdbf94;animation:tm-fade 1.2s .6s both;}
 .tm-intro .ic{display:flex;gap:.7rem;font-size:clamp(1.4rem,6vw,2.4rem);}
 .tm-intro .ic i{font-style:normal;opacity:0;animation:tm-pop .6s both;}
