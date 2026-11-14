@@ -741,6 +741,7 @@ function tmTap(a,t){
   if(a==='tmanim'){gtAnimNext();SFX.chip&&SFX.chip();render();return;}
   if(a==='tmfeather'){TMSFX.pick();tmSend({t:'feather'});return;}
   if(a==='tmbzans'){if(typeof tmBzUiAnswer==='function')tmBzUiAnswer(+d.i);return;}
+  if(a==='tmbzbet'){if(typeof tmBzUiBet==='function')tmBzUiBet(+d.s,d.k);return;}
   if(a==='tmintro'){G.tmIntro=null;render();return;}
   if(a==='tmready'){tmReady();return;}
   if(tm.over)return;

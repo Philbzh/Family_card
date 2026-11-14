@@ -270,6 +270,7 @@ function tmApply(tm,seat,act,now){
       F.armed=!F.armed;tm.moves++;return true;}
     case'buzz':return typeof tmBzBuzz==='function'?tmBzBuzz(tm,s,now):false;
     case'bans':return typeof tmBzAnswer==='function'?tmBzAnswer(tm,s,act.i,now):false;
+    case'bet':return typeof tmBzBet==='function'?tmBzBet(tm,s,act.k,now):false;
     case'tick':return tmTick(tm,now);
   }
   return false;

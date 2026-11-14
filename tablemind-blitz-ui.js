@@ -86,6 +86,17 @@ const css=`
 @keyframes bzGlow{0%,100%{box-shadow:0 .42rem 0 var(--b4),0 .7rem 1rem rgba(0,0,0,.6),0 0 .6rem var(--glow);}50%{box-shadow:0 .42rem 0 var(--b4),0 .7rem 1rem rgba(0,0,0,.6),0 0 2.1rem .4rem var(--glow);}}
 @media(max-width:559px){.bz-zone{--bzd:clamp(3.8rem,14vh,5.6rem);}.bz-zone.pos-l,.bz-zone.pos-r{--bzd:4.2rem;}.bz-in{gap:.55rem;}}
 @media(prefers-reduced-motion:reduce){.bz-zone.st-armed .bz-dome,.bz-zone.st-steal .bz-dome{animation:none!important;}}
+/* side bets: two big buttons for the players who are not answering */
+.bz-bets{display:flex;gap:.6rem;flex:none;}
+.bz-bet{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.1rem;min-width:6.2rem;min-height:3.6rem;padding:.35rem .8rem;border-radius:14px;border:2px solid;font:inherit;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+.bz-bet b{font:800 1.05rem/1.1 var(--serif,Georgia,serif);letter-spacing:.1em;}
+.bz-bet i{font:700 .85rem/1.1 var(--serif,Georgia,serif);font-style:normal;opacity:.85;font-variant-numeric:tabular-nums;}
+.bz-bet.bfor{background:linear-gradient(180deg,#2f9e63,#14613a);border-color:#9be9bd;color:#eafff3;}
+.bz-bet.bagt{background:linear-gradient(180deg,#b9404f,#6e1b27);border-color:#ffb3bd;color:#fff0f2;}
+.bz-bet:active{transform:translateY(.15rem) scale(.98);filter:brightness(1.2);}
+.bz-zone.st-bet{border-color:#9ad7ff;box-shadow:0 0 0 2px rgba(154,215,255,.35),0 0 22px rgba(120,190,255,.35);}
+.bz-zone.st-bet .bz-dome,.bz-zone.st-betted .bz-dome{filter:saturate(.25) brightness(.6);}
+@media(max-width:559px){.bz-bet{min-width:4.6rem;min-height:3.2rem;padding:.3rem .5rem;}.bz-bet b{font-size:.9rem;}.bz-bets{gap:.4rem;}}
 `;
 const st=document.createElement('style');st.textContent=css;document.head.appendChild(st);
 
@@ -130,7 +141,10 @@ function zoneState(tm,q,s){
   switch(eph(q,Date.now())){
     case'intro':return locked?'fs':'wait';
     case'clue':return locked?'locked':'armed';
-    case'answer':return q.buzz.seat===s?'turn':'out';
+    case'answer':
+      if(q.buzz.seat===s)return'turn';
+      if(q.bets&&q.bets[s])return'betted';
+      return(tmBzBetAmt(tm,s)>0&&!(typeof tmAway==='function'&&tmAway(tm,s)))?'bet':'out';   // a side bet is still possible
     case'steal':return(!locked&&(!q.buzz||q.buzz.seat!==s))?'steal':'locked';
     case'stealans':return q.steal.seat===s?'turn':'out';
     default:return'out';
@@ -140,18 +154,26 @@ const LBL={wait:'· · ·',armed:'BUZZER',steal:'KLAUEN!',turn:'DU BIST DRAN',fs
 const LBL_OTHER={wait:'',armed:'',steal:'KLAUT?',turn:'ANTWORTET',fs:'ZU FRÜH',locked:'gesperrt',out:''};   // the small chips of the other players online
 function deltaFor(q,s,players){
   if(!q||q.ph!=='result'||!q.res)return'';
-  const r=q.res;let v=null;
-  if(r.seat===s&&r.kind==='right')v=r.gain;
-  else if(r.seat===s&&r.kind==='wrong')v=-r.pen;
-  else if(r.steal&&r.steal.seat===s)v=r.steal.ok?r.steal.gain:-r.steal.pen;
+  const r=q.res;let v=0;
+  if(r.seat===s&&r.kind==='right')v+=r.gain;
+  else if(r.seat===s&&r.kind==='wrong')v-=r.pen;
+  else if(r.steal&&r.steal.seat===s)v+=r.steal.ok?r.steal.gain:-r.steal.pen;
+  (q.betRes||[]).forEach(b=>{if(b.seat===s)v+=b.d;});   // a side bet on top of a steal is added up
   if(!v)return'';
   return`<b class="bz-delta ${v>0?'pos':'neg'}">${v>0?'+':'−'}${tmEur(Math.abs(v))}</b>`;
 }
+// side bets: the two buttons a player sees while somebody else is answering, and the label after they have bet
+function betBtns(tm,s){
+  const a=tmEur(tmBzBetAmt(tm,s));
+  return`<span class="bz-bets"><button class="bz-bet bfor" data-a="tmbzbet" data-s="${s}" data-k="for"><b>DAFÜR</b><i>${a}</i></button><button class="bz-bet bagt" data-a="tmbzbet" data-s="${s}" data-k="against"><b>DAGEGEN</b><i>${a}</i></button></span>`;
+}
+function betLbl(q,s){const b=q&&q.bets&&q.bets[s];return b?(b.k==='for'?'DAFÜR ✓':'DAGEGEN ✓'):'';}
 function zoneHTML(tm,q,s,pos,players){
   const state=zoneState(tm,q,s),p=players[s-1]||{name:'?',avatar:null};
   const live=human(s)&&(state==='armed'||state==='steal'||state==='wait');
-  const label=LBL[state]||'';
-  const inner=`<span class="bz-in"><span class="bz-av">${avHTML(p.avatar)}</span><span class="bz-who"><span class="bz-nm">${esc(p.name)}</span><span class="bz-money" data-s="${s}">${tmEur(tm.bank[s-1])}</span></span><span class="bz-btn" aria-hidden="true"><span class="bz-dome"></span></span>${label?`<span class="bz-lbl">${label}</span>`:''}</span>${deltaFor(q,s,players)}`;
+  const label=state==='betted'?betLbl(q,s):(LBL[state]||'');
+  const mid=(state==='bet'&&human(s))?betBtns(tm,s):`<span class="bz-btn" aria-hidden="true"><span class="bz-dome"></span></span>${label?`<span class="bz-lbl">${label}</span>`:''}`;
+  const inner=`<span class="bz-in"><span class="bz-av">${avHTML(p.avatar)}</span><span class="bz-who"><span class="bz-nm">${esc(p.name)}</span><span class="bz-money" data-s="${s}">${tmEur(tm.bank[s-1])}</span></span>${mid}</span>${deltaFor(q,s,players)}`;
   const bzc='bzc'+(((s-1)%4)+1);
   return live?`<button class="bz-zone pos-${pos} st-${state} ${bzc}" data-bzs="${s}" aria-label="Buzzer ${esc(p.name)}">${inner}</button>`:`<div class="bz-zone pos-${pos} st-${state} ${bzc}">${inner}</div>`;
 }
@@ -188,7 +210,7 @@ window.rTablemindBlitz=function(tm,players){
   if(G.isOnline){
     const chips=[];
     for(let s=1;s<=tm.P;s++){if(s===me)continue;const p=players[s-1]||{name:'?'},state=zoneState(tm,q,s);
-      chips.push(`<div class="bz-chip st-${state}"><span class="bz-av">${avHTML(p.avatar)}</span><span class="bz-who"><span class="bz-nm">${esc(p.name)}</span><span class="bz-money" data-s="${s}">${tmEur(tm.bank[s-1])}</span></span>${LBL_OTHER[state]?`<span class="bz-cl">${LBL_OTHER[state]}</span>`:''}${deltaFor(q,s,players)}</div>`);}
+      chips.push(`<div class="bz-chip st-${state}"><span class="bz-av">${avHTML(p.avatar)}</span><span class="bz-who"><span class="bz-nm">${esc(p.name)}</span><span class="bz-money" data-s="${s}">${tmEur(tm.bank[s-1])}</span></span>${(state==='betted'?betLbl(q,s):LBL_OTHER[state])?`<span class="bz-cl">${state==='betted'?betLbl(q,s):LBL_OTHER[state]}</span>`:''}${deltaFor(q,s,players)}</div>`);}
     zones.push(`<div class="bz-chips">${chips.join('')}</div>`);
     if(me)zones.push(zoneHTML(tm,q,me,'b',players));
   }else for(let s=1;s<=tm.P;s++)zones.push(zoneHTML(tm,q,s,pos[s-1],players));
@@ -213,7 +235,7 @@ window.rTablemindBlitz=function(tm,players){
 // ── clock: deadlines, computer players, and a new picture only when something changed ──
 function key(tm,now){
   const B=tm.blitz,q=B.cur;if(!q)return'end';
-  return[B.n,eph(q,now),eph(q,now)==='clue'?tmBzStage(q,now):'',q.locked.join(','),q.buzz?q.buzz.seat:'',q.steal?q.steal.seat:'',q.res?1:0].join('|');
+  return[B.n,eph(q,now),eph(q,now)==='clue'?tmBzStage(q,now):'',q.locked.join(','),q.buzz?q.buzz.seat:'',q.steal?q.steal.seat:'',q.res?1:0,q.bets?Object.keys(q.bets).length:0].join('|');
 }
 window.tmBlitzOnlineLoop=function(tm,now){
   const k=tm.phase==='blitz'&&tm.blitz?key(tm,now):'x';
@@ -241,7 +263,7 @@ function bots(tm,now){
       const dist=lvl==='sharp'?[.30,.35,.25,.10]:[.10,.25,.35,.30];
       let r=Math.random(),st=3,a=0;for(let k=0;k<4;k++){a+=dist[k];if(r<a){st=k;break;}}
       const gamble=!knows&&Math.random()<(lvl==='sharp'?.08:.15);
-      p={knows,buzz:(knows||gamble),t:q.t0+st*TM_BZ_CFG.stageMs+300+Math.random()*2400,thinkMs:1200+Math.random()*2600,stealP:knows?.6:.1};
+      p={knows,buzz:(knows||gamble),t:q.t0+st*TM_BZ_CFG.stageMs+300+Math.random()*2400,thinkMs:1200+Math.random()*2600,stealP:knows?.6:.1,bet:Math.random()<(lvl==='sharp'?.7:.35),betDelay:600+Math.random()*1400};
       q.bz[s]=p;
     }
     const eligible=q.locked.indexOf(s)<0;
@@ -251,6 +273,15 @@ function bots(tm,now){
       if(now>=p.ansAt){const ok=p.knows||Math.random()<.25;
         let k=q.cor;if(!ok){const wrong=[0,1,2,3].filter(x=>x!==q.cor);k=wrong[Math.floor(Math.random()*wrong.length)];}
         if(tmApply(tm,s,{t:'bans',i:k},now))acted=true;}
+    }else if(q.ph==='answer'&&q.buzz.seat!==s){   // a side bet on the player who is answering: an early buzz is more likely right
+      if(p.bet&&!(q.bets&&q.bets[s])){
+        if(!p.betAt)p.betAt=now+p.betDelay;
+        if(now>=p.betAt){
+          const pf=[.8,.7,.6,.45][q.buzz.stage]||.5;
+          if(tmApply(tm,s,{t:'bet',k:Math.random()<pf?'for':'against'},now))acted=true;
+          p.bet=false;
+        }
+      }
     }else if(q.ph==='steal'&&eligible&&(!q.buzz||q.buzz.seat!==s)){
       if(!p.stealAt)p.stealAt=now+700+Math.random()*2500;
       if(now>=p.stealAt&&Math.random()<p.stealP&&tmApply(tm,s,{t:'buzz'},now)){acted=true;TMSFX.buzz();}
@@ -302,6 +333,13 @@ window.tmBzUiAnswer=function(i){
   const who=q.ph==='answer'?q.buzz.seat:q.ph==='stealans'?q.steal.seat:0;if(!who||!human(who))return;
   if(G.isOnline){tmSend({t:'bans',i});return;}
   if(tmApply(tm,who,{t:'bans',i},Date.now())){G.bzKey='';render();}
+};
+// a side bet: "dafür" or "dagegen" on the answer somebody else is giving
+window.tmBzUiBet=function(s,k){
+  const tm=tmObj();if(!tm||tm.phase!=='blitz')return;
+  const q=tm.blitz.cur;if(!q||q.ph!=='answer'||!human(s))return;
+  if(G.isOnline){TMSFX.lock();tmSend({t:'bet',k});return;}
+  if(tmApply(tm,s,{t:'bet',k},Date.now())){TMSFX.lock();G.bzKey='';render();}
 };
 
 // ── what happens after each render: sounds, the act card, money counting, the memory of seen questions ──
@@ -377,9 +415,9 @@ window.tmBzSeenIdx=function(){
     sent(act,ok,ms){if(!inBlitz())return;S.write=ms;
       log('send',act.t+(act.i!=null?' #'+act.i:'')+': '+(ok?'accepted':'NOT accepted (too late, not allowed or connection)')+' · round trip '+ms+' ms');},
     state(tm,q){
-      const B=tm.blitz,sig=[B.n,q.i,q.ph,q.buzz?q.buzz.seat:'',q.steal?q.steal.seat:'',q.locked.join(','),q.res?q.res.kind:'',tm.bank.join('/')].join('|');
+      const B=tm.blitz,sig=[B.n,q.i,q.ph,q.buzz?q.buzz.seat:'',q.steal?q.steal.seat:'',q.locked.join(','),q.res?q.res.kind:'',q.bets?JSON.stringify(q.bets):'',tm.bank.join('/')].join('|');
       if(sig===S.sig)return;S.sig=sig;
-      log('state','Q'+B.n+' (library #'+q.i+') '+q.ph+(q.buzz?' · buzz: seat '+q.buzz.seat+(q.buzz.pz!=null?' at '+q.buzz.pz:''):'')+(q.steal?' · steal: seat '+q.steal.seat:'')+(q.locked.length?' · locked: '+q.locked.join(','):'')+(q.res?' · result: '+q.res.kind:'')+' · money '+tm.bank.join(' / '));
+      log('state','Q'+B.n+' (library #'+q.i+') '+q.ph+(q.buzz?' · buzz: seat '+q.buzz.seat+(q.buzz.pz!=null?' at '+q.buzz.pz:''):'')+(q.steal?' · steal: seat '+q.steal.seat:'')+(q.locked.length?' · locked: '+q.locked.join(','):'')+(q.bets?' · bets: '+Object.keys(q.bets).map(k=>'seat '+k+(q.bets[k].k==='for'?' for ':' against ')+q.bets[k].amt).join(', '):'')+(q.res?' · result: '+q.res.kind:'')+' · money '+tm.bank.join(' / '));
     }
   };
   window.addEventListener('offline',()=>{S.offAt=Date.now();log('net','OFFLINE');});

@@ -59,6 +59,10 @@ Pass: everyone lands on the hunt offer screen; the player in last place has the 
 ### T11 Feel (not pass or fail)
 Ask each tester: Is the buzzer fast enough? Is the zone big enough on the phone? Is one message per situation enough? Were the clues readable in time? Were any questions wrong, unfair or too easy/hard?
 
+### T12 Side bets (build 452 or higher)
+Steps: while one player is answering, the other players tap "DAFÜR" or "DAGEGEN" (250 €). Try: (a) two players betting at the same moment on the same answer; (b) a bet in the last second of the 7 seconds, while the answer is being given; (c) a player with less than 250 € or 0 €; (d) tap a bet button twice quickly.
+Pass: every bet shows as "DAFÜR ✓" / "DAGEGEN ✓" on all devices; both simultaneous bets are counted (the second one may need a retry, see `[write] conflict` in the log); a bet that comes too late is refused without harm (no money moves); a bet is never counted twice; the money after the answer is the same on all devices (right answer: DAFÜR +250 and DAGEGEN −250, wrong answer or timeout the other way round); a player with 100 € stakes 100 €, a player with 0 € sees no bet buttons.
+
 ## 2. Notes table (copy and fill in)
 
 | Test | Result (pass / fail / unclear) | Devices and connections | What exactly happened | Screenshot / time |
@@ -74,6 +78,7 @@ Ask each tester: Is the buzzer fast enough? Is the zone big enough on the phone?
 | T9 | | | | |
 | T10 | | | | |
 | T11 | | | | |
+| T12 | | | | |
 
 ## 3. Exit criteria
 

@@ -9,7 +9,8 @@ const TM_BZ_CFG={
   prizes:[2500,2000,1500,1000],     // the prize at clue 1..4
   introMs:2500,stageMs:3500,tailMs:4000,actCardMs:2700,   // locked intro, time per clue, extra time after the last clue, the act title card at the start
   answerMs:7000,stealMs:5000,resultMs:3500,
-  wrongPen:500,stealFrac:.5,stealPen:250
+  wrongPen:500,stealFrac:.5,stealPen:250,
+  betStake:250                      // side bets (spec section 21): even money on "the answer is right / wrong"
 };
 function tmBzLib(tm){return(tm&&tm.bzlib)||(typeof TM_BZ_DE!=='undefined'?TM_BZ_DE:[]);}
 // money for one player: the family handicap scales every amount (Schwer pays 75 %), rounded to 50
@@ -81,9 +82,33 @@ function tmBzEasy(tm,q,s){   // Leicht: two wrong answers disappear for the play
   else{q.elim=null;q.elimSeat=0;}
 }
 function tmBzResult(tm,q,now){q.ph='result';q.dl=now+TM_BZ_CFG.resultMs;tm.moves++;}
+// Side bets (spec section 21): while somebody is answering, every other player may bet once on "right" (for) or "wrong" (against).
+// Even money, the stake is 250 scaled by the bettor's handicap and never more than their bank.
+function tmBzBetAmt(tm,s){return Math.min(tmBzAmt(tm,s,TM_BZ_CFG.betStake),tm.bank[s-1]);}
+function tmBzBet(tm,s,k,now){
+  const B=tm.blitz;if(tm.phase!=='blitz'||!B||B.done||!B.cur)return false;
+  const q=B.cur;
+  if(q.ph!=='answer'||!q.buzz||!Number.isInteger(s)||s<1||s>tm.P||s===q.buzz.seat)return false;
+  if(k!=='for'&&k!=='against')return false;
+  if(typeof tmAway==='function'&&tmAway(tm,s))return false;
+  if(q.bets&&q.bets[s])return false;
+  const amt=tmBzBetAmt(tm,s);if(amt<=0)return false;
+  q.bets=q.bets||{};q.bets[s]={k,amt};tm.moves++;return true;
+}
+// the answer is settled: pay the bets (a timeout counts as wrong)
+function tmBzSettleBets(tm,q,ok){
+  q.betRes=[];if(!q.bets)return;
+  const B=tm.blitz;
+  Object.keys(q.bets).forEach(key=>{
+    const s=+key,b=q.bets[key],i=s-1;
+    if((b.k==='for')===!!ok){tm.bank[i]+=b.amt;B.earn[i]+=b.amt;q.betRes.push({seat:s,k:b.k,ok:true,d:b.amt});}
+    else{const lost=Math.min(tm.bank[i],b.amt);tm.bank[i]-=lost;B.earn[i]-=lost;q.betRes.push({seat:s,k:b.k,ok:false,d:-lost});}
+  });
+}
 function tmBzSettle(tm,s,ok,now,late){
   const B=tm.blitz,q=B.cur,i=s-1;
   if(q.ph==='answer'){
+    tmBzSettleBets(tm,q,ok);
     if(ok){
       const g=tmBzAmt(tm,s,q.buzz.pz);tm.bank[i]+=g;B.earn[i]+=g;
       q.res={kind:'right',seat:s,stage:q.buzz.stage,gain:g};tmBzResult(tm,q,now);

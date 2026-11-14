@@ -10180,6 +10180,50 @@ async function runPresentation(A,W,frame){
     check('no clue question appears twice',new Set(lib.map(e=>e[3])).size===lib.length);
     check('the questions are in German',lib.every(e=>!/\b(the|which|what)\b/i.test(e.slice(3,7).join(' '))));
   });
+  suite('TABLE MIND — Blitz: side bets',()=>{
+    const F=n=>W.eval(n),N=F('tmNew'),S=F('tmStart'),A=F('tmApply'),T=F('tmTick');
+    const BZ=[];for(let c=0;c<6;c++)for(const d of [2,3,3,4])BZ.push([c,d,'E','c1','c2','c3','c4','R'+BZ.length,'W1','W2','W3','x']);
+    const mk=(P,o)=>{const t=N(P,Object.assign({blitz:true,bzlib:BZ,seed:777},o||{}));S(t,0);return t;};
+    const go=(t,now)=>{t.act=2;t.phase='reveal';t.round2=t.sr||2;t.queue=[];t.dl=now;t.fx={seats:t.bank.map((x,i)=>({s:i+1}))};T(t,now);};
+    // seat 1 buzzes at the first clue (prize 2.500) and is now answering; banks as given
+    const open=(P,bank)=>{const t=mk(P);go(t,1e5);const q=t.blitz.cur;(bank||[]).forEach((b,i)=>{t.bank[i]=b;});A(t,1,{t:'buzz'},q.t0+100);return{t,q,now:q.t0+200};};
+    {const t=mk(2);go(t,1e5);const q=t.blitz.cur;
+      check('no bet before a buzz (nobody is answering yet)',A(t,2,{t:'bet',k:'for'},q.t0+50)===false&&!q.bets);}
+    {const o=open(3,[1000,1000,1000]),t=o.t,q=o.q,n=o.now;
+      check('the answering player cannot bet on their own answer',A(t,1,{t:'bet',k:'for'},n)===false);
+      check('only "for" and "against" are bets',A(t,2,{t:'bet',k:'maybe'},n)===false&&A(t,2,{t:'bet'},n)===false);
+      check('another player can bet once, a second bet is refused',A(t,2,{t:'bet',k:'for'},n)===true&&A(t,2,{t:'bet',k:'against'},n)===false&&q.bets[2].k==='for'&&q.bets[2].amt===250);
+      check('everybody else may bet too',A(t,3,{t:'bet',k:'against'},n)===true&&Object.keys(q.bets).length===2);
+      A(t,1,{t:'bans',i:q.cor},n+300);
+      check('a right answer: the "for" bet wins its stake, the "against" bet loses it',t.bank[1]===1250&&t.bank[2]===750&&t.bank[0]===3500);
+      check('the bets are recorded for the result screen and counted as Blitz money',q.betRes.length===2&&q.betRes.some(b=>b.seat===2&&b.ok&&b.d===250)&&q.betRes.some(b=>b.seat===3&&!b.ok&&b.d===-250)&&t.blitz.earn[1]===250&&t.blitz.earn[2]===-250);
+      check('no bet after the answer has been settled',A(t,2,{t:'bet',k:'for'},n+400)===false);}
+    {const o=open(3,[3000,1000,1000]),t=o.t,q=o.q,n=o.now;
+      A(t,2,{t:'bet',k:'for'},n);A(t,3,{t:'bet',k:'against'},n);
+      A(t,1,{t:'bans',i:(q.cor+1)%4},n+300);
+      check('a wrong answer: the "for" bet loses, the "against" bet wins (and the answerer pays the wrong-answer penalty)',t.bank[1]===750&&t.bank[2]===1250&&t.bank[0]===2500);
+      check('a bet cannot be placed once the steal window has opened',q.ph==='steal'&&A(t,3,{t:'bet',k:'for'},n+350)===false);}
+    {const o=open(2,[1000,1000]),t=o.t,q=o.q,n=o.now;
+      A(t,2,{t:'bet',k:'against'},n);
+      T(t,q.dl+10);
+      check('no answer within the time counts as wrong, so "against" wins',t.bank[1]===1250&&t.bank[0]===500&&q.betRes[0].ok===true);}
+    {const o=open(2,[1000,100]),t=o.t,q=o.q,n=o.now;
+      check('the stake is never more than the bank (100 stakes 100)',A(t,2,{t:'bet',k:'for'},n)===true&&q.bets[2].amt===100);
+      A(t,1,{t:'bans',i:(q.cor+1)%4},n+200);
+      check('losing a small bet takes the bank to 0, not below',t.bank[1]===0);}
+    {const o=open(2,[1000,0]),t=o.t,q=o.q,n=o.now;
+      check('a player with an empty bank cannot bet',A(t,2,{t:'bet',k:'for'},n)===false&&!q.bets);}
+    {const t=mk(2);t.hcap[1]=1;go(t,1e5);const q=t.blitz.cur;t.bank[0]=1000;t.bank[1]=1000;A(t,1,{t:'buzz'},q.t0+100);
+      check('Schwer scales the stake like every other amount (250 becomes 200)',A(t,2,{t:'bet',k:'for'},q.t0+200)===true&&q.bets[2].amt===200);}
+    {const t=mk(3);go(t,1e5);const q=t.blitz.cur;t.bank[0]=1000;t.bank[1]=1000;t.bank[2]=1000;
+      A(t,2,{t:'buzz'},q.t0-300);   // a false start locks seat 2 out of the buzzing
+      A(t,1,{t:'buzz'},q.t0+100);
+      check('a player locked out by a false start may still bet',A(t,2,{t:'bet',k:'for'},q.t0+200)===true);}
+    {const o=open(2,[1000,1000]),t=o.t,q=o.q,n=o.now;
+      const before=t.bank.reduce((a,b)=>a+b,0);
+      A(t,2,{t:'bet',k:'for'},n);A(t,1,{t:'bans',i:q.cor},n+100);
+      check('money added up: the answerer got the prize and the bettor won an even-money bet',t.bank[0]===3500&&t.bank[1]===1250);}
+  });
   suite('TABLE MIND — Blitz (the buzzer act): the rules',()=>{
     const F=n=>W.eval(n),N=F('tmNew'),S=F('tmStart'),A=F('tmApply'),T=F('tmTick'),Z=F('TM_BZ_CFG');
     const BZ=[];for(let c=0;c<6;c++)for(const d of [2,3,3,4])BZ.push([c,d,'E','c1','c2','c3','c4','R'+BZ.length,'W1','W2','W3','x']);
