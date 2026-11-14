@@ -1,4 +1,4 @@
-/* TABLE MIND — Act III "DER BLITZ" (the buzzer act): pure rules, no screens. Spec: TABLEMIND_BLITZ_SPEC.md
+/* TABLE MIND — Act III "DER BLITZ" (the buzzer act): pure rules, no screens. Spec: docs/TABLEMIND_BLITZ_SPEC.md
    Needs tablemind-engine.js (tmRand, tmShuffled, TM_CFG ...). The state lives in tm.blitz while tm.phase === 'blitz'.
    One question: intro (buzzers locked) -> clue (four clues, the prize drops with every clue) -> a buzz freezes the clues and the buzzer
    answers (7 s) -> if wrong the others may steal (5 s window, one attempt) -> result.

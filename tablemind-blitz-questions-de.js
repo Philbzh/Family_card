@@ -3,7 +3,7 @@
    The four clues come one after the other (the prize drops with every clue): 1 broad but meaningful, 2 narrows it down, 3 a strong feature, 4 makes the answer almost unmistakable.
    Kategorie 0 Geographie, 1 Geschichte, 2 Kultur, 3 Sport, 4 Essen, 5 Wissenschaft. Stufe 2-4. Raum E = Europa, I = international.
    Rules: German, each clue at most 80 characters, no clue contains the right answer, four different answers.
-   Status: written from general knowledge, NOT yet checked against sources (see TABLEMIND_BLITZ_SPEC.md, section 11). The right answer is always listed first; the engine shuffles. */
+   Status: written from general knowledge, NOT yet checked against sources (see docs/TABLEMIND_BLITZ_SPEC.md, section 11). The right answer is always listed first; the engine shuffles. */
 const TM_BZ_DE=[
 [0,2,"E","Es ist ein berühmtes Bauwerk aus Eisen.","Es wurde für eine Weltausstellung gebaut.","Es wurde 1889 fertig und war lange das höchste Bauwerk der Welt.","Es steht an der Seine in Paris und ist rund 330 Meter hoch.","Der Eiffelturm","Big Ben","Brandenburger Tor","Schiefer Turm von Pisa","Der Eiffelturm wurde für die Weltausstellung 1889 in Paris errichtet."],
 [0,2,"I","Dieser Fluss gehört zu den längsten der Welt.","Er fließt von Süden nach Norden.","Er mündet in einem großen Delta ins Mittelmeer.","Ohne ihn gäbe es in Ägypten kaum Landwirtschaft.","Der Nil","Der Amazonas","Der Kongo","Der Niger","Der Nil fließt durch Ostafrika und Ägypten ins Mittelmeer."],
