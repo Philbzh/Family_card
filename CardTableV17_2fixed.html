@@ -4590,6 +4590,17 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
 @keyframes ws-letter{0%{opacity:0;transform:translateY(14px) scale(.8);}100%{opacity:1;transform:none;}}
 @keyframes ws-intro-out{to{opacity:0;visibility:hidden;}}
 .ws-res{width:100%;margin:.4rem 0;display:flex;flex-direction:column;gap:.3rem;}
+.ws-fins{display:flex;flex-direction:column;gap:.45rem;margin-top:.4rem;}
+.ws-fin{display:grid;grid-template-columns:1.8rem 1fr auto;gap:.1rem .5rem;align-items:center;padding:.5rem .7rem;border-radius:12px;border:1px solid rgba(233,196,106,.3);background:rgba(10,18,56,.55);}
+.ws-fin.first{border-color:#e9c46a;background:linear-gradient(180deg,rgba(233,196,106,.2),rgba(10,18,56,.6));}
+.ws-fin .rk{text-align:center;font:800 1rem/1 var(--serif,Georgia,serif);color:#e9c46a;}
+.ws-fin .nm{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ws-fin .tt{font:800 1.05rem/1 var(--serif,Georgia,serif);color:#fff1c2;}
+.ws-fin small{grid-column:2/4;font-size:.74rem;color:#b9c2e8;}
+.ws-lean-end .res-body{justify-content:center;gap:.9rem;padding:.8rem 1.1rem 1rem;overflow-y:auto;}
+.ws-lean-end .res-body>.panel{margin:0;padding:.9rem .9rem .7rem;}
+.ws-lean-end .ws-res-hero{max-width:7rem;margin:.1rem 0 .3rem;}
+.ws-lean-end .ws-res-egg{height:6.5rem;}
 .ws-res table{width:100%;border-collapse:collapse;font-size:.82rem;}
 .ws-res th{font-weight:600;color:#8fa2e8;font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;padding:.25rem .3rem;text-align:right;}
 .ws-res td{padding:.3rem .3rem;text-align:right;border-top:1px solid rgba(233,196,106,.15);color:#e8edff;font-variant-numeric:tabular-nums;}
@@ -6456,7 +6467,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=420;
+const APP_BUILD=421;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -22302,14 +22313,14 @@ function wsChipsHTML(){
 function wsResultsHTML(){
   const ws=G.isOnline?(G.srv&&G.srv.ws):G.ws;if(!ws||!ws.over)return'';
   const T=wsTx(ws),players=G.isOnline?(G.srv.players||[]):G.lp,s=ws.stats;
-  const rows=players.slice(0,ws.P).map((p,i)=>({p,i})).sort((a,b)=>ws.bank[b.i]-ws.bank[a.i]).map(({p,i},rk)=>`<tr><td>${rk<3?uiI(['reward_gold','reward_silver','reward_bronze'][rk],'ui-med'):''}${avChar(p.avatar)} ${esc(p.name)}</td><td>${wsFmt(ws.bank[i])}</td><td>${s.rounds[i]}</td><td>${s.best[i]?wsFmt(s.best[i]):'–'}</td><td>${s.bankrupt[i]}</td><td>${s.vowels[i]}</td><td>${s.spins[i]}</td></tr>`).join('');
+  const rows=players.slice(0,ws.P).map((p,i)=>({p,i})).sort((a,b)=>ws.bank[b.i]-ws.bank[a.i]).map(({p,i},rk)=>`<div class="ws-fin${rk===0?' first':''}"><span class="rk">${rk<3?uiI(['reward_gold','reward_silver','reward_bronze'][rk],'ui-med'):rk+1}</span><span class="nm">${avChar(p.avatar)} ${esc(p.name)}</span><b class="tt">${wsFmt(ws.bank[i])}</b><small>${T('hRounds')} ${s.rounds[i]} · ${T('hBest')} ${s.best[i]?wsFmt(s.best[i]):'–'}${s.bankrupt[i]?' · '+T('hBankrupt')+' '+s.bankrupt[i]:''}</small></div>`).join('');
   const f=ws.final;
   const lostFinal=!!(f&&!f.solved);
   const wonFinal=!!(f&&f.solved);
   const _me=G.isOnline?(((G.srv&&G.srv.players)||[]).findIndex(q=>q.id===G.myPid)+1):0,_lead=ws.bank.indexOf(Math.max(...ws.bank.slice(0,ws.P)))+1;
   const hero=(_me&&_me!==_lead&&!wonFinal)?`<img class="ws-res-hero" src="assets/games/ws_res_lose.jpg" alt="" width="147" height="129">`:wonFinal?`<img class="ws-res-hero ws-res-egg" src="assets/ui/mascot_egg.png" alt="" height="150">`:`<img class="ws-res-hero" src="assets/games/ws_res_${lostFinal?'lose':'win'}.jpg" alt="" width="${lostFinal?147:135}" height="129">`;
   return`<div class="panel ws-res"><div class="panel-lbl">${T('finalTitle')}</div><div style="text-align:center">${hero}</div><div style="text-align:center;color:#e9c46a;font-family:var(--serif)">“${esc(ws.puzzle.t)}”</div>${f?`<div style="text-align:center;font-size:.85rem;color:var(--paper2)">${f.solved?T('finalSolved',esc((players[f.leader-1]||{}).name||''),wsFmt(WS_FINAL_PRIZE)):T('finalLost',esc((players[f.leader-1]||{}).name||''))}</div>`:''}
-    <table><tr><th>${T('hPlayer')}</th><th>${T('hTotal')}</th><th>${T('hRounds')}</th><th>${T('hBest')}</th><th>${T('hBankrupt')}</th><th>${T('hVowels')}</th><th>${T('hSpins')}</th></tr>${rows}</table></div>`;
+    <div class="ws-fins">${rows}</div></div>`;
 }
 
 
@@ -39515,6 +39526,10 @@ function rMatchEnd(){
     <div class="tonight-stat"><div class="ts-val">${ms.cardsPlayed}</div><div class="ts-lbl">🃏 Cards Played</div></div>
     <div class="tonight-stat"><div class="ts-val">${ms.reactions}</div><div class="ts-lbl">😂 Reactions</div></div>
     <div class="tonight-stat"><div class="ts-val">${fmtPlayTime(Date.now()-ms.startedAt)}</div><div class="ts-lbl">⏱ Play Time</div></div>
+  </div>`;
+  if(isWS)return`<div id="s-matchend" class="scr on ws-lean-end">
+    <div class="topbar"><span class="top-title" style="font-family:var(--serif);">WORDSPIN</span><div class="top-right">${sndBtn()}</div></div>
+    <div class="res-body">${wsResultsHTML()}${resButtonsHTML()}</div>
   </div>`;
   if(isTM)return`<div id="s-matchend" class="scr on tm-lean-end">
     <div class="topbar"><span class="top-title" style="font-family:var(--serif);">TABLE MIND</span><div class="top-right">${sndBtn()}</div></div>
