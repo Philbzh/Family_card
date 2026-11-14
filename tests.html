@@ -10153,6 +10153,16 @@ async function runPresentation(A,W,frame){
     check('at least 75 percent of the questions are about Europe',lib.filter(e=>e[2]==='E').length>=lib.length*.75);
     check('the questions are in German (they use ä ö ü ß somewhere and no English quiz words)',lib.some(e=>/[äöüß]/.test(e[3]+e[8]))&&lib.every(e=>!/\b(the|which|what)\b/i.test(e[3])));
   });
+  suite('TABLE MIND — Blitz: the clue library',()=>{
+    const F=n=>W.eval(n),lib=F('TM_BZ_DE');
+    check('at least 50 buzzer questions of twelve fields',lib.length>=50&&lib.every(e=>e.length===12&&e.slice(3).every(x=>typeof x==='string'&&x.length>0)));
+    check('four different answers in every question',lib.every(e=>new Set(e.slice(7,11).map(x=>x.toLowerCase())).size===4));
+    check('every clue is at most 80 letters, so it fits one line of the screen',lib.every(e=>e.slice(3,7).every(c=>c.length<=80)));
+    check('no clue gives the right answer away',lib.every(e=>{const core=e[7].toLowerCase().replace(/^(der|die|das|ein|eine) /,'');return core.length<4||e.slice(3,7).every(c=>c.toLowerCase().indexOf(core)<0);}));
+    check('all six categories are there with at least eight questions each, levels between 2 and 4',[0,1,2,3,4,5].every(c=>lib.filter(e=>e[0]===c).length>=8)&&lib.every(e=>e[1]>=2&&e[1]<=4));
+    check('no clue question appears twice',new Set(lib.map(e=>e[3])).size===lib.length);
+    check('the questions are in German',lib.every(e=>!/\b(the|which|what)\b/i.test(e.slice(3,7).join(' '))));
+  });
   suite('TABLE MIND — Blitz (the buzzer act): the rules',()=>{
     const F=n=>W.eval(n),N=F('tmNew'),S=F('tmStart'),A=F('tmApply'),T=F('tmTick'),Z=F('TM_BZ_CFG');
     const BZ=[];for(let c=0;c<6;c++)for(const d of [2,3,3,4])BZ.push([c,d,'E','c1','c2','c3','c4','R'+BZ.length,'W1','W2','W3','x']);

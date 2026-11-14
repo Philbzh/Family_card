@@ -122,3 +122,11 @@ The Chaser's move is already rolled when the question opens (`tm.ch`). When that
 5. Computer players tuned.
 6. Golden Feather and Chaser warning.
 7. Family play-test on the iPad, then balance tuning.
+
+## 17. Phase 1 results (2026-11-14)
+Built: `tablemind-blitz.js` (pure rules, switched off by default via `tm.blitzOn`), `tablemind-blitz-questions-de.js` (60 questions so far), 38 node checks plus two suites in `tests.html`.
+First balance simulation (3,000 acts, two players, crude model: a strong player knows 76 % of the questions and buzzes early, a weaker one knows 52 % and waits):
+* equal players: 48.9 % / 46.4 % (balanced);
+* strong versus weak: the strong player earns more in about 85 % of the acts (6,400 versus 2,200 on average);
+* with Schwer for the strong and Leicht for the weak player, flatter prizes (2,000 down to 1,250) and both together it is still about 78-80 %.
+Meaning: the act rewards knowledge AND speed at the same time, so a big skill gap snowballs. This is below the family goal (adult about 55-60 %). The model does not yet reflect that Leicht lets a player answer safely after buzzing earlier. Options to test next (phase 5): no wrong-answer penalty for Leicht players; a 50 % smaller penalty for the player behind; steal for the player behind pays full prize; a catch-up bonus of +250 per right answer for the player in last place. Decide after the hot-seat prototype is playable, with real play-tests.
