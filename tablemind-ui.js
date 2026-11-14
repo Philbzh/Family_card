@@ -651,7 +651,8 @@ function tmDueNow(tm,now){
   return now>=tm.dl;
 }
 async function oTmTick(){
-  await oTmMutate(st=>{const was=st.tm.phase+st.tm.cycle+st.tm.round2+(st.tm.hunt?st.tm.hunt.n:0);const ok=tmTick(st.tm,Date.now());if(ok)oTmAfter(st);return ok;});
+  const ok=await oTmMutate(st=>{const was=st.tm.phase+st.tm.cycle+st.tm.round2+(st.tm.hunt?st.tm.hunt.n:0);const ok=tmTick(st.tm,Date.now());if(ok)oTmAfter(st);return ok;});
+  if(window.bzDbg)bzDbg.w('deadline tick: '+(ok?'this device moved the game on':'nothing to do (another device was first)'));
 }
 function tmLocalLoop(tm,now){
   if(tm.over)return;
@@ -689,9 +690,11 @@ async function oTmMutate(mutate){
   for(let i=0;i<6;i++){
     const state=await dbRead(G.roomId);if(!state||!state.tm||state.gameId!=='tablemind')return false;
     const expectedTs=state._ts;
-    if(!mutate(state))return false;
-    onSrv(state);
+    if(!mutate(state)){if(window.bzDbg)bzDbg.w('refused by the rules: the room has already moved on');return false;}
+    if(window.bzDbg)bzDbg.local(true);
+    try{onSrv(state);}finally{if(window.bzDbg)bzDbg.local(false);}
     if(await dbWriteIfUnchanged(G.roomId,expectedTs,state))return true;
+    if(window.bzDbg)bzDbg.w('conflict: somebody else wrote first, reading the room again (try '+(i+2)+')');
   }
   toast('⚠️ Verbindung wackelt — bitte noch einmal');
   return false;
@@ -716,7 +719,8 @@ function tmSend(act){
   const tm=tmObj();if(!tm||tm.over)return;
   if(G.isOnline){
     const seat=tmMySeat();if(!seat)return;
-    oTmMutate(st=>{const ok=tmApply(st.tm,seat,act,Date.now());if(ok)oTmAfter(st);return ok;}).then(ok=>{if(!ok)SFX.illegal();});
+    const t0=performance.now();
+    oTmMutate(st=>{const ok=tmApply(st.tm,seat,act,Date.now());if(ok)oTmAfter(st);return ok;}).then(ok=>{if(!ok)SFX.illegal();if(window.bzDbg)bzDbg.sent(act,ok,Math.round(performance.now()-t0));});
     G.tmSel=-1;
   }else{
     const seat=G.tmViewer;if(!seat)return;

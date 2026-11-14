@@ -10,6 +10,8 @@ Time needed: about 45 minutes. People: 2 testers minimum (3 is better: you plus 
 * Use at least **two different devices** on **different connections** if possible (for example iPad on Wi-Fi, phone on mobile data). One device with two browser tabs does NOT count for tests 2 and 5.
 * One person keeps notes (use the table at the end). Write down the build number, the device, the browser and the connection of each tester.
 * Start a TABLE MIND game with **Blitz on** (it is on by default). Choose any handicap. Note the room code.
+* **Test overlay (build 450 or higher):** open the app on every test device ONCE with `?debug=1` at the end of the address, for example `https://philbzh.github.io/Family_card/?debug=1`. A small "DBG" pill appears at the left edge, halfway down. Tap it to open the panel: build, room, seat, how long ago the last news from the room arrived, the longest silence, reconnects, the last write time, and a log of every buzz tap, answer, write conflict, deadline tick, connection change and state change (who buzzed, money). "Copy log" puts the whole log on the clipboard so you can paste it into the notes table; "Clear" starts a new log (use it before each test). The overlay is remembered in that browser; to switch it off open the app with `?debug=0`. Normal players never see it.
+* How to read the log: compare the "+seconds" of the different devices, not the clock times (device clocks differ). In T4 look for `[tap]` lines (how many ms after the buzzers armed), `[send] ... accepted / NOT accepted` (the loser's tap should be NOT accepted) and `[write] conflict` lines (the atomic claim at work). In T7 look for `[net] OFFLINE / back online`, `[sync] long gap` and how fast the `[state]` lines catch up afterwards.
 
 ## 1. Tests
 

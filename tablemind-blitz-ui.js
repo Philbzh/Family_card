@@ -197,6 +197,7 @@ function key(tm,now){
 }
 window.tmBlitzOnlineLoop=function(tm,now){
   const k=tm.phase==='blitz'&&tm.blitz?key(tm,now):'x';
+  if(window.bzDbg&&tm.phase==='blitz'&&tm.blitz&&tm.blitz.cur)bzDbg.state(tm,tm.blitz.cur);
   if(G.bzKey!==k){G.bzKey=k;render();}
 };
 window.tmBlitzLocalLoop=function(tm,now){
@@ -253,6 +254,7 @@ function bots(tm,now){
     if(G.isOnline){   // one device, one zone: the claim is an atomic write into the room; the first one to land wins
       e.preventDefault();const s=+z.getAttribute('data-bzs');if(s!==tmMySeat())return;
       const q=tm.blitz.cur;if(!q)return;
+      if(window.bzDbg)bzDbg.press(tm,q);
       TMSFX.buzz();z.classList.add('pressed');setTimeout(()=>z.classList.remove('pressed'),500);
       tmSend({t:'buzz'});return;
     }
@@ -325,4 +327,87 @@ function recordSeen(tm,q){
 window.tmBzSeenIdx=function(){
   try{const l=JSON.parse(localStorage.getItem('ct_tm_seen_blitz')||'[]'),m=new Map();tmBzLib(null).forEach((e,i)=>m.set(e[3],i));return l.map(t=>m.get(t)).filter(i=>i!=null);}catch(x){return[];}
 };
+})();
+
+/* ── test overlay for the real-room test (docs/BLITZ_ONLINE_TEST_PLAN.md) ──
+   Only active after opening the app with ?debug=1 (remembered in this browser until ?debug=0). Normal players never see or run it.
+   Shows build, room, seat, sync health and a log of every buzz, answer, write conflict, tick and connection change; "Copy log" puts it on the clipboard. */
+(function(){
+  let on=false;
+  try{
+    const m=/[?&]debug=(\d)/.exec(location.search);
+    if(m){if(m[1]==='1')localStorage.setItem('ct_bz_debug','1');else localStorage.removeItem('ct_bz_debug');}
+    on=localStorage.getItem('ct_bz_debug')==='1';
+  }catch(e){on=/[?&]debug=1/.test(location.search);}
+  if(!on)return;
+  const T0=Date.now(),L=[],S={syncs:0,last:0,maxGap:0,reconnects:0,offAt:0,write:null,sig:'',local:false};
+  const pad=(n,w)=>String(n).padStart(w||2,'0');
+  const clock=t=>{const d=new Date(t);return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds())+'.'+pad(d.getMilliseconds(),3);};
+  function log(kind,text){L.push({t:Date.now(),kind,text});if(L.length>400)L.shift();}
+  function inBlitz(){try{const tm=tmObj();return!!(tm&&tm.phase==='blitz');}catch(e){return false;}}
+  window.bzDbg={
+    log,
+    w(msg){if(inBlitz())log('write',msg);},
+    local(v){S.local=!!v;},
+    sync(){if(S.local)return;const now=Date.now();S.syncs++;
+      if(S.last){const gap=now-S.last;if(gap>S.maxGap)S.maxGap=gap;if(gap>4000&&inBlitz())log('sync','long gap: '+(gap/1000).toFixed(1)+' s without news from the room');}
+      S.last=now;},
+    press(tm,q){log('tap','buzz tap in phase "'+q.ph+'", '+(Date.now()-q.t0)+' ms after the buzzers armed (negative = too early)');},
+    sent(act,ok,ms){if(!inBlitz())return;S.write=ms;
+      log('send',act.t+(act.i!=null?' #'+act.i:'')+': '+(ok?'accepted':'NOT accepted (too late, not allowed or connection)')+' · round trip '+ms+' ms');},
+    state(tm,q){
+      const B=tm.blitz,sig=[B.n,q.i,q.ph,q.buzz?q.buzz.seat:'',q.steal?q.steal.seat:'',q.locked.join(','),q.res?q.res.kind:'',tm.bank.join('/')].join('|');
+      if(sig===S.sig)return;S.sig=sig;
+      log('state','Q'+B.n+' (library #'+q.i+') '+q.ph+(q.buzz?' · buzz: seat '+q.buzz.seat+(q.buzz.pz!=null?' at '+q.buzz.pz:''):'')+(q.steal?' · steal: seat '+q.steal.seat:'')+(q.locked.length?' · locked: '+q.locked.join(','):'')+(q.res?' · result: '+q.res.kind:'')+' · money '+tm.bank.join(' / '));
+    }
+  };
+  window.addEventListener('offline',()=>{S.offAt=Date.now();log('net','OFFLINE');});
+  window.addEventListener('online',()=>{S.reconnects++;log('net','back online after '+(S.offAt?((Date.now()-S.offAt)/1000).toFixed(1)+' s':'?'));});
+  document.addEventListener('visibilitychange',()=>log('net','page '+(document.hidden?'hidden (app in the background)':'visible again')));
+  log('info','overlay started');
+
+  function head(){
+    const age=S.last?((Date.now()-S.last)/1000).toFixed(1)+' s ago':'none yet';
+    let seat='?',ph='-';
+    try{seat=tmMySeat()||'?';}catch(e){}
+    try{const t=tmObj();if(t)ph=t.phase;}catch(e){}
+    return 'build '+(typeof APP_BUILD!=='undefined'?APP_BUILD:'?')+' · room '+(G.roomId||'-')+' · seat '+seat+' · host '+(G.isHost?'yes':'no')+' · browser '+(navigator.onLine?'online':'OFFLINE')+'\n'
+      +'room updates received '+S.syncs+' · last '+age+' · longest gap '+(S.maxGap/1000).toFixed(1)+' s · reconnects '+S.reconnects+'\n'
+      +'last write round trip '+(S.write==null?'-':S.write+' ms')+' · phase '+ph;
+  }
+  function lines(n){return L.slice(-n).map(e=>clock(e.t)+' +'+((e.t-T0)/1000).toFixed(1)+'s ['+e.kind+'] '+e.text);}
+  function fullText(){
+    return 'FamilyCard Blitz test log\n'+head()+'\ndevice: '+(navigator.userAgent||'').slice(0,100)+'\nnote: times are this device clock; compare the +seconds between devices, not the clock times\n\n'+lines(400).join('\n');
+  }
+  function fallbackCopy(txt,done){const ta=document.createElement('textarea');ta.value=txt;ta.style.cssText='position:fixed;left:-999px;top:0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');}catch(e){}ta.remove();done();}
+
+  function build(){
+    if(document.getElementById('bzdbg'))return;
+    const st=document.createElement('style');
+    st.textContent='#bzdbg{position:fixed;left:4px;top:42%;z-index:99999;font:11px/1.35 ui-monospace,Menlo,Consolas,monospace;color:#e8f0e8}'
+      +'#bzdbg .dbg-pill{display:inline-block;background:#0b3d2e;border:1px solid #6fd3a6;border-radius:10px;padding:6px 8px;opacity:.85;cursor:pointer;user-select:none;touch-action:manipulation}'
+      +'#bzdbg .dbg-box{display:none;width:min(88vw,360px);max-height:55vh;overflow:auto;background:rgba(6,20,16,.95);border:1px solid #6fd3a6;border-radius:10px;padding:8px;margin-top:4px}'
+      +'#bzdbg.open .dbg-box{display:block}#bzdbg pre{margin:0;white-space:pre-wrap;word-break:break-word;font:inherit}#bzdbg .dbg-lg{margin-top:6px;border-top:1px solid #2a6b55;padding-top:6px}'
+      +'#bzdbg button{font:inherit;color:#fff;background:#14614a;border:1px solid #6fd3a6;border-radius:6px;padding:5px 9px;margin:6px 6px 0 0;touch-action:manipulation}';
+    document.head.appendChild(st);
+    const root=document.createElement('div');root.id='bzdbg';
+    root.innerHTML='<div class="dbg-pill" role="button" aria-label="Test overlay">DBG</div><div class="dbg-box"><pre class="dbg-hd"></pre><pre class="dbg-lg"></pre><button class="dbg-cp">Copy log</button><button class="dbg-cl">Clear</button></div>';
+    document.body.appendChild(root);
+    const pill=root.querySelector('.dbg-pill'),hd=root.querySelector('.dbg-hd'),lg=root.querySelector('.dbg-lg'),cp=root.querySelector('.dbg-cp'),cl=root.querySelector('.dbg-cl');
+    function paint(){
+      const open=root.classList.contains('open');
+      pill.textContent='DBG'+(S.last?' · '+((Date.now()-S.last)/1000).toFixed(0)+'s':'');
+      if(!open)return;
+      hd.textContent=head();lg.textContent=lines(14).join('\n');
+    }
+    pill.addEventListener('click',()=>{root.classList.toggle('open');paint();});
+    cl.addEventListener('click',()=>{L.length=0;S.maxGap=0;S.syncs=0;S.reconnects=0;S.write=null;log('info','log cleared');paint();});
+    cp.addEventListener('click',()=>{
+      const done=()=>{cp.textContent='Copied ✓';setTimeout(()=>{cp.textContent='Copy log';},1500);};
+      const txt=fullText();
+      if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(done,()=>fallbackCopy(txt,done));else fallbackCopy(txt,done);
+    });
+    paint();setInterval(paint,500);
+  }
+  if(document.body)build();else document.addEventListener('DOMContentLoaded',build);
 })();
