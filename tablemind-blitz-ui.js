@@ -3,7 +3,7 @@
    The device lies flat in the middle of the table: every player has a large buzzer zone on their own edge. */
 (function(){
 const css=`
-#s-table.game-tablemind.tm-bg-blitz.scr{background:linear-gradient(180deg,rgba(3,8,6,.55),rgba(3,8,6,.9) 60%,#030806),url(assets/games/tm_bg_act3.jpg) center top/cover no-repeat,#030806;}
+#s-table.game-tablemind.tm-bg-blitz.scr{background:linear-gradient(180deg,rgba(3,8,6,.15),rgba(3,8,6,.45) 55%,rgba(3,8,6,.7)),url(assets/games/bz_stage.jpg) center/cover no-repeat,#030806;}
 .bz-wrap{position:relative;display:grid;gap:.55rem;padding:.5rem .6rem .7rem;height:calc(100svh - 3.6rem);min-height:30rem;max-width:64rem;margin:0 auto;box-sizing:border-box;}
 .bz-wrap.p2{grid-template-columns:1fr;grid-template-rows:minmax(5.6rem,21%) minmax(0,1fr) minmax(5.6rem,21%);grid-template-areas:"t" "m" "b";}
 .bz-wrap.p3{grid-template-columns:minmax(5.2rem,16%) minmax(0,1fr) minmax(5.2rem,16%);grid-template-rows:minmax(0,1fr) minmax(5.6rem,20%);grid-template-areas:"l m r" "b b b";}
