@@ -6485,7 +6485,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=445;
+const APP_BUILD=446;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -32842,7 +32842,7 @@ function onSrvCore(state){
     if(wasLobby){const opener=state.players?.[state.curIdx||0];v14Intro(state.gameId||G.selGame,opener?.name,opener?.avatar);G.lDealIn=true;G.gp++;localStorage.setItem('ct_gp',G.gp);setTimeout(()=>{G.lDealIn=false;render();},1100);}
     else{
       const nowMine=state.players?.[state.curIdx||0]?.id===G.myPid;
-      if(!wasMine&&nowMine){v14YourTurn();notifyYourTurn(state.gameId,G.myName);}
+      if(!wasMine&&nowMine)v14YourTurnWhenReady(state.gameId);
     }
     render();
   }
@@ -40043,6 +40043,21 @@ function slotCoinRain(){
   }
   document.body.appendChild(el);
   setTimeout(()=>el.remove(),2600);
+}
+// The "YOUR TURN" moment must be true when it is shown. Games where everybody acts at once keep curIdx at 0 (it is not a turn), and in the
+// animated games the state already names the next player while the previous move is still being replayed: wait for the replay to end,
+// then check once more that it is still my turn in the newest state.
+const V14_NOTURN={tablemind:1,escape:1,vault:1,hotbomb:1,drawit:1};
+function v14YourTurnWhenReady(gameId){
+  if(V14_NOTURN[gameId])return;
+  let tries=0;
+  const go=()=>{
+    if(!G.isOnline||!G.srv||G.srv.gameId!==gameId||G.srv.phase!=='game'||G.srv.winner)return;
+    if(typeof bwSeqBusy==='function'&&bwSeqBusy()&&tries++<40){setTimeout(go,250);return;}
+    if(!isMyTurn())return;
+    v14YourTurn();notifyYourTurn(gameId,G.myName);
+  };
+  go();
 }
 function v14YourTurn(){const old=document.querySelector('.your-turn-banner');if(old)old.remove();const el=document.createElement('div');el.className='your-turn-banner';el.setAttribute('role','status');el.setAttribute('aria-live','assertive');el.textContent='YOUR TURN';document.body.appendChild(el);haptic([15,60,15]);SFX.chip();setTimeout(()=>el.classList.add('hide'),1100);setTimeout(()=>el.remove(),1500);}
 // The moment five dice land the same — fires the instant it's rolled, not just when the Yahtzee
