@@ -6482,7 +6482,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=428;
+const APP_BUILD=429;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -21852,6 +21852,10 @@ function wsCurLang(){const ws=G.isOnline?(G.srv&&G.srv.ws):G.ws;return ws&&ws.la
 const WS_CAT_IC={'Food & Drink':0,'Places':1,'Phrases':2,'Things':3,'Nature':4,'Animals':5,'Sport & Games':6,'People & Jobs':7,'Travel':8,'At Home':9,'Wonders & Words':10,'Essen & Trinken':0,'Orte':1,'Redewendungen':2,'Dinge':3,'Natur':4,'Tiere':5,'Sport & Spiele':6,'Menschen & Berufe':7,'Reisen':8,'Zuhause':9,'Wunder & Wörter':10,'Sprichwörter':2,'Märchen & Fantasie':10};
 // Which of Wiz's six poses fits the moment (1 welcome, 2 cheering, 3 shocked, 4 thinking, 5 wink, 6 champion)? Worked out from the game state, so every device shows the same one.
 function wizSrc(p){return typeof p==='number'?'assets/games/ws_owl_'+p+'.jpg':'assets/games/wiz_'+p+'.jpg';}   // Wiz's pictures: 1-6 are the first sheet, the names are the second sheet (laugh sad hope dizzy ready applause smug rich sleepy detective tense bow)
+function wsMyTurn(ws){
+  if(G.isOnline){const me=((G.srv&&G.srv.players)||[]).findIndex(q=>q.id===G.myPid)+1;return !!me&&me===ws.cur;}
+  const p=G.lp&&G.lp[ws.cur-1];return !!p&&!isBotPlayer(p);
+}
 function wsHostPose(ws,spinning){
   if(ws.over)return 6;                                   // trophy and crown
   if(spinning)return'hope';                              // wings crossed while the wheel turns
@@ -21868,12 +21872,15 @@ function wsHostPose(ws,spinning){
     if(f.kind==='spin'&&f.seg==='free')return 5;         // winks and points: any letter you like
     if(f.kind==='spin'&&f.seg==='wild')return'smug';
     if(f.kind==='spin'&&f.seg==='pts'&&f.v>=800)return'rich';
+    if(f.kind==='spin'&&f.seg==='pts'&&f.v>=500)return'applause';   // a good wedge: Wiz claps
+    if(f.kind==='spin'&&f.seg==='pts'&&f.v<=300)return 3;           // a small one: a little shrug
     if((f.kind==='letter'||f.kind==='vowel')&&f.hit)return f.n>=3?'rich':'applause';
   }
   if(ws.phase==='fsolve')return'tense';
   if(G.wsMode==='solve')return'detective';               // magnifying glass while you solve
   if(ws.phase==='letter'||ws.phase==='fpick')return 4;
   if(ws.moves===0)return'bow';                           // the welcome bow
+  if(ws.phase==='spin'&&wsMyTurn(ws))return'ready';      // your turn: Wiz is ready and waves you on to the wheel
   return 1;
 }
 function wsHintText(ws,p,mine,seq){
