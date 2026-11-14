@@ -359,6 +359,11 @@
 .tm-lean-end .tm-fins{display:flex;flex-direction:column;gap:.45rem;}
 .tm-lean-end .tm-more{margin-top:.5rem;font-size:.78rem;}
 .tm-lean-end .res-btns{margin-top:.2rem;}
+.tm-qcard.tm-golden{position:relative;overflow:hidden;border-color:#ead08a!important;box-shadow:0 0 0 2px rgba(234,208,138,.65),0 0 34px rgba(234,208,138,.4)!important;}
+.tm-qcard.tm-golden::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(105deg,transparent 38%,rgba(255,240,180,.38) 50%,transparent 62%);transform:translateX(-120%);animation:tmGoldSweep 1.4s .25s ease-out 1 forwards;}
+@keyframes tmGoldSweep{to{transform:translateX(120%);}}
+@media(prefers-reduced-motion:reduce){.tm-qcard.tm-golden::after{animation:none;display:none;}}
+.tm-fin-line{font-size:.9rem;color:#f3deaa;text-align:center;margin-top:-.2rem;}
 .tm-podium img{width:7rem;height:7rem;border-radius:50%;object-fit:cover;border:3px solid #ead08a;box-shadow:0 0 34px rgba(201,164,92,.6);}
 .tm-podium .t{font:800 1.15rem/1.2 var(--serif,Georgia,serif);letter-spacing:.08em;color:#ead08a;text-align:center;}
 .tm-pbars{display:flex;align-items:flex-end;justify-content:center;gap:.5rem;width:100%;max-width:26rem;}
@@ -501,7 +506,8 @@ const TMSFX={
   drum(){for(let i=0;i<9;i++)setTimeout(()=>tone(150+i*14,.04,'triangle'),i*65);haptic([8,30,8,30,8]);},
   beat(){tone(62,.16,'sine');setTimeout(()=>tone(54,.14,'sine'),170);haptic([18,60,18]);},
   act(n){const t=[[392,494,587],[330,415,523,659],[220,262,330,440,277]][n-1]||[392];t.forEach((f,i)=>setTimeout(()=>tone(f,.2,'triangle'),i*130));},
-  streak(){[523,659,784,1046].forEach((f,i)=>setTimeout(()=>tone(f,.1,'square'),i*70));haptic([10,20,10]);}
+  streak(){[523,659,784,1046].forEach((f,i)=>setTimeout(()=>tone(f,.1,'square'),i*70));haptic([10,20,10]);},
+  gold(){[784,988,1175,1568,1976].forEach((f,i)=>setTimeout(()=>tone(f,.12,'triangle'),i*80));haptic([10,30,10]);}
 };
 
 /* ───────── which game, which seat ───────── */
@@ -950,7 +956,8 @@ function tmQuestionPad(tm,me,players){
     const o=tm.fx&&tm.fx.seats[i];
     res=`<button class="tm-flag" data-a="tmflag" data-i="${qq.i}" title="Frage melden" aria-label="Frage melden">⚑</button>`;
   }
-  return`<div class="tm-card tm-qcard">${chips}${locked||rev?'':'<div class="tm-timer"><b>--</b><i></i></div>'}${hc}${rev?`<div class="tm-q">${esc(q.text)}</div>`:''}<div class="tm-ans">${answers}</div>${extra}${res}</div>`;
+  const goldQ=!tm.duel&&tm.act===1&&tm.cycle===tm.gold;
+  return`<div class="tm-card tm-qcard${goldQ?' tm-golden':''}">${chips}${locked||rev?'':'<div class="tm-timer"><b>--</b><i></i></div>'}${hc}${rev?`<div class="tm-q">${esc(q.text)}</div>`:''}<div class="tm-ans">${answers}</div>${extra}${res}</div>`;
 }
 
 /* who has locked in? small chips with a tick, instead of a vague "waiting" line */
@@ -1142,6 +1149,7 @@ function tmWizSay(tm,players){
     const b=tm.bank.map((x,i)=>[x,i]).sort((a,c)=>c[0]-a[0]);
     if(b[0][0]>0&&b[0][0]>=b[1][0]*2&&(tm.cycle+tm.moves)%3===0)return`${nm(b[0][1])} läuft davon … wer holt ihn ein?`;
     if(b[0][0]>0&&b[0][0]===b[1][0]&&(tm.cycle+tm.moves)%3===0)return'Gleichstand an der Spitze! Das wird spannend.';
+    const lo=b[b.length-1];if(b[0][0]>=3000&&lo[0]<=b[0][0]*.4&&(tm.cycle+tm.moves)%3===1)return`${nm(lo[1])}: Noch ist alles drin!`;
   }
   if(tm.act===1)return tm.moves===0?'Willkommen! Ich bin Wiz.':'';
   if(tm.act===2)return`Welt von ${nm(tm.owner-1)}: ${(TM_CATS[tm.pick[tm.owner-1]]||{short:''}).short}. Alle antworten — das Siegel gehört ${nm(tm.owner-1)}.`;
@@ -1150,7 +1158,6 @@ function tmWizSay(tm,players){
 function tmAskLabel(tm){
   if(tm.act===1&&tm.cycle>=2){try{localStorage.setItem('ct_tm_hint1','1');}catch(e){}}
   if(tm.duel)return'Duell · '+esc(tmEur(TM_CFG.duelPrize));
-  if(tm.act===1&&tm.cycle===tm.gold)return'Goldene Frage – doppelt!';
   if(tm.act===1&&tm.cycle===1){let seen=0;try{seen=+localStorage.getItem('ct_tm_hint1')||0;}catch(e){}if(!seen)return'Richtig = Geld. Klettere bis '+esc(tmEur(TM_CFG.ladder[TM_CFG.ladder.length-1]))+'!';}
   if(tm.act===2)return'Welt von '+esc(((tmPlayers()[tm.owner-1])||{}).name||'');
   return'WIZ';
@@ -1246,7 +1253,7 @@ function tmPostRender(){
     else{if(fx.seats.some(o=>o.top)){TMSFX.escape();fxPulse('gold');}else if(fx.seats.some(o=>o.ok))TMSFX.ok();else TMSFX.bad();}
     if(tm.act===1&&fx.seats.some(o=>o.bonus))setTimeout(()=>TMSFX.streak(),500);};
     if(gtAnim()==='off')result();else{TMSFX.drum();setTimeout(result,560);setTimeout(()=>tmFlyMoney(tm,fx),420);}
-  }else if(tm.phase==='ask'||tm.phase==='pick'||tm.phase==='offer'){TMSFX.open();}
+  }else if(tm.phase==='ask'||tm.phase==='pick'||tm.phase==='offer'){if(tm.act===1&&!tm.duel&&tm.phase==='ask'&&tm.cycle===tm.gold&&gtAnim()!=='off'){TMSFX.gold();try{fxPulse('gold');}catch(e){}}else TMSFX.open();}
 }
 
 /* ───────── the results card ───────── */
@@ -1261,12 +1268,22 @@ function tmChipsHTML(){
     <div class="tonight-stat"><div class="ts-val">${fmtPlayTime(Date.now()-G.matchStats.startedAt)}</div><div class="ts-lbl">⏱ Spielzeit</div></div>
   </div>`;
 }
+function tmWinLine(tm){
+  const tot=(tm.totals||[]).slice(0,tm.P);if(tot.length<2)return'';
+  const w=tm.win-1,sorted=tot.slice().sort((a,b)=>b-a),m=sorted[0]-sorted[1];
+  let line='';
+  if(tm.at2&&tm.at2.length===tm.P&&tm.P>=2&&tm.at2[w]<Math.min.apply(null,tm.at2.filter((x,i)=>i!==w)))line='Von ganz hinten nach ganz oben!';
+  else if(m<=1500)line='Ein Sieg mit nur '+tmEur(m)+' Vorsprung!';
+  else if(m>=15000)line='Souverän: '+tmEur(m)+' Vorsprung.';
+  else line=tmEur(m)+' Vorsprung.';
+  return'<div class="tm-fin-line">'+line+'</div>';
+}
 function tmResultsHTML(){
   const tm=tmObj();if(!tm||!tm.over)return'';
   const players=tmPlayers(),c=TM_CFG.chasers[tm.chaser];
   const st=tmStandings(tm);
   const rows=st.map((r,k)=>{const i=r.s-1,p=players[i]||{name:'?',avatar:null},L=tm.lane[i],n=tm.stats.right[i]+tm.stats.wrong[i]+tm.stats.late[i];
     return`<div class="tm-fin${k===0?' first':''}"><span class="rk">${k<3?`<img src="assets/ui/reward_${['gold','silver','bronze'][k]}.png" alt="${k+1}" style="width:1.7rem;height:1.7rem;object-fit:contain;vertical-align:middle">`:k+1}</span><span class="nm">${avChar(p.avatar)} ${esc(p.name)}</span><b class="tt">${tmEur(r.total)}</b><small>${tm.stats.streaks[i]?tmStreakIco(tm.stats.streaks[i]*3)+' '+tm.stats.streaks[i]+'× · ':''}${r.seals} Siegel · ${L.st==='escaped'?'entkommen':'gefangen'} · ${n?Math.round(tm.stats.right[i]/n*100):0}% richtig</small></div>`;}).join('');
-  const hero=`<div class="tm-podium"><img src="assets/games/${(G.isOnline&&G.myPid&&(tmPlayers().findIndex(q=>q.id===G.myPid)+1)&&(tmPlayers().findIndex(q=>q.id===G.myPid)+1)!==tm.win)?'tm_res_lose':'tm_res_win'}.jpg" alt="" onerror="this.src='assets/games/ws_owl_6.jpg'"><div class="t">${esc((players[tm.win-1]||{}).name||'')} ist der TABLE MIND!</div></div>`;
+  const hero=`<div class="tm-podium"><img src="assets/games/${(G.isOnline&&G.myPid&&(tmPlayers().findIndex(q=>q.id===G.myPid)+1)&&(tmPlayers().findIndex(q=>q.id===G.myPid)+1)!==tm.win)?'tm_res_lose':'tm_res_win'}.jpg" alt="" onerror="this.src='assets/games/ws_owl_6.jpg'"><div class="t">${esc((players[tm.win-1]||{}).name||'')} ist der TABLE MIND!</div>${tmWinLine(tm)}</div>`;
   return`<div class="panel ws-res">${hero}<div class="tm-fins">${rows}</div><details class="tm-more"><summary>Details · Chaser: ${esc(c.name)}</summary>${tmFlaggedHTML()}${tmStrengthsHTML()}${tmLearnedHTML(tm)}</details></div>`;
 }
