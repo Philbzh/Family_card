@@ -1227,7 +1227,7 @@ function tmActCard(tm){
   const old=document.getElementById('tm-titlecard');if(old)old.remove();
   const d=document.createElement('div');d.id='tm-titlecard';d.className='tm-titlecard';
   TMSFX.act(tm.act);
-  d.innerHTML=(tm.act===3&&tm.chaser?`<div class="chbg" style="background-image:url(assets/games/tm_ch_${tm.chaser}.jpg)"></div>`:'')+`<div class="a">AKT ${TM_ROMAN[tmActNo(tm)]}</div><div class="n">${tmActName(tm)}</div><div class="s">${tm.phase==='blitz'?'Je früher du es weißt, desto mehr Geld. Das Gerät bleibt in der Mitte: tippe auf deine Fläche!':TM_ACT_SUB[tm.act]}</div>`;
+  d.innerHTML=(tm.act===3&&tm.chaser?`<div class="chbg" style="background-image:url(assets/games/tm_ch_${tm.chaser}.jpg)"></div>`:'')+`<div class="a">AKT ${TM_ROMAN[tmActNo(tm)]}</div><div class="n">${tmActName(tm)}</div><div class="s">${tm.phase==='blitz'?(G.isOnline?'Je früher du es weißt, desto mehr Geld. Tippe auf deinen Buzzer, sobald du es weißt!':'Je früher du es weißt, desto mehr Geld. Das Gerät bleibt in der Mitte: tippe auf deine Fläche!'):TM_ACT_SUB[tm.act]}</div>`;
   document.body.appendChild(d);setTimeout(()=>{d.remove();},2700);
 }
 /* ───────── effects when the state moves on ───────── */
