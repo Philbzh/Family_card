@@ -10104,7 +10104,7 @@ async function runPresentation(A,W,frame){
       check('Rematch: same players, a fresh puzzle set, nobody has moved',seen.rematch.gameId==='wordspin'&&seen.rematch.phase==='game'&&!seen.rematch.winner&&seen.rematch.ws.moves===0&&seen.rematch.players.length===2);
       const mine=new DOMParser().parseFromString(seen.mineHtml,'text/html'),wait=new DOMParser().parseFromString(seen.waitHtml,'text/html'),sp=new DOMParser().parseFromString(seen.spinHtml,'text/html');
       check('every device draws the wheel at the angle stored in the room',/rotate\(1000\)/.test(seen.mineHtml)&&/rotate\(1000\)/.test(seen.waitHtml));
-      check('only the player on turn gets the letter keyboard; the others see who they wait for',mine.querySelectorAll('[data-a="wskey"]').length===21&&wait.querySelectorAll('[data-a="wskey"]').length===0&&/Anna/.test(wait.querySelector('.ws-hint').textContent));
+      check('only the player on turn gets the letter keyboard; the others see who they wait for',mine.querySelectorAll('[data-a="wskey"]').length===21&&wait.querySelectorAll('[data-a="wskey"]').length===0&&/Anna’s turn/.test(wait.body.textContent));   // the waiting device names who is on turn in the bar (Wiz's bubble only comments on what happened since build 422)
       check('the player on turn gets the SPIN, Buy a vowel and Solve buttons',sp.querySelectorAll('[data-a="wsspin"]').length===1&&sp.querySelectorAll('[data-a="wsvowelmode"]').length===1&&sp.querySelectorAll('[data-a="wssolvemode"]').length===1);
       check('the Buy a vowel button is off while the round score is under 250',sp.querySelector('[data-a="wsvowelmode"]').disabled===true);
     });
@@ -10135,7 +10135,7 @@ async function runPresentation(A,W,frame){
       while(!G.ws.over&&n++<4000){if(G.ws.phase==='fsolve'){F('wsDoLocal')({t:'ftime',force:1});}else F('wsDoLocal')(bot(G.ws,'sharp',r));}
       check('the game plays to a winner and the family history gets a WORDSPIN entry with each player’s stats',G.ws.over&&(()=>{const h=F('getHistory')()[0];return h&&h.game==='wordspin'&&Object.keys(h.stats.ws).length===3&&!!h.moment;})());
       const res=F('rMatchEnd')?F('rMatchEnd')():'';
-      check('the results screen has the WORDSPIN statistics',typeof res==='string'&&/Puzzles solved/.test(res)&&/Best spin/.test(res));
+      check('the results screen has the WORDSPIN statistics (rounds won, best spin; the lean results screen of build 421 has no "Puzzles solved" any more)',typeof res==='string'&&/Rounds won/.test(res)&&/Best spin/.test(res));
     } finally {
       G.wsInstant=keep.inst;W.eval('SHOW_SYNC='+keep.sync);G.ws=null;G.wsSeq=null;G.scr='home';
       if(keep.hist==null)W.localStorage.removeItem('ct_history');else W.localStorage.setItem('ct_history',keep.hist);
@@ -10317,7 +10317,7 @@ async function runPresentation(A,W,frame){
     const F=n=>W.eval(n),N=F('tmNew'),A=F('tmApply'),T=F('tmTick');
     const t=N(2,{seed:61});F('tmStart')(t,0);
     A(t,1,{t:'ans',i:t.q[0].cor},100);A(t,2,{t:'ans',i:(t.q[1].cor+1)%4},120);
-    check('after a wrong answer the reveal stays about 5 seconds',t.phase==='reveal'&&t.dl-120>=4500&&t.dl-120<=5500);
+    check('after a wrong answer the reveal stays about 4 seconds (it was shortened from 5 on purpose, build 431)',t.phase==='reveal'&&t.dl-120>=3500&&t.dl-120<=4500);
     check('the question and its right answer are logged for the "what we learned" list',t.log.length>=1&&t.log.indexOf(t.q[0].i)>=0);
     check('one player tapping Weiter does not move the game on; a second tap from the same player changes nothing',A(t,1,{t:'next'},200)&&t.phase==='reveal'&&A(t,1,{t:'next'},210)===false);
     A(t,2,{t:'next'},220);
@@ -10653,10 +10653,13 @@ async function runPresentation(A,W,frame){
       while(!tm.over&&n++<3000){
         const v=F('tmLocalViewer')(tm);
         if(v){F('tmReady')();const a=F('tmBotAct')(tm,v.seat,'sharp',r);if(a){if(a.t==='ans'){G.tmSel=a.i;F('tmTap')('tmlock',{dataset:{}});}else F('tmSend')(a);}else F('tmApply')(tm,v.seat,{t:'ans',to:1},Date.now());}
+        else if(tm.phase==='blitz'&&tm.blitz&&tm.blitz.cur){   // act III, the buzzer act: nobody buzzes here, so tick through its own timers (clues, then the result pause)
+          const q=tm.blitz.cur;F('tmTick')(tm,(q.ph==='intro'||q.ph==='clue')?F('tmBzClueEnd')(q)+1:q.dl+1);
+        }
         else{F('tmTick')(tm,tm.dl+1);}
         F('tmLocalAfterAction')();
       }
-      check('the game plays through all three acts to a winner',tm.over&&tm.totals.length===3);
+      check('the game plays through all four acts (climb, worlds, the Blitz, the hunt) to a winner',tm.over&&tm.totals.length===3&&tm.blitz&&tm.blitz.n===tm.blitz.nq);
       check('the family history gets a TABLE MIND entry with every player\'s statistics',(()=>{const h=F('getHistory')()[0];return h&&h.game==='tablemind'&&Object.keys(h.stats.tm).length===3&&!!h.moment;})());
       const res=F('rMatchEnd')?F('rMatchEnd')():'';
       check('the results screen shows the standings and the Chaser',typeof res==='string'&&/ist der TABLE MIND/.test(res)&&/tm-fin/.test(res)&&/Chaser/.test(res));
@@ -10674,7 +10677,7 @@ async function runPresentation(A,W,frame){
     check('WORDSPIN never repeats a puzzle seen in earlier games',(()=>{const lib=F('wsLib')('de');const seen=[];lib.forEach((p,i)=>{if(i%2===0)seen.push(i);});const ws=F('wsNew')(2,{seed:5,lang:'de',seen});const got=[];for(let k=0;k<12;k++){const q=F('wsPick')(ws,1,3);got.push(q.i);}return got.every(i=>seen.indexOf(i)<0)&&new Set(got).size===got.length;})());
     check('Wiz speaks German and his lines escape player names',(()=>{const t=F('tmNew')(2,{seed:6});F('tmStart')(t,0);t.over=true;t.win=1;return /TABLE MIND/.test(F('tmWizSay')(t,[{name:'<b>X</b>'},{name:'Y'}]))&&F('tmWizSay')(t,[{name:'<b>X</b>'},{name:'Y'}]).indexOf('<b>')<0;})());
     check('the waiting list shows who has locked in (tick) and who is still thinking (dots)',(()=>{const tm=F('tmNew')(3,{seed:8});F('tmStart')(tm,Date.now());F('tmApply')(tm,2,{t:'ans',i:0},Date.now()+10);const h=F('tmWaitList')(tm,[{name:'Ann',avatar:A.AVATARS[0]},{name:'Ben',avatar:A.AVATARS[1]},{name:'Cy',avatar:A.AVATARS[2]}],1);return /Ben ✓/.test(h)&&/Cy …/.test(h)&&!/Ann/.test(h);})());
-    check('the how-to-play tour exists in English and German with four short slides each',(()=>{const T=F('TOURS').tablemind;return !!T&&T.slides.length===4&&T.de.slides.length===4&&T.de.slides.every(s=>s.ic&&s.h&&s.t);})());
+    check('the how-to-play tour exists in English and German with five short slides each (the Blitz has its own slide)',(()=>{const T=F('TOURS').tablemind;return !!T&&T.slides.length===5&&T.de.slides.length===5&&T.slides.every(s=>s.ic&&s.h&&s.t)&&T.de.slides.every(s=>s.ic&&s.h&&s.t);})());
     check('a player can report a doubtful question: it is remembered on this device (once) and listed in the results',(()=>{const k='ct_tm_flags',old=W.localStorage.getItem(k);W.localStorage.removeItem(k);F('tmFlagQuestion')(3);F('tmFlagQuestion')(3);const l=JSON.parse(W.localStorage.getItem(k)||'[]');const ok=l.length===1&&l[0].i===3&&/GEMERKTE FRAGEN/.test(F('tmFlaggedHTML')());if(old==null)W.localStorage.removeItem(k);else W.localStorage.setItem(k,old);return ok;})());
     check('every public sound exists',['pick','lock','ok','bad','bank','life','seal','chase','caught','escape','intro'].every(k=>typeof F('TMSFX')[k]==='function'));
   });
@@ -10767,7 +10770,7 @@ async function runPresentation(A,W,frame){
     }
   });
   suite('WORDSPIN — the host owl and the category emblems',()=>{
-    const F=n=>W.eval(n);
+    const F=n=>W.eval(n),G=W.eval('G');   // G was missing here: one check threw a ReferenceError and the rest of the Presentation tests never ran
     const wsNew=F('wsNew'),pose=F('wsHostPose'),IC=F('WS_CAT_IC');
     const mk=()=>{const w=wsNew(2,{seed:5});w.moves=3;w.fx=null;return w;};
     check('Wiz welcomes the table at the very start and waves in a quiet turn',(()=>{const w=wsNew(2,{seed:5});return pose(w,false)==='bow';})()&&[1,'ready'].indexOf(pose(mk(),false))>=0);
@@ -10780,7 +10783,7 @@ async function runPresentation(A,W,frame){
     check('English and German names of a category share the same emblem',IC['Food & Drink']===IC['Essen & Trinken']&&IC['Animals']===IC['Tiere']&&IC['Wonders & Words']===IC['Wunder & Wörter']);
     check('the table shows the host next to the hint and the emblem next to the category',(()=>{
       const G=W.eval('G'),keep=G.wsInstant;try{G.isOnline=false;G.srv=null;G.snd=false;G.wsInstant=true;F('startNow')('wordspin',2);G.lp.forEach(p=>{p.bot=null;});G.ws.cur=1;G.lcur=0;
-        const html=F('rWordspinTable')();return html.indexOf('src="assets/games/ws_owl_1.jpg"')>0&&html.indexOf('class="ws-host')>0&&html.indexOf('class="ws-cat-ic" src="assets/games/ws_cat_')>0;
+        const html=F('rWordspinTable')();return /class="ws-host[^>]*src="assets\/games\/wiz_[a-z]+\.jpg"/.test(html)&&html.indexOf('class="ws-cat-ic" src="assets/games/ws_cat_')>0;   // the host is one of Wiz's named poses (wiz_bow.jpg ...) since the 18-pose set
       }finally{G.wsInstant=keep;G.ws=null;G.scr='home';}
     })());
   });
@@ -10796,7 +10799,7 @@ async function runPresentation(A,W,frame){
     check('one, two and three or more tiles each get their own line',(()=>{const r=[1,2,3].map(n=>Q(mk('en',{kind:'letter',ch:'T',n,hit:true,gain:300*n,seat:1}),names));return r.every(Boolean)&&new Set(r).size===3&&/3/.test(r[2]);})());
     check('a solved puzzle praises the solver, a wrong answer names them',/Anna/.test(Q(mk('en',{kind:'solve',ok:true,seat:1}),names))&&/Ben/.test(Q(mk('en',{kind:'solve',ok:false,seat:2}),names)));
     check('the final, running out of time and the winner each have a line',(()=>{const a=Q(mk('en',{kind:'final',seat:1}),names),b=Q(mk('en',{kind:'ftime',seat:1}),names),c=Q(mk('en',{kind:'fsolve',ok:true,seat:1},{over:true,win:2}),names);return a&&b&&/Ben/.test(c);})());
-    check('the German lines are German and name the player too',/Anna/.test(Q(mk('de',{kind:'spin',seg:'bankrupt',seat:1,lost:5}),names))&&/Kein|Nicht/.test(Q(mk('de',{kind:'letter',ch:'Q',n:0,hit:false,free:false,seat:1}),names))&&/gewinnt|Achtung/.test(Q(mk('de',{kind:'fsolve',ok:true,seat:1},{over:true,win:1}),names)));
+    check('the German lines are German and name the player too',/Anna/.test(Q(mk('de',{kind:'spin',seg:'bankrupt',seat:1,lost:5}),names))&&/kein Q/i.test(Q(mk('de',{kind:'letter',ch:'Q',n:0,hit:false,free:false,seat:1}),names))&&/Anna holt die Krone/.test(Q(mk('de',{kind:'fsolve',ok:true,seat:1},{over:true,win:1}),names)));
     check('the same state always gets the same comment (no randomness), another move count may pick the other variant',(()=>{const f={kind:'solve',ok:true,seat:1};const a=Q(mk('en',f),names),b=Q(mk('en',f),names);const w2=mk('en',f);w2.moves=5;return a===b&&Q(w2,names)!==''&&Q(w2,names)!==a;})());
     check('names are made safe (no HTML slips into the speech bubble)',Q(mk('en',{kind:'solve',ok:true,seat:1}),['<b>Hax</b>']).indexOf('<b>')<0);
     check('a spin that stops next to BANKRUPT, the 1000 wedge and a 2000+ letter haul each get their own line',(()=>{const segs=F('WS_SEGS'),bi=segs.findIndex(x=>x.k==='bankrupt'),Wz=F('wsNew');const mkq=(fx)=>{const w=Wz(2,{seed:5});w.moves=4;w.fx=fx;return Q(w,names);};
