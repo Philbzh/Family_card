@@ -48,6 +48,7 @@ const css=`
 .bz-host{display:flex;align-items:center;gap:.7rem;min-height:4.6rem;}
 .bz-wiz{width:4.4rem;height:4.4rem;border-radius:50%;object-fit:cover;border:2px solid #e9c46a;box-shadow:0 0 16px rgba(233,196,106,.45);flex:none;background:#0b1233;}
 .bz-wiz.hop{animation:tmHop .5s ease-out 1;}
+@media(min-width:700px){.bz-wiz{width:6.6rem;height:6.6rem;}.bz-host{min-height:6.8rem;}.bz-say{font-size:1.4rem;}}
 .bz-say{flex:1;padding:.5rem .8rem;border-radius:14px;background:linear-gradient(180deg,rgba(30,87,57,.92),rgba(11,32,21,.95));border:1px solid rgba(201,164,92,.55);font:600 1.25rem/1.3 var(--serif,Georgia,serif);color:#fbf7ed;min-height:2.4rem;display:flex;align-items:center;}
 .bz-clues{display:flex;flex-direction:column;gap:.4rem;}
 .bz-clue{display:grid;grid-template-columns:5.2rem 1fr;gap:.6rem;align-items:center;padding:.55rem .75rem;border-radius:12px;background:rgba(10,36,24,.72);border:1px solid rgba(201,164,92,.22);font:600 1.18rem/1.35 var(--serif,Georgia,serif);color:#fbf7ed;opacity:.5;transition:opacity .3s,border-color .3s;}
