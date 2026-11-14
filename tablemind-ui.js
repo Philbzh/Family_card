@@ -458,7 +458,8 @@ function tmRecordResults(tm,seats){
 /* QUESTIONS NEVER REPEAT: every question this device has shown is remembered (by its text) and left out of the next games until
    nearly the whole library has been seen; only then the memory starts again. Old mistakes are no longer brought back. */
 function tmSeenList(){try{const l=JSON.parse(localStorage.getItem('ct_tm_seen')||'[]');return Array.isArray(l)?l:[];}catch(e){return[];}}
-function tmSeenIdx(){const lib=tmLib(null);let l=tmSeenList();if(l.length>=lib.length-100){l=[];try{localStorage.setItem('ct_tm_seen','[]');}catch(e){}}
+function tmSeenIdx(){const lib=tmLib(null);let l=tmSeenList();const cap=lib.length-100;
+  if(l.length>=cap){l=l.slice(l.length-Math.round(cap*.6));try{localStorage.setItem('ct_tm_seen',JSON.stringify(l));}catch(e){}}   // forget only the OLDEST 40 %, so yesterday's questions never come straight back
   const m=new Map();lib.forEach((e,i)=>m.set(e[3],i));return l.map(t=>m.get(t)).filter(i=>i!=null);}
 function tmRecordSeen(tm){
   try{const lib=tmLib(tm);let l=tmSeenList();
@@ -907,7 +908,7 @@ function tmStageHTML(tm,players,me,padHasQ){
 function tmQuestionPad(tm,me,players){
   const i=me-1,qq=tm.q[i];if(!qq)return'';
   const q=tmQ(tm,qq),L=tm.life[i],ans=tm.ans[i],locked=ans!=null,rev=tm.phase==='reveal';
-  const chips=`<div class="tm-qchips"><span class="tm-chip">${tmEmb(q.c,'sm')} ${esc(TM_CATS[q.c].short)}</span>${(!tm.duel&&tm.act===1&&tm.cycle===tm.gold)?`<span class="tm-chip gold">${tmIco('gold','inl')} Goldene Frage ×2</span>`:''}${tm.duel?`<span class="tm-chip gold">${tmIco('duel','inl')} DUELL · ${tmEur(TM_CFG.duelPrize)}</span>`:tm.act===1?`<span class="tm-chip gold">${tmEur(tmAmt(tm,i,tm.lvl[i]))}</span>`:tm.act===2?`<span class="tm-chip gold">${tm.owner===me?'Dein Siegel':'+'+tmEur(TM_CFG.sideBonus)}</span>`:''}</div>`;
+  const chips=`<div class="tm-qchips"><span class="tm-chip">${tmEmb(q.c,'sm')} ${esc(TM_CATS[q.c].short)}</span>${(!tm.duel&&tm.act===1&&tm.cycle===tm.gold)?`<span class="tm-chip gold">${tmIco('gold','inl')} Goldene Frage ×2</span>`:''}${tm.duel?`<span class="tm-chip gold">${tmIco('duel','inl')} DUELL · ${tmEur(TM_CFG.duelPrize)}</span>`:tm.act===1?`<span class="tm-chip gold">${tmEur(tmAmt(tm,i,tm.lvl[i]))}</span>`:tm.act===2?`<span class="tm-chip gold">${tm.owner===me?'Dein Siegel · alle antworten mit':'Siegel für '+esc(((players[tm.owner-1]||{}).name)||'')+' · du: +'+tmEur(TM_CFG.sideBonus)}</span>`:''}</div>`;
   const sel=G.tmSel;
   const answers=q.ans.map((a,k)=>{
     const el=tm.elim[i]&&tm.elim[i].indexOf(k)>=0;
@@ -1122,7 +1123,7 @@ function tmWizSay(tm,players){
     return fx.ch&&fx.ch.mv>0?v(['Der Chaser rückt näher …','Hört ihr die Schritte hinter euch?']):v(['Der Jäger stolpert! Nutzt den Vorsprung.','Durchatmen — der Chaser kam nicht vorwärts.']);
   }
   if(tm.phase==='decide')return v(['Mut oder Vorsicht?']);
-  if(tm.phase==='pick')return 'Wähl dein Thema. Richtig = Siegel!';
+  if(tm.phase==='pick')return 'Wähle deine Welt. Alle beantworten die Frage — das Siegel bekommst du, wenn du richtig liegst.';
   if(tm.phase==='offer')return 'Renn ins Ziel, bevor er dich fängt!';
   if(tm.act===1&&tm.cycle>=2&&tm.P>=2){
     const b=tm.bank.map((x,i)=>[x,i]).sort((a,c)=>c[0]-a[0]);
@@ -1130,7 +1131,7 @@ function tmWizSay(tm,players){
     if(b[0][0]>0&&b[0][0]===b[1][0]&&(tm.cycle+tm.moves)%3===0)return'Gleichstand an der Spitze! Das wird spannend.';
   }
   if(tm.act===1)return tm.moves===0?'Willkommen! Ich bin Wiz.':v(['Konzentration!','Gleich geht es los!']);
-  if(tm.act===2)return`Die Welt von ${nm(tm.owner-1)}: ${(TM_CATS[tm.pick[tm.owner-1]]||{short:''}).short}`;
+  if(tm.act===2)return`Welt von ${nm(tm.owner-1)}: ${(TM_CATS[tm.pick[tm.owner-1]]||{short:''}).short}. Alle antworten — das Siegel gehört ${nm(tm.owner-1)}.`;
   return v(['Wer behält die Nerven?','Jede Antwort zählt!']);
 }
 function tmAskLabel(tm){
@@ -1162,7 +1163,7 @@ function rTablemindTable(){
   if(verdict&&tm.act===2){const g=tm.fx.seats.findIndex(o=>o.seal);verdict.x=g>=0?'Siegel für '+esc((players[g]||{}).name||'')+'.':'Kein Siegel.';}
   let askText='';if(tm.phase==='ask'&&pad.indexOf('tm-qcard')>=0){const mq=me&&tm.q[me-1];if(mq)askText=tmQ(tm,mq).text;}
   const showIntro=G.tmIntro===tm.seed&&Date.now()<tm.dl&&tm.moves===0&&tm.act===1&&tm.cycle===1;
-  const actTxt=tm.act===1?`Frage ${Math.min(tm.cycle,tm.c1||TM_CFG.cycles1)} von ${tm.c1||TM_CFG.cycles1}`:tm.act===2?`Siegel ${tm.round2} von ${tm.sr||TM_CFG.sealRounds}`:`Jagd · Frage ${(tm.hunt?tm.hunt.n:0)+(tm.phase==='ask'?1:0)}`;
+  const actTxt=tm.act===1?`Frage ${Math.min(tm.cycle,tm.c1||TM_CFG.cycles1)} von ${tm.c1||TM_CFG.cycles1}`:tm.act===2?`Runde ${tm.round2} von ${tm.sr||TM_CFG.sealRounds}`+(tm.phase==='pick'?' · jeder wählt eine Welt':` · Frage ${Math.max(1,tm.P-(tm.queue?tm.queue.length:0))} von ${tm.P}`):`Jagd · Frage ${(tm.hunt?tm.hunt.n:0)+(tm.phase==='ask'?1:0)}`;
   queueMicrotask(tmPostRender);
   return`<div id="s-table" class="scr on game-tablemind an-${an} tm-bg-${tm.over?'over':tm.duel?'duel':'act'+tm.act}${tmTextMode()?' tx-'+tmTextMode():''}">
     <div class="game-bar"><div class="gb-game"><span class="tm-logo">TABLE MIND</span></div><div class="gb-turn tm-bartitle"><span><b>AKT ${['','I','II','III'][tm.act]}</b> · ${TM_ACT_NAMES[tm.act]}</span><small>${esc(actTxt)}</small></div><div class="gb-right"><button class="ico-btn tm-animbtn tm-aa" data-a="tmmenu" aria-label="Menü" aria-expanded="${G.tmMenu?'true':'false'}" title="Menü">⋯</button>${quitBtn()}${sndBtn()}</div></div>${G.tmMenu?`<div class="tm-menu"><button data-a="tmtext">Textgröße · ${({'':'normal',l:'groß',xl:'sehr groß',hc:'Kontrast'})[tmTextMode()]}</button><button data-a="tmanim">Animation · ${an==='full'?'voll':an==='light'?'leicht':'aus'}</button><span class="tm-mr">${rulesBtn()} Spielregeln</span></div>`:''}
@@ -1180,7 +1181,7 @@ function rTablemindTable(){
 }
 
 
-const TM_ACT_SUB=['','Beantworte Fragen und steige auf.','Sammle Siegel aus den sechs Welten.','Der Chaser kommt. Lauft ins Ziel!'];
+const TM_ACT_SUB=['','Beantworte Fragen und steige auf.','Jeder wählt Welten. Alle beantworten jede Frage — das Siegel bekommt der, dem die Welt gehört.','Der Chaser kommt. Lauft ins Ziel!'];
 function tmActCard(tm){
   if(gtAnim()==='off')return;
   const old=document.getElementById('tm-titlecard');if(old)old.remove();
