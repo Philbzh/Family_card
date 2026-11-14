@@ -11083,7 +11083,7 @@ async function runPresentation(A,W,frame){
   });
   suite('WORDSPIN — turn order, rounds and the final puzzle',()=>{
     const F=n=>W.eval(n);
-    const wsNew=F('wsNew'),wsApply=F('wsApply'),WS=F('WS_FINAL_MS');
+    const wsNew=F('wsNew'),wsApply=F('wsApply'),WS=F('WS_FINAL_MS'),READY=F('WS_FINAL_READY_MS'),sameFinal=F('wsSameFinal'),sameExact=F('wsSame');
     const play=(w,ans)=>{w.puzzle={c:'T',d:1,t:ans,i:-1};};
     check('a wrong guess hands the turn on in seat order and wraps round the table',(()=>{const w=wsNew(3,{seed:2});w.puzzle={c:'T',d:1,t:'BANANA',i:-1};const seq=[];for(let k=0;k<4;k++){w.phase='letter';w.lv={k:'pts',v:300};wsApply(w,w.cur,{t:'letter',ch:'Z'+''},1);w.called='';seq.push(w.cur);}return seq.join('')==='2312';})());
     check('2, 3 and 4 rounds can be chosen; anything else becomes 3',wsNew(2,{rounds:2}).rounds===2&&wsNew(2,{rounds:4}).rounds===4&&wsNew(2,{rounds:9}).rounds===3&&wsNew(2).rounds===3);
@@ -11095,11 +11095,24 @@ async function runPresentation(A,W,frame){
     check('in the final R S T L N E are already shown',(()=>{const w=finalState();return w.called==='RSTLNE';})());
     check('the final needs exactly three new consonants and one vowel',(()=>{const w=finalState();return wsApply(w,2,{t:'fpick',letters:'BCDG'},1)===null&&wsApply(w,2,{t:'fpick',letters:'BCAE'},1)===null&&wsApply(w,2,{t:'fpick',letters:'BCD'},1)===null&&wsApply(w,2,{t:'fpick',letters:'BCDA'},1)&&w.phase==='fsolve';})());
     check('letters already given (R S T L N E) cannot be chosen again',(()=>{const w=finalState();return wsApply(w,2,{t:'fpick',letters:'RBCA'},1)===null&&wsApply(w,2,{t:'fpick',letters:'BCDE'},1)===null;})());
-    check('picking starts the 30 second clock',(()=>{const w=finalState();const f=wsApply(w,2,{t:'fpick',letters:'BCHA'},5000);return f.deadline===5000+WS&&WS===30000;})());
+    check('picking gives a 5 second get-ready moment, then a 60 second clock (typing on a tablet is slow)',(()=>{const w=finalState();const f=wsApply(w,2,{t:'fpick',letters:'BCHA'},5000);return READY===5000&&WS===60000&&w.final.start===5000+READY&&f.deadline===5000+READY+WS&&w.final.deadline===f.deadline;})());
+    check('the final forgives one slip in a phrase of 12+ letters and two in 25+ letters, short phrases stay exact',(()=>{
+      const p13='THE BRIGHT STAR',p28='A VERY LONG PHRASE FOR TYPING FAST',short='THE END';   // 13 letters, 28 letters, 6 letters once the spaces are dropped
+      return p13.replace(/ /g,'').length===13&&p28.replace(/ /g,'').length===28
+        &&sameFinal('the bright star',p13,'en')&&sameFinal('the brighx star',p13,'en')&&sameFinal('the brigt star',p13,'en')&&sameFinal('the brightt star',p13,'en')   // exact, one wrong, one missing, one extra letter
+        &&!sameFinal('the brigt stax',p13,'en')                                                                  // two slips are too many in a 13 letter phrase
+        &&sameFinal('a vary long phrasa for typing fast',p28,'en')                                               // two slips are fine from 25 letters
+        &&!sameFinal('a vary lang phrasa for typing fast',p28,'en')                                              // three are not
+        &&sameFinal('the end',short,'en')&&!sameFinal('the enx',short,'en')&&!sameFinal('the zoo',short,'en')    // a short phrase must be exact
+        &&!sameFinal('',p13,'en');
+    })());
+    check('the normal rounds stay exact: no slip is forgiven there',!sameExact('the big sar s','THE BIG STAR S','en')&&sameExact('the big star s','THE BIG STAR S','en'));
+    check('a slip in the final solves it and ends the game with the bonus',(()=>{const w=finalState();w.puzzle={c:'T',d:2,t:'THE BIG BRIGHT STAR',i:-1};wsApply(w,2,{t:'fpick',letters:'BGHI'},1000);const f=wsApply(w,2,{t:'fsolve',text:'the big brigt star'},9000);return f.ok&&w.over&&w.final.solved&&w.bank[1]===14000;})());
+    check('typing before the get-ready moment is over is not refused',(()=>{const w=finalState();w.puzzle={c:'T',d:2,t:'THE BIG BRIGHT STAR',i:-1};wsApply(w,2,{t:'fpick',letters:'BGHI'},1000);return wsApply(w,2,{t:'fsolve',text:'THE BIG BRIGHT STAR'},1500).ok===true;})());
     check('solving the final in time adds 5000 and ends the game with the leader on top',(()=>{const w=finalState();wsApply(w,2,{t:'fpick',letters:'BGHI'},1000);const f=wsApply(w,2,{t:'fsolve',text:'the big bright star'},20000);return f.ok&&w.over&&w.bank[1]===14000&&w.win===2&&w.final.solved;})());
     check('a wrong answer in the final does not end it: the leader can try again until time is up',(()=>{const w=finalState();wsApply(w,2,{t:'fpick',letters:'BGHI'},1000);const a=wsApply(w,2,{t:'fsolve',text:'wrong'},2000);const b=wsApply(w,2,{t:'fsolve',text:'THE BIG BRIGHT STAR'},3000);return !a.ok&&b.ok&&w.over;})());
-    check('after 30 seconds the final is lost: no bonus, and the puzzle is shown',(()=>{const w=finalState();wsApply(w,2,{t:'fpick',letters:'BGHI'},1000);const f=wsApply(w,2,{t:'fsolve',text:'THE BIG BRIGHT STAR'},1000+WS+5000);return f.kind==='ftime'&&w.over&&w.bank[1]===9000&&!w.final.solved&&w.called.length>=26;})());
-    check('the timeout action only works once the clock has run out (or when forced for an away player)',(()=>{const w=finalState();wsApply(w,2,{t:'fpick',letters:'BGHI'},1000);return wsApply(w,2,{t:'ftime'},5000)===null&&wsApply(w,2,{t:'ftime'},1000+WS)&&w.over;})());
+    check('after the 60 seconds are over the final is lost: no bonus, and the puzzle is shown',(()=>{const w=finalState();wsApply(w,2,{t:'fpick',letters:'BGHI'},1000);const f=wsApply(w,2,{t:'fsolve',text:'THE BIG BRIGHT STAR'},1000+READY+WS+5000);return f.kind==='ftime'&&w.over&&w.bank[1]===9000&&!w.final.solved&&w.called.length>=26;})());
+    check('the timeout action only works once the clock has run out (or when forced for an away player)',(()=>{const w=finalState();wsApply(w,2,{t:'fpick',letters:'BGHI'},1000);return wsApply(w,2,{t:'ftime'},5000)===null&&wsApply(w,2,{t:'ftime'},1000+READY+WS)&&w.over;})());
     check('the final can be lost and the leader can still win; or be overtaken',(()=>{const w=finalState();w.bank=[2990,9000,2000];wsApply(w,2,{t:'fpick',letters:'BGHI'},1000);wsApply(w,2,{t:'ftime',force:1},2000);return w.win===2&&w.over&&F('wsMoment')(w,['A','B','C']).indexOf('held on')>0;})());
     check('after the game is over nothing more can be played',(()=>{const w=finalState();wsApply(w,2,{t:'fpick',letters:'BGHI'},1000);wsApply(w,2,{t:'ftime',force:1},2000);return wsApply(w,2,{t:'spin'},1)===null&&wsApply(w,w.cur,{t:'next'},1)===null;})());
     check('when the final prize could still change the result, the runner-up plays it (otherwise the leader has a victory lap)',(()=>{const w=finalState();w.bank=[2990,3000,2000];return F('wsFinalist')(w)===1&&(()=>{w.bank=[2990,9000,2000];return F('wsFinalist')(w)===2;})();})());

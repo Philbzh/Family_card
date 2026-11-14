@@ -9,7 +9,7 @@ A wheel-and-word game for 2–4 players (local on one device, against bots, or o
 - **BANKRUPT** clears only the current round score (banked totals are safe) and passes the turn.
 - **FREE PLAY:** any letter, a wrong one costs nothing. **WILD:** any letter at 500 per tile, a vowel is free.
 - **Solving** ignores case, spaces, punctuation and accents. Only the round winner banks (at least 500).
-- **Rounds:** 2, 3 or 4, then the bank leader plays the **final puzzle**: R S T L N E are given, 3 more consonants and 1 vowel, 30 seconds, +5000 if solved.
+- **Rounds:** 2, 3 or 4, then the bank leader plays the **final puzzle**: R S T L N E are given, 3 more consonants and 1 vowel, then a 5 second get-ready moment (the keyboard opens by itself, autocorrect off) and 60 seconds on the clock, +5000 if solved. In the final one slip (a wrong, missing or extra letter) is forgiven from 12 letters up and two from 25 letters up; the normal rounds stay exact. (Changed 2026-11-14: typing on an iPad against 30 seconds was too hard.)
 - **Puzzle level:** Mixed, Easy, Medium or Hard (chosen before the game; the host online).
 - **Language:** English or Deutsch, chosen before the game (the host online) and stored in the game state, so every device shows the same language. German: Ä Ö Ü are letters of their own and count as vowels (250), ß is read as SS, answers may be typed with AE OE UE; all WORDSPIN buttons, hints, banners, results and the rules page are German (the rest of the app stays English).
 
