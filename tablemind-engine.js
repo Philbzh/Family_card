@@ -69,7 +69,7 @@ function tmNew(P,opts){
     lvl:z(),unb:z(),bank:z(),q:nl(),ans:nl(),ansAt:z(),res:nl(),pick:nl(),ext:z(),elim:nl(),clue:z(),gain:z(),
     life:[],council:null,queue:[],owner:0,easyOn:z(),picked:Array.from({length:n},()=>[]),hcap:z(),streak:z(),rdy:z(),log:[],duel:null,duelDone:false,pendingDecide:new Array(n).fill(false),seals:[],sealNew:z(),
     chaser:opts.chaser&&TM_CFG.chasers[opts.chaser]?opts.chaser:null,ch:null,lane:[],offer:nl(),
-    dl:0,moves:0,fx:null,over:false,win:0,
+    dl:0,moves:0,fx:null,over:false,win:0,blitzOn:!!opts.blitz,bzlib:opts.bzlib||null,usedB:(opts.seenB||[]).filter(x=>Number.isInteger(x)&&x>=0).slice(),
     stats:{right:z(),wrong:z(),late:z(),lifes:z(),best:z(),topHits:z(),duels:z(),streaks:z(),catR:Array.from({length:n},()=>[0,0,0,0,0,0]),catN:Array.from({length:n},()=>[0,0,0,0,0,0]),banks:z(),councilFor:z(),hardRight:z(),mislead:z()}};
   for(let i=0;i<n;i++){tm.life.push(Object.assign({},TM_CFG.lives));tm.seals.push([]);}
   for(let i=0;i<7;i++){tmRand(tm);tmRand2(tm);}
@@ -264,6 +264,8 @@ function tmApply(tm,seat,act,now){
       tm.seenFrom=tm.seenFrom||[];tm.seenFrom[i]=1;const n=tmLib(tm).length;
       act.l.slice(-250).forEach(x=>{if(Number.isInteger(x)&&x>=0&&x<n&&tm.used.indexOf(x)<0)tm.used.push(x);});
       tm.moves++;return true;}
+    case'buzz':return typeof tmBzBuzz==='function'?tmBzBuzz(tm,s,now):false;
+    case'bans':return typeof tmBzAnswer==='function'?tmBzAnswer(tm,s,act.i,now):false;
     case'tick':return tmTick(tm,now);
   }
   return false;
@@ -273,6 +275,7 @@ function tmApply(tm,seat,act,now){
 function tmTick(tm,now){
   if(tm.over)return false;
   const ph=tm.phase;
+  if(ph==='blitz')return typeof tmBlitzTick==='function'?tmBlitzTick(tm,now):false;
   if(ph==='ask'){
     if(tm.council&&!tm.council.done&&now>=tm.council.until){tmCouncilCheck(tm,now);}
     if(tmAskDone(tm,now)){tmResolveAsk(tm,now);return true;}
@@ -380,7 +383,7 @@ function tmAfterReveal(tm,now){
   }
   if(tm.act===2){
     if(tm.queue&&tm.queue.length){tmNextAsk2(tm,now);return;}
-    if(tm.round2>=(tm.sr||TM_CFG.sealRounds))tmOpenOffer(tm,now);else tmOpenPick(tm,now);
+    if(tm.round2>=(tm.sr||TM_CFG.sealRounds)){if(!(tm.blitzOn&&typeof tmBlitzOpen==='function'&&tmBlitzOpen(tm,now)))tmOpenOffer(tm,now);}else tmOpenPick(tm,now);
     return;
   }
   // act 3

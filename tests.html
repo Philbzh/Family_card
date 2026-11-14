@@ -10153,6 +10153,32 @@ async function runPresentation(A,W,frame){
     check('at least 75 percent of the questions are about Europe',lib.filter(e=>e[2]==='E').length>=lib.length*.75);
     check('the questions are in German (they use ä ö ü ß somewhere and no English quiz words)',lib.some(e=>/[äöüß]/.test(e[3]+e[8]))&&lib.every(e=>!/\b(the|which|what)\b/i.test(e[3])));
   });
+  suite('TABLE MIND — Blitz (the buzzer act): the rules',()=>{
+    const F=n=>W.eval(n),N=F('tmNew'),S=F('tmStart'),A=F('tmApply'),T=F('tmTick'),Z=F('TM_BZ_CFG');
+    const BZ=[];for(let c=0;c<6;c++)for(const d of [2,3,3,4])BZ.push([c,d,'E','c1','c2','c3','c4','R'+BZ.length,'W1','W2','W3','x']);
+    const mk=(P,o)=>{const t=N(P,Object.assign({blitz:true,bzlib:BZ,seed:777},o||{}));S(t,0);return t;};
+    const go=(t,now)=>{t.act=2;t.phase='reveal';t.round2=t.sr||2;t.queue=[];t.dl=now;t.fx={seats:t.bank.map((x,i)=>({s:i+1}))};T(t,now);};
+    let t=mk(2);go(t,1e5);let q=t.blitz&&t.blitz.cur;
+    check('the buzzer act opens after act II and has five questions to come',t.phase==='blitz'&&q&&q.ph==='intro'&&t.blitz.nq===5);
+    const old=N(2,{seed:5});S(old,0);go(old,1e5);
+    check('without the switch (old rooms) act II leads straight to the hunt',old.phase==='offer'&&old.act===3);
+    check('a buzz before the buzzers are armed is a false start: locked out, no money lost',A(t,1,{t:'buzz'},q.t0-300)===true&&q.locked.indexOf(1)>=0&&t.bank[0]===0&&!q.buzz);
+    check('the first valid buzz wins, the second is refused, only the buzzer answers',A(t,2,{t:'buzz'},q.t0+100)===true&&A(t,1,{t:'buzz'},q.t0+101)===false&&q.buzz.pz===2500&&A(t,1,{t:'bans',i:q.cor},q.t0+150)===false);
+    check('a right answer at the first clue pays 2.500',A(t,2,{t:'bans',i:q.cor},q.t0+200)===true&&t.bank[1]===2500);
+    const drop=off=>{const u=mk(2);go(u,1e5);const c=u.blitz.cur;A(u,1,{t:'buzz'},c.t0+off);A(u,1,{t:'bans',i:c.cor},c.t0+off+5);return u.bank[0];};
+    check('the prize drops with every clue: 2.500, 2.000, 1.500, 1.000',drop(100)===2500&&drop(3600)===2000&&drop(7100)===1500&&drop(10600)===1000);
+    const u=mk(2);go(u,1e5);const c=u.blitz.cur;A(u,1,{t:'buzz'},c.t0+100);u.bank[0]=3000;A(u,1,{t:'bans',i:(c.cor+1)%4},c.t0+200);
+    check('a wrong first answer costs 500 and opens a steal for the others only',u.bank[0]===2500&&c.ph==='steal'&&A(u,1,{t:'buzz'},c.t0+250)===false);
+    A(u,2,{t:'buzz'},c.t0+300);A(u,2,{t:'bans',i:c.cor},c.t0+400);
+    check('a right steal pays half of the prize at the first buzz',u.bank[1]===1250);
+    const w=mk(2);go(w,1e5);const d=w.blitz.cur;A(w,1,{t:'buzz'},d.t0+100);w.bank[0]=200;T(w,d.t0+100+Z.answerMs);
+    check('no answer within 7 seconds counts as wrong, and a penalty never goes below zero',d.ph==='steal'&&w.bank[0]===0);
+    const h=mk(2);h.hcap=[1,-1];go(h,1e5);const e=h.blitz.cur;A(h,1,{t:'buzz'},e.t0+100);A(h,1,{t:'bans',i:e.cor},e.t0+150);
+    check('Schwer pays 75 percent (1.900), Leicht removes two wrong answers after the buzz',h.bank[0]===1900&&(()=>{const k=mk(2);k.hcap=[-1,0];go(k,1e5);const g=k.blitz.cur;A(k,1,{t:'buzz'},g.t0+100);return g.elim&&g.elim.length===2&&g.elim.indexOf(g.cor)<0;})());
+    const r=mk(3);go(r,1e5);const idx=[];
+    for(let k=0;k<5;k++){const g=r.blitz.cur;idx.push(g.i);A(r,1+k%3,{t:'buzz'},g.t0+100);A(r,1+k%3,{t:'bans',i:g.cor},g.t0+200);T(r,g.dl);}
+    check('five different questions, then the hunt offer opens',r.phase==='offer'&&r.act===3&&new Set(idx).size===5);
+  });
   suite('TABLE MIND — act 1: the climb, banking and risk',()=>{
     const F=n=>W.eval(n),N=F('tmNew'),S=F('tmStart'),A=F('tmApply'),CFG=F('TM_CFG');
     const fresh=(P,seed)=>{const t=N(P,{autoBank:false,seed:seed||11});t.gold=99;S(t,0);return t;};   // no golden question in these money tests
