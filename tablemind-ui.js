@@ -346,6 +346,13 @@
 @keyframes tm-shake{0%,100%{transform:none}15%{transform:translateX(-6px) rotate(-1deg)}30%{transform:translateX(6px) rotate(1deg)}45%{transform:translateX(-5px)}60%{transform:translateX(4px)}80%{transform:translateX(-2px)}}
 .game-tablemind.an-off .tm-vcol.hit,.game-tablemind.an-light .tm-vcol.hit,.game-tablemind.an-off .tm-vmk.lunge,.game-tablemind.an-light .tm-vmk.lunge{animation:none;}
 .tm-podium{display:flex;flex-direction:column;align-items:center;gap:.6rem;margin-bottom:.8rem;}
+.tm-lean-end .res-body{justify-content:center;gap:.9rem;padding:.8rem 1.1rem 1rem;overflow-y:auto;}
+.tm-lean-end .res-body>.panel{margin:0;padding:.9rem .9rem .7rem;}
+.tm-lean-end .tm-podium{margin-bottom:.6rem;gap:.4rem;}
+.tm-lean-end .tm-podium img{width:5.2rem;height:5.2rem;}
+.tm-lean-end .tm-fins{display:flex;flex-direction:column;gap:.45rem;}
+.tm-lean-end .tm-more{margin-top:.5rem;font-size:.78rem;}
+.tm-lean-end .res-btns{margin-top:.2rem;}
 .tm-podium img{width:7rem;height:7rem;border-radius:50%;object-fit:cover;border:3px solid #ead08a;box-shadow:0 0 34px rgba(201,164,92,.6);}
 .tm-podium .t{font:800 1.15rem/1.2 var(--serif,Georgia,serif);letter-spacing:.08em;color:#ead08a;text-align:center;}
 .tm-pbars{display:flex;align-items:flex-end;justify-content:center;gap:.5rem;width:100%;max-width:26rem;}
@@ -1252,7 +1259,7 @@ function tmResultsHTML(){
   const players=tmPlayers(),c=TM_CFG.chasers[tm.chaser];
   const st=tmStandings(tm);
   const rows=st.map((r,k)=>{const i=r.s-1,p=players[i]||{name:'?',avatar:null},L=tm.lane[i],n=tm.stats.right[i]+tm.stats.wrong[i]+tm.stats.late[i];
-    return`<div class="tm-fin${k===0?' first':''}"><span class="rk">${k<3?`<img src="assets/ui/reward_${['gold','silver','bronze'][k]}.png" alt="${k+1}" style="width:1.7rem;height:1.7rem;object-fit:contain;vertical-align:middle">`:k+1}</span><span class="nm">${avChar(p.avatar)} ${esc(p.name)}</span><b class="tt">${tmEur(r.total)}</b><small>${tm.stats.streaks[i]?tmStreakIco(tm.stats.streaks[i]*3)+' '+tm.stats.streaks[i]+'× · ':''}Konto ${tmEur(tm.bank[i])} · ${r.seals} Siegel · ${L.st==='escaped'?'entkommen':'gefangen'} · ${n?Math.round(tm.stats.right[i]/n*100):0}% richtig</small></div>`;}).join('');
+    return`<div class="tm-fin${k===0?' first':''}"><span class="rk">${k<3?`<img src="assets/ui/reward_${['gold','silver','bronze'][k]}.png" alt="${k+1}" style="width:1.7rem;height:1.7rem;object-fit:contain;vertical-align:middle">`:k+1}</span><span class="nm">${avChar(p.avatar)} ${esc(p.name)}</span><b class="tt">${tmEur(r.total)}</b><small>${tm.stats.streaks[i]?tmStreakIco(tm.stats.streaks[i]*3)+' '+tm.stats.streaks[i]+'× · ':''}${r.seals} Siegel · ${L.st==='escaped'?'entkommen':'gefangen'} · ${n?Math.round(tm.stats.right[i]/n*100):0}% richtig</small></div>`;}).join('');
   const hero=`<div class="tm-podium"><img src="assets/games/${(G.isOnline&&G.myPid&&(tmPlayers().findIndex(q=>q.id===G.myPid)+1)&&(tmPlayers().findIndex(q=>q.id===G.myPid)+1)!==tm.win)?'tm_res_lose':'tm_res_win'}.jpg" alt="" onerror="this.src='assets/games/ws_owl_6.jpg'"><div class="t">${esc((players[tm.win-1]||{}).name||'')} ist der TABLE MIND!</div></div>`;
   return`<div class="panel ws-res">${hero}<div class="tm-fins">${rows}</div><details class="tm-more"><summary>Details · Chaser: ${esc(c.name)}</summary>${tmFlaggedHTML()}${tmStrengthsHTML()}${tmLearnedHTML(tm)}</details></div>`;
 }
