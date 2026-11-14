@@ -10,6 +10,7 @@ const css=`
 .bz-wrap.p4{grid-template-columns:minmax(5.2rem,16%) minmax(0,1fr) minmax(5.2rem,16%);grid-template-rows:minmax(5.6rem,18%) minmax(0,1fr) minmax(5.6rem,18%);grid-template-areas:"t t t" "l m r" "b b b";}
 .bz-wrap.online{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr) minmax(7rem,24%);}
 .bz-wrap.online .bz-zone,.bz-wrap.online .bz-mid{grid-area:auto;}
+.bz-actline{grid-column:auto;margin:0 0 .1rem;}
 .bz-chips{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;}
 .bz-chip{position:relative;display:flex;align-items:center;gap:.5rem;padding:.35rem .7rem;border-radius:14px;border:1px solid rgba(201,164,92,.45);background:linear-gradient(180deg,rgba(24,70,48,.9),rgba(8,26,18,.95));color:#fbf7ed;}
 .bz-chip .bz-av .av-img{width:2.2rem;height:2.2rem;}
@@ -29,7 +30,7 @@ const css=`
 .bz-av .av-img{width:3.2rem;height:3.2rem;display:block;}
 .bz-who{display:flex;flex-direction:column;align-items:flex-start;gap:.05rem;min-width:0;}
 .bz-nm{font:700 .95rem/1.1 var(--serif,Georgia,serif);color:#f3deaa;letter-spacing:.04em;}
-.bz-money{font:800 1.15rem/1.1 var(--serif,Georgia,serif);color:#ffe9a8;font-variant-numeric:tabular-nums;}
+.bz-money{font:700 1.1rem/1.1 var(--serif,Georgia,serif);color:var(--tg,#c9a45c);text-shadow:0 0 14px rgba(201,164,92,.45);font-variant-numeric:tabular-nums;}
 .bz-lbl{font:800 1.35rem/1 var(--serif,Georgia,serif);letter-spacing:.18em;color:#fff1c2;text-shadow:0 2px 8px rgba(0,0,0,.6);min-width:7.5rem;text-align:center;}
 .bz-zone.st-armed{border-color:#ffe08a;box-shadow:0 0 0 2px rgba(255,224,138,.45),0 0 30px rgba(255,224,138,.5);animation:bzPulse 1.1s ease-in-out infinite;}
 .bz-zone.st-steal{border-color:#ff8e7d;box-shadow:0 0 0 2px rgba(255,142,125,.45),0 0 30px rgba(255,110,90,.55);animation:bzPulse .75s ease-in-out infinite;}
@@ -47,9 +48,9 @@ const css=`
 .bz-host{display:flex;align-items:center;gap:.7rem;min-height:4.6rem;}
 .bz-wiz{width:4.4rem;height:4.4rem;border-radius:50%;object-fit:cover;border:2px solid #e9c46a;box-shadow:0 0 16px rgba(233,196,106,.45);flex:none;background:#0b1233;}
 .bz-wiz.hop{animation:tmHop .5s ease-out 1;}
-.bz-say{flex:1;padding:.5rem .8rem;border-radius:14px;background:linear-gradient(180deg,rgba(30,87,57,.92),rgba(11,32,21,.95));border:1px solid rgba(201,164,92,.55);font:700 1.1rem/1.25 var(--serif,Georgia,serif);color:#fbf7ed;min-height:2.4rem;display:flex;align-items:center;}
+.bz-say{flex:1;padding:.5rem .8rem;border-radius:14px;background:linear-gradient(180deg,rgba(30,87,57,.92),rgba(11,32,21,.95));border:1px solid rgba(201,164,92,.55);font:600 1.25rem/1.3 var(--serif,Georgia,serif);color:#fbf7ed;min-height:2.4rem;display:flex;align-items:center;}
 .bz-clues{display:flex;flex-direction:column;gap:.4rem;}
-.bz-clue{display:grid;grid-template-columns:5.2rem 1fr;gap:.6rem;align-items:center;padding:.55rem .75rem;border-radius:12px;background:rgba(10,36,24,.72);border:1px solid rgba(201,164,92,.22);font:600 1.05rem/1.28 var(--serif,Georgia,serif);color:#f4efe0;opacity:.5;transition:opacity .3s,border-color .3s;}
+.bz-clue{display:grid;grid-template-columns:5.2rem 1fr;gap:.6rem;align-items:center;padding:.55rem .75rem;border-radius:12px;background:rgba(10,36,24,.72);border:1px solid rgba(201,164,92,.22);font:600 1.18rem/1.35 var(--serif,Georgia,serif);color:#fbf7ed;opacity:.5;transition:opacity .3s,border-color .3s;}
 .bz-clue.show{opacity:.78;}
 .bz-clue.on{opacity:1;border-color:#ffe08a;background:linear-gradient(90deg,rgba(201,164,92,.28),rgba(10,36,24,.82));animation:bzIn .45s ease-out 1;}
 .bz-clue.hid .bz-tx{color:#6e6648;letter-spacing:.35em;}
@@ -177,6 +178,7 @@ window.rTablemindBlitz=function(tm,players){
     <div class="bz-wrap ${G.isOnline?'online':'p'+tm.P}">
       ${G.isOnline?zones[0]:''}
       <div class="bz-mid">
+        <div class="tm-actline bz-actline"><b>AKT III</b> · DER BLITZ · ${esc(actTxt)}</div>
         <div class="bz-host"><img class="bz-wiz${hop?' hop':''}" src="${wizSrc(w.pose)}" alt="Wiz" width="64" height="64">${w.line?`<div class="bz-say">${w.line}</div>`:''}</div>
         ${view?cluesHTML(tm,q,view):''}
         ${view?ansHTML(tm,q,view,players):''}
