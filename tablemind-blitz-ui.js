@@ -67,13 +67,32 @@ const css=`
 @keyframes bzBar{from{transform:scaleX(1);}to{transform:scaleX(0);}}
 @media(max-width:559px){.bz-clue{grid-template-columns:4.2rem 1fr;font-size:.95rem;padding:.45rem .55rem;}.bz-lbl{font-size:1.1rem;min-width:5.5rem;}.bz-av .av-img{width:2.6rem;height:2.6rem;}}
 @media(prefers-reduced-motion:reduce){.bz-zone.st-armed,.bz-zone.st-steal,.bz-clue.on,.bz-zone.st-fs{animation:none!important;}}
+/* the real buzzer: a big round dome on a metal base, one colour per player; it glows when armed and sinks when pressed */
+.bz-zone{--bzd:clamp(4.6rem,17vh,8.2rem);}
+.bz-zone.pos-l,.bz-zone.pos-r{--bzd:4.9rem;}
+.bz-wrap.online .bz-zone{--bzd:clamp(4.6rem,13vh,6.8rem);}
+.bz-zone.pressed{filter:none;transform:none;}
+.bz-btn{position:relative;flex:none;width:var(--bzd);height:var(--bzd);border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 50% 30%,#7d828b,#2c2f35 58%,#0c0d10);box-shadow:0 .4rem .8rem rgba(0,0,0,.7),inset 0 2px 3px rgba(255,255,255,.28),inset 0 -4px 7px rgba(0,0,0,.65);}
+.bz-btn::before{content:"";position:absolute;inset:5%;border-radius:50%;background:repeating-conic-gradient(rgba(255,255,255,.08) 0 6deg,rgba(0,0,0,.2) 6deg 12deg);box-shadow:inset 0 0 6px rgba(0,0,0,.75);}
+.bz-dome{position:relative;width:74%;height:74%;border-radius:50%;--b1:#ffd0c8;--b2:#ff4a3a;--b3:#c3140c;--b4:#6b0804;--glow:#ff6a5a;background:radial-gradient(circle at 38% 30%,var(--b1) 0,var(--b2) 24%,var(--b3) 68%,var(--b4) 100%);box-shadow:0 .42rem 0 var(--b4),0 .7rem 1rem rgba(0,0,0,.6),inset 0 -.5rem .9rem rgba(0,0,0,.28),inset 0 .25rem .5rem rgba(255,255,255,.22);transition:transform .07s ease-out,box-shadow .07s ease-out,filter .25s;}
+.bz-dome::after{content:"";position:absolute;left:19%;top:10%;width:46%;height:26%;border-radius:50%;background:linear-gradient(180deg,rgba(255,255,255,.8),rgba(255,255,255,0));transform:rotate(-16deg);pointer-events:none;}
+.bzc2 .bz-dome{--b1:#d2e5ff;--b2:#4090ff;--b3:#1557c8;--b4:#082c68;--glow:#5aa2ff;}
+.bzc3 .bz-dome{--b1:#d9ffdc;--b2:#3fdc66;--b3:#139a3d;--b4:#064b1d;--glow:#58f07d;}
+.bzc4 .bz-dome{--b1:#fff5c4;--b2:#ffd53d;--b3:#d49c00;--b4:#6b4a00;--glow:#ffe066;}
+.bz-zone.st-armed .bz-dome{filter:brightness(1.12) saturate(1.1);animation:bzGlow 1.1s ease-in-out infinite;}
+.bz-zone.st-steal .bz-dome{filter:brightness(1.12) saturate(1.1);animation:bzGlow .75s ease-in-out infinite;}
+.bz-zone.st-wait .bz-dome,.bz-zone.st-locked .bz-dome,.bz-zone.st-out .bz-dome,.bz-zone.st-fs .bz-dome{filter:saturate(.25) brightness(.6);}
+.bz-zone.st-turn .bz-dome,.bz-zone:active:not(:disabled) .bz-dome,.bz-zone.pressed .bz-dome{transform:translateY(.34rem);box-shadow:0 .08rem 0 var(--b4),0 .2rem .4rem rgba(0,0,0,.55),inset 0 -.4rem .8rem rgba(0,0,0,.35);animation:none;}
+@keyframes bzGlow{0%,100%{box-shadow:0 .42rem 0 var(--b4),0 .7rem 1rem rgba(0,0,0,.6),0 0 .6rem var(--glow);}50%{box-shadow:0 .42rem 0 var(--b4),0 .7rem 1rem rgba(0,0,0,.6),0 0 2.1rem .4rem var(--glow);}}
+@media(max-width:559px){.bz-zone{--bzd:clamp(3.8rem,14vh,5.6rem);}.bz-zone.pos-l,.bz-zone.pos-r{--bzd:4.2rem;}.bz-in{gap:.55rem;}}
+@media(prefers-reduced-motion:reduce){.bz-zone.st-armed .bz-dome,.bz-zone.st-steal .bz-dome{animation:none!important;}}
 `;
 const st=document.createElement('style');st.textContent=css;document.head.appendChild(st);
 
 // sounds for the act, built from the app's own tone()
 Object.assign(TMSFX,{
   arm(){tone(1250,.06,'square');setTimeout(()=>tone(1650,.08,'square'),60);haptic(8);},
-  buzz(){tone(520,.14,'sawtooth');tone(790,.2,'square');haptic([30]);},
+  buzz(){tone(196,.34,'sawtooth');tone(392,.3,'square');setTimeout(()=>tone(98,.4,'sine'),15);tone(1800,.02,'square');haptic([30]);},   // a quiz-show buzzer: a low, rough BZZT with a click
   clue(){tone(1900,.025,'square');},
   drop(){tone(660,.1,'triangle');setTimeout(()=>tone(494,.14,'triangle'),90);},
   steal(){[392,523,659].forEach((f,i)=>setTimeout(()=>tone(f,.12,'sawtooth'),i*70));haptic([12,20,12]);},
@@ -132,8 +151,9 @@ function zoneHTML(tm,q,s,pos,players){
   const state=zoneState(tm,q,s),p=players[s-1]||{name:'?',avatar:null};
   const live=human(s)&&(state==='armed'||state==='steal'||state==='wait');
   const label=LBL[state]||'';
-  const inner=`<span class="bz-in"><span class="bz-av">${avHTML(p.avatar)}</span><span class="bz-who"><span class="bz-nm">${esc(p.name)}</span><span class="bz-money" data-s="${s}">${tmEur(tm.bank[s-1])}</span></span>${label?`<span class="bz-lbl">${label}</span>`:''}</span>${deltaFor(q,s,players)}`;
-  return live?`<button class="bz-zone pos-${pos} st-${state}" data-bzs="${s}" aria-label="Buzzer ${esc(p.name)}">${inner}</button>`:`<div class="bz-zone pos-${pos} st-${state}">${inner}</div>`;
+  const inner=`<span class="bz-in"><span class="bz-av">${avHTML(p.avatar)}</span><span class="bz-who"><span class="bz-nm">${esc(p.name)}</span><span class="bz-money" data-s="${s}">${tmEur(tm.bank[s-1])}</span></span><span class="bz-btn" aria-hidden="true"><span class="bz-dome"></span></span>${label?`<span class="bz-lbl">${label}</span>`:''}</span>${deltaFor(q,s,players)}`;
+  const bzc='bzc'+(((s-1)%4)+1);
+  return live?`<button class="bz-zone pos-${pos} st-${state} ${bzc}" data-bzs="${s}" aria-label="Buzzer ${esc(p.name)}">${inner}</button>`:`<div class="bz-zone pos-${pos} st-${state} ${bzc}">${inner}</div>`;
 }
 function cluesHTML(tm,q,view){
   const prizes=TM_BZ_CFG.prizes,now=Date.now();
@@ -259,6 +279,7 @@ function bots(tm,now){
       tmSend({t:'buzz'});return;
     }
     e.preventDefault();
+    z.classList.add('pressed');
     pend.push({s:+z.getAttribute('data-bzs'),t:e.timeStamp});
     if(!timer)timer=setTimeout(()=>{const list=pend;pend=[];timer=null;settle(list);},12);
   },{passive:false});
