@@ -4451,6 +4451,8 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
 .ach-art{height:1.35em;width:auto;max-width:1.5em;object-fit:contain;vertical-align:middle;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5));}
 .ach-art.lock{filter:grayscale(1) brightness(.7) opacity(.6);}
 .ws-bic{display:block;height:1.5rem;width:auto;margin:0 auto .2rem;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));}
+.ws-won-wiz{display:flex;justify-content:center;margin:0 auto;animation:ws-egg 1.6s ease-in-out infinite alternate;}
+.ws-won-wiz .ws-evt-wiz{width:6.4rem;height:6.4rem;}
 .ws-won-owl{height:5.2rem;width:auto;margin:0 auto;animation:ws-egg 1.6s ease-in-out infinite alternate;filter:drop-shadow(0 0 14px rgba(233,196,106,.5));}
 .ui-med{width:1.55rem;height:1.55rem;object-fit:contain;vertical-align:-.4em;margin-right:.3rem;}
 .tn-awi .ui-med{width:2.2rem;height:2.2rem;margin:0;}
@@ -6467,7 +6469,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=422;
+const APP_BUILD=423;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -21881,7 +21883,7 @@ function wsPanelHTML(ws,p,mine,acts,seq,players){
   if(ws.phase==='roundend'){
     const w=players[ws.roundWin-1]||p,amt=Math.max(ws.rs[ws.roundWin-1],WS_MIN_WIN);
     const last=ws.round>=ws.rounds;
-    return`<div class="ws-panel"><div class="ws-won">${uiI('owl_party','ws-won-owl')}<h3>${avChar(w.avatar)} ${T('solvedIt',esc(w.name))}</h3><p>“${esc(ws.puzzle.t)}”</p><p>${T('banked',wsFmt(amt))}</p></div>
+    return`<div class="ws-panel"><div class="ws-won"><div class="ws-won-wiz">${wsWizIcon('applause')}</div><h3>${avChar(w.avatar)} ${T('solvedIt',esc(w.name))}</h3><p>${T('banked',wsFmt(amt))}</p></div>
       ${(acts||(!G.isOnline&&!isBotPlayer(p)))&&!isBotPlayer(p)?`<button class="ws-spin" data-a="wsnext" style="font-size:1rem;letter-spacing:.12em;min-width:14rem">${last?T('finalBtn'):T('nextRound')}</button>`:`<div class="ws-lbl">${T('nextUp')}</div>`}</div>`;
   }
   if(!acts)return`<div class="ws-panel">${ws.phase==='fpick'||ws.phase==='fsolve'?`<div class="ws-lbl">${esc(T('finalPuzzle'))}</div>`:''}<div style="font-size:.95rem;color:#cfd7f5;text-align:center">${wsHintText(ws,p,false,false)}</div>${ws.phase==='fsolve'?wsClockHTML(ws):''}</div>`;
@@ -21958,7 +21960,7 @@ function rWordspinTable(){
     <div class="ws-main">
       <div class="ws-top">${ws.final?'<div class="ws-final-band" role="img" aria-label=""></div>':''}<div class="ws-meta"><span class="ws-cat">${catIc!=null?`<img class="ws-cat-ic" src="assets/games/ws_cat_${catIc}.png" alt="" width="28" height="28">`:''}${esc(ws.puzzle.c)}</span>${roundLine}</div>${wsBoardHTML(ws,flip,deal)}<div class="ws-hint">${hostHTML}${(bubbleHint||quip)?`<span class="ws-say">${quip?`<em class="ws-quip">${quip}</em>`:''}${bubbleHint}</span>`:''}</div></div>
       <div class="ws-stage">
-        <div class="ws-left"><div class="ws-wheel-wrap an-${gtAnim()}" style="${kbPhase?'width:min(52vw,11rem)':''}">${wsWheelSVG(ang,ws.lang)}</div></div>
+        <div class="ws-left"><div class="ws-wheel-wrap an-${gtAnim()}" style="${(kbPhase||(ws.phase==='roundend'&&!seq))?'width:min(52vw,11rem)':''}">${wsWheelSVG(ang,ws.lang)}</div></div>
         <div class="ws-right">${wsPanelHTML(ws,p,mine,acts,seq,players)}
           <div class="ws-foot"><button class="gt-animbtn" data-a="wsanim" aria-label="Animations">${T('anim',T(gtAnim()))}</button><button class="gt-animbtn" data-a="wsview" aria-label="This screen shows">${T({full:'viewFull',stage:'viewStage',pad:'viewPad'}[view])}</button></div></div>
       </div>
