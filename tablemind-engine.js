@@ -264,6 +264,10 @@ function tmApply(tm,seat,act,now){
       tm.seenFrom=tm.seenFrom||[];tm.seenFrom[i]=1;const n=tmLib(tm).length;
       act.l.slice(-250).forEach(x=>{if(Number.isInteger(x)&&x>=0&&x<n&&tm.used.indexOf(x)<0)tm.used.push(x);});
       tm.moves++;return true;}
+    case'feather':{   // the owner arms or disarms the golden feather before answering a hunt question
+      const F=tm.feather;
+      if(!F||F.seat!==s||F.used||ph!=='ask'||tm.act!==3||!tm.lane[i]||tm.lane[i].st!=='run'||tm.ans[i]!=null)return false;
+      F.armed=!F.armed;tm.moves++;return true;}
     case'buzz':return typeof tmBzBuzz==='function'?tmBzBuzz(tm,s,now):false;
     case'bans':return typeof tmBzAnswer==='function'?tmBzAnswer(tm,s,act.i,now):false;
     case'tick':return tmTick(tm,now);
@@ -353,7 +357,11 @@ function tmHuntMove(tm,fx){
   fx.ch=tm.ch;
   for(let s=1;s<=tm.P;s++){
     const L=tm.lane[s-1],o=fx.seats[s-1];if(L.st!=='run')continue;
-    if(tm.res[s-1]==='ok'){L.pl++;L.steps++;o.steps=1;}
+    if(tm.res[s-1]==='ok'){
+      L.pl++;L.steps++;o.steps=1;
+      const F=tm.feather;
+      if(F&&F.seat===s&&F.armed&&!F.used){L.pl++;L.steps++;o.steps=2;o.feather=1;F.used=true;F.armed=false;}   // the golden feather: one extra field, once
+    }
     o.pl=L.pl;
     if(L.pl>=TM_CFG.track){L.st='escaped';o.escaped=1;o.chFrom=L.chp;o.chTo=L.chp;continue;}
     o.chFrom=L.chp;L.chp+=tm.ch.mv;

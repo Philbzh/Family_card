@@ -62,8 +62,17 @@ function tmBlitzOpen(tm,now){
   tmBzNew(tm,now+TM_BZ_CFG.actCardMs);   // the first intro waits out the act title card
   return true;
 }
+// The golden feather: after the Blitz the player in last place (bank + seals; on a tie the one with less banked money; still tied: nobody) gets one.
+function tmGiveFeather(tm){
+  tm.feather=null;if(tm.P<2)return;
+  const st=[];for(let s=1;s<=tm.P;s++)st.push({s,t:tmBzStanding(tm,s),b:tm.bank[s-1]});
+  st.sort((x,y)=>x.t-y.t||x.b-y.b);
+  if(st[0].t===st[1].t&&st[0].b===st[1].b)return;   // a dead heat for last place: no feather
+  tm.feather={seat:st[0].s,armed:false,used:false};
+}
 function tmBlitzEnd(tm,now){
   tm.blitz.done=true;tm.blitz.cur=null;
+  tmGiveFeather(tm);
   tmOpenOffer(tm,now);   // on to the hunt
   return true;
 }
