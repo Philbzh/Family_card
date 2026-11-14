@@ -4451,6 +4451,12 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
 .ach-art{height:1.35em;width:auto;max-width:1.5em;object-fit:contain;vertical-align:middle;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5));}
 .ach-art.lock{filter:grayscale(1) brightness(.7) opacity(.6);}
 .ws-bic{display:block;height:1.5rem;width:auto;margin:0 auto .2rem;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));}
+.ws-gear{display:grid;place-items:center;font-size:1.25rem;line-height:1;color:#e9c46a;}
+.game-wordspin .game-bar{position:relative;}
+.ws-menu{position:absolute;right:.8rem;top:calc(100% + .3rem);z-index:60;display:flex;flex-direction:column;gap:.4rem;padding:.6rem;border-radius:14px;background:rgba(8,12,40,.97);border:1px solid rgba(233,196,106,.5);box-shadow:0 10px 30px rgba(0,0,0,.6);}
+.react-open{width:2.8rem;height:2.8rem;font-size:1.3rem;opacity:.85;}
+.react-close{opacity:.7;}
+.ws-say{font-size:.98rem;}
 .ws-won-wiz{display:flex;justify-content:center;margin:0 auto;animation:ws-egg 1.6s ease-in-out infinite alternate;}
 .ws-won-wiz .ws-evt-wiz{width:6.4rem;height:6.4rem;}
 .ws-won-owl{height:5.2rem;width:auto;margin:0 auto;animation:ws-egg 1.6s ease-in-out infinite alternate;filter:drop-shadow(0 0 14px rgba(233,196,106,.5));}
@@ -4500,6 +4506,7 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
 .ws-stage{display:flex;flex-direction:column;align-items:center;gap:.6rem;width:100%;max-width:60rem;}
 .ws-wheel-wrap{position:relative;width:min(84vw,26rem,max(12rem,calc(100vh - 34rem)));aspect-ratio:224/236;filter:drop-shadow(0 18px 24px rgba(0,0,0,.65));}
 @supports(height:100svh){.ws-wheel-wrap{width:min(84vw,26rem,max(12rem,calc(100svh - 34rem)));}}
+@media(orientation:portrait){.ws-wheel-wrap{width:min(84vw,23.5rem,max(12rem,calc(100svh - 40rem)));}}   /* tall puzzles (3 rows) and a bigger Wiz need the room */
 .ws-wheel-wrap svg{width:100%;height:100%;display:block;overflow:visible;}
 .ws-wheel-wrap::after{content:"";position:absolute;left:8%;right:8%;bottom:-3%;height:8%;background:radial-gradient(50% 50% at 50% 50%,rgba(61,165,255,.45),transparent 70%);filter:blur(6px);z-index:-1;}
 #ws-ptr{transition:transform .09s ease-out;transform-box:fill-box;transform-origin:50% 8%;}
@@ -4626,7 +4633,7 @@ html[data-anim="full"] .app-sb-suit img{animation:emblemGlint 7s ease-in-out inf
 .ws-right{width:min(100%,28rem);}.ws-panel:has(.ws-kb){width:100%;}.ws-kr{gap:.38rem;width:100%;justify-content:center;}.ws-k:active{transform:scale(.94);}
 /* the host (Wiz the owl) and the category emblems */
 .ws-hint{display:flex;align-items:center;justify-content:center;gap:.6rem;text-align:left;}
-.ws-host{width:3.7rem;height:3.7rem;flex:none;border-radius:50%;object-fit:cover;border:2px solid #e9c46a;box-shadow:0 0 18px rgba(233,196,106,.5),0 4px 10px rgba(0,0,0,.6);background:#0b1233;}
+.ws-host{width:5rem;height:5rem;flex:none;border-radius:50%;object-fit:cover;border:2px solid #e9c46a;box-shadow:0 0 18px rgba(233,196,106,.5),0 4px 10px rgba(0,0,0,.6);background:#0b1233;}
 .ws-host.hop{animation:ws-hop .6s cubic-bezier(.3,1.6,.5,1) 1;}
 @keyframes ws-hop{0%{transform:translateY(8px) scale(.85);}60%{transform:translateY(-6px) scale(1.08);}100%{transform:none;}}
 .ws-say{position:relative;max-width:min(26rem,calc(100vw - 7rem));padding:.45rem .8rem;border-radius:14px;background:rgba(13,21,56,.88);border:1px solid rgba(233,196,106,.32);font-size:.9rem;line-height:1.3;}
@@ -6469,7 +6476,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=423;
+const APP_BUILD=425;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -21954,7 +21961,8 @@ function rWordspinTable(){
     <div class="game-bar">
       <div class="gb-game"><img class="ws-bar-ic" src="assets/games/ws_emblem.png" alt="" width="24" height="24"> <span class="cr-gbn">WORDSPIN</span></div>
       <div class="gb-turn p${seq?fx.seat:seat}${mine&&!ws.over&&!seq?' mine':''}">${avChar(mover.avatar)} ${T("turn",esc(mover.name))}</div>
-      <div class="gb-right">${rulesBtn()}${quitBtn()}${sndBtn()}</div>
+      <div class="gb-right">${rulesBtn()}<button class="ico-btn" data-a="wsmenu" aria-label="Settings" aria-expanded="${!!G.wsMenu}"><span class="bar-ic ws-gear">⚙</span></button>${quitBtn()}${sndBtn()}</div>
+      ${G.wsMenu?`<div class="ws-menu"><button class="gt-animbtn" data-a="wsanim" aria-label="Animations">${T('anim',T(gtAnim()))}</button><button class="gt-animbtn" data-a="wsview" aria-label="This screen shows">${T({full:'viewFull',stage:'viewStage',pad:'viewPad'}[view])}</button></div>`:''}
     </div>
     <div class="ws-strip">${plates}</div>
     <div class="ws-main">
@@ -21962,7 +21970,7 @@ function rWordspinTable(){
       <div class="ws-stage">
         <div class="ws-left"><div class="ws-wheel-wrap an-${gtAnim()}" style="${(kbPhase||(ws.phase==='roundend'&&!seq))?'width:min(52vw,11rem)':''}">${wsWheelSVG(ang,ws.lang)}</div></div>
         <div class="ws-right">${wsPanelHTML(ws,p,mine,acts,seq,players)}
-          <div class="ws-foot"><button class="gt-animbtn" data-a="wsanim" aria-label="Animations">${T('anim',T(gtAnim()))}</button><button class="gt-animbtn" data-a="wsview" aria-label="This screen shows">${T({full:'viewFull',stage:'viewStage',pad:'viewPad'}[view])}</button></div></div>
+          </div>
       </div>
       ${!mine&&online&&!ws.over?awayIndicatorHTML(p.id,p.name):''}
     </div>
@@ -22015,6 +22023,8 @@ function wsIntro(){
 /* ── WORDSPIN: what a tap does ── */
 function wsTap(a,t){
   const ws=G.isOnline?(G.srv&&G.srv.ws):G.ws;if(!ws)return;
+  if(a==='wsmenu'){G.wsMenu=!G.wsMenu;SFX.chip();render();return;}
+  if(a!=='wsanim'&&a!=='wsview')G.wsMenu=false;   // the menu closes on the next real action
   if(a==='wsanim'){gtAnimNext();SFX.chip();render();return;}
   if(a==='wsview'){wsSetView({full:'stage',stage:'pad',pad:'full'}[wsView()]);SFX.chip();render();return;}
   if(ws.over||G.wsSeq)return;
@@ -40572,7 +40582,7 @@ document.addEventListener('click',e=>{
   else if(a==='bw-timer'){bwSetRule('timer',+t.getAttribute('data-n'));SFX.chip();render();}
   else if(a==='bw-guide-x'){try{localStorage.setItem('ct_bw_guided','1');}catch(e){}SFX.chip();render();}
   else if(a==='gt-anim'){gtAnimNext();SFX.chip();render();}
-  else if(/^ws(spin|vowelmode|solvemode|cancel|key|call|submit|next|lock|anim|view)$/.test(a)){wsTap(a,t);}
+  else if(/^ws(spin|vowelmode|solvemode|cancel|key|call|submit|next|lock|anim|view|menu)$/.test(a)){wsTap(a,t);}
   else if(/^tm(ans|lock|life|vote|bank|go|cat|offer|ready|opt|anim|intro|flag|next|text|hcap|hcl|hcs|menu)$/.test(a)){tmTap(a,t);}
   else if(a==='ws-rounds'){wsSetPref('rounds',+t.getAttribute('data-m'));render();}
   else if(a==='ws-level'){wsSetPref('level',+t.getAttribute('data-m'));render();}
@@ -40793,11 +40803,14 @@ document.addEventListener('click',e=>{
   }
   else if(a==='felt-theme'){const th=t.getAttribute('data-theme');applyFeltTheme(th);render();toast('🎨 Felt set to '+(FELT_NAMES[th]||th));}
   else if(a==='anim-toggle'){const n={full:'light',light:'off',off:'full'}[animMode()];document.documentElement.dataset.anim=n;try{localStorage.setItem('ct_anim',n);}catch(e){}render();toast('✨ Animations: '+({full:'Full',light:'Light',off:'Off'})[n]);}
+  else if(a==='react-open'){G.reactOpen=true;const w=document.querySelector('.react-wrap');if(w)w.outerHTML=talkStripHTML();else render();}
+  else if(a==='react-close'){G.reactOpen=false;G.reactMore=false;const w=document.querySelector('.react-wrap');if(w)w.outerHTML=talkStripHTML();else render();}
   else if(a==='react'){
     const r=t.getAttribute('data-r');
     // a pick from the ⋯ panel closes it (without a re-render, so the emoji already floating is not cut short)
     if(G.reactMore){G.reactMore=false;const pn=document.querySelector('.react-more');if(pn)pn.remove();const tg=document.querySelector('.react-more-toggle');if(tg){tg.classList.remove('on');tg.setAttribute('aria-expanded','false');}}
     sendTalk({kind:'emoji',emoji:r});
+    if(G.reactOpen){G.reactOpen=false;const w=document.querySelector('.react-wrap');if(w)w.outerHTML=talkStripHTML();}   // one reaction, then the bar folds away again
   }
   else if(a==='react-more'){G.reactMore=!G.reactMore;if(G.reactMore)G.talkOpen=false;render();}
   else if(a==='talk-toggle'){G.talkOpen=!G.talkOpen;if(G.talkOpen)G.reactMore=false;render();if(G.talkOpen)setTimeout(()=>document.getElementById('talk-input')?.focus(),30);}
@@ -41078,6 +41091,8 @@ async function sendTalk(entry){
 }
 function talkStripHTML(){
   const gid=G.isOnline?(G.srv&&G.srv.gameId):G.selGame;
+  const collapsible=gid==='wordspin'||gid==='tablemind';
+  if(collapsible&&!G.reactOpen&&!G.reactMore&&!G.talkOpen)return`<div class="react-wrap"><div class="react-strip"><button class="rb react-open" data-a="react-open" aria-label="Reactions">😀</button></div></div>`;
   const btn=(r,cls)=>`<button class="rb${cls?' '+cls:''}" data-a="react" data-r="${r}" aria-label="React with ${r}">${rxIcon(r)}</button>`;
   const reacts=reactionsFor(gid).map((r,k)=>btn(r,k>=10?'rb-wide':k>=7?'rb-mid':'')).join('');
   const more=`<button class="rb react-more-toggle${G.reactMore?' on':''}" data-a="react-more" aria-label="More reactions" aria-expanded="${!!G.reactMore}">⋯</button>`;
@@ -41087,7 +41102,8 @@ function talkStripHTML(){
       <input class="talk-inp" id="talk-input" type="text" maxlength="60" placeholder="Say something…" autocomplete="off" aria-label="Message">
       <button class="talk-send-btn" data-a="talk-send" aria-label="Send">➤</button>
     </div>`:'';
-  return`<div class="react-wrap">${panel}<div class="react-strip">${reacts}${more}${toggle}</div></div>${compose}`;
+  const close=collapsible?`<button class="rb react-close" data-a="react-close" aria-label="Close reactions">✕</button>`:'';
+  return`<div class="react-wrap">${panel}<div class="react-strip">${reacts}${more}${toggle}${close}</div></div>${compose}`;
 }
 
 window.addEventListener('load',()=>{

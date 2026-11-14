@@ -346,6 +346,12 @@
 @keyframes tm-shake{0%,100%{transform:none}15%{transform:translateX(-6px) rotate(-1deg)}30%{transform:translateX(6px) rotate(1deg)}45%{transform:translateX(-5px)}60%{transform:translateX(4px)}80%{transform:translateX(-2px)}}
 .game-tablemind.an-off .tm-vcol.hit,.game-tablemind.an-light .tm-vcol.hit,.game-tablemind.an-off .tm-vmk.lunge,.game-tablemind.an-light .tm-vmk.lunge{animation:none;}
 .tm-podium{display:flex;flex-direction:column;align-items:center;gap:.6rem;margin-bottom:.8rem;}
+#s-table .tm-card.tm-pass{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"av sub btn" "av who btn";align-items:center;column-gap:1rem;row-gap:0;text-align:left;padding:.7rem 1rem;}
+#s-table .tm-pass .tm-av{grid-area:av;display:block;}
+#s-table .tm-pass .tm-av .av-img{width:3.6rem;height:3.6rem;}
+#s-table .tm-pass .tm-sub{grid-area:sub;margin:0;font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;opacity:.8;}
+#s-table .tm-pass .who{grid-area:who;margin:0;font-size:1.4rem;}
+#s-table .tm-pass .tm-btn{grid-area:btn;width:auto;min-width:7rem;padding:.8rem 1.6rem;}
 .tm-lean-end .res-body{justify-content:center;gap:.9rem;padding:.8rem 1.1rem 1rem;overflow-y:auto;}
 .tm-lean-end .res-body>.panel{margin:0;padding:.9rem .9rem .7rem;}
 .tm-lean-end .tm-podium{margin-bottom:.6rem;gap:.4rem;}
@@ -1137,9 +1143,9 @@ function tmWizSay(tm,players){
     if(b[0][0]>0&&b[0][0]>=b[1][0]*2&&(tm.cycle+tm.moves)%3===0)return`${nm(b[0][1])} läuft davon … wer holt ihn ein?`;
     if(b[0][0]>0&&b[0][0]===b[1][0]&&(tm.cycle+tm.moves)%3===0)return'Gleichstand an der Spitze! Das wird spannend.';
   }
-  if(tm.act===1)return tm.moves===0?'Willkommen! Ich bin Wiz.':v(['Konzentration!','Gleich geht es los!']);
+  if(tm.act===1)return tm.moves===0?'Willkommen! Ich bin Wiz.':'';
   if(tm.act===2)return`Welt von ${nm(tm.owner-1)}: ${(TM_CATS[tm.pick[tm.owner-1]]||{short:''}).short}. Alle antworten — das Siegel gehört ${nm(tm.owner-1)}.`;
-  return v(['Wer behält die Nerven?','Jede Antwort zählt!']);
+  return '';
 }
 function tmAskLabel(tm){
   if(tm.act===1&&tm.cycle>=2){try{localStorage.setItem('ct_tm_hint1','1');}catch(e){}}
@@ -1153,7 +1159,7 @@ function tmHostHTML(tm,players,askText,verdict){
   let pose=tmWizPose(tm);if(verdict){const good=[2,6,'rich','applause','bow','laugh'];pose=verdict.ok?(good.indexOf(pose)>=0?pose:2):3;}   // Wiz's mood follows the viewer's own result
   const hop=G.tmPose!=null&&G.tmPose!==pose;G.tmPose=pose;
   const big=tm.over||pose===6||(tm.phase==='reveal'&&tm.fx&&(tm.fx.duel||(tm.act===3&&tm.fx.seats.some(o=>o.escaped||o.caught))||(tm.act===2&&tm.fx.seats.some(o=>o.seal))));
-  return`<div class="tm-host${big?' big':''}${askText?' ask':''}"><img class="tm-wiz${hop?' hop':''}" src="${wizSrc(pose)}" alt="Wiz" width="64" height="64"><div class="tm-say"><small>${askText?tmAskLabel(tm):'WIZ'}</small>${askText?`<span class="tm-wq">${esc(askText)}</span>`:(verdict?`<b class="tm-verd ${verdict.ok?'ok':'bad'}">${verdict.t}</b> ${verdict.x||''}`:tmWizSay(tm,players))}</div></div>`;
+  return`<div class="tm-host${big?' big':''}${askText?' ask':''}"><img class="tm-wiz${hop?' hop':''}" src="${wizSrc(pose)}" alt="Wiz" width="64" height="64">${(()=>{const inner=askText?`<small>${tmAskLabel(tm)}</small><span class="tm-wq">${esc(askText)}</span>`:(verdict?`<b class="tm-verd ${verdict.ok?'ok':'bad'}">${verdict.t}</b> ${verdict.x||''}`:tmWizSay(tm,players));return inner?`<div class="tm-say">${inner}</div>`:'';})()}</div>`;
 }
 function rTablemindTable(){
   const tm=tmObj();
