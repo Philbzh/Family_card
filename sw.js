@@ -3,7 +3,7 @@
 // app shell itself. Multiplayer still needs a live connection (Supabase requests are always
 // passed straight through to the network, never cached), so this is about the shell — the HTML,
 // icons, and manifest — not about playing an online game with no signal.
-const CACHE_NAME = 'our-table-v433';
+const CACHE_NAME = 'our-table-v435';
 // Pictures live in their OWN cache, which a new app version does not throw away: the ~12 MB of covers,
 // room pictures and avatars used to be downloaded again from scratch on every visit (network-first with
 // no-store) and again on every release, so on a slow connection the home screen painted only the top strip
@@ -25,6 +25,7 @@ const APP_SHELL = [
   './tablemind-engine.js',
   './tablemind-blitz-questions-de.js',
   './tablemind-blitz.js',
+  './tablemind-blitz-ui.js',
   './tablemind-ui.js',
   './assets/games/tablemind.jpg',
   './assets/icons/icon-192.png',

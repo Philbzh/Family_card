@@ -7,7 +7,7 @@
 const TM_BZ_CFG={
   nq:5,
   prizes:[2500,2000,1500,1000],     // the prize at clue 1..4
-  introMs:2500,stageMs:3500,tailMs:4000,   // locked intro, time per clue, extra time after the last clue
+  introMs:2500,stageMs:3500,tailMs:4000,actCardMs:2700,   // locked intro, time per clue, extra time after the last clue, the act title card at the start
   answerMs:7000,stealMs:5000,resultMs:3500,
   wrongPen:500,stealFrac:.5,stealPen:250
 };
@@ -59,7 +59,7 @@ function tmBlitzOpen(tm,now){
   tm.usedB=tm.usedB||[];
   tm.phase='blitz';tm.dl=0;
   tm.blitz={n:0,nq:TM_BZ_CFG.nq,qs:[],cur:null,done:false,earn:new Array(tm.P).fill(0),openedAt:now};
-  tmBzNew(tm,now);
+  tmBzNew(tm,now+TM_BZ_CFG.actCardMs);   // the first intro waits out the act title card
   return true;
 }
 function tmBlitzEnd(tm,now){
@@ -122,6 +122,7 @@ function tmBzAnswer(tm,s,k,now){
   const q=B.cur,who=q.ph==='answer'?q.buzz.seat:q.ph==='stealans'?q.steal.seat:0;
   if(!who||who!==s||!Number.isInteger(k)||k<0||k>3)return false;
   if(q.elim&&q.elimSeat===s&&q.elim.indexOf(k)>=0)return false;
+  if(q.ph==='answer')q.pick=k;else q.pick2=k;   // shown again on the result screen
   return tmBzSettle(tm,s,k===q.cor,now,false);
 }
 function tmBlitzTick(tm,now){

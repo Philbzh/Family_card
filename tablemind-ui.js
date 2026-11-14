@@ -422,6 +422,10 @@ body:has(.react-strip) .peer-think{bottom:calc(9rem + env(safe-area-inset-bottom
 
 /* ───────── texts ───────── */
 const TM_ACT_NAMES=['','DER AUFSTIEG','DIE SECHS WELTEN','DIE JAGD'];
+// the buzzer act sits between act II and the hunt: shown as act III, the hunt then becomes act IV (inside the engine the hunt stays act 3)
+function tmActNo(tm){return tm.phase==='blitz'?3:(tm.act===3&&tm.blitz?4:tm.act);}
+function tmActName(tm){return tm.phase==='blitz'?'DER BLITZ':TM_ACT_NAMES[tm.act];}
+const TM_ROMAN=['','I','II','III','IV'];
 const TM_OFFER_INFO={safe:{n:'SICHER',h:'3 Felder Vorsprung',m:1,t:'Beste Chance zu entkommen, kleine Belohnung.'},std:{n:'STANDARD',h:'2 Felder Vorsprung',m:2,t:'Ausgewogen: gute Chance, doppelte Belohnung.'},risk:{n:'RISIKO',h:'1 Feld Vorsprung',m:3,t:'Knapp! Aber dreifache Belohnung bei Erfolg.'}};
 const TM_LIFE_INFO={cut:{n:'Der Schnitt',ic:'✂️',t:'Zwei falsche Antworten verschwinden'},council:{n:'Der Rat',ic:'🗳️',t:'Die anderen beraten dich — oder führen dich in die Irre'},archive:{n:'Das Archiv',ic:'📜',t:'Ein Hinweis zur Frage'},freeze:{n:'Zeit anhalten',ic:'⏸️',t:'10 Sekunden mehr'}};
 const TM_LETTERS='ABCD';
@@ -484,7 +488,7 @@ function tmRecordSeen(tm){
     tm.q.forEach(qq=>{if(!qq)return;const e=lib[qq.i];if(e&&l.indexOf(e[3])<0)l.push(e[3]);});
     localStorage.setItem('ct_tm_seen',JSON.stringify(l));}catch(e){}
 }
-function tmNewGame(n,local){const tm=tmNew(n,{c1:n<=2?8:undefined,sr:n<=2?3:undefined,seed:Date.now(),relaxed:tmPrefRelaxed(),chaser:tmPrefChaser()||undefined,review:[],seen:tmSeenIdx()});
+function tmNewGame(n,local){const tm=tmNew(n,{blitz:!!local&&typeof TM_BZ_DE!=='undefined'&&TM_BZ_DE.length>=10,seenB:(typeof tmBzSeenIdx==='function'?tmBzSeenIdx():[]),c1:n<=2?8:undefined,sr:n<=2?3:undefined,seed:Date.now(),relaxed:tmPrefRelaxed(),chaser:tmPrefChaser()||undefined,review:[],seen:tmSeenIdx()});
   if(local&&G.lp)tm.hcap=G.lp.slice(0,n).map((p,i)=>isBotPlayer(p)?0:tmHcOf(tmHcKey(p,i)));
   return tm;}
 
@@ -640,6 +644,7 @@ async function oTmTick(){
 }
 function tmLocalLoop(tm,now){
   if(tm.over)return;
+  if(tm.phase==='blitz'&&typeof tmBlitzLocalLoop==='function'){tmBlitzLocalLoop(tm,now);return;}
   // bots act after a thinking pause
   const pl=G.lp;let acted=false;
   for(let s=1;s<=tm.P&&!acted;s++){
@@ -719,6 +724,7 @@ function tmTap(a,t){
   if(a==='tmmenu'){G.tmMenu=!G.tmMenu;SFX.chip&&SFX.chip();render();return;}
   if(a==='tmtext'){tmTextNext();SFX.chip&&SFX.chip();render();return;}
   if(a==='tmanim'){gtAnimNext();SFX.chip&&SFX.chip();render();return;}
+  if(a==='tmbzans'){if(typeof tmBzUiAnswer==='function')tmBzUiAnswer(+d.i);return;}
   if(a==='tmintro'){G.tmIntro=null;render();return;}
   if(a==='tmready'){tmReady();return;}
   if(tm.over)return;
@@ -1172,6 +1178,7 @@ function rTablemindTable(){
   const tm=tmObj();
   const players=tmPlayers();
   if(!tm)return`<div id="s-table" class="scr on game-tablemind"><div class="tm-main"><div class="tm-card tm-wait">Lade TABLE MIND …</div></div></div>`;
+  if(tm.phase==='blitz'&&tm.blitz&&typeof rTablemindBlitz==='function')return rTablemindBlitz(tm,players);
   const me=G.isOnline?tmMySeat():(tmLocalViewer(tm)?G.tmViewer:0);
   const an=gtAnim();
   const pad=tmPadHTML(tm,players,me);
@@ -1186,9 +1193,9 @@ function rTablemindTable(){
   const actTxt=tm.act===1?`Frage ${Math.min(tm.cycle,tm.c1||TM_CFG.cycles1)} von ${tm.c1||TM_CFG.cycles1}`:tm.act===2?`Runde ${tm.round2} von ${tm.sr||TM_CFG.sealRounds}`+(tm.phase==='pick'?' · jeder wählt eine Welt':` · Frage ${Math.max(1,tm.P-(tm.queue?tm.queue.length:0))} von ${tm.P}`):(tm.phase==='offer'?'Jagd':`Jagd · Frage ${(tm.hunt?tm.hunt.n:0)+(tm.phase==='ask'?1:0)}`);
   queueMicrotask(tmPostRender);
   return`<div id="s-table" class="scr on game-tablemind an-${an} tm-bg-${tm.over?'over':tm.duel?'duel':'act'+tm.act}${tmTextMode()?' tx-'+tmTextMode():''}">
-    <div class="game-bar"><div class="gb-game"><span class="tm-logo">TABLE MIND</span></div><div class="gb-turn tm-bartitle"><span><b>AKT ${['','I','II','III'][tm.act]}</b> · ${TM_ACT_NAMES[tm.act]}</span><small>${esc(actTxt)}</small></div><div class="gb-right"><button class="ico-btn tm-animbtn tm-aa" data-a="tmmenu" aria-label="Menü" aria-expanded="${G.tmMenu?'true':'false'}" title="Menü">⋯</button>${quitBtn()}${sndBtn()}</div></div>${G.tmMenu?`<div class="tm-menu"><button data-a="tmtext">Textgröße · ${({'':'normal',l:'groß',xl:'sehr groß',hc:'Kontrast'})[tmTextMode()]}</button><button data-a="tmanim">Animation · ${an==='full'?'voll':an==='light'?'leicht':'aus'}</button><span class="tm-mr">${rulesBtn()} Spielregeln</span></div>`:''}
+    <div class="game-bar"><div class="gb-game"><span class="tm-logo">TABLE MIND</span></div><div class="gb-turn tm-bartitle"><span><b>AKT ${TM_ROMAN[tmActNo(tm)]}</b> · ${tmActName(tm)}</span><small>${esc(actTxt)}</small></div><div class="gb-right"><button class="ico-btn tm-animbtn tm-aa" data-a="tmmenu" aria-label="Menü" aria-expanded="${G.tmMenu?'true':'false'}" title="Menü">⋯</button>${quitBtn()}${sndBtn()}</div></div>${G.tmMenu?`<div class="tm-menu"><button data-a="tmtext">Textgröße · ${({'':'normal',l:'groß',xl:'sehr groß',hc:'Kontrast'})[tmTextMode()]}</button><button data-a="tmanim">Animation · ${an==='full'?'voll':an==='light'?'leicht':'aus'}</button><span class="tm-mr">${rulesBtn()} Spielregeln</span></div>`:''}
     <div class="tm-main ${tm.act===3&&tm.phase!=='offer'?'':'split'}${tm.act===3?' act3':''}">
-      <div class="tm-actline"><b>AKT ${['','I','II','III'][tm.act]}</b> · ${TM_ACT_NAMES[tm.act]} · ${esc(actTxt)}</div>
+      <div class="tm-actline"><b>AKT ${TM_ROMAN[tmActNo(tm)]}</b> · ${tmActName(tm)} · ${esc(actTxt)}</div>
       ${tmPodsHTML(tm,players,me,tm.phase==='reveal'?tm.fx:null)}
       ${tmHostHTML(tm,players,askText,verdict)}
       <div class="tm-left">${tmStageHTML(tm,players,me,pad.indexOf('tm-q')>=0)}${tm.phase==='reveal'?'<div class="tm-nextwrap">'+tmNextHTML(tm,me,players)+'</div>':''}</div>
@@ -1207,7 +1214,7 @@ function tmActCard(tm){
   const old=document.getElementById('tm-titlecard');if(old)old.remove();
   const d=document.createElement('div');d.id='tm-titlecard';d.className='tm-titlecard';
   TMSFX.act(tm.act);
-  d.innerHTML=(tm.act===3&&tm.chaser?`<div class="chbg" style="background-image:url(assets/games/tm_ch_${tm.chaser}.jpg)"></div>`:'')+`<div class="a">AKT ${['','I','II','III'][tm.act]}</div><div class="n">${TM_ACT_NAMES[tm.act]}</div><div class="s">${TM_ACT_SUB[tm.act]}</div>`;
+  d.innerHTML=(tm.act===3&&tm.chaser?`<div class="chbg" style="background-image:url(assets/games/tm_ch_${tm.chaser}.jpg)"></div>`:'')+`<div class="a">AKT ${TM_ROMAN[tmActNo(tm)]}</div><div class="n">${tmActName(tm)}</div><div class="s">${tm.phase==='blitz'?'Je früher du es weißt, desto mehr Geld. Das Gerät bleibt in der Mitte: tippe auf deine Fläche!':TM_ACT_SUB[tm.act]}</div>`;
   document.body.appendChild(d);setTimeout(()=>{d.remove();},2700);
 }
 /* ───────── effects when the state moves on ───────── */
@@ -1228,6 +1235,7 @@ function tmCrown(tm){
 }
 function tmPostRender(){
   const tm=tmObj();if(!tm||!document.querySelector('.game-tablemind'))return;
+  if(tm.phase==='blitz'&&typeof tmBzPost==='function'){tmBzPost(tm);return;}
   if(tm.over&&G.tmCrownSeed!==tm.seed){G.tmCrownSeed=tm.seed;tmCrown(tm);}
   tmMoveMarkers();tmMoveTokens();tmMoneyCount();
   tmLoopStart();document.body.classList.add('tm-on');
