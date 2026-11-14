@@ -8,6 +8,15 @@ const css=`
 .bz-wrap.p2{grid-template-columns:1fr;grid-template-rows:minmax(5.6rem,21%) minmax(0,1fr) minmax(5.6rem,21%);grid-template-areas:"t" "m" "b";}
 .bz-wrap.p3{grid-template-columns:minmax(5.2rem,16%) minmax(0,1fr) minmax(5.2rem,16%);grid-template-rows:minmax(0,1fr) minmax(5.6rem,20%);grid-template-areas:"l m r" "b b b";}
 .bz-wrap.p4{grid-template-columns:minmax(5.2rem,16%) minmax(0,1fr) minmax(5.2rem,16%);grid-template-rows:minmax(5.6rem,18%) minmax(0,1fr) minmax(5.6rem,18%);grid-template-areas:"t t t" "l m r" "b b b";}
+.bz-wrap.online{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr) minmax(7rem,24%);}
+.bz-wrap.online .bz-zone,.bz-wrap.online .bz-mid{grid-area:auto;}
+.bz-chips{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;}
+.bz-chip{position:relative;display:flex;align-items:center;gap:.5rem;padding:.35rem .7rem;border-radius:14px;border:1px solid rgba(201,164,92,.45);background:linear-gradient(180deg,rgba(24,70,48,.9),rgba(8,26,18,.95));color:#fbf7ed;}
+.bz-chip .bz-av .av-img{width:2.2rem;height:2.2rem;}
+.bz-cl{font:800 .85rem/1 var(--serif,Georgia,serif);letter-spacing:.12em;color:#ffe9a8;}
+.bz-chip.st-turn{background:linear-gradient(180deg,#f3deaa,#c9a45c);color:#1a1300;}.bz-chip.st-turn .bz-nm,.bz-chip.st-turn .bz-money,.bz-chip.st-turn .bz-cl{color:#1a1300;}
+.bz-chip.st-out,.bz-chip.st-locked{opacity:.45;}
+.bz-zone.pressed{filter:brightness(1.5);transform:scale(.985);}
 .bz-zone.pos-t{grid-area:t;}.bz-zone.pos-b{grid-area:b;}.bz-zone.pos-l{grid-area:l;}.bz-zone.pos-r{grid-area:r;}
 .bz-mid{grid-area:m;display:flex;flex-direction:column;gap:.5rem;min-height:0;justify-content:center;}
 .bz-zone{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;border-radius:18px;border:2px solid rgba(201,164,92,.5);background:linear-gradient(180deg,rgba(24,70,48,.92),rgba(8,26,18,.96));color:#fbf7ed;font:inherit;cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;padding:.3rem;transition:filter .2s,opacity .2s,transform .08s;}
@@ -70,14 +79,16 @@ Object.assign(TMSFX,{
 });
 
 const Z={2:['b','t'],3:['b','l','r'],4:['b','l','t','r']};
-function human(s){return !isBotPlayer(G.lp[s-1]);}
+function human(s){return G.isOnline?s===tmMySeat():!isBotPlayer(G.lp[s-1]);}
+// the buzzers arm by the clock (nobody has to write that into the room): an 'intro' whose time has come is a 'clue' phase
+function eph(q,now){return(q.ph==='intro'&&now>=q.t0)?'clue':q.ph;}
 function nm(players,s){return esc((players[s-1]||{}).name||'');}
 
 // what Wiz shows and says (only his existing pictures)
 function wiz(tm,q,players){
   if(!q)return{pose:'bow',line:''};
   const r=q.res;
-  switch(q.ph){
+  switch(eph(q,Date.now())){
     case'intro':return{pose:'tense',line:q.fs.length?'Hoppla! Zu früh!':(tm.blitz.n<=1?'Auf die Plätze …':'Weiter geht es …')};
     case'clue':return{pose:q.fs.length?'smug':'hope',line:q.fs.length?'Hoppla! Zu früh!':''};
     case'answer':return{pose:'tense',line:nm(players,q.buzz.seat)+' antwortet'};
@@ -95,7 +106,7 @@ function wiz(tm,q,players){
 function zoneState(tm,q,s){
   if(!q)return'wait';
   const locked=q.locked.indexOf(s)>=0;
-  switch(q.ph){
+  switch(eph(q,Date.now())){
     case'intro':return locked?'fs':'wait';
     case'clue':return locked?'locked':'armed';
     case'answer':return q.buzz.seat===s?'turn':'out';
@@ -105,6 +116,7 @@ function zoneState(tm,q,s){
   }
 }
 const LBL={wait:'· · ·',armed:'BUZZER',steal:'KLAUEN!',turn:'DU BIST DRAN',fs:'ZU FRÜH!',locked:'gesperrt',out:''};
+const LBL_OTHER={wait:'',armed:'',steal:'KLAUT?',turn:'ANTWORTET',fs:'ZU FRÜH',locked:'gesperrt',out:''};   // the small chips of the other players online
 function deltaFor(q,s,players){
   if(!q||q.ph!=='result'||!q.res)return'';
   const r=q.res;let v=null;
@@ -124,17 +136,17 @@ function zoneHTML(tm,q,s,pos,players){
 function cluesHTML(tm,q,view){
   const prizes=TM_BZ_CFG.prizes,now=Date.now();
   let upto=-1,cur=-1;
-  if(q.ph==='clue'){cur=tmBzStage(q,now);upto=cur;}
+  if(eph(q,now)==='clue'){cur=tmBzStage(q,now);upto=cur;}
   else if(q.buzz&&q.ph!=='result'){upto=q.buzz.stage;cur=q.buzz.stage;}
   else if(q.ph==='result'){upto=3;cur=q.buzz?q.buzz.stage:-1;}
   return`<div class="bz-clues">${view.clues.map((c,k)=>{
-    const shown=k<=upto,cls=['bz-clue',shown?'show':'hid',k===cur&&q.ph!=='result'?'on':'',(q.ph==='clue'&&k<cur)?'past':''].join(' ');
+    const shown=k<=upto,cls=['bz-clue',shown?'show':'hid',k===cur&&q.ph!=='result'?'on':'',(eph(q,now)==='clue'&&k<cur)?'past':''].join(' ');
     return`<div class="${cls}"><span class="bz-pz">${tmEur(prizes[k])}</span><span class="bz-tx">${shown?esc(c):'· · ·'}</span></div>`;}).join('')}</div>`;
 }
 function ansHTML(tm,q,view,players){
   const who=q.ph==='answer'?q.buzz.seat:q.ph==='stealans'?q.steal.seat:0;
   if(who){
-    const mine=human(who),pos=Z[tm.P][who-1],rot=pos==='t'?' rot':'';
+    const mine=human(who),pos=G.isOnline?'b':Z[tm.P][who-1],rot=pos==='t'?' rot':'';
     const body=view.ans.map((a,i)=>{const gone=q.elim&&q.elimSeat===who&&q.elim.indexOf(i)>=0;
       return mine?`<button class="tm-a${gone?' gone':''}" data-a="tmbzans" data-i="${i}"${gone?' disabled':''}><span class="tm-l">${TM_LETTERS[i]}</span>${esc(a)}</button>`:`<div class="tm-a stat${gone?' gone':''}"><span class="tm-l">${TM_LETTERS[i]}</span>${esc(a)}</div>`;}).join('');
     const bar=`<div class="bz-bar"><i style="animation-duration:${Math.max(300,q.dl-Date.now())}ms"></i></div>`;
@@ -149,19 +161,27 @@ function ansHTML(tm,q,view,players){
 window.rTablemindBlitz=function(tm,players){
   const B=tm.blitz,q=B.cur||B.qs[B.qs.length-1],view=q?tmBzQ(tm,q):null,an=gtAnim();
   const w=wiz(tm,q,players),hop=G.bzPose!=null&&G.bzPose!==w.pose;G.bzPose=w.pose;
-  const pos=Z[tm.P]||Z[2];
-  const zones=[];for(let s=1;s<=tm.P;s++)zones.push(zoneHTML(tm,q,s,pos[s-1],players));
+  const pos=Z[tm.P]||Z[2],me=G.isOnline?tmMySeat():0;
+  const zones=[];
+  if(G.isOnline){
+    const chips=[];
+    for(let s=1;s<=tm.P;s++){if(s===me)continue;const p=players[s-1]||{name:'?'},state=zoneState(tm,q,s);
+      chips.push(`<div class="bz-chip st-${state}"><span class="bz-av">${avHTML(p.avatar)}</span><span class="bz-who"><span class="bz-nm">${esc(p.name)}</span><span class="bz-money" data-s="${s}">${tmEur(tm.bank[s-1])}</span></span>${LBL_OTHER[state]?`<span class="bz-cl">${LBL_OTHER[state]}</span>`:''}${deltaFor(q,s,players)}</div>`);}
+    zones.push(`<div class="bz-chips">${chips.join('')}</div>`);
+    if(me)zones.push(zoneHTML(tm,q,me,'b',players));
+  }else for(let s=1;s<=tm.P;s++)zones.push(zoneHTML(tm,q,s,pos[s-1],players));
   const actTxt='Frage '+Math.min(B.n,B.nq)+' von '+B.nq;
   queueMicrotask(tmPostRender);
   return`<div id="s-table" class="scr on game-tablemind an-${an} tm-bg-blitz">
     <div class="game-bar"><div class="gb-game"><span class="tm-logo">TABLE MIND</span></div><div class="gb-turn tm-bartitle"><span><b>AKT III</b> · DER BLITZ</span><small>${esc(actTxt)}</small></div><div class="gb-right"><button class="ico-btn tm-animbtn tm-aa" data-a="tmmenu" aria-label="Menü" aria-expanded="${G.tmMenu?'true':'false'}" title="Menü">⋯</button>${quitBtn()}${sndBtn()}</div></div>${G.tmMenu?`<div class="tm-menu"><button data-a="tmanim">Animation · ${an==='full'?'voll':an==='light'?'leicht':'aus'}</button><span class="tm-mr">${rulesBtn()} Spielregeln</span></div>`:''}
-    <div class="bz-wrap p${tm.P}">
+    <div class="bz-wrap ${G.isOnline?'online':'p'+tm.P}">
+      ${G.isOnline?zones[0]:''}
       <div class="bz-mid">
         <div class="bz-host"><img class="bz-wiz${hop?' hop':''}" src="${wizSrc(w.pose)}" alt="Wiz" width="64" height="64">${w.line?`<div class="bz-say">${w.line}</div>`:''}</div>
         ${view?cluesHTML(tm,q,view):''}
         ${view?ansHTML(tm,q,view,players):''}
       </div>
-      ${zones.join('')}
+      ${G.isOnline?(zones[1]||''):zones.join('')}
     </div>
     <div class="tm-react-host"></div>
   </div>`;
@@ -170,8 +190,12 @@ window.rTablemindBlitz=function(tm,players){
 // ── clock: deadlines, computer players, and a new picture only when something changed ──
 function key(tm,now){
   const B=tm.blitz,q=B.cur;if(!q)return'end';
-  return[B.n,q.ph,q.ph==='clue'?tmBzStage(q,now):'',q.locked.join(','),q.buzz?q.buzz.seat:'',q.steal?q.steal.seat:'',q.res?1:0].join('|');
+  return[B.n,eph(q,now),eph(q,now)==='clue'?tmBzStage(q,now):'',q.locked.join(','),q.buzz?q.buzz.seat:'',q.steal?q.steal.seat:'',q.res?1:0].join('|');
 }
+window.tmBlitzOnlineLoop=function(tm,now){
+  const k=tm.phase==='blitz'&&tm.blitz?key(tm,now):'x';
+  if(G.bzKey!==k){G.bzKey=k;render();}
+};
 window.tmBlitzLocalLoop=function(tm,now){
   let acted=tmBlitzTick(tm,now);
   acted=bots(tm,now)||acted;
@@ -222,7 +246,13 @@ function bots(tm,now){
   let pend=[],timer=null;
   document.addEventListener('pointerdown',e=>{
     const z=e.target&&e.target.closest?e.target.closest('.bz-zone[data-bzs]'):null;if(!z)return;
-    const tm=tmObj();if(!tm||tm.phase!=='blitz'||G.isOnline)return;
+    const tm=tmObj();if(!tm||tm.phase!=='blitz')return;
+    if(G.isOnline){   // one device, one zone: the claim is an atomic write into the room; the first one to land wins
+      e.preventDefault();const s=+z.getAttribute('data-bzs');if(s!==tmMySeat())return;
+      const q=tm.blitz.cur;if(!q)return;
+      TMSFX.buzz();z.classList.add('pressed');setTimeout(()=>z.classList.remove('pressed'),500);
+      tmSend({t:'buzz'});return;
+    }
     e.preventDefault();
     pend.push({s:+z.getAttribute('data-bzs'),t:e.timeStamp});
     if(!timer)timer=setTimeout(()=>{const list=pend;pend=[];timer=null;settle(list);},12);
@@ -244,6 +274,7 @@ window.tmBzUiAnswer=function(i){
   const tm=tmObj();if(!tm||tm.phase!=='blitz')return;
   const q=tm.blitz.cur;if(!q)return;
   const who=q.ph==='answer'?q.buzz.seat:q.ph==='stealans'?q.steal.seat:0;if(!who||!human(who))return;
+  if(G.isOnline){tmSend({t:'bans',i});return;}
   if(tmApply(tm,who,{t:'bans',i},Date.now())){G.bzKey='';render();}
 };
 

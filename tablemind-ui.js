@@ -488,7 +488,7 @@ function tmRecordSeen(tm){
     tm.q.forEach(qq=>{if(!qq)return;const e=lib[qq.i];if(e&&l.indexOf(e[3])<0)l.push(e[3]);});
     localStorage.setItem('ct_tm_seen',JSON.stringify(l));}catch(e){}
 }
-function tmNewGame(n,local){const tm=tmNew(n,{blitz:!!local&&typeof TM_BZ_DE!=='undefined'&&TM_BZ_DE.length>=10,seenB:(typeof tmBzSeenIdx==='function'?tmBzSeenIdx():[]),c1:n<=2?8:undefined,sr:n<=2?3:undefined,seed:Date.now(),relaxed:tmPrefRelaxed(),chaser:tmPrefChaser()||undefined,review:[],seen:tmSeenIdx()});
+function tmNewGame(n,local){const tm=tmNew(n,{blitz:typeof TM_BZ_DE!=='undefined'&&TM_BZ_DE.length>=10&&typeof tmBlitzOpen==='function',seenB:(typeof tmBzSeenIdx==='function'?tmBzSeenIdx():[]),c1:n<=2?8:undefined,sr:n<=2?3:undefined,seed:Date.now(),relaxed:tmPrefRelaxed(),chaser:tmPrefChaser()||undefined,review:[],seen:tmSeenIdx()});
   if(local&&G.lp)tm.hcap=G.lp.slice(0,n).map((p,i)=>isBotPlayer(p)?0:tmHcOf(tmHcKey(p,i)));
   return tm;}
 
@@ -620,6 +620,7 @@ function tmLoopTick(){
   });
   if(G.tmIntro===tm.seed&&now<tm.dl-tmMs(tm,'ask'+(tm.act||1))+200)return;   // the opening card is still showing
   if(!G.isOnline){tmLocalLoop(tm,now);return;}
+  if(tm.phase==='blitz'&&typeof tmBlitzOnlineLoop==='function')tmBlitzOnlineLoop(tm,now);
   // online: any device may move the game on once a deadline has passed (the host first, the others after a short grace)
   if(!tm.over&&tmDueNow(tm,now)){
     const grace=G.isHost?0:2600+(tmMySeat()*400);
@@ -627,11 +628,13 @@ function tmLoopTick(){
   }
 }
 function tmDueAt(tm){
+  if(tm.phase==='blitz'&&tm.blitz&&tm.blitz.cur&&typeof tmBzClueEnd==='function'){const q=tm.blitz.cur;return(q.ph==='intro'||q.ph==='clue')?tmBzClueEnd(q):q.dl;}   // intro to clue needs no write: the buzzers arm by the clock
   if(tm.phase==='ask'){let m=0;for(let s=1;s<=tm.P;s++)if(tmActiveSeat(tm,s)&&tm.ans[s-1]==null)m=Math.max(m,tmSeatDl(tm,s));
     if(tm.council&&!tm.council.done)m=Math.max(m,tm.council.until);return m;}
   return tm.dl;
 }
 function tmDueNow(tm,now){
+  if(tm.phase==='blitz')return now>=tmDueAt(tm);
   if(tm.phase==='ask'){
     let open=false;for(let s=1;s<=tm.P;s++)if(tmActiveSeat(tm,s)&&tm.ans[s-1]==null)open=true;
     if(!open)return true;                         // everybody answered but nobody has resolved the question yet
