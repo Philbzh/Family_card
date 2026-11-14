@@ -5112,7 +5112,7 @@ function isPlayerAbsent(pid,graceMs){
   return since!=null&&(Date.now()-since)>=(graceMs||0);
 }
 // The people at the table are not just names: while somebody else is on turn their avatar is there, thinking (and, in Blackwater, aiming).
-const PEER_NO_TURN=new Set(['precision','clay','archery','pinball','pool','balloonblast','marksman','hoopfever','invaders','pong','airhockey','roulette','slots','bingo','drawit','vault','escape','battle','hotbomb']);
+const PEER_NO_TURN=new Set(['wordspin','precision','clay','archery','pinball','pool','balloonblast','marksman','hoopfever','invaders','pong','airhockey','roulette','slots','bingo','drawit','vault','escape','battle','hotbomb']);
 function peerSend(kind){try{if(_ch&&G.isOnline&&G.myPid)_ch.send({type:'broadcast',event:'pk',payload:{pid:G.myPid,kind}});}catch(e){}}
 function peerOnBroadcast(p){if(!p||!p.pid||p.pid===G.myPid)return;G.peer={pid:p.pid,kind:p.kind,at:Date.now()};peerThinkTick();}
 function peerThinkTick(){
@@ -6467,7 +6467,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=421;
+const APP_BUILD=422;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -21884,7 +21884,7 @@ function wsPanelHTML(ws,p,mine,acts,seq,players){
     return`<div class="ws-panel"><div class="ws-won">${uiI('owl_party','ws-won-owl')}<h3>${avChar(w.avatar)} ${T('solvedIt',esc(w.name))}</h3><p>“${esc(ws.puzzle.t)}”</p><p>${T('banked',wsFmt(amt))}</p></div>
       ${(acts||(!G.isOnline&&!isBotPlayer(p)))&&!isBotPlayer(p)?`<button class="ws-spin" data-a="wsnext" style="font-size:1rem;letter-spacing:.12em;min-width:14rem">${last?T('finalBtn'):T('nextRound')}</button>`:`<div class="ws-lbl">${T('nextUp')}</div>`}</div>`;
   }
-  if(!acts)return`<div class="ws-panel"><div class="ws-lbl">${esc(ws.phase==='fpick'||ws.phase==='fsolve'?T('finalPuzzle'):T('waiting'))}</div><div style="font-size:.9rem;color:#cfd7f5;text-align:center">${wsHintText(ws,p,false,false)}</div>${ws.phase==='fsolve'?wsClockHTML(ws):''}</div>`;
+  if(!acts)return`<div class="ws-panel">${ws.phase==='fpick'||ws.phase==='fsolve'?`<div class="ws-lbl">${esc(T('finalPuzzle'))}</div>`:''}<div style="font-size:.95rem;color:#cfd7f5;text-align:center">${wsHintText(ws,p,false,false)}</div>${ws.phase==='fsolve'?wsClockHTML(ws):''}</div>`;
   if(ws.phase==='spin'){
     if(G.wsMode==='vowel')return`<div class="ws-panel"><div class="ws-lbl">${T('buyVowelTitle',WS_VOWEL_COST)}</div>${wsKeyboard(ws,{vows:1,sel:G.wsPick||'',dis:c=>ws.called.indexOf(c)>=0})}<div class="ws-acts"><button class="ws-btn" data-a="wscancel">${T('back')}</button><button class="ws-btn gold" data-a="wscall"${G.wsPick?'':' disabled'}>${T('buy',G.wsPick||'…')}</button></div></div>`;
     if(G.wsMode==='solve')return`<div class="ws-panel"><div class="ws-lbl">${T('solveTitle')}</div><input class="ws-in" id="ws-in" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="${T('typePhrase')}" value="${esc(G.wsText||'')}" maxlength="80"><div class="ws-acts"><button class="ws-btn" data-a="wscancel">${T('back')}</button><button class="ws-btn gold" data-a="wssubmit">${T('solve')}</button></div><div class="ws-lbl" style="letter-spacing:.08em;text-transform:none">${T('wrongPasses')}</div></div>`;
@@ -21944,6 +21944,7 @@ function rWordspinTable(){
   const view=wsView();
   const pose=wsHostPose(ws,!!seq),hop=G.wsPose!==pose&&G.wsPose!=null;G.wsPose=pose;
   const hintTxt=wsHintText(ws,p,mine&&!botTurn,seq);
+  const bubbleHint='';   // Wiz only comments on what just happened; who is on turn is in the top bar and what to do is in the panel (no third copy)
   const quip=seq?'':wsQuip(ws,players.map(q=>q.name));
   const hostHTML=`<img class="ws-host${hop?' hop':''}" src="${wizSrc(pose)}" alt="" width="60" height="60">`;
   const catIc=WS_CAT_IC[ws.puzzle.c];
@@ -21955,7 +21956,7 @@ function rWordspinTable(){
     </div>
     <div class="ws-strip">${plates}</div>
     <div class="ws-main">
-      <div class="ws-top">${ws.final?'<div class="ws-final-band" role="img" aria-label=""></div>':''}<div class="ws-meta"><span class="ws-cat">${catIc!=null?`<img class="ws-cat-ic" src="assets/games/ws_cat_${catIc}.png" alt="" width="28" height="28">`:''}${esc(ws.puzzle.c)}</span>${roundLine}</div>${wsBoardHTML(ws,flip,deal)}<div class="ws-hint">${hostHTML}${(hintTxt||quip)?`<span class="ws-say">${quip?`<em class="ws-quip">${quip}</em>`:''}${hintTxt}</span>`:''}</div></div>
+      <div class="ws-top">${ws.final?'<div class="ws-final-band" role="img" aria-label=""></div>':''}<div class="ws-meta"><span class="ws-cat">${catIc!=null?`<img class="ws-cat-ic" src="assets/games/ws_cat_${catIc}.png" alt="" width="28" height="28">`:''}${esc(ws.puzzle.c)}</span>${roundLine}</div>${wsBoardHTML(ws,flip,deal)}<div class="ws-hint">${hostHTML}${(bubbleHint||quip)?`<span class="ws-say">${quip?`<em class="ws-quip">${quip}</em>`:''}${bubbleHint}</span>`:''}</div></div>
       <div class="ws-stage">
         <div class="ws-left"><div class="ws-wheel-wrap an-${gtAnim()}" style="${kbPhase?'width:min(52vw,11rem)':''}">${wsWheelSVG(ang,ws.lang)}</div></div>
         <div class="ws-right">${wsPanelHTML(ws,p,mine,acts,seq,players)}
