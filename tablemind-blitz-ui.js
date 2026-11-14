@@ -90,8 +90,8 @@ function wiz(tm,q,players){
   if(!q)return{pose:'bow',line:''};
   const r=q.res;
   switch(eph(q,Date.now())){
-    case'intro':return{pose:'tense',line:q.fs.length?'Hoppla! Zu früh!':(tm.blitz.n<=1?'Auf die Plätze …':'Weiter geht es …')};
-    case'clue':return{pose:q.fs.length?'smug':'hope',line:q.fs.length?'Hoppla! Zu früh!':''};
+    case'intro':return{pose:'host',line:q.fs.length?'Hoppla! Zu früh!':(tm.blitz.n<=1?'Auf die Plätze …':'Weiter geht es …')};
+    case'clue':return{pose:q.fs.length?'smug':'host',line:q.fs.length?'Hoppla! Zu früh!':''};
     case'answer':return{pose:'tense',line:nm(players,q.buzz.seat)+' antwortet'};
     case'steal':return{pose:'sad',line:'Oh nein! Wer klaut sie?'};
     case'stealans':return{pose:'tense',line:nm(players,q.steal.seat)+' versucht es'};
