@@ -781,7 +781,7 @@ function tmChaserSVG(key,px){
 }
 function tmChaserHTML(tm){
   const c=TM_CFG.chasers[tm.chaser];
-  return`<div class="tm-chaser"><span class="face"><img class="tm-chimg" src="assets/games/tm_ch_${tm.chaser}.jpg" alt="" draggable="false"></span><div><b>${esc(c.name)}</b><small>jagt euch alle</small></div></div>`;
+  return`<div class="tm-chaser"><span class="face"><img class="tm-chimg" src="assets/games/tm_ch_${tm.chaser}.jpg" alt="" draggable="false"></span><div><b>${esc(c.name)}</b></div></div>`;
 }
 function tmLanesHTML(tm,players,me){
   // The Hunt as a tall ladder per player (finish at the top, start at the bottom). The lit bars are the player and the Chaser; they slide between rungs.
@@ -907,7 +907,7 @@ function tmStageHTML(tm,players,me,padHasQ){
     if(tm.phase==='pick')body='';
     else body='';
   }else{
-    body=tmChaserHTML(tm)+(tm.phase==='offer'?`<div class="tm-sub">Jeder wählt heimlich sein Angebot.</div>`:tmLanesHTML(tm,players,me));
+    body=tmChaserHTML(tm)+(tm.phase==='offer'?'':tmLanesHTML(tm,players,me));
     if((tm.phase==='ask'||tm.phase==='reveal')&&!padHasQ){
       const q=tm.q[0]&&tmQ(tm,tm.q[0]);
       if(q)body+=`<div class="tm-card" style="margin-top:.5rem"><div class="tm-qchips"><span class="tm-chip">${tmEmb(q.c,'sm')} ${esc(TM_CATS[q.c].short)}</span><span class="tm-chip gold">Frage ${tm.hunt.n+(tm.phase==='reveal'?0:1)}</span></div><div class="tm-q">${esc(q.text)}</div>
@@ -1055,7 +1055,7 @@ function tmOfferPad(tm,me,players){
   if(tm.offer[i]!=null){const o=TM_OFFER_INFO[tm.offer[i]];return`<div class="tm-card tm-wait"><div class="tm-title">Bestätigt ✓</div><div class="tm-offer ${tm.offer[i]} sel" style="max-width:15rem;margin:.3rem auto;cursor:default"><h4>${o.n}</h4><span class="big">${tmEur(TM_CFG.escapeBase*o.m)}</span><b>${o.h}</b></div>${tmWaitList(tm,players,me)}</div>`;}
   const n=tmSealCount(tm,me),bonus=[];
   if(n>=1)bonus.push('+1 Feld Vorsprung');if(n>=2)bonus.push('Schutzschild');
-  return`<div class="tm-card"><div class="tm-title">DIE JAGD — DEIN ANGEBOT</div><div class="tm-timer"><b>--</b><i></i></div>
+  return`<div class="tm-card"><div class="tm-title">DEIN GEHEIMES ANGEBOT</div><div class="tm-timer"><b>--</b><i></i></div>
     ${bonus.length?'<div class="tm-sub">Siegel-Bonus: <b>'+bonus.join(', ')+'</b></div>':''}
     <div class="tm-offers">${['safe','std','risk'].map(k=>{const o=TM_OFFER_INFO[k];return`<button class="tm-offer ${k}" data-a="tmoffer" data-k="${k}"><h4>${o.n}</h4><span class="big">${tmEur(TM_CFG.escapeBase*o.m)}</span><b>${o.h}</b></button>`;}).join('')}</div></div>`;
 }
@@ -1112,7 +1112,7 @@ function tmWizPose(tm){
   if(tm.phase==='ask'){
     if(tm.duel)return'ready';
     if(tm.act===1&&tm.cycle===tm.gold)return'rich';
-    if(tm.act===3)return'hope';   // in the Hunt Wiz keeps his wings crossed for the runners
+    if(tm.act===3)return(tm.lane&&tm.lane.some(L=>L.st==='run'&&L.pl-L.chp<=1))?'tense':'hope';   // in the Hunt Wiz keeps his wings crossed for the runners, and holds his breath when the Chaser is right behind one
     return 4;
   }
   if(tm.phase==='decide')return'smug';
@@ -1176,7 +1176,7 @@ function rTablemindTable(){
   if(verdict&&tm.act===2){const g=tm.fx.seats.findIndex(o=>o.seal);verdict.x=g>=0?'Siegel für '+esc((players[g]||{}).name||'')+'.':'Kein Siegel.';}
   let askText='';if(tm.phase==='ask'&&pad.indexOf('tm-qcard')>=0){const mq=me&&tm.q[me-1];if(mq)askText=tmQ(tm,mq).text;}
   const showIntro=G.tmIntro===tm.seed&&Date.now()<tm.dl&&tm.moves===0&&tm.act===1&&tm.cycle===1;
-  const actTxt=tm.act===1?`Frage ${Math.min(tm.cycle,tm.c1||TM_CFG.cycles1)} von ${tm.c1||TM_CFG.cycles1}`:tm.act===2?`Runde ${tm.round2} von ${tm.sr||TM_CFG.sealRounds}`+(tm.phase==='pick'?' · jeder wählt eine Welt':` · Frage ${Math.max(1,tm.P-(tm.queue?tm.queue.length:0))} von ${tm.P}`):`Jagd · Frage ${(tm.hunt?tm.hunt.n:0)+(tm.phase==='ask'?1:0)}`;
+  const actTxt=tm.act===1?`Frage ${Math.min(tm.cycle,tm.c1||TM_CFG.cycles1)} von ${tm.c1||TM_CFG.cycles1}`:tm.act===2?`Runde ${tm.round2} von ${tm.sr||TM_CFG.sealRounds}`+(tm.phase==='pick'?' · jeder wählt eine Welt':` · Frage ${Math.max(1,tm.P-(tm.queue?tm.queue.length:0))} von ${tm.P}`):(tm.phase==='offer'?'Jagd':`Jagd · Frage ${(tm.hunt?tm.hunt.n:0)+(tm.phase==='ask'?1:0)}`);
   queueMicrotask(tmPostRender);
   return`<div id="s-table" class="scr on game-tablemind an-${an} tm-bg-${tm.over?'over':tm.duel?'duel':'act'+tm.act}${tmTextMode()?' tx-'+tmTextMode():''}">
     <div class="game-bar"><div class="gb-game"><span class="tm-logo">TABLE MIND</span></div><div class="gb-turn tm-bartitle"><span><b>AKT ${['','I','II','III'][tm.act]}</b> · ${TM_ACT_NAMES[tm.act]}</span><small>${esc(actTxt)}</small></div><div class="gb-right"><button class="ico-btn tm-animbtn tm-aa" data-a="tmmenu" aria-label="Menü" aria-expanded="${G.tmMenu?'true':'false'}" title="Menü">⋯</button>${quitBtn()}${sndBtn()}</div></div>${G.tmMenu?`<div class="tm-menu"><button data-a="tmtext">Textgröße · ${({'':'normal',l:'groß',xl:'sehr groß',hc:'Kontrast'})[tmTextMode()]}</button><button data-a="tmanim">Animation · ${an==='full'?'voll':an==='light'?'leicht':'aus'}</button><span class="tm-mr">${rulesBtn()} Spielregeln</span></div>`:''}
@@ -1228,6 +1228,7 @@ function tmPostRender(){
   if(G.tmFxKey===key)return;
   const first=G.tmFxKey==='';G.tmFxKey=key;G.tmMenu=false;if(first){G.tmAct=tm.act;G.tmHcapSent=0;}
   if(G.isOnline&&tm.act===1&&tm.cycle===1&&tm.phase==='ask'&&!tm.duel&&!G.tmHcapSent){const me=tmMySeat();let v=0;try{v=+localStorage.getItem('ct_tm_hcap')||0;}catch(e){}if(me&&v&&tm.hcap[me-1]!==v&&tm.ans[me-1]==null){G.tmHcapSent=1;tmSend({t:'hcap',v});}}
+  if(G.isOnline&&G.tmSeenSeed!==tm.seed&&tmMySeat()){G.tmSeenSeed=tm.seed;try{const l=tmSeenIdx();if(l.length)tmSend({t:'seen',l:l.slice(-250)});}catch(e){}}   // every device tells the room which questions it has already seen
   if(first&&G.tmIntro===tm.seed){TMSFX.intro();return;}
   if(G.tmAct!==tm.act){const prev=G.tmAct;G.tmAct=tm.act;if(prev&&tm.act>1)tmActCard(tm);}
   if(tm.phase==='reveal'&&tm.fx){

@@ -259,6 +259,11 @@ function tmApply(tm,seat,act,now){
       tm.hcap[i]=v;
       if(v>=0&&tm.easyOn[i]){tm.elim[i]=null;tm.easyOn[i]=0;}   // switching away from Leicht gives the answers back
       tmApplyEasy(tm);tm.moves++;return true;}
+    case'seen':{   // online: a player shares the questions their device has already shown them, so the host does not draw those again
+      if(s<1||s>tm.P||!Array.isArray(act.l)||(tm.seenFrom&&tm.seenFrom[i]))return false;
+      tm.seenFrom=tm.seenFrom||[];tm.seenFrom[i]=1;const n=tmLib(tm).length;
+      act.l.slice(-250).forEach(x=>{if(Number.isInteger(x)&&x>=0&&x<n&&tm.used.indexOf(x)<0)tm.used.push(x);});
+      tm.moves++;return true;}
     case'tick':return tmTick(tm,now);
   }
   return false;
