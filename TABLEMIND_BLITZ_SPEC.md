@@ -1,6 +1,6 @@
 # TABLE MIND — Act III "DER BLITZ" (buzzer act): rules, scoring and edge cases
 
-Status: PHASE 1 DRAFT for approval. Nothing of this is built yet. Date: 2026-11-14.
+Status: PHASE 1 RULES ACCEPTED (owner delegated D1-D7 on 2026-11-14: all taken as proposed). Nothing of this is built yet.
 Decided so far (owner + ChatGPT review): Variant 2 "Der schrumpfende Preis" as the new Act III, the Hunt becomes Act IV; Golden Feather and Chaser warning are part of the same programme; NO show modifiers, adaptive difficulty, buzzer duel or statistics; player bets ("Ich setze auf dich") maybe later.
 Principles: premium TV-show feel, lean screen (Wiz, question, four prize levels, avatars/scores, big buzzer zones, nothing else), emotions through Wiz, simple rules, fairness first, the adult keeps a small edge (target 55–60 % adult / 40–45 % child, a goal to test, not a guarantee).
 
@@ -105,7 +105,7 @@ The Chaser's move is already rolled when the question opens (`tm.ch`). When that
 11. Handicap: Leicht removes the two wrong answers only when the player buzzes (not shown to others); Schwer scales amounts.
 12. Questions are never repeated within a match; the shared question stays identical for everybody.
 
-## 15. Open decisions (need the owner's answer)
+## 15. Decisions D1-D7 (accepted as proposed on 2026-11-14)
 * D1 Schwer: scale penalties too (my proposal: yes, ×0.75).
 * D2 False start: lock for this question only (my proposal) versus also next question.
 * D3 Bot numbers: accept the starting numbers above and tune in play-tests.
