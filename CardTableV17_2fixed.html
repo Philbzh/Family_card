@@ -6487,7 +6487,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=454;
+const APP_BUILD=455;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -34573,13 +34573,25 @@ function clFire(g){
   if(g.phase!=='fly'||g.cur.bot||g.shells<=0||clWatch(g))return;
   clShoot(g,null);
 }
+// where a clay will be after T seconds: the same flight as clStep (gravity, a little drag, the wind), in small steps
+function clFuture(c,T,wind){
+  const p=c.p.slice(),v=c.v.slice();let t=0;
+  while(t<T-1e-9){const dt=Math.min(1/120,T-t);p[0]+=v[0]*dt;p[1]+=v[1]*dt;p[2]+=v[2]*dt;v[1]-=9.8*dt;v[0]*=1-.07*dt;v[2]*=1-.07*dt;if(wind){v[0]+=wind[0]*dt*.5;v[2]+=wind[1]*dt*.5;}t+=dt;}
+  return p;
+}
+// test aid (only with ?debug=1): how far the gun was from the clay when you fired, and from the ideal aim point (the clay's place when the shot arrives)
+function clAimNote(g,near,dist,lv){
+  const e=g.eye,ang=p=>{const dx=p[0]-e[0],dy=p[1]-e[1],dz=p[2]-e[2];return[Math.atan2(dx,dz),Math.atan2(dy,Math.hypot(dx,dz))];};
+  const k=180/Math.PI,ac=ang(near.p),ai=ang(clFuture(near,(1-(lv.lead||0))*dist/300,g.wind));
+  return{disc:g.disc,lv:g.lv,dist:Math.round(dist),fly:+(g.flyT||0).toFixed(2),dyClay:(g.yaw-ac[0])*k,dpClay:(g.pitch-ac[1])*k,dyIdeal:(g.yaw-ai[0])*k,dpIdeal:(g.pitch-ai[1])*k,rad:lv.pr*k};
+}
 function clShoot(g,force){
   g.shells--;g.firedN++;g.kick=1;const lv=CL_LV[g.lv];
   const aim=clDirOf(g.yaw+(Math.random()-.5)*2*lv.jit*2,g.pitch+(Math.random()-.5)*2*lv.jit*2);
   // the nearest clay is the one the cloud is on its way to; the time of flight is measured to it
   let near=null,nd=1e9;for(const c of g.clays){if(!c.alive)continue;const dv=[c.p[0]-g.eye[0],c.p[1]-g.eye[1],c.p[2]-g.eye[2]],dd=Math.hypot(dv[0],dv[1],dv[2]),ang=Math.acos(Math.min(1,Math.max(-1,(dv[0]*aim[0]+dv[1]*aim[1]+dv[2]*aim[2])/dd)));if(ang<nd){nd=ang;near=c;nd=ang;near.dd=dd;}}
   const dist=near?Math.hypot(near.p[0]-g.eye[0],near.p[1]-g.eye[1],near.p[2]-g.eye[2]):30;
-  g.shots.push({ta:g.t+dist/300,tf:g.t,aim,n:g.firedN,force:force||null,done:false});
+  g.shots.push({ta:g.t+dist/300,tf:g.t,aim,n:g.firedN,force:force||null,done:false,dbg:(window.bzDbg&&near&&!g.cur.bot&&!force)?clAimNote(g,near,dist,lv):null});
   clSnd.shot();haptic(10);g.shotT=g.t;clEject(g);
   if(g.net&&G.isOnline&&!force)clSend(g,{k:'shot'},true);
   clHudShells(g);
@@ -34596,6 +34608,8 @@ function clResolveShot(g,sh){
   sh.done=true;let hit=null;
   if(sh.force){const c=g.clays[sh.force.ci];if(sh.force.hit&&c&&c.alive&&!c.broke)hit={c,q:sh.force.q};}
   else hit=clCloud(g,sh);
+  if(sh.dbg&&window.bzDbg){const d=sh.dbg,ab=x=>Math.abs(x).toFixed(1)+'°',vert=x=>ab(x)+(x>=0?' above':' below'),hor=x=>ab(x)+(x>=0?' right':' left');
+    bzDbg.log('clay',d.disc+' '+d.lv+' · clay '+d.dist+' m away, '+d.fly+' s after launch · gun was '+vert(d.dpClay)+' and '+hor(d.dyClay)+' of the clay · against the ideal aim point: '+vert(d.dpIdeal)+', '+hor(d.dyIdeal)+' (cloud radius '+d.rad.toFixed(1)+'°) → '+(hit?(hit.q==='c'?'HIT dead centre':'HIT chip'):'MISS'));}
   if(hit){const c=hit.c,ci=g.clays.indexOf(c);c.broke=true;c.alive=false;
     const first=g.disc==='trap'?sh.n===1:true;
     let pts=first?(hit.q==='c'?3:2):1;if(c.vt==='g')pts=first?5:3;else if(c.vt==='m')pts+=1;
@@ -34849,7 +34863,7 @@ function clDraw0(g,now){
     // a faint glow so that it can always be found against the sky
     x.save();x.globalAlpha=.4;const gc={g:'255,215,100',p:'255,90,170',w:'255,255,255',y:'255,225,60',b:'255,235,190'}[c.vt]||'255,150,40';gr=x.createRadialGradient(p[0],p[1],0,p[0],p[1],r*2.4);gr.addColorStop(0,'rgba('+gc+',.8)');gr.addColorStop(1,'rgba('+gc+',0)');x.fillStyle=gr;x.beginPath();x.arc(p[0],p[1],r*2.4,0,6.283);x.fill();x.restore();
     const cI=I(c.vt&&c.vt!=='o'?'clay_'+c.vt:'clay')||I('clay'),tilt=.35+.25*Math.sin(c.t*7);if(cI){const w=r*2.5*(c.vt==='m'?.7:1),h=w*cI.height/cI.width*(.7+.3*Math.abs(Math.sin(c.t*5)));x.drawImage(cI,p[0]-w/2,p[1]-h/2,w,h);}else{x.fillStyle='#d9531c';x.beginPath();x.ellipse(p[0],p[1],r,r*tilt,0,0,6.283);x.fill();x.fillStyle='#f58a3a';x.beginPath();x.ellipse(p[0],p[1]-r*.08,r*.78,r*tilt*.62,0,0,6.283);x.fill();}
-    if(CL_LV[g.lv].assist&&g.phase==='fly'&&!g.cur.bot){const q=clProj(g,[c.p[0]+c.v[0]*.25,c.p[1]+c.v[1]*.25-1.2,c.p[2]+c.v[2]*.25],f,cx,cy);if(q){x.strokeStyle='rgba(255,236,160,.55)';x.setLineDash([3*dpr,4*dpr]);x.lineWidth=dpr*1.2;x.beginPath();x.moveTo(p[0],p[1]);x.lineTo(q[0],q[1]);x.stroke();x.setLineDash([]);}}}
+    if(CL_LV[g.lv].assist&&g.phase==='fly'&&!g.cur.bot){const q=clProj(g,clFuture(c,.25,g.wind),f,cx,cy);/* where the clay really is in a quarter of a second (it used to end 1.2 m too low, which pulled the aim down) */if(q){x.strokeStyle='rgba(255,236,160,.55)';x.setLineDash([3*dpr,4*dpr]);x.lineWidth=dpr*1.2;x.beginPath();x.moveTo(p[0],p[1]);x.lineTo(q[0],q[1]);x.stroke();x.setLineDash([]);}}}
   for(const q of g.parts){const p=clProj(g,q.p,f,cx,cy);if(!p)continue;const u=q.l/q.life;
     if(q.k==='R'||q.k==='S'){const ri=I(q.k==='R'?'ring':'spark');if(ri){const w=f*(q.k==='R'?3.4:1.8*q.s)*(.3+u*1.0)/p[2];x.save();x.globalCompositeOperation='lighter';x.globalAlpha=(1-u);x.drawImage(ri,p[0]-w/2,p[1]-w*ri.height/ri.width/2,w,w*ri.height/ri.width);x.restore();}continue;}
     if(q.k==='F'){const fi=I(q.im||'frag');if(fi){const w=f*1.5*(.55+u*1.0)/p[2];x.globalAlpha=1-u*u;x.drawImage(fi,p[0]-w/2,p[1]-w*fi.height/fi.width/2,w,w*fi.height/fi.width);x.globalAlpha=1;}continue;}
