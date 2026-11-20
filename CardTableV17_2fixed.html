@@ -6487,7 +6487,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=460;
+const APP_BUILD=461;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -12623,12 +12623,12 @@ function pbEvent0(g,ev,d){
   const st=g.st[g.turn],b=d.b;
   switch(ev){
     case'flip':g.skillT=0;if(d.swing)PBS.flip();break;
-    case'hammer':{d.hm.hit=g.t;pbPts(g,1500,{combo:1});PBS.hammer();haptic([14,20]);g.fx.shake=Math.max(g.fx.shake,3);pbSpark(g,b.x,b.y,'#ffb36a',12);pbMis(g,'hammer');pbBoss(g,6);break;}
+    case'hammer':{d.hm.hit=g.t;{const h=st.hamT=(st.hamT||[]).filter(q=>g.t-q<10);h.push(g.t);if(h.length>=3&&PB_T.world===1){st.hamT=[];pbSecretOpen(g,'forge');}}pbPts(g,1500,{combo:1});PBS.hammer();haptic([14,20]);g.fx.shake=Math.max(g.fx.shake,3);pbSpark(g,b.x,b.y,'#ffb36a',12);pbMis(g,'hammer');pbBoss(g,6);break;}
     case'laser':{d.l.hit=g.t;pbPts(g,250);PBS.zap();pbSpark(g,b.x,b.y,'#ff6a6a',8);g.fx.shake=Math.max(g.fx.shake,2);pbMis(g,'laser');break;}
     case'jet':{pbPts(g,200);pbSpark(g,b.x,b.y,'#ff8a3a',5);break;}
     case'bumper':st.bumps++;pbPts(g,100);if(st.hotT>0)pbPts(g,200);if(PB_T.world===1&&!(st.hotT>0)){st.heat=Math.min(100,(st.heat||0)+9);if(st.heat>=100){st.heat=0;st.hotT=10;pbSay(g,'WHITE HEAT','the bumpers pay triple for 10 seconds','#fff0c0',1800);PBS.heat();pbChase(g,'#ff8a3a');g.fx.flash=.5;pbMis(g,'hot');}}
       if(PB_T.world===2){const ti=['b1','b2','b3'].indexOf(d.bm.id);if(ti>=0){st.tum[ti]=(st.tum[ti]+1)%3;st.tumA[ti]=g.t;PBS.tumbler(st.tum[ti]);
-        if(st.tum.every(v=>v===2)){st.tum=[0,0,0];st.lockLit=true;const v=Math.round(25000*(1+Math.min(3,st.lvl)*.5));pbPts(g,v,{flat:1});pbSay(g,'SAFE CRACKED','+'+v.toLocaleString()+' · the vault door is open','#7fffb0',2000);pbShow(g,'SAFE CRACKED','+'+v.toLocaleString(),'#7fffb0');PBS.crack();pbChase(g,'#7fffb0');g.fx.flash=.6;pbMis(g,'crack');pbBoss(g,20);}}}
+        if(st.tum.every(v=>v===2)){st.tum=[0,0,0];st.lockLit=true;const v=Math.round(25000*(1+Math.min(3,st.lvl)*.5));pbPts(g,v,{flat:1});pbSay(g,'SAFE CRACKED','+'+v.toLocaleString()+' · the vault door is open','#7fffb0',2000);pbShow(g,'SAFE CRACKED','+'+v.toLocaleString(),'#7fffb0');PBS.crack();pbChase(g,'#7fffb0');g.fx.flash=.6;pbMis(g,'crack');pbBoss(g,20);pbSecretOpen(g,'vault');}}}
       if(PB_T.world===3){pbCoreCharge(g,3);if(pbOnBeat(g)){pbPts(g,200);pbMis(g,'beat');pbPop(g,d.bm.x,d.bm.y-30,'ON BEAT',false);PBS.onbeat();}}
       PBS.bumper();haptic(8);g.fx.shake=Math.max(g.fx.shake,1.2);pbSpark(g,d.bm.x,d.bm.y,'#ffd27a',7);pbMis(g,'bump');pbBoss(g,1);g.pot=(g.pot||0)+25;st.magN++;if(st.magN%12===0&&!st.magOn){st.magOn=true;pbSay(g,'MAGNET READY','roll over the middle of the table','#7fd7ff',1800);PBS.lit();}
       if(st.superT>0)pbPts(g,400);
@@ -12643,7 +12643,7 @@ function pbEvent0(g,ev,d){
       break;}
     case'orbitPass':{const o=d.o;if(g.skillT>0)break;const lp=g.orbPass;g.orbPass={id:o.id,t:g.t};if(lp&&lp.id!==o.id&&g.t-lp.t<2.4){g.orbPass=null;pbEvent0(g,'orbit',{b});}break;}
     case'orbit':{pbCoreCharge(g,25);st.orbitN++;st.orbitT=g.t;PBS.orbit();haptic([10,16,10]);pbPts(g,5000,{combo:1});pbShot(g);pbMis(g,'orbit');pbBoss(g,8);pbSpark(g,b.x,b.y,'#8affc1',12);pbChase(g,'#8affc1');
-      if(st.orbitN%3===0){st.jackLit=true;pbSay(g,'ORBIT JACKPOT LIT','shoot a ramp','#ffd96a',1800);PBS.lit();g.fx.flash=.4;}else pbSay(g,'ORBIT',(st.orbitN%3)+' of 3','#8affc1',900);break;}
+      if(st.orbitN%3===0){if(PB_T.world===3)pbSecretOpen(g,'core');st.jackLit=true;pbSay(g,'ORBIT JACKPOT LIT','shoot a ramp','#ffd96a',1800);PBS.lit();g.fx.flash=.4;}else pbSay(g,'ORBIT',(st.orbitN%3)+' of 3','#8affc1',900);break;}
     case'magnet':{b.st='mag';b.mag={t:0,press:null};b.x=236;b.y=553;b.vx=b.vy=0;st.magOn=false;g.magT=g.t;pbPts(g,3000,{combo:1});PBS.magnet();haptic([20,30,40]);pbRing(g,236,553,'#7fd7ff',90);pbBoss(g,5);pbSay(g,'MAGNET','left, right or both flippers: pick your shot','#7fd7ff',2200);break;}
     case'sling':pbPts(g,10);PBS.sling();haptic(7);pbSpark(g,b.x,b.y,'#9fe8ff',5);break;
     case'spin':{pbCoreCharge(g,2);const sp=d.sp,v=Math.hypot(b.vx,b.vy),n=Math.max(1,Math.round(v/260));sp.vel=Math.min(36,Math.max(sp.vel,v/34));sp.dir=b.vy<0?1:-1;st.spins+=n;pbPts(g,90*n);pbMis(g,'spin',n);pbBoss(g,.4*n);b.vx*=.94;b.vy*=.94;break;}
@@ -12652,7 +12652,7 @@ function pbEvent0(g,ev,d){
       if(!st.lanes[i]){st.lanes[i]=1;}
       if(st.lanes[0]&&st.lanes[1]&&st.lanes[2]){st.lanes=[0,0,0];pbPts(g,1000,{flat:1});st.kick=[true,true];if(st.mult<5){st.mult++;pbSay(g,'MULTIPLIER ×'+st.mult,'kickbacks are lit','#ffd96a',1200);PBS.lit();pbChase(g,'#ffd96a');}else pbSay(g,'MAX MULTIPLIER','kickbacks are lit','#ffd96a',900);}
       break;}
-    case'target':{const id=d.w.id,i=+id[1]-1;PBS.target();haptic(9);pbSpark(g,b.x,b.y,'#ffe08a',9);pbShot(g);pbMis(g,'tgt');pbBoss(g,4);
+    case'target':{const id=d.w.id,i=+id[1]-1;if(id[0]==='F'&&PB_T.world===0){const q=st.seq=(st.seq||[]).filter(z=>g.t-z.t<8);q.push({i:id,t:g.t});if(q.length>3)q.shift();if(q.length===3&&q[0].i==='F3'&&q[1].i==='F2'&&q[2].i==='F1'){st.seq=[];pbSecretOpen(g,'workshop');}}PBS.target();haptic(9);pbSpark(g,b.x,b.y,'#ffe08a',9);pbShot(g);pbMis(g,'tgt');pbBoss(g,4);
       if(id[0]==='F'){
         if(!st.forge[i]&&!st.forgeOn){st.forge[i]=1;pbPts(g,500,{combo:1});
           if(st.forge.every(x=>x)){st.forgeOn=true;st.lockLit=true;pbSay(g,'FORGE ACTIVE','the vault door is open · shoot it','#ff9a4a',1800);g.fx.flash=.5;PBS.lit();}}
@@ -12933,10 +12933,32 @@ function pbRoomEnd(g){const r=g.room,b=r.b,o=r.to||PB_T.portals.find(q=>q!==r.fr
   pbSay(g,r.kind==='clock'?'CLOCK ROOM':'SECRET ROOM','+'+r.score.toLocaleString()+' · '+(r.kind==='clock'?(r.next-1)+' of 12 hours':r.gems+' of 5 gems'),r.kind==='clock'?'#9fe8ff':'#e8c8ff',2000);PBS.portalOut();pbRing(g,o.x,o.y,'#ffe9a8',110);}
 // ── the step ──
 /* ── the Field Journal and the rare creatures: nothing announces them, you find them ── */
-const PB_FIND={c0:['Clockwork Moth','a brass moth that wanders the workshop','#e0b060'],c1:['Ember Salamander','it lives in the cooling embers of the forge','#ff7a2a'],c2:['Gilded Beetle','it guards the vault and hates a rolling ball','#e8c460'],c3:['Star Wisp','a spark of the observatory sky','#bcd6f2'],rvault:['The Vault Room','a hidden chamber behind the tunnels'],rclock:['The Clock Room','a hidden room after an orbit and a tunnel']};
+const PB_FIND={c0:['Clockwork Moth','a brass moth that wanders the workshop','#e0b060'],c1:['Ember Salamander','it lives in the cooling embers of the forge','#ff7a2a'],c2:['Gilded Beetle','it guards the vault and hates a rolling ball','#e8c460'],c3:['Star Wisp','a spark of the observatory sky','#bcd6f2'],p0:['The Hidden Panel','a sliding panel in the workshop floor','#ffb050'],p1:['The Furnace Hatch','a cold iron hatch that wakes in the forge','#ff6a20'],p2:['The Vault Chest','a chest that opens when the tumblers agree','#ffd060'],p3:['The Star Hatch','a round hatch that opens to the third orbit','#80b0ff'],rvault:['The Vault Room','a hidden chamber behind the tunnels'],rclock:['The Clock Room','a hidden room after an orbit and a tunnel']};
 function pbJournal(){try{const j=JSON.parse(localStorage.getItem('ct_pb_journal')||'{}');return j&&typeof j==='object'?j:{};}catch(e){return{};}}
 function pbJournalAdd(g,key){try{const j=pbJournal(),first=!j[key],nm=g&&g.players&&g.players[g.turn]?g.players[g.turn].name:'';j[key]={n:(j[key]?j[key].n:0)+1,d:first?new Date().toISOString().slice(0,10):j[key].d,by:first?nm:j[key].by};localStorage.setItem('ct_pb_journal',JSON.stringify(j));
   if(first&&g){setTimeout(()=>{if(G.pb===g)pbSay(g,'FIELD JOURNAL','new entry: '+PB_FIND[key][0],'#e8d8ff',2200);},900);}return first;}catch(e){return false;}}
+/* ── the secret passages: one hidden door in every world; nothing says how it opens ── */
+const PB_SD={x:236,y:672,w:[88,88,96,70],pts:[15000,20000,25000,20000],dur:25};
+function pbSecretOpen(g,why){
+  if(g.net||g.room)return;const k=PB_T.world|0,sd=g.sd&&g.sd.k===k?g.sd:(g.sd={k,open:false,f:0,until:0});
+  if(sd.open){sd.until=g.t+PB_SD.dur;return;}
+  sd.open=true;sd.until=g.t+PB_SD.dur;pbSay(g,'SOMETHING CLICKS','','#e8d8ff',1500);PBS.lit();pbRing(g,PB_SD.x,PB_SD.y,PB_FIND['p'+k][2],100);haptic([10,20,10]);}
+function pbSecretTick(g,dt){
+  if(g.net||g.room||g.phase!=='play')return;const k=PB_T.world|0;
+  if(!g.sd||g.sd.k!==k)g.sd={k,open:false,f:0,until:0};const sd=g.sd;
+  sd.f=Math.max(0,Math.min(1,sd.f+(sd.open?dt/.5:-dt/.7)));
+  if(!sd.open)return;if(g.t>sd.until){sd.open=false;return;}
+  for(const b of g.balls){if(b.st!=='play')continue;if(Math.hypot(b.x-PB_SD.x,b.y-PB_SD.y)<30){const st=g.st[g.turn],v=pbPts(g,PB_SD.pts[k]*(1+Math.min(3,st.lvl|0)*.25),{flat:1}),col=PB_FIND['p'+k][2];
+    b.st='lock';b.lockT=1.7;b.x=PB_SD.x;b.y=PB_SD.y;b.vx=b.vy=0;sd.open=false;sd.until=0;
+    pbSay(g,'SECRET PASSAGE',PB_FIND['p'+k][0]+' · +'+v.toLocaleString(),'#e8d8ff',2200);pbShow(g,'SECRET PASSAGE','+'+v.toLocaleString(),col);pbSpark(g,PB_SD.x,PB_SD.y,col,22);pbRing(g,PB_SD.x,PB_SD.y,col,130);PBS.crack();haptic([20,30,40]);g.fx.flash=Math.max(g.fx.flash,.4);st.finds=(st.finds||0)+1;pbJournalAdd(g,'p'+k);break;}}
+}
+function pbSecretDraw(x,g,t){
+  const k=PB_T.world|0,sd=g.sd&&g.sd.k===k?g.sd:null,ci=pbImg('pd'+k+'c'),oi=pbImg('pd'+k+'o');if(!ci||!oi)return;
+  const f=sd?sd.f:0,sc=PB_SD.w[k]/ci.naturalWidth;
+  x.save();x.translate(PB_SD.x,PB_SD.y);
+  x.globalAlpha=.34*(1-f);x.drawImage(ci,-ci.naturalWidth*sc/2,-ci.naturalHeight*sc/2,ci.naturalWidth*sc,ci.naturalHeight*sc);
+  if(f>0){x.globalAlpha=f;x.shadowColor=PB_FIND['p'+k][2];x.shadowBlur=14+5*Math.sin(t*4);x.drawImage(oi,-oi.naturalWidth*sc/2,-oi.naturalHeight*sc/2,oi.naturalWidth*sc,oi.naturalHeight*sc);}
+  x.restore();}
 function pbCreatureTick(g,dt){
   if(g.net||g.room||g.wiz||g.phase!=='play')return;
   if(g.crNext==null)g.crNext=g.t+25+Math.random()*25;
@@ -12983,7 +13005,7 @@ function pbStep(g,dt){
   if(st.superT>0)st.superT-=dt;
   if(g.saveT>0&&g.balls.some(b=>b.st==='play'))g.saveT-=dt;
   if(g.comboT&&g.t-g.comboT>5)g.combo=0;
-  pbAdvance(g,dt);pbCreatureTick(g,dt);
+  pbAdvance(g,dt);pbCreatureTick(g,dt);pbSecretTick(g,dt);
   // the balls that are away from the table: on a ramp, in the vault
   for(const b of g.balls){
     b.tr=b.tr||[];if(b.st==='play'||b.st==='ramp'){b.tr.push([b.x,b.y]);if(b.tr.length>9)b.tr.shift();}else b.tr.length=0;
@@ -13328,7 +13350,7 @@ function pbDraw(g,now){
     row(1,'BUMPERS   '+b.bumps,448);row(2,'RAMPS   '+b.ramps,472);row(3,'BONUS   '+Math.round(b.bonus/b.mult).toLocaleString()+'  ×'+b.mult,496);
     if(el>4*.55){const a=Math.min(1,(el-4*.55)/.9),v=Math.round(b.bonus*a);x.globalAlpha=u;x.fillStyle='#ffe9a8';x.font='700 26px Cinzel, Georgia, serif';x.fillText('+ '+v.toLocaleString(),240,534);}
     if(b.extra&&el>5*.55){x.globalAlpha=u;x.fillStyle='#7fd7ff';x.font='700 13px Jost, sans-serif';x.fillText('EXTRA BALL · SHOOT AGAIN',240,555);}x.restore();}
-  pbCreatureDraw(x,g,t);
+  pbSecretDraw(x,g,t);pbCreatureDraw(x,g,t);
   // the floating points
   for(const q of g.fx.pops){const u=q.l/1.1;x.save();x.globalAlpha=Math.max(0,1-u*u);x.textAlign='center';x.font='700 '+(q.big?20:14)+'px Jost, sans-serif';x.fillStyle=q.big?'#ffd96a':'#ffffff';x.shadowColor='rgba(0,0,0,.9)';x.shadowBlur=4;x.fillText(q.t,q.x,q.y-u*38);x.restore();}
   if(g.tilt>2||g.tilted){x.save();const ta=g.tilted?.35:Math.min(.5,g.tilt/9*.5)*(g.tilt>5.5?.7+.3*Math.sin(t*10):1),vg=x.createRadialGradient(236,500,200,236,500,620);vg.addColorStop(0,'rgba(255,40,30,0)');vg.addColorStop(1,'rgba(255,40,30,'+ta+')');x.fillStyle=vg;x.fillRect(-M,-M,PB.W+2*M,PB.H+2*M);x.restore();}

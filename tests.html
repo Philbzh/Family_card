@@ -5938,6 +5938,19 @@ async function runPresentation(A,W,frame){
         check('the first find is written into the Field Journal, once',Object.keys(F('pbJournal')()).length===1&&F('pbJournalAdd')(C,'rclock')===true&&F('pbJournalAdd')(C,'rclock')===false);
         C.crNext=0;C.net={on:true};C.cr=null;F('pbCreatureTick')(C,.016);check('no creature in an online game',!C.cr);
        }finally{if(oldJ===null)W.localStorage.removeItem('ct_pb_journal');else W.localStorage.setItem('ct_pb_journal',oldJ);}}
+      // the secret passages: the hidden trick opens the door, a ball that rolls in earns the prize
+      {const oldJ=W.localStorage.getItem('ct_pb_journal'),oldW=W.localStorage.getItem('ct_pb_world');
+       try{W.localStorage.removeItem('ct_pb_journal');W.localStorage.setItem('ct_pb_world','0');const C=F('pbNew')();C.phase='play';C.room=null;C.wiz=null;C.net=null;F('pbEnsureWorld')(C);
+        const ball=()=>({x:100,y:900,vx:0,vy:0,st:'play',id:9700,stuck:0,tr:[]});C.balls=[ball()];
+        for(const id of['F1','F2','F3']){C.t+=.3;F('pbEvent')(C,'target',{w:{id},b:C.balls[0]});}
+        F('pbSecretTick')(C,.1);check('the wrong order of the left targets opens nothing',!(C.sd&&C.sd.open));
+        for(const id of['F3','F2','F1']){C.t+=.3;F('pbEvent')(C,'target',{w:{id},b:C.balls[0]});}
+        check('the three left targets from bottom to top open the hidden panel',!!(C.sd&&C.sd.open));
+        const SD=F('PB_SD'),b=C.balls[0];b.x=SD.x;b.y=SD.y;const s0=C.st[0].score;F('pbSecretTick')(C,.016);
+        check('a ball rolling into the open door is taken away and pays',b.st==='lock'&&C.st[0].score-s0>=SD.pts[0]&&!C.sd.open);
+        check('the passage is written into the Field Journal',!!F('pbJournal')().p0);
+        C.net={on:true};C.sd=null;F('pbSecretOpen')(C,'x');check('no secret door in an online game',!(C.sd&&C.sd.open));
+       }finally{if(oldJ===null)W.localStorage.removeItem('ct_pb_journal');else W.localStorage.setItem('ct_pb_journal',oldJ);if(oldW===null)W.localStorage.removeItem('ct_pb_world');else W.localStorage.setItem('ct_pb_world',oldW);}}
       // the secret rooms: no points from a resting ball, coins, time, perfect time
       {p.phase='play';p.tilted=false;p.room=null;p.slow=0;p.freeze=0;F('pbResetTable')();const Q=F('PB_T').portals;
        const mkRoom=kind=>{const bb={x:236,y:450,vx:0,vy:0,st:'tunnel',id:9500,stuck:0,tr:[],tun:{room:true,kind,t:1,dur:.9,from:Q[0],to:Q[1]}};p.balls=[bb];F('pbRoomOpen')(p,bb);return bb;};
