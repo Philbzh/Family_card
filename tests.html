@@ -5929,6 +5929,15 @@ async function runPresentation(A,W,frame){
        try{W.localStorage.setItem('ct_pb_world','2');const V=F('pbNew')();W.localStorage.removeItem('ct_pb_world');const V0=F('pbNew')();
         check('the starting world can be chosen: everybody starts in it',V.st.every(q=>q.lvl===2)&&V0.st.every(q=>q.lvl===0));
        }finally{if(old===null)W.localStorage.removeItem('ct_pb_world');else W.localStorage.setItem('ct_pb_world',old);}}
+      // the rare creatures and the Field Journal
+      {const oldJ=W.localStorage.getItem('ct_pb_journal');
+       try{W.localStorage.removeItem('ct_pb_journal');const C=F('pbNew')();C.phase='play';C.room=null;C.wiz=null;C.balls=[{x:100,y:700,vx:0,vy:0,st:'play',id:9600,stuck:0,tr:[]}];C.crNext=0;
+        F('pbCreatureTick')(C,.016);check('a rare creature appears when its time has come',!!C.cr&&C.cr.k===(F('PB_T').world|0));
+        F('pbCreatureTick')(C,.016);C.balls[0].x=C.cr.x;C.balls[0].y=C.cr.y;const s0=C.st[0].score;F('pbCreatureTick')(C,.016);
+        check('a ball that touches it earns 7,500 and the creature is gone',!C.cr&&C.st[0].score-s0===7500);
+        check('the first find is written into the Field Journal, once',Object.keys(F('pbJournal')()).length===1&&F('pbJournalAdd')(C,'rclock')===true&&F('pbJournalAdd')(C,'rclock')===false);
+        C.crNext=0;C.net={on:true};C.cr=null;F('pbCreatureTick')(C,.016);check('no creature in an online game',!C.cr);
+       }finally{if(oldJ===null)W.localStorage.removeItem('ct_pb_journal');else W.localStorage.setItem('ct_pb_journal',oldJ);}}
       // the secret rooms: no points from a resting ball, coins, time, perfect time
       {p.phase='play';p.tilted=false;p.room=null;p.slow=0;p.freeze=0;F('pbResetTable')();const Q=F('PB_T').portals;
        const mkRoom=kind=>{const bb={x:236,y:450,vx:0,vy:0,st:'tunnel',id:9500,stuck:0,tr:[],tun:{room:true,kind,t:1,dur:.9,from:Q[0],to:Q[1]}};p.balls=[bb];F('pbRoomOpen')(p,bb);return bb;};

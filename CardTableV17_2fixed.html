@@ -6487,7 +6487,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=458;
+const APP_BUILD=459;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -12884,7 +12884,7 @@ function pbClockCollide(g,b,h){
 function pbRoomPts(g,n){const r=g.room,st=g.st[g.turn];st.score+=n;if(r)r.score+=n;st.bonus+=Math.round(n*.05);}
 function pbRoomServe(g,b){b.st='play';b.x=88;b.y=250;b.vx=240;b.vy=60;b.tr=[];}
 function pbRoomOpen(g,b){
-  const from=b.tun.from,kind=b.tun.kind||'vault',ck=kind==='clock';g.room={b,from,to:b.tun.to,fx:from.x,fy:from.y,t:0,state:'play',kind,coins:[],coinT:1,max:ck?45:40,left:ck?45:40,lives:3,endT:0,gems:0,score:0,next:1};
+  const from=b.tun.from,kind=b.tun.kind||'vault',ck=kind==='clock';pbJournalAdd(g,b.tun.kind==='clock'?'rclock':'rvault');g.room={b,from,to:b.tun.to,fx:from.x,fy:from.y,t:0,state:'play',kind,coins:[],coinT:1,max:ck?45:40,left:ck?45:40,lives:3,endT:0,gems:0,score:0,next:1};
   if(ck){for(const q of PB_CK.hours){q.done=false;q.t=-9;}PB_CK.minute.a=0;PB_CK.hourH.a=2;PB_CK.pend.hit=-9;PB_CK.bumpers.forEach(q=>q.hit=-9);pbRoomServe(g,b);g.saveT=0;g.stats.secrets++;PBS.room();pbShow(g,'THE CLOCK ROOM','shoot the hours 1 to 12 in order','#9fe8ff');haptic([20,30,40]);if(!g.moment)g.moment=g.players[g.turn].name+' found the clock room.';return;}
   for(const q of PB_RT.gems){q.got=false;q.t=-9;}PB_RT.gears.forEach(q=>{q.a=0;q.hit=-9;});PB_RT.bumpers.forEach(q=>q.hit=-9);PB_RT.blade.ang=0;PB_RT.blade.hit=-9;
   pbRoomServe(g,b);g.saveT=0;g.stats.secrets++;PBS.room();pbShow(g,'SECRET ROOM','light the five gems · open the chest','#e8c8ff');haptic([20,30,40]);
@@ -12932,6 +12932,30 @@ function pbRoomTick(g,dt){
 function pbRoomEnd(g){const r=g.room,b=r.b,o=r.to||PB_T.portals.find(q=>q!==r.from)||r.from;g.room=null;g.balls=[b];b.st='play';b.x=o.x+o.ovx*.03;b.y=o.y+o.ovy*.03;b.vx=o.ovx;b.vy=o.ovy;b.tr=[];o.t=g.t;r.from.t=g.t;
   pbSay(g,r.kind==='clock'?'CLOCK ROOM':'SECRET ROOM','+'+r.score.toLocaleString()+' · '+(r.kind==='clock'?(r.next-1)+' of 12 hours':r.gems+' of 5 gems'),r.kind==='clock'?'#9fe8ff':'#e8c8ff',2000);PBS.portalOut();pbRing(g,o.x,o.y,'#ffe9a8',110);}
 // ── the step ──
+/* ── the Field Journal and the rare creatures: nothing announces them, you find them ── */
+const PB_FIND={c0:['Clockwork Moth','a brass moth that wanders the workshop','#e0b060'],c1:['Ember Salamander','it lives in the cooling embers of the forge','#ff7a2a'],c2:['Gilded Beetle','it guards the vault and hates a rolling ball','#e8c460'],c3:['Star Wisp','a spark of the observatory sky','#bcd6f2'],rvault:['The Vault Room','a hidden chamber behind the tunnels'],rclock:['The Clock Room','a hidden room after an orbit and a tunnel']};
+function pbJournal(){try{const j=JSON.parse(localStorage.getItem('ct_pb_journal')||'{}');return j&&typeof j==='object'?j:{};}catch(e){return{};}}
+function pbJournalAdd(g,key){try{const j=pbJournal(),first=!j[key],nm=g&&g.players&&g.players[g.turn]?g.players[g.turn].name:'';j[key]={n:(j[key]?j[key].n:0)+1,d:first?new Date().toISOString().slice(0,10):j[key].d,by:first?nm:j[key].by};localStorage.setItem('ct_pb_journal',JSON.stringify(j));
+  if(first&&g){setTimeout(()=>{if(G.pb===g)pbSay(g,'FIELD JOURNAL','new entry: '+PB_FIND[key][0],'#e8d8ff',2200);},900);}return first;}catch(e){return false;}}
+function pbCreatureTick(g,dt){
+  if(g.net||g.room||g.wiz||g.phase!=='play')return;
+  if(g.crNext==null)g.crNext=g.t+25+Math.random()*25;
+  const c=g.cr;
+  if(!c){if(g.t>=g.crNext&&g.balls.some(b=>b.st==='play')){g.cr={k:PB_T.world|0,t0:g.t,life:10,ph:Math.random()*6.283,x:236,y:360,hit:false};}return;}
+  const s=(g.t-c.t0)/c.life;
+  if(s>=1){g.cr=null;g.crNext=g.t+30+Math.random()*35;return;}
+  c.x=236+150*Math.sin(c.ph+s*c.life*.5);c.y=370+105*Math.sin(c.ph*1.7+s*c.life*.7);
+  for(const b of g.balls){if(b.st!=='play')continue;if(Math.hypot(b.x-c.x,b.y-c.y)<28){const st=g.st[g.turn],v=pbPts(g,7500,{flat:1});pbSay(g,'RARE FIND',PB_FIND['c'+c.k][0]+' · +'+v.toLocaleString(),'#e8d8ff',2000);pbSpark(g,c.x,c.y,PB_FIND['c'+c.k][2],18);pbRing(g,c.x,c.y,PB_FIND['c'+c.k][2],110);PBS.lit();haptic([14,20,30]);g.fx.flash=Math.max(g.fx.flash,.3);if(st)st.finds=(st.finds||0)+1;pbJournalAdd(g,'c'+c.k);g.cr=null;g.crNext=g.t+40+Math.random()*35;break;}}
+}
+function pbCreatureDraw(x,g,t){
+  const c=g.cr;if(!c)return;const s=(g.t-c.t0)/c.life,a=Math.min(1,s*c.life/.9)*Math.min(1,(1-s)*c.life/1.2),col=PB_FIND['c'+c.k][2],fl=Math.sin(t*26)*.6+.4;
+  x.save();x.globalAlpha=a;pbGlow(x,c.x,c.y,38,col,.55);x.translate(c.x,c.y);
+  const dx=Math.cos(c.ph+s*c.life*.5);x.rotate(dx*.35);
+  x.fillStyle=col;x.strokeStyle='rgba(20,12,4,.85)';x.lineWidth=1.5;
+  if(c.k===1){x.beginPath();x.ellipse(0,0,14,5,0,0,6.283);x.fill();x.stroke();x.beginPath();x.moveTo(-12,0);x.quadraticCurveTo(-24,6+Math.sin(t*9)*4,-30,0);x.stroke();x.beginPath();x.arc(14,0,4.5,0,6.283);x.fill();x.stroke();}
+  else if(c.k===2){x.beginPath();x.ellipse(0,0,11,14,0,0,6.283);x.fill();x.stroke();x.beginPath();x.moveTo(0,-14);x.lineTo(0,14);x.stroke();x.beginPath();x.arc(0,-15,4.5,0,6.283);x.fill();x.stroke();}
+  else{x.beginPath();x.ellipse(0,0,4,9,0,0,6.283);x.fill();x.stroke();for(const m of[-1,1]){x.save();x.scale(m,1);x.rotate(-.5-fl*.5);x.beginPath();x.ellipse(11,-4,13,6+fl*3,0,0,6.283);x.globalAlpha=a*.85;x.fill();x.stroke();x.restore();}if(c.k===3){x.globalAlpha=a;x.fillStyle='#fff';x.beginPath();x.arc(0,0,3,0,6.283);x.fill();}}
+  x.restore();}
 function pbStep(g,dt){
   pbEnsureWorld(g);
   dt=Math.min(.033,dt);if(g.freeze>0){g.freeze-=dt;dt*=.05;}else if(g.slow>0){g.slow-=dt;dt*=.4;}
@@ -12956,7 +12980,7 @@ function pbStep(g,dt){
   if(st.superT>0)st.superT-=dt;
   if(g.saveT>0&&g.balls.some(b=>b.st==='play'))g.saveT-=dt;
   if(g.comboT&&g.t-g.comboT>5)g.combo=0;
-  pbAdvance(g,dt);
+  pbAdvance(g,dt);pbCreatureTick(g,dt);
   // the balls that are away from the table: on a ramp, in the vault
   for(const b of g.balls){
     b.tr=b.tr||[];if(b.st==='play'||b.st==='ramp'){b.tr.push([b.x,b.y]);if(b.tr.length>9)b.tr.shift();}else b.tr.length=0;
@@ -13301,6 +13325,7 @@ function pbDraw(g,now){
     row(1,'BUMPERS   '+b.bumps,448);row(2,'RAMPS   '+b.ramps,472);row(3,'BONUS   '+Math.round(b.bonus/b.mult).toLocaleString()+'  ×'+b.mult,496);
     if(el>4*.55){const a=Math.min(1,(el-4*.55)/.9),v=Math.round(b.bonus*a);x.globalAlpha=u;x.fillStyle='#ffe9a8';x.font='700 26px Cinzel, Georgia, serif';x.fillText('+ '+v.toLocaleString(),240,534);}
     if(b.extra&&el>5*.55){x.globalAlpha=u;x.fillStyle='#7fd7ff';x.font='700 13px Jost, sans-serif';x.fillText('EXTRA BALL · SHOOT AGAIN',240,555);}x.restore();}
+  pbCreatureDraw(x,g,t);
   // the floating points
   for(const q of g.fx.pops){const u=q.l/1.1;x.save();x.globalAlpha=Math.max(0,1-u*u);x.textAlign='center';x.font='700 '+(q.big?20:14)+'px Jost, sans-serif';x.fillStyle=q.big?'#ffd96a':'#ffffff';x.shadowColor='rgba(0,0,0,.9)';x.shadowBlur=4;x.fillText(q.t,q.x,q.y-u*38);x.restore();}
   if(g.tilt>2||g.tilted){x.save();const ta=g.tilted?.35:Math.min(.5,g.tilt/9*.5)*(g.tilt>5.5?.7+.3*Math.sin(t*10):1),vg=x.createRadialGradient(236,500,200,236,500,620);vg.addColorStop(0,'rgba(255,40,30,0)');vg.addColorStop(1,'rgba(255,40,30,'+ta+')');x.fillStyle=vg;x.fillRect(-M,-M,PB.W+2*M,PB.H+2*M);x.restore();}
@@ -39527,6 +39552,7 @@ function rPbHofOv(){
   return`<div class="ov" data-a="close-pbhof"><div class="ov-box hof-box" role="dialog" aria-modal="true" aria-label="Pinball Hall of Fame"><div class="ov-title">🏆 Hall of Fame</div><div class="hof-sub">PINBALL · THE BEST SCORES EVER PLAYED</div>
     ${top.length?`<div class="hof-list">${pbHofRows(top)}</div>`:'<p class="ov-sub">No score yet. Play a game of Pinball and be the first name on the wall!</p>'}
     ${per.length>1?`<div class="hof-h">THE BEST OF EACH PLAYER</div><div class="hof-list">${per.map(e=>`<div class="hof-row"><span class="hof-rk">★</span><span class="hof-nm">${esc(e.n)}</span><span class="hof-sc">${e.s.toLocaleString()}</span><span class="hof-d">${esc(pbHofDate(e.d))}</span></div>`).join('')}</div>`:''}
+    <div class="hof-h">THE FIELD JOURNAL</div><div class="hof-list">${Object.keys(PB_FIND).map(k=>{const j=pbJournal()[k];return j?`<div class="hof-row"><span class="hof-rk">📖</span><span class="hof-nm">${esc(PB_FIND[k][0])}</span><span class="hof-sc">${j.n}×</span><span class="hof-d">${esc(PB_FIND[k][1])} · first found by ${esc(j.by||'?')}</span></div>`:`<div class="hof-row"><span class="hof-rk">❔</span><span class="hof-nm">? ? ?</span><span class="hof-sc"></span><span class="hof-d">not found yet</span></div>`;}).join('')}</div>
     <button class="btn btn-ghost" data-a="close-pbhof" style="margin-top:.8rem;">Close</button></div></div>`;
 }
 function pbHofCardHTML(){
