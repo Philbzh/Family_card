@@ -5995,6 +5995,19 @@ async function runPresentation(A,W,frame){
         const cv=W.document.createElement('canvas');cv.width=500;cv.height=1000;let ok=true;try{F('pbDrawRoom')(cv.getContext('2d'),C,F('PB_PAL')[2],1.2);}catch(e){ok=false;}
         check('the strongroom can be drawn',ok);F('pbRoomEnd')(C);check('leaving the strongroom returns the ball to play',!C.room&&C.balls[0].st==='play');
        }finally{if(oldJ===null)W.localStorage.removeItem('ct_pb_journal');else W.localStorage.setItem('ct_pb_journal',oldJ);if(oldW===null)W.localStorage.removeItem('ct_pb_world');else W.localStorage.setItem('ct_pb_world',oldW);}}
+      // the Observatory star vault behind the star hatch
+      {const oldJ=W.localStorage.getItem('ct_pb_journal'),oldW=W.localStorage.getItem('ct_pb_world');
+       try{W.localStorage.removeItem('ct_pb_journal');W.localStorage.setItem('ct_pb_world','3');const C=F('pbNew')();C.phase='play';C.room=null;C.wiz=null;C.multi=false;C.net=null;F('pbEnsureWorld')(C);
+        C.balls=[{x:100,y:900,vx:0,vy:0,st:'play',id:9960,stuck:0,tr:[]}];F('pbSecretOpen')(C,'core');
+        const SD=F('PB_SD'),b=C.balls[0];b.x=SD.x;b.y=SD.y;F('pbSecretTick')(C,.016);
+        check('the ball rolling into the open star hatch goes to the star vault',b.st==='tunnel'&&b.tun&&b.tun.kind==='star');
+        for(let i=0;i<70;i++)F('pbStep')(C,1/60);
+        check('the star vault opens, with three star-disc bumpers, and is in the Field Journal',!!C.room&&C.room.kind==='star'&&F('PB_RT').bumpers.length===3&&!!F('pbJournal')().rstar);
+        const R=F('PB_RT');for(const gm of R.gems){const rb=C.balls[0];rb.st='play';rb.x=gm.x;rb.y=gm.y+10;rb.vx=0;rb.vy=-200;F('pbRoomCollide')(C,rb,.016);}
+        check('lighting the five planets pays at least 150,000',C.room.gems===5&&C.room.score>=150000);
+        const cv=W.document.createElement('canvas');cv.width=500;cv.height=1000;let ok=true;try{F('pbDrawRoom')(cv.getContext('2d'),C,F('PB_PAL')[3],1.2);}catch(e){ok=false;}
+        check('the star vault can be drawn',ok);F('pbRoomEnd')(C);check('leaving the star vault returns the ball to play',!C.room&&C.balls[0].st==='play');
+       }finally{if(oldJ===null)W.localStorage.removeItem('ct_pb_journal');else W.localStorage.setItem('ct_pb_journal',oldJ);if(oldW===null)W.localStorage.removeItem('ct_pb_world');else W.localStorage.setItem('ct_pb_world',oldW);}}
       // the secret rooms: no points from a resting ball, coins, time, perfect time
       {p.phase='play';p.tilted=false;p.room=null;p.slow=0;p.freeze=0;F('pbResetTable')();const Q=F('PB_T').portals;
        const mkRoom=kind=>{const bb={x:236,y:450,vx:0,vy:0,st:'tunnel',id:9500,stuck:0,tr:[],tun:{room:true,kind,t:1,dur:.9,from:Q[0],to:Q[1]}};p.balls=[bb];F('pbRoomOpen')(p,bb);return bb;};
