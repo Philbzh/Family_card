@@ -5947,9 +5947,40 @@ async function runPresentation(A,W,frame){
         for(const id of['F3','F2','F1']){C.t+=.3;F('pbEvent')(C,'target',{w:{id},b:C.balls[0]});}
         check('the three left targets from bottom to top open the hidden panel',!!(C.sd&&C.sd.open));
         const SD=F('PB_SD'),b=C.balls[0];b.x=SD.x;b.y=SD.y;const s0=C.st[0].score;F('pbSecretTick')(C,.016);
-        check('a ball rolling into the open door is taken away and pays',b.st==='lock'&&C.st[0].score-s0>=SD.pts[0]&&!C.sd.open);
+        check('a ball rolling into the open door is taken away and pays',(b.st==='lock'||b.st==='tunnel')&&C.st[0].score-s0>=SD.pts[0]&&!C.sd.open);
         check('the passage is written into the Field Journal',!!F('pbJournal')().p0);
         C.net={on:true};C.sd=null;F('pbSecretOpen')(C,'x');check('no secret door in an online game',!(C.sd&&C.sd.open));
+       }finally{if(oldJ===null)W.localStorage.removeItem('ct_pb_journal');else W.localStorage.setItem('ct_pb_journal',oldJ);if(oldW===null)W.localStorage.removeItem('ct_pb_world');else W.localStorage.setItem('ct_pb_world',oldW);}}
+      // the Forge chamber behind the furnace hatch
+      {const oldJ=W.localStorage.getItem('ct_pb_journal'),oldW=W.localStorage.getItem('ct_pb_world');
+       try{W.localStorage.removeItem('ct_pb_journal');W.localStorage.setItem('ct_pb_world','1');const C=F('pbNew')();C.phase='play';C.room=null;C.wiz=null;C.multi=false;C.net=null;F('pbEnsureWorld')(C);
+        C.balls=[{x:100,y:900,vx:0,vy:0,st:'play',id:9800,stuck:0,tr:[]}];
+        for(let i=0;i<3;i++){C.t+=.5;F('pbEvent')(C,'hammer',{hm:F('PB_T').hammers[0]||{},b:C.balls[0]});}
+        check('three hammer strikes in ten seconds open the furnace hatch',!!(C.sd&&C.sd.open));
+        const SD=F('PB_SD'),b=C.balls[0];b.x=SD.x;b.y=SD.y;F('pbSecretTick')(C,.016);
+        check('the ball rolling into the Forge hatch goes down the tunnel to the chamber',b.st==='tunnel'&&b.tun&&b.tun.kind==='forge');
+        for(let i=0;i<70;i++)F('pbStep')(C,1/60);
+        check('the chamber opens, with its three hearth bumpers',!!C.room&&C.room.kind==='forge'&&F('PB_RT').bumpers.length===3);
+        check('the chamber is in the Field Journal',!!F('pbJournal')().rforge);
+        const R=F('PB_RT');for(const gm of R.gems){const rb=C.balls[0];rb.st='play';rb.x=gm.x;rb.y=gm.y+10;rb.vx=0;rb.vy=-200;F('pbRoomCollide')(C,rb,.016);}
+        check('lighting the five crystals pays 10,000 + 20,000 + 30,000 + 40,000 + 50,000 (and what the ball hits on its way)',C.room.gems===5&&C.room.score>=150000);
+        F('pbRoomEnd')(C);check('leaving the chamber returns the ball to play',!C.room&&C.balls[0].st==='play');
+        const bb=C.balls[0];bb.st='tunnel';bb.tun={room:true,kind:'vault',t:1,dur:.9,from:F('PB_T').portals[0],to:F('PB_T').portals[1]};F('pbRoomOpen')(C,bb);
+        check('the Vault Room has no hearth bumpers',C.room.kind==='vault'&&F('PB_RT').bumpers.length===0);F('pbRoomEnd')(C);
+       }finally{if(oldJ===null)W.localStorage.removeItem('ct_pb_journal');else W.localStorage.setItem('ct_pb_journal',oldJ);if(oldW===null)W.localStorage.removeItem('ct_pb_world');else W.localStorage.setItem('ct_pb_world',oldW);}}
+      // the Workshop study behind the sliding panel
+      {const oldJ=W.localStorage.getItem('ct_pb_journal'),oldW=W.localStorage.getItem('ct_pb_world');
+       try{W.localStorage.removeItem('ct_pb_journal');W.localStorage.setItem('ct_pb_world','0');const C=F('pbNew')();C.phase='play';C.room=null;C.wiz=null;C.multi=false;C.net=null;F('pbEnsureWorld')(C);
+        C.balls=[{x:100,y:900,vx:0,vy:0,st:'play',id:9900,stuck:0,tr:[]}];
+        for(const id of['F3','F2','F1']){C.t+=.3;F('pbEvent')(C,'target',{w:{id},b:C.balls[0]});}
+        const SD=F('PB_SD'),b=C.balls[0];b.x=SD.x;b.y=SD.y;F('pbSecretTick')(C,.016);
+        check('the ball rolling into the Workshop panel goes to the hidden study',b.st==='tunnel'&&b.tun&&b.tun.kind==='study');
+        for(let i=0;i<70;i++)F('pbStep')(C,1/60);
+        check('the study opens, with three orrery bumpers, and is in the Field Journal',!!C.room&&C.room.kind==='study'&&F('PB_RT').bumpers.length===3&&!!F('pbJournal')().rstudy);
+        const R=F('PB_RT');for(const gm of R.gems){const rb=C.balls[0];rb.st='play';rb.x=gm.x;rb.y=gm.y+10;rb.vx=0;rb.vy=-200;F('pbRoomCollide')(C,rb,.016);}
+        check('lighting the five lenses pays at least 150,000',C.room.gems===5&&C.room.score>=150000);
+        const cv=W.document.createElement('canvas');cv.width=500;cv.height=1000;let ok=true;try{F('pbDrawRoom')(cv.getContext('2d'),C,F('PB_PAL')[0],1.2);}catch(e){ok=false;}
+        check('the study can be drawn',ok);F('pbRoomEnd')(C);F('PB_RT').gems.forEach(q=>{q.ht=999;});{const bb=C.balls[0];bb.st='tunnel';bb.tun={room:true,kind:'study',t:1,dur:.9,from:F('PB_T').portals[0],to:F('PB_T').portals[1]};F('pbRoomOpen')(C,bb);check('a new room starts with fresh gem cooldowns',F('PB_RT').gems.every(q=>q.ht===-9));}F('pbRoomEnd')(C);check('leaving the study returns the ball to play',!C.room&&C.balls[0].st==='play');
        }finally{if(oldJ===null)W.localStorage.removeItem('ct_pb_journal');else W.localStorage.setItem('ct_pb_journal',oldJ);if(oldW===null)W.localStorage.removeItem('ct_pb_world');else W.localStorage.setItem('ct_pb_world',oldW);}}
       // the secret rooms: no points from a resting ball, coins, time, perfect time
       {p.phase='play';p.tilted=false;p.room=null;p.slow=0;p.freeze=0;F('pbResetTable')();const Q=F('PB_T').portals;
