@@ -5995,6 +5995,10 @@ async function runPresentation(A,W,frame){
         const cv=W.document.createElement('canvas');cv.width=500;cv.height=1000;let ok=true;try{F('pbDrawRoom')(cv.getContext('2d'),C,F('PB_PAL')[2],1.2);}catch(e){ok=false;}
         check('the strongroom can be drawn',ok);F('pbRoomEnd')(C);check('leaving the strongroom returns the ball to play',!C.room&&C.balls[0].st==='play');
        }finally{if(oldJ===null)W.localStorage.removeItem('ct_pb_journal');else W.localStorage.setItem('ct_pb_journal',oldJ);if(oldW===null)W.localStorage.removeItem('ct_pb_world');else W.localStorage.setItem('ct_pb_world',oldW);}}
+      // the guide rails by the flippers: a ball rolls down them at speed, it is not held back
+      {const roll=(x0,y0)=>{const g=F('pbNew')();g.phase='play';F('pbEnsureWorld')(g);g.room=null;g.balls=[{x:x0,y:y0,vx:0,vy:0,st:'play',id:9990,stuck:0,tr:[]}];const b=g.balls[0];let mx=0;for(let i=0;i<30;i++){F('pbStep')(g,1/60);mx=Math.max(mx,Math.hypot(b.vx,b.vy));}return mx;};
+       check('a ball rolling down the right inlane guide reaches more than 200 px/s in half a second',roll(380,792)>200);
+       check('a ball rolling down the left inlane guide reaches more than 200 px/s in half a second',roll(92,792)>200);}
       // online: the upper right flipper follows the right flipper on the other screen too
       {const C=F('pbNew')();C.net={on:true,id:1,seat:0,seq:0,hist:[],evn:0,stEv:-1,stT:0};C.fl.R.on=true;C.fl.U.on=false;
        const m=F('pbNetSnap')(C);check('the snapshot of a played ball sends the upper right flipper as pressed when the right flipper is',m.fl[2][1]===1&&m.fl[1][1]===1);
