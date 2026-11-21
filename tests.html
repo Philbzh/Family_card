@@ -5982,6 +5982,18 @@ async function runPresentation(A,W,frame){
         C.rdNext=0;F('pbRiddleTick')(C,.016);F('pbNewBall')(C);check('a new ball starts without a riddle',!C.rd);
         const cv=W.document.createElement('canvas');cv.width=500;cv.height=1000;let ok=true;try{C.rd={i:1,t0:C.t-2,until:C.t+10};F('pbRiddleDraw')(cv.getContext('2d'),C,1);}catch(e){ok=false;}check('a riddle can be drawn',ok);
        }finally{if(oldJ===null)W.localStorage.removeItem('ct_pb_journal');else W.localStorage.setItem('ct_pb_journal',oldJ);if(oldW3===null)W.localStorage.removeItem('ct_pb_world');else W.localStorage.setItem('ct_pb_world',oldW3);}}
+      // linked secrets: what is found in one world follows into the next
+      {const oldJ=W.localStorage.getItem('ct_pb_journal'),oldW4=W.localStorage.getItem('ct_pb_world');
+       try{W.localStorage.removeItem('ct_pb_journal');W.localStorage.setItem('ct_pb_world','0');const mk=()=>{const C=F('pbNew')();F('pbEnsureWorld')(C);C.phase='play';C.room=null;C.wiz=null;C.net=null;C.multi=false;C.cr=null;C.crNext=1e9;C.evNext=1e9;C.rdNext=1e9;C.balls=[{x:236,y:300,vx:0,vy:0,st:'play',id:9985,stuck:0,tr:[]}];return C;};
+        {const C=mk();F('pbMark')(C,'sigil');F('pbMark')(C,'riddle');F('pbMark')(C,'creature');F('pbMark')(C,'chamber');check('what the ball finds is marked for the next world',Object.keys(C.st[0].mk).length===4);
+         F('pbLevelUp')(C);F('pbEnsureWorld')(C);check('a level up takes the marks along and empties them',!!C.carry&&Object.keys(C.st[0].mk).length===0&&F('PB_T').world===1);
+         C.t+=4;F('pbCarryTick')(C,.016);
+         check('the marks help in the new world: the sigil glows, a riddle and a creature come soon, a door is ajar',C.sgReveal>C.t&&C.rdNext<=C.t+12&&C.crNext<=C.t+10&&!!(C.sd&&C.sd.open)&&!C.carry);
+         check('the carried mark is in the Field Journal',!!F('pbJournal')().lnk);}
+        {const C=mk();F('pbLevelUp')(C);check('nothing found, nothing carried',!C.carry);}
+        {const C=mk();C.net={on:true};F('pbMark')(C,'riddle');F('pbLevelUp')(C);check('nothing is carried in an online game',!C.carry);}
+        {const C=mk();F('pbMark')(C,'riddle');F('pbLevelUp')(C);C.t+=1;F('pbCarryTick')(C,.016);check('the carry waits a moment after the level up',!!C.carry);}
+       }finally{if(oldJ===null)W.localStorage.removeItem('ct_pb_journal');else W.localStorage.setItem('ct_pb_journal',oldJ);if(oldW4===null)W.localStorage.removeItem('ct_pb_world');else W.localStorage.setItem('ct_pb_world',oldW4);}}
       // the secret passages: the hidden trick opens the door, a ball that rolls in earns the prize
       {const oldJ=W.localStorage.getItem('ct_pb_journal'),oldW=W.localStorage.getItem('ct_pb_world');
        try{W.localStorage.removeItem('ct_pb_journal');W.localStorage.setItem('ct_pb_world','0');const C=F('pbNew')();C.phase='play';C.room=null;C.wiz=null;C.net=null;F('pbEnsureWorld')(C);
