@@ -6002,6 +6002,25 @@ async function runPresentation(A,W,frame){
        C.saveT=5;for(let i=0;i<60;i++)F('pbMoodTick')(C,.033);check('no danger while a ball save is running',C.mood.d<.05);
        C.saveT=0;const cv=W.document.createElement('canvas');cv.width=500;cv.height=1000;const x=cv.getContext('2d');let ok=true;try{F('pbMoodDraw')(x,C,1);}catch(e){ok=false;}check('the living table can be drawn',ok);
        const px=x.getImageData(250,950,1,1).data[3];check('the light dims the far corners from the ball',px>0);}
+      // the guardian: the creature of the world grown huge, fought as the boss
+      {const oldJ=W.localStorage.getItem('ct_pb_journal'),oldW5=W.localStorage.getItem('ct_pb_world');
+       try{W.localStorage.removeItem('ct_pb_journal');
+        const mk=world=>{W.localStorage.setItem('ct_pb_world',String(world));const C=F('pbNew')();F('pbEnsureWorld')(C);C.phase='play';C.room=null;C.wiz=null;C.net=null;C.multi=false;C.cr=null;C.crNext=1e9;C.evNext=1e9;C.rdNext=1e9;
+          C.balls=[{x:236,y:600,vx:0,vy:0,st:'play',id:9988,stuck:0,tr:[]}];F('pbBossStart')(C);return C;};
+        {const C=mk(0);F('pbGuardTick')(C,.016);check('the guardian wakes when the boss does',!!C.gd&&C.gd.k===0);
+         const hp0=C.st[0].boss.hp,b=C.balls[0];b.x=C.gd.x;b.y=C.gd.y;const s0=C.st[0].score;F('pbGuardTick')(C,.016);
+         check('a ball that hits the guardian hurts the boss by 14 and pays 5,000',C.st[0].boss.hp===hp0-14&&C.st[0].score-s0>=5000);
+         const hp1=C.st[0].boss.hp;b.x=C.gd.x;b.y=C.gd.y;F('pbGuardTick')(C,.016);check('it cannot be hit again at once',C.st[0].boss.hp===hp1);}
+        {const C=mk(1);F('pbGuardTick')(C,.016);const b=C.balls[0];b.x=C.gd.x;b.y=C.gd.y;F('pbGuardTick')(C,.016);check('the ember guardian dives after a hit',C.gd.hid>C.t);}
+        {const C=mk(2);F('pbGuardTick')(C,.016);const b=C.balls[0];b.x=C.gd.x+20;b.y=C.gd.y;b.vx=0;F('pbGuardTick')(C,.016);check('the gilded guardian shoves the ball away',b.vx>300);}
+        {const C=mk(3);F('pbGuardTick')(C,.016);const b=C.balls[0];b.x=C.gd.x;b.y=C.gd.y;const x0=C.gd.x,y0=C.gd.y;F('pbGuardTick')(C,.016);check('the star guardian blinks after a hit',Math.hypot(C.gd.x-x0,C.gd.y-y0)>60);}
+        {const C=mk(0);C.t=5;F('pbGuardTick')(C,.016);C.gd.atk=C.t;C.gd.tele=0;F('pbGuardTick')(C,.016);check('the guardian warns before it roars',C.gd.tele>C.t);
+         const b=C.balls[0];b.x=C.gd.x+60;b.y=C.gd.y;b.vx=0;b.vy=0;C.gd.hitT=C.t+99;C.gd.tele=C.t;F('pbGuardTick')(C,.016);check('the roar throws a near ball away',Math.hypot(b.vx,b.vy)>200);}
+        {const C=mk(0);F('pbGuardTick')(C,.016);C.st[0].boss=null;F('pbGuardTick')(C,.016);check('when the boss is beaten the guardian goes down and is in the Field Journal',!C.gd&&!!F('pbJournal')().g0);}
+        {const C=mk(0);F('pbGuardTick')(C,.016);C.gd.turn=9;F('pbGuardTick')(C,.016);check('a guardian of another turn is simply gone',!C.gd||C.gd.turn===C.turn);}
+        {const C=mk(0);C.net={on:true};C.gd=null;F('pbGuardTick')(C,.016);check('no guardian in an online game',!C.gd);}
+        {const C=mk(2);F('pbGuardTick')(C,.016);const cv=W.document.createElement('canvas');cv.width=500;cv.height=1000;let ok=true;try{C.gd.tele=C.t+.5;F('pbGuardDraw')(cv.getContext('2d'),C,1);}catch(e){ok=false;}check('the guardian can be drawn',ok);}
+       }finally{if(oldJ===null)W.localStorage.removeItem('ct_pb_journal');else W.localStorage.setItem('ct_pb_journal',oldJ);if(oldW5===null)W.localStorage.removeItem('ct_pb_world');else W.localStorage.setItem('ct_pb_world',oldW5);}}
       // the secret passages: the hidden trick opens the door, a ball that rolls in earns the prize
       {const oldJ=W.localStorage.getItem('ct_pb_journal'),oldW=W.localStorage.getItem('ct_pb_world');
        try{W.localStorage.removeItem('ct_pb_journal');W.localStorage.setItem('ct_pb_world','0');const C=F('pbNew')();C.phase='play';C.room=null;C.wiz=null;C.net=null;F('pbEnsureWorld')(C);
