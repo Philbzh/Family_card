@@ -6487,7 +6487,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=465;
+const APP_BUILD=466;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -12728,7 +12728,7 @@ function pbNetSnap(g){
   const m={k:'st',id:N.id,seat:N.seat,i:++N.seq,
     s:{turn:g.turn,phase:g.phase,t:g.t,pt:g.pt,combo:g.combo,multi:g.multi,saveT:g.saveT,tilt:g.tilt,tilted:g.tilted,skillT:g.skillT,endT:g.endT,endTot:g.endTot,jb:g.jackBest,pot:g.pot},
     b:g.balls.map(b=>[b.x,b.y,b.vx,b.vy,code[b.st]||'p']),
-    fl:['L','R','U'].map(k=>[g.fl[k].th,g.fl[k].on?1:0]),
+    fl:['L','R','U'].map(k=>[g.fl[k].th,(k==='U'?g.fl.R.on:g.fl[k].on)?1:0]),
     d:PB_T.drops.map(q=>q.down?1:0),sp:[PB_T.spin.ang,PB_T.spin.vel,PB_T.spin.dir],
     w:g.wiz?[g.wiz.t,g.wiz.max]:0,
     r:g.room?{kind:g.room.kind,t:g.room.t,left:g.room.left,max:g.room.max,lives:g.room.lives,gems:g.room.gems,next:g.room.next,state:g.room.state,score:g.room.score,fx:g.room.fx,fy:g.room.fy,gg:PB_RT.gems.map(q=>q.got?1:0),hh:PB_CK.hours.map(q=>q.done?1:0),cn:(g.room.coins||[]).map(q=>[q.x,q.y])}:0,
@@ -12818,7 +12818,7 @@ function pbNetPassive(g,dt){
   if(L){const target=L.t-.14;if(N.clock===undefined||Math.abs(target-N.clock)>.4)N.clock=target;else{N.clock+=dt;N.clock+=(target-N.clock)*.04;}N.clock=Math.min(N.clock,L.t+.1);
     g.t=N.clock;pbNetPose(g,N.clock,false);
     {const st1=g.st[g.turn];if(st1){st1.heat=Math.max(0,(st1.heat||0)-dt*3.5);st1.hotT=Math.max(0,(st1.hotT||0)-dt);st1.ovT=Math.max(0,(st1.ovT||0)-dt);}for(const j of PB_T.jets)j.on=pbJetPhase(j,g.t)<.9;}
-    for(const k of ['L','R','U']){const f=g.fl[k],F=PB_FL[k],tgt=f.on?F.act:F.rest,d=tgt-f.th;f.th+=Math.sign(d)*Math.min(Math.abs(d),(f.on?24:15)*dt);}
+    for(const k of ['L','R','U']){const f=g.fl[k],F=PB_FL[k],on=k==='U'?g.fl.R.on:f.on,tgt=on?F.act:F.rest,d=tgt-f.th;f.th+=Math.sign(d)*Math.min(Math.abs(d),(on?24:15)*dt);}
     if(N.evq.length){N.rep=true;try{while(N.evq.length&&N.evq[0].t<=N.clock){pbNetReplay(g,N.evq.shift().e);}}finally{N.rep=false;}}}
   else g.t+=dt;
   const sp=PB_T.spin;if(sp.vel>.2){sp.ang+=sp.vel*dt*sp.dir;sp.vel*=Math.exp(-dt*1.5);}else sp.vel=0;
