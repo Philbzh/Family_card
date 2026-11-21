@@ -5954,6 +5954,18 @@ async function runPresentation(A,W,frame){
           C.t+=21;F('pbSigilTick')(C,.016);check('a sigil that is not used goes back to sleep for good',C.sg.s===2);F('pbNewBall')(C);check('a new ball finds the sigil asleep again',C.sg===null);}
         {const C=mk(1,1);C.cr=null;C.net={on:true};const P=F('PB_SIG')[1];C.balls[0].x=P.x;C.balls[0].y=P.y;F('pbSigilTick')(C,.016);check('no sigil in an online game',!(C.sg&&C.sg.s>0));}
        }finally{if(oldJ===null)W.localStorage.removeItem('ct_pb_journal');else W.localStorage.setItem('ct_pb_journal',oldJ);if(oldW1===null)W.localStorage.removeItem('ct_pb_world');else W.localStorage.setItem('ct_pb_world',oldW1);}}
+      // rule-bending events: the machine misbehaves for a while, then it is over
+      {const oldJ=W.localStorage.getItem('ct_pb_journal'),oldW2=W.localStorage.getItem('ct_pb_world');
+       try{W.localStorage.removeItem('ct_pb_journal');W.localStorage.setItem('ct_pb_world','0');const C=F('pbNew')();F('pbEnsureWorld')(C);C.phase='play';C.room=null;C.wiz=null;C.net=null;C.multi=false;C.cr=null;C.crNext=1e9;
+        C.balls=[{x:236,y:300,vx:0,vy:0,st:'play',id:9970,stuck:0,tr:[]}];C.evNext=0;F('pbEventTick')(C,.016);
+        check('an event starts when its time has come, and it is in the Field Journal',!!C.ev&&Object.keys(F('pbJournal')()).some(k=>/^e\d$/.test(k)));
+        C.ev.k='tilt';C.ev.dir=1;C.gx=150;{const b=C.balls[0];b.x=236;b.y=300;b.vx=0;b.vy=0;F('pbAdvance')(C,.02);check('with the floor tilted the ball drifts sideways',b.vx>1);}
+        C.ev.k='moon';C.gx=0;C.gsMul=.55;{const b=C.balls[0];b.x=236;b.y=300;b.vx=0;b.vy=0;F('pbAdvance')(C,.02);const v1=b.vy;C.gsMul=1;b.x=236;b.y=300;b.vx=0;b.vy=0;F('pbAdvance')(C,.02);check('with the light ball gravity pulls less',v1<b.vy*.8);}
+        C.gsMul=1;C.ghostT=C.t+5;{const st=C.st[0],s0=st.score;F('pbPts')(C,1000,{flat:1});const dg=st.score-s0;C.ghostT=0;const s1=st.score;F('pbPts')(C,1000,{flat:1});check('the shadow ball doubles the points',dg===2*(st.score-s1));}
+        C.ev.until=C.t-1;F('pbEventTick')(C,.016);check('the event ends by itself and everything is back to normal',!C.ev&&C.gx===0&&C.gsMul===1&&C.ghostT===0);
+        {const D=F('pbNew')();D.phase='play';D.room=null;D.wiz=null;D.net={on:true};D.evNext=0;D.balls=[{x:236,y:300,vx:0,vy:0,st:'play',id:9971,stuck:0,tr:[]}];F('pbEventTick')(D,.016);check('no events in an online game',!D.ev);}
+        F('pbNewBall')(C);check('a new ball starts without any event',!C.ev&&C.gx===0);
+       }finally{if(oldJ===null)W.localStorage.removeItem('ct_pb_journal');else W.localStorage.setItem('ct_pb_journal',oldJ);if(oldW2===null)W.localStorage.removeItem('ct_pb_world');else W.localStorage.setItem('ct_pb_world',oldW2);}}
       // the secret passages: the hidden trick opens the door, a ball that rolls in earns the prize
       {const oldJ=W.localStorage.getItem('ct_pb_journal'),oldW=W.localStorage.getItem('ct_pb_world');
        try{W.localStorage.removeItem('ct_pb_journal');W.localStorage.setItem('ct_pb_world','0');const C=F('pbNew')();C.phase='play';C.room=null;C.wiz=null;C.net=null;F('pbEnsureWorld')(C);

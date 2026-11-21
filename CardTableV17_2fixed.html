@@ -6487,7 +6487,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=468;
+const APP_BUILD=469;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -12425,7 +12425,7 @@ function pbNew(){pbResetTable();
   return g;
 }
 function pbNewBall(g){
-  g.balls=[{x:PB.LX,y:PB.H-79,vx:0,vy:0,st:'plunger',id:++pbBid,stuck:0,tr:[]}];g.saveT=0;g.tilt=0;g.tilted=false;g.multi=false;g.mbQueue=0;g.combo=0;g.comboT=0;g.bonusShow=null;g.skillT=0;g.dropReset=0;g.noSave=false;g.sg=null;
+  g.balls=[{x:PB.LX,y:PB.H-79,vx:0,vy:0,st:'plunger',id:++pbBid,stuck:0,tr:[]}];g.saveT=0;g.tilt=0;g.tilted=false;g.multi=false;g.mbQueue=0;g.combo=0;g.comboT=0;g.bonusShow=null;g.skillT=0;g.dropReset=0;g.noSave=false;g.sg=null;pbEventEnd(g);
   for(const d of PB_T.drops)d.down=false;
   const st=g.st[g.turn];if(st){st.secret=false;st.secret2=false;st.kick=g.easyKick?[true,true]:[st.kick[0]||!st.kick[1],st.kick[1]];st.lanes=[0,0,0];st.superT=0;}g.nudges=0;
 }
@@ -12450,7 +12450,7 @@ function pbAdvance(g,dt){
     for(const k of ['L','R','U']){const f=g.fl[k],F=PB_FL[k],up=(k==='U'?g.fl.R.on:f.on)&&!g.tilted&&g.phase==='play',tgt=up?F.act:F.rest,sp=up?24:15,d=tgt-f.th,step=Math.sign(d)*Math.min(Math.abs(d),sp*h);f.th+=step;f.w=step/h;}
     for(const b of g.balls){
       if(b.st==='plunger'||b.st==='ramp'||b.st==='lock'||b.st==='gone'||b.st==='tunnel'||b.st==='room'||b.st==='mag')continue;
-      b.py=b.y;b.vy+=PB.G*(g.gs||1)*h;b.x+=b.vx*h;b.y+=b.vy*h;
+      b.py=b.y;b.vy+=PB.G*(g.gs||1)*(g.gsMul||1)*h;b.vx+=(g.gx||0)*h;b.x+=b.vx*h;b.y+=b.vy*h;
       const sp=Math.hypot(b.vx,b.vy);if(sp>PB.MAXV){b.vx*=PB.MAXV/sp;b.vy*=PB.MAXV/sp;}
       pbCollide(g,b,h);
     }
@@ -12576,7 +12576,7 @@ const PBS={
 function pbSay(g,t,sub,col,ms){fgBanner(g,t,sub||'',col||null,ms||1100);}
 function pbSpark(g,x,y,col,n){pbNetEv(g,['p',Math.round(x),Math.round(y),col,n]);for(let i=0;i<n;i++){const a=Math.random()*6.283,s=80+Math.random()*260;g.fx.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-30,l:0,life:.35+Math.random()*.4,col});}}
 function pbRing(g,x,y,col,r1){pbNetEv(g,['r',Math.round(x),Math.round(y),col,r1||150]);g.fx.rings.push({x,y,l:0,life:.7,col,r1:r1||150});if(g.fx.rings.length>8)g.fx.rings.shift();}
-function pbPts(g,n,o){const st=g.st[g.turn],m=o&&o.flat?1:st.mult,c=o&&o.combo?Math.max(1,Math.min(5,g.combo)):1,v=Math.round(n*m*c*(g.wiz?3:1)*(st.ovT>0?2:1));st.score+=v;st.bonus+=Math.round(n*.05);return v;}
+function pbPts(g,n,o){const st=g.st[g.turn],m=o&&o.flat?1:st.mult,c=o&&o.combo?Math.max(1,Math.min(5,g.combo)):1,v=Math.round(n*m*c*(g.wiz?3:1)*(st.ovT>0?2:1)*(g.ghostT>g.t?2:1));st.score+=v;st.bonus+=Math.round(n*.05);return v;}
 function pbShot(g){if(g.t-g.comboT<5)g.combo++;else g.combo=1;g.comboT=g.t;if(g.combo>=2){const n=Math.min(5,g.combo);pbSay(g,['','','DOUBLE','TRIPLE','QUAD','MAXIMUM'][n],'COMBO ×'+n,['','','#F4EBD0','#ffd96a','#ff8a3a','#ff4a6a'][n],900);PBS.combo(n);}}
 for(const k of Object.keys(PBS)){const f=PBS[k];if(typeof f!=='function')continue;PBS[k]=function(){const g=G.pb,rec=g&&g.net&&g.net.act&&!g.net.rep&&!PBS._d;PBS._d=(PBS._d||0)+1;try{if(rec)pbNetEv(g,['s',k].concat(Array.prototype.slice.call(arguments).map(v=>typeof v==='boolean'?(v?1:0):v).filter(v=>typeof v==='number')));return f.apply(this,arguments);}finally{PBS._d--;}};}
 const PB_DIFF={easy:{n:'EASY',gs:.85,save:18,tilt:12.6,kick:true,hint:true},normal:{n:'NORMAL',gs:1,save:9,tilt:9,kick:false,hint:false},expert:{n:'EXPERT',gs:1.08,save:5,tilt:7.2,kick:false,hint:false}};
@@ -12940,7 +12940,7 @@ function pbRoomEnd(g){const r=g.room,b=r.b,o=r.to||PB_T.portals.find(q=>q!==r.fr
   pbSay(g,r.kind==='clock'?'CLOCK ROOM':PB_RSK[r.kind]?PB_RSK[r.kind].title:'SECRET ROOM','+'+r.score.toLocaleString()+' · '+(r.kind==='clock'?(r.next-1)+' of 12 hours':r.gems+' of 5 '+(PB_RSK[r.kind]?PB_RSK[r.kind].word:'gems')),r.kind==='clock'?'#9fe8ff':PB_RSK[r.kind]?PB_RSK[r.kind].acc:'#e8c8ff',2000);PBS.portalOut();pbRing(g,o.x,o.y,'#ffe9a8',110);}
 // ── the step ──
 /* ── the Field Journal and the rare creatures: nothing announces them, you find them ── */
-const PB_FIND={c0:['Clockwork Moth','a brass moth that wanders the workshop','#e0b060'],c1:['Ember Salamander','it lives in the cooling embers of the forge','#ff7a2a'],c2:['Gilded Beetle','it guards the vault and hates a rolling ball','#e8c460'],c3:['Star Wisp','a spark of the observatory sky','#bcd6f2'],p0:['The Hidden Panel','a sliding panel in the workshop floor','#ffb050'],p1:['The Furnace Hatch','a cold iron hatch that wakes in the forge','#ff6a20'],p2:['The Vault Chest','a chest that opens when the tumblers agree','#ffd060'],p3:['The Star Hatch','a round hatch that opens to the third orbit','#80b0ff'],s0:['The Clockwork Heart','a sleeping sigil in the workshop floor: roll the ball over it','#e0b060'],s1:['The Ember Seal','a sleeping sigil high on the forge floor','#ff9a3c'],s2:['The Guardian Eye','a sleeping sigil by the vault wall','#e8c460'],s3:['The Star Seed','a sleeping sigil under the observatory sky','#bcd6f2'],rforge:['The Forge Chamber','a hidden foundry under the furnace hatch'],rstar:['The Star Vault','a hidden chamber under the observatory hatch'],rstrong:['The Strongroom','the innermost chamber behind the golden chest'],rstudy:['The Hidden Study','a cartographer\'s study under the workshop panel'],rvault:['The Vault Room','a hidden chamber behind the tunnels'],rclock:['The Clock Room','a hidden room after an orbit and a tunnel']};
+const PB_FIND={c0:['Clockwork Moth','a brass moth that wanders the workshop','#e0b060'],c1:['Ember Salamander','it lives in the cooling embers of the forge','#ff7a2a'],c2:['Gilded Beetle','it guards the vault and hates a rolling ball','#e8c460'],c3:['Star Wisp','a spark of the observatory sky','#bcd6f2'],p0:['The Hidden Panel','a sliding panel in the workshop floor','#ffb050'],p1:['The Furnace Hatch','a cold iron hatch that wakes in the forge','#ff6a20'],p2:['The Vault Chest','a chest that opens when the tumblers agree','#ffd060'],p3:['The Star Hatch','a round hatch that opens to the third orbit','#80b0ff'],e0:['The Tilting Floor','the floor leans and the ball drifts sideways','#9fd0ff'],e1:['The Light Ball','gravity forgets the ball for a while','#bcd6f2'],e2:['The Shadow Ball','a shadow of the ball pays double','#c8a8ff'],e3:['The Singing Bumpers','the bumpers sing and pay more','#ffd96a'],e4:['The Turning Wells','the gravity wells change direction','#ff9aff'],s0:['The Clockwork Heart','a sleeping sigil in the workshop floor: roll the ball over it','#e0b060'],s1:['The Ember Seal','a sleeping sigil high on the forge floor','#ff9a3c'],s2:['The Guardian Eye','a sleeping sigil by the vault wall','#e8c460'],s3:['The Star Seed','a sleeping sigil under the observatory sky','#bcd6f2'],rforge:['The Forge Chamber','a hidden foundry under the furnace hatch'],rstar:['The Star Vault','a hidden chamber under the observatory hatch'],rstrong:['The Strongroom','the innermost chamber behind the golden chest'],rstudy:['The Hidden Study','a cartographer\'s study under the workshop panel'],rvault:['The Vault Room','a hidden chamber behind the tunnels'],rclock:['The Clock Room','a hidden room after an orbit and a tunnel']};
 function pbJournal(){try{const j=JSON.parse(localStorage.getItem('ct_pb_journal')||'{}');return j&&typeof j==='object'?j:{};}catch(e){return{};}}
 function pbJournalAdd(g,key){try{const j=pbJournal(),first=!j[key],nm=g&&g.players&&g.players[g.turn]?g.players[g.turn].name:'';j[key]={n:(j[key]?j[key].n:0)+1,d:first?new Date().toISOString().slice(0,10):j[key].d,by:first?nm:j[key].by};localStorage.setItem('ct_pb_journal',JSON.stringify(j));
   if(first&&g){setTimeout(()=>{if(G.pb===g)pbSay(g,'FIELD JOURNAL','new entry: '+PB_FIND[key][0],'#e8d8ff',2200);},900);}return first;}catch(e){return false;}}
@@ -12995,6 +12995,35 @@ function pbSigilDraw(x,g,t){
     x.strokeStyle=P.c;x.lineWidth=2.4;x.beginPath();x.arc(0,0,17,0,6.283);x.stroke();x.fillStyle=P.c;x.globalAlpha=.8*Math.max(.3,fade);x.beginPath();x.arc(0,0,9*pul,0,6.283);x.fill();
     x.globalAlpha=Math.max(.3,fade);x.strokeStyle='#fff';x.lineWidth=1.2;x.save();x.rotate(-t*1.6);for(let i=0;i<8;i++){x.rotate(Math.PI/4);x.beginPath();x.moveTo(20,0);x.lineTo(28,0);x.stroke();}x.restore();}
   x.restore();}
+/* ── rule-bending events: now and then the machine misbehaves, without a word of explanation ── */
+const PB_EVS=[{k:'tilt',t:'THE FLOOR TILTS',j:'e0',w:[0,1,2,3]},{k:'moon',t:'THE BALL GROWS LIGHT',j:'e1',w:[0,1,2,3]},{k:'ghost',t:'A SHADOW FOLLOWS',j:'e2',w:[0,1,2,3]},{k:'sing',t:'THE BUMPERS SING',j:'e3',w:[0,1,2,3]},{k:'wells',t:'THE WELLS TURN',j:'e4',w:[3]}];
+function pbEventEnd(g){
+  if(g.ev&&g.ev.k==='wells')for(const w of PB_T.wells)w.dir=-w.dir;
+  g.ev=null;g.gx=0;g.gsMul=1;g.ghostT=0;
+}
+function pbEventTick(g,dt){
+  if(g.net||g.room||g.wiz||g.phase!=='play')return;
+  if(g.evNext==null)g.evNext=g.t+45+Math.random()*20;
+  if(g.ev){if(g.t>=g.ev.until){pbEventEnd(g);g.evNext=g.t+40+Math.random()*35;}return;}
+  if(g.t<g.evNext||g.multi||!g.balls.some(b=>b.st==='play'))return;
+  const k=PB_T.world|0,pool=PB_EVS.filter(e=>e.w.includes(k)),e=pool[Math.floor(Math.random()*pool.length)];if(!e)return;
+  g.ev={k:e.k,until:g.t+10,t0:g.t,dir:Math.random()<.5?-1:1};
+  if(e.k==='tilt')g.gx=150*g.ev.dir;
+  else if(e.k==='moon')g.gsMul=.55;
+  else if(e.k==='ghost')g.ghostT=g.t+10;
+  else if(e.k==='sing'){const st=g.st[g.turn];if(st)st.superT=Math.max(st.superT||0,10);}
+  else if(e.k==='wells')for(const w of PB_T.wells)w.dir=-w.dir;
+  pbSay(g,e.t,'','#e8d8ff',1600);PBS.lit();pbChase(g,PB_FIND[e.j][2]);haptic([10,20,10]);pbJournalAdd(g,e.j);
+}
+function pbEventDraw(x,g,t){
+  const e=g.ev;if(!e)return;const u=Math.min(1,(g.t-e.t0)/.5)*Math.min(1,(e.until-g.t)/.8);
+  if(e.k==='tilt'){x.save();const side=e.dir>0?PB.W:0,gr=x.createLinearGradient(side,0,side-e.dir*110,0);gr.addColorStop(0,'rgba(159,208,255,'+(.28*u)+')');gr.addColorStop(1,'rgba(159,208,255,0)');x.fillStyle=gr;x.fillRect(0,0,PB.W,PB.H);
+    x.strokeStyle='rgba(200,225,255,'+(.35*u)+')';x.lineWidth=2;for(let i=0;i<7;i++){const yy=(120+i*130+(t*60)%130),xx=((t*90*e.dir+i*70)%460+460)%460+20;x.beginPath();x.moveTo(xx,yy);x.lineTo(xx+e.dir*26,yy);x.stroke();}x.restore();}
+  else if(e.k==='moon'){x.save();x.fillStyle='rgba(188,214,242,'+(.07*u)+')';x.fillRect(0,0,PB.W,PB.H);x.fillStyle='rgba(220,235,255,'+(.5*u)+')';for(let i=0;i<9;i++){const yy=PB.H-((t*40+i*113)%PB.H),xx=40+(i*97)%420+Math.sin(t*1.3+i)*14;x.beginPath();x.arc(xx,yy,2+(i%3),0,6.283);x.fill();}x.restore();}
+  else if(e.k==='ghost'){const bi=pbImg('ball');for(const b of g.balls){if(b.st!=='play'||!b.tr||b.tr.length<4)continue;const q=b.tr[0];x.save();x.globalAlpha=.4*u;pbGlow(x,q[0],q[1],26,'#c8a8ff',.7);if(bi)x.drawImage(bi,q[0]-10,q[1]-10,20,20);else{x.fillStyle='#e8d8ff';x.beginPath();x.arc(q[0],q[1],9,0,6.283);x.fill();}x.restore();}}
+  else if(e.k==='sing'){x.save();x.globalCompositeOperation='lighter';for(const bm of PB_T.bumpers){pbGlow(x,bm.x,bm.y,bm.r*2.4,'#ffd96a',(.25+.2*Math.sin(t*9+bm.x))*u);}x.restore();}
+  else if(e.k==='wells'){x.save();x.globalCompositeOperation='lighter';for(const w of PB_T.wells){const p=pbWellPos(w,g.t);pbGlow(x,p[0],p[1],60,'#ff9aff',.35*u);}x.restore();}
+}
 function pbCrPlace(c,g,far){let x,y,n=0;do{x=80+Math.random()*320;y=240+Math.random()*310;n++;}while(n<12&&g.balls.some(b=>b.st==='play'&&Math.hypot(b.x-x,b.y-y)<far));c.x=x;c.y=y;c.vx=c.vy=0;}
 function pbCreatureTick(g,dt){
   if(g.net||g.room||g.wiz||g.phase!=='play')return;
@@ -13063,7 +13092,7 @@ function pbStep(g,dt){
   if(st.superT>0)st.superT-=dt;
   if(g.saveT>0&&g.balls.some(b=>b.st==='play'))g.saveT-=dt;
   if(g.comboT&&g.t-g.comboT>5)g.combo=0;
-  pbAdvance(g,dt);pbCreatureTick(g,dt);pbSecretTick(g,dt);pbSigilTick(g,dt);
+  pbAdvance(g,dt);pbCreatureTick(g,dt);pbSecretTick(g,dt);pbSigilTick(g,dt);pbEventTick(g,dt);
   // the balls that are away from the table: on a ramp, in the vault
   for(const b of g.balls){
     b.tr=b.tr||[];if(b.st==='play'||b.st==='ramp'){b.tr.push([b.x,b.y]);if(b.tr.length>9)b.tr.shift();}else b.tr.length=0;
@@ -13408,7 +13437,7 @@ function pbDraw(g,now){
     row(1,'BUMPERS   '+b.bumps,448);row(2,'RAMPS   '+b.ramps,472);row(3,'BONUS   '+Math.round(b.bonus/b.mult).toLocaleString()+'  ×'+b.mult,496);
     if(el>4*.55){const a=Math.min(1,(el-4*.55)/.9),v=Math.round(b.bonus*a);x.globalAlpha=u;x.fillStyle='#ffe9a8';x.font='700 26px Cinzel, Georgia, serif';x.fillText('+ '+v.toLocaleString(),240,534);}
     if(b.extra&&el>5*.55){x.globalAlpha=u;x.fillStyle='#7fd7ff';x.font='700 13px Jost, sans-serif';x.fillText('EXTRA BALL · SHOOT AGAIN',240,555);}x.restore();}
-  pbSigilDraw(x,g,t);pbSecretDraw(x,g,t);pbCreatureDraw(x,g,t);
+  pbEventDraw(x,g,t);pbSigilDraw(x,g,t);pbSecretDraw(x,g,t);pbCreatureDraw(x,g,t);
   // the floating points
   for(const q of g.fx.pops){const u=q.l/1.1;x.save();x.globalAlpha=Math.max(0,1-u*u);x.textAlign='center';x.font='700 '+(q.big?20:14)+'px Jost, sans-serif';x.fillStyle=q.big?'#ffd96a':'#ffffff';x.shadowColor='rgba(0,0,0,.9)';x.shadowBlur=4;x.fillText(q.t,q.x,q.y-u*38);x.restore();}
   if(g.tilt>2||g.tilted){x.save();const ta=g.tilted?.35:Math.min(.5,g.tilt/9*.5)*(g.tilt>5.5?.7+.3*Math.sin(t*10):1),vg=x.createRadialGradient(236,500,200,236,500,620);vg.addColorStop(0,'rgba(255,40,30,0)');vg.addColorStop(1,'rgba(255,40,30,'+ta+')');x.fillStyle=vg;x.fillRect(-M,-M,PB.W+2*M,PB.H+2*M);x.restore();}
