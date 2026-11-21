@@ -5966,6 +5966,22 @@ async function runPresentation(A,W,frame){
         {const D=F('pbNew')();D.phase='play';D.room=null;D.wiz=null;D.net={on:true};D.evNext=0;D.balls=[{x:236,y:300,vx:0,vy:0,st:'play',id:9971,stuck:0,tr:[]}];F('pbEventTick')(D,.016);check('no events in an online game',!D.ev);}
         F('pbNewBall')(C);check('a new ball starts without any event',!C.ev&&C.gx===0);
        }finally{if(oldJ===null)W.localStorage.removeItem('ct_pb_journal');else W.localStorage.setItem('ct_pb_journal',oldJ);if(oldW2===null)W.localStorage.removeItem('ct_pb_world');else W.localStorage.setItem('ct_pb_world',oldW2);}}
+      // riddles written on the table
+      {const oldJ=W.localStorage.getItem('ct_pb_journal'),oldW3=W.localStorage.getItem('ct_pb_world');
+       try{W.localStorage.removeItem('ct_pb_journal');W.localStorage.setItem('ct_pb_world','0');const C=F('pbNew')();F('pbEnsureWorld')(C);C.phase='play';C.room=null;C.wiz=null;C.net=null;C.multi=false;C.cr=null;C.crNext=1e9;C.evNext=1e9;
+        C.balls=[{x:236,y:300,vx:0,vy:0,st:'play',id:9980,stuck:0,tr:[]}];C.rdNext=0;F('pbRiddleTick')(C,.016);
+        check('a riddle is engraved when its time has come',!!C.rd&&C.rd.until>C.t);
+        const R0=F('PB_RIDDLES')[0],sp=R0[C.rd.i][2],wrong=sp.e==='spin'?'orbit':'spin',s0=C.st[0].score;
+        F('pbEvent0')(C,wrong,{b:C.balls[0],sp:F('PB_T').spin,p:{id:'zz'},bm:{id:'zz'},sl:{id:'sl'},d:{id:9}});
+        check('a wrong answer solves nothing',!!C.rd&&!(C.sd&&C.sd.open));
+        const want={e:sp.e},dd={b:C.balls[0],sp:F('PB_T').spin,id:sp.id,p:{id:sp.id},bm:{id:sp.id},sl:{id:'sl'},d:{id:0},hm:{}};
+        const s1=C.st[0].score;F('pbEvent0')(C,sp.e,dd);
+        check('the right answer pays at least 10,000, opens the hidden way and is in the Field Journal',!C.rd&&C.st[0].score-s1>=10000&&!!(C.sd&&C.sd.open)&&!!F('pbJournal')().q0);
+        C.rdNext=0;C.net={on:true};F('pbRiddleTick')(C,.016);check('no riddles in an online game',!C.rd);C.net=null;
+        C.rdNext=0;C.rd=null;F('pbRiddleTick')(C,.016);C.rd.until=C.t-1;F('pbRiddleTick')(C,.016);check('an unanswered riddle fades away by itself',!C.rd);
+        C.rdNext=0;F('pbRiddleTick')(C,.016);F('pbNewBall')(C);check('a new ball starts without a riddle',!C.rd);
+        const cv=W.document.createElement('canvas');cv.width=500;cv.height=1000;let ok=true;try{C.rd={i:1,t0:C.t-2,until:C.t+10};F('pbRiddleDraw')(cv.getContext('2d'),C,1);}catch(e){ok=false;}check('a riddle can be drawn',ok);
+       }finally{if(oldJ===null)W.localStorage.removeItem('ct_pb_journal');else W.localStorage.setItem('ct_pb_journal',oldJ);if(oldW3===null)W.localStorage.removeItem('ct_pb_world');else W.localStorage.setItem('ct_pb_world',oldW3);}}
       // the secret passages: the hidden trick opens the door, a ball that rolls in earns the prize
       {const oldJ=W.localStorage.getItem('ct_pb_journal'),oldW=W.localStorage.getItem('ct_pb_world');
        try{W.localStorage.removeItem('ct_pb_journal');W.localStorage.setItem('ct_pb_world','0');const C=F('pbNew')();C.phase='play';C.room=null;C.wiz=null;C.net=null;F('pbEnsureWorld')(C);
