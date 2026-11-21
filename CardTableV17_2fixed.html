@@ -6487,7 +6487,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=467;
+const APP_BUILD=468;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -12425,7 +12425,7 @@ function pbNew(){pbResetTable();
   return g;
 }
 function pbNewBall(g){
-  g.balls=[{x:PB.LX,y:PB.H-79,vx:0,vy:0,st:'plunger',id:++pbBid,stuck:0,tr:[]}];g.saveT=0;g.tilt=0;g.tilted=false;g.multi=false;g.mbQueue=0;g.combo=0;g.comboT=0;g.bonusShow=null;g.skillT=0;g.dropReset=0;g.noSave=false;
+  g.balls=[{x:PB.LX,y:PB.H-79,vx:0,vy:0,st:'plunger',id:++pbBid,stuck:0,tr:[]}];g.saveT=0;g.tilt=0;g.tilted=false;g.multi=false;g.mbQueue=0;g.combo=0;g.comboT=0;g.bonusShow=null;g.skillT=0;g.dropReset=0;g.noSave=false;g.sg=null;
   for(const d of PB_T.drops)d.down=false;
   const st=g.st[g.turn];if(st){st.secret=false;st.secret2=false;st.kick=g.easyKick?[true,true]:[st.kick[0]||!st.kick[1],st.kick[1]];st.lanes=[0,0,0];st.superT=0;}g.nudges=0;
 }
@@ -12940,7 +12940,7 @@ function pbRoomEnd(g){const r=g.room,b=r.b,o=r.to||PB_T.portals.find(q=>q!==r.fr
   pbSay(g,r.kind==='clock'?'CLOCK ROOM':PB_RSK[r.kind]?PB_RSK[r.kind].title:'SECRET ROOM','+'+r.score.toLocaleString()+' · '+(r.kind==='clock'?(r.next-1)+' of 12 hours':r.gems+' of 5 '+(PB_RSK[r.kind]?PB_RSK[r.kind].word:'gems')),r.kind==='clock'?'#9fe8ff':PB_RSK[r.kind]?PB_RSK[r.kind].acc:'#e8c8ff',2000);PBS.portalOut();pbRing(g,o.x,o.y,'#ffe9a8',110);}
 // ── the step ──
 /* ── the Field Journal and the rare creatures: nothing announces them, you find them ── */
-const PB_FIND={c0:['Clockwork Moth','a brass moth that wanders the workshop','#e0b060'],c1:['Ember Salamander','it lives in the cooling embers of the forge','#ff7a2a'],c2:['Gilded Beetle','it guards the vault and hates a rolling ball','#e8c460'],c3:['Star Wisp','a spark of the observatory sky','#bcd6f2'],p0:['The Hidden Panel','a sliding panel in the workshop floor','#ffb050'],p1:['The Furnace Hatch','a cold iron hatch that wakes in the forge','#ff6a20'],p2:['The Vault Chest','a chest that opens when the tumblers agree','#ffd060'],p3:['The Star Hatch','a round hatch that opens to the third orbit','#80b0ff'],rforge:['The Forge Chamber','a hidden foundry under the furnace hatch'],rstar:['The Star Vault','a hidden chamber under the observatory hatch'],rstrong:['The Strongroom','the innermost chamber behind the golden chest'],rstudy:['The Hidden Study','a cartographer\'s study under the workshop panel'],rvault:['The Vault Room','a hidden chamber behind the tunnels'],rclock:['The Clock Room','a hidden room after an orbit and a tunnel']};
+const PB_FIND={c0:['Clockwork Moth','a brass moth that wanders the workshop','#e0b060'],c1:['Ember Salamander','it lives in the cooling embers of the forge','#ff7a2a'],c2:['Gilded Beetle','it guards the vault and hates a rolling ball','#e8c460'],c3:['Star Wisp','a spark of the observatory sky','#bcd6f2'],p0:['The Hidden Panel','a sliding panel in the workshop floor','#ffb050'],p1:['The Furnace Hatch','a cold iron hatch that wakes in the forge','#ff6a20'],p2:['The Vault Chest','a chest that opens when the tumblers agree','#ffd060'],p3:['The Star Hatch','a round hatch that opens to the third orbit','#80b0ff'],s0:['The Clockwork Heart','a sleeping sigil in the workshop floor: roll the ball over it','#e0b060'],s1:['The Ember Seal','a sleeping sigil high on the forge floor','#ff9a3c'],s2:['The Guardian Eye','a sleeping sigil by the vault wall','#e8c460'],s3:['The Star Seed','a sleeping sigil under the observatory sky','#bcd6f2'],rforge:['The Forge Chamber','a hidden foundry under the furnace hatch'],rstar:['The Star Vault','a hidden chamber under the observatory hatch'],rstrong:['The Strongroom','the innermost chamber behind the golden chest'],rstudy:['The Hidden Study','a cartographer\'s study under the workshop panel'],rvault:['The Vault Room','a hidden chamber behind the tunnels'],rclock:['The Clock Room','a hidden room after an orbit and a tunnel']};
 function pbJournal(){try{const j=JSON.parse(localStorage.getItem('ct_pb_journal')||'{}');return j&&typeof j==='object'?j:{};}catch(e){return{};}}
 function pbJournalAdd(g,key){try{const j=pbJournal(),first=!j[key],nm=g&&g.players&&g.players[g.turn]?g.players[g.turn].name:'';j[key]={n:(j[key]?j[key].n:0)+1,d:first?new Date().toISOString().slice(0,10):j[key].d,by:first?nm:j[key].by};localStorage.setItem('ct_pb_journal',JSON.stringify(j));
   if(first&&g){setTimeout(()=>{if(G.pb===g)pbSay(g,'FIELD JOURNAL','new entry: '+PB_FIND[key][0],'#e8d8ff',2200);},900);}return first;}catch(e){return false;}}
@@ -12967,21 +12967,71 @@ function pbSecretDraw(x,g,t){
   x.globalAlpha=.34*(1-f);x.drawImage(ci,-ci.naturalWidth*sc/2,-ci.naturalHeight*sc/2,ci.naturalWidth*sc,ci.naturalHeight*sc);
   if(f>0){x.globalAlpha=f;x.shadowColor=PB_FIND['p'+k][2];x.shadowBlur=14+5*Math.sin(t*4);x.drawImage(oi,-oi.naturalWidth*sc/2,-oi.naturalHeight*sc/2,oi.naturalWidth*sc,oi.naturalHeight*sc);}
   x.restore();}
+/* ── the sleeping sigils: one rune in every world sleeps until the ball rolls over it; awake, it feeds the world's own mechanic ── */
+const PB_SIG=[{x:120,y:510,n:'CLOCKWORK HEART',c:'#e0b060'},{x:320,y:260,n:'EMBER SEAL',c:'#ff9a3c'},{x:110,y:520,n:'GUARDIAN EYE',c:'#e8c460'},{x:160,y:270,n:'STAR SEED',c:'#bcd6f2'}];
+function pbSigilTick(g,dt){
+  if(g.net||g.room||g.phase!=='play')return;const k=PB_T.world|0,P=PB_SIG[k];
+  if(!g.sg||g.sg.k!==k)g.sg={k,s:0,until:0,hits:0,hit:-9,t0:-9};const sg=g.sg;
+  if(sg.s===2)return;
+  if(sg.s===1&&(g.t>sg.until||sg.hits>=6)){sg.s=2;pbRing(g,P.x,P.y,P.c,70);return;}
+  for(const b of g.balls){if(b.st!=='play')continue;const d=Math.hypot(b.x-P.x,b.y-P.y);
+    if(sg.s===0){if(d<24){sg.s=1;sg.until=g.t+20;sg.t0=g.t;pbSay(g,'SOMETHING STIRS','','#e8d8ff',1500);PBS.lit();pbRing(g,P.x,P.y,P.c,110);pbSpark(g,P.x,P.y,P.c,18);haptic([10,20,10]);pbJournalAdd(g,'s'+k);}continue;}
+    const c=pbCirc(b,P.x,P.y,16,.8);
+    if(c&&g.t-sg.hit>.2){sg.hit=g.t;sg.hits++;const st=g.st[g.turn];b.vx+=c.nx*420;b.vy+=c.ny*420;pbPts(g,3000);pbSpark(g,P.x,P.y,P.c,10);pbRing(g,P.x,P.y,P.c,60);PBS.bumper();haptic(8);pbPop(g,P.x,P.y-24,'+3,000',false);
+      if(k===0){g.slow=Math.max(g.slow||0,.35);}
+      else if(k===1){st.heat=Math.min(100,(st.heat||0)+30);b.vy-=260;}
+      else if(k===2){st.superT=Math.max(st.superT||0,8);if(sg.hits===1)pbSay(g,'THE TUMBLERS PAY','500 each for 8 seconds','#ffd96a',1500);}
+      else if(k===3){pbCoreCharge(g,20);}
+      if(sg.hits>=6)pbSay(g,P.n,'spent','#e8d8ff',1100);}}
+}
+function pbSigilDraw(x,g,t){
+  const k=PB_T.world|0,P=PB_SIG[k],sg=g.sg&&g.sg.k===k?g.sg:null,s=sg?sg.s:0;
+  if(s===2){x.save();x.globalAlpha=.1;x.strokeStyle=P.c;x.lineWidth=1.4;x.beginPath();x.arc(P.x,P.y,17,0,6.283);x.stroke();x.restore();return;}
+  let near=1e9;for(const b of g.balls)if(b.st==='play')near=Math.min(near,Math.hypot(b.x-P.x,b.y-P.y));
+  x.save();x.translate(P.x,P.y);
+  if(s===0){const a=.1+.06*Math.sin(t*2)+(near<140?(1-near/140)*.55:0);x.globalAlpha=a;x.strokeStyle=P.c;x.lineWidth=1.6;x.beginPath();x.arc(0,0,17,0,6.283);x.stroke();x.beginPath();x.arc(0,0,10,0,6.283);x.stroke();
+    x.save();x.rotate(t*.3);for(let i=0;i<8;i++){x.rotate(Math.PI/4);x.beginPath();x.moveTo(20,0);x.lineTo(25,0);x.stroke();}x.restore();}
+  else{const u=Math.min(1,(g.t-sg.t0)/.6),pul=.75+.25*Math.sin(t*7),fade=Math.min(1,(sg.until-g.t)/2.5);x.globalAlpha=Math.max(.2,fade);pbGlow(x,0,0,46,P.c,.55*u*pul);x.globalAlpha=Math.max(.3,fade);
+    x.strokeStyle=P.c;x.lineWidth=2.4;x.beginPath();x.arc(0,0,17,0,6.283);x.stroke();x.fillStyle=P.c;x.globalAlpha=.8*Math.max(.3,fade);x.beginPath();x.arc(0,0,9*pul,0,6.283);x.fill();
+    x.globalAlpha=Math.max(.3,fade);x.strokeStyle='#fff';x.lineWidth=1.2;x.save();x.rotate(-t*1.6);for(let i=0;i<8;i++){x.rotate(Math.PI/4);x.beginPath();x.moveTo(20,0);x.lineTo(28,0);x.stroke();}x.restore();}
+  x.restore();}
+function pbCrPlace(c,g,far){let x,y,n=0;do{x=80+Math.random()*320;y=240+Math.random()*310;n++;}while(n<12&&g.balls.some(b=>b.st==='play'&&Math.hypot(b.x-x,b.y-y)<far));c.x=x;c.y=y;c.vx=c.vy=0;}
 function pbCreatureTick(g,dt){
   if(g.net||g.room||g.wiz||g.phase!=='play')return;
   if(g.crNext==null)g.crNext=g.t+25+Math.random()*25;
   const c=g.cr;
-  if(!c){if(g.t>=g.crNext&&g.balls.some(b=>b.st==='play')){g.cr={k:PB_T.world|0,t0:g.t,life:10,ph:Math.random()*6.283,x:236,y:360,hit:false};}return;}
+  if(!c){if(g.t>=g.crNext&&g.balls.some(b=>b.st==='play')){g.cr={k:PB_T.world|0,t0:g.t,life:14,ph:Math.random()*6.283,x:236,y:360,vx:0,vy:0,hd:0,hits:0,blinks:0,hid:0,hideCool:-9,blinkT:-9,hitT:-9};g.cr.x=236+150*Math.sin(g.cr.ph);g.cr.y=370+105*Math.sin(g.cr.ph*1.7);}return;}
   const s=(g.t-c.t0)/c.life;
   if(s>=1){g.cr=null;g.crNext=g.t+30+Math.random()*35;return;}
-  c.x=236+150*Math.sin(c.ph+s*c.life*.5);c.y=370+105*Math.sin(c.ph*1.7+s*c.life*.7);
-  for(const b of g.balls){if(b.st!=='play')continue;if(Math.hypot(b.x-c.x,b.y-c.y)<28){const st=g.st[g.turn],v=pbPts(g,7500,{flat:1});pbSay(g,'RARE FIND',PB_FIND['c'+c.k][0]+' · +'+v.toLocaleString(),'#e8d8ff',2000);pbSpark(g,c.x,c.y,PB_FIND['c'+c.k][2],18);pbRing(g,c.x,c.y,PB_FIND['c'+c.k][2],110);PBS.lit();haptic([14,20,30]);g.fx.flash=Math.max(g.fx.flash,.3);if(st)st.finds=(st.finds||0)+1;pbJournalAdd(g,'c'+c.k);g.cr=null;g.crNext=g.t+40+Math.random()*35;break;}}
+  const bs=g.balls.filter(b=>b.st==='play');let near=null,nd=1e9;for(const b of bs){const d=Math.hypot(b.x-c.x,b.y-c.y);if(d<nd){nd=d;near=b;}}
+  const hidden=c.hid&&g.t<c.hid;
+  if(c.hid&&g.t>=c.hid){c.hid=0;pbCrPlace(c,g,170);pbSpark(g,c.x,c.y,PB_FIND['c'+c.k][2],8);}
+  if(!hidden){
+    const tx=236+150*Math.sin(c.ph+s*c.life*.5),ty=370+105*Math.sin(c.ph*1.7+s*c.life*.7);let ax=(tx-c.x)*2.2,ay=(ty-c.y)*2.2;
+    if(near){
+      if((c.k===0||c.k===1)&&nd<150){const u=1-nd/150,dx=(c.x-near.x)/(nd||1),dy=(c.y-near.y)/(nd||1);ax+=dx*900*u;ay+=dy*900*u;}
+      else if(c.k===2){const dx=(near.x-c.x)/(nd||1),dy=(near.y-c.y)/(nd||1);ax+=dx*160-(tx-c.x)*1.5;ay+=dy*160-(ty-c.y)*1.5;}
+    }
+    c.vx+=ax*dt;c.vy+=ay*dt;const sp=Math.hypot(c.vx,c.vy),cap=[190,250,85,150][c.k];if(sp>cap){c.vx*=cap/sp;c.vy*=cap/sp;}
+    c.x+=c.vx*dt;c.y+=c.vy*dt;
+    if(c.x<70){c.x=70;c.vx=Math.abs(c.vx)*.5;}if(c.x>402){c.x=402;c.vx=-Math.abs(c.vx)*.5;}if(c.y<230){c.y=230;c.vy=Math.abs(c.vy)*.5;}if(c.y>560){c.y=560;c.vy=-Math.abs(c.vy)*.5;}
+    if(Math.hypot(c.vx,c.vy)>10)c.hd=Math.atan2(c.vy,c.vx)+Math.PI/2;
+    // the salamander dives under the embers when the ball comes close
+    if(c.k===1&&near&&nd<95&&g.t>c.hideCool){c.hid=g.t+1.4;c.hideCool=g.t+3.2;pbSpark(g,c.x,c.y,'#ff7a2a',8);}
+    // the star wisp blinks away from a slow ball: only a fast shot catches it
+    if(c.k===3&&near&&nd<80&&Math.hypot(near.vx,near.vy)<650&&c.blinks<4&&g.t>c.blinkT){c.blinks++;c.blinkT=g.t+.6;pbRing(g,c.x,c.y,'#bcd6f2',60);pbCrPlace(c,g,150);pbRing(g,c.x,c.y,'#bcd6f2',60);PBS.lit();return;}
+  }
+  if(hidden)return;
+  for(const b of g.balls){if(b.st!=='play')continue;const d=Math.hypot(b.x-c.x,b.y-c.y);if(d>=28)continue;
+    // the beetle fights back twice before it can be caught
+    if(c.k===2&&c.hits<2){if(g.t>c.hitT){c.hitT=g.t+.5;c.hits++;const nx=(b.x-c.x)/(d||1),ny=(b.y-c.y)/(d||1);b.vx+=nx*380;b.vy+=ny*380;pbPts(g,1500,{flat:1});pbSpark(g,c.x,c.y,'#e8c460',10);PBS.bumper();haptic(8);pbSay(g,c.hits===1?'THE BEETLE FIGHTS BACK':'ONCE MORE','','#ffd96a',1100);}continue;}
+    const st=g.st[g.turn],v=pbPts(g,7500,{flat:1});pbSay(g,'RARE FIND',PB_FIND['c'+c.k][0]+' · +'+v.toLocaleString(),'#e8d8ff',2000);pbSpark(g,c.x,c.y,PB_FIND['c'+c.k][2],18);pbRing(g,c.x,c.y,PB_FIND['c'+c.k][2],110);PBS.lit();haptic([14,20,30]);g.fx.flash=Math.max(g.fx.flash,.3);if(st)st.finds=(st.finds||0)+1;pbJournalAdd(g,'c'+c.k);g.cr=null;g.crNext=g.t+40+Math.random()*35;break;}
 }
 function pbCreatureDraw(x,g,t){
   const c=g.cr;if(!c)return;const s=(g.t-c.t0)/c.life,a=Math.min(1,s*c.life/.9)*Math.min(1,(1-s)*c.life/1.2),col=PB_FIND['c'+c.k][2],fl=Math.sin(t*26)*.6+.4;
-  x.save();x.globalAlpha=a;pbGlow(x,c.x,c.y,38,col,.55);x.translate(c.x,c.y);
+  x.save();x.globalAlpha=a*(c.hid&&g.t<c.hid?.14:1);pbGlow(x,c.x,c.y,38,col,.55);x.translate(c.x,c.y);
   const ci=pbImg('cr'+c.k);
-  if(ci){const vx=75*Math.cos(c.ph+s*c.life*.5),vy=73.5*Math.cos(c.ph*1.7+s*c.life*.7),hd=Math.atan2(vy,vx)+Math.PI/2+(c.k===1?Math.sin(t*8)*.14:0),fx=(c.k===0||c.k===3)?.86+.14*Math.sin(t*26):1,d=c.k===1?92:84;
+  if(ci){const hd=(c.hd||0)+(c.k===1?Math.sin(t*8)*.14:0),fx=(c.k===0||c.k===3)?.86+.14*Math.sin(t*26):1,d=c.k===1?92:84;
     x.rotate(hd);x.scale(fx,1);x.shadowColor='rgba(0,0,0,.6)';x.shadowBlur=8;x.shadowOffsetY=3;x.drawImage(ci,-d/2,-d/2,d,d);x.restore();return;}
   const dx=Math.cos(c.ph+s*c.life*.5);x.rotate(dx*.35);
   x.fillStyle=col;x.strokeStyle='rgba(20,12,4,.85)';x.lineWidth=1.5;
@@ -13013,7 +13063,7 @@ function pbStep(g,dt){
   if(st.superT>0)st.superT-=dt;
   if(g.saveT>0&&g.balls.some(b=>b.st==='play'))g.saveT-=dt;
   if(g.comboT&&g.t-g.comboT>5)g.combo=0;
-  pbAdvance(g,dt);pbCreatureTick(g,dt);pbSecretTick(g,dt);
+  pbAdvance(g,dt);pbCreatureTick(g,dt);pbSecretTick(g,dt);pbSigilTick(g,dt);
   // the balls that are away from the table: on a ramp, in the vault
   for(const b of g.balls){
     b.tr=b.tr||[];if(b.st==='play'||b.st==='ramp'){b.tr.push([b.x,b.y]);if(b.tr.length>9)b.tr.shift();}else b.tr.length=0;
@@ -13358,7 +13408,7 @@ function pbDraw(g,now){
     row(1,'BUMPERS   '+b.bumps,448);row(2,'RAMPS   '+b.ramps,472);row(3,'BONUS   '+Math.round(b.bonus/b.mult).toLocaleString()+'  ×'+b.mult,496);
     if(el>4*.55){const a=Math.min(1,(el-4*.55)/.9),v=Math.round(b.bonus*a);x.globalAlpha=u;x.fillStyle='#ffe9a8';x.font='700 26px Cinzel, Georgia, serif';x.fillText('+ '+v.toLocaleString(),240,534);}
     if(b.extra&&el>5*.55){x.globalAlpha=u;x.fillStyle='#7fd7ff';x.font='700 13px Jost, sans-serif';x.fillText('EXTRA BALL · SHOOT AGAIN',240,555);}x.restore();}
-  pbSecretDraw(x,g,t);pbCreatureDraw(x,g,t);
+  pbSigilDraw(x,g,t);pbSecretDraw(x,g,t);pbCreatureDraw(x,g,t);
   // the floating points
   for(const q of g.fx.pops){const u=q.l/1.1;x.save();x.globalAlpha=Math.max(0,1-u*u);x.textAlign='center';x.font='700 '+(q.big?20:14)+'px Jost, sans-serif';x.fillStyle=q.big?'#ffd96a':'#ffffff';x.shadowColor='rgba(0,0,0,.9)';x.shadowBlur=4;x.fillText(q.t,q.x,q.y-u*38);x.restore();}
   if(g.tilt>2||g.tilted){x.save();const ta=g.tilted?.35:Math.min(.5,g.tilt/9*.5)*(g.tilt>5.5?.7+.3*Math.sin(t*10):1),vg=x.createRadialGradient(236,500,200,236,500,620);vg.addColorStop(0,'rgba(255,40,30,0)');vg.addColorStop(1,'rgba(255,40,30,'+ta+')');x.fillStyle=vg;x.fillRect(-M,-M,PB.W+2*M,PB.H+2*M);x.restore();}

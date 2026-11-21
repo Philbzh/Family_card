@@ -5930,14 +5930,30 @@ async function runPresentation(A,W,frame){
         check('the starting world can be chosen: everybody starts in it',V.st.every(q=>q.lvl===2)&&V0.st.every(q=>q.lvl===0));
        }finally{if(old===null)W.localStorage.removeItem('ct_pb_world');else W.localStorage.setItem('ct_pb_world',old);}}
       // the rare creatures and the Field Journal
-      {const oldJ=W.localStorage.getItem('ct_pb_journal');
-       try{W.localStorage.removeItem('ct_pb_journal');const C=F('pbNew')();C.phase='play';C.room=null;C.wiz=null;C.balls=[{x:100,y:700,vx:0,vy:0,st:'play',id:9600,stuck:0,tr:[]}];C.crNext=0;
+      {const oldJ=W.localStorage.getItem('ct_pb_journal'),oldW0=W.localStorage.getItem('ct_pb_world');
+       try{W.localStorage.removeItem('ct_pb_journal');W.localStorage.setItem('ct_pb_world','0');const C=F('pbNew')();F('pbEnsureWorld')(C);C.phase='play';C.room=null;C.wiz=null;C.balls=[{x:100,y:700,vx:0,vy:0,st:'play',id:9600,stuck:0,tr:[]}];C.crNext=0;
         F('pbCreatureTick')(C,.016);check('a rare creature appears when its time has come',!!C.cr&&C.cr.k===(F('PB_T').world|0));
         F('pbCreatureTick')(C,.016);C.balls[0].x=C.cr.x;C.balls[0].y=C.cr.y;const s0=C.st[0].score;F('pbCreatureTick')(C,.016);
         check('a ball that touches it earns 7,500 and the creature is gone',!C.cr&&C.st[0].score-s0===7500);
         check('the first find is written into the Field Journal, once',Object.keys(F('pbJournal')()).length===1&&F('pbJournalAdd')(C,'rclock')===true&&F('pbJournalAdd')(C,'rclock')===false);
         C.crNext=0;C.net={on:true};C.cr=null;F('pbCreatureTick')(C,.016);check('no creature in an online game',!C.cr);
-       }finally{if(oldJ===null)W.localStorage.removeItem('ct_pb_journal');else W.localStorage.setItem('ct_pb_journal',oldJ);}}
+       }finally{if(oldJ===null)W.localStorage.removeItem('ct_pb_journal');else W.localStorage.setItem('ct_pb_journal',oldJ);if(oldW0===null)W.localStorage.removeItem('ct_pb_world');else W.localStorage.setItem('ct_pb_world',oldW0);}}
+      // the creatures react to the ball, and the sleeping sigils wake when the ball rolls over them
+      {const oldJ=W.localStorage.getItem('ct_pb_journal'),oldW1=W.localStorage.getItem('ct_pb_world');
+       try{W.localStorage.removeItem('ct_pb_journal');
+        const mk=(world,k)=>{W.localStorage.setItem('ct_pb_world',String(world));const C=F('pbNew')();F('pbEnsureWorld')(C);C.phase='play';C.room=null;C.wiz=null;C.net=null;C.crNext=1e9;C.balls=[{x:236,y:440,vx:0,vy:0,st:'play',id:9990+k,stuck:0,tr:[]}];
+          C.cr={k,t0:C.t,life:14,ph:0,x:236,y:400,vx:0,vy:0,hd:0,hits:0,blinks:0,hid:0,hideCool:-9,blinkT:-9,hitT:-9};return C;};
+        {const C=mk(0,0),d0=Math.hypot(C.balls[0].x-C.cr.x,C.balls[0].y-C.cr.y);for(let i=0;i<25;i++)F('pbCreatureTick')(C,.016);check('the moth flees from the ball',!!C.cr&&Math.hypot(C.balls[0].x-C.cr.x,C.balls[0].y-C.cr.y)>d0+20);}
+        {const C=mk(2,2);C.balls[0].x=C.cr.x+20;C.balls[0].y=C.cr.y;const vx0=C.balls[0].vx,s0=C.st[0].score;F('pbCreatureTick')(C,.016);check('the beetle fights back instead of being caught on the first touch',!!C.cr&&C.cr.hits===1&&C.balls[0].vx>vx0+200&&C.st[0].score-s0===1500);
+          C.cr.hitT=-9;C.balls[0].x=C.cr.x+20;C.balls[0].y=C.cr.y;F('pbCreatureTick')(C,.016);C.cr.hitT=-9;C.balls[0].x=C.cr.x+20;C.balls[0].y=C.cr.y;const s1=C.st[0].score;F('pbCreatureTick')(C,.016);check('the beetle is caught on the third touch',!C.cr&&C.st[0].score-s1===7500);}
+        {const C=mk(3,3);C.balls[0].x=C.cr.x+50;C.balls[0].y=C.cr.y;C.balls[0].vx=C.balls[0].vy=0;const x0=C.cr.x,y0=C.cr.y;F('pbCreatureTick')(C,.016);check('the star wisp blinks away from a slow ball',!!C.cr&&C.cr.blinks===1&&Math.hypot(C.cr.x-x0,C.cr.y-y0)>50);
+          const D=mk(3,3);D.balls[0].x=D.cr.x+20;D.balls[0].y=D.cr.y;D.balls[0].vx=900;D.balls[0].vy=0;const s2=D.st[0].score;F('pbCreatureTick')(D,.016);check('a fast shot catches the star wisp',!D.cr&&D.st[0].score-s2===7500);}
+        {const C=mk(1,1);C.balls[0].x=C.cr.x;C.balls[0].y=C.cr.y+60;F('pbCreatureTick')(C,.016);check('the salamander dives when the ball comes close, and cannot be caught while hidden',!!C.cr&&C.cr.hid>C.t);C.balls[0].x=C.cr.x;C.balls[0].y=C.cr.y;F('pbCreatureTick')(C,.016);check('a hidden salamander stays',!!C.cr);}
+        {const C=mk(0,0);C.cr=null;F('pbEnsureWorld')(C);const P=F('PB_SIG')[0],b=C.balls[0];b.x=P.x;b.y=P.y;F('pbSigilTick')(C,.016);check('a sleeping sigil wakes when the ball rolls over it',C.sg&&C.sg.s===1&&!!F('pbJournal')().s0);
+          b.x=P.x+10;b.y=P.y;b.vx=0;b.vy=0;const s3=C.st[0].score;F('pbSigilTick')(C,.016);check('an awake sigil bounces the ball and pays 3,000',C.sg.hits===1&&C.st[0].score-s3>=3000&&Math.hypot(b.vx,b.vy)>100);
+          C.t+=21;F('pbSigilTick')(C,.016);check('a sigil that is not used goes back to sleep for good',C.sg.s===2);F('pbNewBall')(C);check('a new ball finds the sigil asleep again',C.sg===null);}
+        {const C=mk(1,1);C.cr=null;C.net={on:true};const P=F('PB_SIG')[1];C.balls[0].x=P.x;C.balls[0].y=P.y;F('pbSigilTick')(C,.016);check('no sigil in an online game',!(C.sg&&C.sg.s>0));}
+       }finally{if(oldJ===null)W.localStorage.removeItem('ct_pb_journal');else W.localStorage.setItem('ct_pb_journal',oldJ);if(oldW1===null)W.localStorage.removeItem('ct_pb_world');else W.localStorage.setItem('ct_pb_world',oldW1);}}
       // the secret passages: the hidden trick opens the door, a ball that rolls in earns the prize
       {const oldJ=W.localStorage.getItem('ct_pb_journal'),oldW=W.localStorage.getItem('ct_pb_world');
        try{W.localStorage.removeItem('ct_pb_journal');W.localStorage.setItem('ct_pb_world','0');const C=F('pbNew')();C.phase='play';C.room=null;C.wiz=null;C.net=null;F('pbEnsureWorld')(C);
