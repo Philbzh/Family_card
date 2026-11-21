@@ -6487,7 +6487,7 @@ function famPing(){try{if(_famCh)_famCh.send({type:'broadcast',event:'upd',paylo
 /* ═══════ A NEW VERSION IS READY ═══════
    An iPad keeps an open app alive for days, so "close and reopen" does not always load the new version.
    The build number below is the number of the cache in sw.js; the app asks the server what the newest one is. */
-const APP_BUILD=471;
+const APP_BUILD=472;
 let _updAsked=0;
 async function appCheckUpdate(force){
   try{
@@ -13070,6 +13070,22 @@ function pbCarryTick(g,dt){
   if(m.chamber){pbSecretOpen(g,'carry');say.push('a door was left ajar');}
   pbSay(g,PB_PAL[c.from].n+' REMEMBERS',say.slice(0,2).join(' \u00b7 '),'#e8d8ff',2600);PBS.lit();pbRing(g,236,520,'#e8d8ff',260);haptic([10,20,10]);pbJournalAdd(g,'lnk');
 }
+/* ── the living table: the light follows the ball, glows on a streak and goes red when the ball is about to be lost ── */
+function pbMoodTick(g,dt){
+  const m=g.mood=g.mood||{s:0,d:0},live=g.balls.filter(q=>q.st==='play'),b=live[0];
+  const ts=(g.combo>=3&&g.t-g.comboT<5)?Math.min(1,(g.combo-2)/3):0;
+  const td=(b&&live.length===1&&b.y>740&&b.vy>150&&!(g.saveT>0)&&!g.tilted)?1:0;
+  m.s+=(ts-m.s)*Math.min(1,dt*(ts>m.s?5:2));m.d+=(td-m.d)*Math.min(1,dt*(td>m.d?7:3));
+}
+function pbMoodDraw(x,g,t){
+  if(g.room||g.phase!=='play')return;const m=g.mood,P=PB_PAL[PB_T.world|0],live=g.balls.filter(b=>b.st==='play');
+  if(live.length===1){const b=live[0];x.save();const gr=x.createRadialGradient(b.x,b.y,90,b.x,b.y,340);gr.addColorStop(0,'rgba(0,0,0,0)');gr.addColorStop(1,'rgba(0,0,0,.16)');x.fillStyle=gr;x.fillRect(0,0,PB.W,PB.H);x.restore();}
+  if(!m)return;
+  if(m.s>.02){x.save();x.globalCompositeOperation='lighter';const a=.2*m.s*(.75+.25*Math.sin(t*5));
+    const gl=x.createLinearGradient(20,0,150,0);gl.addColorStop(0,'rgba('+P.r+','+a+')');gl.addColorStop(1,'rgba('+P.r+',0)');x.fillStyle=gl;x.fillRect(20,0,130,PB.H);
+    const gr2=x.createLinearGradient(PB.W-20,0,PB.W-150,0);gr2.addColorStop(0,'rgba('+P.r+','+a+')');gr2.addColorStop(1,'rgba('+P.r+',0)');x.fillStyle=gr2;x.fillRect(PB.W-150,0,130,PB.H);x.restore();}
+  if(m.d>.02){x.save();const a=.3*m.d*(.7+.3*Math.sin(t*9)),gd=x.createLinearGradient(0,PB.H,0,PB.H-360);gd.addColorStop(0,'rgba(255,40,30,'+a+')');gd.addColorStop(1,'rgba(255,40,30,0)');x.fillStyle=gd;x.fillRect(0,PB.H-360,PB.W,360);x.restore();}
+}
 function pbCrPlace(c,g,far){let x,y,n=0;do{x=80+Math.random()*320;y=240+Math.random()*310;n++;}while(n<12&&g.balls.some(b=>b.st==='play'&&Math.hypot(b.x-x,b.y-y)<far));c.x=x;c.y=y;c.vx=c.vy=0;}
 function pbCreatureTick(g,dt){
   if(g.net||g.room||g.wiz||g.phase!=='play')return;
@@ -13138,7 +13154,7 @@ function pbStep(g,dt){
   if(st.superT>0)st.superT-=dt;
   if(g.saveT>0&&g.balls.some(b=>b.st==='play'))g.saveT-=dt;
   if(g.comboT&&g.t-g.comboT>5)g.combo=0;
-  pbAdvance(g,dt);pbCreatureTick(g,dt);pbSecretTick(g,dt);pbSigilTick(g,dt);pbEventTick(g,dt);pbRiddleTick(g,dt);pbCarryTick(g,dt);
+  pbAdvance(g,dt);pbCreatureTick(g,dt);pbSecretTick(g,dt);pbSigilTick(g,dt);pbEventTick(g,dt);pbRiddleTick(g,dt);pbCarryTick(g,dt);pbMoodTick(g,dt);
   // the balls that are away from the table: on a ramp, in the vault
   for(const b of g.balls){
     b.tr=b.tr||[];if(b.st==='play'||b.st==='ramp'){b.tr.push([b.x,b.y]);if(b.tr.length>9)b.tr.shift();}else b.tr.length=0;
@@ -13483,7 +13499,7 @@ function pbDraw(g,now){
     row(1,'BUMPERS   '+b.bumps,448);row(2,'RAMPS   '+b.ramps,472);row(3,'BONUS   '+Math.round(b.bonus/b.mult).toLocaleString()+'  ×'+b.mult,496);
     if(el>4*.55){const a=Math.min(1,(el-4*.55)/.9),v=Math.round(b.bonus*a);x.globalAlpha=u;x.fillStyle='#ffe9a8';x.font='700 26px Cinzel, Georgia, serif';x.fillText('+ '+v.toLocaleString(),240,534);}
     if(b.extra&&el>5*.55){x.globalAlpha=u;x.fillStyle='#7fd7ff';x.font='700 13px Jost, sans-serif';x.fillText('EXTRA BALL · SHOOT AGAIN',240,555);}x.restore();}
-  pbRiddleDraw(x,g,t);pbEventDraw(x,g,t);pbSigilDraw(x,g,t);pbSecretDraw(x,g,t);pbCreatureDraw(x,g,t);
+  pbMoodDraw(x,g,t);pbRiddleDraw(x,g,t);pbEventDraw(x,g,t);pbSigilDraw(x,g,t);pbSecretDraw(x,g,t);pbCreatureDraw(x,g,t);
   // the floating points
   for(const q of g.fx.pops){const u=q.l/1.1;x.save();x.globalAlpha=Math.max(0,1-u*u);x.textAlign='center';x.font='700 '+(q.big?20:14)+'px Jost, sans-serif';x.fillStyle=q.big?'#ffd96a':'#ffffff';x.shadowColor='rgba(0,0,0,.9)';x.shadowBlur=4;x.fillText(q.t,q.x,q.y-u*38);x.restore();}
   if(g.tilt>2||g.tilted){x.save();const ta=g.tilted?.35:Math.min(.5,g.tilt/9*.5)*(g.tilt>5.5?.7+.3*Math.sin(t*10):1),vg=x.createRadialGradient(236,500,200,236,500,620);vg.addColorStop(0,'rgba(255,40,30,0)');vg.addColorStop(1,'rgba(255,40,30,'+ta+')');x.fillStyle=vg;x.fillRect(-M,-M,PB.W+2*M,PB.H+2*M);x.restore();}
